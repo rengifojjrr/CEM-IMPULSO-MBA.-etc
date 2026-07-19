@@ -57,16 +57,17 @@ async function verificar(){
   }
   const iconClass = row.estado === 'vigente' ? 'ok' : 'warn';
   const iconChar = row.estado === 'vigente' ? '✓' : '!';
+  const datos = row.datos || {};
+  const filas = Object.entries(datos)
+    .filter(([, v]) => v !== null && v !== '')
+    .map(([k, v]) => `<tr><td class="k">${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`)
+    .join('');
   card.innerHTML = `
     <div class="icon ${iconClass}">${iconChar}</div>
     <h1>${row.estado === 'vigente' ? 'Certificado válido' : 'Certificado no vigente'}</h1>
     <div class="sub">Emitido por ${escapeHtml(row.entidad_emisora)}</div>
     <table>
-      <tr><td class="k">Nombre</td><td>${escapeHtml(row.nombre_estudiante)}</td></tr>
-      <tr><td class="k">Diplomado / curso</td><td>${escapeHtml(row.diplomado)}</td></tr>
-      <tr><td class="k">Fecha de emisión</td><td>${escapeHtml(row.fecha_emision)}</td></tr>
-      ${row.horas ? `<tr><td class="k">Horas</td><td>${escapeHtml(row.horas)}</td></tr>` : ''}
-      ${row.nota ? `<tr><td class="k">Nota</td><td>${escapeHtml(row.nota)}</td></tr>` : ''}
+      ${filas}
       <tr><td class="k">Estado</td><td><span class="badge ${row.estado}">${ESTADO_LABEL[row.estado] || row.estado}</span></td></tr>
     </table>
     <div class="footer">Código de verificación: ${escapeHtml(id)}</div>
