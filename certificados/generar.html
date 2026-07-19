@@ -56,25 +56,16 @@
 </header>
 <main>
 
-  <div class="panel" id="panelLogin">
-    <h2>Iniciar sesión</h2>
-    <p class="hint">Acceso restringido a correos autorizados (emitir certificados es una acción sensible).</p>
-    <div class="row">
-      <input type="email" id="inputEmail" placeholder="tu@correo.com" style="width:260px;">
-      <button class="btn teal" id="btnEnviarLink">Enviar enlace mágico</button>
-    </div>
-    <div id="loginMsg"></div>
-  </div>
-
-  <div id="appContent" style="display:none;">
+  <div id="appContent">
 
     <div class="panel">
       <h2>1. Plantilla del certificado</h2>
-      <p class="hint">Sube el diseño exportado de tu Canva (PNG/JPG) y arrastra las etiquetas sobre el lugar exacto donde debe ir cada dato. Se guarda en la nube para que todo el equipo use la misma plantilla.</p>
+      <p class="hint">Sube el diseño exportado de tu Canva (PDF, PNG o JPG) y arrastra las etiquetas sobre el lugar exacto donde debe ir cada dato. Se guarda en la nube para que todo el equipo use la misma plantilla.</p>
       <div class="row">
-        <input type="file" id="inputBg" accept="image/png,image/jpeg">
+        <input type="file" id="inputBg" accept="image/png,image/jpeg,application/pdf">
         <button class="btn outline" id="btnResetBg">Usar plantilla de ejemplo</button>
       </div>
+      <div id="bgMsg"></div>
       <div id="tplPreviewWrap">
         <img id="tplImg" alt="Plantilla">
       </div>
@@ -87,12 +78,16 @@
 
     <div class="panel">
       <h2>2. Importar graduados</h2>
-      <p class="hint">Pega filas copiadas directo de tu Google Sheet (con encabezados: nombre, diplomado, fecha, horas, nota) o impórtalas desde un enlace publicado como CSV.</p>
-      <label class="hint">Pegar datos (CSV o TSV)</label>
+      <p class="hint">Tres formas de traer los datos — usa la que te resulte más cómoda:</p>
+      <div class="row">
+        <label class="hint" style="min-width:170px;">1. Subir archivo Excel (.xlsx)</label>
+        <input type="file" id="inputXlsx" accept=".xlsx,.xls">
+      </div>
+      <label class="hint">2. Pegar datos (CSV o TSV, copiados directo de tu Google Sheet)</label>
       <textarea id="pasteData" placeholder="nombre	diplomado	fecha	horas	nota
 Juan Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120	Aprobado"></textarea>
       <div class="row">
-        <input type="text" id="sheetUrl" placeholder="o URL de Google Sheet publicado como CSV" style="flex:1;min-width:220px;">
+        <input type="text" id="sheetUrl" placeholder="3. o URL de Google Sheet publicado como CSV" style="flex:1;min-width:220px;">
         <button class="btn outline" id="btnImportarUrl">Importar desde URL</button>
         <button class="btn outline" id="btnParsePaste">Previsualizar datos pegados</button>
       </div>
@@ -128,7 +123,12 @@ Juan Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120	Aprobado"></textar
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js';
+}
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
@@ -175,30 +175,11 @@ function defaultConfig(){
   };
 }
 
-// ---------- Auth ----------
+// ---------- Arranque ----------
+// Sin login por ahora: una sola persona prueba todo, sin división de roles.
+// Queda fácil reactivar el candado de correo autorizado (is_cert_admin) más
+// adelante cuando haya un equipo real usando esto.
 async function init(){
-  const { data: { session } } = await supabase.auth.getSession();
-  if(session) await afterLogin();
-  supabase.auth.onAuthStateChange(async (_e, session) => { if(session) await afterLogin(); });
-}
-
-document.getElementById('btnEnviarLink').addEventListener('click', async () => {
-  const email = document.getElementById('inputEmail').value.trim();
-  const msg = document.getElementById('loginMsg');
-  if(!email){ msg.innerHTML = '<div class="msg err">Escribe un correo válido.</div>'; return; }
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0] } });
-  if(error){ msg.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
-  msg.innerHTML = '<div class="msg ok">Revisa tu correo y haz clic en el enlace apenas llegue (caduca rápido).</div>';
-});
-
-async function afterLogin(){
-  const { error } = await supabase.from('cert_certificates').select('id').limit(1);
-  if(error){
-    document.getElementById('loginMsg').innerHTML = '<div class="msg err">Tu correo no está autorizado para emitir certificados.</div>';
-    return;
-  }
-  document.getElementById('panelLogin').style.display = 'none';
-  document.getElementById('appContent').style.display = 'block';
   await loadConfig();
   await loadIssued();
 }
@@ -289,9 +270,31 @@ function renderFieldSettings(){
   });
 }
 
-document.getElementById('inputBg').addEventListener('change', e => {
+document.getElementById('inputBg').addEventListener('change', async e => {
   const file = e.target.files[0];
   if(!file) return;
+  const bgMsg = document.getElementById('bgMsg');
+  if(file.type === 'application/pdf'){
+    bgMsg.innerHTML = '<span class="hint">Convirtiendo PDF…</span>';
+    try{
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const page = await pdf.getPage(1);
+      const scale = 1600 / page.getViewport({ scale: 1 }).width;
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      config.background = canvas.toDataURL('image/png');
+      config.bgWidth = canvas.width;
+      config.bgHeight = canvas.height;
+      renderTemplatePreview();
+      bgMsg.innerHTML = '<span class="hint">PDF convertido ✓ (se usó la primera página)</span>';
+    }catch(err){
+      bgMsg.innerHTML = `<div class="msg err">No se pudo leer el PDF: ${escapeHtml(err.message)}</div>`;
+    }
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
@@ -300,6 +303,7 @@ document.getElementById('inputBg').addEventListener('change', e => {
       config.bgWidth = img.naturalWidth;
       config.bgHeight = img.naturalHeight;
       renderTemplatePreview();
+      bgMsg.innerHTML = '';
     };
     img.src = reader.result;
   };
@@ -318,6 +322,25 @@ document.getElementById('btnGuardarPlantilla').addEventListener('click', async (
 });
 
 // ---------- Importar datos ----------
+function mapLinesToRows(lines){
+  if(!lines.length) return [];
+  const header = lines[0].map(h => String(h ?? '').trim().toLowerCase());
+  const idx = {
+    nombre: header.findIndex(h => h.includes('nombre')),
+    diplomado: header.findIndex(h => h.includes('diplomado') || h.includes('curso') || h.includes('programa')),
+    fecha: header.findIndex(h => h.includes('fecha')),
+    horas: header.findIndex(h => h.includes('hora')),
+    nota: header.findIndex(h => h.includes('nota') || h.includes('calificaci')),
+  };
+  return lines.slice(1).filter(r => r.some(c => String(c ?? '').trim() !== '')).map(r => ({
+    nombre: String((idx.nombre >= 0 ? r[idx.nombre] : '') ?? '') || '',
+    diplomado: String((idx.diplomado >= 0 ? r[idx.diplomado] : '') ?? '') || '',
+    fecha: String((idx.fecha >= 0 ? r[idx.fecha] : '') ?? '') || new Date().toISOString().slice(0,10),
+    horas: String((idx.horas >= 0 ? r[idx.horas] : '') ?? '') || '',
+    nota: String((idx.nota >= 0 ? r[idx.nota] : '') ?? '') || '',
+  }));
+}
+
 function parseDelimited(text){
   text = text.trim();
   if(!text) return [];
@@ -340,22 +363,23 @@ function parseDelimited(text){
     }
   }
   row.push(cur); lines.push(row);
-  const header = lines[0].map(h => h.trim().toLowerCase());
-  const idx = {
-    nombre: header.findIndex(h => h.includes('nombre')),
-    diplomado: header.findIndex(h => h.includes('diplomado') || h.includes('curso') || h.includes('programa')),
-    fecha: header.findIndex(h => h.includes('fecha')),
-    horas: header.findIndex(h => h.includes('hora')),
-    nota: header.findIndex(h => h.includes('nota') || h.includes('calificaci')),
-  };
-  return lines.slice(1).filter(r => r.some(c => c.trim() !== '')).map(r => ({
-    nombre: (idx.nombre >= 0 ? r[idx.nombre] : '') || '',
-    diplomado: (idx.diplomado >= 0 ? r[idx.diplomado] : '') || '',
-    fecha: (idx.fecha >= 0 ? r[idx.fecha] : '') || new Date().toISOString().slice(0,10),
-    horas: (idx.horas >= 0 ? r[idx.horas] : '') || '',
-    nota: (idx.nota >= 0 ? r[idx.nota] : '') || '',
-  }));
+  return mapLinesToRows(lines);
 }
+
+document.getElementById('inputXlsx').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const lines = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    rows = mapLinesToRows(lines);
+    renderPreviewTable();
+  }catch(err){
+    alert('No se pudo leer el archivo Excel: ' + err.message);
+  }
+});
 
 function renderPreviewTable(){
   const wrap = document.getElementById('previewTableWrap');
@@ -481,7 +505,7 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
 
 // ---------- Certificados emitidos ----------
 async function loadIssued(){
-  const { data, error } = await supabase.from('cert_certificates').select('*').order('created_at', { ascending: false }).limit(200);
+  const { data, error } = await supabase.rpc('list_cert_certificates');
   const wrap = document.getElementById('listaEmitidosWrap');
   if(error){ wrap.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
   issued = data || [];
