@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Gestión de Proyectos SEM</title>
+<style>
+  :root{
+    --navy:#132743; --navy-2:#1c3a5e; --teal:#1b7f76; --gold:#c9a227;
+    --bg:#f4f6f8; --card:#ffffff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:var(--navy);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  header h1{font-size:16px;margin:0;flex:1;}
+  .btn{cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--navy);border-radius:6px;padding:7px 14px;font-size:13px;}
+  .btn.dark{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff;}
+  main{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;}
+  .panel h2{margin-top:0;font-size:15px;color:var(--navy);}
+  input[type=email]{padding:9px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:260px;max-width:100%;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{border-bottom:1px solid var(--border);padding:9px 8px;text-align:left;vertical-align:top;}
+  th{color:var(--muted);text-transform:uppercase;font-size:11px;}
+  tr.proyecto-row{cursor:pointer;}
+  tr.proyecto-row:hover{background:#f8fafc;}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--navy);color:#fff;}
+  .hist{display:none;background:#fafbfc;border-top:1px dashed var(--border);}
+  .hist.open{display:table-row;}
+  .hist-inner{padding:10px 14px;max-height:340px;overflow-y:auto;}
+  .ev{border-left:3px solid var(--teal);padding:5px 10px;margin-bottom:6px;font-size:12.5px;background:#fff;border-radius:0 6px 6px 0;}
+  .ev .tm{color:var(--muted);font-size:11px;}
+  .msg{padding:12px;border-radius:8px;font-size:13px;margin-top:12px;}
+  .msg.ok{background:#e7f7f0;color:#065f46;}
+  .msg.err{background:#fdecec;color:#7a1212;}
+  .empty{color:var(--muted);font-size:13px;padding:14px 0;}
+  a.open-link{color:var(--teal);text-decoration:none;font-size:12px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>SEM · Panel de administración de proyectos</h1>
+  <button class="btn dark" id="btnLogout" style="display:none;">Cerrar sesión</button>
+</header>
+<main>
+
+  <div class="panel" id="panelLogin">
+    <h2>Iniciar sesión</h2>
+    <p style="color:var(--muted);font-size:13px;">Acceso restringido a correos autorizados. Te enviaremos un enlace mágico (sin contraseña).</p>
+    <input type="email" id="inputEmail" placeholder="tu@correo.com">
+    <button class="btn primary" id="btnEnviarLink">Enviar enlace mágico</button>
+    <div id="loginMsg"></div>
+  </div>
+
+  <div class="panel" id="panelProyectos" style="display:none;">
+    <h2>Proyectos</h2>
+    <div id="listaProyectos"><div class="empty">Cargando…</div></div>
+  </div>
+
+</main>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function init(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if(session) mostrarPanel(session);
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if(session) mostrarPanel(session);
+  });
+}
+
+function mostrarPanel(session){
+  document.getElementById('panelLogin').style.display = 'none';
+  document.getElementById('panelProyectos').style.display = 'block';
+  document.getElementById('btnLogout').style.display = 'inline-block';
+  cargarProyectos();
+}
+
+document.getElementById('btnEnviarLink').addEventListener('click', async () => {
+  const email = document.getElementById('inputEmail').value.trim();
+  const msg = document.getElementById('loginMsg');
+  if(!email){ msg.innerHTML = '<div class="msg err">Escribe un correo válido.</div>'; return; }
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href } });
+  if(error){ msg.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+  msg.innerHTML = '<div class="msg ok">Revisa tu correo y haz clic en el enlace para entrar. Si tu correo no está autorizado, no verás ningún proyecto al volver.</div>';
+});
+
+document.getElementById('btnLogout').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  location.reload();
+});
+
+async function cargarProyectos(){
+  const cont = document.getElementById('listaProyectos');
+  const { data, error } = await supabase.from('pm_projects').select('*').order('updated_at', { ascending: false });
+  if(error){
+    cont.innerHTML = `<div class="msg err">No se pudieron cargar proyectos (tu correo puede no estar autorizado). ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  if(!data || !data.length){
+    cont.innerHTML = '<div class="empty">Sin proyectos todavía.</div>';
+    return;
+  }
+  cont.innerHTML = `<table>
+    <thead><tr><th>Proyecto</th><th>Cliente</th><th>Tareas</th><th>Actualizado</th><th></th></tr></thead>
+    <tbody>${data.map(row => filaProyecto(row)).join('')}</tbody>
+  </table>`;
+  cont.querySelectorAll('tr.proyecto-row').forEach(tr => {
+    tr.addEventListener('click', () => toggleHistorial(tr.dataset.id));
+  });
+}
+
+function filaProyecto(row){
+  const meta = row.meta || {};
+  const tareas = (row.project_state && row.project_state.tareas) || [];
+  const total = tareas.length;
+  const hechas = tareas.filter(t => t.estado === 'hecho').length;
+  return `<tr class="proyecto-row" data-id="${row.id}">
+      <td><b>${escapeHtml(meta.nombre || 'Sin nombre')}</b><br><span class="badge">${row.id}</span></td>
+      <td>${escapeHtml(meta.cliente || '—')}</td>
+      <td>${hechas}/${total} hechas</td>
+      <td>${new Date(row.updated_at).toLocaleString('es-ES')}</td>
+      <td><a class="open-link" href="index.html?p=${row.id}" target="_blank" onclick="event.stopPropagation()">Abrir tablero →</a></td>
+    </tr>
+    <tr class="hist" id="hist-${row.id}"><td colspan="5"><div class="hist-inner" id="hist-inner-${row.id}"></div></td></tr>`;
+}
+
+async function toggleHistorial(id){
+  const row = document.getElementById('hist-' + id);
+  const abierta = row.classList.contains('open');
+  document.querySelectorAll('.hist.open').forEach(h => h.classList.remove('open'));
+  if(abierta) return;
+  row.classList.add('open');
+  const inner = document.getElementById('hist-inner-' + id);
+  inner.innerHTML = 'Cargando historial…';
+  const { data, error } = await supabase.from('pm_project_events').select('*').eq('project_id', id).order('created_at', { ascending: false });
+  if(error){ inner.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+  if(!data || !data.length){ inner.innerHTML = '<div class="empty">Sin eventos registrados.</div>'; return; }
+  inner.innerHTML = data.map(ev => `<div class="ev"><div class="tm">${new Date(ev.created_at).toLocaleString('es-ES')} · ${escapeHtml(ev.event_type)}</div>${escapeHtml(ev.summary)}</div>`).join('');
+}
+
+init();
+</script>
+</body>
+</html>
