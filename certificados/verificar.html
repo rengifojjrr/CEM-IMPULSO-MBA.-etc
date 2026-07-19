@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificar certificado · SEM</title>
+<style>
+  :root{ --navy:#132743; --teal:#1b7f76; --gold:#c9a227; --bg:#f4f6f8; --border:#dde3ea; --text:#1f2937; --muted:#6b7280; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;max-width:480px;width:100%;padding:28px 26px;text-align:center;}
+  .icon{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:28px;color:#fff;}
+  .icon.ok{background:#16a34a;}
+  .icon.warn{background:#dc2626;}
+  .icon.neutral{background:#6b7280;}
+  h1{font-size:18px;color:var(--navy);margin:0 0 6px;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px;}
+  table{width:100%;border-collapse:collapse;text-align:left;margin-top:10px;}
+  td{padding:7px 4px;font-size:13.5px;border-bottom:1px solid var(--border);}
+  td.k{color:var(--muted);width:40%;}
+  .badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:12px;color:#fff;}
+  .badge.vigente{background:#16a34a;}
+  .badge.revocado{background:#dc2626;}
+  .badge.reemplazado{background:#6b7280;}
+  .footer{margin-top:20px;font-size:11px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="icon neutral">⏳</div>
+  <h1>Verificando…</h1>
+  <div class="sub">Consultando el registro oficial de certificados de SEM.</div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const ESTADO_LABEL = { vigente: 'Vigente', revocado: 'Revocado', reemplazado: 'Reemplazado por una versión más reciente' };
+
+async function verificar(){
+  const id = new URLSearchParams(location.search).get('c');
+  const card = document.getElementById('card');
+  if(!id){
+    card.innerHTML = `<div class="icon warn">?</div><h1>Falta el código de certificado</h1><div class="sub">Este enlace no incluye un identificador válido para verificar.</div>`;
+    return;
+  }
+  const { data, error } = await supabase.rpc('get_certificado_publico', { p_id: id });
+  const row = Array.isArray(data) ? data[0] : data;
+  if(error || !row){
+    card.innerHTML = `<div class="icon warn">✕</div><h1>Certificado no encontrado</h1><div class="sub">No existe ningún certificado con ese código en nuestro registro.</div>`;
+    return;
+  }
+  const iconClass = row.estado === 'vigente' ? 'ok' : 'warn';
+  const iconChar = row.estado === 'vigente' ? '✓' : '!';
+  card.innerHTML = `
+    <div class="icon ${iconClass}">${iconChar}</div>
+    <h1>${row.estado === 'vigente' ? 'Certificado válido' : 'Certificado no vigente'}</h1>
+    <div class="sub">Emitido por ${escapeHtml(row.entidad_emisora)}</div>
+    <table>
+      <tr><td class="k">Nombre</td><td>${escapeHtml(row.nombre_estudiante)}</td></tr>
+      <tr><td class="k">Diplomado / curso</td><td>${escapeHtml(row.diplomado)}</td></tr>
+      <tr><td class="k">Fecha de emisión</td><td>${escapeHtml(row.fecha_emision)}</td></tr>
+      ${row.horas ? `<tr><td class="k">Horas</td><td>${escapeHtml(row.horas)}</td></tr>` : ''}
+      ${row.nota ? `<tr><td class="k">Nota</td><td>${escapeHtml(row.nota)}</td></tr>` : ''}
+      <tr><td class="k">Estado</td><td><span class="badge ${row.estado}">${ESTADO_LABEL[row.estado] || row.estado}</span></td></tr>
+    </table>
+    <div class="footer">Código de verificación: ${escapeHtml(id)}</div>
+  `;
+}
+verificar();
+</script>
+</body>
+</html>

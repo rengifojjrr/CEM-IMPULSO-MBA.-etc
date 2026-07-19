@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generar Certificados · SEM</title>
+<style>
+  :root{
+    --navy:#132743; --navy-2:#1c3a5e; --teal:#1b7f76; --gold:#c9a227;
+    --bg:#f4f6f8; --card:#ffffff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:var(--navy);color:#fff;padding:14px 18px;}
+  header h1{font-size:16px;margin:0;}
+  header p{margin:4px 0 0;font-size:12.5px;color:#cfe0ea;}
+  main{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
+  .panel h2{margin-top:0;font-size:15px;color:var(--navy);}
+  .btn{cursor:pointer;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:6px;padding:8px 14px;font-size:13px;}
+  .btn.outline{background:#fff;color:var(--navy);}
+  .btn.teal{background:var(--teal);border-color:var(--teal);}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:#20200a;}
+  .btn.danger{background:#fff;color:#b91c1c;border-color:#b91c1c;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  input[type=email], input[type=text], input[type=number], input[type=date], input[type=color], select, textarea{
+    padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
+  textarea{width:100%;min-height:110px;font-family:ui-monospace,monospace;font-size:12px;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left;}
+  th{color:var(--muted);text-transform:uppercase;font-size:10.5px;}
+  .msg{padding:10px 12px;border-radius:8px;font-size:13px;margin-top:10px;}
+  .msg.ok{background:#e7f7f0;color:#065f46;}
+  .msg.err{background:#fdecec;color:#7a1212;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  #tplPreviewWrap{position:relative;display:inline-block;max-width:100%;border:1px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;}
+  #tplPreviewWrap img{display:block;max-width:900px;width:100%;height:auto;}
+  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);}
+  .field-chip:active{cursor:grabbing;}
+  .field-settings{display:grid;grid-template-columns:90px 70px 60px 90px auto;gap:6px;align-items:center;font-size:12px;margin-bottom:6px;}
+  .field-settings label{color:var(--muted);}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
+  .badge.vigente{background:#16a34a;}
+  .badge.revocado{background:#dc2626;}
+  .badge.reemplazado{background:#6b7280;}
+  progress{width:100%;height:14px;}
+  .hint{font-size:12px;color:var(--muted);}
+  @media (max-width:640px){ .btn{width:100%;} .row{flex-direction:column;align-items:stretch;} .grid2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>SEM · Generador de Certificados</h1>
+  <p>Digitalización de certificados de graduación — desde datos de Google Sheets hasta PDF/PNG verificable con QR.</p>
+</header>
+<main>
+
+  <div class="panel" id="panelLogin">
+    <h2>Iniciar sesión</h2>
+    <p class="hint">Acceso restringido a correos autorizados (emitir certificados es una acción sensible).</p>
+    <div class="row">
+      <input type="email" id="inputEmail" placeholder="tu@correo.com" style="width:260px;">
+      <button class="btn teal" id="btnEnviarLink">Enviar enlace mágico</button>
+    </div>
+    <div id="loginMsg"></div>
+  </div>
+
+  <div id="appContent" style="display:none;">
+
+    <div class="panel">
+      <h2>1. Plantilla del certificado</h2>
+      <p class="hint">Sube el diseño exportado de tu Canva (PNG/JPG) y arrastra las etiquetas sobre el lugar exacto donde debe ir cada dato. Se guarda en la nube para que todo el equipo use la misma plantilla.</p>
+      <div class="row">
+        <input type="file" id="inputBg" accept="image/png,image/jpeg">
+        <button class="btn outline" id="btnResetBg">Usar plantilla de ejemplo</button>
+      </div>
+      <div id="tplPreviewWrap">
+        <img id="tplImg" alt="Plantilla">
+      </div>
+      <div id="fieldSettings" style="margin-top:14px;"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn teal" id="btnGuardarPlantilla">Guardar plantilla</button>
+        <span id="tplMsg" class="hint"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>2. Importar graduados</h2>
+      <p class="hint">Pega filas copiadas directo de tu Google Sheet (con encabezados: nombre, diplomado, fecha, horas, nota) o impórtalas desde un enlace publicado como CSV.</p>
+      <label class="hint">Pegar datos (CSV o TSV)</label>
+      <textarea id="pasteData" placeholder="nombre	diplomado	fecha	horas	nota
+Juan Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120	Aprobado"></textarea>
+      <div class="row">
+        <input type="text" id="sheetUrl" placeholder="o URL de Google Sheet publicado como CSV" style="flex:1;min-width:220px;">
+        <button class="btn outline" id="btnImportarUrl">Importar desde URL</button>
+        <button class="btn outline" id="btnParsePaste">Previsualizar datos pegados</button>
+      </div>
+      <div class="row">
+        <label class="hint">Entidad emisora:</label>
+        <input type="text" id="entidadEmisora" value="SEM">
+      </div>
+      <div id="previewTableWrap"></div>
+    </div>
+
+    <div class="panel">
+      <h2>3. Generar y guardar</h2>
+      <div class="row">
+        <button class="btn gold" id="btnGenerar" disabled>Generar certificados</button>
+        <button class="btn outline" id="btnDescargarZip" style="display:none;">Descargar ZIP</button>
+      </div>
+      <progress id="progressBar" value="0" max="1" style="display:none;"></progress>
+      <div id="genMsg"></div>
+      <div id="resultTableWrap"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Certificados emitidos</h2>
+      <div class="row">
+        <input type="text" id="buscarEmitidos" placeholder="Buscar por nombre o diplomado…" style="flex:1;">
+        <button class="btn outline" id="btnRefrescarLista">Refrescar</button>
+      </div>
+      <div id="listaEmitidosWrap">Cargando…</div>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+let config = null;
+let rows = [];
+let issued = [];
+let draggingField = null;
+
+// ---------- Plantilla por defecto (placeholder, hasta que suban su diseño real) ----------
+function defaultBackgroundDataUrl(){
+  const c = document.createElement('canvas');
+  c.width = 1600; c.height = 1131;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle = '#132743'; ctx.lineWidth = 14; ctx.strokeRect(30,30,c.width-60,c.height-60);
+  ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 4; ctx.strokeRect(55,55,c.width-110,c.height-110);
+  ctx.fillStyle = '#132743'; ctx.textAlign = 'center';
+  ctx.font = 'bold 30px Georgia, serif'; ctx.fillText('SEM', c.width/2, 140);
+  ctx.font = 'bold 56px Georgia, serif'; ctx.fillText('CERTIFICADO DE GRADUACIÓN', c.width/2, 250);
+  ctx.font = '22px Georgia, serif'; ctx.fillStyle = '#555';
+  ctx.fillText('Se otorga el presente certificado a', c.width/2, 420);
+  ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(c.width*0.25, 640); ctx.lineTo(c.width*0.75, 640); ctx.stroke();
+  return c.toDataURL('image/png');
+}
+
+function defaultConfig(){
+  return {
+    background: defaultBackgroundDataUrl(),
+    bgWidth: 1600, bgHeight: 1131,
+    fields: {
+      nombre:    { label:'Nombre',     xPct:50, yPct:47, fontSize:48, color:'#132743', align:'center', bold:true },
+      diplomado: { label:'Diplomado',  xPct:50, yPct:58, fontSize:28, color:'#1b7f76', align:'center', bold:false },
+      fecha:     { label:'Fecha',      xPct:50, yPct:70, fontSize:18, color:'#333333', align:'center', bold:false },
+      horas:     { label:'Horas',      xPct:20, yPct:88, fontSize:14, color:'#333333', align:'left',   bold:false },
+      id:        { label:'ID (chico)', xPct:50, yPct:94, fontSize:10, color:'#999999', align:'center', bold:false },
+      qr:        { label:'QR',         xPct:88, yPct:86, size:110 },
+    }
+  };
+}
+
+// ---------- Auth ----------
+async function init(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if(session) await afterLogin();
+  supabase.auth.onAuthStateChange(async (_e, session) => { if(session) await afterLogin(); });
+}
+
+document.getElementById('btnEnviarLink').addEventListener('click', async () => {
+  const email = document.getElementById('inputEmail').value.trim();
+  const msg = document.getElementById('loginMsg');
+  if(!email){ msg.innerHTML = '<div class="msg err">Escribe un correo válido.</div>'; return; }
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0] } });
+  if(error){ msg.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+  msg.innerHTML = '<div class="msg ok">Revisa tu correo y haz clic en el enlace apenas llegue (caduca rápido).</div>';
+});
+
+async function afterLogin(){
+  const { error } = await supabase.from('cert_certificates').select('id').limit(1);
+  if(error){
+    document.getElementById('loginMsg').innerHTML = '<div class="msg err">Tu correo no está autorizado para emitir certificados.</div>';
+    return;
+  }
+  document.getElementById('panelLogin').style.display = 'none';
+  document.getElementById('appContent').style.display = 'block';
+  await loadConfig();
+  await loadIssued();
+}
+
+// ---------- Plantilla ----------
+async function loadConfig(){
+  const { data, error } = await supabase.rpc('get_cert_settings');
+  const row = Array.isArray(data) ? data[0] : data;
+  if(!error && row && row.config && row.config.background){
+    config = row.config;
+  } else {
+    config = defaultConfig();
+  }
+  renderTemplatePreview();
+}
+
+function renderTemplatePreview(){
+  const img = document.getElementById('tplImg');
+  img.src = config.background;
+  const wrap = document.getElementById('tplPreviewWrap');
+  wrap.querySelectorAll('.field-chip').forEach(el => el.remove());
+  img.onload = () => {
+    for(const [name, f] of Object.entries(config.fields)){
+      const chip = document.createElement('div');
+      chip.className = 'field-chip';
+      chip.textContent = f.label || name;
+      chip.style.left = f.xPct + '%';
+      chip.style.top = f.yPct + '%';
+      chip.dataset.field = name;
+      chip.addEventListener('pointerdown', onChipPointerDown);
+      wrap.appendChild(chip);
+    }
+    renderFieldSettings();
+  };
+}
+
+function onChipPointerDown(e){
+  draggingField = e.currentTarget.dataset.field;
+  e.currentTarget.setPointerCapture(e.pointerId);
+}
+document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
+  if(!draggingField) return;
+  const wrap = document.getElementById('tplPreviewWrap');
+  const rect = wrap.getBoundingClientRect();
+  let xPct = ((e.clientX - rect.left) / rect.width) * 100;
+  let yPct = ((e.clientY - rect.top) / rect.height) * 100;
+  xPct = Math.max(0, Math.min(100, xPct));
+  yPct = Math.max(0, Math.min(100, yPct));
+  config.fields[draggingField].xPct = Math.round(xPct * 10) / 10;
+  config.fields[draggingField].yPct = Math.round(yPct * 10) / 10;
+  const chip = wrap.querySelector(`.field-chip[data-field="${draggingField}"]`);
+  chip.style.left = xPct + '%';
+  chip.style.top = yPct + '%';
+});
+window.addEventListener('pointerup', () => {
+  if(draggingField) renderFieldSettings();
+  draggingField = null;
+});
+
+function renderFieldSettings(){
+  const wrap = document.getElementById('fieldSettings');
+  wrap.innerHTML = Object.entries(config.fields).map(([name, f]) => {
+    if(name === 'qr'){
+      return `<div class="field-settings">
+        <label>${escapeHtml(f.label)}</label>
+        <input type="number" data-f="${name}" data-p="size" value="${f.size}" style="width:60px;" title="Tamaño px">
+        <span></span><span></span><span class="hint">tamaño del QR (px)</span>
+      </div>`;
+    }
+    return `<div class="field-settings">
+      <label>${escapeHtml(f.label)}</label>
+      <input type="number" data-f="${name}" data-p="fontSize" value="${f.fontSize}" style="width:55px;" title="Tamaño de fuente">
+      <input type="color" data-f="${name}" data-p="color" value="${f.color}">
+      <select data-f="${name}" data-p="align">
+        <option value="left" ${f.align==='left'?'selected':''}>Izq</option>
+        <option value="center" ${f.align==='center'?'selected':''}>Centro</option>
+        <option value="right" ${f.align==='right'?'selected':''}>Der</option>
+      </select>
+      <label class="hint"><input type="checkbox" data-f="${name}" data-p="bold" ${f.bold?'checked':''}> Negrita</label>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('input,select').forEach(el => {
+    el.addEventListener('change', () => {
+      const f = el.dataset.f, p = el.dataset.p;
+      const val = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? Number(el.value) : el.value);
+      config.fields[f][p] = val;
+    });
+  });
+}
+
+document.getElementById('inputBg').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      config.background = reader.result;
+      config.bgWidth = img.naturalWidth;
+      config.bgHeight = img.naturalHeight;
+      renderTemplatePreview();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('btnResetBg').addEventListener('click', () => {
+  config = defaultConfig();
+  renderTemplatePreview();
+});
+
+document.getElementById('btnGuardarPlantilla').addEventListener('click', async () => {
+  const { error } = await supabase.rpc('save_cert_settings', { p_config: config });
+  const el = document.getElementById('tplMsg');
+  el.textContent = error ? ('Error: ' + error.message) : 'Plantilla guardada ✓';
+});
+
+// ---------- Importar datos ----------
+function parseDelimited(text){
+  text = text.trim();
+  if(!text) return [];
+  const firstLine = text.split('\n')[0];
+  const delim = (firstLine.split('\t').length > firstLine.split(',').length) ? '\t' : ',';
+  const lines = [];
+  let cur = '', row = [], inQuotes = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ cur += '"'; i++; } else inQuotes = false;
+      } else cur += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === delim){ row.push(cur); cur = ''; }
+      else if(c === '\n'){ row.push(cur); lines.push(row); row = []; cur = ''; }
+      else if(c === '\r'){ /* skip */ }
+      else cur += c;
+    }
+  }
+  row.push(cur); lines.push(row);
+  const header = lines[0].map(h => h.trim().toLowerCase());
+  const idx = {
+    nombre: header.findIndex(h => h.includes('nombre')),
+    diplomado: header.findIndex(h => h.includes('diplomado') || h.includes('curso') || h.includes('programa')),
+    fecha: header.findIndex(h => h.includes('fecha')),
+    horas: header.findIndex(h => h.includes('hora')),
+    nota: header.findIndex(h => h.includes('nota') || h.includes('calificaci')),
+  };
+  return lines.slice(1).filter(r => r.some(c => c.trim() !== '')).map(r => ({
+    nombre: (idx.nombre >= 0 ? r[idx.nombre] : '') || '',
+    diplomado: (idx.diplomado >= 0 ? r[idx.diplomado] : '') || '',
+    fecha: (idx.fecha >= 0 ? r[idx.fecha] : '') || new Date().toISOString().slice(0,10),
+    horas: (idx.horas >= 0 ? r[idx.horas] : '') || '',
+    nota: (idx.nota >= 0 ? r[idx.nota] : '') || '',
+  }));
+}
+
+function renderPreviewTable(){
+  const wrap = document.getElementById('previewTableWrap');
+  if(!rows.length){ wrap.innerHTML = '<p class="hint">Sin datos importados todavía.</p>'; document.getElementById('btnGenerar').disabled = true; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Diplomado</th><th>Fecha</th><th>Horas</th><th>Nota</th><th></th></tr></thead>
+  <tbody>${rows.map((r,i) => `<tr>
+    <td>${escapeHtml(r.nombre)}</td><td>${escapeHtml(r.diplomado)}</td><td>${escapeHtml(r.fecha)}</td><td>${escapeHtml(r.horas)}</td><td>${escapeHtml(r.nota)}</td>
+    <td><button class="btn outline" data-del="${i}" style="padding:3px 8px;font-size:11px;">Quitar</button></td>
+  </tr>`).join('')}</tbody></table>`;
+  wrap.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    rows.splice(Number(b.dataset.del), 1);
+    renderPreviewTable();
+  }));
+  document.getElementById('btnGenerar').disabled = rows.length === 0;
+}
+
+document.getElementById('btnParsePaste').addEventListener('click', () => {
+  rows = parseDelimited(document.getElementById('pasteData').value);
+  renderPreviewTable();
+});
+
+document.getElementById('btnImportarUrl').addEventListener('click', async () => {
+  const url = document.getElementById('sheetUrl').value.trim();
+  if(!url) return;
+  try{
+    const res = await fetch(url);
+    const text = await res.text();
+    rows = parseDelimited(text);
+    renderPreviewTable();
+  }catch(e){
+    alert('No se pudo importar desde esa URL (revisa que el Sheet esté publicado como CSV). Puedes pegar los datos manualmente.');
+  }
+});
+
+// ---------- Generar ----------
+async function renderCertificateCanvas(row, verifyUrl){
+  const bgImg = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = config.background; });
+  const canvas = document.createElement('canvas');
+  canvas.width = config.bgWidth; canvas.height = config.bgHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+  const draw = (name, value) => {
+    const f = config.fields[name];
+    if(!f || !value) return;
+    ctx.font = `${f.bold ? 'bold ' : ''}${f.fontSize}px Georgia, serif`;
+    ctx.fillStyle = f.color;
+    ctx.textAlign = f.align;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(value), (f.xPct/100) * canvas.width, (f.yPct/100) * canvas.height);
+  };
+  draw('nombre', row.nombre);
+  draw('diplomado', row.diplomado);
+  draw('fecha', row.fecha);
+  draw('horas', row.horas ? `${row.horas} horas` : '');
+  draw('id', row.id);
+
+  if(config.fields.qr){
+    const qr = qrcode(0, 'M');
+    qr.addData(verifyUrl);
+    qr.make();
+    const qrDataUrl = qr.createDataURL(8, 2);
+    const qrImg = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = qrDataUrl; });
+    const qf = config.fields.qr;
+    ctx.drawImage(qrImg, (qf.xPct/100)*canvas.width - qf.size/2, (qf.yPct/100)*canvas.height - qf.size/2, qf.size, qf.size);
+  }
+  return canvas;
+}
+
+document.getElementById('btnGenerar').addEventListener('click', async () => {
+  const entidad = document.getElementById('entidadEmisora').value.trim() || 'SEM';
+  const loteId = crypto.randomUUID();
+  const progress = document.getElementById('progressBar');
+  progress.style.display = 'block'; progress.max = rows.length; progress.value = 0;
+  document.getElementById('btnGenerar').disabled = true;
+  const genMsg = document.getElementById('genMsg');
+  const zip = new JSZip();
+  const results = [];
+
+  for(let i = 0; i < rows.length; i++){
+    const row = rows[i];
+    const id = crypto.randomUUID();
+    const verifyUrl = new URL('verificar.html', location.href).href + '?c=' + id;
+    try{
+      const { error } = await supabase.rpc('issue_certificate', {
+        p_nombre: row.nombre, p_diplomado: row.diplomado, p_fecha: row.fecha || null,
+        p_horas: row.horas ? Number(row.horas) : null, p_nota: row.nota || null,
+        p_entidad: entidad, p_lote: loteId, p_id: id,
+      });
+      if(error) throw error;
+      const canvas = await renderCertificateCanvas({ ...row, id: id.slice(0,8) }, verifyUrl);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const filename = `${row.nombre.replace(/[^a-z0-9]+/gi,'_')}_certificado.png`;
+      zip.file(filename, blob);
+      results.push({ ...row, id, verifyUrl, ok: true });
+    }catch(e){
+      results.push({ ...row, error: e.message, ok: false });
+    }
+    progress.value = i + 1;
+  }
+
+  genMsg.innerHTML = `<div class="msg ok">${results.filter(r=>r.ok).length} de ${rows.length} certificados generados y guardados.</div>`;
+  document.getElementById('resultTableWrap').innerHTML = `<table><thead><tr><th>Nombre</th><th>Estado</th><th>Link de verificación</th></tr></thead>
+  <tbody>${results.map(r => `<tr>
+    <td>${escapeHtml(r.nombre)}</td>
+    <td>${r.ok ? '<span class="badge vigente">Emitido</span>' : '<span class="badge revocado">Error</span>'}</td>
+    <td>${r.ok ? `<a href="${r.verifyUrl}" target="_blank">${r.verifyUrl}</a>` : escapeHtml(r.error)}</td>
+  </tr>`).join('')}</tbody></table>`;
+
+  if(results.some(r => r.ok)){
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const btnZip = document.getElementById('btnDescargarZip');
+    btnZip.style.display = 'inline-block';
+    btnZip.onclick = () => {
+      const a = document.createElement('a');
+      a.href = url; a.download = 'certificados.zip'; a.click();
+    };
+  }
+  document.getElementById('btnGenerar').disabled = false;
+  await loadIssued();
+});
+
+// ---------- Certificados emitidos ----------
+async function loadIssued(){
+  const { data, error } = await supabase.from('cert_certificates').select('*').order('created_at', { ascending: false }).limit(200);
+  const wrap = document.getElementById('listaEmitidosWrap');
+  if(error){ wrap.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+  issued = data || [];
+  renderIssuedTable();
+}
+
+function renderIssuedTable(){
+  const wrap = document.getElementById('listaEmitidosWrap');
+  const q = document.getElementById('buscarEmitidos').value.trim().toLowerCase();
+  const filtered = issued.filter(c => !q || c.nombre_estudiante.toLowerCase().includes(q) || c.diplomado.toLowerCase().includes(q));
+  if(!filtered.length){ wrap.innerHTML = '<p class="hint">Sin certificados que coincidan.</p>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Diplomado</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
+  <tbody>${filtered.map(c => `<tr>
+    <td>${escapeHtml(c.nombre_estudiante)}</td><td>${escapeHtml(c.diplomado)}</td><td>${escapeHtml(c.fecha_emision)}</td>
+    <td><span class="badge ${c.estado}">${c.estado}</span></td>
+    <td>
+      <a href="verificar.html?c=${c.id}" target="_blank" class="hint">Ver</a>
+      ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger" style="padding:2px 8px;font-size:11px;">Revocar</button>` : ''}
+    </td>
+  </tr>`).join('')}</tbody></table>`;
+  wrap.querySelectorAll('[data-revocar]').forEach(b => b.addEventListener('click', async () => {
+    const motivo = prompt('Motivo de revocación:');
+    if(motivo === null) return;
+    const { error } = await supabase.rpc('revoke_certificate', { p_id: b.dataset.revocar, p_motivo: motivo });
+    if(error) alert('Error: ' + error.message);
+    await loadIssued();
+  }));
+}
+
+document.getElementById('buscarEmitidos').addEventListener('input', renderIssuedTable);
+document.getElementById('btnRefrescarLista').addEventListener('click', loadIssued);
+
+init();
+</script>
+</body>
+</html>
