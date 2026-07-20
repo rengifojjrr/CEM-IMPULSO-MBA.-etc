@@ -716,13 +716,20 @@ document.getElementById('btnVistaPreviaTodas').addEventListener('click', async (
 // contra los campos de texto activos de TODAS las plantillas guardadas (un
 // estudiante puede necesitar datos para más de un formato de certificado).
 function activeTextFieldNamesUnion(){
-  const set = new Set();
+  // Los nombres se emparejan sin distinguir mayúsculas/minúsculas en todo el resto
+  // del flujo (importación, matrix, etc.), así que la unión también debe deduplicar
+  // así — si no, "Fecha" y "fecha" en dos plantillas distintas generan dos columnas
+  // separadas que terminan con el mismo dato duplicado.
+  const seen = new Map(); // clave en minúsculas -> primera variante de mayúsculas/minúsculas vista
   for(const t of templatesFull){
     for(const f of t.config.fields){
-      if(f.tipo === 'texto' && f.activo) set.add(f.nombre);
+      if(f.tipo === 'texto' && f.activo){
+        const key = f.nombre.trim().toLowerCase();
+        if(!seen.has(key)) seen.set(key, f.nombre);
+      }
     }
   }
-  return [...set];
+  return [...seen.values()];
 }
 
 document.getElementById('btnDescargarExcel').addEventListener('click', () => {
