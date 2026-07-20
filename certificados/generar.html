@@ -20,8 +20,9 @@
   main{max-width:1150px;margin:0 auto;padding:20px 16px 60px;}
   .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
   .panel h2{margin-top:0;font-size:15px;color:var(--navy);}
-  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .panel-head h2{margin:0;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .panel-head h2{margin:0;flex:1 1 auto;min-width:0;}
+  .panel-head .btn{flex:0 0 auto;}
   .panel-body.collapsed{display:none;}
   .gen-entry{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;}
   .gen-entry-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:10px 12px;background:#f8fafb;cursor:pointer;}
@@ -71,7 +72,21 @@
   .gallery img{width:100%;display:block;}
   .gallery figcaption{padding:6px 8px;font-size:11px;color:var(--muted);}
   .gallery figcaption b{color:var(--text);display:block;font-size:11.5px;}
-  @media (max-width:640px){ .btn{width:100%;} .row{flex-direction:column;align-items:stretch;} }
+  .font-picker{position:relative;display:inline-block;}
+  .font-picker-btn{padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:13px;cursor:pointer;min-width:150px;max-width:220px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .font-picker-list{position:absolute;top:100%;left:0;z-index:20;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:260px;overflow-y:auto;min-width:230px;margin-top:2px;}
+  .font-picker-opt{padding:9px 12px;font-size:15px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .font-picker-opt:hover, .font-picker-opt:active{background:#f4f6f8;}
+  @media (max-width:640px){
+    .btn{width:100%;}
+    .row{flex-direction:column;align-items:stretch;}
+    .panel-head .btn{width:auto;}
+    .field-handle{width:18px;height:34px;}
+    .field-chip{font-size:12px;padding:5px 9px;}
+    .font-picker{display:block;width:100%;}
+    .font-picker-btn{min-width:0;max-width:none;width:100%;}
+    .font-picker-list{left:0;right:0;min-width:0;}
+  }
 </style>
 </head>
 <body>
@@ -139,6 +154,10 @@
       </div>
       <div class="panel-body" id="secImportarBody">
       <p class="hint">Tres formas de traer los datos — el nombre de cada columna debe coincidir con el nombre de un campo de alguna de tus plantillas (sin importar mayúsculas/minúsculas).</p>
+      <div class="row">
+        <button class="btn outline" id="btnDescargarExcel">Descargar Excel en blanco para llenar</button>
+        <span class="hint">Trae las columnas de los campos activos de tus plantillas (si agregas campos nuevos, descárgalo de nuevo).</span>
+      </div>
       <div class="row">
         <label class="hint" style="min-width:170px;">1. Subir archivo Excel (.xlsx)</label>
         <input type="file" id="inputXlsx" accept=".xlsx,.xls">
@@ -259,6 +278,13 @@ const GOOGLE_FONT_FAMILIES = [
   'Raleway','Poppins','Great Vibes','Dancing Script','Pacifico','Sacramento','Alex Brush',
   'Allura','Parisienne',
 ];
+function fontLabelFor(value){
+  const found = FONT_OPTIONS.find(o => o.value === value);
+  return found ? found.label : (value || 'Georgia (serif)');
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.font-picker-list').forEach(l => { l.style.display = 'none'; });
+});
 const fontsLoadedCache = new Set();
 async function ensureFontsLoadedForConfig(cfg){
   const toLoad = new Set();
@@ -550,9 +576,12 @@ function renderFieldSettings(){
         <option value="center" ${f.align==='center'?'selected':''}>Centro</option>
         <option value="right" ${f.align==='right'?'selected':''}>Der</option>
       </select>
-      <select data-i="${i}" data-p="fontFamily">
-        ${FONT_OPTIONS.map(o => `<option value="${escapeHtml(o.value)}" ${f.fontFamily===o.value?'selected':''}>${o.label}</option>`).join('')}
-      </select>
+      <span class="font-picker" data-font-i="${i}">
+        <button type="button" class="font-picker-btn" style="font-family:${escapeHtml(f.fontFamily || 'Georgia, serif')};" data-font-btn="${i}">${escapeHtml(fontLabelFor(f.fontFamily))} ▾</button>
+        <div class="font-picker-list" data-font-list="${i}" style="display:none;">
+          ${FONT_OPTIONS.map(o => `<div class="font-picker-opt" data-font-i="${i}" data-font-value="${escapeHtml(o.value)}" style="font-family:${escapeHtml(o.value)};">${escapeHtml(o.label)}</div>`).join('')}
+        </div>
+      </span>
       <label><input type="checkbox" data-i="${i}" data-p="bold" ${f.bold?'checked':''}> Negrita</label>
       <button class="btn outline small" data-remove="${i}" style="margin-left:auto;">Quitar campo</button>
     </div>`;
@@ -570,6 +599,23 @@ function renderFieldSettings(){
     renderChips();
     renderFieldSettings();
   }));
+  wrap.querySelectorAll('[data-font-btn]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const list = wrap.querySelector(`[data-font-list="${btn.dataset.fontBtn}"]`);
+      const wasOpen = list.style.display === 'block';
+      document.querySelectorAll('.font-picker-list').forEach(l => { l.style.display = 'none'; });
+      list.style.display = wasOpen ? 'none' : 'block';
+    });
+  });
+  wrap.querySelectorAll('.font-picker-opt').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      const i = Number(opt.dataset.fontI);
+      config.fields[i].fontFamily = opt.dataset.fontValue;
+      renderFieldSettings();
+    });
+  });
 }
 
 document.getElementById('btnAgregarCampo').addEventListener('click', () => {
@@ -678,6 +724,22 @@ function activeTextFieldNamesUnion(){
   }
   return [...set];
 }
+
+document.getElementById('btnDescargarExcel').addEventListener('click', () => {
+  const fields = activeTextFieldNamesUnion();
+  if(!fields.length){ alert('No hay campos de texto activos en ninguna plantilla todavía.'); return; }
+  const aoa = [
+    ['Plantilla de graduados — completa una fila por estudiante. No cambies los nombres de columna (fila 2).'],
+    fields,
+  ];
+  for(let i = 0; i < 30; i++) aoa.push(fields.map(() => ''));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(0, fields.length - 1) } }];
+  ws['!cols'] = fields.map(() => ({ wch: 22 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Graduados');
+  XLSX.writeFile(wb, 'plantilla_graduados.xlsx');
+});
 
 function findHeaderRowIndex(lines, fieldNames){
   const lowerNames = fieldNames.map(n => n.trim().toLowerCase());
