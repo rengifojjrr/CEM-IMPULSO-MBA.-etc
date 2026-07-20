@@ -135,6 +135,7 @@ Juan Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script type="module">
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js';
@@ -522,22 +523,32 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
       const { error } = await supabase.rpc('issue_certificate', { p_datos: row, p_entidad: entidad, p_lote: loteId, p_id: id });
       if(error) throw error;
       const canvas = await renderCertificateCanvas(row, verifyUrl);
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      const filename = `${String(displayName).replace(/[^a-z0-9]+/gi,'_')}_certificado.png`;
-      zip.file(filename, blob);
-      results.push({ displayName, id, verifyUrl, ok: true });
+      // JPEG en vez de PNG: jsPDF infla el PNG a un bitmap casi sin comprimir
+      // (~7MB por certificado); en JPEG de alta calidad pesa ~100 veces menos
+      // sin pérdida visible, y el certificado no necesita transparencia.
+      const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const { jsPDF } = window.jspdf;
+      const widthPt = canvas.width * 72 / 96;
+      const heightPt = canvas.height * 72 / 96;
+      const pdf = new jsPDF({ orientation: widthPt > heightPt ? 'landscape' : 'portrait', unit: 'pt', format: [widthPt, heightPt] });
+      pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
+      const pdfBlob = pdf.output('blob');
+      const filename = `${String(displayName).replace(/[^a-z0-9]+/gi,'_')}_certificado.pdf`;
+      zip.file(filename, pdfBlob);
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      results.push({ displayName, id, verifyUrl, pdfUrl, filename, ok: true });
     }catch(e){
       results.push({ displayName, error: e.message, ok: false });
     }
     progress.value = i + 1;
   }
 
-  genMsg.innerHTML = `<div class="msg ok">${results.filter(r=>r.ok).length} de ${rows.length} certificados generados y guardados.</div>`;
-  document.getElementById('resultTableWrap').innerHTML = `<table><thead><tr><th>Certificado</th><th>Estado</th><th>Link de verificación</th></tr></thead>
+  genMsg.innerHTML = `<div class="msg ok">${results.filter(r=>r.ok).length} de ${rows.length} certificados generados y guardados (en PDF).</div>`;
+  document.getElementById('resultTableWrap').innerHTML = `<table><thead><tr><th>Certificado</th><th>Estado</th><th>Descargas</th></tr></thead>
   <tbody>${results.map(r => `<tr>
     <td>${escapeHtml(r.displayName)}</td>
     <td>${r.ok ? '<span class="badge vigente">Emitido</span>' : '<span class="badge revocado">Error</span>'}</td>
-    <td>${r.ok ? `<a href="${r.verifyUrl}" target="_blank">${r.verifyUrl}</a>` : escapeHtml(r.error)}</td>
+    <td>${r.ok ? `<a href="${r.pdfUrl}" download="${escapeHtml(r.filename)}">Descargar PDF</a> · <a href="${r.verifyUrl}" target="_blank">Verificación</a>` : escapeHtml(r.error)}</td>
   </tr>`).join('')}</tbody></table>`;
 
   if(results.some(r => r.ok)){
@@ -547,7 +558,7 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
     btnZip.style.display = 'inline-block';
     btnZip.onclick = () => {
       const a = document.createElement('a');
-      a.href = url; a.download = 'certificados.zip'; a.click();
+      a.href = url; a.download = 'certificados_pdf.zip'; a.click();
     };
   }
   document.getElementById('btnGenerar').disabled = false;
