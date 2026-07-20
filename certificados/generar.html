@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Generar Certificados · SEM</title>
+<title>Generar Certificados · CEM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;700&family=Merriweather:wght@400;700&family=Roboto+Slab:wght@400;700&family=Great+Vibes&family=Dancing+Script&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=EB+Garamond:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=PT+Serif:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Cinzel:wght@400;700&family=Marcellus&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Sacramento&family=Alex+Brush&family=Allura&family=Parisienne&display=swap" rel="stylesheet">
 <style>
   :root{
     --navy:#132743; --navy-2:#1c3a5e; --teal:#1b7f76; --gold:#c9a227;
@@ -70,7 +70,7 @@
 </head>
 <body>
 <header>
-  <h1>SEM · Generador de Certificados</h1>
+  <h1>CEM · Generador de Certificados</h1>
   <p>Digitalización de certificados de graduación — desde datos de Google Sheets/Excel hasta PDF verificable con QR.</p>
 </header>
 <main>
@@ -111,12 +111,14 @@
       <div class="row" style="margin-top:10px;">
         <button class="btn teal" id="btnGuardarPlantilla">Guardar plantilla</button>
         <button class="btn outline" id="btnVistaPrevia">Vista previa (con XXXX)</button>
+        <button class="btn outline" id="btnVistaPreviaTodas">Vista previa de todas mis plantillas</button>
         <span id="tplMsg" class="hint"></span>
       </div>
       <div id="previewSingleWrap" style="display:none;margin-top:10px;">
         <img id="previewSingleImg" style="max-width:500px;width:100%;border:1px solid var(--border);border-radius:6px;">
         <div><button class="btn outline small" id="btnCerrarPreview" style="margin-top:6px;">Cerrar vista previa</button></div>
       </div>
+      <div id="galeriaPlantillasWrap"></div>
     </div>
 
     <div class="panel">
@@ -136,7 +138,7 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
       </div>
       <div class="row">
         <label class="hint">Entidad emisora:</label>
-        <input type="text" id="entidadEmisora" value="SEM">
+        <input type="text" id="entidadEmisora" value="CEM">
       </div>
       <div id="previewTableWrap"></div>
     </div>
@@ -164,6 +166,7 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
       <div class="row">
         <input type="text" id="buscarEmitidos" placeholder="Buscar por cualquier dato (nombre, cédula, curso…)" style="flex:1;">
         <button class="btn outline" id="btnRefrescarLista">Refrescar</button>
+        <button class="btn danger" id="btnBorrarHistorial">Borrar todo el historial</button>
       </div>
       <div id="listaEmitidosWrap">Cargando…</div>
     </div>
@@ -193,14 +196,38 @@ const FONT_OPTIONS = [
   { label: 'Georgia (serif)', value: 'Georgia, serif' },
   { label: "Times New Roman (serif)", value: "'Times New Roman', Times, serif" },
   { label: 'Arial (sans)', value: 'Arial, Helvetica, sans-serif' },
+  // Serif elegantes
   { label: 'Playfair Display (elegante)', value: "'Playfair Display', serif" },
-  { label: 'Montserrat (moderna)', value: "'Montserrat', sans-serif" },
+  { label: 'Cormorant Garamond (elegante)', value: "'Cormorant Garamond', serif" },
+  { label: 'EB Garamond (clásica)', value: "'EB Garamond', serif" },
   { label: 'Merriweather (serif)', value: "'Merriweather', serif" },
+  { label: 'Lora (serif)', value: "'Lora', serif" },
+  { label: 'PT Serif (serif)', value: "'PT Serif', serif" },
+  { label: 'Libre Baskerville (serif)', value: "'Libre Baskerville', serif" },
   { label: 'Roboto Slab (slab serif)', value: "'Roboto Slab', serif" },
+  { label: 'Cinzel (títulos, mayúsculas)', value: "'Cinzel', serif" },
+  { label: 'Marcellus (elegante)', value: "'Marcellus', serif" },
+  // Sans modernas
+  { label: 'Montserrat (moderna)', value: "'Montserrat', sans-serif" },
+  { label: 'Open Sans (moderna)', value: "'Open Sans', sans-serif" },
+  { label: 'Lato (moderna)', value: "'Lato', sans-serif" },
+  { label: 'Raleway (moderna)', value: "'Raleway', sans-serif" },
+  { label: 'Poppins (moderna)', value: "'Poppins', sans-serif" },
+  // Script / firma
   { label: 'Great Vibes (script/firma)', value: "'Great Vibes', cursive" },
   { label: 'Dancing Script (script)', value: "'Dancing Script', cursive" },
+  { label: 'Pacifico (script)', value: "'Pacifico', cursive" },
+  { label: 'Sacramento (script fino)', value: "'Sacramento', cursive" },
+  { label: 'Alex Brush (firma)', value: "'Alex Brush', cursive" },
+  { label: 'Allura (script elegante)', value: "'Allura', cursive" },
+  { label: 'Parisienne (script)', value: "'Parisienne', cursive" },
 ];
-const GOOGLE_FONT_FAMILIES = ['Playfair Display','Montserrat','Merriweather','Roboto Slab','Great Vibes','Dancing Script'];
+const GOOGLE_FONT_FAMILIES = [
+  'Playfair Display','Cormorant Garamond','EB Garamond','Merriweather','Lora','PT Serif',
+  'Libre Baskerville','Roboto Slab','Cinzel','Marcellus','Montserrat','Open Sans','Lato',
+  'Raleway','Poppins','Great Vibes','Dancing Script','Pacifico','Sacramento','Alex Brush',
+  'Allura','Parisienne',
+];
 const fontsLoadedCache = new Set();
 async function ensureFontsLoadedForConfig(cfg){
   const toLoad = new Set();
@@ -236,7 +263,7 @@ function defaultBackgroundDataUrl(){
   ctx.strokeStyle = '#132743'; ctx.lineWidth = 14; ctx.strokeRect(30,30,c.width-60,c.height-60);
   ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 4; ctx.strokeRect(55,55,c.width-110,c.height-110);
   ctx.fillStyle = '#132743'; ctx.textAlign = 'center';
-  ctx.font = 'bold 30px Georgia, serif'; ctx.fillText('SEM', c.width/2, 140);
+  ctx.font = 'bold 30px Georgia, serif'; ctx.fillText('CEM', c.width/2, 140);
   ctx.font = 'bold 56px Georgia, serif'; ctx.fillText('CERTIFICADO DE GRADUACIÓN', c.width/2, 250);
   ctx.font = '22px Georgia, serif'; ctx.fillStyle = '#555';
   ctx.fillText('Se otorga el presente certificado a', c.width/2, 420);
@@ -534,7 +561,7 @@ document.getElementById('btnResetBg').addEventListener('click', () => {
 document.getElementById('btnVistaPrevia').addEventListener('click', async () => {
   await ensureFontsLoadedForConfig(config);
   const placeholderRow = {};
-  for(const f of config.fields) if(f.tipo === 'texto') placeholderRow[f.nombre] = 'XXXXXXXXXXXXXX';
+  for(const f of config.fields) if(f.tipo === 'texto') placeholderRow[f.nombre] = 'XXXXXXXXX';
   const dummyUrl = new URL('verificar.html', location.href).href + '?c=preview';
   const canvas = await renderCertificateCanvas(placeholderRow, dummyUrl, config);
   document.getElementById('previewSingleImg').src = canvas.toDataURL('image/png');
@@ -542,6 +569,23 @@ document.getElementById('btnVistaPrevia').addEventListener('click', async () => 
 });
 document.getElementById('btnCerrarPreview').addEventListener('click', () => {
   document.getElementById('previewSingleWrap').style.display = 'none';
+});
+
+document.getElementById('btnVistaPreviaTodas').addEventListener('click', async () => {
+  const wrap = document.getElementById('galeriaPlantillasWrap');
+  wrap.innerHTML = '<p class="hint">Generando vista previa de cada plantilla…</p>';
+  const items = [];
+  for(const t of templatesFull){
+    await ensureFontsLoadedForConfig(t.config);
+    const placeholderRow = {};
+    for(const f of t.config.fields) if(f.tipo === 'texto') placeholderRow[f.nombre] = 'XXXXXXXXX';
+    const dummyUrl = new URL('verificar.html', location.href).href + '?c=preview';
+    const canvas = await renderCertificateCanvas(placeholderRow, dummyUrl, t.config);
+    items.push({ nombre: t.nombre, dataUrl: canvas.toDataURL('image/jpeg', 0.75) });
+  }
+  wrap.innerHTML = `<div class="gallery">${items.map(it => `
+    <figure><img src="${it.dataUrl}" alt=""><figcaption><b>${escapeHtml(it.nombre)}</b></figcaption></figure>
+  `).join('')}</div>`;
 });
 
 // ---------- Importar datos ----------
@@ -768,7 +812,16 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg){
       if(f.align === 'left'){ ctx.textAlign = 'left'; drawX = leftPx; }
       else if(f.align === 'right'){ ctx.textAlign = 'right'; drawX = rightPx; }
       else { ctx.textAlign = 'center'; drawX = (leftPx + rightPx) / 2; }
-      ctx.fillText(text, drawX, (f.yPct/100) * canvas.height);
+      const yPx = (f.yPct/100) * canvas.height;
+      // Si ni el tamaño mínimo alcanza a caber en el margen (texto muy largo
+      // con un mínimo alto), se recorta visualmente en vez de dejarlo salir
+      // del cuadro definido.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(leftPx, yPx - fitSize, boxWidthPx, fitSize * 2);
+      ctx.clip();
+      ctx.fillText(text, drawX, yPx);
+      ctx.restore();
     }
   }
   return canvas;
@@ -887,6 +940,13 @@ function renderIssuedTable(){
 
 document.getElementById('buscarEmitidos').addEventListener('input', renderIssuedTable);
 document.getElementById('btnRefrescarLista').addEventListener('click', loadIssued);
+document.getElementById('btnBorrarHistorial').addEventListener('click', async () => {
+  if(!confirm(`Esto borra PERMANENTEMENTE los ${issued.length} certificados emitidos hasta ahora (incluye los códigos QR ya impresos, que dejarán de verificar). Úsalo solo para limpiar pruebas. ¿Continuar?`)) return;
+  if(!confirm('Confirma una vez más: no se puede deshacer. ¿Borrar todo el historial?')) return;
+  const { error } = await supabase.rpc('delete_all_cert_certificates');
+  if(error){ alert('Error: ' + error.message); return; }
+  await loadIssued();
+});
 
 init();
 </script>
