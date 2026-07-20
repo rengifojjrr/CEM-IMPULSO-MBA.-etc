@@ -353,10 +353,26 @@ document.getElementById('btnGuardarPlantilla').addEventListener('click', async (
 // ---------- Importar datos ----------
 // Cada columna del Excel/CSV se empareja por nombre (sin distinguir
 // mayúsculas) contra los campos de tipo texto activos en la plantilla.
+// Busca la fila de encabezados entre las primeras filas de la hoja
+// (no asume que siempre es la fila 1: archivos con título/instrucciones
+// arriba, como la plantilla de ejemplo, tienen el encabezado más abajo).
+function findHeaderRowIndex(lines, fieldNames){
+  const lowerNames = fieldNames.map(n => n.trim().toLowerCase());
+  let bestIdx = 0, bestScore = -1;
+  const scanLimit = Math.min(lines.length, 15);
+  for(let i = 0; i < scanLimit; i++){
+    const rowLower = lines[i].map(c => String(c ?? '').trim().toLowerCase());
+    const score = lowerNames.filter(n => rowLower.includes(n)).length;
+    if(score > bestScore){ bestScore = score; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
 function mapLinesToRows(lines){
   if(!lines.length) return { rows: [], missing: [] };
-  const header = lines[0].map(h => String(h ?? '').trim().toLowerCase());
   const activeTextFields = config.fields.filter(f => f.tipo === 'texto' && f.activo).map(f => f.nombre);
+  const headerIdx = findHeaderRowIndex(lines, activeTextFields);
+  const header = lines[headerIdx].map(h => String(h ?? '').trim().toLowerCase());
   const idxByField = {};
   const missing = [];
   for(const name of activeTextFields){
@@ -364,7 +380,7 @@ function mapLinesToRows(lines){
     idxByField[name] = idx;
     if(idx < 0) missing.push(name);
   }
-  const parsedRows = lines.slice(1).filter(r => r.some(c => String(c ?? '').trim() !== '')).map(r => {
+  const parsedRows = lines.slice(headerIdx + 1).filter(r => r.some(c => String(c ?? '').trim() !== '')).map(r => {
     const row = {};
     for(const name of activeTextFields){
       row[name] = idxByField[name] >= 0 ? String(r[idxByField[name]] ?? '').trim() : '';
