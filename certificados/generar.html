@@ -1017,7 +1017,15 @@ function renderGenerationHistory(){
       </div>
       ${g.expanded ? `
         <div class="gen-entry-body">
-          ${g.zipUrl ? `<div class="row"><button class="btn outline small" data-gen-zip="${gi}">Descargar ZIP (por estudiante)</button></div>` : ''}
+          <div class="row">
+            ${g.zipUrl ? `<button class="btn outline small" data-gen-zip="${gi}">Descargar ZIP (por estudiante)</button>` : ''}
+          </div>
+          ${(g.combinedPdfs && g.combinedPdfs.length) ? `
+            <p class="hint" style="margin-bottom:4px;">PDF combinado por plantilla (todas las páginas juntas, para imprimir de una vez):</p>
+            <div class="row">
+              ${g.combinedPdfs.map((c, ci) => `<button class="btn outline small" data-gen-combined="${gi}:${ci}">${escapeHtml(c.templateNombre)} (${c.pageCount} pág.)</button>`).join('')}
+            </div>
+          ` : ''}
           <div class="gallery">${g.results.filter(r=>r.ok).map(r => `
             <figure><img src="${r.thumbDataUrl}" alt=""><figcaption><b>${escapeHtml(r.studentName)}</b>${escapeHtml(r.templateNombre)}</figcaption></figure>
           `).join('')}</div>
@@ -1042,6 +1050,12 @@ function renderGenerationHistory(){
     const a = document.createElement('a');
     a.href = generationHistory[gi].zipUrl; a.download = 'certificados_por_estudiante.zip'; a.click();
   }));
+  wrap.querySelectorAll('[data-gen-combined]').forEach(btn => btn.addEventListener('click', () => {
+    const [gi, ci] = btn.dataset.genCombined.split(':').map(Number);
+    const c = generationHistory[gi].combinedPdfs[ci];
+    const a = document.createElement('a');
+    a.href = c.url; a.download = c.filename; a.click();
+  }));
 }
 
 document.getElementById('btnGenerar').addEventListener('click', async () => {
@@ -1059,6 +1073,8 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
   genMsg.innerHTML = '<p class="hint">Generando…</p>';
   const zip = new JSZip();
   const results = [];
+  const { jsPDF } = window.jspdf;
+  const mergedByTpl = new Map(); // ti -> { pdf, pageCount, templateNombre }
 
   for(let ri = 0; ri < rows.length; ri++){
     const row = rows[ri];
@@ -1075,16 +1091,29 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
         const canvas = await renderCertificateCanvas(row, verifyUrl, tpl.config);
         const thumbDataUrl = canvas.toDataURL('image/jpeg', 0.7);
         const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        const { jsPDF } = window.jspdf;
         const widthPt = canvas.width * 72 / 96;
         const heightPt = canvas.height * 72 / 96;
-        const pdf = new jsPDF({ orientation: widthPt > heightPt ? 'landscape' : 'portrait', unit: 'pt', format: [widthPt, heightPt] });
+        const orientation = widthPt > heightPt ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'pt', format: [widthPt, heightPt] });
         pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
         const pdfBlob = pdf.output('blob');
         const filename = `${sanitizeName(tpl.nombre)}_certificado.pdf`;
         studentFolder.file(filename, pdfBlob);
         const pdfUrl = URL.createObjectURL(pdfBlob);
         results.push({ studentName, templateNombre: tpl.nombre, id, verifyUrl, pdfUrl, thumbDataUrl, path: `${sanitizeName(studentName)}/${filename}`, ok: true });
+
+        // Además del PDF individual por estudiante, se arma un PDF combinado por
+        // plantilla (una página por estudiante) para poder imprimir de una sola
+        // vez todos los certificados de ese mismo formato.
+        let merged = mergedByTpl.get(ti);
+        if(!merged){
+          merged = { pdf: new jsPDF({ orientation, unit: 'pt', format: [widthPt, heightPt] }), pageCount: 0, templateNombre: tpl.nombre };
+          mergedByTpl.set(ti, merged);
+        } else {
+          merged.pdf.addPage([widthPt, heightPt], orientation);
+        }
+        merged.pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
+        merged.pageCount++;
       }catch(e){
         results.push({ studentName, templateNombre: tpl.nombre, error: e.message, ok: false });
       }
@@ -1096,13 +1125,21 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
   genMsg.innerHTML = '';
   progress.style.display = 'none';
 
+  const combinedPdfs = [];
+  for(const merged of mergedByTpl.values()){
+    const blob = merged.pdf.output('blob');
+    const filename = `${sanitizeName(merged.templateNombre)}_TODOS.pdf`;
+    zip.file(filename, blob);
+    combinedPdfs.push({ templateNombre: merged.templateNombre, pageCount: merged.pageCount, url: URL.createObjectURL(blob), filename });
+  }
+
   let zipUrl = null;
   if(okCount){
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     zipUrl = URL.createObjectURL(zipBlob);
   }
 
-  generationHistory.unshift({ timestamp: new Date(), results, zipUrl, okCount, totalCount: totalPairs, expanded: true });
+  generationHistory.unshift({ timestamp: new Date(), results, zipUrl, combinedPdfs, okCount, totalCount: totalPairs, expanded: true });
   renderGenerationHistory();
 
   document.getElementById('btnGenerar').disabled = false;
