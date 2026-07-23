@@ -22,6 +22,7 @@
     --verde:#15803d; --verde-bg:#dcfce7; --rojo:#b91c1c; --rojo-bg:#fee2e2; --gris:#374151; --gris-bg:#e5e7eb;
   }
   *{box-sizing:border-box;}
+  html,body{overflow-x:hidden;}
   body{margin:0;font-family:'Public Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);}
   .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;font-size:20px;}
   .hidden{display:none !important;}
@@ -46,20 +47,16 @@
 
   header.appbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:40;}
   header.appbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);font-size:15px;}
-  .layout{display:flex;min-height:calc(100vh - 56px);}
-  nav.sidenav{width:216px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:16px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;}
-  nav.sidenav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;padding:10px 14px;font-size:13.5px;color:var(--muted);border-radius:10px;transition:background .15s,color .15s;}
-  nav.sidenav button:hover{background:var(--surface-container);}
-  nav.sidenav button.active{background:var(--primary-container);color:#fff;font-weight:700;}
-  nav.sidenav button.active .material-symbols-outlined{color:#fff;}
-  main.appmain{flex:1;padding:20px;max-width:1200px;}
-  @media (max-width:760px){ nav.sidenav{width:60px;padding:16px 8px;} nav.sidenav button{justify-content:center;padding:10px;} nav.sidenav button span:last-child{display:none;} }
+  main.appmain{padding:20px 20px 90px;max-width:1200px;margin:0 auto;}
+  nav.bottomnav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:40;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  nav.bottomnav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:10px;padding:6px 8px;border-radius:10px;flex-shrink:0;white-space:nowrap;}
+  nav.bottomnav button.active{color:var(--primary);background:var(--secondary-container);}
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
   h2.section-title{font-size:19px;color:var(--primary);margin:4px 0 4px;}
-  .bento{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0;}
-  .bento .card{margin:0;} .kpi-num{font-size:28px;font-weight:700;color:var(--primary);} .kpi-label{font-size:12px;color:var(--muted);}
+  .bento{display:flex;gap:10px;margin:14px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  .bento .card{margin:0;flex:0 0 148px;min-width:148px;} .kpi-num{font-size:28px;font-weight:700;color:var(--primary);} .kpi-label{font-size:12px;color:var(--muted);}
 
   .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
   .badge .material-symbols-outlined{font-size:14px;}
@@ -114,16 +111,6 @@
     <div class="brand"><span class="material-symbols-outlined">forest</span> Registro Forestal · Administrador</div>
     <button class="btn outline small" id="btnLogout">Salir</button>
   </header>
-  <div class="layout">
-    <nav class="sidenav">
-      <button data-view="dashboard" class="active"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></button>
-      <button data-view="mapa"><span class="material-symbols-outlined">map</span><span>Mapa general</span></button>
-      <button data-view="arboles"><span class="material-symbols-outlined">park</span><span>Árboles</span></button>
-      <button data-view="usuarios"><span class="material-symbols-outlined">group</span><span>Usuarios</span></button>
-      <button data-view="especies"><span class="material-symbols-outlined">nature_people</span><span>Especies</span></button>
-      <button data-view="auditoria"><span class="material-symbols-outlined">history</span><span>Auditoría</span></button>
-      <button data-view="exportar"><span class="material-symbols-outlined">download</span><span>Exportaciones</span></button>
-    </nav>
     <main class="appmain">
       <section id="viewDashboard">
         <h2 class="section-title">Panel de control</h2>
@@ -218,7 +205,15 @@
         </div>
       </section>
     </main>
-  </div>
+  <nav class="bottomnav">
+    <button data-view="dashboard" class="active"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></button>
+    <button data-view="mapa"><span class="material-symbols-outlined">map</span><span>Mapa</span></button>
+    <button data-view="arboles"><span class="material-symbols-outlined">park</span><span>Árboles</span></button>
+    <button data-view="usuarios"><span class="material-symbols-outlined">group</span><span>Usuarios</span></button>
+    <button data-view="especies"><span class="material-symbols-outlined">nature_people</span><span>Especies</span></button>
+    <button data-view="auditoria"><span class="material-symbols-outlined">history</span><span>Auditoría</span></button>
+    <button data-view="exportar"><span class="material-symbols-outlined">download</span><span>Exportar</span></button>
+  </nav>
 </div>
 
 <div id="fichaModal" class="modal-overlay hidden">
@@ -281,9 +276,9 @@ async function afterLogin(){
   if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} }
 })();
 
-document.querySelectorAll('nav.sidenav button').forEach(btn => {
+document.querySelectorAll('nav.bottomnav button').forEach(btn => {
   btn.addEventListener('click', async () => {
-    document.querySelectorAll('nav.sidenav button').forEach(b => b.classList.toggle('active', b===btn));
+    document.querySelectorAll('nav.bottomnav button').forEach(b => b.classList.toggle('active', b===btn));
     ['Dashboard','Mapa','Arboles','Usuarios','Especies','Auditoria','Exportar'].forEach(v => document.getElementById('view'+v).classList.add('hidden'));
     const map2 = { dashboard:'Dashboard', mapa:'Mapa', arboles:'Arboles', usuarios:'Usuarios', especies:'Especies', auditoria:'Auditoria', exportar:'Exportar' };
     document.getElementById('view'+map2[btn.dataset.view]).classList.remove('hidden');

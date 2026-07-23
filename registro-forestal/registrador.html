@@ -19,6 +19,7 @@
     --verde:#15803d; --verde-bg:#dcfce7; --rojo:#b91c1c; --rojo-bg:#fee2e2; --gris:#374151; --gris-bg:#e5e7eb;
   }
   *{box-sizing:border-box;}
+  html,body{overflow-x:hidden;}
   body{margin:0;font-family:'Public Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);}
   .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;font-size:20px;}
   .hidden{display:none !important;}
@@ -59,8 +60,8 @@
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
   h2.section-title{font-size:18px;color:var(--primary);margin:4px 0 4px;}
-  .bento{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0;}
-  .bento .card{margin:0;}
+  .bento{display:flex;gap:10px;margin:14px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  .bento .card{margin:0;flex:0 0 140px;min-width:140px;}
   .kpi-num{font-size:30px;font-weight:700;color:var(--primary);}
   .kpi-label{font-size:12px;color:var(--muted);}
 
