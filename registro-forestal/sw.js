@@ -1,4 +1,4 @@
-const CACHE = 'forestal-shell-v1';
+const CACHE = 'forestal-shell-v2';
 const SHELL = ['./registrador.html', './supervisor.html', './administrador.html', './arbol.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -13,12 +13,19 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Solo cachea el cascarón estático de la app; todas las llamadas a Supabase
-// (datos, fotos, funciones) van siempre a la red, nunca a caché.
+// Cascaron estatico: red primero (para que cualquier actualizacion se vea de
+// inmediato), y solo se usa la copia en cache si no hay conexion. Las llamadas
+// a Supabase (datos, fotos, funciones) nunca pasan por aqui: siempre van a la red.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((res) => {
+        const resClone = res.clone();
+        caches.open(CACHE).then((c) => c.put(event.request, resClone));
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
