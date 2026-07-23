@@ -92,7 +92,8 @@
   .photo-slot .retake{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:20px;padding:4px 10px;font-size:11px;}
   .photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .condicion-chips{display:flex;gap:8px;flex-wrap:wrap;}
-  .chip{border:1px solid var(--border);background:#fff;border-radius:20px;padding:7px 14px;font-size:13px;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{border:1px solid var(--border);background:#fff;border-radius:20px;padding:7px 14px;font-size:13px;white-space:nowrap;line-height:1.2;}
   .chip.selected{background:var(--primary-container);border-color:var(--primary-container);color:var(--on-primary-container);font-weight:600;}
   .gps-box{display:flex;align-items:center;gap:14px;}
   .gps-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
@@ -103,7 +104,8 @@
   .conf-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
   .conf-ring svg{transform:rotate(-90deg);}
   .conf-ring .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--primary);}
-  .alt-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border);}
+  .alt-row{display:flex;align-items:center;justify-content:space-between;width:100%;padding:10px 4px;border-top:1px solid var(--border);background:none;border-left:none;border-right:none;border-bottom:none;text-align:left;font-size:13.5px;color:var(--text);cursor:pointer;}
+  .alt-row:hover, .alt-row:active{background:var(--secondary-container);}
   .warn-banner{display:flex;gap:10px;background:var(--ambar-bg);color:#5c3a00;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:10px;}
   .summary-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
   .summary-row:last-child{border-bottom:none;}
@@ -606,6 +608,7 @@ function renderAiResult(){
   const circ = 2 * Math.PI * 24;
   const offset = circ - (pct/100) * circ;
   wrap.innerHTML = `
+    ${r.provider === 'mock' ? `<div class="warn-banner" style="background:var(--morado-bg);color:#4c1d95;"><span class="material-symbols-outlined">science</span><div><b>Modo de prueba (mock):</b> esta sugerencia es simulada al azar, no analiza tu foto real todavía. Se activa el reconocimiento real conectando una clave de Gemini (ver README).</div></div>` : ''}
     <div class="card ai-card">
       <div class="row" style="align-items:flex-start;">
         <div style="flex:1;">
@@ -618,7 +621,7 @@ function renderAiResult(){
           <div class="pct">${pct}%</div>
         </div>
       </div>
-      ${r.visibleCharacteristics?.length ? `<div style="margin-top:10px;">${r.visibleCharacteristics.map(c=>`<span class="chip" style="margin:2px;">${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+      ${r.visibleCharacteristics?.length ? `<div class="chip-row" style="margin-top:10px;">${r.visibleCharacteristics.map(c=>`<span class="chip">${escapeHtml(c)}</span>`).join('')}</div>` : ''}
       <div class="warn-banner"><span class="material-symbols-outlined">info</span><div>Sugerencia automatizada — requiere revisión humana.</div></div>
       ${r.warnings?.length ? `<div class="hint" style="margin-top:6px;">${r.warnings.map(escapeHtml).join(' ')}</div>` : ''}
       <div class="row" style="margin-top:12px;">
@@ -626,10 +629,17 @@ function renderAiResult(){
         <button class="btn" id="btnConfirmarEspecie" style="flex:1;">Confirmar especie sugerida</button>
       </div>
     </div>
-    ${r.alternatives?.length ? `<div class="card"><b>Otras posibles coincidencias</b>${r.alternatives.map(a=>`<div class="alt-row"><span>${escapeHtml(a.commonName||a.scientificName)}</span><span class="hint">${Math.round((a.confidence||0)*100)}%</span></div>`).join('')}</div>` : ''}
+    ${r.alternatives?.length ? `<div class="card"><b>Otras posibles coincidencias</b><p class="hint" style="margin:4px 0 0;">Toca una opción para usarla como especie tentativa.</p>${r.alternatives.map((a,i)=>`<button type="button" class="alt-row" data-alt="${i}"><span>${escapeHtml(a.commonName||a.scientificName)}</span><span class="hint">${Math.round((a.confidence||0)*100)}%</span></button>`).join('')}</div>` : ''}
   `;
   document.getElementById('btnConfirmarEspecie').addEventListener('click', () => { wizardTree.nombre_comun_declarado = r.commonName; wizardTree.nombre_cientifico_tentativo = r.scientificName; wizardStep++; renderWizardStep(); });
   document.getElementById('btnNoIdent').addEventListener('click', () => { wizardTree.nombre_comun_declarado = 'No identificada'; wizardTree.nombre_cientifico_tentativo = null; wizardStep++; renderWizardStep(); });
+  wrap.querySelectorAll('[data-alt]').forEach(btn => btn.addEventListener('click', () => {
+    const alt = r.alternatives[Number(btn.dataset.alt)];
+    wizardTree.nombre_comun_declarado = alt.commonName || alt.scientificName;
+    wizardTree.nombre_cientifico_tentativo = alt.scientificName;
+    wizardStep++;
+    renderWizardStep();
+  }));
 }
 
 document.getElementById('btnWizardBack').addEventListener('click', () => { if(wizardStep>0){ wizardStep--; renderWizardStep(); } });
