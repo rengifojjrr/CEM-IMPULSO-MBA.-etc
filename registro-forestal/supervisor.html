@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Registro Forestal Beta · Supervisor</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#003629">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#003629; --primary-container:#1b4d3e; --on-primary-container:#9ed1bd;
+    --secondary-container:#dbe5e0; --surface:#ffffff; --surface-container:#edeeef;
+    --bg:#f8f9fa; --border:#c0c9c3; --text:#191c1d; --muted:#404945; --gold:#c9a227;
+    --azul:#2563eb; --azul-bg:#dbeafe; --ambar:#b45309; --ambar-bg:#fef3c7;
+    --naranja:#c2410c; --naranja-bg:#ffedd5; --morado:#7e22ce; --morado-bg:#f3e8ff;
+    --verde:#15803d; --verde-bg:#dcfce7; --rojo:#b91c1c; --rojo-bg:#fee2e2; --gris:#374151; --gris-bg:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Public Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;font-size:20px;}
+  .hidden{display:none !important;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#f8f9fa 0%,#e1e3e4 100%);}
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:420px;width:100%;padding:32px 28px;box-shadow:0 4px 24px rgba(0,0,0,.06);}
+  .login-card h1{color:var(--primary);font-size:22px;margin:12px 0 2px;}
+  .login-card .sub{color:var(--muted);font-size:13.5px;margin-bottom:22px;}
+  .brand-icon{width:48px;height:48px;border-radius:50%;background:var(--primary-container);display:flex;align-items:center;justify-content:center;}
+  .brand-icon .material-symbols-outlined{color:var(--on-primary-container);font-size:26px;}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+  .field label{font-size:12.5px;color:var(--muted);font-weight:600;}
+  .field input{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;}
+  .btn{border:1px solid var(--primary);background:var(--primary);color:#fff;border-radius:8px;padding:11px 16px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .btn.block{width:100%;} .btn.outline{background:#fff;color:var(--primary);}
+  .btn.danger{background:#fff;color:var(--rojo);border-color:var(--rojo);}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:#20200a;}
+  .btn.small{padding:6px 10px;font-size:12.5px;} .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .hint{font-size:12px;color:var(--muted);}
+  .err{background:var(--rojo-bg);color:var(--rojo);padding:9px 12px;border-radius:8px;font-size:13px;margin-top:8px;}
+  .demo-hint{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center;}
+
+  header.appbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:40;}
+  header.appbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);font-size:15px;}
+  .layout{display:flex;min-height:calc(100vh - 56px);}
+  nav.sidenav{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 0;}
+  nav.sidenav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:11px 20px;font-size:13.5px;color:var(--muted);}
+  nav.sidenav button.active{background:var(--secondary-container);color:var(--primary);font-weight:700;border-radius:0 20px 20px 0;}
+  main.appmain{flex:1;padding:20px;max-width:1100px;}
+  @media (max-width:760px){ nav.sidenav{width:64px;} nav.sidenav button span:last-child{display:none;} }
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  h2.section-title{font-size:19px;color:var(--primary);margin:4px 0 4px;}
+  .bento{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:14px 0;}
+  .bento .card{margin:0;} .kpi-num{font-size:28px;font-weight:700;color:var(--primary);} .kpi-label{font-size:12px;color:var(--muted);}
+
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .badge .material-symbols-outlined{font-size:14px;}
+  .badge.BORRADOR{background:var(--gris-bg);color:var(--gris);} .badge.ENVIADO{background:var(--azul-bg);color:var(--azul);}
+  .badge.EN_REVISION{background:var(--ambar-bg);color:var(--ambar);} .badge.REQUIERE_CORRECCION{background:var(--naranja-bg);color:var(--naranja);}
+  .badge.REQUIERE_ESPECIALISTA{background:var(--morado-bg);color:var(--morado);} .badge.APROBADO{background:var(--verde-bg);color:var(--verde);}
+  .badge.RECHAZADO{background:var(--rojo-bg);color:var(--rojo);} .badge.ARCHIVADO{background:var(--gris-bg);color:var(--gris);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;}
+  tr.clickable{cursor:pointer;} tr.clickable:hover{background:var(--surface-container);}
+  #mapContainer{width:100%;height:420px;border-radius:12px;overflow:hidden;}
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}
+  .photo-grid img{width:100%;height:110px;object-fit:cover;border-radius:8px;}
+  .ai-compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .ai-compare .box{background:var(--surface-container);border-radius:8px;padding:10px;}
+  textarea.field-full{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;min-height:70px;font-size:13.5px;}
+</style>
+</head>
+<body>
+
+<div id="loginView">
+  <div class="login-card">
+    <div class="brand-icon"><span class="material-symbols-outlined">fact_check</span></div>
+    <h1>Registro Forestal Beta</h1>
+    <div class="sub">Identidad digital y supervisión de árboles — acceso Supervisor</div>
+    <form id="loginForm">
+      <div class="field"><label for="loginEmail">Correo</label><input type="email" id="loginEmail" required autocomplete="username"></div>
+      <div class="field"><label for="loginPassword">Contraseña</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
+      <button class="btn block" type="submit">Ingresar <span class="material-symbols-outlined">login</span></button>
+      <div id="loginErr"></div>
+    </form>
+    <div class="demo-hint">
+      Cuenta demo: <b>supervisor@demo.local</b> / <b>ForestalDemo2026!</b>
+      <div><button class="btn outline small" id="btnFillDemo" type="button" style="margin-top:8px;">Rellenar cuenta demo</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="appShell" class="hidden">
+  <header class="appbar">
+    <div class="brand"><span class="material-symbols-outlined">forest</span> Registro Forestal · Supervisor</div>
+    <button class="btn outline small" id="btnLogout">Salir</button>
+  </header>
+  <div class="layout">
+    <nav class="sidenav">
+      <button data-view="resumen" class="active"><span class="material-symbols-outlined">dashboard</span><span>Resumen</span></button>
+      <button data-view="bandeja"><span class="material-symbols-outlined">inbox</span><span>Bandeja</span></button>
+      <button data-view="mapa"><span class="material-symbols-outlined">map</span><span>Mapa</span></button>
+      <button data-view="historial"><span class="material-symbols-outlined">history</span><span>Historial</span></button>
+    </nav>
+    <main class="appmain">
+      <section id="viewResumen">
+        <h2 class="section-title">Resumen de supervisión</h2>
+        <div class="bento" id="resumenBento"></div>
+        <div class="card">
+          <b>Prioridades de revisión</b>
+          <div id="resumenLista" style="margin-top:8px;"><p class="hint">Cargando…</p></div>
+        </div>
+      </section>
+
+      <section id="viewBandeja" class="hidden">
+        <h2 class="section-title">Bandeja de pendientes</h2>
+        <div class="card"><table><thead><tr><th>Código</th><th>Registrador</th><th>Especie tentativa</th><th>Sugerencia IA</th><th>Estado</th></tr></thead>
+          <tbody id="bandejaBody"></tbody></table></div>
+      </section>
+
+      <section id="viewMapa" class="hidden">
+        <h2 class="section-title">Mapa de registros</h2>
+        <div id="mapContainer"></div>
+      </section>
+
+      <section id="viewHistorial" class="hidden">
+        <h2 class="section-title">Historial de decisiones</h2>
+        <div class="card"><table><thead><tr><th>Código</th><th>Decisión</th><th>Comentario</th><th>Fecha</th></tr></thead>
+          <tbody id="historialBody"></tbody></table></div>
+      </section>
+
+      <section id="viewDetalle" class="hidden">
+        <button class="btn outline small" id="btnVolverDetalle"><span class="material-symbols-outlined">arrow_back</span> Volver</button>
+        <div id="detalleContent"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const ESTADO_LABEL = { BORRADOR:'Borrador', ENVIADO:'Enviado', EN_REVISION:'En revisión', REQUIERE_CORRECCION:'Requiere corrección', REQUIERE_ESPECIALISTA:'Requiere especialista', APROBADO:'Aprobado', RECHAZADO:'Rechazado', ARCHIVADO:'Archivado' };
+const ESTADO_ICON = { BORRADOR:'edit', ENVIADO:'send', EN_REVISION:'search', REQUIERE_CORRECCION:'error', REQUIERE_ESPECIALISTA:'help', APROBADO:'check_circle', RECHAZADO:'cancel', ARCHIVADO:'archive' };
+function badgeHtml(estado){ return `<span class="badge ${estado}"><span class="material-symbols-outlined">${ESTADO_ICON[estado]||'info'}</span>${ESTADO_LABEL[estado]||estado}</span>`; }
+
+let profile = null;
+let pendientes = [];
+let map = null;
+
+document.getElementById('btnFillDemo').addEventListener('click', () => {
+  document.getElementById('loginEmail').value = 'supervisor@demo.local';
+  document.getElementById('loginPassword').value = 'ForestalDemo2026!';
+});
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginErr'); errEl.innerHTML = '';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error){ errEl.innerHTML = `<div class="err">${escapeHtml(error.message)}</div>`; return; }
+  await afterLogin();
+});
+document.getElementById('btnLogout').addEventListener('click', async () => { await supabase.auth.signOut(); location.reload(); });
+
+async function afterLogin(){
+  const { data, error } = await supabase.rpc('forest_get_my_profile');
+  profile = Array.isArray(data) ? data[0] : data;
+  if(error || !profile){ document.getElementById('loginErr').innerHTML = `<div class="err">No se pudo cargar el perfil.</div>`; await supabase.auth.signOut(); return; }
+  if(profile.rol !== 'supervisor'){
+    document.getElementById('loginErr').innerHTML = `<div class="err">Esta cuenta tiene rol "${escapeHtml(profile.rol)}", no supervisor.</div>`;
+    await supabase.auth.signOut(); return;
+  }
+  if(!profile.activo){ document.getElementById('loginErr').innerHTML = `<div class="err">Tu cuenta está desactivada.</div>`; await supabase.auth.signOut(); return; }
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  await loadResumen();
+}
+
+(async function init(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if(session) await afterLogin();
+  if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} }
+})();
+
+document.querySelectorAll('nav.sidenav button').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    document.querySelectorAll('nav.sidenav button').forEach(b => b.classList.toggle('active', b===btn));
+    ['Resumen','Bandeja','Mapa','Historial','Detalle'].forEach(v => document.getElementById('view'+v).classList.add('hidden'));
+    const map2 = { resumen:'Resumen', bandeja:'Bandeja', mapa:'Mapa', historial:'Historial' };
+    document.getElementById('view'+map2[btn.dataset.view]).classList.remove('hidden');
+    if(btn.dataset.view === 'bandeja') await loadBandeja();
+    if(btn.dataset.view === 'mapa') await loadMapa();
+    if(btn.dataset.view === 'historial') await loadHistorial();
+  });
+});
+document.getElementById('btnVolverDetalle').addEventListener('click', () => {
+  document.getElementById('viewDetalle').classList.add('hidden');
+  document.getElementById('viewBandeja').classList.remove('hidden');
+});
+
+async function signedUrl(path){ if(!path) return null; const { data } = await supabase.storage.from('forest-photos').createSignedUrl(path, 3600); return data?.signedUrl || null; }
+
+async function loadResumen(){
+  const { data, error } = await supabase.rpc('forest_list_pending_review');
+  pendientes = error ? [] : data;
+  const bento = document.getElementById('resumenBento');
+  bento.innerHTML = `
+    <div class="card"><div class="kpi-num">${pendientes.length}</div><div class="kpi-label">Expedientes pendientes</div></div>
+    <div class="card"><div class="kpi-num">${pendientes.filter(p=>p.tree.estado==='EN_REVISION').length}</div><div class="kpi-label">En revisión activa</div></div>
+    <div class="card"><div class="kpi-num">${pendientes.filter(p=>p.tree.precision_m>15).length}</div><div class="kpi-label">Baja precisión GPS</div></div>
+  `;
+  const lista = document.getElementById('resumenLista');
+  if(!pendientes.length){ lista.innerHTML = '<p class="hint">Sin pendientes por ahora.</p>'; return; }
+  lista.innerHTML = pendientes.slice(0,6).map(p => `
+    <div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 0;">
+      <div><b>${escapeHtml(p.tree.codigo_visible)}</b> <span class="hint">${escapeHtml(p.registrador_nombre||'')}</span></div>
+      ${badgeHtml(p.tree.estado)}
+    </div>
+  `).join('');
+  lista.querySelectorAll('.row').forEach((el, i) => el.addEventListener('click', () => openDetalle(pendientes[i].tree.id)));
+}
+
+async function loadBandeja(){
+  const { data, error } = await supabase.rpc('forest_list_pending_review');
+  pendientes = error ? [] : data;
+  const body = document.getElementById('bandejaBody');
+  if(!pendientes.length){ body.innerHTML = '<tr><td colspan="5" class="hint">Sin registros pendientes.</td></tr>'; return; }
+  body.innerHTML = pendientes.map((p,i) => `
+    <tr class="clickable" data-i="${i}">
+      <td>${escapeHtml(p.tree.codigo_visible)}</td>
+      <td>${escapeHtml(p.registrador_nombre||'—')}</td>
+      <td>${escapeHtml(p.tree.nombre_comun_declarado||'—')}</td>
+      <td>${p.prediccion ? escapeHtml(p.prediccion.common_name)+' ('+Math.round((p.prediccion.confidence||0)*100)+'%)' : 'No disponible'}</td>
+      <td>${badgeHtml(p.tree.estado)}</td>
+    </tr>
+  `).join('');
+  body.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => openDetalle(pendientes[Number(tr.dataset.i)].tree.id)));
+}
+
+async function loadHistorial(){
+  const { data, error } = await supabase.rpc('forest_list_all_trees');
+  const body = document.getElementById('historialBody');
+  if(error || !data){ body.innerHTML = '<tr><td colspan="4" class="hint">No autorizado o sin datos.</td></tr>'; return; }
+  const decididos = data.filter(d => ['APROBADO','RECHAZADO','REQUIERE_CORRECCION','REQUIERE_ESPECIALISTA'].includes(d.tree.estado));
+  if(!decididos.length){ body.innerHTML = '<tr><td colspan="4" class="hint">Sin decisiones aún.</td></tr>'; return; }
+  body.innerHTML = decididos.map(d => `<tr><td>${escapeHtml(d.tree.codigo_visible)}</td><td>${badgeHtml(d.tree.estado)}</td><td>${escapeHtml(d.especie||'')}</td><td class="hint">${new Date(d.tree.updated_at).toLocaleString('es-ES')}</td></tr>`).join('');
+}
+
+async function loadMapa(){
+  const { data } = await supabase.rpc('forest_list_all_trees');
+  const trees = (data || []).filter(d => d.tree.lat != null);
+  if(!map){
+    map = new maplibregl.Map({
+      container: 'mapContainer',
+      style: { version: 8, sources: { osm: { type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, attribution:'© OpenStreetMap contributors' } }, layers: [{ id:'osm', type:'raster', source:'osm' }] },
+      center: [-66.857, 10.499], zoom: 14,
+    });
+  }
+  const colorFor = (estado) => ({ APROBADO:'#15803d', ENVIADO:'#2563eb', EN_REVISION:'#b45309', REQUIERE_CORRECCION:'#c2410c', REQUIERE_ESPECIALISTA:'#7e22ce', RECHAZADO:'#b91c1c', BORRADOR:'#6b7280', ARCHIVADO:'#374151' }[estado] || '#374151');
+  for(const d of trees){
+    const el = document.createElement('div');
+    el.style.cssText = `width:16px;height:16px;border-radius:50%;background:${colorFor(d.tree.estado)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);`;
+    const popup = new maplibregl.Popup({ offset: 12 }).setHTML(`<b>${escapeHtml(d.tree.codigo_visible)}</b><br>${ESTADO_LABEL[d.tree.estado]}<br>${escapeHtml(d.tree.nombre_comun_declarado||'')}`);
+    new maplibregl.Marker({ element: el }).setLngLat([d.tree.lng, d.tree.lat]).setPopup(popup).addTo(map);
+  }
+}
+
+async function openDetalle(treeId){
+  const { data, error } = await supabase.rpc('forest_get_tree_detail', { p_tree_id: treeId });
+  if(error || !data){ alert('No se pudo cargar el detalle.'); return; }
+  const t = data.tree;
+  const { data: species } = await supabase.rpc('forest_list_species');
+  const content = document.getElementById('detalleContent');
+  content.innerHTML = `
+    <h2 class="section-title">${escapeHtml(t.codigo_visible)} ${badgeHtml(t.estado)}</h2>
+    <div class="card"><b>Evidencia fotográfica</b><div class="photo-grid" id="detallePhotos" style="margin-top:8px;"></div></div>
+    <div class="ai-compare">
+      <div class="card box"><div class="hint">Especie declarada</div><b>${escapeHtml(t.nombre_comun_declarado||'—')}</b><div class="hint">${escapeHtml(t.nombre_cientifico_tentativo||'')}</div></div>
+      <div class="card box"><div class="hint">Sugerencia IA</div><b>${data.predictions?.[0] ? escapeHtml(data.predictions[0].common_name) : 'No disponible'}</b><div class="hint">${data.predictions?.[0] ? Math.round((data.predictions[0].confidence||0)*100)+'% confianza' : ''}</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><span class="hint">Altura</span><b>${t.altura_m ?? '—'} m</b></div>
+      <div class="row"><span class="hint">DAP</span><b>${t.dap_cm ?? '—'} cm</b></div>
+      <div class="row"><span class="hint">GPS</span><b>${t.lat!=null ? t.lat.toFixed(5)+', '+t.lng.toFixed(5) : '—'} (±${t.precision_m??'?'} m)</b></div>
+      <div class="row"><span class="hint">Condición</span><b>${escapeHtml(t.condicion||'—')}</b></div>
+      <div class="row"><span class="hint">Observaciones</span><b>${escapeHtml(t.observaciones||'—')}</b></div>
+    </div>
+    <div class="card">
+      <label class="hint">Especie confirmada</label>
+      <select id="selEspecie" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin:6px 0 10px;">
+        <option value="">— sin confirmar —</option>
+        ${(species||[]).map(s => `<option value="${s.id}" ${t.especie_confirmada_id===s.id?'selected':''}>${escapeHtml(s.nombre_comun)} (${escapeHtml(s.nombre_cientifico)})</option>`).join('')}
+      </select>
+      <label class="hint">Comentario técnico</label>
+      <textarea id="comentarioRevision" class="field-full"></textarea>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn" id="btnAprobar" style="background:var(--verde);border-color:var(--verde);">Aprobar</button>
+        <button class="btn danger" id="btnRechazar">Rechazar</button>
+        <button class="btn outline" id="btnDevolver">Devolver para corrección</button>
+        <button class="btn outline" id="btnEspecialista" style="color:var(--morado);border-color:var(--morado);">Requiere especialista</button>
+      </div>
+    </div>
+  `;
+  const photosWrap = document.getElementById('detallePhotos');
+  if(!data.photos.length) photosWrap.innerHTML = '<p class="hint">Sin fotos.</p>';
+  for(const p of data.photos){ const img = document.createElement('img'); signedUrl(p.storage_path).then(u=>{ if(u) img.src = u; }); photosWrap.appendChild(img); }
+
+  const decide = async (decision) => {
+    const comentario = document.getElementById('comentarioRevision').value.trim();
+    const especieId = document.getElementById('selEspecie').value || null;
+    if(t.estado === 'ENVIADO'){ await supabase.rpc('forest_open_for_review', { p_tree_id: t.id }); }
+    const { error } = await supabase.rpc('forest_decide_review', { p_tree_id: t.id, p_decision: decision, p_comentario: comentario, p_especie_confirmada_id: especieId });
+    if(error){ alert('Error: ' + error.message); return; }
+    alert('Decisión registrada.');
+    document.getElementById('btnVolverDetalle').click();
+    await loadResumen();
+  };
+  document.getElementById('btnAprobar').addEventListener('click', () => { if(confirm('¿Aprobar este registro?')) decide('aprobado'); });
+  document.getElementById('btnRechazar').addEventListener('click', () => { if(confirm('¿Rechazar este registro?')) decide('rechazado'); });
+  document.getElementById('btnDevolver').addEventListener('click', () => { if(confirm('¿Devolver para corrección?')) decide('devuelto'); });
+  document.getElementById('btnEspecialista').addEventListener('click', () => { if(confirm('¿Marcar como requiere especialista?')) decide('requiere_especialista'); });
+
+  document.getElementById('viewBandeja').classList.add('hidden');
+  document.getElementById('viewResumen').classList.add('hidden');
+  document.getElementById('viewDetalle').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Registro Forestal Beta · Administrador</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#003629">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+  :root{
+    --primary:#003629; --primary-container:#1b4d3e; --on-primary-container:#9ed1bd;
+    --secondary-container:#dbe5e0; --surface:#ffffff; --surface-container:#edeeef;
+    --bg:#f8f9fa; --border:#c0c9c3; --text:#191c1d; --muted:#404945; --gold:#c9a227;
+    --azul:#2563eb; --azul-bg:#dbeafe; --ambar:#b45309; --ambar-bg:#fef3c7;
+    --naranja:#c2410c; --naranja-bg:#ffedd5; --morado:#7e22ce; --morado-bg:#f3e8ff;
+    --verde:#15803d; --verde-bg:#dcfce7; --rojo:#b91c1c; --rojo-bg:#fee2e2; --gris:#374151; --gris-bg:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Public Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;font-size:20px;}
+  .hidden{display:none !important;}
+  button{font-family:inherit;cursor:pointer;} input,select,textarea{font-family:inherit;}
+
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#f8f9fa 0%,#e1e3e4 100%);}
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:420px;width:100%;padding:32px 28px;box-shadow:0 4px 24px rgba(0,0,0,.06);}
+  .login-card h1{color:var(--primary);font-size:22px;margin:12px 0 2px;}
+  .login-card .sub{color:var(--muted);font-size:13.5px;margin-bottom:22px;}
+  .brand-icon{width:48px;height:48px;border-radius:50%;background:var(--primary-container);display:flex;align-items:center;justify-content:center;}
+  .brand-icon .material-symbols-outlined{color:var(--on-primary-container);font-size:26px;}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+  .field label{font-size:12.5px;color:var(--muted);font-weight:600;}
+  .field input{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;}
+  .btn{border:1px solid var(--primary);background:var(--primary);color:#fff;border-radius:8px;padding:11px 16px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .btn.block{width:100%;} .btn.outline{background:#fff;color:var(--primary);}
+  .btn.danger{background:#fff;color:var(--rojo);border-color:var(--rojo);}
+  .btn.small{padding:6px 10px;font-size:12.5px;} .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .hint{font-size:12px;color:var(--muted);}
+  .err{background:var(--rojo-bg);color:var(--rojo);padding:9px 12px;border-radius:8px;font-size:13px;margin-top:8px;}
+  .demo-hint{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center;}
+
+  header.appbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:40;}
+  header.appbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);font-size:15px;}
+  .layout{display:flex;min-height:calc(100vh - 56px);}
+  nav.sidenav{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 0;overflow-y:auto;}
+  nav.sidenav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:11px 20px;font-size:13.5px;color:var(--muted);}
+  nav.sidenav button.active{background:var(--secondary-container);color:var(--primary);font-weight:700;border-radius:0 20px 20px 0;}
+  main.appmain{flex:1;padding:20px;max-width:1200px;}
+  @media (max-width:760px){ nav.sidenav{width:60px;} nav.sidenav button span:last-child{display:none;} }
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  h2.section-title{font-size:19px;color:var(--primary);margin:4px 0 4px;}
+  .bento{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0;}
+  .bento .card{margin:0;} .kpi-num{font-size:28px;font-weight:700;color:var(--primary);} .kpi-label{font-size:12px;color:var(--muted);}
+
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .badge .material-symbols-outlined{font-size:14px;}
+  .badge.BORRADOR{background:var(--gris-bg);color:var(--gris);} .badge.ENVIADO{background:var(--azul-bg);color:var(--azul);}
+  .badge.EN_REVISION{background:var(--ambar-bg);color:var(--ambar);} .badge.REQUIERE_CORRECCION{background:var(--naranja-bg);color:var(--naranja);}
+  .badge.REQUIERE_ESPECIALISTA{background:var(--morado-bg);color:var(--morado);} .badge.APROBADO{background:var(--verde-bg);color:var(--verde);}
+  .badge.RECHAZADO{background:var(--rojo-bg);color:var(--rojo);} .badge.ARCHIVADO{background:var(--gris-bg);color:var(--gris);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;}
+  #mapContainer{width:100%;height:420px;border-radius:12px;overflow:hidden;}
+  .toggle{width:38px;height:22px;border-radius:12px;position:relative;border:none;background:var(--border);flex-shrink:0;}
+  .toggle.on{background:var(--verde);}
+  .toggle span{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;}
+  .toggle.on span{left:18px;}
+</style>
+</head>
+<body>
+
+<div id="loginView">
+  <div class="login-card">
+    <div class="brand-icon"><span class="material-symbols-outlined">admin_panel_settings</span></div>
+    <h1>Registro Forestal Beta</h1>
+    <div class="sub">Identidad digital y supervisión de árboles — acceso Administrador</div>
+    <form id="loginForm">
+      <div class="field"><label for="loginEmail">Correo</label><input type="email" id="loginEmail" required autocomplete="username"></div>
+      <div class="field"><label for="loginPassword">Contraseña</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
+      <button class="btn block" type="submit">Ingresar <span class="material-symbols-outlined">login</span></button>
+      <div id="loginErr"></div>
+    </form>
+    <div class="demo-hint">
+      Cuenta demo: <b>administrador@demo.local</b> / <b>ForestalDemo2026!</b>
+      <div><button class="btn outline small" id="btnFillDemo" type="button" style="margin-top:8px;">Rellenar cuenta demo</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="appShell" class="hidden">
+  <header class="appbar">
+    <div class="brand"><span class="material-symbols-outlined">forest</span> Registro Forestal · Administrador</div>
+    <button class="btn outline small" id="btnLogout">Salir</button>
+  </header>
+  <div class="layout">
+    <nav class="sidenav">
+      <button data-view="dashboard" class="active"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></button>
+      <button data-view="mapa"><span class="material-symbols-outlined">map</span><span>Mapa general</span></button>
+      <button data-view="arboles"><span class="material-symbols-outlined">park</span><span>Árboles</span></button>
+      <button data-view="usuarios"><span class="material-symbols-outlined">group</span><span>Usuarios</span></button>
+      <button data-view="especies"><span class="material-symbols-outlined">nature_people</span><span>Especies</span></button>
+      <button data-view="auditoria"><span class="material-symbols-outlined">history</span><span>Auditoría</span></button>
+      <button data-view="exportar"><span class="material-symbols-outlined">download</span><span>Exportaciones</span></button>
+    </nav>
+    <main class="appmain">
+      <section id="viewDashboard">
+        <h2 class="section-title">Panel de control</h2>
+        <div class="bento" id="dashBento"></div>
+        <div class="card"><b>Registros por estado</b><div id="dashPorEstado" style="margin-top:8px;"></div></div>
+      </section>
+
+      <section id="viewMapa" class="hidden">
+        <h2 class="section-title">Mapa general</h2>
+        <div id="mapContainer"></div>
+      </section>
+
+      <section id="viewArboles" class="hidden">
+        <h2 class="section-title">Árboles</h2>
+        <div class="row"><input type="text" id="buscarArbol" placeholder="Buscar por código, especie o registrador…" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
+        <div class="card"><table><thead><tr><th>Código</th><th>Registrador</th><th>Especie</th><th>Estado</th><th>Fecha</th><th></th></tr></thead><tbody id="arbolesBody"></tbody></table></div>
+        <div id="fichaWrap"></div>
+      </section>
+
+      <section id="viewUsuarios" class="hidden">
+        <h2 class="section-title">Usuarios</h2>
+        <div class="card">
+          <b>Crear usuario</b>
+          <div class="row" style="margin-top:8px;">
+            <input type="text" id="nuevoNombre" placeholder="Nombre completo" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
+            <input type="email" id="nuevoEmail" placeholder="correo@ejemplo.com" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
+            <input type="password" id="nuevoPassword" placeholder="Contraseña temporal" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
+            <select id="nuevoRol" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
+              <option value="registrador">Registrador</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="administrador">Administrador</option>
+            </select>
+            <button class="btn" id="btnCrearUsuario">Crear usuario</button>
+          </div>
+          <div id="crearUsuarioMsg" class="hint" style="margin-top:6px;"></div>
+        </div>
+        <div class="card"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
+      </section>
+
+      <section id="viewEspecies" class="hidden">
+        <h2 class="section-title">Catálogo de especies</h2>
+        <div class="card">
+          <div class="row">
+            <input type="text" id="especieComun" placeholder="Nombre común" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
+            <input type="text" id="especieCientifico" placeholder="Nombre científico" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
+            <button class="btn" id="btnAgregarEspecie">+ Agregar</button>
+          </div>
+        </div>
+        <div class="card"><table><thead><tr><th>Nombre común</th><th>Nombre científico</th></tr></thead><tbody id="especiesBody"></tbody></table></div>
+      </section>
+
+      <section id="viewAuditoria" class="hidden">
+        <h2 class="section-title">Auditoría</h2>
+        <div class="card"><table><thead><tr><th>Acción</th><th>Estado anterior</th><th>Estado nuevo</th><th>Comentario</th><th>Fecha</th></tr></thead><tbody id="auditoriaBody"></tbody></table></div>
+      </section>
+
+      <section id="viewExportar" class="hidden">
+        <h2 class="section-title">Exportaciones</h2>
+        <div class="card row">
+          <button class="btn outline" id="btnExportCsv"><span class="material-symbols-outlined">download</span> Exportar árboles (CSV)</button>
+          <button class="btn outline" id="btnExportJson"><span class="material-symbols-outlined">download</span> Exportar árboles (JSON)</button>
+          <button class="btn outline" id="btnExportAudit"><span class="material-symbols-outlined">download</span> Exportar auditoría (JSON)</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const ESTADO_LABEL = { BORRADOR:'Borrador', ENVIADO:'Enviado', EN_REVISION:'En revisión', REQUIERE_CORRECCION:'Requiere corrección', REQUIERE_ESPECIALISTA:'Requiere especialista', APROBADO:'Aprobado', RECHAZADO:'Rechazado', ARCHIVADO:'Archivado' };
+const ESTADO_ICON = { BORRADOR:'edit', ENVIADO:'send', EN_REVISION:'search', REQUIERE_CORRECCION:'error', REQUIERE_ESPECIALISTA:'help', APROBADO:'check_circle', RECHAZADO:'cancel', ARCHIVADO:'archive' };
+function badgeHtml(estado){ return `<span class="badge ${estado}"><span class="material-symbols-outlined">${ESTADO_ICON[estado]||'info'}</span>${ESTADO_LABEL[estado]||estado}</span>`; }
+
+let profile = null;
+let allTrees = [];
+let map = null;
+
+document.getElementById('btnFillDemo').addEventListener('click', () => {
+  document.getElementById('loginEmail').value = 'administrador@demo.local';
+  document.getElementById('loginPassword').value = 'ForestalDemo2026!';
+});
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginErr'); errEl.innerHTML = '';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error){ errEl.innerHTML = `<div class="err">${escapeHtml(error.message)}</div>`; return; }
+  await afterLogin();
+});
+document.getElementById('btnLogout').addEventListener('click', async () => { await supabase.auth.signOut(); location.reload(); });
+
+async function afterLogin(){
+  const { data, error } = await supabase.rpc('forest_get_my_profile');
+  profile = Array.isArray(data) ? data[0] : data;
+  if(error || !profile){ document.getElementById('loginErr').innerHTML = `<div class="err">No se pudo cargar el perfil.</div>`; await supabase.auth.signOut(); return; }
+  if(profile.rol !== 'administrador'){
+    document.getElementById('loginErr').innerHTML = `<div class="err">Esta cuenta tiene rol "${escapeHtml(profile.rol)}", no administrador.</div>`;
+    await supabase.auth.signOut(); return;
+  }
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  await loadDashboard();
+}
+
+(async function init(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if(session) await afterLogin();
+  if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} }
+})();
+
+document.querySelectorAll('nav.sidenav button').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    document.querySelectorAll('nav.sidenav button').forEach(b => b.classList.toggle('active', b===btn));
+    ['Dashboard','Mapa','Arboles','Usuarios','Especies','Auditoria','Exportar'].forEach(v => document.getElementById('view'+v).classList.add('hidden'));
+    const map2 = { dashboard:'Dashboard', mapa:'Mapa', arboles:'Arboles', usuarios:'Usuarios', especies:'Especies', auditoria:'Auditoria', exportar:'Exportar' };
+    document.getElementById('view'+map2[btn.dataset.view]).classList.remove('hidden');
+    if(btn.dataset.view==='mapa') await loadMapa();
+    if(btn.dataset.view==='arboles') await loadArboles();
+    if(btn.dataset.view==='usuarios') await loadUsuarios();
+    if(btn.dataset.view==='especies') await loadEspecies();
+    if(btn.dataset.view==='auditoria') await loadAuditoria();
+  });
+});
+
+async function loadDashboard(){
+  const { data, error } = await supabase.rpc('forest_dashboard_metrics');
+  if(error){ document.getElementById('dashBento').innerHTML = `<div class="card">Error: ${escapeHtml(error.message)}</div>`; return; }
+  document.getElementById('dashBento').innerHTML = `
+    <div class="card"><div class="kpi-num">${data.total}</div><div class="kpi-label">Total registrado</div></div>
+    <div class="card"><div class="kpi-num">${data.aprobados}</div><div class="kpi-label">Aprobados</div></div>
+    <div class="card"><div class="kpi-num">${data.pendientes}</div><div class="kpi-label">Pendientes</div></div>
+    <div class="card"><div class="kpi-num">${data.rechazados}</div><div class="kpi-label">Rechazados</div></div>
+    <div class="card"><div class="kpi-num">${data.devueltos}</div><div class="kpi-label">Devueltos</div></div>
+    <div class="card"><div class="kpi-num">${data.coincidencia_ia_supervisor}%</div><div class="kpi-label">Coincidencia IA-supervisor</div></div>
+    <div class="card"><div class="kpi-num">${data.baja_precision_gps}</div><div class="kpi-label">Baja precisión GPS</div></div>
+  `;
+  const porEstado = document.getElementById('dashPorEstado');
+  porEstado.innerHTML = Object.entries(data.por_estado||{}).map(([estado, n]) => `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0;">${badgeHtml(estado)}<b>${n}</b></div>`).join('') || '<p class="hint">Sin datos.</p>';
+}
+
+async function loadMapa(){
+  const { data } = await supabase.rpc('forest_list_all_trees');
+  allTrees = data || [];
+  const trees = allTrees.filter(d => d.tree.lat != null);
+  if(!map){
+    map = new maplibregl.Map({
+      container: 'mapContainer',
+      style: { version: 8, sources: { osm: { type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, attribution:'© OpenStreetMap contributors' } }, layers: [{ id:'osm', type:'raster', source:'osm' }] },
+      center: [-66.857, 10.499], zoom: 14,
+    });
+  }
+  const colorFor = (estado) => ({ APROBADO:'#15803d', ENVIADO:'#2563eb', EN_REVISION:'#b45309', REQUIERE_CORRECCION:'#c2410c', REQUIERE_ESPECIALISTA:'#7e22ce', RECHAZADO:'#b91c1c', BORRADOR:'#6b7280', ARCHIVADO:'#374151' }[estado] || '#374151');
+  for(const d of trees){
+    const el = document.createElement('div');
+    el.style.cssText = `width:16px;height:16px;border-radius:50%;background:${colorFor(d.tree.estado)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);`;
+    const popup = new maplibregl.Popup({ offset: 12 }).setHTML(`<b>${escapeHtml(d.tree.codigo_visible)}</b><br>${ESTADO_LABEL[d.tree.estado]}<br>${escapeHtml(d.especie||'')}`);
+    new maplibregl.Marker({ element: el }).setLngLat([d.tree.lng, d.tree.lat]).setPopup(popup).addTo(map);
+  }
+}
+
+async function loadArboles(){
+  const { data, error } = await supabase.rpc('forest_list_all_trees');
+  allTrees = error ? [] : data;
+  renderArboles();
+}
+document.getElementById('buscarArbol').addEventListener('input', renderArboles);
+function renderArboles(){
+  const q = document.getElementById('buscarArbol').value.trim().toLowerCase();
+  const filtered = allTrees.filter(d => !q || d.tree.codigo_visible.toLowerCase().includes(q) || (d.especie||'').toLowerCase().includes(q) || (d.registrador_nombre||'').toLowerCase().includes(q));
+  const body = document.getElementById('arbolesBody');
+  if(!filtered.length){ body.innerHTML = '<tr><td colspan="6" class="hint">Sin resultados.</td></tr>'; return; }
+  body.innerHTML = filtered.map(d => `<tr>
+    <td>${escapeHtml(d.tree.codigo_visible)}</td><td>${escapeHtml(d.registrador_nombre||'—')}</td><td>${escapeHtml(d.especie||'—')}</td>
+    <td>${badgeHtml(d.tree.estado)}</td><td class="hint">${new Date(d.tree.created_at).toLocaleDateString('es-ES')}</td>
+    <td>${d.tree.estado==='APROBADO' ? `<button class="btn outline small" data-ficha="${escapeHtml(d.tree.codigo_visible)}">Ver ficha</button>` : ''}</td>
+  </tr>`).join('');
+  body.querySelectorAll('[data-ficha]').forEach(b => b.addEventListener('click', () => mostrarFicha(b.dataset.ficha)));
+}
+
+async function mostrarFicha(codigo){
+  const { data, error } = await supabase.rpc('forest_get_arbol_publico', { p_codigo: codigo });
+  const wrap = document.getElementById('fichaWrap');
+  if(error || !data){ wrap.innerHTML = '<div class="card">No se pudo cargar la ficha.</div>'; return; }
+  const verifyUrl = new URL('arbol.html', location.href).href + '?codigo=' + encodeURIComponent(codigo);
+  const qr = qrcode(0, 'M'); qr.addData(verifyUrl); qr.make();
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h3 style="margin:0;color:var(--primary);">${escapeHtml(data.codigo_visible)}</h3>
+        <button class="btn outline small" id="btnCerrarFicha">Cerrar</button>
+      </div>
+      <div class="row" style="align-items:flex-start;margin-top:10px;">
+        <div style="flex:1;min-width:200px;">
+          <div class="hint">Especie</div><b>${escapeHtml(data.especie||'—')}</b> <i class="hint">${escapeHtml(data.nombre_cientifico||'')}</i>
+          <div class="hint" style="margin-top:8px;">Altura / DAP</div><b>${data.altura_m??'—'} m / ${data.dap_cm??'—'} cm</b>
+          <div class="hint" style="margin-top:8px;">Ubicación aproximada</div><b>${data.lat_aprox}, ${data.lng_aprox}</b>
+          <div class="hint" style="margin-top:8px;">Registrado</div><b>${new Date(data.creado).toLocaleDateString('es-ES')}</b>
+          <div class="hint" style="margin-top:10px;">Enlace público: <a href="${verifyUrl}" target="_blank">${verifyUrl}</a></div>
+        </div>
+        <div>${qr.createImgTag(4, 8)}</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('btnCerrarFicha').addEventListener('click', () => { wrap.innerHTML = ''; });
+}
+
+async function loadUsuarios(){
+  const { data, error } = await supabase.rpc('forest_list_users');
+  const body = document.getElementById('usuariosBody');
+  if(error){ body.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
+  body.innerHTML = data.map(u => `<tr>
+    <td>${escapeHtml(u.nombre)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.rol)}</td>
+    <td><button class="toggle ${u.activo?'on':''}" data-uid="${u.id}" data-activo="${u.activo}"><span></span></button></td>
+  </tr>`).join('');
+  body.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', async () => {
+    const nuevo = t.dataset.activo !== 'true';
+    const { error } = await supabase.rpc('forest_set_user_active', { p_user_id: t.dataset.uid, p_activo: nuevo });
+    if(error){ alert('Error: ' + error.message); return; }
+    await loadUsuarios();
+  }));
+}
+
+document.getElementById('btnCrearUsuario').addEventListener('click', async () => {
+  const nombre = document.getElementById('nuevoNombre').value.trim();
+  const email = document.getElementById('nuevoEmail').value.trim();
+  const password = document.getElementById('nuevoPassword').value;
+  const rol = document.getElementById('nuevoRol').value;
+  const msg = document.getElementById('crearUsuarioMsg');
+  if(!nombre || !email || !password){ msg.textContent = 'Completa nombre, correo y contraseña.'; return; }
+  msg.textContent = 'Creando…';
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/forest-admin-users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_KEY },
+    body: JSON.stringify({ nombre, email, password, rol }),
+  });
+  const result = await res.json();
+  if(!res.ok){ msg.textContent = 'Error: ' + (result.error || res.status); return; }
+  msg.textContent = `Usuario creado: ${result.email}`;
+  document.getElementById('nuevoNombre').value = ''; document.getElementById('nuevoEmail').value = ''; document.getElementById('nuevoPassword').value = '';
+  await loadUsuarios();
+});
+
+async function loadEspecies(){
+  const { data, error } = await supabase.rpc('forest_list_species');
+  const body = document.getElementById('especiesBody');
+  if(error){ body.innerHTML = `<tr><td colspan="2">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
+  body.innerHTML = data.map(s => `<tr><td>${escapeHtml(s.nombre_comun)}</td><td><i>${escapeHtml(s.nombre_cientifico)}</i></td></tr>`).join('');
+}
+document.getElementById('btnAgregarEspecie').addEventListener('click', async () => {
+  const comun = document.getElementById('especieComun').value.trim();
+  const cientifico = document.getElementById('especieCientifico').value.trim();
+  if(!comun || !cientifico) return;
+  const { error } = await supabase.rpc('forest_upsert_species', { p_id: null, p_nombre_comun: comun, p_nombre_cientifico: cientifico, p_sinonimos: [] });
+  if(error){ alert('Error: ' + error.message); return; }
+  document.getElementById('especieComun').value=''; document.getElementById('especieCientifico').value='';
+  await loadEspecies();
+});
+
+async function loadAuditoria(){
+  const { data, error } = await supabase.rpc('forest_list_audit');
+  const body = document.getElementById('auditoriaBody');
+  if(error){ body.innerHTML = `<tr><td colspan="5">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
+  body.innerHTML = data.slice(0,200).map(a => `<tr><td>${escapeHtml(a.accion)}</td><td>${escapeHtml(a.estado_anterior||'—')}</td><td>${escapeHtml(a.estado_nuevo||'—')}</td><td>${escapeHtml(a.comentario||'')}</td><td class="hint">${new Date(a.created_at).toLocaleString('es-ES')}</td></tr>`).join('');
+}
+
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+}
+document.getElementById('btnExportCsv').addEventListener('click', async () => {
+  const { data } = await supabase.rpc('forest_list_all_trees');
+  const rows = (data||[]).map(d => d.tree);
+  if(!rows.length){ alert('Sin datos.'); return; }
+  const cols = Object.keys(rows[0]);
+  const csv = [cols.join(',')].concat(rows.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(','))).join('\n');
+  downloadFile('arboles.csv', csv, 'text/csv');
+});
+document.getElementById('btnExportJson').addEventListener('click', async () => {
+  const { data } = await supabase.rpc('forest_list_all_trees');
+  downloadFile('arboles.json', JSON.stringify(data, null, 2), 'application/json');
+});
+document.getElementById('btnExportAudit').addEventListener('click', async () => {
+  const { data } = await supabase.rpc('forest_list_audit');
+  downloadFile('auditoria.json', JSON.stringify(data, null, 2), 'application/json');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Registro Forestal Beta · Registrador</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#003629">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#003629; --primary-container:#1b4d3e; --on-primary:#ffffff; --on-primary-container:#9ed1bd;
+    --secondary-container:#dbe5e0; --surface:#ffffff; --surface-low:#f3f4f5; --surface-container:#edeeef;
+    --bg:#f8f9fa; --border:#c0c9c3; --text:#191c1d; --muted:#404945; --gold:#c9a227;
+    --azul:#2563eb; --azul-bg:#dbeafe; --ambar:#b45309; --ambar-bg:#fef3c7;
+    --naranja:#c2410c; --naranja-bg:#ffedd5; --morado:#7e22ce; --morado-bg:#f3e8ff;
+    --verde:#15803d; --verde-bg:#dcfce7; --rojo:#b91c1c; --rojo-bg:#fee2e2; --gris:#374151; --gris-bg:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Public Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle;font-size:20px;}
+  .hidden{display:none !important;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  /* Login */
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:linear-gradient(135deg,#f8f9fa 0%,#e1e3e4 100%);}
+  .login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:420px;width:100%;padding:32px 28px;box-shadow:0 4px 24px rgba(0,0,0,.06);}
+  .login-card h1{color:var(--primary);font-size:22px;margin:12px 0 2px;}
+  .login-card .sub{color:var(--muted);font-size:13.5px;margin-bottom:22px;}
+  .brand-icon{width:48px;height:48px;border-radius:50%;background:var(--primary-container);display:flex;align-items:center;justify-content:center;}
+  .brand-icon .material-symbols-outlined{color:var(--on-primary-container);font-size:26px;}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+  .field label{font-size:12.5px;color:var(--muted);font-weight:600;}
+  .field input{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;}
+  .field input:focus{outline:2px solid var(--primary-container);outline-offset:1px;}
+  .btn{border:1px solid var(--primary);background:var(--primary);color:#fff;border-radius:8px;padding:11px 16px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .btn.block{width:100%;}
+  .btn.outline{background:#fff;color:var(--primary);}
+  .btn.danger{background:#fff;color:var(--rojo);border-color:var(--rojo);}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:#20200a;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn.small{padding:6px 10px;font-size:12.5px;}
+  .hint{font-size:12px;color:var(--muted);}
+  .err{background:var(--rojo-bg);color:var(--rojo);padding:9px 12px;border-radius:8px;font-size:13px;margin-top:8px;}
+  .demo-hint{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center;}
+
+  /* App shell */
+  header.appbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:40;}
+  header.appbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);font-size:15px;}
+  main.appmain{max-width:760px;margin:0 auto;padding:16px 16px 90px;min-height:calc(100vh - 56px);}
+  nav.bottomnav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:40;}
+  nav.bottomnav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:10.5px;padding:6px 10px;border-radius:10px;}
+  nav.bottomnav button.active{color:var(--primary);background:var(--secondary-container);}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  h2.section-title{font-size:18px;color:var(--primary);margin:4px 0 4px;}
+  .bento{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0;}
+  .bento .card{margin:0;}
+  .kpi-num{font-size:30px;font-weight:700;color:var(--primary);}
+  .kpi-label{font-size:12px;color:var(--muted);}
+
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .badge .material-symbols-outlined{font-size:14px;}
+  .badge.BORRADOR{background:var(--gris-bg);color:var(--gris);}
+  .badge.ENVIADO{background:var(--azul-bg);color:var(--azul);}
+  .badge.EN_REVISION{background:var(--ambar-bg);color:var(--ambar);}
+  .badge.REQUIERE_CORRECCION{background:var(--naranja-bg);color:var(--naranja);}
+  .badge.REQUIERE_ESPECIALISTA{background:var(--morado-bg);color:var(--morado);}
+  .badge.APROBADO{background:var(--verde-bg);color:var(--verde);}
+  .badge.RECHAZADO{background:var(--rojo-bg);color:var(--rojo);}
+  .badge.ARCHIVADO{background:var(--gris-bg);color:var(--gris);}
+
+  .tree-item{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .tree-item:last-child{border-bottom:none;}
+  .tree-item img{width:52px;height:52px;object-fit:cover;border-radius:8px;background:var(--surface-container);}
+  .tree-item .thumb-placeholder{width:52px;height:52px;border-radius:8px;background:var(--surface-container);display:flex;align-items:center;justify-content:center;color:var(--muted);}
+  .tree-item .info{flex:1;min-width:0;}
+  .tree-item .info .cod{font-weight:600;font-size:14px;}
+  .tree-item .info .sub{font-size:12px;color:var(--muted);}
+
+  /* Wizard */
+  .progress-track{background:var(--surface-container);border-radius:6px;height:6px;overflow:hidden;flex:1;}
+  .progress-fill{background:var(--primary);height:100%;transition:width .3s;}
+  .photo-slot{border:2px dashed var(--border);border-radius:12px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:140px;text-align:center;position:relative;overflow:hidden;background:var(--surface);}
+  .photo-slot.filled{border-style:solid;border-color:var(--primary-container);padding:0;}
+  .photo-slot img{width:100%;height:140px;object-fit:cover;}
+  .photo-slot .retake{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:20px;padding:4px 10px;font-size:11px;}
+  .photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .condicion-chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{border:1px solid var(--border);background:#fff;border-radius:20px;padding:7px 14px;font-size:13px;}
+  .chip.selected{background:var(--primary-container);border-color:var(--primary-container);color:var(--on-primary-container);font-weight:600;}
+  .gps-box{display:flex;align-items:center;gap:14px;}
+  .gps-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+  .gps-dot.good{background:var(--verde);} .gps-dot.mid{background:var(--ambar);} .gps-dot.bad{background:var(--rojo);} .gps-dot.none{background:var(--border);}
+  .field-full{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;}
+  textarea.field-full{min-height:80px;resize:vertical;}
+  .ai-card{border-left:4px solid var(--primary-container);}
+  .conf-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
+  .conf-ring svg{transform:rotate(-90deg);}
+  .conf-ring .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--primary);}
+  .alt-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border);}
+  .warn-banner{display:flex;gap:10px;background:var(--ambar-bg);color:#5c3a00;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:10px;}
+  .summary-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+  .summary-row:last-child{border-bottom:none;}
+
+  @media (max-width:480px){ .photo-grid{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+
+<div id="loginView">
+  <div class="login-card">
+    <div class="brand-icon"><span class="material-symbols-outlined">forest</span></div>
+    <h1>Registro Forestal Beta</h1>
+    <div class="sub">Identidad digital y supervisión de árboles — acceso Registrador</div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">Correo</label>
+        <input type="email" id="loginEmail" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Contraseña</label>
+        <input type="password" id="loginPassword" required autocomplete="current-password">
+      </div>
+      <button class="btn block" type="submit">Ingresar <span class="material-symbols-outlined">login</span></button>
+      <div id="loginErr"></div>
+    </form>
+    <div class="demo-hint">
+      Cuenta demo: <b>registrador@demo.local</b> / <b>ForestalDemo2026!</b>
+      <div><button class="btn outline small" id="btnFillDemo" type="button" style="margin-top:8px;">Rellenar cuenta demo</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="appShell" class="hidden">
+  <header class="appbar">
+    <div class="brand"><span class="material-symbols-outlined">forest</span> Registro Forestal</div>
+    <button class="btn outline small" id="btnLogout">Salir</button>
+  </header>
+  <main class="appmain">
+
+    <section id="viewHome">
+      <h2 class="section-title" id="homeGreeting">Hola</h2>
+      <p class="hint">Resumen de tu actividad de registro.</p>
+      <div class="row" style="justify-content:flex-end;">
+        <button class="btn gold" id="btnNuevoDesdeHome"><span class="material-symbols-outlined">add</span> Nuevo registro</button>
+      </div>
+      <div class="bento" id="homeBento"></div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <b>Atención requerida</b>
+        </div>
+        <div id="homeAtencion"><p class="hint">Cargando…</p></div>
+      </div>
+    </section>
+
+    <section id="viewMisRegistros" class="hidden">
+      <h2 class="section-title">Mis registros</h2>
+      <div class="row">
+        <select id="filtroMisRegistros">
+          <option value="">Todos los estados</option>
+          <option value="BORRADOR">Borrador</option>
+          <option value="ENVIADO">Enviado</option>
+          <option value="EN_REVISION">En revisión</option>
+          <option value="REQUIERE_CORRECCION">Requiere corrección</option>
+          <option value="REQUIERE_ESPECIALISTA">Requiere especialista</option>
+          <option value="APROBADO">Aprobado</option>
+          <option value="RECHAZADO">Rechazado</option>
+        </select>
+      </div>
+      <div class="card" id="listaMisRegistros"></div>
+    </section>
+
+    <section id="viewDetalle" class="hidden">
+      <button class="btn outline small" id="btnVolverDesdeDetalle"><span class="material-symbols-outlined">arrow_back</span> Volver</button>
+      <div id="detalleContent"></div>
+    </section>
+
+    <section id="viewWizard" class="hidden">
+      <div class="row" style="margin-bottom:6px;">
+        <button class="btn outline small" id="btnSalirWizard"><span class="material-symbols-outlined">arrow_back</span> Volver</button>
+        <span class="hint" id="wizardCodigo" style="margin-left:auto;"></span>
+      </div>
+      <h2 class="section-title" id="wizardTitle">Nuevo registro</h2>
+      <div class="row">
+        <div class="progress-track"><div class="progress-fill" id="wizardProgress" style="width:20%;"></div></div>
+        <span class="hint" id="wizardStepLabel" style="white-space:nowrap;">Paso 1 de 5</span>
+      </div>
+      <div id="wizardStepContent" style="margin-top:14px;"></div>
+      <div class="row" style="margin-top:18px;justify-content:space-between;">
+        <button class="btn outline" id="btnWizardBack">Atrás</button>
+        <button class="btn" id="btnWizardNext">Siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
+      </div>
+    </section>
+
+  </main>
+  <nav class="bottomnav">
+    <button data-view="home" class="active"><span class="material-symbols-outlined">home</span>Inicio</button>
+    <button data-view="nuevo"><span class="material-symbols-outlined">add_circle</span>Registro</button>
+    <button data-view="mis"><span class="material-symbols-outlined">folder</span>Mis registros</button>
+  </nav>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const ESTADO_LABEL = { BORRADOR:'Borrador', ENVIADO:'Enviado', EN_REVISION:'En revisión', REQUIERE_CORRECCION:'Requiere corrección', REQUIERE_ESPECIALISTA:'Requiere especialista', APROBADO:'Aprobado', RECHAZADO:'Rechazado', ARCHIVADO:'Archivado' };
+const ESTADO_ICON = { BORRADOR:'edit', ENVIADO:'send', EN_REVISION:'search', REQUIERE_CORRECCION:'error', REQUIERE_ESPECIALISTA:'help', APROBADO:'check_circle', RECHAZADO:'cancel', ARCHIVADO:'archive' };
+function badgeHtml(estado){
+  return `<span class="badge ${estado}"><span class="material-symbols-outlined">${ESTADO_ICON[estado]||'info'}</span>${ESTADO_LABEL[estado]||estado}</span>`;
+}
+
+let profile = null;
+let project = null;
+let myTrees = [];
+
+// ---------- Auth ----------
+document.getElementById('btnFillDemo').addEventListener('click', () => {
+  document.getElementById('loginEmail').value = 'registrador@demo.local';
+  document.getElementById('loginPassword').value = 'ForestalDemo2026!';
+});
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.innerHTML = '';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error){ errEl.innerHTML = `<div class="err">${escapeHtml(error.message)}</div>`; return; }
+  await afterLogin();
+});
+
+document.getElementById('btnLogout').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  location.reload();
+});
+
+async function afterLogin(){
+  const { data, error } = await supabase.rpc('forest_get_my_profile');
+  profile = Array.isArray(data) ? data[0] : data;
+  if(error || !profile){ document.getElementById('loginErr').innerHTML = `<div class="err">No se pudo cargar el perfil.</div>`; await supabase.auth.signOut(); return; }
+  if(profile.rol !== 'registrador'){
+    document.getElementById('loginErr').innerHTML = `<div class="err">Esta cuenta tiene rol "${escapeHtml(profile.rol)}", no registrador.</div>`;
+    await supabase.auth.signOut(); return;
+  }
+  if(!profile.activo){
+    document.getElementById('loginErr').innerHTML = `<div class="err">Tu cuenta está desactivada. Contacta al administrador.</div>`;
+    await supabase.auth.signOut(); return;
+  }
+  const { data: proj } = await supabase.rpc('forest_get_default_project');
+  project = proj;
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  document.getElementById('homeGreeting').textContent = 'Hola, ' + profile.nombre;
+  await loadHome();
+}
+
+(async function init(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if(session) await afterLogin();
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+})();
+
+// ---------- Navegación ----------
+function showView(name){
+  ['Home','MisRegistros','Detalle','Wizard'].forEach(v => document.getElementById('view'+v).classList.add('hidden'));
+  const map = { home:'Home', mis:'MisRegistros', detalle:'Detalle', nuevo:'Wizard' };
+  document.getElementById('view'+map[name]).classList.remove('hidden');
+  document.querySelectorAll('nav.bottomnav button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+}
+document.querySelectorAll('nav.bottomnav button').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if(btn.dataset.view === 'nuevo'){ await startNewTree(); return; }
+    if(btn.dataset.view === 'mis'){ await loadMisRegistros(); }
+    if(btn.dataset.view === 'home'){ await loadHome(); }
+    showView(btn.dataset.view);
+  });
+});
+document.getElementById('btnNuevoDesdeHome').addEventListener('click', startNewTree);
+
+// ---------- Storage helper ----------
+async function signedUrl(path){
+  if(!path) return null;
+  const { data } = await supabase.storage.from('forest-photos').createSignedUrl(path, 3600);
+  return data?.signedUrl || null;
+}
+
+// ---------- Inicio ----------
+async function loadHome(){
+  const { data, error } = await supabase.rpc('forest_list_my_trees');
+  myTrees = error ? [] : data;
+  const counts = {};
+  for(const t of myTrees) counts[t.tree.estado] = (counts[t.tree.estado]||0) + 1;
+  const bento = document.getElementById('homeBento');
+  bento.innerHTML = `
+    <div class="card"><div class="kpi-num">${counts.APROBADO||0}</div><div class="kpi-label">Aprobados</div></div>
+    <div class="card"><div class="kpi-num">${(counts.ENVIADO||0)+(counts.EN_REVISION||0)}</div><div class="kpi-label">En revisión</div></div>
+    <div class="card"><div class="kpi-num">${counts.REQUIERE_CORRECCION||0}</div><div class="kpi-label">Devueltos</div></div>
+  `;
+  const atencion = myTrees.filter(t => t.tree.estado === 'REQUIERE_CORRECCION');
+  const wrap = document.getElementById('homeAtencion');
+  if(!atencion.length){ wrap.innerHTML = '<p class="hint">Nada pendiente por ahora.</p>'; return; }
+  wrap.innerHTML = '';
+  for(const item of atencion){
+    const el = document.createElement('div');
+    el.className = 'tree-item';
+    el.innerHTML = `<div class="thumb-placeholder"><span class="material-symbols-outlined">park</span></div>
+      <div class="info"><div class="cod">${escapeHtml(item.tree.codigo_visible)}</div><div class="sub">${escapeHtml(item.ultima_revision?.comentario || 'Requiere corrección')}</div></div>
+      ${badgeHtml(item.tree.estado)}`;
+    el.addEventListener('click', () => openDetalle(item.tree.id));
+    wrap.appendChild(el);
+  }
+}
+
+// ---------- Mis registros ----------
+document.getElementById('filtroMisRegistros').addEventListener('change', renderMisRegistros);
+async function loadMisRegistros(){
+  const { data, error } = await supabase.rpc('forest_list_my_trees');
+  myTrees = error ? [] : data;
+  renderMisRegistros();
+}
+function renderMisRegistros(){
+  const filtro = document.getElementById('filtroMisRegistros').value;
+  const wrap = document.getElementById('listaMisRegistros');
+  const filtered = myTrees.filter(t => !filtro || t.tree.estado === filtro);
+  if(!filtered.length){ wrap.innerHTML = '<p class="hint">Sin registros.</p>'; return; }
+  wrap.innerHTML = '';
+  for(const item of filtered){
+    const el = document.createElement('div');
+    el.className = 'tree-item';
+    el.innerHTML = `<div class="thumb-placeholder"><span class="material-symbols-outlined">park</span></div>
+      <div class="info"><div class="cod">${escapeHtml(item.tree.codigo_visible)}</div><div class="sub">${escapeHtml(item.tree.nombre_comun_declarado||'Sin especie tentativa')}</div></div>
+      ${badgeHtml(item.tree.estado)}`;
+    el.addEventListener('click', () => openDetalle(item.tree.id));
+    wrap.appendChild(el);
+    if(item.foto_principal){
+      signedUrl(item.foto_principal).then(url => { if(url){ const img = document.createElement('img'); img.src = url; el.replaceChild(img, el.firstChild); } });
+    }
+  }
+}
+
+// ---------- Detalle ----------
+document.getElementById('btnVolverDesdeDetalle').addEventListener('click', () => showView('home'));
+async function openDetalle(treeId){
+  const { data, error } = await supabase.rpc('forest_get_tree_detail', { p_tree_id: treeId });
+  if(error || !data){ alert('No se pudo cargar el detalle.'); return; }
+  const t = data.tree;
+  const content = document.getElementById('detalleContent');
+  content.innerHTML = `
+    <h2 class="section-title">${escapeHtml(t.codigo_visible)}</h2>
+    ${badgeHtml(t.estado)}
+    <div class="card" style="margin-top:12px;">
+      <div class="summary-row"><span>Especie tentativa</span><b>${escapeHtml(t.nombre_comun_declarado || '—')}</b></div>
+      <div class="summary-row"><span>Altura</span><b>${t.altura_m ?? '—'} m</b></div>
+      <div class="summary-row"><span>DAP</span><b>${t.dap_cm ?? '—'} cm</b></div>
+      <div class="summary-row"><span>Condición</span><b>${escapeHtml(t.condicion || '—')}</b></div>
+      <div class="summary-row"><span>Precisión GPS</span><b>${t.precision_m ?? '—'} m</b></div>
+      <div class="summary-row"><span>Observaciones</span><b>${escapeHtml(t.observaciones || '—')}</b></div>
+    </div>
+    <div class="card">
+      <b>Fotos</b>
+      <div class="photo-grid" id="detallePhotos" style="margin-top:8px;"></div>
+    </div>
+    ${data.reviews.length ? `<div class="card"><b>Revisión del supervisor</b>${data.reviews.map(r => `<div class="summary-row"><span>${escapeHtml(r.decision)}</span><span>${escapeHtml(r.comentario||'')}</span></div>`).join('')}</div>` : ''}
+    <div class="card">
+      <b>Historial</b>
+      ${data.audit.map(a => `<div class="summary-row"><span>${escapeHtml(a.accion)}</span><span class="hint">${new Date(a.created_at).toLocaleString('es-ES')}</span></div>`).join('')}
+    </div>
+    ${t.estado === 'REQUIERE_CORRECCION' ? `<button class="btn gold block" id="btnCorregir">Corregir y reenviar</button>` : ''}
+  `;
+  const photosWrap = document.getElementById('detallePhotos');
+  if(!data.photos.length) photosWrap.innerHTML = '<p class="hint">Sin fotos.</p>';
+  for(const p of data.photos){
+    const img = document.createElement('img');
+    img.style.cssText = 'width:100%;border-radius:8px;height:110px;object-fit:cover;';
+    signedUrl(p.storage_path).then(url => { if(url) img.src = url; });
+    photosWrap.appendChild(img);
+  }
+  if(t.estado === 'REQUIERE_CORRECCION'){
+    document.getElementById('btnCorregir').addEventListener('click', () => resumeWizard(data));
+  }
+  showView('detalle');
+}
+
+// ---------- Wizard ----------
+const WIZARD_STEPS = ['fotos','ubicacion','mediciones','ia','revision'];
+let wizardStep = 0;
+let wizardTree = null; // fila actual de forest_trees
+let wizardPhotos = {}; // tipo -> { dataUrl, uploaded: bool, path }
+let wizardAiResult = null;
+
+async function startNewTree(){
+  const { data, error } = await supabase.rpc('forest_create_tree_draft', { p_project_id: project.id });
+  if(error){ alert('No se pudo crear el registro: ' + error.message); return; }
+  wizardTree = data;
+  wizardPhotos = {};
+  wizardAiResult = null;
+  wizardStep = 0;
+  document.getElementById('wizardTitle').textContent = 'Nuevo registro';
+  document.getElementById('wizardCodigo').textContent = data.codigo_visible;
+  showView('nuevo');
+  renderWizardStep();
+}
+
+async function resumeWizard(detailData){
+  wizardTree = detailData.tree;
+  wizardPhotos = {};
+  for(const p of detailData.photos){ wizardPhotos[p.tipo] = { uploaded: true, path: p.storage_path }; }
+  for(const p of detailData.photos){ signedUrl(p.storage_path).then(u => { if(u) wizardPhotos[p.tipo].dataUrl = u; }); }
+  wizardAiResult = detailData.predictions?.[0] || null;
+  wizardStep = 0;
+  document.getElementById('wizardTitle').textContent = 'Corregir registro';
+  document.getElementById('wizardCodigo').textContent = wizardTree.codigo_visible;
+  showView('nuevo');
+  renderWizardStep();
+}
+
+document.getElementById('btnSalirWizard').addEventListener('click', () => { showView('home'); loadHome(); });
+
+function fitFontNA(){} // no-op placeholder (mantiene paridad de nombres con otras apps del repo)
+
+function renderWizardStep(){
+  const name = WIZARD_STEPS[wizardStep];
+  document.getElementById('wizardProgress').style.width = ((wizardStep+1)/WIZARD_STEPS.length*100) + '%';
+  document.getElementById('wizardStepLabel').textContent = `Paso ${wizardStep+1} de ${WIZARD_STEPS.length}`;
+  document.getElementById('btnWizardBack').style.visibility = wizardStep === 0 ? 'hidden' : 'visible';
+  document.getElementById('btnWizardNext').textContent = name === 'revision' ? 'Enviar registro' : 'Siguiente';
+  const wrap = document.getElementById('wizardStepContent');
+
+  if(name === 'fotos'){
+    const slots = [
+      { tipo:'arbol_completo', label:'Árbol completo', req:true },
+      { tipo:'hoja', label:'Hoja', req:true },
+      { tipo:'corteza', label:'Corteza', req:true },
+      { tipo:'flor_fruto', label:'Flor o fruto (opcional)', req:false },
+    ];
+    wrap.innerHTML = `<p class="hint">Toma fotos claras y bien iluminadas. Se requieren al menos árbol completo, hoja y corteza.</p>
+      <div class="photo-grid">${slots.map(s => `
+        <div>
+          <div class="photo-slot ${wizardPhotos[s.tipo] ? 'filled':''}" data-tipo="${s.tipo}">
+            ${wizardPhotos[s.tipo]?.dataUrl ? `<img src="${wizardPhotos[s.tipo].dataUrl}"><button class="retake" data-retake="${s.tipo}">Repetir</button>` : `
+              <span class="material-symbols-outlined" style="font-size:32px;color:var(--muted);">photo_camera</span>
+              <span style="font-size:12.5px;margin-top:6px;">${s.label}${s.req?' *':''}</span>
+            `}
+          </div>
+          <input type="file" accept="image/*" capture="environment" data-input="${s.tipo}" class="hidden">
+        </div>
+      `).join('')}</div>`;
+    wrap.querySelectorAll('.photo-slot').forEach(slot => {
+      slot.addEventListener('click', (e) => {
+        if(e.target.closest('[data-retake]')) return;
+        wrap.querySelector(`[data-input="${slot.dataset.tipo}"]`).click();
+      });
+    });
+    wrap.querySelectorAll('[data-retake]').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      wrap.querySelector(`[data-input="${b.dataset.retake}"]`).click();
+    }));
+    wrap.querySelectorAll('[data-input]').forEach(inp => inp.addEventListener('change', (e) => handlePhotoCapture(inp.dataset.input, e.target.files[0])));
+  }
+
+  if(name === 'ubicacion'){
+    const t = wizardTree;
+    const prec = t.precision_m;
+    const cls = prec == null ? 'none' : prec <= 5 ? 'good' : prec <= 15 ? 'mid' : 'bad';
+    wrap.innerHTML = `<p class="hint">Captura la ubicación GPS desde donde estás parado frente al árbol.</p>
+      <div class="card gps-box">
+        <div class="gps-dot ${cls}"></div>
+        <div style="flex:1;">
+          <div>${t.lat != null ? t.lat.toFixed(5)+', '+t.lng.toFixed(5) : 'Sin ubicación capturada'}</div>
+          <div class="hint">Precisión: ${prec != null ? prec+' m' : '—'}</div>
+        </div>
+        <button class="btn outline small" id="btnGps">Actualizar ubicación</button>
+      </div>`;
+    document.getElementById('btnGps').addEventListener('click', () => {
+      const b = document.getElementById('btnGps'); b.textContent = 'Obteniendo…'; b.disabled = true;
+      navigator.geolocation.getCurrentPosition((pos) => {
+        wizardTree.lat = pos.coords.latitude; wizardTree.lng = pos.coords.longitude; wizardTree.precision_m = Math.round(pos.coords.accuracy);
+        renderWizardStep();
+      }, (err) => { alert('No se pudo obtener ubicación: ' + err.message); b.textContent = 'Actualizar ubicación'; b.disabled = false; }, { enableHighAccuracy: true, timeout: 15000 });
+    });
+  }
+
+  if(name === 'mediciones'){
+    const t = wizardTree;
+    const condiciones = [['sano','Sano'],['danado','Dañado'],['seco','Seco'],['muerto','Muerto'],['no_determinado','No determinado']];
+    wrap.innerHTML = `
+      <div class="field"><label>Altura estimada (m)</label><input type="number" step="0.1" id="mAltura" class="field-full" value="${t.altura_m ?? ''}"></div>
+      <div class="field"><label>Circunferencia o DAP (cm)</label><input type="number" step="0.1" id="mDap" class="field-full" value="${t.dap_cm ?? ''}"></div>
+      <div class="field"><label>Diámetro de copa (m, opcional)</label><input type="number" step="0.1" id="mCopa" class="field-full" value="${t.diametro_copa_m ?? ''}"></div>
+      <div class="field"><label>Condición visible</label>
+        <div class="condicion-chips">${condiciones.map(([v,l]) => `<button type="button" class="chip ${t.condicion===v?'selected':''}" data-cond="${v}">${l}</button>`).join('')}</div>
+      </div>
+      <div class="field"><label>Nombre común (tentativo)</label><input type="text" id="mNombre" class="field-full" value="${escapeHtml(t.nombre_comun_declarado||'')}"></div>
+      <div class="field"><label>Observaciones</label><textarea id="mObs" class="field-full">${escapeHtml(t.observaciones||'')}</textarea></div>
+    `;
+    let condSel = t.condicion;
+    wrap.querySelectorAll('[data-cond]').forEach(b => b.addEventListener('click', () => {
+      condSel = b.dataset.cond;
+      wrap.querySelectorAll('[data-cond]').forEach(x => x.classList.toggle('selected', x===b));
+    }));
+    wrap.dataset.getCond = '1';
+    wrap._getCondicion = () => condSel;
+  }
+
+  if(name === 'ia'){
+    wrap.innerHTML = `<div class="card"><p class="hint">Analizando fotos…</p></div>`;
+    runAiRecognition();
+  }
+
+  if(name === 'revision'){
+    const t = wizardTree;
+    wrap.innerHTML = `
+      <div class="card"><b>Fotos</b><div class="photo-grid" style="margin-top:8px;">
+        ${['arbol_completo','hoja','corteza','flor_fruto'].filter(k=>wizardPhotos[k]?.dataUrl).map(k=>`<img src="${wizardPhotos[k].dataUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;">`).join('')}
+      </div></div>
+      <div class="card">
+        <div class="summary-row"><span>Ubicación</span><b>${t.lat!=null?t.lat.toFixed(5)+', '+t.lng.toFixed(5):'—'} (±${t.precision_m??'?'} m)</b></div>
+        <div class="summary-row"><span>Altura</span><b>${t.altura_m??'—'} m</b></div>
+        <div class="summary-row"><span>DAP</span><b>${t.dap_cm??'—'} cm</b></div>
+        <div class="summary-row"><span>Condición</span><b>${escapeHtml(t.condicion||'—')}</b></div>
+        <div class="summary-row"><span>Especie tentativa</span><b>${escapeHtml(t.nombre_comun_declarado||'No identificada')}</b></div>
+      </div>
+      <p class="hint">Al enviar, tu supervisor recibirá este registro para revisión.</p>
+    `;
+  }
+}
+
+async function handlePhotoCapture(tipo, file){
+  if(!file) return;
+  const img = new Image();
+  const reader = new FileReader();
+  reader.onload = () => { img.src = reader.result; };
+  reader.readAsDataURL(file);
+  await new Promise(res => { img.onload = res; });
+  const maxDim = 1280;
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+  wizardPhotos[tipo] = { dataUrl, uploaded: false };
+  renderWizardStep();
+
+  const blob = await (await fetch(dataUrl)).blob();
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+  const hash = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2,'0')).join('');
+  const path = `${wizardTree.id}/${tipo}_${Date.now()}.jpg`;
+  const { error: upErr } = await supabase.storage.from('forest-photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if(upErr){ alert('No se pudo subir la foto: ' + upErr.message); return; }
+  const { error: rpcErr } = await supabase.rpc('forest_add_tree_photo', { p_tree_id: wizardTree.id, p_tipo: tipo, p_storage_path: path, p_hash: hash });
+  if(rpcErr){ alert('No se pudo registrar la foto: ' + rpcErr.message); return; }
+  wizardPhotos[tipo].uploaded = true;
+  wizardPhotos[tipo].path = path;
+}
+
+async function runAiRecognition(){
+  const images = ['arbol_completo','hoja','corteza','flor_fruto']
+    .filter(k => wizardPhotos[k]?.dataUrl)
+    .map(k => wizardPhotos[k].dataUrl.split(',')[1]);
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session.access_token;
+  let result;
+  try{
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/forest-ai-recognize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ images }),
+    });
+    result = await res.json();
+  }catch(e){
+    result = { provider:'mock', modelVersion:'n/a', commonName:null, scientificName:null, confidence:0, alternatives:[], visibleCharacteristics:[], requiresHumanReview:true, warnings:['Reconocimiento no disponible.'] };
+  }
+  wizardAiResult = result;
+  await supabase.rpc('forest_save_ai_prediction', {
+    p_tree_id: wizardTree.id, p_provider: result.provider, p_model_version: result.modelVersion,
+    p_common_name: result.commonName, p_scientific_name: result.scientificName, p_confidence: result.confidence,
+    p_alternatives: result.alternatives, p_visible_characteristics: result.visibleCharacteristics,
+    p_requires_human_review: true, p_warnings: result.warnings,
+  });
+  renderAiResult();
+}
+
+function renderAiResult(){
+  const wrap = document.getElementById('wizardStepContent');
+  const r = wizardAiResult;
+  if(!r || !r.commonName){
+    wrap.innerHTML = `<div class="warn-banner"><span class="material-symbols-outlined">info</span><div>Reconocimiento no disponible. Puedes continuar y elegir la especie tentativa manualmente o marcarla como "No identificada".</div></div>
+      <div class="row" style="margin-top:12px;"><button class="btn outline block" id="btnSinIdentificar">Marcar como No identificada</button></div>`;
+    document.getElementById('btnSinIdentificar').addEventListener('click', () => { wizardTree.nombre_comun_declarado = 'No identificada'; wizardTree.nombre_cientifico_tentativo = null; wizardStep++; renderWizardStep(); });
+    return;
+  }
+  const pct = Math.round(r.confidence * 100);
+  const circ = 2 * Math.PI * 24;
+  const offset = circ - (pct/100) * circ;
+  wrap.innerHTML = `
+    <div class="card ai-card">
+      <div class="row" style="align-items:flex-start;">
+        <div style="flex:1;">
+          <div class="hint">Sugerencia principal (IA)</div>
+          <div style="font-size:19px;font-weight:700;color:var(--primary);">${escapeHtml(r.commonName)}</div>
+          <div class="hint" style="font-style:italic;">${escapeHtml(r.scientificName||'')}</div>
+        </div>
+        <div class="conf-ring">
+          <svg width="56" height="56"><circle cx="28" cy="28" r="24" stroke="#e1e3e4" stroke-width="6" fill="none"/><circle cx="28" cy="28" r="24" stroke="#003629" stroke-width="6" fill="none" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"/></svg>
+          <div class="pct">${pct}%</div>
+        </div>
+      </div>
+      ${r.visibleCharacteristics?.length ? `<div style="margin-top:10px;">${r.visibleCharacteristics.map(c=>`<span class="chip" style="margin:2px;">${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+      <div class="warn-banner"><span class="material-symbols-outlined">info</span><div>Sugerencia automatizada — requiere revisión humana.</div></div>
+      ${r.warnings?.length ? `<div class="hint" style="margin-top:6px;">${r.warnings.map(escapeHtml).join(' ')}</div>` : ''}
+      <div class="row" style="margin-top:12px;">
+        <button class="btn outline" id="btnNoIdent">No identificada</button>
+        <button class="btn" id="btnConfirmarEspecie" style="flex:1;">Confirmar especie sugerida</button>
+      </div>
+    </div>
+    ${r.alternatives?.length ? `<div class="card"><b>Otras posibles coincidencias</b>${r.alternatives.map(a=>`<div class="alt-row"><span>${escapeHtml(a.commonName||a.scientificName)}</span><span class="hint">${Math.round((a.confidence||0)*100)}%</span></div>`).join('')}</div>` : ''}
+  `;
+  document.getElementById('btnConfirmarEspecie').addEventListener('click', () => { wizardTree.nombre_comun_declarado = r.commonName; wizardTree.nombre_cientifico_tentativo = r.scientificName; wizardStep++; renderWizardStep(); });
+  document.getElementById('btnNoIdent').addEventListener('click', () => { wizardTree.nombre_comun_declarado = 'No identificada'; wizardTree.nombre_cientifico_tentativo = null; wizardStep++; renderWizardStep(); });
+}
+
+document.getElementById('btnWizardBack').addEventListener('click', () => { if(wizardStep>0){ wizardStep--; renderWizardStep(); } });
+document.getElementById('btnWizardNext').addEventListener('click', async () => {
+  const name = WIZARD_STEPS[wizardStep];
+  const wrap = document.getElementById('wizardStepContent');
+
+  if(name === 'fotos'){
+    if(!wizardPhotos.arbol_completo || !wizardPhotos.hoja || !wizardPhotos.corteza){
+      alert('Faltan fotos obligatorias: árbol completo, hoja y corteza.'); return;
+    }
+  }
+  if(name === 'mediciones'){
+    wizardTree.altura_m = parseFloat(document.getElementById('mAltura').value) || null;
+    wizardTree.dap_cm = parseFloat(document.getElementById('mDap').value) || null;
+    wizardTree.diametro_copa_m = parseFloat(document.getElementById('mCopa').value) || null;
+    wizardTree.condicion = wrap._getCondicion ? wrap._getCondicion() : wizardTree.condicion;
+    wizardTree.nombre_comun_declarado = document.getElementById('mNombre').value.trim() || null;
+    wizardTree.observaciones = document.getElementById('mObs').value.trim() || null;
+    const { error } = await supabase.rpc('forest_update_tree_draft', {
+      p_tree_id: wizardTree.id, p_lat: wizardTree.lat, p_lng: wizardTree.lng, p_precision_m: wizardTree.precision_m,
+      p_altura_m: wizardTree.altura_m, p_dap_cm: wizardTree.dap_cm, p_diametro_copa_m: wizardTree.diametro_copa_m,
+      p_condicion: wizardTree.condicion, p_observaciones: wizardTree.observaciones,
+      p_nombre_comun_declarado: wizardTree.nombre_comun_declarado, p_nombre_cientifico_tentativo: wizardTree.nombre_cientifico_tentativo,
+    });
+    if(error){ alert('No se pudo guardar: ' + error.message); return; }
+  }
+  if(name === 'ubicacion'){
+    if(wizardTree.lat == null){ if(!confirm('No has capturado ubicación GPS. ¿Continuar de todas formas?')) return; }
+    await supabase.rpc('forest_update_tree_draft', { p_tree_id: wizardTree.id, p_lat: wizardTree.lat, p_lng: wizardTree.lng, p_precision_m: wizardTree.precision_m });
+  }
+  if(name === 'ia'){
+    if(!wizardAiResult){ alert('Espera a que termine el análisis o continúa cuando esté listo.'); return; }
+  }
+  if(name === 'revision'){
+    if(!confirm('¿Enviar este registro para revisión del supervisor?')) return;
+    const { error } = await supabase.rpc('forest_submit_tree', { p_tree_id: wizardTree.id });
+    if(error){ alert('No se pudo enviar: ' + error.message); return; }
+    alert('Registro enviado. Código: ' + wizardTree.codigo_visible);
+    await loadHome();
+    showView('home');
+    return;
+  }
+  wizardStep++;
+  renderWizardStep();
+});
+</script>
+</body>
+</html>

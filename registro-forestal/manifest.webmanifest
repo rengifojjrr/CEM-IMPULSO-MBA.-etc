@@ -1,0 +1,14 @@
+{
+  "name": "Registro Forestal Beta",
+  "short_name": "Reg. Forestal",
+  "description": "Identidad digital y supervisión de árboles — piloto Parque del Este",
+  "start_url": "./registrador.html",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#003629",
+  "lang": "es",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
