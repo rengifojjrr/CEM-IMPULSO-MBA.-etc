@@ -47,11 +47,13 @@
   header.appbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:40;}
   header.appbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);font-size:15px;}
   .layout{display:flex;min-height:calc(100vh - 56px);}
-  nav.sidenav{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 0;overflow-y:auto;}
-  nav.sidenav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:11px 20px;font-size:13.5px;color:var(--muted);}
-  nav.sidenav button.active{background:var(--secondary-container);color:var(--primary);font-weight:700;border-radius:0 20px 20px 0;}
+  nav.sidenav{width:216px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:16px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;}
+  nav.sidenav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;padding:10px 14px;font-size:13.5px;color:var(--muted);border-radius:10px;transition:background .15s,color .15s;}
+  nav.sidenav button:hover{background:var(--surface-container);}
+  nav.sidenav button.active{background:var(--primary-container);color:#fff;font-weight:700;}
+  nav.sidenav button.active .material-symbols-outlined{color:#fff;}
   main.appmain{flex:1;padding:20px;max-width:1200px;}
-  @media (max-width:760px){ nav.sidenav{width:60px;} nav.sidenav button span:last-child{display:none;} }
+  @media (max-width:760px){ nav.sidenav{width:60px;padding:16px 8px;} nav.sidenav button{justify-content:center;padding:10px;} nav.sidenav button span:last-child{display:none;} }
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
@@ -67,13 +69,24 @@
   .badge.RECHAZADO{background:var(--rojo-bg);color:var(--rojo);} .badge.ARCHIVADO{background:var(--gris-bg);color:var(--gris);}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
-  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
   th{color:var(--muted);font-size:11px;text-transform:uppercase;}
+  tr.clickable{cursor:pointer;} tr.clickable:hover{background:var(--surface-container);}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   #mapContainer{width:100%;height:420px;border-radius:12px;overflow:hidden;}
   .toggle{width:38px;height:22px;border-radius:12px;position:relative;border:none;background:var(--border);flex-shrink:0;}
   .toggle.on{background:var(--verde);}
   .toggle span{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;}
   .toggle.on span{left:18px;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:100;overflow-y:auto;}
+  .modal-box{background:#fff;border-radius:14px;max-width:640px;width:100%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.25);}
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
+  .photo-grid img{width:100%;height:100px;object-fit:cover;border-radius:8px;}
+  .mapa-item{border-bottom:1px solid var(--border);padding:8px 0;cursor:pointer;}
+  .mapa-item:last-child{border-bottom:none;}
+  .mapa-item:hover{background:var(--surface-container);}
+  .field-full{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;}
+  textarea.field-full{min-height:70px;resize:vertical;}
 </style>
 </head>
 <body>
@@ -120,14 +133,30 @@
 
       <section id="viewMapa" class="hidden">
         <h2 class="section-title">Mapa general</h2>
-        <div id="mapContainer"></div>
+        <div class="row" style="margin-bottom:10px;">
+          <input type="search" id="buscarMapaAdmin" class="field-full" placeholder="Buscar por código o especie…" style="flex:1;min-width:180px;">
+          <select id="filtroMapaAdminEstado" class="field-full" style="width:auto;">
+            <option value="">Todos los estados</option>
+            <option value="BORRADOR">Borrador</option>
+            <option value="ENVIADO">Enviado</option>
+            <option value="EN_REVISION">En revisión</option>
+            <option value="REQUIERE_CORRECCION">Requiere corrección</option>
+            <option value="REQUIERE_ESPECIALISTA">Requiere especialista</option>
+            <option value="APROBADO">Aprobado</option>
+            <option value="RECHAZADO">Rechazado</option>
+            <option value="ARCHIVADO">Archivado</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <div id="mapContainer" style="flex:2 1 300px;"></div>
+          <div class="card" id="mapaAdminListaWrap" style="flex:1 1 220px;max-height:420px;overflow-y:auto;"></div>
+        </div>
       </section>
 
       <section id="viewArboles" class="hidden">
         <h2 class="section-title">Árboles</h2>
         <div class="row"><input type="text" id="buscarArbol" placeholder="Buscar por código, especie o registrador…" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
-        <div class="card"><table><thead><tr><th>Código</th><th>Registrador</th><th>Especie</th><th>Estado</th><th>Fecha</th><th></th></tr></thead><tbody id="arbolesBody"></tbody></table></div>
-        <div id="fichaWrap"></div>
+        <div class="card table-scroll"><table><thead><tr><th>Código</th><th>Registrador</th><th>Especie</th><th>Estado</th><th>Fecha</th><th></th></tr></thead><tbody id="arbolesBody"></tbody></table></div>
       </section>
 
       <section id="viewUsuarios" class="hidden">
@@ -147,24 +176,37 @@
           </div>
           <div id="crearUsuarioMsg" class="hint" style="margin-top:6px;"></div>
         </div>
-        <div class="card"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Activo</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
+        <div class="card table-scroll"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Cédula</th><th>Teléfono</th><th>Estado</th><th>Activo</th></tr></thead><tbody id="usuariosBody"></tbody></table></div>
       </section>
 
       <section id="viewEspecies" class="hidden">
         <h2 class="section-title">Catálogo de especies</h2>
         <div class="card">
-          <div class="row">
+          <b>Solicitudes de nueva especie</b>
+          <div id="solicitudesEspecieBody" style="margin-top:8px;"><p class="hint">Cargando…</p></div>
+        </div>
+        <div class="card">
+          <b id="especieFormTitle">Agregar especie</b>
+          <div class="row" style="margin-top:8px;">
             <input type="text" id="especieComun" placeholder="Nombre común" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
             <input type="text" id="especieCientifico" placeholder="Nombre científico" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
-            <button class="btn" id="btnAgregarEspecie">+ Agregar</button>
+          </div>
+          <textarea id="especieDescripcion" class="field-full" style="margin-top:8px;" placeholder="Descripción (rasgos distintivos de corteza, hojas, flor o fruto…)"></textarea>
+          <div class="row" style="margin-top:8px;">
+            <input type="file" id="especieFotos" accept="image/*" multiple>
+          </div>
+          <div id="especieFotosPreview" class="row" style="margin-top:8px;"></div>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn" id="btnAgregarEspecie">+ Guardar especie</button>
+            <button type="button" class="btn outline hidden" id="btnCancelarEdicionEspecie">Cancelar edición</button>
           </div>
         </div>
-        <div class="card"><table><thead><tr><th>Nombre común</th><th>Nombre científico</th></tr></thead><tbody id="especiesBody"></tbody></table></div>
+        <div class="card table-scroll"><table><thead><tr><th></th><th>Nombre común</th><th>Nombre científico</th><th>Descripción</th><th></th></tr></thead><tbody id="especiesBody"></tbody></table></div>
       </section>
 
       <section id="viewAuditoria" class="hidden">
         <h2 class="section-title">Auditoría</h2>
-        <div class="card"><table><thead><tr><th>Acción</th><th>Estado anterior</th><th>Estado nuevo</th><th>Comentario</th><th>Fecha</th></tr></thead><tbody id="auditoriaBody"></tbody></table></div>
+        <div class="card table-scroll"><table><thead><tr><th>Acción</th><th>Estado anterior</th><th>Estado nuevo</th><th>Comentario</th><th>Fecha</th></tr></thead><tbody id="auditoriaBody"></tbody></table></div>
       </section>
 
       <section id="viewExportar" class="hidden">
@@ -176,6 +218,16 @@
         </div>
       </section>
     </main>
+  </div>
+</div>
+
+<div id="fichaModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="row" style="justify-content:space-between;">
+      <h3 id="fichaModalTitle" style="margin:0;color:var(--primary);"></h3>
+      <button class="btn outline small" id="btnCerrarFichaModal">Cerrar</button>
+    </div>
+    <div id="fichaModalBody"></div>
   </div>
 </div>
 
@@ -238,10 +290,57 @@ document.querySelectorAll('nav.sidenav button').forEach(btn => {
     if(btn.dataset.view==='mapa') await loadMapa();
     if(btn.dataset.view==='arboles') await loadArboles();
     if(btn.dataset.view==='usuarios') await loadUsuarios();
-    if(btn.dataset.view==='especies') await loadEspecies();
+    if(btn.dataset.view==='especies'){ await loadEspecies(); await loadSolicitudesEspecie(); }
     if(btn.dataset.view==='auditoria') await loadAuditoria();
   });
 });
+
+// ---------- Ficha modal (info completa del árbol) ----------
+document.getElementById('btnCerrarFichaModal').addEventListener('click', () => {
+  document.getElementById('fichaModal').classList.add('hidden');
+});
+async function abrirFichaArbol(treeId){
+  const { data, error } = await supabase.rpc('forest_get_tree_detail', { p_tree_id: treeId });
+  if(error || !data){ alert('No se pudo cargar la información del árbol.'); return; }
+  const t = data.tree;
+  document.getElementById('fichaModalTitle').textContent = t.codigo_visible;
+  const body = document.getElementById('fichaModalBody');
+  body.innerHTML = `
+    <div style="margin:8px 0;">${badgeHtml(t.estado)}</div>
+    <div class="photo-grid" id="fichaModalPhotos" style="margin-bottom:12px;"></div>
+    <div class="row"><span class="hint">Especie declarada</span><b>${escapeHtml(t.nombre_comun_declarado||'—')}</b></div>
+    <div class="row"><span class="hint">Especie confirmada</span><b>${data.especie_confirmada ? escapeHtml(data.especie_confirmada.nombre_comun) : '—'}</b></div>
+    <div class="row"><span class="hint">Registrador</span><b>${escapeHtml(data.registrador_nombre||'—')}</b></div>
+    <div class="row"><span class="hint">Altura / DAP</span><b>${t.altura_m??'—'} m / ${t.dap_cm??'—'} cm</b></div>
+    <div class="row"><span class="hint">Condición</span><b>${escapeHtml(t.condicion||'—')}</b></div>
+    <div class="row"><span class="hint">Ubicación GPS</span><b>${t.lat!=null ? t.lat.toFixed(5)+', '+t.lng.toFixed(5) : '—'} (±${t.precision_m??'?'} m)</b></div>
+    <div class="row"><span class="hint">Observaciones</span><b>${escapeHtml(t.observaciones||'—')}</b></div>
+    ${data.reviews?.length ? `<div style="margin-top:10px;"><b class="hint">Revisiones</b>${data.reviews.map(r=>`<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:4px 0;"><span>${escapeHtml(r.decision)}</span><span class="hint">${escapeHtml(r.comentario||'')}</span></div>`).join('')}</div>` : ''}
+    <div id="fichaModalPublico" style="margin-top:14px;"></div>
+  `;
+  const photosWrap = document.getElementById('fichaModalPhotos');
+  if(!data.photos?.length){ photosWrap.innerHTML = '<p class="hint">Sin fotos.</p>'; }
+  for(const p of (data.photos||[])){
+    const img = document.createElement('img');
+    supabase.storage.from('forest-photos').createSignedUrl(p.storage_path, 3600).then(({data:s}) => { if(s?.signedUrl) img.src = s.signedUrl; });
+    photosWrap.appendChild(img);
+  }
+  if(t.estado === 'APROBADO'){
+    const { data: publico } = await supabase.rpc('forest_get_arbol_publico', { p_codigo: t.codigo_visible });
+    if(publico?.codigo_visible){
+      const verifyUrl = new URL('arbol.html', location.href).href + '?codigo=' + encodeURIComponent(t.codigo_visible);
+      const qr = qrcode(0, 'M'); qr.addData(verifyUrl); qr.make();
+      document.getElementById('fichaModalPublico').innerHTML = `
+        <div class="hint">Ficha pública (QR)</div>
+        <div class="row" style="align-items:flex-start;margin-top:6px;">
+          <div>${qr.createImgTag(3, 6)}</div>
+          <div class="hint">Enlace: <a href="${verifyUrl}" target="_blank">${verifyUrl}</a></div>
+        </div>
+      `;
+    }
+  }
+  document.getElementById('fichaModal').classList.remove('hidden');
+}
 
 async function loadDashboard(){
   const { data, error } = await supabase.rpc('forest_dashboard_metrics');
@@ -259,10 +358,12 @@ async function loadDashboard(){
   porEstado.innerHTML = Object.entries(data.por_estado||{}).map(([estado, n]) => `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0;">${badgeHtml(estado)}<b>${n}</b></div>`).join('') || '<p class="hint">Sin datos.</p>';
 }
 
+let mapaAdminMarkers = [];
+document.getElementById('buscarMapaAdmin').addEventListener('input', renderMapaAdmin);
+document.getElementById('filtroMapaAdminEstado').addEventListener('change', renderMapaAdmin);
 async function loadMapa(){
   const { data } = await supabase.rpc('forest_list_all_trees');
   allTrees = data || [];
-  const trees = allTrees.filter(d => d.tree.lat != null);
   if(!map){
     map = new maplibregl.Map({
       container: 'mapContainer',
@@ -270,12 +371,44 @@ async function loadMapa(){
       center: [-66.857, 10.499], zoom: 14,
     });
   }
-  const colorFor = (estado) => ({ APROBADO:'#15803d', ENVIADO:'#2563eb', EN_REVISION:'#b45309', REQUIERE_CORRECCION:'#c2410c', REQUIERE_ESPECIALISTA:'#7e22ce', RECHAZADO:'#b91c1c', BORRADOR:'#6b7280', ARCHIVADO:'#374151' }[estado] || '#374151');
-  for(const d of trees){
+  renderMapaAdmin();
+}
+function colorForEstado(estado){ return { APROBADO:'#15803d', ENVIADO:'#2563eb', EN_REVISION:'#b45309', REQUIERE_CORRECCION:'#c2410c', REQUIERE_ESPECIALISTA:'#7e22ce', RECHAZADO:'#b91c1c', BORRADOR:'#6b7280', ARCHIVADO:'#374151' }[estado] || '#374151'; }
+function renderMapaAdmin(){
+  if(!map) return;
+  const q = document.getElementById('buscarMapaAdmin').value.trim().toLowerCase();
+  const filtroEstado = document.getElementById('filtroMapaAdminEstado').value;
+  const trees = allTrees.filter(d => d.tree.lat != null);
+  const filtered = trees.filter(d => {
+    if(filtroEstado && d.tree.estado !== filtroEstado) return false;
+    if(q){
+      const hay = (d.tree.codigo_visible||'').toLowerCase().includes(q)
+        || (d.tree.nombre_comun_declarado||'').toLowerCase().includes(q)
+        || (d.especie||'').toLowerCase().includes(q);
+      if(!hay) return false;
+    }
+    return true;
+  });
+  mapaAdminMarkers.forEach(m => m.remove());
+  mapaAdminMarkers = [];
+  for(const d of filtered){
     const el = document.createElement('div');
-    el.style.cssText = `width:16px;height:16px;border-radius:50%;background:${colorFor(d.tree.estado)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);`;
-    const popup = new maplibregl.Popup({ offset: 12 }).setHTML(`<b>${escapeHtml(d.tree.codigo_visible)}</b><br>${ESTADO_LABEL[d.tree.estado]}<br>${escapeHtml(d.especie||'')}`);
-    new maplibregl.Marker({ element: el }).setLngLat([d.tree.lng, d.tree.lat]).setPopup(popup).addTo(map);
+    el.title = `${d.tree.codigo_visible} — ${ESTADO_LABEL[d.tree.estado]}`;
+    el.style.cssText = `width:16px;height:16px;border-radius:50%;background:${colorForEstado(d.tree.estado)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);cursor:pointer;`;
+    el.addEventListener('click', () => abrirFichaArbol(d.tree.id));
+    const marker = new maplibregl.Marker({ element: el }).setLngLat([d.tree.lng, d.tree.lat]).addTo(map);
+    mapaAdminMarkers.push(marker);
+  }
+  const listaWrap = document.getElementById('mapaAdminListaWrap');
+  if(!filtered.length){ listaWrap.innerHTML = '<p class="hint">Sin árboles que coincidan.</p>'; return; }
+  listaWrap.innerHTML = `<b class="hint">${filtered.length} árbol(es)</b>`;
+  for(const d of filtered){
+    const el = document.createElement('div');
+    el.className = 'mapa-item row';
+    el.style.justifyContent = 'space-between';
+    el.innerHTML = `<div><b>${escapeHtml(d.tree.codigo_visible)}</b><div class="hint">${escapeHtml(d.tree.nombre_comun_declarado||d.especie||'—')}</div></div>${badgeHtml(d.tree.estado)}`;
+    el.addEventListener('click', () => { map.flyTo({ center: [d.tree.lng, d.tree.lat], zoom: 17 }); abrirFichaArbol(d.tree.id); });
+    listaWrap.appendChild(el);
   }
 }
 
@@ -290,49 +423,33 @@ function renderArboles(){
   const filtered = allTrees.filter(d => !q || d.tree.codigo_visible.toLowerCase().includes(q) || (d.especie||'').toLowerCase().includes(q) || (d.registrador_nombre||'').toLowerCase().includes(q));
   const body = document.getElementById('arbolesBody');
   if(!filtered.length){ body.innerHTML = '<tr><td colspan="6" class="hint">Sin resultados.</td></tr>'; return; }
-  body.innerHTML = filtered.map(d => `<tr>
+  body.innerHTML = filtered.map(d => `<tr class="clickable" data-id="${d.tree.id}">
     <td>${escapeHtml(d.tree.codigo_visible)}</td><td>${escapeHtml(d.registrador_nombre||'—')}</td><td>${escapeHtml(d.especie||'—')}</td>
     <td>${badgeHtml(d.tree.estado)}</td><td class="hint">${new Date(d.tree.created_at).toLocaleDateString('es-ES')}</td>
-    <td>${d.tree.estado==='APROBADO' ? `<button class="btn outline small" data-ficha="${escapeHtml(d.tree.codigo_visible)}">Ver ficha</button>` : ''}</td>
+    <td><button class="btn outline small" data-ficha="${d.tree.id}">Ver ficha</button></td>
   </tr>`).join('');
-  body.querySelectorAll('[data-ficha]').forEach(b => b.addEventListener('click', () => mostrarFicha(b.dataset.ficha)));
-}
-
-async function mostrarFicha(codigo){
-  const { data, error } = await supabase.rpc('forest_get_arbol_publico', { p_codigo: codigo });
-  const wrap = document.getElementById('fichaWrap');
-  if(error || !data){ wrap.innerHTML = '<div class="card">No se pudo cargar la ficha.</div>'; return; }
-  const verifyUrl = new URL('arbol.html', location.href).href + '?codigo=' + encodeURIComponent(codigo);
-  const qr = qrcode(0, 'M'); qr.addData(verifyUrl); qr.make();
-  wrap.innerHTML = `
-    <div class="card">
-      <div class="row" style="justify-content:space-between;">
-        <h3 style="margin:0;color:var(--primary);">${escapeHtml(data.codigo_visible)}</h3>
-        <button class="btn outline small" id="btnCerrarFicha">Cerrar</button>
-      </div>
-      <div class="row" style="align-items:flex-start;margin-top:10px;">
-        <div style="flex:1;min-width:200px;">
-          <div class="hint">Especie</div><b>${escapeHtml(data.especie||'—')}</b> <i class="hint">${escapeHtml(data.nombre_cientifico||'')}</i>
-          <div class="hint" style="margin-top:8px;">Altura / DAP</div><b>${data.altura_m??'—'} m / ${data.dap_cm??'—'} cm</b>
-          <div class="hint" style="margin-top:8px;">Ubicación aproximada</div><b>${data.lat_aprox}, ${data.lng_aprox}</b>
-          <div class="hint" style="margin-top:8px;">Registrado</div><b>${new Date(data.creado).toLocaleDateString('es-ES')}</b>
-          <div class="hint" style="margin-top:10px;">Enlace público: <a href="${verifyUrl}" target="_blank">${verifyUrl}</a></div>
-        </div>
-        <div>${qr.createImgTag(4, 8)}</div>
-      </div>
-    </div>
-  `;
-  document.getElementById('btnCerrarFicha').addEventListener('click', () => { wrap.innerHTML = ''; });
+  body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', (e) => {
+    if(e.target.closest('[data-ficha]')) return;
+    abrirFichaArbol(tr.dataset.id);
+  }));
+  body.querySelectorAll('[data-ficha]').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); abrirFichaArbol(b.dataset.ficha); }));
 }
 
 async function loadUsuarios(){
   const { data, error } = await supabase.rpc('forest_list_users');
   const body = document.getElementById('usuariosBody');
-  if(error){ body.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
-  body.innerHTML = data.map(u => `<tr>
+  if(error){ body.innerHTML = `<tr><td colspan="7">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
+  const pendiente = (u) => !u.activo && u.cedula;
+  const ordenados = [...data].sort((a,b) => (pendiente(a)?0:1) - (pendiente(b)?0:1));
+  body.innerHTML = ordenados.map(u => {
+    const estadoBadge = u.activo ? '<span class="badge APROBADO">Activo</span>' : (pendiente(u) ? '<span class="badge EN_REVISION">Pendiente de aprobación</span>' : '<span class="badge RECHAZADO">Inactivo</span>');
+    return `<tr>
     <td>${escapeHtml(u.nombre)}</td><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.rol)}</td>
+    <td>${escapeHtml(u.cedula||'—')}</td><td>${escapeHtml(u.telefono||'—')}</td>
+    <td>${estadoBadge}</td>
     <td><button class="toggle ${u.activo?'on':''}" data-uid="${u.id}" data-activo="${u.activo}"><span></span></button></td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
   body.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', async () => {
     const nuevo = t.dataset.activo !== 'true';
     const { error } = await supabase.rpc('forest_set_user_active', { p_user_id: t.dataset.uid, p_activo: nuevo });
@@ -362,21 +479,127 @@ document.getElementById('btnCrearUsuario').addEventListener('click', async () =>
   await loadUsuarios();
 });
 
+let especiesCache = [];
+let especieEditandoId = null;
+let especieFotosExistentes = [];
+const ESPECIE_FOTOS_BASE = `${SUPABASE_URL}/storage/v1/object/public/forest-species-photos/`;
+
 async function loadEspecies(){
   const { data, error } = await supabase.rpc('forest_list_species');
+  especiesCache = error ? [] : data;
   const body = document.getElementById('especiesBody');
-  if(error){ body.innerHTML = `<tr><td colspan="2">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
-  body.innerHTML = data.map(s => `<tr><td>${escapeHtml(s.nombre_comun)}</td><td><i>${escapeHtml(s.nombre_cientifico)}</i></td></tr>`).join('');
+  if(error){ body.innerHTML = `<tr><td colspan="5">Error: ${escapeHtml(error.message)}</td></tr>`; return; }
+  body.innerHTML = especiesCache.map(s => {
+    const foto = (s.fotos||[])[0];
+    const thumb = foto ? `<img src="${ESPECIE_FOTOS_BASE}${foto}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;">` : `<div style="width:44px;height:44px;border-radius:6px;background:var(--surface-container);"></div>`;
+    const desc = s.descripcion || '';
+    return `<tr>
+      <td>${thumb}</td>
+      <td>${escapeHtml(s.nombre_comun)}</td>
+      <td><i>${escapeHtml(s.nombre_cientifico||'')}</i></td>
+      <td class="hint" style="white-space:normal;max-width:280px;">${escapeHtml(desc.slice(0,140))}${desc.length>140?'…':''}</td>
+      <td><button class="btn outline small" data-editar="${s.id}">Editar</button></td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', () => cargarEspecieParaEditar(b.dataset.editar)));
 }
+
+function cargarEspecieParaEditar(id){
+  const s = especiesCache.find(x => x.id === id);
+  if(!s) return;
+  especieEditandoId = id;
+  especieFotosExistentes = s.fotos || [];
+  document.getElementById('especieComun').value = s.nombre_comun || '';
+  document.getElementById('especieCientifico').value = s.nombre_cientifico || '';
+  document.getElementById('especieDescripcion').value = s.descripcion || '';
+  document.getElementById('especieFormTitle').textContent = 'Editar especie: ' + s.nombre_comun;
+  document.getElementById('btnCancelarEdicionEspecie').classList.remove('hidden');
+  renderEspecieFotosPreview();
+}
+function renderEspecieFotosPreview(){
+  document.getElementById('especieFotosPreview').innerHTML = especieFotosExistentes.map(p => `<img src="${ESPECIE_FOTOS_BASE}${p}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">`).join('');
+}
+function resetFormEspecie(){
+  especieEditandoId = null; especieFotosExistentes = [];
+  document.getElementById('especieComun').value = ''; document.getElementById('especieCientifico').value = '';
+  document.getElementById('especieDescripcion').value = ''; document.getElementById('especieFotos').value = '';
+  document.getElementById('especieFormTitle').textContent = 'Agregar especie';
+  document.getElementById('btnCancelarEdicionEspecie').classList.add('hidden');
+  renderEspecieFotosPreview();
+}
+document.getElementById('btnCancelarEdicionEspecie').addEventListener('click', resetFormEspecie);
+
+async function subirFotoEspecie(speciesId, file){
+  const reader = new FileReader();
+  const dataUrl = await new Promise((resolve) => { reader.onload = () => resolve(reader.result); reader.readAsDataURL(file); });
+  const img = new Image(); img.src = dataUrl;
+  await new Promise(res => { img.onload = res; });
+  const maxDim = 1000;
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+  const path = `${speciesId}/${Date.now()}_${Math.random().toString(36).slice(2,7)}.jpg`;
+  const { error } = await supabase.storage.from('forest-species-photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if(error){ alert('No se pudo subir una foto de referencia: ' + error.message); return null; }
+  return path;
+}
+
 document.getElementById('btnAgregarEspecie').addEventListener('click', async () => {
   const comun = document.getElementById('especieComun').value.trim();
-  const cientifico = document.getElementById('especieCientifico').value.trim();
-  if(!comun || !cientifico) return;
-  const { error } = await supabase.rpc('forest_upsert_species', { p_id: null, p_nombre_comun: comun, p_nombre_cientifico: cientifico, p_sinonimos: [] });
-  if(error){ alert('Error: ' + error.message); return; }
-  document.getElementById('especieComun').value=''; document.getElementById('especieCientifico').value='';
+  const cientifico = document.getElementById('especieCientifico').value.trim() || null;
+  const descripcion = document.getElementById('especieDescripcion').value.trim() || null;
+  if(!comun){ alert('El nombre común es obligatorio.'); return; }
+  const btn = document.getElementById('btnAgregarEspecie');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  const { data: row, error } = await supabase.rpc('forest_upsert_species', {
+    p_id: especieEditandoId, p_nombre_comun: comun, p_nombre_cientifico: cientifico,
+    p_sinonimos: [], p_descripcion: descripcion, p_fotos: especieFotosExistentes,
+  });
+  if(error){ btn.disabled = false; btn.textContent = '+ Guardar especie'; alert('Error: ' + error.message); return; }
+  const files = [...document.getElementById('especieFotos').files];
+  if(files.length){
+    const nuevasFotos = [...especieFotosExistentes];
+    for(const file of files){ const path = await subirFotoEspecie(row.id, file); if(path) nuevasFotos.push(path); }
+    await supabase.rpc('forest_upsert_species', {
+      p_id: row.id, p_nombre_comun: comun, p_nombre_cientifico: cientifico,
+      p_sinonimos: [], p_descripcion: descripcion, p_fotos: nuevasFotos,
+    });
+  }
+  btn.disabled = false; btn.textContent = '+ Guardar especie';
+  resetFormEspecie();
   await loadEspecies();
 });
+
+async function loadSolicitudesEspecie(){
+  const { data, error } = await supabase.rpc('forest_list_species_requests', { p_estado: 'pendiente' });
+  const wrap = document.getElementById('solicitudesEspecieBody');
+  if(error){ wrap.innerHTML = `<p class="hint">Error: ${escapeHtml(error.message)}</p>`; return; }
+  if(!data || !data.length){ wrap.innerHTML = '<p class="hint">Sin solicitudes pendientes.</p>'; return; }
+  wrap.innerHTML = data.map(item => `
+    <div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:10px 0;">
+      <div>
+        <b>${escapeHtml(item.request.nombre_comun_propuesto)}</b> <i class="hint">${escapeHtml(item.request.nombre_cientifico_propuesto||'')}</i>
+        <div class="hint">Árbol ${escapeHtml(item.arbol_codigo||'—')} · Solicitado por ${escapeHtml(item.supervisor_nombre||'—')}</div>
+        ${item.request.comentario ? `<div class="hint">"${escapeHtml(item.request.comentario)}"</div>` : ''}
+      </div>
+      <div class="row">
+        <button class="btn small" data-aprobar="${item.request.id}" style="background:var(--verde);border-color:var(--verde);">Aprobar</button>
+        <button class="btn danger small" data-rechazar="${item.request.id}">Rechazar</button>
+      </div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('[data-aprobar]').forEach(b => b.addEventListener('click', () => resolverSolicitudEspecie(b.dataset.aprobar, true)));
+  wrap.querySelectorAll('[data-rechazar]').forEach(b => b.addEventListener('click', () => resolverSolicitudEspecie(b.dataset.rechazar, false)));
+}
+async function resolverSolicitudEspecie(id, aprobar){
+  if(!confirm(aprobar ? '¿Aprobar esta especie y agregarla al catálogo?' : '¿Rechazar esta solicitud?')) return;
+  const { error } = await supabase.rpc('forest_resolve_species_request', { p_request_id: id, p_aprobar: aprobar });
+  if(error){ alert('Error: ' + error.message); return; }
+  await loadSolicitudesEspecie();
+  await loadEspecies();
+}
 
 async function loadAuditoria(){
   const { data, error } = await supabase.rpc('forest_list_audit');

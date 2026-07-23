@@ -135,7 +135,28 @@
     <div class="demo-hint">
       Cuenta demo: <b>registrador@demo.local</b> / <b>ForestalDemo2026!</b>
       <div><button class="btn outline small" id="btnFillDemo" type="button" style="margin-top:8px;">Rellenar cuenta demo</button></div>
+      <div style="margin-top:12px;"><button class="btn outline small" id="btnMostrarRegistro" type="button">¿No tienes cuenta? Regístrate como voluntario</button></div>
     </div>
+  </div>
+
+  <div class="login-card hidden" id="registroCard" style="margin-top:14px;">
+    <h1 style="font-size:18px;">Registro de voluntario</h1>
+    <div class="sub">Tu cuenta quedará pendiente de aprobación por un administrador.</div>
+    <form id="registroForm">
+      <div class="row">
+        <div class="field" style="flex:1;min-width:130px;"><label for="regNombre">Nombre</label><input type="text" id="regNombre" required></div>
+        <div class="field" style="flex:1;min-width:130px;"><label for="regApellido">Apellido</label><input type="text" id="regApellido" required></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1;min-width:130px;"><label for="regCedula">Cédula</label><input type="text" id="regCedula" required></div>
+        <div class="field" style="flex:1;min-width:130px;"><label for="regTelefono">Teléfono</label><input type="tel" id="regTelefono" required></div>
+      </div>
+      <div class="field"><label for="regEmail">Correo</label><input type="email" id="regEmail" required autocomplete="username"></div>
+      <div class="field"><label for="regPassword">Contraseña</label><input type="password" id="regPassword" required minlength="6" autocomplete="new-password"></div>
+      <button class="btn gold block" type="submit">Crear cuenta</button>
+      <div id="registroMsg"></div>
+    </form>
+    <div class="demo-hint"><button class="btn outline small" id="btnVolverLogin" type="button">Volver a iniciar sesión</button></div>
   </div>
 </div>
 
@@ -163,7 +184,10 @@
 
     <section id="viewMisRegistros" class="hidden">
       <h2 class="section-title">Mis registros</h2>
-      <div class="row">
+      <div class="row" style="margin-bottom:10px;">
+        <input type="search" id="buscarMisRegistros" class="field-full" placeholder="Buscar por código o especie…" style="flex:1;min-width:160px;">
+      </div>
+      <div class="row" style="margin-bottom:10px;">
         <select id="filtroMisRegistros">
           <option value="">Todos los estados</option>
           <option value="BORRADOR">Borrador</option>
@@ -174,8 +198,13 @@
           <option value="APROBADO">Aprobado</option>
           <option value="RECHAZADO">Rechazado</option>
         </select>
+        <select id="ordenMisRegistros">
+          <option value="recientes">Más recientes primero</option>
+          <option value="antiguos">Más antiguos primero</option>
+        </select>
+        <button type="button" class="btn outline small" id="btnToggleVistaMis"><span class="material-symbols-outlined">view_agenda</span> Agrupar por estado</button>
       </div>
-      <div class="card" id="listaMisRegistros"></div>
+      <div id="listaMisRegistrosWrap"></div>
     </section>
 
     <section id="viewDetalle" class="hidden">
@@ -248,6 +277,34 @@ document.getElementById('btnLogout').addEventListener('click', async () => {
   location.reload();
 });
 
+document.getElementById('btnMostrarRegistro').addEventListener('click', () => {
+  document.querySelector('.login-card:not(#registroCard)').classList.add('hidden');
+  document.getElementById('registroCard').classList.remove('hidden');
+});
+document.getElementById('btnVolverLogin').addEventListener('click', () => {
+  document.getElementById('registroCard').classList.add('hidden');
+  document.querySelector('.login-card:not(#registroCard)').classList.remove('hidden');
+});
+
+document.getElementById('registroForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('registroMsg');
+  msgEl.innerHTML = '';
+  const nombre = document.getElementById('regNombre').value.trim();
+  const apellido = document.getElementById('regApellido').value.trim();
+  const cedula = document.getElementById('regCedula').value.trim();
+  const telefono = document.getElementById('regTelefono').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const { error } = await supabase.auth.signUp({
+    email, password,
+    options: { data: { nombre, apellido, cedula, telefono, self_registered: 'true' } },
+  });
+  if(error){ msgEl.innerHTML = `<div class="err">${escapeHtml(error.message)}</div>`; return; }
+  document.getElementById('registroForm').reset();
+  msgEl.innerHTML = `<div class="hint" style="margin-top:8px;">Cuenta creada. Revisa tu correo para confirmarla; luego un administrador debe aprobar tu acceso antes de que puedas ingresar.</div>`;
+});
+
 async function afterLogin(){
   const { data, error } = await supabase.rpc('forest_get_my_profile');
   profile = Array.isArray(data) ? data[0] : data;
@@ -257,7 +314,7 @@ async function afterLogin(){
     await supabase.auth.signOut(); return;
   }
   if(!profile.activo){
-    document.getElementById('loginErr').innerHTML = `<div class="err">Tu cuenta está desactivada. Contacta al administrador.</div>`;
+    document.getElementById('loginErr').innerHTML = `<div class="err">Tu cuenta está pendiente de aprobación por un administrador (o fue desactivada). Intenta más tarde.</div>`;
     await supabase.auth.signOut(); return;
   }
   const { data: proj } = await supabase.rpc('forest_get_default_project');
@@ -326,29 +383,68 @@ async function loadHome(){
 }
 
 // ---------- Mis registros ----------
+let vistaAgrupadaMis = false;
 document.getElementById('filtroMisRegistros').addEventListener('change', renderMisRegistros);
+document.getElementById('ordenMisRegistros').addEventListener('change', renderMisRegistros);
+document.getElementById('buscarMisRegistros').addEventListener('input', renderMisRegistros);
+document.getElementById('btnToggleVistaMis').addEventListener('click', () => {
+  vistaAgrupadaMis = !vistaAgrupadaMis;
+  document.getElementById('btnToggleVistaMis').innerHTML = vistaAgrupadaMis
+    ? '<span class="material-symbols-outlined">view_list</span> Ver como lista'
+    : '<span class="material-symbols-outlined">view_agenda</span> Agrupar por estado';
+  renderMisRegistros();
+});
 async function loadMisRegistros(){
   const { data, error } = await supabase.rpc('forest_list_my_trees');
   myTrees = error ? [] : data;
   renderMisRegistros();
 }
+function appendTreeItem(container, item, showBadge){
+  const el = document.createElement('div');
+  el.className = 'tree-item';
+  const fecha = item.tree.created_at ? new Date(item.tree.created_at).toLocaleDateString('es-ES') : '';
+  el.innerHTML = `<div class="thumb-placeholder"><span class="material-symbols-outlined">park</span></div>
+    <div class="info"><div class="cod">${escapeHtml(item.tree.codigo_visible)}</div><div class="sub">${escapeHtml(item.tree.nombre_comun_declarado||'Sin especie tentativa')}${fecha ? ' · '+fecha : ''}</div></div>
+    ${showBadge ? badgeHtml(item.tree.estado) : ''}`;
+  el.addEventListener('click', () => openDetalle(item.tree.id));
+  container.appendChild(el);
+  if(item.foto_principal){
+    signedUrl(item.foto_principal).then(url => { if(url){ const img = document.createElement('img'); img.src = url; el.replaceChild(img, el.firstChild); } });
+  }
+}
 function renderMisRegistros(){
   const filtro = document.getElementById('filtroMisRegistros').value;
-  const wrap = document.getElementById('listaMisRegistros');
-  const filtered = myTrees.filter(t => !filtro || t.tree.estado === filtro);
-  if(!filtered.length){ wrap.innerHTML = '<p class="hint">Sin registros.</p>'; return; }
+  const orden = document.getElementById('ordenMisRegistros').value;
+  const q = document.getElementById('buscarMisRegistros').value.trim().toLowerCase();
+  const wrap = document.getElementById('listaMisRegistrosWrap');
+  let filtered = myTrees.filter(t => !filtro || t.tree.estado === filtro);
+  if(q){
+    filtered = filtered.filter(t =>
+      (t.tree.codigo_visible||'').toLowerCase().includes(q) ||
+      (t.tree.nombre_comun_declarado||'').toLowerCase().includes(q));
+  }
+  filtered = filtered.slice().sort((a,b) => {
+    const da = new Date(a.tree.created_at).getTime(), db = new Date(b.tree.created_at).getTime();
+    return orden === 'antiguos' ? da-db : db-da;
+  });
   wrap.innerHTML = '';
-  for(const item of filtered){
-    const el = document.createElement('div');
-    el.className = 'tree-item';
-    el.innerHTML = `<div class="thumb-placeholder"><span class="material-symbols-outlined">park</span></div>
-      <div class="info"><div class="cod">${escapeHtml(item.tree.codigo_visible)}</div><div class="sub">${escapeHtml(item.tree.nombre_comun_declarado||'Sin especie tentativa')}</div></div>
-      ${badgeHtml(item.tree.estado)}`;
-    el.addEventListener('click', () => openDetalle(item.tree.id));
-    wrap.appendChild(el);
-    if(item.foto_principal){
-      signedUrl(item.foto_principal).then(url => { if(url){ const img = document.createElement('img'); img.src = url; el.replaceChild(img, el.firstChild); } });
+  if(!filtered.length){ wrap.innerHTML = '<div class="card"><p class="hint">Sin registros que coincidan.</p></div>'; return; }
+
+  if(vistaAgrupadaMis){
+    const groups = {};
+    for(const item of filtered){ (groups[item.tree.estado] = groups[item.tree.estado]||[]).push(item); }
+    for(const estado of Object.keys(groups)){
+      const section = document.createElement('div');
+      section.className = 'card';
+      section.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:6px;">${badgeHtml(estado)}<span class="hint">${groups[estado].length} registro(s)</span></div>`;
+      wrap.appendChild(section);
+      for(const item of groups[estado]) appendTreeItem(section, item, false);
     }
+  } else {
+    const card = document.createElement('div');
+    card.className = 'card';
+    wrap.appendChild(card);
+    for(const item of filtered) appendTreeItem(card, item, true);
   }
 }
 

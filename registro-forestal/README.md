@@ -94,11 +94,37 @@ registro — nunca bloquea el envío.
 |---|---|---|---|
 | Crear árbol | Sí | No | No |
 | Editar borrador/devuelto propio | Sí | No | No |
-| Ver todos los árboles | No (solo propios) | Pendientes/revisados | Sí |
+| Ver todos los árboles | No (solo propios) | Sí (mapa/historial/bandeja) | Sí |
 | Aprobar/rechazar/devolver | No | Sí (no los propios) | No vía UI |
+| Solicitar especie nueva | No | Sí | — |
+| Aprobar especie nueva / usuarios pendientes | No | No | Sí |
 | Gestionar usuarios | No | No | Sí |
 | Exportar | Solo propios (vista) | — | Todos (CSV/JSON) |
 | Borrar auditoría | No | No | No (nadie puede) |
+
+## Auto-registro de voluntarios (registrador)
+
+Desde la pantalla de login de `registrador.html`, cualquier persona puede
+crear su propia cuenta (nombre, apellido, cédula, teléfono, correo,
+contraseña) sin intervención del administrador. La cuenta queda:
+
+- Creada en Supabase Auth (envía correo de confirmación de email — sujeto al
+  límite de envíos del correo transaccional por defecto de Supabase; para
+  producción real conviene configurar un proveedor SMTP propio).
+- Con perfil `forest_profiles` en estado `activo = false` (pendiente), rol
+  `registrador` fijo — un trigger de base de datos (`forest_on_auth_user_created`)
+  crea este perfil automáticamente al detectar el flag `self_registered` en
+  los metadatos del usuario.
+- Bloqueada para iniciar sesión hasta que un administrador la active desde
+  "Usuarios" (se distingue con la etiqueta "Pendiente de aprobación").
+
+## Solicitud de especie nueva (supervisor → administrador)
+
+Si un supervisor revisa un árbol cuya especie declarada no está en el
+catálogo, la pantalla de revisión se lo advierte y permite enviar una
+solicitud (`forest_species_requests`). El administrador la ve y aprueba o
+rechaza desde "Especies"; al aprobarla se crea automáticamente la entrada en
+`forest_species_catalog` con el nombre propuesto.
 
 ## Limitaciones conocidas de esta beta
 

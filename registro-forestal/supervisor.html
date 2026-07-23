@@ -48,11 +48,13 @@
   header.appbar{background:var(--surface);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:40;}
   header.appbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);font-size:15px;}
   .layout{display:flex;min-height:calc(100vh - 56px);}
-  nav.sidenav{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:12px 0;}
-  nav.sidenav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;padding:11px 20px;font-size:13.5px;color:var(--muted);}
-  nav.sidenav button.active{background:var(--secondary-container);color:var(--primary);font-weight:700;border-radius:0 20px 20px 0;}
+  nav.sidenav{width:216px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:3px;}
+  nav.sidenav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;padding:10px 14px;font-size:13.5px;color:var(--muted);border-radius:10px;transition:background .15s,color .15s;}
+  nav.sidenav button:hover{background:var(--surface-container);}
+  nav.sidenav button.active{background:var(--primary-container);color:#fff;font-weight:700;}
+  nav.sidenav button.active .material-symbols-outlined{color:#fff;}
   main.appmain{flex:1;padding:20px;max-width:1100px;}
-  @media (max-width:760px){ nav.sidenav{width:64px;} nav.sidenav button span:last-child{display:none;} }
+  @media (max-width:760px){ nav.sidenav{width:60px;padding:16px 8px;} nav.sidenav button{justify-content:center;padding:10px;} nav.sidenav button span:last-child{display:none;} }
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
@@ -68,15 +70,29 @@
   .badge.RECHAZADO{background:var(--rojo-bg);color:var(--rojo);} .badge.ARCHIVADO{background:var(--gris-bg);color:var(--gris);}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
-  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
   th{color:var(--muted);font-size:11px;text-transform:uppercase;}
   tr.clickable{cursor:pointer;} tr.clickable:hover{background:var(--surface-container);}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   #mapContainer{width:100%;height:420px;border-radius:12px;overflow:hidden;}
   .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}
   .photo-grid img{width:100%;height:110px;object-fit:cover;border-radius:8px;}
   .ai-compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .ai-compare .box{background:var(--surface-container);border-radius:8px;padding:10px;}
   textarea.field-full{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;min-height:70px;font-size:13.5px;}
+  .field-full{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;}
+  .combo-wrap{position:relative;}
+  .combo-suggestions{position:absolute;z-index:20;top:calc(100% + 4px);left:0;right:0;max-height:220px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.1);}
+  .combo-suggestions .opt{padding:9px 12px;cursor:pointer;font-size:13.5px;}
+  .combo-suggestions .opt:hover{background:var(--surface-container);}
+  .combo-suggestions .opt small{display:block;color:var(--muted);font-style:italic;}
+  .prio-item{display:flex;align-items:center;gap:10px;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 0;cursor:pointer;}
+  .prio-item:last-child{border-bottom:none;}
+  .prio-thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--surface-container);flex-shrink:0;}
+  .prio-thumb-placeholder{width:44px;height:44px;border-radius:8px;background:var(--surface-container);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0;}
+  .mapa-item{border-bottom:1px solid var(--border);padding:8px 0;cursor:pointer;}
+  .mapa-item:last-child{border-bottom:none;}
+  .mapa-item:hover{background:var(--surface-container);}
 </style>
 </head>
 <body>
@@ -123,18 +139,44 @@
 
       <section id="viewBandeja" class="hidden">
         <h2 class="section-title">Bandeja de pendientes</h2>
-        <div class="card"><table><thead><tr><th>Código</th><th>Registrador</th><th>Especie tentativa</th><th>Sugerencia IA</th><th>Estado</th></tr></thead>
+        <div class="row" style="margin-bottom:10px;">
+          <input type="search" id="buscarBandeja" class="field-full" placeholder="Buscar por código, registrador o especie…" style="flex:1;min-width:180px;">
+          <select id="filtroBandejaEstado" class="field-full" style="width:auto;">
+            <option value="">Todos los estados</option>
+            <option value="ENVIADO">Enviado</option>
+            <option value="EN_REVISION">En revisión</option>
+            <option value="REQUIERE_ESPECIALISTA">Requiere especialista</option>
+          </select>
+        </div>
+        <div class="card table-scroll"><table><thead><tr><th>Código</th><th>Registrador</th><th>Especie tentativa</th><th>Sugerencia IA</th><th>Estado</th></tr></thead>
           <tbody id="bandejaBody"></tbody></table></div>
       </section>
 
       <section id="viewMapa" class="hidden">
         <h2 class="section-title">Mapa de registros</h2>
-        <div id="mapContainer"></div>
+        <div class="row" style="margin-bottom:10px;">
+          <input type="search" id="buscarMapa" class="field-full" placeholder="Buscar por código o especie…" style="flex:1;min-width:180px;">
+          <select id="filtroMapaEstado" class="field-full" style="width:auto;">
+            <option value="">Todos los estados</option>
+            <option value="BORRADOR">Borrador</option>
+            <option value="ENVIADO">Enviado</option>
+            <option value="EN_REVISION">En revisión</option>
+            <option value="REQUIERE_CORRECCION">Requiere corrección</option>
+            <option value="REQUIERE_ESPECIALISTA">Requiere especialista</option>
+            <option value="APROBADO">Aprobado</option>
+            <option value="RECHAZADO">Rechazado</option>
+            <option value="ARCHIVADO">Archivado</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <div id="mapContainer" style="flex:2 1 300px;"></div>
+          <div class="card" id="mapaListaWrap" style="flex:1 1 220px;max-height:420px;overflow-y:auto;"></div>
+        </div>
       </section>
 
       <section id="viewHistorial" class="hidden">
         <h2 class="section-title">Historial de decisiones</h2>
-        <div class="card"><table><thead><tr><th>Código</th><th>Decisión</th><th>Comentario</th><th>Fecha</th></tr></thead>
+        <div class="card table-scroll"><table><thead><tr><th>Código</th><th>Decisión</th><th>Comentario</th><th>Fecha</th></tr></thead>
           <tbody id="historialBody"></tbody></table></div>
       </section>
 
@@ -208,9 +250,12 @@ document.querySelectorAll('nav.sidenav button').forEach(btn => {
     if(btn.dataset.view === 'historial') await loadHistorial();
   });
 });
+let vistaAntesDeDetalle = 'resumen';
 document.getElementById('btnVolverDetalle').addEventListener('click', () => {
   document.getElementById('viewDetalle').classList.add('hidden');
-  document.getElementById('viewBandeja').classList.remove('hidden');
+  const mapaVistas = { resumen:'Resumen', bandeja:'Bandeja', mapa:'Mapa', historial:'Historial' };
+  document.getElementById('view'+(mapaVistas[vistaAntesDeDetalle]||'Resumen')).classList.remove('hidden');
+  document.querySelectorAll('nav.sidenav button').forEach(b => b.classList.toggle('active', b.dataset.view === vistaAntesDeDetalle));
 });
 
 async function signedUrl(path){ if(!path) return null; const { data } = await supabase.storage.from('forest-photos').createSignedUrl(path, 3600); return data?.signedUrl || null; }
@@ -218,30 +263,59 @@ async function signedUrl(path){ if(!path) return null; const { data } = await su
 async function loadResumen(){
   const { data, error } = await supabase.rpc('forest_list_pending_review');
   pendientes = error ? [] : data;
+  const { data: todos } = await supabase.rpc('forest_list_all_trees');
+  const all = todos || [];
   const bento = document.getElementById('resumenBento');
   bento.innerHTML = `
     <div class="card"><div class="kpi-num">${pendientes.length}</div><div class="kpi-label">Expedientes pendientes</div></div>
     <div class="card"><div class="kpi-num">${pendientes.filter(p=>p.tree.estado==='EN_REVISION').length}</div><div class="kpi-label">En revisión activa</div></div>
     <div class="card"><div class="kpi-num">${pendientes.filter(p=>p.tree.precision_m>15).length}</div><div class="kpi-label">Baja precisión GPS</div></div>
+    <div class="card"><div class="kpi-num">${all.filter(d=>d.tree.estado==='APROBADO').length}</div><div class="kpi-label">Aprobados (total)</div></div>
+    <div class="card"><div class="kpi-num">${all.filter(d=>d.tree.estado==='RECHAZADO').length}</div><div class="kpi-label">Rechazados (total)</div></div>
+    <div class="card"><div class="kpi-num">${all.filter(d=>d.tree.estado==='REQUIERE_CORRECCION').length}</div><div class="kpi-label">Devueltos (total)</div></div>
   `;
   const lista = document.getElementById('resumenLista');
   if(!pendientes.length){ lista.innerHTML = '<p class="hint">Sin pendientes por ahora.</p>'; return; }
-  lista.innerHTML = pendientes.slice(0,6).map(p => `
-    <div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 0;">
-      <div><b>${escapeHtml(p.tree.codigo_visible)}</b> <span class="hint">${escapeHtml(p.registrador_nombre||'')}</span></div>
-      ${badgeHtml(p.tree.estado)}
-    </div>
-  `).join('');
-  lista.querySelectorAll('.row').forEach((el, i) => el.addEventListener('click', () => openDetalle(pendientes[i].tree.id)));
+  lista.innerHTML = '';
+  for(const p of pendientes.slice(0,6)){
+    const el = document.createElement('div');
+    el.className = 'prio-item';
+    el.innerHTML = `<div class="prio-thumb-placeholder"><span class="material-symbols-outlined">park</span></div>
+      <div style="flex:1;min-width:0;"><b>${escapeHtml(p.tree.codigo_visible)}</b> <span class="hint">${escapeHtml(p.registrador_nombre||'')}</span></div>
+      ${badgeHtml(p.tree.estado)}`;
+    el.addEventListener('click', () => openDetalle(p.tree.id));
+    lista.appendChild(el);
+    if(p.foto_principal){
+      signedUrl(p.foto_principal).then(url => { if(url){ const img = document.createElement('img'); img.className = 'prio-thumb'; img.src = url; el.replaceChild(img, el.firstChild); } });
+    }
+  }
 }
 
+let bandejaAll = [];
+document.getElementById('buscarBandeja').addEventListener('input', renderBandeja);
+document.getElementById('filtroBandejaEstado').addEventListener('change', renderBandeja);
 async function loadBandeja(){
   const { data, error } = await supabase.rpc('forest_list_pending_review');
-  pendientes = error ? [] : data;
+  bandejaAll = error ? [] : data;
+  renderBandeja();
+}
+function renderBandeja(){
+  const q = document.getElementById('buscarBandeja').value.trim().toLowerCase();
+  const filtroEstado = document.getElementById('filtroBandejaEstado').value;
+  const filtered = bandejaAll.filter(p => {
+    if(filtroEstado && p.tree.estado !== filtroEstado) return false;
+    if(q){
+      const hay = (p.tree.codigo_visible||'').toLowerCase().includes(q)
+        || (p.registrador_nombre||'').toLowerCase().includes(q)
+        || (p.tree.nombre_comun_declarado||'').toLowerCase().includes(q);
+      if(!hay) return false;
+    }
+    return true;
+  });
   const body = document.getElementById('bandejaBody');
-  if(!pendientes.length){ body.innerHTML = '<tr><td colspan="5" class="hint">Sin registros pendientes.</td></tr>'; return; }
-  body.innerHTML = pendientes.map((p,i) => `
-    <tr class="clickable" data-i="${i}">
+  if(!filtered.length){ body.innerHTML = '<tr><td colspan="5" class="hint">Sin registros que coincidan.</td></tr>'; return; }
+  body.innerHTML = filtered.map(p => `
+    <tr class="clickable" data-id="${p.tree.id}">
       <td>${escapeHtml(p.tree.codigo_visible)}</td>
       <td>${escapeHtml(p.registrador_nombre||'—')}</td>
       <td>${escapeHtml(p.tree.nombre_comun_declarado||'—')}</td>
@@ -249,7 +323,7 @@ async function loadBandeja(){
       <td>${badgeHtml(p.tree.estado)}</td>
     </tr>
   `).join('');
-  body.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => openDetalle(pendientes[Number(tr.dataset.i)].tree.id)));
+  body.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => openDetalle(tr.dataset.id)));
 }
 
 async function loadHistorial(){
@@ -261,9 +335,13 @@ async function loadHistorial(){
   body.innerHTML = decididos.map(d => `<tr><td>${escapeHtml(d.tree.codigo_visible)}</td><td>${badgeHtml(d.tree.estado)}</td><td>${escapeHtml(d.especie||'')}</td><td class="hint">${new Date(d.tree.updated_at).toLocaleString('es-ES')}</td></tr>`).join('');
 }
 
+let allTreesMapa = [];
+let mapaMarkers = [];
+document.getElementById('buscarMapa').addEventListener('input', renderMapa);
+document.getElementById('filtroMapaEstado').addEventListener('change', renderMapa);
 async function loadMapa(){
   const { data } = await supabase.rpc('forest_list_all_trees');
-  const trees = (data || []).filter(d => d.tree.lat != null);
+  allTreesMapa = (data || []).filter(d => d.tree.lat != null);
   if(!map){
     map = new maplibregl.Map({
       container: 'mapContainer',
@@ -271,12 +349,43 @@ async function loadMapa(){
       center: [-66.857, 10.499], zoom: 14,
     });
   }
-  const colorFor = (estado) => ({ APROBADO:'#15803d', ENVIADO:'#2563eb', EN_REVISION:'#b45309', REQUIERE_CORRECCION:'#c2410c', REQUIERE_ESPECIALISTA:'#7e22ce', RECHAZADO:'#b91c1c', BORRADOR:'#6b7280', ARCHIVADO:'#374151' }[estado] || '#374151');
-  for(const d of trees){
+  renderMapa();
+}
+function colorForEstado(estado){ return { APROBADO:'#15803d', ENVIADO:'#2563eb', EN_REVISION:'#b45309', REQUIERE_CORRECCION:'#c2410c', REQUIERE_ESPECIALISTA:'#7e22ce', RECHAZADO:'#b91c1c', BORRADOR:'#6b7280', ARCHIVADO:'#374151' }[estado] || '#374151'; }
+function renderMapa(){
+  if(!map) return;
+  const q = document.getElementById('buscarMapa').value.trim().toLowerCase();
+  const filtroEstado = document.getElementById('filtroMapaEstado').value;
+  const filtered = allTreesMapa.filter(d => {
+    if(filtroEstado && d.tree.estado !== filtroEstado) return false;
+    if(q){
+      const hay = (d.tree.codigo_visible||'').toLowerCase().includes(q)
+        || (d.tree.nombre_comun_declarado||'').toLowerCase().includes(q)
+        || (d.especie||'').toLowerCase().includes(q);
+      if(!hay) return false;
+    }
+    return true;
+  });
+  mapaMarkers.forEach(m => m.remove());
+  mapaMarkers = [];
+  for(const d of filtered){
     const el = document.createElement('div');
-    el.style.cssText = `width:16px;height:16px;border-radius:50%;background:${colorFor(d.tree.estado)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);`;
+    el.style.cssText = `width:16px;height:16px;border-radius:50%;background:${colorForEstado(d.tree.estado)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);cursor:pointer;`;
     const popup = new maplibregl.Popup({ offset: 12 }).setHTML(`<b>${escapeHtml(d.tree.codigo_visible)}</b><br>${ESTADO_LABEL[d.tree.estado]}<br>${escapeHtml(d.tree.nombre_comun_declarado||'')}`);
-    new maplibregl.Marker({ element: el }).setLngLat([d.tree.lng, d.tree.lat]).setPopup(popup).addTo(map);
+    const marker = new maplibregl.Marker({ element: el }).setLngLat([d.tree.lng, d.tree.lat]).setPopup(popup).addTo(map);
+    el.addEventListener('dblclick', () => openDetalle(d.tree.id));
+    mapaMarkers.push(marker);
+  }
+  const listaWrap = document.getElementById('mapaListaWrap');
+  if(!filtered.length){ listaWrap.innerHTML = '<p class="hint">Sin árboles que coincidan.</p>'; return; }
+  listaWrap.innerHTML = `<b class="hint">${filtered.length} árbol(es)</b>`;
+  for(const d of filtered){
+    const el = document.createElement('div');
+    el.className = 'mapa-item row';
+    el.style.justifyContent = 'space-between';
+    el.innerHTML = `<div><b>${escapeHtml(d.tree.codigo_visible)}</b><div class="hint">${escapeHtml(d.tree.nombre_comun_declarado||d.especie||'—')}</div></div>${badgeHtml(d.tree.estado)}`;
+    el.addEventListener('click', () => { map.flyTo({ center: [d.tree.lng, d.tree.lat], zoom: 17 }); openDetalle(d.tree.id); });
+    listaWrap.appendChild(el);
   }
 }
 
@@ -302,10 +411,15 @@ async function openDetalle(treeId){
     </div>
     <div class="card">
       <label class="hint">Especie confirmada</label>
-      <select id="selEspecie" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin:6px 0 10px;">
-        <option value="">— sin confirmar —</option>
-        ${(species||[]).map(s => `<option value="${s.id}" ${t.especie_confirmada_id===s.id?'selected':''}>${escapeHtml(s.nombre_comun)} (${escapeHtml(s.nombre_cientifico)})</option>`).join('')}
-      </select>
+      <div class="combo-wrap" style="margin:6px 0 4px;">
+        <input type="text" id="especieBuscar" class="field-full" placeholder="Buscar especie por nombre común o científico…" autocomplete="off">
+        <div id="especieSugerencias" class="combo-suggestions hidden"></div>
+      </div>
+      <div class="hint" id="especieSeleccionadaHint"></div>
+      <div id="especieNoEncontrada" class="hidden" style="margin:10px 0;padding:10px;background:var(--ambar-bg);border-radius:8px;">
+        <div class="hint" style="color:#5c3a00;">La especie declarada por el registrador no está en el catálogo.</div>
+        <button type="button" class="btn outline small" id="btnSolicitarEspecie" style="margin-top:8px;">Solicitar al administrador que la agregue</button>
+      </div>
       <label class="hint">Comentario técnico</label>
       <textarea id="comentarioRevision" class="field-full"></textarea>
       <div class="row" style="margin-top:12px;">
@@ -320,11 +434,72 @@ async function openDetalle(treeId){
   if(!data.photos.length) photosWrap.innerHTML = '<p class="hint">Sin fotos.</p>';
   for(const p of data.photos){ const img = document.createElement('img'); signedUrl(p.storage_path).then(u=>{ if(u) img.src = u; }); photosWrap.appendChild(img); }
 
+  // ---- Combobox de especie confirmada ----
+  let especieSeleccionadaId = t.especie_confirmada_id || null;
+  const especieBuscarInput = document.getElementById('especieBuscar');
+  const especieSugerenciasEl = document.getElementById('especieSugerencias');
+  const especieHintEl = document.getElementById('especieSeleccionadaHint');
+  const listaEspecies = species || [];
+
+  function actualizarHintEspecie(){
+    const s = listaEspecies.find(x => x.id === especieSeleccionadaId);
+    especieHintEl.textContent = s ? `Seleccionada: ${s.nombre_comun} (${s.nombre_cientifico||'—'})` : 'Sin especie confirmada todavía.';
+  }
+  const yaSeleccionada = listaEspecies.find(x => x.id === especieSeleccionadaId);
+  if(yaSeleccionada) especieBuscarInput.value = yaSeleccionada.nombre_comun;
+  actualizarHintEspecie();
+
+  especieBuscarInput.addEventListener('input', () => {
+    const q = especieBuscarInput.value.trim().toLowerCase();
+    especieSeleccionadaId = null;
+    actualizarHintEspecie();
+    if(!q){ especieSugerenciasEl.classList.add('hidden'); return; }
+    const matches = listaEspecies.filter(s =>
+      s.nombre_comun.toLowerCase().includes(q) ||
+      (s.nombre_cientifico||'').toLowerCase().includes(q) ||
+      (s.sinonimos||[]).some(sy => String(sy).toLowerCase().includes(q))
+    ).slice(0, 8);
+    especieSugerenciasEl.innerHTML = matches.length
+      ? matches.map(s => `<div class="opt" data-id="${s.id}">${escapeHtml(s.nombre_comun)}<small>${escapeHtml(s.nombre_cientifico||'')}</small></div>`).join('')
+      : '<div class="opt hint">Sin coincidencias en el catálogo.</div>';
+    especieSugerenciasEl.classList.remove('hidden');
+    especieSugerenciasEl.querySelectorAll('.opt[data-id]').forEach(opt => opt.addEventListener('click', () => {
+      especieSeleccionadaId = opt.dataset.id;
+      const s = matches.find(m => m.id === opt.dataset.id);
+      especieBuscarInput.value = s ? s.nombre_comun : '';
+      especieSugerenciasEl.classList.add('hidden');
+      actualizarHintEspecie();
+    }));
+  });
+  especieBuscarInput.addEventListener('focus', () => { if(especieBuscarInput.value.trim()) especieBuscarInput.dispatchEvent(new Event('input')); });
+  especieBuscarInput.addEventListener('blur', () => setTimeout(() => especieSugerenciasEl.classList.add('hidden'), 150));
+
+  // ---- Solicitar especie nueva si la declarada no está en el catálogo ----
+  const declarado = (t.nombre_comun_declarado || '').trim();
+  const declaradoLower = declarado.toLowerCase();
+  const enCatalogo = declaradoLower && listaEspecies.some(s =>
+    s.nombre_comun.toLowerCase() === declaradoLower || (s.sinonimos||[]).some(sy => String(sy).toLowerCase() === declaradoLower));
+  const noEncontradaWrap = document.getElementById('especieNoEncontrada');
+  if(declarado && declaradoLower !== 'no identificada' && !enCatalogo){
+    noEncontradaWrap.classList.remove('hidden');
+    document.getElementById('btnSolicitarEspecie').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true; btn.textContent = 'Enviando…';
+      const { error } = await supabase.rpc('forest_request_new_species', {
+        p_tree_id: t.id, p_nombre_comun: declarado, p_nombre_cientifico: t.nombre_cientifico_tentativo || null,
+        p_comentario: 'Solicitado desde la revisión de ' + t.codigo_visible,
+      });
+      if(error){ btn.disabled = false; btn.textContent = 'Solicitar al administrador que la agregue'; alert('No se pudo enviar la solicitud: ' + error.message); return; }
+      btn.textContent = 'Solicitud enviada ✓';
+    });
+  } else {
+    noEncontradaWrap.classList.add('hidden');
+  }
+
   const decide = async (decision) => {
     const comentario = document.getElementById('comentarioRevision').value.trim();
-    const especieId = document.getElementById('selEspecie').value || null;
     if(t.estado === 'ENVIADO'){ await supabase.rpc('forest_open_for_review', { p_tree_id: t.id }); }
-    const { error } = await supabase.rpc('forest_decide_review', { p_tree_id: t.id, p_decision: decision, p_comentario: comentario, p_especie_confirmada_id: especieId });
+    const { error } = await supabase.rpc('forest_decide_review', { p_tree_id: t.id, p_decision: decision, p_comentario: comentario, p_especie_confirmada_id: especieSeleccionadaId });
     if(error){ alert('Error: ' + error.message); return; }
     alert('Decisión registrada.');
     document.getElementById('btnVolverDetalle').click();
@@ -335,8 +510,9 @@ async function openDetalle(treeId){
   document.getElementById('btnDevolver').addEventListener('click', () => { if(confirm('¿Devolver para corrección?')) decide('devuelto'); });
   document.getElementById('btnEspecialista').addEventListener('click', () => { if(confirm('¿Marcar como requiere especialista?')) decide('requiere_especialista'); });
 
-  document.getElementById('viewBandeja').classList.add('hidden');
-  document.getElementById('viewResumen').classList.add('hidden');
+  const visible = ['Resumen','Bandeja','Mapa','Historial'].find(v => !document.getElementById('view'+v).classList.contains('hidden'));
+  if(visible) vistaAntesDeDetalle = visible.toLowerCase();
+  ['Resumen','Bandeja','Mapa','Historial'].forEach(v => document.getElementById('view'+v).classList.add('hidden'));
   document.getElementById('viewDetalle').classList.remove('hidden');
 }
 </script>
