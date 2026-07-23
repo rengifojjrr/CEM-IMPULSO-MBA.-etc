@@ -1,7 +1,7 @@
 # Registro Forestal Beta — Identidad digital y supervisión de árboles
 
 MVP funcional del piloto "Parque del Este". Registro individual de árboles con
-fotos, GPS y mediciones; sugerencia de especie por IA (mock o Gemini);
+fotos, GPS y mediciones; sugerencia de especie por **Gemini (IA real, activa)**;
 revisión y aprobación por un supervisor; panel de administración con mapa,
 métricas reales, usuarios, auditoría y exportaciones; ficha digital pública
 con QR para árboles aprobados.
@@ -43,11 +43,13 @@ que ya usa el resto de este repositorio, con prefijo de tablas `forest_`):
   el registrador dueño del árbol; verlas pueden el dueño, supervisor y
   administrador siempre, y cualquier persona (anónimo) solo si el árbol está
   `APROBADO` — así la ficha pública puede mostrar fotos sin exponer el resto.
-- **IA**: función Edge `forest-ai-recognize`, con un adaptador
-  intercambiable controlado por la variable de entorno
-  `TREE_RECOGNITION_PROVIDER` (`mock` por defecto, o `gemini`). La IA nunca
-  bloquea el registro: si falla o no hay clave configurada, se guarda el
-  registro igual y se muestra "Reconocimiento no disponible".
+- **IA**: función Edge `forest-ai-recognize`, con un adaptador intercambiable
+  (`mock` o `gemini`). Actualmente configurado en **`gemini`** — la sugerencia
+  de especie analiza de verdad las fotos subidas usando Gemini
+  (`gemini-flash-latest`). La IA nunca bloquea el registro: si la llamada
+  falla o no hay clave configurada, cae automáticamente a una sugerencia de
+  respaldo (mock) y se avisa "Reconocimiento no disponible", sin interrumpir
+  el envío.
 - **Creación de usuarios**: función Edge `forest-admin-users`, la única
   pieza que usa la `service_role key` (nunca sale del servidor); verifica
   que quien llama sea administrador antes de crear la cuenta.
@@ -58,22 +60,33 @@ que ya usa el resto de este repositorio, con prefijo de tablas `forest_`):
   `forest_audit_events` (usuario, fecha, estado anterior/nuevo, comentario).
   No existe ninguna función que borre auditoría.
 
-## Activar Gemini (opcional)
+## Configuración de la IA (Gemini activo)
 
-Por defecto el sistema usa el proveedor **mock**: sugiere especies de forma
-realista sin depender de ninguna cuenta externa, para que la demo funcione
-siempre. Para usar Gemini de verdad:
+El proveedor de reconocimiento (`TREE_RECOGNITION_PROVIDER`, `GEMINI_API_KEY`,
+`GEMINI_MODEL`) se guarda en la tabla `forest_secrets` — una tabla con RLS
+activado y sin ninguna política de acceso para `anon`/`authenticated`, así
+que solo la función Edge (usando la `service_role key`, que nunca sale del
+servidor) puede leerla. Ningún usuario, ni siquiera el administrador desde la
+interfaz, puede ver la clave.
 
-1. Consigue una API key de Gemini (Google AI Studio).
-2. En el proyecto de Supabase, configura los secretos de la función Edge
-   `forest-ai-recognize`:
-   - `TREE_RECOGNITION_PROVIDER=gemini`
-   - `GEMINI_API_KEY=<tu clave>`
-   - `GEMINI_MODEL=gemini-2.5-flash` (opcional, ese es el valor por defecto)
-3. No hay que tocar ningún HTML — el adaptador es el mismo endpoint, solo
-   cambia de proveedor puertas adentro. Si Gemini falla por cualquier razón,
-   cae automáticamente a una sugerencia de respaldo sin interrumpir el
-   registro.
+Hoy está configurado así:
+- `TREE_RECOGNITION_PROVIDER = gemini`
+- `GEMINI_MODEL = gemini-flash-latest`
+- `GEMINI_API_KEY` = una clave real de Google AI Studio, ya probada con una
+  foto real (identificó correctamente un Araguaney/Handroanthus chrysanthus).
+
+Para cambiar de clave o volver a mock, se actualiza esa misma tabla (no hay
+que tocar ningún HTML ni redeplegar nada del lado del cliente):
+
+```sql
+update forest_secrets set value = 'nueva-clave' where key = 'GEMINI_API_KEY';
+-- o para volver a modo de prueba sin depender de ninguna cuenta externa:
+update forest_secrets set value = 'mock' where key = 'TREE_RECOGNITION_PROVIDER';
+```
+
+Si Gemini falla por cualquier razón (cuota agotada, imagen no reconocible,
+etc.), cae automáticamente a una sugerencia de respaldo sin interrumpir el
+registro — nunca bloquea el envío.
 
 ## Matriz de permisos (resumen)
 
@@ -89,9 +102,10 @@ siempre. Para usar Gemini de verdad:
 
 ## Limitaciones conocidas de esta beta
 
-- El reconocimiento por IA usa fotos comprimidas en el navegador (se
-  eliminan metadatos EXIF al re-codificarlas en canvas antes de subirlas o
-  enviarlas); no hay modelo propio entrenado con especies venezolanas.
+- El reconocimiento por IA usa Gemini (modelo genérico de Google, no un
+  modelo propio entrenado específicamente con especies venezolanas); las
+  fotos se comprimen en el navegador y se eliminan metadatos EXIF al
+  re-codificarlas en canvas antes de subirlas o enviarlas a Gemini.
 - No incluye: créditos de carbono, bonos verdes, trazabilidad de madera,
   drones/satélites, ni permisos forestales — están fuera de alcance de esta
   beta a propósito.
