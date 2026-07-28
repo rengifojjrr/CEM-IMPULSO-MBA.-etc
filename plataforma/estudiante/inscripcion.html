@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Finaliza tu inscripción</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .plan{border:2px solid var(--outline-variant);border-radius:var(--radius);padding:14px;cursor:pointer;flex:1;min-width:190px;}
+  .plan.on{border-color:var(--primary);background:var(--primary-fixed);}
+  .plan .p{font-size:21px;font-weight:700;color:var(--primary);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="pub-main" style="max-width:960px">
+    <a class="btn ghost sm" href="#" id="back"><span class="material-symbols-outlined">arrow_back</span> Volver</a>
+    <div style="text-align:center;margin:10px 0 22px">
+      <span class="chip ok"><span class="material-symbols-outlined">lock</span> Pago seguro</span>
+      <h1 style="margin:10px 0 4px">Finaliza tu inscripción</h1>
+      <p class="muted" id="sub" style="margin:0"></p>
+    </div>
+
+    <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:18px">
+      <div>
+        <div class="card">
+          <h2 class="sec"><span class="material-symbols-outlined">payments</span> Opciones de pago</h2>
+          <div class="row" id="planes"></div>
+        </div>
+
+        <div class="card">
+          <h2 class="sec"><span class="material-symbols-outlined">groups</span> Cohorte</h2>
+          <div class="field"><label>Selecciona tu grupo</label><select id="cohorte"></select></div>
+        </div>
+
+        <div class="card">
+          <h2 class="sec"><span class="material-symbols-outlined">person</span> Datos del estudiante</h2>
+          <div class="row">
+            <div class="field" style="flex:1;min-width:150px"><label>Nombre</label><input id="dNombre"></div>
+            <div class="field" style="flex:1;min-width:150px"><label>Apellidos</label><input id="dApellido"></div>
+          </div>
+          <div class="field"><label>Correo electrónico</label><input id="dEmail" disabled></div>
+          <div class="row">
+            <div class="field" style="flex:1;min-width:150px"><label>Tipo de documento</label>
+              <select id="dDocTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
+            <div class="field" style="flex:1;min-width:150px"><label>Número de documento</label><input id="dDoc"></div>
+          </div>
+          <div class="row">
+            <div class="field" style="flex:1;min-width:150px"><label>Teléfono</label><input id="dTel"></div>
+            <div class="field" style="flex:1;min-width:150px"><label>País</label><input id="dPais"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="sec"><span class="material-symbols-outlined">local_offer</span> ¿Tienes un código de beca o descuento?</h2>
+          <div class="row"><input id="cupon" placeholder="Ej. CEM10" style="flex:1;min-width:180px">
+            <button class="btn outline" id="btnCupon">Aplicar</button></div>
+          <div id="cuponMsg" class="tiny" style="margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="position:sticky;top:80px">
+          <h2 class="sec">Resumen del pedido</h2>
+          <div id="resumen"></div>
+          <button class="btn block" id="btnConfirmar" style="margin-top:14px">
+            Confirmar inscripción <span class="material-symbols-outlined">arrow_forward</span></button>
+          <p class="tiny muted" style="margin-top:10px;text-align:center">
+            <span class="material-symbols-outlined" style="font-size:15px">shield</span>
+            Tu inscripción queda registrada y un asesor validará tu pago.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile } from '../assets/app.js';
+const me = await mount({ require:['estudiante','admin','superadmin','coordinador'], area:'estudiante', active:'catalogo.html' });
+const cursoId = qs('curso');
+let curso, cohortes=[], plan=1, descuento=0;
+
+$('#back').onclick = (e)=>{ e.preventDefault(); history.back(); };
+if (me) { if (!cursoId) location.href='catalogo.html'; else load(); }
+
+async function load(){
+  const [{data:c},{data:cs}] = await Promise.all([
+    sb.from('cem_courses').select('*').eq('id',cursoId).maybeSingle(),
+    sb.from('cem_cohorts').select('*').eq('course_id',cursoId).in('estado',['inscripciones_abiertas','en_curso','planificada']).order('fecha_inicio'),
+  ]);
+  if (!c) { fail('Curso no encontrado'); setTimeout(()=>location.href='catalogo.html',900); return; }
+  curso=c; cohortes=cs||[];
+
+  const { data: ya } = await sb.from('cem_enrollments').select('id').eq('profile_id',me.id).eq('course_id',cursoId)
+    .not('estado','in','("cancelada","finalizada")').maybeSingle();
+  if (ya) { fail('Ya tienes una inscripción en este programa.'); setTimeout(()=>location.href='panel.html',1200); return; }
+
+  $('#sub').textContent = `Estás a un paso de comenzar ${curso.nombre}.`;
+  $('#dNombre').value=me.nombre||''; $('#dApellido').value=me.apellido||''; $('#dEmail').value=me.email||'';
+  $('#dDoc').value=me.documento||''; $('#dTel').value=me.telefono||''; $('#dPais').value=me.pais||'';
+  if (me.documento_tipo) $('#dDocTipo').value=me.documento_tipo;
+
+  $('#cohorte').innerHTML = cohortes.length
+    ? cohortes.map(c=>`<option value="${c.id}">${esc(c.nombre)} — ${c.fecha_inicio?'inicia '+fdate(c.fecha_inicio):'fecha por definir'}</option>`).join('')
+    : '<option value="">Sin cohorte disponible (te asignaremos una)</option>';
+
+  renderPlanes(); resumen();
+}
+
+function renderPlanes(){
+  const base = Number(curso.precio)||0;
+  const opciones = [
+    { n:1, lbl:'Un solo pago', desc:'Ahorra 10%', factor:0.9 },
+    { n:3, lbl:'3 cuotas', desc:'Sin intereses', factor:1 },
+    { n:6, lbl:'6 cuotas', desc:'Cuota más baja', factor:1.06 },
+  ];
+  $('#planes').innerHTML = opciones.map(o=>{
+    const total = Math.round(base*o.factor*100)/100;
+    return `<div class="plan ${o.n===plan?'on':''}" data-plan="${o.n}" data-factor="${o.factor}">
+      <div class="row between"><b>${o.lbl}</b>${o.n===plan?'<span class="material-symbols-outlined" style="color:var(--primary)">check_circle</span>':''}</div>
+      <div class="p">${money(total/o.n, curso.moneda)}${o.n>1?'<span class="tiny muted"> /mes</span>':''}</div>
+      <div class="tiny muted">${o.desc} · total ${money(total, curso.moneda)}</div></div>`;
+  }).join('');
+  $$('[data-plan]').forEach(el=>el.onclick=()=>{ plan=Number(el.dataset.plan); renderPlanes(); resumen(); });
+}
+
+function totalPlan(){
+  const base=Number(curso.precio)||0;
+  const factor = plan===1?0.9 : plan===3?1 : 1.06;
+  return Math.max(Math.round(base*factor*100)/100 - descuento, 0);
+}
+
+function resumen(){
+  const base=Number(curso.precio)||0, total=totalPlan();
+  const ahorro = plan===1? Math.round(base*0.1*100)/100 : 0;
+  $('#resumen').innerHTML = `
+    <div class="list-item"><div class="grow"><div class="t">${esc(curso.nombre)}</div>
+      <div class="s">${esc(curso.duracion_texto||curso.horas+' h')} · ${esc(curso.modalidad.replace('_',' '))}</div></div></div>
+    <div class="row between tiny" style="padding:6px 0"><span class="muted">Subtotal</span><span>${money(base, curso.moneda)}</span></div>
+    ${ahorro?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Descuento (pago único)</span><span style="color:var(--ok)">-${money(ahorro, curso.moneda)}</span></div>`:''}
+    ${descuento?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Cupón</span><span style="color:var(--ok)">-${money(descuento, curso.moneda)}</span></div>`:''}
+    <div class="row between" style="padding:10px 0;border-top:1px solid var(--outline-variant);margin-top:6px">
+      <b>Total a pagar</b><b style="font-size:19px;color:var(--primary)">${money(total, curso.moneda)}</b></div>
+    <div class="tiny muted">${plan>1?`${plan} cuotas de ${money(total/plan, curso.moneda)}`:'Pago único'}</div>`;
+}
+
+$('#btnCupon').onclick = () => {
+  const code = $('#cupon').value.trim().toUpperCase();
+  const cupones = { 'CEM10':0.10, 'BECA20':0.20, 'ALUMNI15':0.15 };
+  if (cupones[code]) {
+    descuento = Math.round((Number(curso.precio)||0)*cupones[code]*100)/100;
+    $('#cuponMsg').innerHTML = `<span class="chip ok">Cupón aplicado: ${Math.round(cupones[code]*100)}% de descuento</span>`;
+  } else { descuento=0; $('#cuponMsg').innerHTML = '<span class="chip err">Cupón no válido</span>'; }
+  resumen();
+};
+
+$('#btnConfirmar').onclick = async () => {
+  const btn=$('#btnConfirmar'); btn.disabled=true; btn.textContent='Procesando…';
+  try{
+    await sb.from('cem_profiles').update({
+      nombre:$('#dNombre').value.trim(), apellido:$('#dApellido').value.trim(),
+      documento_tipo:$('#dDocTipo').value, documento:$('#dDoc').value.trim(),
+      telefono:$('#dTel').value.trim(), pais:$('#dPais').value.trim(),
+    }).eq('id',me.id);
+
+    const enr = await run(sb.rpc('cem_self_enroll',{
+      p_course_id:cursoId, p_cohort_id:$('#cohorte').value||null,
+      p_cuotas:plan, p_descuento:(Number(curso.precio)||0)-totalPlan(),
+    }),'No se pudo completar la inscripción');
+
+    await audit('inscripcion_estudiante','cem_enrollments',enr?.id,'medio',{curso:curso.nombre, plan});
+    ok('¡Inscripción registrada! Revisa tu panel.');
+    setTimeout(()=>location.href='panel.html', 1100);
+  } catch(e){
+    btn.disabled=false; btn.innerHTML='Confirmar inscripción <span class="material-symbols-outlined">arrow_forward</span>';
+  }
+};
+</script>
+</body>
+</html>

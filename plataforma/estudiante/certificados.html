@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mis logros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+  .cert{background:linear-gradient(120deg,#fff,#f2f6fb);border:1px solid var(--outline-variant);
+    border-radius:var(--radius);padding:18px;display:flex;gap:14px;align-items:flex-start;}
+  .badge-card{text-align:center;padding:18px;}
+  .badge-ico{width:62px;height:62px;border-radius:50%;background:var(--tertiary-fixed);color:var(--tertiary);
+    display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px;}
+  .badge-ico .material-symbols-outlined{font-size:32px;}
+  .badge-card.locked{opacity:.5;} .badge-card.locked .badge-ico{background:var(--surface-highest);color:var(--outline);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head"><div><h1>Mis logros</h1>
+    <p>Revisa y descarga tus certificaciones e insignias oficiales de CEM International.</p></div></div>
+
+  <h2 class="sec">Certificados oficiales</h2>
+  <div class="grid g2" id="certs"></div>
+
+  <h2 class="sec" style="margin-top:22px">Camino a la certificación</h2>
+  <div class="card" id="camino"></div>
+
+  <h2 class="sec" style="margin-top:22px">Insignias</h2>
+  <div class="grid g4" id="badges"></div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal } from '../assets/app.js';
+const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
+if (me) load();
+
+async function load(){
+  const [{data:certs},{data:ens},{data:all},{data:mine}] = await Promise.all([
+    sb.from('cem_certificates').select('*,cem_courses(nombre)').eq('profile_id',me.id).order('emitido_en',{ascending:false}),
+    sb.from('cem_enrollments').select('*,cem_courses(nombre,certificado_nombre)').eq('profile_id',me.id),
+    sb.from('cem_badges').select('*').eq('activo',true).order('nombre'),
+    sb.from('cem_badge_awards').select('badge_id,otorgado_en').eq('profile_id',me.id),
+  ]);
+  const got = new Set((mine||[]).map(x=>x.badge_id));
+
+  $('#certs').innerHTML = (certs||[]).length ? certs.map(c=>`
+    <div class="cert">
+      <span class="material-symbols-outlined" style="font-size:40px;color:var(--tertiary-container)">workspace_premium</span>
+      <div style="flex:1;min-width:0">
+        <span class="chip ok">Completado · ${fdate(c.emitido_en)}</span>
+        <h3 style="margin:8px 0 4px;font-size:16px">${esc(c.titulo)}</h3>
+        <div class="tiny muted">Otorgado por CEM International Education System</div>
+        <div class="tiny muted">ID: <code>${esc(c.codigo)}</code></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn sm" data-pdf="${c.id}"><span class="material-symbols-outlined">download</span> Descargar</button>
+          <a class="btn outline sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank">
+            <span class="material-symbols-outlined">verified</span> Verificar</a>
+        </div>
+      </div></div>`).join('')
+    : '<div class="card"><p class="muted">Aún no tienes certificados emitidos. Completa un programa para obtener el tuyo.</p></div>';
+
+  $$('[data-pdf]').forEach(b=>b.onclick=()=>verCertificado((certs||[]).find(c=>c.id===b.dataset.pdf)));
+
+  const enCurso = (ens||[]).filter(e=>!(certs||[]).some(c=>c.enrollment_id===e.id));
+  $('#camino').innerHTML = enCurso.length ? enCurso.map(e=>`
+    <div class="list-item"><div class="grow">
+      <div class="t">${esc(e.cem_courses?.certificado_nombre || e.cem_courses?.nombre || '')}</div>
+      <div class="s">Necesitas completar el 80% del programa · vas en ${pct(e.progreso)}</div>
+      <div style="margin-top:6px">${bar(e.progreso, true)}</div></div>
+      ${Number(e.progreso)>=80?chip('listo para emisión','ok'):chip('en progreso','warn')}</div>`).join('')
+    : '<p class="muted tiny">No tienes programas pendientes de certificación.</p>';
+
+  $('#badges').innerHTML = (all||[]).map(b=>{
+    const has = got.has(b.id);
+    return `<div class="card badge-card ${has?'':'locked'}" style="margin:0">
+      <div class="badge-ico"><span class="material-symbols-outlined">${esc(b.icono||'military_tech')}</span></div>
+      <div style="font-weight:600;font-size:13.5px">${esc(b.nombre)}</div>
+      <div class="tiny muted">${esc(b.nivel||'')}</div>
+      <div class="tiny muted" style="margin-top:6px">${esc(b.criterio||'')}</div>
+      <div style="margin-top:8px">${has?chip('obtenida','ok'):chip('bloqueada','neutral')}</div></div>`;
+  }).join('') || '<div class="card">Sin insignias configuradas.</div>';
+}
+
+function verCertificado(c){
+  const url = new URL('../verificar.html', location.href).href + '?codigo=' + encodeURIComponent(c.codigo);
+  const qr = qrcode(0,'M'); qr.addData(url); qr.make();
+  const m = modal({ title:'Certificado', wide:true, body:`
+    <div id="lienzo" style="border:8px double var(--tertiary-container);padding:32px;text-align:center;background:#fff">
+      <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
+      <h2 style="margin:14px 0 6px;font-size:24px;color:var(--primary)">Certificado de finalización</h2>
+      <p class="tiny muted" style="margin:0">Se otorga el presente certificado a</p>
+      <div style="font-size:26px;font-weight:700;margin:12px 0">${esc(me.nombre)} ${esc(me.apellido||'')}</div>
+      <p class="tiny muted" style="margin:0">por haber completado satisfactoriamente el programa</p>
+      <div style="font-size:17px;font-weight:600;margin:10px 0">${esc(c.titulo)}</div>
+      <div class="row" style="justify-content:center;gap:26px;margin-top:22px;align-items:flex-end">
+        <div>${qr.createImgTag(3,4)}<div class="tiny muted">Verificación</div></div>
+        <div style="text-align:center"><div style="border-top:1px solid var(--outline);padding-top:6px;min-width:190px">
+          Dirección Académica</div></div>
+      </div>
+      <div class="tiny muted" style="margin-top:16px">Código: ${esc(c.codigo)} · Emitido el ${fdate(c.emitido_en)}</div>
+    </div>`,
+    footer:`<button class="btn outline" data-x2>Cerrar</button><button class="btn" data-print>
+      <span class="material-symbols-outlined">print</span> Imprimir / Guardar PDF</button>` });
+  $('[data-x2]',m).onclick=m.close;
+  $('[data-print]',m).onclick=()=>{
+    const w = window.open('','_blank');
+    w.document.write(`<html><head><title>${esc(c.codigo)}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>body{font-family:'Hanken Grotesk',sans-serif;padding:30px;} code{font-size:12px}</style></head>
+      <body>${$('#lienzo',m).outerHTML}<script>onload=()=>print()<\/script></body></html>`);
+    w.document.close();
+  };
+}
+</script>
+</body>
+</html>

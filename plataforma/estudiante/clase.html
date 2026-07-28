@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Aula</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:16px;}
+  @media(max-width:900px){ .aula{grid-template-columns:1fr;} }
+  .les-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:13px;}
+  .les-item:hover{background:var(--surface-container);}
+  .les-item.on{background:var(--secondary-container);color:var(--secondary);font-weight:600;}
+  .les-item .material-symbols-outlined{font-size:18px;}
+  .player{aspect-ratio:16/9;background:#000;border-radius:var(--radius);overflow:hidden;display:flex;
+    align-items:center;justify-content:center;color:#fff;}
+  .player iframe{width:100%;height:100%;border:0;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="row between" style="margin-bottom:14px">
+    <div><h1 id="tCurso" style="margin:0;font-size:20px"></h1>
+      <div class="tiny muted" id="tProg"></div></div>
+    <a class="btn outline sm" href="panel.html"><span class="material-symbols-outlined">arrow_back</span> Mi panel</a>
+  </div>
+
+  <div class="aula">
+    <div class="card" style="align-self:start;max-height:78vh;overflow:auto">
+      <h2 class="sec">Contenido del curso</h2>
+      <div id="indice"></div>
+      <div style="margin-top:10px">${''}</div>
+    </div>
+
+    <div>
+      <div id="visor"></div>
+      <div class="card" style="margin-top:14px">
+        <div class="tabs" id="tabs">
+          <button class="active" data-t="notas">Mis notas</button>
+          <button data-t="recursos">Recursos</button>
+          <button data-t="sesiones">Sesiones en vivo</button>
+        </div>
+        <div id="panelTabs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run } from '../assets/app.js';
+const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[];
+if (me) load();
+
+async function load(){
+  let cursoId = qs('curso');
+  const claseId = qs('clase');
+  if (claseId && !cursoId){
+    const { data: cl } = await sb.from('cem_classes').select('cohort_id,cem_cohorts(course_id)').eq('id',claseId).maybeSingle();
+    cursoId = cl?.cem_cohorts?.course_id;
+  }
+  const { data: ens } = await sb.from('cem_enrollments')
+    .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id);
+  enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
+  if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
+  curso = enr.cem_courses;
+
+  const [{data:ms},{data:lp},{data:cls},{data:md}] = await Promise.all([
+    sb.from('cem_modules').select('*,cem_lessons(*)').eq('course_id',enr.course_id).order('orden'),
+    sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id),
+    enr.cohort_id? sb.from('cem_classes').select('*').eq('cohort_id',enr.cohort_id).order('fecha') : Promise.resolve({data:[]}),
+    sb.from('cem_media').select('*').eq('course_id',enr.course_id),
+  ]);
+  mods = (ms||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
+  (lp||[]).forEach(x=>progreso[x.lesson_id]=x);
+  clases = cls||[]; media = md||[];
+  const all = mods.flatMap(m=>m.cem_lessons);
+  actual = all.find(l=>!progreso[l.id]?.completado) || all[0];
+  render();
+}
+
+function render(){
+  $('#tCurso').textContent = curso?.nombre||'';
+  $('#tProg').innerHTML = `${esc(enr.cem_cohorts?.nombre||'')} · ${pct(enr.progreso)} completado`;
+  $('#indice').innerHTML = mods.map(m=>`
+    <div style="margin-bottom:10px">
+      <div class="tiny" style="font-weight:700;text-transform:uppercase;color:var(--on-surface-variant);padding:4px 10px">${esc(m.titulo)}</div>
+      ${m.cem_lessons.map(l=>{
+        const done = progreso[l.id]?.completado;
+        return `<div class="les-item ${actual?.id===l.id?'on':''}" data-l="${l.id}">
+          <span class="material-symbols-outlined" style="color:${done?'var(--ok)':'var(--outline)'}">
+            ${done?'check_circle':'radio_button_unchecked'}</span>
+          <span style="flex:1">${esc(l.titulo)}</span>
+          <span class="tiny muted">${l.duracion_min||0}′</span></div>`;
+      }).join('')}
+    </div>`).join('');
+  $$('[data-l]').forEach(el=>el.onclick=()=>{
+    actual = mods.flatMap(m=>m.cem_lessons).find(l=>l.id===el.dataset.l); render();
+  });
+
+  const l = actual;
+  $('#visor').innerHTML = l ? `
+    <div class="player">${l.tipo==='video'&&l.url
+      ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>`
+      : `<div style="text-align:center;padding:30px">
+          <span class="material-symbols-outlined" style="font-size:44px">${l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
+          <div style="margin-top:8px">${esc(l.titulo)}</div></div>`}</div>
+    <div class="card" style="margin-top:12px">
+      <div class="row between">
+        <div><h2 class="sec" style="margin:0 0 4px">${esc(l.titulo)}</h2>
+          <div class="tiny muted">${esc(l.descripcion||'')}</div></div>
+        <button class="btn ${progreso[l.id]?.completado?'outline':''}" id="btnDone">
+          <span class="material-symbols-outlined">${progreso[l.id]?.completado?'check_circle':'done'}</span>
+          ${progreso[l.id]?.completado?'Completada':'Marcar completada'}</button>
+      </div>
+      ${l.contenido?`<p class="muted" style="margin-top:10px">${esc(l.contenido)}</p>`:''}
+      <div style="margin-top:12px">${bar(enr.progreso)}</div>
+    </div>` : '<div class="card">Este curso todavía no tiene lecciones publicadas.</div>';
+
+  const btn=$('#btnDone');
+  if (btn) btn.onclick = async () => {
+    const done = !progreso[l.id]?.completado;
+    await run(sb.from('cem_lesson_progress').upsert({
+      enrollment_id:enr.id, lesson_id:l.id, completado:done, actualizado_en:new Date().toISOString()
+    },{onConflict:'enrollment_id,lesson_id'}),'No se pudo guardar el progreso');
+    progreso[l.id] = { completado:done };
+    const { data: np } = await sb.rpc('cem_recalc_progress',{p_enrollment_id:enr.id});
+    enr.progreso = np ?? enr.progreso;
+    ok(done?'Lección completada':'Marcada como pendiente');
+    render();
+  };
+  tab($('#tabs button.active')?.dataset.t || 'notas');
+}
+
+$$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });
+
+function tab(t){
+  const P=$('#panelTabs');
+  if (t==='notas'){
+    const nota = progreso[actual?.id]?.notas || '';
+    P.innerHTML = `<div class="field"><label>Notas personales de esta lección</label>
+      <textarea id="nota" placeholder="Escribe tus apuntes…">${esc(nota)}</textarea></div>
+      <button class="btn outline sm" id="btnNota"><span class="material-symbols-outlined">save</span> Guardar nota</button>`;
+    $('#btnNota').onclick = async () => {
+      await run(sb.from('cem_lesson_progress').upsert({
+        enrollment_id:enr.id, lesson_id:actual.id, notas:$('#nota').value,
+        completado:progreso[actual.id]?.completado||false, actualizado_en:new Date().toISOString()
+      },{onConflict:'enrollment_id,lesson_id'}),'No se pudo guardar');
+      progreso[actual.id] = { ...(progreso[actual.id]||{}), notas:$('#nota').value };
+      ok('Nota guardada');
+    };
+  }
+  if (t==='recursos'){
+    P.innerHTML = media.length ? media.map(m=>`<div class="list-item">
+      <span class="material-symbols-outlined">${m.tipo==='pdf'?'picture_as_pdf':m.tipo==='video'?'play_circle':'dataset'}</span>
+      <div class="grow"><div class="t">${esc(m.nombre)}</div>
+        <div class="s">${esc(m.tipo)} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div></div>
+      ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">download</span></a>`:''}
+      </div>`).join('') : '<p class="muted tiny">Sin recursos para este curso.</p>';
+  }
+  if (t==='sesiones'){
+    P.innerHTML = clases.length ? clases.map(c=>`<div class="list-item">
+      <div style="text-align:center;min-width:42px"><b>${new Date(c.fecha+'T12:00').getDate()}</b>
+        <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
+      <div class="grow"><div class="t">${esc(c.titulo)}</div>
+        <div class="s">${(c.hora_inicio||'').slice(0,5)}–${(c.hora_fin||'').slice(0,5)} · ${esc(c.modalidad.replace('_',' '))}</div></div>
+      ${chip(c.estado)}
+      ${c.estado!=='dictada'&&c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Unirme</a>`:''}
+      ${c.grabacion_url?`<a class="btn outline sm" href="${esc(c.grabacion_url)}" target="_blank">Grabación</a>`:''}
+      </div>`).join('') : '<p class="muted tiny">Sin sesiones programadas.</p>';
+  }
+}
+</script>
+</body>
+</html>

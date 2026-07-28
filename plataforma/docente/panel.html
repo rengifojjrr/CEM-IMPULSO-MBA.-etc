@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Panel docente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1 id="saludo">Bienvenido</h1><p>Resumen de actividad y tareas pendientes para hoy.</p></div>
+    <div class="actions"><button class="btn" id="btnAnuncio"><span class="material-symbols-outlined">campaign</span> Publicar anuncio</button></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid g2">
+    <div class="card"><h2 class="sec">Mis grupos activos</h2><div id="grupos"></div></div>
+    <div class="card"><h2 class="sec">Próximas sesiones</h2><div id="sesiones"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Entregas pendientes de calificar</h2>
+      <span class="chip warn" id="nPend"></span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Evaluación</th><th>Programa</th><th>Entregado</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tbEntregas"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Asistencia de mis sesiones dictadas</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Sesión</th><th>Fecha</th><th>Cohorte</th><th>Asistencia</th><th></th></tr></thead>
+      <tbody id="tbAsis"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit } from '../assets/app.js';
+const me = await mount({ require:['profesor'], active:'panel.html', area:'docente' });
+let cohortes=[], clases=[], subsPend=[];
+if (me) load();
+
+async function load(){
+  $('#saludo').textContent = `Bienvenido, Prof. ${me.apellido || me.nombre}`;
+  const { data: tas } = await sb.from('cem_teacher_assignments')
+    .select('cohort_id,course_id,cem_cohorts(id,nombre,cupos,estado,cem_courses(id,nombre))').eq('teacher_id',me.id);
+  cohortes = (tas||[]).map(t=>t.cem_cohorts).filter(Boolean);
+  const cohIds = cohortes.map(c=>c.id), courseIds=[...new Set((tas||[]).map(t=>t.course_id).filter(Boolean))];
+
+  const [{data:ens},{data:cls},{data:asis}] = await Promise.all([
+    cohIds.length? sb.from('cem_enrollments').select('id,cohort_id,progreso,profile_id,course_id,cem_profiles(nombre,apellido)').in('cohort_id',cohIds) : Promise.resolve({data:[]}),
+    cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre)').in('cohort_id',cohIds).order('fecha') : Promise.resolve({data:[]}),
+    Promise.resolve({data:[]}),
+  ]);
+  clases = cls||[];
+  const eids = (ens||[]).map(e=>e.id);
+  const { data: subs } = eids.length
+    ? await sb.from('cem_submissions').select('*,cem_assessments(nombre,course_id,cem_courses(nombre))').in('enrollment_id',eids).eq('estado','entregada')
+    : { data: [] };
+  subsPend = subs||[];
+
+  const totalAlumnos = (ens||[]).length;
+  const partic = (ens||[]).length? (ens||[]).reduce((a,e)=>a+Number(e.progreso||0),0)/(ens||[]).length : 0;
+  $('#kpis').innerHTML = [
+    kpi('Alumnos activos', num(totalAlumnos),'group',`en ${cohortes.length} grupo(s)`),
+    kpi('Entregas por calificar', num(subsPend.length),'assignment', subsPend.length?'requieren tu revisión':'todo al día'),
+    kpi('Sesiones dictadas', num(clases.filter(c=>c.estado==='dictada').length),'co_present','histórico'),
+    kpi('Participación media', pct(partic),'trending_up','progreso de tus grupos'),
+  ].join('');
+
+  const byCoh={}; (ens||[]).forEach(e=>{ (byCoh[e.cohort_id] ||= []).push(e); });
+  $('#grupos').innerHTML = cohortes.length ? cohortes.map(c=>{
+    const list=byCoh[c.id]||[];
+    const avg = list.length? list.reduce((a,e)=>a+Number(e.progreso||0),0)/list.length : 0;
+    return `<div class="list-item"><div class="grow">
+      <div class="t">${esc(c.cem_courses?.nombre||'')}</div>
+      <div class="s">${esc(c.nombre)} · ${list.length} alumnos</div>
+      <div style="margin-top:6px">${bar(avg)}</div></div>
+      <div style="text-align:right"><b>${pct(avg)}</b><div class="tiny muted">participación</div></div></div>`;
+  }).join('') : '<p class="muted tiny">Aún no tienes cohortes asignadas.</p>';
+
+  const prox = clases.filter(c=>c.fecha >= new Date().toISOString().slice(0,10)).slice(0,6);
+  $('#sesiones').innerHTML = prox.length ? prox.map(c=>`
+    <div class="list-item">
+      <div style="text-align:center;min-width:42px"><b>${new Date(c.fecha+'T12:00').getDate()}</b>
+        <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
+      <div class="grow"><div class="t">${esc(c.titulo)}</div>
+        <div class="s">${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
+      ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chip(c.estado)}
+    </div>`).join('') : '<p class="muted tiny">Sin sesiones próximas.</p>';
+
+  $('#nPend').textContent = `${subsPend.length} pendientes`;
+  $('#tbEntregas').innerHTML = subsPend.length ? subsPend.map(s=>{
+    const e = (ens||[]).find(x=>x.id===s.enrollment_id);
+    return `<tr>
+      <td>${esc((e?.cem_profiles?.nombre||'')+' '+(e?.cem_profiles?.apellido||''))}</td>
+      <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td>
+      <td class="wrap">${esc(s.cem_assessments?.cem_courses?.nombre||'')}</td>
+      <td class="muted">${fdatetime(s.entregado_en)}</td>
+      <td>${chip(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td>
+      <td><button class="btn outline sm" data-cal="${s.id}">Calificar</button></td></tr>`;
+  }).join('') : emptyRow(6,'No tienes entregas pendientes.');
+  $$('[data-cal]').forEach(b=>b.onclick=()=>calificar(subsPend.find(s=>s.id===b.dataset.cal), ens||[]));
+
+  const dictadas = clases.filter(c=>c.estado==='dictada').slice(0,8);
+  const { data: att } = dictadas.length
+    ? await sb.from('cem_attendance').select('class_id,presente').in('class_id',dictadas.map(c=>c.id))
+    : { data: [] };
+  const byClass={}; (att||[]).forEach(a=>{ (byClass[a.class_id] ||= {t:0,p:0}); byClass[a.class_id].t++; if(a.presente) byClass[a.class_id].p++; });
+  $('#tbAsis').innerHTML = dictadas.length ? dictadas.map(c=>{
+    const s=byClass[c.id]||{t:0,p:0}; const r = s.t? Math.round(100*s.p/s.t):0;
+    return `<tr><td class="wrap">${esc(c.titulo)}</td><td>${fdate(c.fecha)}</td>
+      <td>${esc(c.cem_cohorts?.nombre||'')}</td>
+      <td style="min-width:120px">${bar(r)}<span class="tiny muted">${s.p}/${s.t} · ${r}%</span></td>
+      <td><button class="btn ghost sm" data-asis="${c.id}"><span class="material-symbols-outlined">how_to_reg</span></button></td></tr>`;
+  }).join('') : emptyRow(5,'Aún no has dictado sesiones.');
+  $$('[data-asis]').forEach(b=>b.onclick=()=>pasarAsistencia(b.dataset.asis, ens||[]));
+}
+
+function calificar(s, ens){
+  const e = ens.find(x=>x.id===s.enrollment_id);
+  const m = modal({ title:`Calificar: ${s.cem_assessments?.nombre||''}`, wide:true, body:`
+    <div class="tiny muted">Estudiante: <b>${esc((e?.cem_profiles?.nombre||'')+' '+(e?.cem_profiles?.apellido||''))}</b></div>
+    ${Object.keys(s.respuestas||{}).length? `<div class="card" style="margin-top:12px;background:var(--surface-container)">
+      <b class="tiny">Respuestas entregadas</b>
+      ${Object.entries(s.respuestas).map(([k,v])=>`<div class="tiny" style="margin-top:6px"><code>${esc(k.slice(0,8))}</code>: ${esc(String(v))}</div>`).join('')}
+    </div>`:''}
+    <div class="row" style="margin-top:12px">
+      <div class="field" style="flex:1;min-width:130px"><label>Puntaje (0–100) *</label>
+        <input type="number" id="gP" min="0" max="100" value="${s.puntaje??''}"></div></div>
+    <div class="field"><label>Retroalimentación</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar calificación</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    const p=Number($('#gP',m).value);
+    if (isNaN(p)) return;
+    await run(sb.rpc('cem_grade_submission',{ p_submission_id:s.id, p_puntaje:p, p_feedback:$('#gF',m).value.trim()||null }),'No se pudo calificar');
+    m.close(); ok('Calificación registrada'); load();
+  };
+}
+
+async function pasarAsistencia(classId, ens){
+  const cl = clases.find(c=>c.id===classId);
+  const alumnos = ens.filter(e=>e.cohort_id===cl.cohort_id);
+  const { data: att } = await sb.from('cem_attendance').select('*').eq('class_id',classId);
+  const map={}; (att||[]).forEach(a=>map[a.enrollment_id]=a.presente);
+  const m = modal({ title:`Asistencia · ${cl.titulo}`, wide:true, body:`
+    <div class="stack">${alumnos.map(a=>`<label class="check">
+      <input type="checkbox" data-a="${a.id}" ${map[a.id]?'checked':''}>
+      <span>${esc((a.cem_profiles?.nombre||'')+' '+(a.cem_profiles?.apellido||''))}</span></label>`).join('')
+      || '<p class="muted tiny">Sin alumnos en esta cohorte.</p>'}</div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar asistencia</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    const rows = $$('[data-a]',m).map(i=>({ class_id:classId, enrollment_id:i.dataset.a, presente:i.checked, minutos:i.checked?120:0 }));
+    if (rows.length) await run(sb.from('cem_attendance').upsert(rows,{onConflict:'class_id,enrollment_id'}),'No se pudo guardar');
+    await audit('asistencia_registrada','cem_classes',classId,'bajo',{n:rows.length});
+    m.close(); ok('Asistencia guardada'); load();
+  };
+}
+
+$('#btnAnuncio').onclick = () => {
+  const m = modal({ title:'Publicar anuncio', body:`
+    <div class="field"><label>Título *</label><input id="aT"></div>
+    <div class="field"><label>Mensaje</label><textarea id="aB"></textarea></div>
+    <div class="field"><label>Dirigido a</label><select id="aC"><option value="">Todos mis grupos</option>
+      ${cohortes.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}</select></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Publicar</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    if(!$('#aT',m).value.trim()) return;
+    await run(sb.from('cem_announcements').insert({ titulo:$('#aT',m).value.trim(), cuerpo:$('#aB',m).value.trim(),
+      audiencia:'estudiantes', cohort_id:$('#aC',m).value||null, estado:'enviado',
+      enviado_en:new Date().toISOString(), autor_id:me.id }),'No se pudo publicar');
+    m.close(); ok('Anuncio publicado');
+  };
+};
+</script>
+</body>
+</html>

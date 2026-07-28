@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Evaluación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .qcard{background:var(--surface-lowest);border:1px solid var(--outline-variant);border-radius:var(--radius);
+    padding:18px;margin-bottom:14px;}
+  .qnum{width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;display:inline-flex;
+    align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0;}
+  .opt{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--outline-variant);
+    border-radius:10px;margin-top:8px;cursor:pointer;}
+  .opt:hover{background:var(--surface-container);}
+  .opt.on{border-color:var(--primary);background:var(--primary-fixed);font-weight:600;}
+  .timer{font-variant-numeric:tabular-nums;font-weight:700;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="card" style="position:sticky;top:70px;z-index:20">
+    <div class="row between">
+      <div><h1 id="tit" style="margin:0;font-size:18px"></h1><div class="tiny muted" id="sub"></div></div>
+      <div class="row">
+        <span class="chip info" id="intento"></span>
+        <span class="chip warn timer" id="timer"></span>
+        <button class="btn" id="btnEnviar">Entregar examen</button>
+      </div>
+    </div>
+  </div>
+  <div id="cuerpo"></div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, qs, ok, fail, run, confirmDialog, modal } from '../assets/app.js';
+const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+let assess, preguntas=[], sub, respuestas={}, tLeft=null, tick=null;
+if (me) load();
+
+async function load(){
+  const aId = qs('id'); const enrId = qs('enr');
+  if (!aId) { location.href='panel.html'; return; }
+  const { data: a } = await sb.from('cem_assessments').select('*,cem_courses(nombre)').eq('id',aId).maybeSingle();
+  if (!a) { fail('Evaluación no encontrada'); return; }
+  assess = a;
+
+  let enrollment = enrId;
+  if (!enrollment){
+    const { data: e } = await sb.from('cem_enrollments').select('id').eq('profile_id',me.id).eq('course_id',a.course_id).maybeSingle();
+    enrollment = e?.id;
+  }
+  if (!enrollment){ fail('No estás inscrito en este programa.'); setTimeout(()=>location.href='panel.html',1200); return; }
+
+  const { data: prev } = await sb.from('cem_submissions').select('*').eq('assessment_id',aId)
+    .eq('enrollment_id',enrollment).order('intento',{ascending:false});
+  const usados = (prev||[]).length;
+  const abierta = (prev||[]).find(s=>s.estado==='en_progreso');
+
+  if (!abierta && usados >= (a.intentos||1)){
+    document.getElementById('page').innerHTML = `<div class="card" style="text-align:center;padding:40px">
+      <span class="material-symbols-outlined" style="font-size:44px;color:var(--outline)">block</span>
+      <h2>Sin intentos disponibles</h2>
+      <p class="muted">Ya usaste los ${a.intentos} intento(s) permitidos para esta evaluación.</p>
+      ${(prev||[]).filter(s=>s.puntaje!=null).map(s=>`<div class="chip ${s.puntaje>=(a.nota_aprobatoria||70)?'ok':'err'}">Intento ${s.intento}: ${s.puntaje} pts</div>`).join(' ')}
+      <div style="margin-top:16px"><a class="btn" href="panel.html">Volver a mi panel</a></div></div>`;
+    return;
+  }
+
+  sub = abierta || await run(sb.from('cem_submissions').insert({
+    assessment_id:aId, enrollment_id:enrollment, intento:usados+1, estado:'en_progreso'
+  }).select().single(),'No se pudo iniciar la evaluación');
+  respuestas = sub.respuestas || {};
+
+  const { data: qsData } = await sb.from('cem_assessment_questions')
+    .select('orden,puntaje,cem_questions(id,enunciado,ayuda,tipo,opciones)').eq('assessment_id',aId).order('orden');
+  preguntas = (qsData||[]).map(x=>({ ...x.cem_questions, _puntaje:x.puntaje }));
+  if (assess.barajar) preguntas.sort(()=>Math.random()-0.5);
+
+  $('#tit').textContent = assess.nombre;
+  $('#sub').textContent = `${assess.cem_courses?.nombre||''} · responde todas las preguntas antes de que finalice el tiempo`;
+  $('#intento').textContent = `Intento ${sub.intento} de ${assess.intentos||1}`;
+  if (assess.tiempo_min){ tLeft = assess.tiempo_min*60; startTimer(); } else $('#timer').classList.add('hidden');
+  render();
+}
+
+function startTimer(){
+  const upd=()=>{
+    const m=Math.floor(tLeft/60), s=tLeft%60;
+    $('#timer').innerHTML = `<span class="material-symbols-outlined">timer</span> ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (tLeft<=60) $('#timer').className='chip err timer';
+    if (tLeft<=0){ clearInterval(tick); entregar(true); }
+    tLeft--;
+  };
+  upd(); tick=setInterval(upd,1000);
+}
+
+function render(){
+  $('#cuerpo').innerHTML = preguntas.map((q,i)=>`
+    <div class="qcard">
+      <div class="row" style="gap:11px;align-items:flex-start;flex-wrap:nowrap">
+        <span class="qnum">${i+1}</span>
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(q.enunciado)}</div>
+          ${q.ayuda?`<div class="tiny muted" style="margin-top:3px">${esc(q.ayuda)}</div>`:''}
+          <div style="margin-top:10px">
+            ${q.tipo==='ensayo'||q.tipo==='corta'
+              ? `<textarea data-q="${q.id}" placeholder="Escribe tu respuesta…">${esc(respuestas[q.id]||'')}</textarea>`
+              : (q.opciones||[]).map(o=>`<div class="opt ${respuestas[q.id]===o?'on':''}" data-opt="${q.id}" data-v="${esc(o)}">
+                  <span class="material-symbols-outlined">${respuestas[q.id]===o?'radio_button_checked':'radio_button_unchecked'}</span>
+                  <span>${esc(o)}</span></div>`).join('')}
+          </div>
+        </div>
+        <span class="chip neutral">${q._puntaje} pts</span>
+      </div></div>`).join('') || '<div class="card">Esta evaluación aún no tiene preguntas.</div>';
+
+  $$('[data-opt]').forEach(el=>el.onclick=()=>{ respuestas[el.dataset.opt]=el.dataset.v; save(); render(); });
+  $$('[data-q]').forEach(el=>el.oninput=()=>{ respuestas[el.dataset.q]=el.value; });
+  $$('[data-q]').forEach(el=>el.onblur=save);
+}
+
+async function save(){ await sb.from('cem_submissions').update({ respuestas }).eq('id',sub.id); }
+
+$('#btnEnviar').onclick = () => entregar(false);
+
+async function entregar(auto){
+  const faltan = preguntas.filter(q=>!respuestas[q.id]).length;
+  if (!auto){
+    const msg = faltan? `Te faltan ${faltan} pregunta(s) por responder. ¿Entregar de todas formas?` : '¿Entregar el examen ahora?';
+    if (!await confirmDialog(msg)) return;
+  }
+  if (tick) clearInterval(tick);
+  const res = await run(sb.rpc('cem_submit_assessment',{ p_submission_id:sub.id, p_respuestas:respuestas }),'No se pudo entregar');
+  const r = Array.isArray(res)? res[0] : res;
+  const aprobado = r?.puntaje!=null && r.puntaje >= (assess.nota_aprobatoria||70);
+  const m = modal({ title:'Examen entregado', body:`
+    <div style="text-align:center;padding:10px">
+      <span class="material-symbols-outlined" style="font-size:52px;color:${r?.puntaje==null?'var(--info)':aprobado?'var(--ok)':'var(--error)'}">
+        ${r?.puntaje==null?'hourglass_top':aprobado?'check_circle':'cancel'}</span>
+      <h2 style="margin:10px 0 4px">${r?.puntaje==null?'Entrega registrada':`${r.puntaje} puntos`}</h2>
+      <p class="muted">${r?.puntaje==null
+        ? 'Tu examen contiene preguntas abiertas; un profesor lo calificará y verás el resultado en tu panel.'
+        : aprobado?'¡Felicitaciones, aprobaste la evaluación!':`No alcanzaste la nota mínima (${assess.nota_aprobatoria}).`}</p>
+    </div>`,
+    footer:`<a class="btn" href="panel.html">Volver a mi panel</a>` });
+  $('[data-x]',m).onclick = ()=>location.href='panel.html';
+}
+</script>
+</body>
+</html>

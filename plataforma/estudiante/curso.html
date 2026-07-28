@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Detalle del curso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .hero{background:linear-gradient(120deg,#00122b,#1f3a5f);color:#fff;padding:36px 0;}
+  .hero .in{max-width:1200px;margin:0 auto;padding:0 20px;display:flex;gap:26px;flex-wrap:wrap;align-items:center;}
+  .mod-h{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;border-bottom:1px solid var(--outline-variant);}
+  .mod-h b{flex:1;}
+  .les{display:flex;align-items:center;gap:10px;padding:9px 0 9px 30px;border-bottom:1px solid var(--outline-variant);font-size:13px;}
+  .les:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="hero" id="hero"></div>
+  <div class="pub-main">
+    <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:20px" id="cols">
+      <div>
+        <div class="tabs" id="tabs">
+          <button class="active" data-t="temario">Temario</button>
+          <button data-t="profesor">Profesor</button>
+          <button data-t="cert">Certificación</button>
+        </div>
+        <div id="panel"></div>
+      </div>
+      <div>
+        <div class="card" id="side" style="position:sticky;top:80px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, money, fdate, qs, profile } from '../assets/app.js';
+const me = await mount({ pub:true });
+const id = qs('id');
+let curso, mods=[], cohortes=[], profe=null, miInscripcion=null;
+if (!id) location.href='catalogo.html'; else load();
+
+async function load(){
+  const { data: c } = await sb.from('cem_courses').select('*').eq('id',id).maybeSingle();
+  if (!c) { document.body.innerHTML='<div class="pub-main"><div class="card">Curso no encontrado.</div></div>'; return; }
+  curso = c;
+  const [{data:ms},{data:cs},{data:tas}] = await Promise.all([
+    sb.from('cem_modules').select('*,cem_lessons(id,titulo,tipo,duracion_min,orden)').eq('course_id',id).order('orden'),
+    sb.from('cem_cohorts').select('*').eq('course_id',id).in('estado',['inscripciones_abiertas','en_curso','planificada']).order('fecha_inicio'),
+    sb.from('cem_teacher_assignments').select('teacher_id,cem_profiles(nombre,apellido,bio,avatar_url)').eq('course_id',id).limit(1),
+  ]);
+  mods = ms||[]; cohortes = cs||[]; profe = tas?.[0]?.cem_profiles || null;
+  if (me) {
+    const { data: e } = await sb.from('cem_enrollments').select('id,estado').eq('profile_id',me.id).eq('course_id',id).maybeSingle();
+    miInscripcion = e;
+  }
+  render();
+}
+
+function render(){
+  const horas = mods.reduce((a,m)=>a+(m.cem_lessons||[]).reduce((x,l)=>x+(l.duracion_min||0),0),0);
+  $('#hero').innerHTML = `<div class="in">
+    <div style="flex:2;min-width:280px">
+      ${curso.destacado?'<span class="chip gold">Premium</span>':''}
+      <h1 style="font-size:29px;margin:10px 0 6px">${esc(curso.nombre)}</h1>
+      <p style="opacity:.85;margin:0 0 14px">${esc(curso.subtitulo||curso.descripcion_corta||'')}</p>
+      <div class="row" style="gap:16px;font-size:13px;opacity:.9">
+        <span><span class="material-symbols-outlined">calendar_today</span> ${esc(curso.duracion_texto||curso.horas+' horas')}</span>
+        <span><span class="material-symbols-outlined">language</span> ${esc(curso.modalidad.replace('_',' '))}</span>
+        <span><span class="material-symbols-outlined">signal_cellular_alt</span> ${esc(curso.nivel)}</span>
+      </div>
+    </div>
+    <div style="flex:1;min-width:220px;text-align:right">
+      <div style="font-size:34px;font-weight:700">${money(curso.precio, curso.moneda)}</div>
+      ${miInscripcion
+        ? `<a class="btn gold" href="panel.html" style="margin-top:10px">Ya estás inscrito · Ir a mi panel</a>`
+        : `<a class="btn gold" href="inscripcion.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined">arrow_forward</span></a>`}
+    </div></div>`;
+
+  tab('temario');
+  $('#side').innerHTML = `
+    <h2 class="sec">Este programa incluye</h2>
+    <div class="stack tiny">
+      <div class="row"><span class="material-symbols-outlined">play_circle</span> ${mods.reduce((a,m)=>a+(m.cem_lessons||[]).length,0)} lecciones</div>
+      <div class="row"><span class="material-symbols-outlined">schedule</span> ${Math.round(horas/60)} horas de contenido</div>
+      <div class="row"><span class="material-symbols-outlined">workspace_premium</span> ${esc(curso.certificado_nombre||'Certificado oficial')}</div>
+      <div class="row"><span class="material-symbols-outlined">all_inclusive</span> Acceso durante todo el programa</div>
+      <div class="row"><span class="material-symbols-outlined">groups</span> Clases con cohorte y profesor</div>
+    </div>
+    <h2 class="sec" style="margin-top:18px">Cohortes disponibles</h2>
+    ${cohortes.length? cohortes.map(c=>`<div class="list-item"><div class="grow">
+        <div class="t">${esc(c.nombre)}</div>
+        <div class="s">${c.fecha_inicio?'Inicia '+fdate(c.fecha_inicio):'Fecha por definir'} · ${esc(c.horario||'')}</div></div>
+      ${chip(c.estado)}</div>`).join('') : '<p class="muted tiny">Próximamente nuevas cohortes.</p>'}`;
+}
+
+$$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });
+
+function tab(t){
+  const P=$('#panel');
+  if (t==='temario'){
+    P.innerHTML = `<div class="card">
+      <h2 class="sec">Contenido del programa</h2>
+      ${mods.length? mods.map((m,i)=>`
+        <div><div class="mod-h" data-m="${i}">
+          <span class="material-symbols-outlined">folder</span><b>${esc(m.titulo)}</b>
+          <span class="tiny muted">${(m.cem_lessons||[]).length} lecciones</span>
+          <span class="material-symbols-outlined" data-ic="${i}">expand_more</span></div>
+          <div data-body="${i}" class="hidden">${(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden).map(l=>`
+            <div class="les"><span class="material-symbols-outlined" style="font-size:17px;color:var(--on-surface-variant)">
+              ${l.tipo==='video'?'play_circle':l.tipo==='pdf'?'description':l.tipo==='quiz'?'quiz':'article'}</span>
+              <span style="flex:1">${esc(l.titulo)}</span>
+              <span class="tiny muted">${l.duracion_min||0} min</span></div>`).join('')}</div></div>`).join('')
+        : '<p class="muted tiny">El temario se publicará próximamente.</p>'}
+      ${curso.descripcion? `<div style="margin-top:18px"><h2 class="sec">Descripción</h2><p class="muted">${esc(curso.descripcion)}</p></div>`:''}
+    </div>`;
+    $$('[data-m]').forEach(h=>h.onclick=()=>{
+      const i=h.dataset.m, b=$(`[data-body="${i}"]`), ic=$(`[data-ic="${i}"]`);
+      b.classList.toggle('hidden'); ic.textContent = b.classList.contains('hidden')?'expand_more':'expand_less';
+    });
+    const first = $('[data-body="0"]'); if (first){ first.classList.remove('hidden'); $('[data-ic="0"]').textContent='expand_less'; }
+  }
+  if (t==='profesor'){
+    P.innerHTML = `<div class="card">${profe? `
+      <div class="row" style="gap:16px;align-items:flex-start">
+        <span class="avatar lg">${esc((profe.nombre||'?')[0])}</span>
+        <div><h3 style="margin:0 0 4px">${esc(profe.nombre)} ${esc(profe.apellido||'')}</h3>
+          <div class="tiny muted">Docente titular · CEM International</div>
+          <p class="muted" style="margin-top:10px">${esc(profe.bio||'Profesional con amplia trayectoria internacional en el área del programa, responsable de las sesiones en vivo y del acompañamiento académico de la cohorte.')}</p>
+        </div></div>` : '<p class="muted tiny">El equipo docente se anunciará próximamente.</p>'}</div>`;
+  }
+  if (t==='cert'){
+    P.innerHTML = `<div class="card">
+      <div class="row" style="gap:14px;align-items:flex-start">
+        <span class="material-symbols-outlined" style="font-size:40px;color:var(--tertiary-container)">workspace_premium</span>
+        <div><h3 style="margin:0 0 6px">${esc(curso.certificado_nombre||'Certificado oficial CEM')}</h3>
+        <p class="muted" style="margin:0">Al completar el programa y aprobar las evaluaciones recibirás un certificado
+        digital con código único y código QR de verificación pública, emitido por CEM International Education.</p></div>
+      </div>
+      <div class="stack tiny" style="margin-top:16px">
+        <div class="row"><span class="material-symbols-outlined">check_circle</span> Verificación pública en línea</div>
+        <div class="row"><span class="material-symbols-outlined">check_circle</span> Descarga en PDF</div>
+        <div class="row"><span class="material-symbols-outlined">check_circle</span> Insignias digitales por competencias</div>
+      </div></div>`;
+  }
+}
+</script>
+</body>
+</html>

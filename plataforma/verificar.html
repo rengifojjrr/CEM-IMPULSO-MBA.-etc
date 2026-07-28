@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEM International · Verificar certificado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="auth-wrap" style="background:linear-gradient(135deg,#f7f9fb,#e1e6ea)">
+  <div class="auth-card" style="max-width:520px">
+    <div class="brand-badge"><span class="material-symbols-outlined">verified</span></div>
+    <h1>Verificar certificado</h1>
+    <div class="sub">Consulta la autenticidad de un certificado emitido por CEM International Education.</div>
+    <form id="f">
+      <div class="field"><label>Código del certificado</label>
+        <input id="codigo" placeholder="CEM-2026-00000" required></div>
+      <button class="btn block" type="submit">Verificar <span class="material-symbols-outlined">search</span></button>
+    </form>
+    <div id="res" style="margin-top:16px"></div>
+    <div class="demo-list"><a href="estudiante/catalogo.html">Ver catálogo de programas</a></div>
+  </div>
+</div>
+<script type="module">
+import { sb, $, esc, fdate, qs } from './assets/app.js';
+
+async function verificar(codigo){
+  const res = $('#res');
+  res.innerHTML = '<p class="tiny muted">Consultando…</p>';
+  const { data, error } = await sb.rpc('cem_verify_certificate', { p_codigo: codigo });
+  if (error || !data || !data.codigo){
+    res.innerHTML = `<div class="card" style="border-color:var(--error)">
+      <div class="row"><span class="material-symbols-outlined" style="color:var(--error)">cancel</span>
+      <b>No encontrado</b></div>
+      <p class="tiny muted" style="margin:8px 0 0">No existe un certificado válido con el código <code>${esc(codigo)}</code>.</p></div>`;
+    return;
+  }
+  res.innerHTML = `<div class="card" style="border-color:var(--ok)">
+    <div class="row"><span class="material-symbols-outlined" style="color:var(--ok)">verified</span>
+      <b>Certificado auténtico</b></div>
+    <div style="margin-top:12px">
+      <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
+        <span class="muted tiny">Estudiante</span><b>${esc(data.estudiante)}</b></div>
+      <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
+        <span class="muted tiny">Certificado</span><b style="text-align:right">${esc(data.titulo)}</b></div>
+      ${data.curso?`<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
+        <span class="muted tiny">Programa</span><span style="text-align:right">${esc(data.curso)}</span></div>`:''}
+      <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
+        <span class="muted tiny">Emitido</span><span>${fdate(data.emitido_en)}</span></div>
+      <div class="row between" style="padding:6px 0">
+        <span class="muted tiny">Código</span><code>${esc(data.codigo)}</code></div>
+    </div></div>`;
+}
+
+$('#f').onsubmit = (e) => { e.preventDefault(); verificar($('#codigo').value.trim()); };
+const c = qs('codigo');
+if (c) { $('#codigo').value = c; verificar(c); }
+</script>
+</body>
+</html>

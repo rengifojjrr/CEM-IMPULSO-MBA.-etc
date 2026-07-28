@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mi panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head"><div><h1 id="saludo">Hola</h1><p>Este es el resumen de tu actividad académica.</p></div></div>
+
+  <div class="card" id="proxima" style="background:linear-gradient(120deg,#00122b,#1f3a5f);color:#fff;border:none"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <h2 class="sec" style="margin-top:20px">Cursos activos</h2>
+  <div class="grid g2" id="cursos"></div>
+
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h2 class="sec">Próximas entregas</h2><div id="entregas"></div></div>
+    <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
+  </div>
+
+  <div class="card"><h2 class="sec">Anuncios</h2><div id="anuncios"></div></div>
+</div>
+<script type="module">
+import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num } from '../assets/app.js';
+const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+if (p) init();
+
+async function init(){
+  $('#saludo').textContent = `Hola, ${p.nombre}`;
+  const { data: ens } = await sb.from('cem_enrollments')
+    .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)').eq('profile_id',p.id);
+  const eids = (ens||[]).map(e=>e.id), cohIds=(ens||[]).map(e=>e.cohort_id).filter(Boolean);
+
+  const [{data:clases},{data:insts},{data:subs},{data:anuncios},{data:certs}] = await Promise.all([
+    cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre,cem_courses(nombre))').in('cohort_id',cohIds)
+      .gte('fecha',new Date().toISOString().slice(0,10)).order('fecha').limit(5) : Promise.resolve({data:[]}),
+    eids.length? sb.from('cem_installments').select('*').in('enrollment_id',eids).order('fecha_vencimiento') : Promise.resolve({data:[]}),
+    eids.length? sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,course_id)').in('enrollment_id',eids) : Promise.resolve({data:[]}),
+    sb.from('cem_announcements').select('*').eq('estado','enviado').order('enviado_en',{ascending:false}).limit(4),
+    sb.from('cem_certificates').select('id').eq('profile_id',p.id),
+  ]);
+
+  const prog = ens?.length? ens.reduce((a,e)=>a+Number(e.progreso||0),0)/ens.length : 0;
+  const saldo = (insts||[]).filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
+  $('#kpis').innerHTML = [
+    kpi('Cursos activos', num((ens||[]).filter(e=>e.estado==='activa').length),'school',`${(ens||[]).length} inscripciones`),
+    kpi('Progreso general', pct(prog),'trending_up','promedio'),
+    kpi('Certificados', num((certs||[]).length),'workspace_premium','obtenidos'),
+    kpi('Saldo pendiente', money(saldo),'account_balance_wallet', saldo>0?'revisa tus cuotas':'estás al día'),
+  ].join('');
+
+  const next = (clases||[])[0];
+  $('#proxima').innerHTML = next ? `
+    <div class="row" style="gap:14px">
+      <span class="material-symbols-outlined" style="font-size:34px">video_camera_front</span>
+      <div class="grow" style="flex:1;min-width:200px">
+        <div class="tiny" style="opacity:.75">Tu próxima clase</div>
+        <div style="font-size:17px;font-weight:700">${esc(next.titulo)}</div>
+        <div class="tiny" style="opacity:.85">${esc(next.cem_cohorts?.cem_courses?.nombre||'')} · ${fdate(next.fecha)} ${(next.hora_inicio||'').slice(0,5)}</div>
+      </div>
+      <a class="btn gold" href="clase.html?clase=${next.id}">Ir a la clase</a>
+    </div>` : `<div class="row" style="gap:12px"><span class="material-symbols-outlined">event_available</span>
+      <div>No tienes clases programadas próximamente.</div></div>`;
+
+  $('#cursos').innerHTML = (ens||[]).length ? ens.map(e=>`
+    <div class="card" style="margin:0">
+      <div class="row between" style="align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <span class="chip teal">${esc(e.cem_courses?.modalidad?.replace('_',' ')||'')}</span>
+          <h3 style="margin:8px 0 4px;font-size:16px">${esc(e.cem_courses?.nombre||'')}</h3>
+          <div class="tiny muted">${esc(e.cem_cohorts?.nombre||'Sin cohorte')}</div>
+        </div>${chip(e.estado)}
+      </div>
+      <div style="margin-top:12px">
+        <div class="row between tiny muted"><span>Progreso general</span><b>${pct(e.progreso)}</b></div>
+        ${bar(e.progreso)}
+      </div>
+      <div class="row" style="margin-top:12px">
+        <a class="btn sm" href="clase.html?curso=${e.cem_courses?.id}">Continuar</a>
+        <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>
+      </div>
+    </div>`).join('') : '<div class="card"><p class="muted">Aún no tienes cursos. <a href="catalogo.html">Explora el catálogo</a>.</p></div>';
+
+  const pend = (subs||[]).filter(s=>s.estado==='en_progreso'||s.estado==='entregada');
+  $('#entregas').innerHTML = pend.length ? pend.slice(0,6).map(s=>`
+    <div class="list-item"><span class="material-symbols-outlined" style="color:var(--on-surface-variant)">assignment</span>
+      <div class="grow"><div class="t">${esc(s.cem_assessments?.nombre||'')}</div>
+        <div class="s">${esc(s.cem_assessments?.tipo||'')} · ${s.entregado_en?'entregado '+fdate(s.entregado_en):'pendiente'}</div></div>
+      ${chip(s.estado)}</div>`).join('')
+    : '<p class="muted tiny">No tienes entregas pendientes.</p>';
+
+  $('#pagos').innerHTML = (insts||[]).length ? insts.slice(0,6).map(i=>{
+    const venc = i.estado!=='pagada' && i.fecha_vencimiento < new Date().toISOString().slice(0,10);
+    return `<div class="list-item"><div class="grow">
+      <div class="t">Cuota ${i.numero} · ${money(i.monto)}</div>
+      <div class="s">Vence ${fdate(i.fecha_vencimiento)}</div></div>
+      ${venc?chip('vencida','err'):chip(i.estado)}</div>`;
+  }).join('') : '<p class="muted tiny">Sin cuotas registradas.</p>';
+
+  $('#anuncios').innerHTML = (anuncios||[]).length ? anuncios.map(a=>`
+    <div class="list-item"><span class="material-symbols-outlined" style="color:var(--on-surface-variant)">campaign</span>
+      <div class="grow"><div class="t">${esc(a.titulo)}</div><div class="s">${esc(a.cuerpo||'')}</div></div>
+      <span class="tiny muted">${fdate(a.enviado_en)}</span></div>`).join('')
+    : '<p class="muted tiny">Sin anuncios recientes.</p>';
+}
+</script>
+</body>
+</html>
