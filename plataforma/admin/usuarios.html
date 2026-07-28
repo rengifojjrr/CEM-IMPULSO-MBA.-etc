@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Usuarios y roles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Gestión de usuarios y roles</h1><p>Administra los accesos internos y asigna roles del sistema.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
+      <a class="btn outline" href="permisos.html"><span class="material-symbols-outlined">admin_panel_settings</span> Matriz de permisos</a>
+    </div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Nombre o correo…"></div>
+      <div class="field"><label>Rol</label><select id="fRol"><option value="">Todos</option>
+        <option value="estudiante">Estudiante</option><option value="profesor">Profesor</option>
+        <option value="coordinador">Coordinador</option><option value="admin">Administrador</option>
+        <option value="auditor">Auditor</option><option value="superadmin">Superadmin</option></select></div>
+      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
+        <option value="1">Activo</option><option value="0">Inactivo</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Documento</th><th>País</th><th>Registro</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['admin','superadmin','auditor'], active:'usuarios.html', area:'admin' });
+const puede = p && ['admin','superadmin'].includes(p.rol);
+let rows=[];
+if (p) load();
+
+async function load(){
+  const { data } = await sb.from('cem_profiles').select('*').order('created_at',{ascending:false});
+  rows = data||[];
+  const porRol = r => rows.filter(x=>x.rol===r).length;
+  $('#kpis').innerHTML = [
+    kpi('Usuarios', num(rows.length),'manage_accounts',`${rows.filter(r=>r.activo).length} activos`),
+    kpi('Estudiantes', num(porRol('estudiante')),'school','rol estudiante'),
+    kpi('Profesores', num(porRol('profesor')),'psychology','claustro docente'),
+    kpi('Equipo interno', num(porRol('coordinador')+porRol('admin')+porRol('superadmin')+porRol('auditor')),'badge','administrativos'),
+  ].join('');
+  render();
+}
+
+function render(){
+  const q=$('#q').value.trim(), r=$('#fRol').value, e=$('#fEstado').value;
+  const list = rows.filter(x=>match(x,q,['nombre','apellido','email','documento'])
+    && (!r||x.rol===r) && (e===''||String(x.activo?1:0)===e));
+  $('#tb').innerHTML = list.length ? list.map(u=>`<tr>
+    <td><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(u.nombre,u.apellido)}</span>
+      <b>${esc(u.nombre)} ${esc(u.apellido||'')}</b></div></td>
+    <td>${esc(u.email)}</td>
+    <td>${chip(u.rol, u.rol==='superadmin'?'err':u.rol==='admin'?'info':u.rol==='profesor'?'teal':'neutral')}</td>
+    <td>${esc(u.documento? (u.documento_tipo||'')+' '+u.documento : '—')}</td>
+    <td>${esc(u.pais||'—')}</td><td class="muted">${fdate(u.created_at)}</td>
+    <td>${u.activo?chip('activo','ok'):chip('inactivo','err')}</td>
+    <td style="white-space:nowrap">
+      ${u.rol==='estudiante'?`<a class="btn ghost sm" href="estudiante.html?id=${u.id}" title="Ver perfil"><span class="material-symbols-outlined">visibility</span></a>`:''}
+      ${puede?`<button class="btn ghost sm" data-e="${u.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
+      <button class="btn ghost sm" data-t="${u.id}" title="${u.activo?'Desactivar':'Activar'}">
+        <span class="material-symbols-outlined">${u.activo?'block':'check_circle'}</span></button>`:''}
+    </td></tr>`).join('') : emptyRow(8);
+  $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(x=>x.id===b.dataset.e)));
+  $$('[data-t]').forEach(b=>b.onclick=async()=>{
+    const u=rows.find(x=>x.id===b.dataset.t);
+    if (u.id===p.id){ fail('No puedes desactivar tu propia cuenta.'); return; }
+    if (!await confirmDialog(`¿${u.activo?'Desactivar':'Activar'} el acceso de ${u.nombre}?`)) return;
+    await run(sb.from('cem_profiles').update({activo:!u.activo}).eq('id',u.id),'No se pudo actualizar');
+    await audit('usuario_estado','cem_profiles',u.id,'alto',{activo:!u.activo, email:u.email});
+    ok('Usuario actualizado'); load();
+  });
+}
+['#q','#fRol','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{['#q','#fRol','#fEstado'].forEach(s=>$(s).value=''); render();};
+$('#btnExport').onclick=()=>download('usuarios_cem.csv', toCSV(rows.map(u=>({
+  nombre:u.nombre, apellido:u.apellido, email:u.email, rol:u.rol, documento:u.documento,
+  pais:u.pais, activo:u.activo, registro:u.created_at }))));
+
+function form(u){
+  const m = modal({ title:`Editar: ${u.nombre} ${u.apellido||''}`, wide:true, body:`
+    <div class="row">
+      <div class="field" style="flex:1;min-width:150px"><label>Nombre *</label><input id="uN" value="${esc(u.nombre||'')}"></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Apellido</label><input id="uA" value="${esc(u.apellido||'')}"></div>
+    </div>
+    <div class="field"><label>Correo</label><input value="${esc(u.email)}" disabled></div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:160px"><label>Rol *</label><select id="uR">
+        ${['estudiante','profesor','coordinador','admin','auditor','superadmin'].map(v=>`<option ${u.rol===v?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:140px"><label>Teléfono</label><input id="uT" value="${esc(u.telefono||'')}"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:130px"><label>Tipo doc.</label><input id="uDT" value="${esc(u.documento_tipo||'')}"></div>
+      <div class="field" style="flex:1;min-width:130px"><label>Documento</label><input id="uD" value="${esc(u.documento||'')}"></div>
+      <div class="field" style="flex:1;min-width:130px"><label>País</label><input id="uP" value="${esc(u.pais||'')}"></div>
+      <div class="field" style="flex:1;min-width:130px"><label>Ciudad</label><input id="uC" value="${esc(u.ciudad||'')}"></div>
+    </div>
+    <div class="field"><label>Biografía / notas</label><textarea id="uB" style="min-height:60px">${esc(u.bio||'')}</textarea></div>
+    <label class="check"><input type="checkbox" id="uAct" ${u.activo?'checked':''}> Cuenta activa</label>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    const nuevoRol=$('#uR',m).value;
+    if (u.id===p.id && nuevoRol!==u.rol){ fail('No puedes cambiar tu propio rol.'); return; }
+    await run(sb.from('cem_profiles').update({
+      nombre:$('#uN',m).value.trim(), apellido:$('#uA',m).value.trim(), rol:nuevoRol,
+      telefono:$('#uT',m).value.trim(), documento_tipo:$('#uDT',m).value.trim(), documento:$('#uD',m).value.trim(),
+      pais:$('#uP',m).value.trim(), ciudad:$('#uC',m).value.trim(), bio:$('#uB',m).value.trim(),
+      activo:$('#uAct',m).checked,
+    }).eq('id',u.id),'No se pudo guardar');
+    if (nuevoRol!==u.rol) await audit('rol_cambiado','cem_profiles',u.id,'alto',{de:u.rol, a:nuevoRol, email:u.email});
+    else await audit('usuario_actualizado','cem_profiles',u.id,'medio',{email:u.email});
+    m.close(); ok('Usuario actualizado'); load();
+  };
+}
+</script>
+</body>
+</html>

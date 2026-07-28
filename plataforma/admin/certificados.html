@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Certificados e insignias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Administración de credenciales</h1><p>Gestione certificados institucionales e insignias de logros académicos.</p></div>
+    <div class="actions">
+      <a class="btn outline" href="certificado-editor.html"><span class="material-symbols-outlined">design_services</span> Plantillas</a>
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
+      <button class="btn" id="btnEmitir"><span class="material-symbols-outlined">publish</span> Emitir manualmente</button>
+    </div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Listos para certificar (≥80% de avance)</h2>
+      <button class="btn outline sm" id="btnLote" ><span class="material-symbols-outlined">workspace_premium</span> Emitir en lote</button></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th><input type="checkbox" id="chkAll"></th><th>Estudiante</th><th>Programa</th><th>Avance</th><th>Estado</th></tr></thead>
+      <tbody id="tbElegibles"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Código, estudiante o programa…"></div>
+      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
+        <option value="emitido">Emitido</option><option value="revocado">Revocado</option></select></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Código</th><th>Estudiante</th><th>Certificado</th><th>Programa</th><th>Emitido</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados.html', area:'admin' });
+const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
+let certs=[], elegibles=[], tpls=[];
+if (p) load();
+
+async function load(){
+  const [{data:cs},{data:ens},{data:tp}] = await Promise.all([
+    sb.from('cem_certificates').select('*,cem_profiles(nombre,apellido,email),cem_courses(nombre)').order('emitido_en',{ascending:false}),
+    sb.from('cem_enrollments').select('id,progreso,estado,profile_id,course_id,cem_profiles(nombre,apellido),cem_courses(nombre,certificado_nombre)'),
+    sb.from('cem_certificate_templates').select('*').order('created_at'),
+  ]);
+  certs=cs||[]; tpls=tp||[];
+  const conCert = new Set(certs.map(c=>c.enrollment_id).filter(Boolean));
+  elegibles = (ens||[]).filter(e=>Number(e.progreso)>=80 && !conCert.has(e.id));
+  const mes = certs.filter(c=>new Date(c.emitido_en) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  $('#kpis').innerHTML = [
+    kpi('Certificados emitidos', num(certs.length),'workspace_premium','histórico'),
+    kpi('Emitidos este mes', num(mes.length),'event_available','en el periodo actual'),
+    kpi('Listos para emitir', num(elegibles.length),'pending_actions','avance ≥ 80%'),
+    kpi('Plantillas', num(tpls.length),'design_services','configuradas'),
+  ].join('');
+
+  $('#tbElegibles').innerHTML = elegibles.length ? elegibles.map(e=>`<tr>
+    <td><input type="checkbox" class="chkE" value="${e.id}" ${puede?'':'disabled'}></td>
+    <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
+    <td class="wrap">${esc(e.cem_courses?.certificado_nombre||e.cem_courses?.nombre||'')}</td>
+    <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
+    <td>${chip(e.estado)}</td></tr>`).join('') : emptyRow(5,'No hay estudiantes pendientes de certificación.');
+  $('#chkAll').onchange = () => $$('.chkE').forEach(c=>{ if(!c.disabled) c.checked=$('#chkAll').checked; });
+  render();
+}
+
+function render(){
+  const q=$('#q').value.trim(), e=$('#fEstado').value;
+  const list = certs.filter(c=>match(c,q,['codigo','titulo','cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
+    && (!e||c.estado===e));
+  $('#tb').innerHTML = list.length ? list.map(c=>`<tr>
+    <td><code>${esc(c.codigo)}</code></td>
+    <td class="wrap">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</td>
+    <td class="wrap">${esc(c.titulo)}</td><td class="wrap">${esc(c.cem_courses?.nombre||'—')}</td>
+    <td class="muted">${fdate(c.emitido_en)}</td><td>${chip(c.estado)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn ghost sm" data-ver="${c.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
+      <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank" title="Verificación pública">
+        <span class="material-symbols-outlined">verified</span></a>
+      ${puede && c.estado==='emitido'?`<button class="btn ghost sm" data-rev="${c.id}" style="color:var(--error)" title="Revocar">
+        <span class="material-symbols-outlined">block</span></button>`:''}
+    </td></tr>`).join('') : emptyRow(7,'Sin certificados emitidos.');
+  $$('[data-ver]').forEach(b=>b.onclick=()=>ver(certs.find(c=>c.id===b.dataset.ver)));
+  $$('[data-rev]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Revocar este certificado? Dejará de validar en la verificación pública.')) return;
+    await run(sb.from('cem_certificates').update({estado:'revocado'}).eq('id',b.dataset.rev),'No se pudo revocar');
+    await audit('certificado_revocado','cem_certificates',b.dataset.rev,'alto',{}); ok('Certificado revocado'); load();
+  });
+}
+['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnExport').onclick=()=>download('certificados_cem.csv', toCSV(certs.map(c=>({
+  codigo:c.codigo, estudiante:(c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''),
+  email:c.cem_profiles?.email, titulo:c.titulo, programa:c.cem_courses?.nombre,
+  emitido:c.emitido_en, estado:c.estado }))));
+
+$('#btnLote').onclick = async () => {
+  if (!puede) { fail('No tienes permiso para emitir certificados.'); return; }
+  const ids = $$('.chkE').filter(c=>c.checked).map(c=>c.value);
+  if (!ids.length) { fail('Selecciona al menos un estudiante.'); return; }
+  if (!await confirmDialog(`¿Emitir ${ids.length} certificado(s)?`)) return;
+  const tpl = tpls[0]?.id || null;
+  for (const id of ids) await sb.rpc('cem_issue_certificate',{ p_enrollment_id:id, p_template_id:tpl });
+  ok(`${ids.length} certificado(s) emitido(s)`); load();
+};
+
+$('#btnEmitir').onclick = async () => {
+  const { data: ens } = await sb.from('cem_enrollments')
+    .select('id,progreso,cem_profiles(nombre,apellido),cem_courses(nombre)').order('fecha_inscripcion',{ascending:false});
+  const m = modal({ title:'Emitir certificado manualmente', body:`
+    <div class="field"><label>Inscripción *</label><select id="eE">
+      ${(ens||[]).map(e=>`<option value="${e.id}">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))} — ${esc(e.cem_courses?.nombre||'')} (${Math.round(e.progreso)}%)</option>`).join('')}</select></div>
+    <div class="field"><label>Plantilla</label><select id="eT">
+      ${tpls.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('')||'<option value="">Sin plantilla</option>'}</select></div>
+    <div class="field"><label>Tipo</label><select id="eTipo">
+      <option value="certificado">Certificado</option><option value="diploma">Diploma</option>
+      <option value="constancia">Constancia</option></select></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Emitir</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    await run(sb.rpc('cem_issue_certificate',{ p_enrollment_id:$('#eE',m).value,
+      p_template_id:$('#eT',m).value||null, p_tipo:$('#eTipo',m).value }),'No se pudo emitir');
+    m.close(); ok('Certificado emitido'); load();
+  };
+};
+
+function ver(c){
+  const url = new URL('../verificar.html', location.href).href + '?codigo=' + encodeURIComponent(c.codigo);
+  const qr = qrcode(0,'M'); qr.addData(url); qr.make();
+  const m = modal({ title:`Certificado ${c.codigo}`, wide:true, body:`
+    <div id="lienzo" style="border:8px double var(--tertiary-container);padding:30px;text-align:center;background:#fff">
+      <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
+      <h2 style="margin:12px 0 6px;color:var(--primary)">${esc(c.tipo==='diploma'?'Diploma':'Certificado')} de finalización</h2>
+      <p class="tiny muted" style="margin:0">Se otorga a</p>
+      <div style="font-size:25px;font-weight:700;margin:10px 0">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</div>
+      <p class="tiny muted" style="margin:0">por haber completado</p>
+      <div style="font-size:16px;font-weight:600;margin:8px 0">${esc(c.titulo)}</div>
+      <div class="row" style="justify-content:center;gap:24px;margin-top:20px;align-items:flex-end">
+        <div>${qr.createImgTag(3,4)}<div class="tiny muted">Verificación</div></div>
+        <div style="text-align:center"><div style="border-top:1px solid var(--outline);padding-top:6px;min-width:180px">
+          ${esc(tpls.find(t=>t.id===c.template_id)?.firma_nombre||'Dirección Académica')}</div></div>
+      </div>
+      <div class="tiny muted" style="margin-top:14px">Código: ${esc(c.codigo)} · ${fdate(c.emitido_en)}</div>
+    </div>`,
+    footer:`<button class="btn outline" data-x2>Cerrar</button><button class="btn" data-pr">
+      <span class="material-symbols-outlined">print</span> Imprimir / PDF</button>` });
+  $('[data-x2]',m).onclick=m.close;
+  m.querySelector('[data-pr\\"]')?.addEventListener('click',()=>{});
+  const pr = m.querySelectorAll('.modal-f .btn')[1];
+  pr.onclick = () => {
+    const w=window.open('','_blank');
+    w.document.write(`<html><head><title>${esc(c.codigo)}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>body{font-family:'Hanken Grotesk',sans-serif;padding:26px}</style></head>
+      <body>${$('#lienzo',m).outerHTML}<script>onload=()=>print()<\/script></body></html>`);
+    w.document.close();
+  };
+}
+</script>
+</body>
+</html>

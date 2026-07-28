@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Matriz de permisos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  td.pcell{text-align:center;}
+  .sw{width:34px;height:20px;border-radius:11px;border:none;background:var(--outline-variant);position:relative;cursor:pointer;}
+  .sw.on{background:var(--ok);}
+  .sw i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .14s;}
+  .sw.on i{left:16px;}
+  .sw:disabled{opacity:.5;cursor:not-allowed;}
+  th.rot{font-size:10px;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Matriz de permisos</h1><p>Configuración de acceso y capacidades operativas del sistema.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnReset"><span class="material-symbols-outlined">restart_alt</span> Restaurar sugeridos</button>
+      <button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar cambios</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row between">
+      <div class="row" id="roles"></div>
+      <div class="row tiny muted">
+        <span class="chip ok">Concedido</span><span class="chip neutral">Denegado</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Módulo del sistema</th><th class="rot">Ver</th><th class="rot">Crear</th><th class="rot">Editar</th>
+        <th class="rot">Publicar</th><th class="rot">Aprobar</th><th class="rot">Exportar</th><th class="rot">Eliminar</th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+    <p class="tiny muted" style="margin-top:10px">
+      Nota: la matriz documenta y controla las capacidades de la interfaz. Las reglas de base de datos
+      (RLS) siguen aplicándose siempre como última barrera de seguridad.</p>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, ok, run, audit, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['admin','superadmin','auditor'], active:'permisos.html', area:'admin' });
+const puede = p && ['admin','superadmin'].includes(p.rol);
+const ROLES = ['superadmin','admin','coordinador','profesor','auditor'];
+const ACCIONES = ['ver','crear','editar','publicar','aprobar','exportar','eliminar'];
+let perms=[], rol='admin', dirty={};
+if (p) load();
+
+async function load(){
+  const { data } = await sb.from('cem_permissions').select('*');
+  perms = data||[];
+  $('#roles').innerHTML = ROLES.map(r=>`<button class="chip chip-btn ${r===rol?'on':''}" data-r="${r}">${r}</button>`).join('');
+  $$('[data-r]').forEach(b=>b.onclick=()=>{
+    if (Object.keys(dirty).length && !confirm('Tienes cambios sin guardar. ¿Descartarlos?')) return;
+    rol=b.dataset.r; dirty={}; $$('[data-r]').forEach(x=>x.classList.toggle('on',x===b)); render();
+  });
+  render();
+}
+
+function modulos(){ return [...new Set(perms.map(p=>p.modulo))].sort(); }
+function valor(modulo, accion){
+  const k = `${modulo}|${accion}`;
+  if (k in dirty) return dirty[k];
+  return perms.find(x=>x.rol===rol && x.modulo===modulo && x.accion===accion)?.permitido ?? false;
+}
+
+function render(){
+  const mods = modulos();
+  $('#tb').innerHTML = mods.length ? mods.map(m=>`<tr>
+    <td><b>${esc(m)}</b></td>
+    ${ACCIONES.map(a=>`<td class="pcell">
+      <button class="sw ${valor(m,a)?'on':''}" data-m="${esc(m)}" data-a="${a}" ${puede?'':'disabled'}><i></i></button></td>`).join('')}
+  </tr>`).join('') : '<tr><td colspan="8"><div class="empty">Sin módulos configurados.</div></td></tr>';
+
+  $$('.sw').forEach(b=>b.onclick=()=>{
+    if (!puede) return;
+    const k=`${b.dataset.m}|${b.dataset.a}`;
+    dirty[k] = !valor(b.dataset.m, b.dataset.a);
+    b.classList.toggle('on', dirty[k]);
+  });
+}
+
+$('#btnSave').onclick = async () => {
+  const keys = Object.keys(dirty);
+  if (!keys.length) { ok('No hay cambios por guardar'); return; }
+  const rows = keys.map(k=>{ const [modulo,accion]=k.split('|');
+    return { rol, modulo, accion, permitido:dirty[k] }; });
+  await run(sb.from('cem_permissions').upsert(rows,{onConflict:'rol,modulo,accion'}),'No se pudieron guardar los permisos');
+  await audit('permisos_actualizados','cem_permissions',null,'alto',{rol, cambios:rows.length});
+  dirty={}; ok(`${rows.length} permiso(s) actualizado(s) para ${rol}`); load();
+};
+
+$('#btnReset').onclick = async () => {
+  if (!puede) return;
+  if (!await confirmDialog(`¿Restaurar los permisos sugeridos para el rol "${rol}"? Se sobrescribirán los actuales.`)) return;
+  const mods = modulos();
+  const rows = mods.flatMap(m=>ACCIONES.map(a=>{
+    let v=false;
+    if (rol==='superadmin') v=true;
+    else if (rol==='admin') v = a!=='eliminar';
+    else if (rol==='coordinador') v = ['ver','crear','editar'].includes(a);
+    else if (rol==='profesor') v = a==='ver' || (['crear','editar'].includes(a) && ['Contenidos','Evaluaciones','Calificaciones'].includes(m));
+    else if (rol==='auditor') v = ['ver','exportar'].includes(a);
+    return { rol, modulo:m, accion:a, permitido:v };
+  }));
+  await run(sb.from('cem_permissions').upsert(rows,{onConflict:'rol,modulo,accion'}),'No se pudo restaurar');
+  await audit('permisos_restaurados','cem_permissions',null,'alto',{rol});
+  dirty={}; ok('Permisos sugeridos restaurados'); load();
+};
+</script>
+</body>
+</html>

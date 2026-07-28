@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Gestión de insignias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .bg-ico{width:56px;height:56px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;}
+  .bg-ico .material-symbols-outlined{font-size:30px;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Insignias y microcredenciales</h1>
+      <p>Administre las credenciales digitales que reconocen competencias específicas.</p></div>
+    <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Crear insignia</button></div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid g3" id="lista"></div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Otorgamientos recientes</h2>
+      <button class="btn outline sm" id="btnOtorgar"><span class="material-symbols-outlined">military_tech</span> Otorgar insignia</button></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Insignia</th><th>Competencia</th><th>Otorgada</th><th></th></tr></thead>
+      <tbody id="tbAwards"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, kpi, modal, ok, run, audit, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'insignias.html', area:'admin' });
+const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
+const ICONOS = ['military_tech','insights','public','campaign','emoji_events','workspace_premium','psychology','verified','bolt','school'];
+let badges=[], awards=[];
+if (p) load();
+
+async function load(){
+  const [{data:bs},{data:aw}] = await Promise.all([
+    sb.from('cem_badges').select('*').order('nombre'),
+    sb.from('cem_badge_awards').select('*,cem_badges(nombre,competencia,icono,color),cem_profiles(nombre,apellido,email)')
+      .order('otorgado_en',{ascending:false}).limit(60),
+  ]);
+  badges=bs||[]; awards=aw||[];
+  const countByBadge={}; awards.forEach(a=>countByBadge[a.badge_id]=(countByBadge[a.badge_id]||0)+1);
+  $('#kpis').innerHTML = [
+    kpi('Insignias', num(badges.length),'military_tech',`${badges.filter(b=>b.activo).length} activas`),
+    kpi('Otorgamientos', num(awards.length),'emoji_events','recientes'),
+    kpi('Estudiantes premiados', num(new Set(awards.map(a=>a.profile_id)).size),'group','con al menos una'),
+    kpi('Más otorgada', (()=>{ const top=Object.entries(countByBadge).sort((a,b)=>b[1]-a[1])[0];
+      return top? esc((badges.find(b=>b.id===top[0])?.nombre||'').slice(0,14)) : '—'; })(),'star','insignia líder'),
+  ].join('');
+
+  $('#lista').innerHTML = badges.length ? badges.map(b=>`
+    <div class="card" style="margin:0">
+      <div class="row between" style="align-items:flex-start">
+        <div class="bg-ico" style="background:${esc(b.color||'#c9a227')}22;color:${esc(b.color||'#c9a227')}">
+          <span class="material-symbols-outlined">${esc(b.icono||'military_tech')}</span></div>
+        <div class="row">${b.activo?chip('activa','ok'):chip('inactiva','neutral')}
+          <span class="chip neutral">${countByBadge[b.id]||0}</span></div>
+      </div>
+      <h3 style="margin:10px 0 3px;font-size:15px">${esc(b.nombre)}</h3>
+      <div class="tiny muted">${esc(b.nivel||'')}</div>
+      <p class="tiny muted" style="margin:8px 0 0">${esc(b.descripcion||'')}</p>
+      ${b.competencia?`<div class="tiny" style="margin-top:8px"><b>Competencia:</b> ${esc(b.competencia)}</div>`:''}
+      ${b.criterio?`<div class="tiny muted" style="margin-top:4px"><b>Criterio:</b> ${esc(b.criterio)}</div>`:''}
+      ${puede?`<div class="row" style="margin-top:12px">
+        <button class="btn outline sm" data-e="${b.id}"><span class="material-symbols-outlined">edit</span> Editar</button>
+        <button class="btn ghost sm" data-t="${b.id}">${b.activo?'Desactivar':'Activar'}</button>
+        <button class="btn ghost sm" data-d="${b.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>
+      </div>`:''}
+    </div>`).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">Sin insignias configuradas.</p></div>';
+
+  $$('[data-e]').forEach(b=>b.onclick=()=>form(badges.find(x=>x.id===b.dataset.e)));
+  $$('[data-t]').forEach(b=>b.onclick=async()=>{
+    const x=badges.find(y=>y.id===b.dataset.t);
+    await run(sb.from('cem_badges').update({activo:!x.activo}).eq('id',x.id),'No se pudo actualizar');
+    ok('Actualizada'); load();
+  });
+  $$('[data-d]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Eliminar esta insignia? Se quitará de los estudiantes que la tengan.')) return;
+    await run(sb.from('cem_badges').delete().eq('id',b.dataset.d),'No se pudo eliminar');
+    await audit('insignia_eliminada','cem_badges',b.dataset.d,'medio',{}); ok('Insignia eliminada'); load();
+  });
+
+  $('#tbAwards').innerHTML = awards.length ? awards.map(a=>`<tr>
+    <td class="wrap"><b>${esc((a.cem_profiles?.nombre||'')+' '+(a.cem_profiles?.apellido||''))}</b>
+      <div class="tiny muted">${esc(a.cem_profiles?.email||'')}</div></td>
+    <td class="wrap"><span class="material-symbols-outlined" style="font-size:17px;color:${esc(a.cem_badges?.color||'#c9a227')}">
+      ${esc(a.cem_badges?.icono||'military_tech')}</span> ${esc(a.cem_badges?.nombre||'')}</td>
+    <td class="wrap">${esc(a.cem_badges?.competencia||'—')}</td>
+    <td class="muted">${fdate(a.otorgado_en)}</td>
+    <td>${puede?`<button class="btn ghost sm" data-rev="${a.id}" style="color:var(--error)" title="Revocar">
+      <span class="material-symbols-outlined">block</span></button>`:''}</td></tr>`).join('') : emptyRow(5,'Sin otorgamientos.');
+  $$('[data-rev]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Revocar esta insignia al estudiante?')) return;
+    await run(sb.from('cem_badge_awards').delete().eq('id',b.dataset.rev),'No se pudo revocar');
+    await audit('insignia_revocada','cem_badge_awards',b.dataset.rev,'medio',{}); ok('Insignia revocada'); load();
+  });
+}
+
+$('#btnNueva').onclick = () => form(null);
+function form(b){
+  const isNew=!b;
+  const m = modal({ title:isNew?'Crear insignia':`Editar: ${b.nombre}`, wide:true, body:`
+    <div class="field"><label>Nombre *</label><input id="bN" value="${esc(b?.nombre||'')}" placeholder="Analista de Datos Avanzado"></div>
+    <div class="field"><label>Descripción</label><textarea id="bD" style="min-height:60px">${esc(b?.descripcion||'')}</textarea></div>
+    <div class="row">
+      <div class="field" style="flex:2;min-width:200px"><label>Competencia principal</label>
+        <input id="bC" value="${esc(b?.competencia||'')}" placeholder="Modelado predictivo"></div>
+      <div class="field" style="flex:1;min-width:130px"><label>Nivel</label>
+        <input id="bL" value="${esc(b?.nivel||'')}" placeholder="Nivel II"></div>
+    </div>
+    <div class="field"><label>Criterio de obtención</label><input id="bK" value="${esc(b?.criterio||'')}" placeholder="Aprobar el examen final con 90 o más"></div>
+    <div class="field"><label>Icono</label><div class="row" id="icos">
+      ${ICONOS.map(i=>`<button type="button" class="chip chip-btn ${((b?.icono)||'military_tech')===i?'on':''}" data-i="${i}">
+        <span class="material-symbols-outlined">${i}</span></button>`).join('')}</div></div>
+    <div class="field"><label>Color</label><input type="color" id="bColor" value="${esc(b?.color||'#c9a227')}" style="height:42px"></div>
+    <label class="check"><input type="checkbox" id="bA" ${b? (b.activo?'checked':'') : 'checked'}> Insignia activa</label>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+  let icono = b?.icono || 'military_tech';
+  $$('[data-i]',m).forEach(el=>el.onclick=()=>{ icono=el.dataset.i;
+    $$('[data-i]',m).forEach(x=>x.classList.toggle('on',x===el)); });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    const payload = { nombre:$('#bN',m).value.trim(), descripcion:$('#bD',m).value.trim(),
+      competencia:$('#bC',m).value.trim(), nivel:$('#bL',m).value.trim(), criterio:$('#bK',m).value.trim(),
+      icono, color:$('#bColor',m).value, activo:$('#bA',m).checked };
+    if (!payload.nombre) return;
+    if (isNew) await run(sb.from('cem_badges').insert(payload),'No se pudo crear');
+    else await run(sb.from('cem_badges').update(payload).eq('id',b.id),'No se pudo guardar');
+    await audit(isNew?'insignia_creada':'insignia_actualizada','cem_badges',b?.id,'bajo',{nombre:payload.nombre});
+    m.close(); ok('Insignia guardada'); load();
+  };
+}
+
+$('#btnOtorgar').onclick = async () => {
+  const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre');
+  const m = modal({ title:'Otorgar insignia', body:`
+    <div class="field"><label>Insignia *</label><select id="oB">
+      ${badges.filter(b=>b.activo).map(b=>`<option value="${b.id}">${esc(b.nombre)}</option>`).join('')}</select></div>
+    <div class="field"><label>Estudiante *</label><select id="oE">
+      ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Otorgar</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    const { error } = await sb.from('cem_badge_awards').insert({ badge_id:$('#oB',m).value,
+      profile_id:$('#oE',m).value, otorgado_por:p.id });
+    if (error){ m.close(); return void (error.code==='23505'? ok('El estudiante ya tenía esa insignia') : ok('No se pudo otorgar')); }
+    await audit('insignia_otorgada','cem_badge_awards',null,'bajo',{});
+    m.close(); ok('Insignia otorgada'); load();
+  };
+};
+</script>
+</body>
+</html>

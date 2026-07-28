@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Registro de auditoría</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Auditoría y registro de actividad</h1><p>Monitoreo detallado de acciones del sistema y cambios críticos.</p></div>
+    <div class="actions"><button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar CSV</button></div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Acción, entidad o usuario…"></div>
+      <div class="field"><label>Desde</label><input type="date" id="fDesde"></div>
+      <div class="field"><label>Hasta</label><input type="date" id="fHasta"></div>
+      <div class="field"><label>Usuario</label><select id="fUser"><option value="">Todos</option></select></div>
+      <div class="field"><label>Nivel de riesgo</label><select id="fRiesgo"><option value="">Todos</option>
+        <option value="alto">Alto (crítico)</option><option value="medio">Medio</option><option value="bajo">Bajo</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Riesgo</th><th>Detalle</th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+    <div class="row" style="justify-content:center;margin-top:12px">
+      <button class="btn outline sm" id="btnMas">Cargar más</button>
+    </div>
+    <p class="tiny muted" style="margin-top:12px">
+      El registro de auditoría es inalterable: no existe ninguna función en el sistema que permita
+      editar o borrar estos eventos.</p>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, fdatetime, emptyRow, match, kpi, modal, toCSV, download } from '../assets/app.js';
+const p = await mount({ require:['admin','superadmin','auditor'], active:'auditoria.html', area:'admin' });
+let rows=[], limite=100;
+if (p) load();
+
+async function load(){
+  const { data } = await sb.from('cem_audit_events').select('*').order('created_at',{ascending:false}).limit(limite);
+  rows = data||[];
+  const { data: ps } = await sb.from('cem_profiles').select('id,nombre,apellido,email');
+  const users = [...new Map((rows.map(r=>r.actor_id).filter(Boolean))
+    .map(id=>[id,(ps||[]).find(x=>x.id===id)]).filter(([,v])=>v)).values()];
+  $('#fUser').innerHTML = '<option value="">Todos</option>' +
+    users.map(u=>`<option value="${u.id}">${esc(u.nombre)} ${esc(u.apellido||'')}</option>`).join('');
+  const hoy = new Date().toISOString().slice(0,10);
+  $('#kpis').innerHTML = [
+    kpi('Eventos registrados', num(rows.length),'history', limite>=rows.length?'todos':'últimos '+limite),
+    kpi('Riesgo alto', num(rows.filter(r=>r.riesgo==='alto').length),'priority_high','acciones críticas'),
+    kpi('Eventos de hoy', num(rows.filter(r=>String(r.created_at).slice(0,10)===hoy).length),'today','en las últimas 24 h'),
+    kpi('Usuarios distintos', num(new Set(rows.map(r=>r.actor_id).filter(Boolean)).size),'group','con actividad'),
+  ].join('');
+  render();
+}
+
+function render(){
+  const q=$('#q').value.trim(), d=$('#fDesde').value, h=$('#fHasta').value,
+    u=$('#fUser').value, ri=$('#fRiesgo').value;
+  const list = rows.filter(r=>{
+    if (q && !match(r,q,['accion','entidad','actor_email'])) return false;
+    if (u && r.actor_id!==u) return false;
+    if (ri && r.riesgo!==ri) return false;
+    const f = String(r.created_at).slice(0,10);
+    if (d && f<d) return false;
+    if (h && f>h) return false;
+    return true;
+  });
+  $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
+    <td class="muted">${fdatetime(r.created_at)}</td>
+    <td class="wrap">${esc(r.actor_email||'sistema')}</td>
+    <td><b>${esc(String(r.accion).replace(/_/g,' '))}</b></td>
+    <td>${esc(r.entidad||'—')}</td>
+    <td>${chip(r.riesgo, r.riesgo==='alto'?'err':r.riesgo==='medio'?'warn':'neutral')}</td>
+    <td>${Object.keys(r.detalle||{}).length? `<button class="btn ghost sm" data-v='${esc(JSON.stringify(r.detalle))}'>
+      <span class="material-symbols-outlined">data_object</span></button>` : '<span class="muted tiny">—</span>'}</td>
+    </tr>`).join('') : emptyRow(6,'No hay eventos que coincidan con los filtros.');
+  $$('[data-v]').forEach(b=>b.onclick=()=>modal({ title:'Detalle del evento',
+    body:`<pre class="tiny" style="white-space:pre-wrap;background:var(--surface-container);padding:12px;border-radius:9px">${esc(JSON.stringify(JSON.parse(b.dataset.v),null,2))}</pre>` }));
+}
+['#q','#fDesde','#fHasta','#fUser','#fRiesgo'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{['#q','#fDesde','#fHasta','#fUser','#fRiesgo'].forEach(s=>$(s).value=''); render();};
+$('#btnMas').onclick=()=>{ limite+=200; load(); };
+$('#btnExport').onclick=()=>download('auditoria_cem.csv', toCSV(rows.map(r=>({
+  fecha:r.created_at, usuario:r.actor_email, accion:r.accion, entidad:r.entidad,
+  entidad_id:r.entidad_id, riesgo:r.riesgo, detalle:JSON.stringify(r.detalle) }))));
+</script>
+</body>
+</html>

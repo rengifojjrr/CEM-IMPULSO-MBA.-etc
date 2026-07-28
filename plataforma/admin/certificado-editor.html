@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Editor de certificados</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+  .ed{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start;}
+  @media(max-width:900px){ .ed{grid-template-columns:1fr;} }
+  .var{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:var(--primary-fixed);
+    color:var(--primary);font-size:11.5px;font-weight:600;cursor:pointer;margin:3px 3px 0 0;}
+  .var:hover{background:var(--primary-dim);}
+  .lienzo{background:#fff;border:8px double var(--tertiary-container);padding:34px;text-align:center;min-height:330px;}
+  .lienzo.vertical{max-width:460px;margin:0 auto;min-height:520px;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Editor de plantillas</h1><p>Diseña las plantillas de certificados y diplomas de la institución.</p></div>
+    <div class="actions">
+      <div class="field" style="margin:0;min-width:200px"><select id="selTpl"></select></div>
+      <button class="btn outline" id="btnNueva"><span class="material-symbols-outlined">add</span> Nueva</button>
+      <button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar</button>
+    </div>
+  </div>
+
+  <div class="ed">
+    <div>
+      <div class="card">
+        <h2 class="sec"><span class="material-symbols-outlined">tune</span> General</h2>
+        <div class="field"><label>Nombre de la plantilla *</label><input id="nombre"></div>
+        <div class="field"><label>Orientación</label>
+          <div class="row"><button class="chip chip-btn" data-or="horizontal">Horizontal</button>
+            <button class="chip chip-btn" data-or="vertical">Vertical</button></div></div>
+      </div>
+      <div class="card">
+        <h2 class="sec">Marca e identidad</h2>
+        <div class="field"><label>Logo institucional (URL)</label><input id="logo" placeholder="https://…"></div>
+        <div class="field"><label>Firma (URL de imagen)</label><input id="firma" placeholder="https://…"></div>
+        <div class="field"><label>Nombre y cargo de quien firma</label><input id="firmaN" placeholder="Dra. Elena Rostova — Directora Académica"></div>
+        <div class="field"><label>Imagen de fondo (URL, opcional)</label><input id="fondo" placeholder="https://…"></div>
+        <label class="check"><input type="checkbox" id="qrOn" checked> Incluir código QR de verificación</label>
+      </div>
+      <div class="card">
+        <h2 class="sec">Variables dinámicas</h2>
+        <p class="tiny muted" style="margin-top:0">Se reemplazan automáticamente al emitir cada certificado.</p>
+        <div id="vars"></div>
+      </div>
+      <div class="card">
+        <h2 class="sec">Texto del certificado</h2>
+        <div class="field"><label>Encabezado</label><input id="txtTop" value="Certificado de finalización"></div>
+        <div class="field"><label>Cuerpo</label><textarea id="txtBody">Se otorga el presente certificado a {{estudiante_nombre}} por haber completado satisfactoriamente el programa {{curso_nombre}}.</textarea></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="row between"><h2 class="sec">Vista previa</h2>
+          <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir prueba</button></div>
+        <div id="prev"></div>
+      </div>
+      <div class="card">
+        <h2 class="sec">Plantillas guardadas</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Nombre</th><th>Orientación</th><th>QR</th><th>Firma</th><th>Creada</th><th></th></tr></thead>
+          <tbody id="tbTpl"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin'], active:'certificados.html', area:'admin' });
+const VARS = ['estudiante_nombre','curso_nombre','fecha_emision','id_certificado','cohorte_nombre','horas_programa'];
+let tpls=[], actual=null, orient='horizontal';
+if (p) load();
+
+async function load(){
+  const { data } = await sb.from('cem_certificate_templates').select('*').order('created_at');
+  tpls = data||[];
+  $('#selTpl').innerHTML = tpls.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('') || '<option value="">Sin plantillas</option>';
+  actual = tpls[0]||null;
+  if (actual) $('#selTpl').value = actual.id;
+  $('#vars').innerHTML = VARS.map(v=>`<span class="var" data-v="{{${v}}}">
+    <span class="material-symbols-outlined" style="font-size:14px">data_object</span>{{${v}}}</span>`).join('');
+  $$('[data-v]').forEach(el=>el.onclick=()=>{
+    const ta=$('#txtBody'); const pos=ta.selectionStart||ta.value.length;
+    ta.value = ta.value.slice(0,pos)+el.dataset.v+ta.value.slice(pos); prev();
+  });
+  fill(); renderTbl();
+}
+$('#selTpl').onchange = () => { actual = tpls.find(t=>t.id===$('#selTpl').value)||null; fill(); };
+
+function fill(){
+  const t=actual;
+  $('#nombre').value = t?.nombre||'';
+  orient = t?.orientacion||'horizontal';
+  $('#logo').value=t?.logo_url||''; $('#firma').value=t?.firma_url||'';
+  $('#firmaN').value=t?.firma_nombre||''; $('#fondo').value=t?.fondo_url||'';
+  $('#qrOn').checked = t? !!t.incluir_qr : true;
+  const c = t?.campos || {};
+  if (!Array.isArray(c)){ $('#txtTop').value = c.encabezado||'Certificado de finalización'; $('#txtBody').value = c.cuerpo||$('#txtBody').value; }
+  $$('[data-or]').forEach(b=>b.classList.toggle('on', b.dataset.or===orient));
+  prev();
+}
+$$('[data-or]').forEach(b=>b.onclick=()=>{ orient=b.dataset.or;
+  $$('[data-or]').forEach(x=>x.classList.toggle('on',x===b)); prev(); });
+['#nombre','#logo','#firma','#firmaN','#fondo','#txtTop','#txtBody'].forEach(s=>$(s).oninput=prev);
+$('#qrOn').onchange = prev;
+
+function prev(){
+  const demo = { estudiante_nombre:'Ana Rodríguez', curso_nombre:'Diplomado en Gestión Educativa Internacional',
+    fecha_emision:new Date().toLocaleDateString('es-ES'), id_certificado:'CEM-2026-00123',
+    cohorte_nombre:'Cohorte 24A', horas_programa:'90' };
+  let cuerpo = $('#txtBody').value;
+  Object.entries(demo).forEach(([k,v])=>cuerpo = cuerpo.replaceAll(`{{${k}}}`, v));
+  const qr = qrcode(0,'M'); qr.addData('https://cem.example/verificar?codigo=CEM-2026-00123'); qr.make();
+  $('#prev').innerHTML = `<div class="lienzo ${orient}" id="lienzo"
+    style="${$('#fondo').value?`background-image:url('${esc($('#fondo').value)}');background-size:cover;`:''}">
+    ${$('#logo').value?`<img src="${esc($('#logo').value)}" style="max-height:54px;margin-bottom:12px" onerror="this.remove()">`:''}
+    <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
+    <h2 style="margin:12px 0 14px;color:var(--primary)">${esc($('#txtTop').value)}</h2>
+    <p style="margin:0 auto;max-width:560px;line-height:1.6">${esc(cuerpo)}</p>
+    <div class="row" style="justify-content:center;gap:26px;margin-top:26px;align-items:flex-end">
+      ${$('#qrOn').checked?`<div>${qr.createImgTag(3,4)}<div class="tiny muted">Verificación</div></div>`:''}
+      <div style="text-align:center">
+        ${$('#firma').value?`<img src="${esc($('#firma').value)}" style="max-height:46px" onerror="this.remove()">`:''}
+        <div style="border-top:1px solid var(--outline);padding-top:6px;min-width:200px" class="tiny">
+          ${esc($('#firmaN').value||'Dirección Académica')}</div></div>
+    </div>
+    <div class="tiny muted" style="margin-top:16px">Código: ${demo.id_certificado} · ${demo.fecha_emision}</div>
+  </div>`;
+}
+
+function renderTbl(){
+  $('#tbTpl').innerHTML = tpls.length ? tpls.map(t=>`<tr>
+    <td><b>${esc(t.nombre)}</b></td><td>${esc(t.orientacion)}</td>
+    <td>${t.incluir_qr?chip('sí','ok'):chip('no','neutral')}</td>
+    <td class="wrap">${esc(t.firma_nombre||'—')}</td><td class="muted">${fdate(t.created_at)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn ghost sm" data-l="${t.id}" title="Cargar"><span class="material-symbols-outlined">edit</span></button>
+      <button class="btn ghost sm" data-del="${t.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>
+    </td></tr>`).join('') : emptyRow(6,'Sin plantillas.');
+  $$('[data-l]').forEach(b=>b.onclick=()=>{ $('#selTpl').value=b.dataset.l; actual=tpls.find(t=>t.id===b.dataset.l); fill(); });
+  $$('[data-del]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Eliminar esta plantilla? Los certificados ya emitidos no se modifican.')) return;
+    await run(sb.from('cem_certificate_templates').delete().eq('id',b.dataset.del),'No se pudo eliminar');
+    ok('Plantilla eliminada'); load();
+  });
+}
+
+$('#btnNueva').onclick = () => { actual=null; $('#selTpl').value=''; $('#nombre').value='Nueva plantilla'; fill(); };
+
+$('#btnSave').onclick = async () => {
+  const payload = {
+    nombre:$('#nombre').value.trim()||'Plantilla sin nombre', orientacion:orient,
+    logo_url:$('#logo').value.trim()||null, firma_url:$('#firma').value.trim()||null,
+    firma_nombre:$('#firmaN').value.trim()||null, fondo_url:$('#fondo').value.trim()||null,
+    incluir_qr:$('#qrOn').checked,
+    campos:{ encabezado:$('#txtTop').value, cuerpo:$('#txtBody').value, variables:VARS },
+  };
+  if (actual) await run(sb.from('cem_certificate_templates').update(payload).eq('id',actual.id),'No se pudo guardar');
+  else await run(sb.from('cem_certificate_templates').insert(payload),'No se pudo crear');
+  await audit(actual?'plantilla_actualizada':'plantilla_creada','cem_certificate_templates',actual?.id,'medio',{nombre:payload.nombre});
+  ok('Plantilla guardada'); load();
+};
+
+$('#btnPrint').onclick = () => {
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><title>Prueba de plantilla</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="${new URL('../assets/styles.css',location.href).href}">
+    <style>body{padding:24px;background:#fff}</style></head>
+    <body>${$('#lienzo').outerHTML}<script>onload=()=>print()<\/script></body></html>`);
+  w.document.close();
+};
+</script>
+</body>
+</html>
