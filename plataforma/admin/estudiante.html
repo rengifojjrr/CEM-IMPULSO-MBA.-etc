@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Perfil del estudiante</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <a class="btn ghost sm" href="estudiantes.html" style="margin-bottom:10px"><span class="material-symbols-outlined">arrow_back</span> Volver</a>
+  <div class="card" id="hero"></div>
+  <div class="tabs" id="tabs">
+    <button class="active" data-t="resumen">Resumen</button>
+    <button data-t="cursos">Cursos</button>
+    <button data-t="evaluaciones">Evaluaciones</button>
+    <button data-t="certificados">Certificados</button>
+    <button data-t="pagos">Pagos</button>
+  </div>
+  <div id="panel"></div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, modal, ok, run, audit, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
+const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
+const id = qs('id');
+let stu, ens=[], subs=[], certs=[], insts=[], pays=[], badges=[];
+if (p) { if (!id) location.href='estudiantes.html'; else load(); }
+
+async function load(){
+  const [{data:s},{data:e},{data:c},{data:b}] = await Promise.all([
+    sb.from('cem_profiles').select('*').eq('id',id).maybeSingle(),
+    sb.from('cem_enrollments').select('*,cem_courses(nombre,tipo),cem_cohorts(nombre)').eq('profile_id',id),
+    sb.from('cem_certificates').select('*,cem_courses(nombre)').eq('profile_id',id),
+    sb.from('cem_badge_awards').select('*,cem_badges(nombre,nivel,icono)').eq('profile_id',id),
+  ]);
+  stu=s; ens=e||[]; certs=c||[]; badges=b||[];
+  const eids = ens.map(x=>x.id);
+  if (eids.length){
+    const [{data:sb1},{data:i1},{data:p1}] = await Promise.all([
+      sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,puntaje_max)').in('enrollment_id',eids),
+      sb.from('cem_installments').select('*').in('enrollment_id',eids).order('numero'),
+      sb.from('cem_payments').select('*').in('enrollment_id',eids).order('fecha',{ascending:false}),
+    ]);
+    subs=sb1||[]; insts=i1||[]; pays=p1||[];
+  }
+  hero(); tab('resumen');
+}
+
+function hero(){
+  const prog = ens.length? ens.reduce((a,x)=>a+Number(x.progreso||0),0)/ens.length : 0;
+  const saldo = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
+  $('#hero').innerHTML = `<div class="row" style="gap:16px;align-items:flex-start">
+    <span class="avatar lg">${initials(stu.nombre,stu.apellido)}</span>
+    <div class="grow" style="flex:1;min-width:220px">
+      <h1 style="margin:0 0 4px;font-size:21px">${esc(stu.nombre)} ${esc(stu.apellido||'')}</h1>
+      <div class="tiny muted">${esc(stu.email)} · ${esc(stu.pais||'—')} ${stu.documento?'· '+esc(stu.documento_tipo||'Doc')+' '+esc(stu.documento):''}</div>
+      <div class="row" style="margin-top:8px">
+        ${stu.activo?chip('activo','ok'):chip('inactivo','err')}
+        <span class="chip info">${ens.length} inscripción(es)</span>
+        <span class="chip ${prog>=80?'ok':prog<40?'err':'warn'}">Progreso ${pct(prog)}</span>
+        ${saldo>0?`<span class="chip warn">Saldo ${money(saldo)}</span>`:'<span class="chip ok">Al día</span>'}
+      </div></div>
+    <div class="row">
+      ${editable?`<button class="btn outline" id="btnMatricular"><span class="material-symbols-outlined">add_circle</span> Matricular</button>
+      <button class="btn ghost" id="btnToggle"><span class="material-symbols-outlined">${stu.activo?'block':'check_circle'}</span></button>`:''}
+    </div></div>`;
+  if (editable){
+    $('#btnToggle').onclick = async () => {
+      await run(sb.from('cem_profiles').update({activo:!stu.activo}).eq('id',id),'No se pudo actualizar');
+      await audit('estudiante_estado','cem_profiles',id,'medio',{activo:!stu.activo}); ok('Actualizado'); load();
+    };
+    $('#btnMatricular').onclick = matricular;
+  }
+}
+
+$$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });
+
+function tab(t){
+  const P = $('#panel');
+  if (t==='resumen'){
+    const asis = '—';
+    P.innerHTML = `<div class="grid g2">
+      <div class="card"><h2 class="sec">Cursos activos</h2>${ens.filter(e=>e.estado==='activa').map(e=>`
+        <div class="list-item"><div class="grow"><div class="t">${esc(e.cem_courses?.nombre||'')}</div>
+          <div class="s">${esc(e.cem_cohorts?.nombre||'')} · último acceso ${e.ultimo_acceso?fdate(e.ultimo_acceso):'—'}</div>
+          <div style="margin-top:6px">${bar(e.progreso)}</div></div>
+          <b>${pct(e.progreso)}</b></div>`).join('')||'<p class="muted tiny">Sin cursos activos.</p>'}</div>
+      <div class="card"><h2 class="sec">Insignias obtenidas</h2>${badges.map(b=>`
+        <div class="list-item"><span class="material-symbols-outlined" style="color:var(--tertiary-container)">${esc(b.cem_badges?.icono||'military_tech')}</span>
+        <div class="grow"><div class="t">${esc(b.cem_badges?.nombre||'')}</div><div class="s">${esc(b.cem_badges?.nivel||'')} · ${fdate(b.otorgado_en)}</div></div></div>`).join('')
+        ||'<p class="muted tiny">Sin insignias todavía.</p>'}</div></div>`;
+  }
+  if (t==='cursos'){
+    P.innerHTML = `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Programa</th><th>Cohorte</th><th>Progreso</th><th>Estado</th><th>Precio</th><th>Inscripción</th><th></th></tr></thead>
+      <tbody>${ens.length? ens.map(e=>`<tr>
+        <td class="wrap"><b>${esc(e.cem_courses?.nombre||'')}</b><div class="tiny muted">${esc(e.cem_courses?.tipo||'')}</div></td>
+        <td>${esc(e.cem_cohorts?.nombre||'—')}</td>
+        <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
+        <td>${chip(e.estado)}</td><td>${money(e.precio_final)}</td><td class="muted">${fdate(e.fecha_inscripcion)}</td>
+        <td>${editable?`<button class="btn ghost sm" data-est="${e.id}"><span class="material-symbols-outlined">edit</span></button>
+          ${Number(e.progreso)>=80?`<button class="btn ghost sm" data-cert="${e.id}" title="Emitir certificado"><span class="material-symbols-outlined">workspace_premium</span></button>`:''}`:''}</td>
+      </tr>`).join('') : emptyRow(7)}</tbody></table></div></div>`;
+    $$('[data-est]').forEach(b=>b.onclick=()=>cambiarEstado(ens.find(x=>x.id===b.dataset.est)));
+    $$('[data-cert]').forEach(b=>b.onclick=async()=>{
+      if(!await confirmDialog('¿Emitir certificado para esta inscripción?')) return;
+      await run(sb.rpc('cem_issue_certificate',{p_enrollment_id:b.dataset.cert}),'No se pudo emitir');
+      ok('Certificado emitido'); load();
+    });
+  }
+  if (t==='evaluaciones'){
+    P.innerHTML = `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Evaluación</th><th>Tipo</th><th>Intento</th><th>Puntaje</th><th>Estado</th><th>Entregado</th></tr></thead>
+      <tbody>${subs.length? subs.map(s=>`<tr>
+        <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td><td>${esc(s.cem_assessments?.tipo||'')}</td>
+        <td>${s.intento}</td><td><b>${s.puntaje!=null?s.puntaje:'—'}</b></td>
+        <td>${chip(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td><td class="muted">${fdatetime(s.entregado_en)}</td>
+      </tr>`).join('') : emptyRow(6)}</tbody></table></div></div>`;
+  }
+  if (t==='certificados'){
+    P.innerHTML = `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Código</th><th>Título</th><th>Programa</th><th>Emitido</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${certs.length? certs.map(c=>`<tr>
+        <td><code>${esc(c.codigo)}</code></td><td class="wrap">${esc(c.titulo)}</td>
+        <td class="wrap">${esc(c.cem_courses?.nombre||'')}</td><td class="muted">${fdate(c.emitido_en)}</td>
+        <td>${chip(c.estado)}</td>
+        <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"><span class="material-symbols-outlined">verified</span></a></td>
+      </tr>`).join('') : emptyRow(6,'Sin certificados emitidos.')}</tbody></table></div></div>`;
+  }
+  if (t==='pagos'){
+    const saldo = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
+    P.innerHTML = `<div class="card"><div class="row between"><h2 class="sec">Plan de cuotas</h2>
+      <span class="chip ${saldo>0?'warn':'ok'}">Saldo: ${money(saldo)}</span></div>
+      <div class="table-wrap"><table>
+      <thead><tr><th>#</th><th>Programa</th><th>Monto</th><th>Vence</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${insts.length? insts.map(i=>{
+        const e = ens.find(x=>x.id===i.enrollment_id);
+        return `<tr><td>${i.numero}</td><td class="wrap">${esc(e?.cem_courses?.nombre||'')}</td>
+        <td>${money(i.monto)}</td><td class="muted">${fdate(i.fecha_vencimiento)}</td>
+        <td>${money(i.saldo)}</td><td>${chip(i.estado)}</td>
+        <td>${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
+      }).join('') : emptyRow(7)}</tbody></table></div></div>
+      <div class="card"><h2 class="sec">Pagos registrados</h2><div class="table-wrap"><table>
+      <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Referencia</th><th>Conciliado</th></tr></thead>
+      <tbody>${pays.length? pays.map(x=>`<tr><td class="muted">${fdate(x.fecha)}</td><td><b>${money(x.monto)}</b></td>
+        <td>${esc(x.metodo||'—')}</td><td>${esc(x.referencia||'—')}</td>
+        <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></div>`;
+    $$('[data-pay]').forEach(b=>b.onclick=()=>registrarPago(insts.find(i=>i.id===b.dataset.pay)));
+  }
+}
+
+function cambiarEstado(e){
+  const m = modal({ title:'Estado de la inscripción', body:`
+    <div class="field"><label>Estado</label><select id="nEstado">
+      ${['pendiente','activa','suspendida','congelada','finalizada','cancelada'].map(v=>`<option ${e.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    await run(sb.from('cem_enrollments').update({estado:$('#nEstado',m).value}).eq('id',e.id),'No se pudo actualizar');
+    await audit('inscripcion_estado','cem_enrollments',e.id,'medio',{estado:$('#nEstado',m).value});
+    m.close(); ok('Inscripción actualizada'); load();
+  };
+}
+
+function registrarPago(i){
+  const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
+    <div class="row"><div class="field" style="flex:1;min-width:130px"><label>Monto *</label>
+      <input type="number" step="0.01" id="pMonto" value="${i.saldo||i.monto}"></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Método</label><select id="pMetodo">
+        <option>transferencia</option><option>zelle</option><option>paypal</option><option>binance</option>
+        <option>efectivo</option><option>pago movil</option><option>tarjeta</option></select></div></div>
+    <div class="field"><label>Referencia</label><input id="pRef" placeholder="Número de operación"></div>
+    <div class="field"><label>Comprobante (URL)</label><input id="pComp" placeholder="https://…"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Registrar</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    await run(sb.rpc('cem_register_payment',{ p_installment_id:i.id, p_monto:Number($('#pMonto',m).value),
+      p_metodo:$('#pMetodo',m).value, p_referencia:$('#pRef',m).value.trim()||null,
+      p_comprobante:$('#pComp',m).value.trim()||null }),'No se pudo registrar el pago');
+    m.close(); ok('Pago registrado'); load();
+  };
+}
+
+async function matricular(){
+  const { data: cursos } = await sb.from('cem_courses').select('id,nombre,precio').eq('estado','publicado').order('nombre');
+  const { data: cohs } = await sb.from('cem_cohorts').select('id,nombre,course_id');
+  const m = modal({ title:`Matricular a ${stu.nombre}`, body:`
+    <div class="field"><label>Programa *</label><select id="mCurso">
+      ${(cursos||[]).map(c=>`<option value="${c.id}" data-p="${c.precio}">${esc(c.nombre)}</option>`).join('')}</select></div>
+    <div class="field"><label>Cohorte</label><select id="mCoh"></select></div>
+    <div class="row"><div class="field" style="flex:1;min-width:110px"><label>Cuotas</label>
+      <select id="mCuotas"><option value="1">Pago único</option><option value="3" selected>3 cuotas</option><option value="6">6 cuotas</option></select></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Descuento</label><input type="number" step="0.01" id="mDesc" value="0"></div></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Matricular</button>` });
+  const fillCoh = () => { const cid=$('#mCurso',m).value;
+    $('#mCoh',m).innerHTML = '<option value="">Sin cohorte</option>' +
+      (cohs||[]).filter(c=>c.course_id===cid).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join(''); };
+  fillCoh(); $('#mCurso',m).onchange = fillCoh;
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=async()=>{
+    const cid=$('#mCurso',m).value, precio=Number($('#mCurso',m).selectedOptions[0].dataset.p)||0;
+    const desc=Number($('#mDesc',m).value)||0, cuotas=Number($('#mCuotas',m).value)||1;
+    const enr = await run(sb.from('cem_enrollments').insert({ profile_id:id, course_id:cid,
+      cohort_id:$('#mCoh',m).value||null, precio_lista:precio, descuento:desc, precio_final:Math.max(precio-desc,0),
+      estado:'pendiente' }).select().single(),'No se pudo matricular');
+    const monto = Math.round((Math.max(precio-desc,0)/cuotas)*100)/100;
+    await run(sb.from('cem_installments').insert(Array.from({length:cuotas},(_,k)=>({
+      enrollment_id:enr.id, numero:k+1, monto, saldo:monto,
+      fecha_vencimiento:new Date(Date.now()+k*30*86400000).toISOString().slice(0,10), estado:'pendiente'
+    }))),'No se pudieron crear las cuotas');
+    await audit('matricula_manual','cem_enrollments',enr.id,'medio',{estudiante:stu.email});
+    m.close(); ok('Estudiante matriculado'); load();
+  };
+}
+</script>
+</body>
+</html>

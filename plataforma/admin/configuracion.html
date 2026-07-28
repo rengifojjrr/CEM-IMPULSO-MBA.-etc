@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Configuración académica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Configuración académica</h1><p>Preferencias globales, escalas de calificación e identidad institucional.</p></div>
+    <div class="actions"><button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar cambios</button></div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2 class="sec">Identidad institucional</h2>
+      <div class="field"><label>Nombre de la institución</label><input id="insNombre"></div>
+      <div class="row">
+        <div class="field" style="flex:1;min-width:120px"><label>Siglas</label><input id="insSiglas"></div>
+        <div class="field" style="flex:1;min-width:140px"><label>País</label><input id="insPais"></div>
+        <div class="field" style="flex:1;min-width:120px"><label>Moneda base</label>
+          <select id="insMoneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Escala de calificación</h2>
+      <div class="row">
+        <div class="field" style="flex:1;min-width:110px"><label>Nota mínima</label><input type="number" id="esMin"></div>
+        <div class="field" style="flex:1;min-width:110px"><label>Nota máxima</label><input type="number" id="esMax"></div>
+        <div class="field" style="flex:1;min-width:130px"><label>Nota aprobatoria</label><input type="number" id="esApr"></div>
+      </div>
+      <p class="tiny muted">Esta escala se aplica al calificar entregas y al emitir certificados.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Periodo académico activo</h2>
+      <div class="field"><label>Nombre del periodo</label><input id="perNombre"></div>
+      <div class="row">
+        <div class="field" style="flex:1;min-width:150px"><label>Inicio</label><input type="date" id="perIni"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Fin</label><input type="date" id="perFin"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Tipos de producto educativo</h2>
+      <p class="tiny muted" style="margin-top:0">Definición operativa usada en el catálogo.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Tipo</th><th>Duración de referencia</th></tr></thead>
+        <tbody>
+          <tr><td>Masterclass</td><td>Hasta 4 horas</td></tr>
+          <tr><td>Curso</td><td>20 horas</td></tr>
+          <tr><td>Programa</td><td>20 a 89 horas</td></tr>
+          <tr><td>Diplomado</td><td>90 horas cronológicas</td></tr>
+          <tr><td>Maestría</td><td>240 horas</td></tr>
+        </tbody></table></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Otras claves de configuración</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Clave</th><th>Valor</th><th>Descripción</th></tr></thead>
+      <tbody id="tbAll"></tbody></table></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, esc, ok, run, audit } from '../assets/app.js';
+const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
+let all = [];
+if (p) load();
+
+async function load(){
+  const { data } = await sb.from('cem_settings').select('*').order('clave');
+  all = data||[];
+  const get = k => all.find(x=>x.clave===k)?.valor || {};
+  const ins = get('institucion'), es = get('escala_notas'), per = get('periodo_activo');
+  $('#insNombre').value = ins.nombre||''; $('#insSiglas').value = ins.siglas||'';
+  $('#insPais').value = ins.pais||''; $('#insMoneda').value = ins.moneda_base||'USD';
+  $('#esMin').value = es.minima??0; $('#esMax').value = es.maxima??100; $('#esApr').value = es.aprobatoria??70;
+  $('#perNombre').value = per.nombre||''; $('#perIni').value = per.inicio||''; $('#perFin').value = per.fin||'';
+  $('#tbAll').innerHTML = all.map(s=>`<tr><td><b>${esc(s.clave)}</b></td>
+    <td class="wrap"><code class="tiny">${esc(JSON.stringify(s.valor))}</code></td>
+    <td class="wrap muted">${esc(s.descripcion||'')}</td></tr>`).join('');
+}
+
+$('#btnSave').onclick = async () => {
+  const rows = [
+    { clave:'institucion', valor:{ nombre:$('#insNombre').value.trim(), siglas:$('#insSiglas').value.trim(),
+        pais:$('#insPais').value.trim(), moneda_base:$('#insMoneda').value }, descripcion:'Datos de la institucion' },
+    { clave:'escala_notas', valor:{ minima:Number($('#esMin').value), maxima:Number($('#esMax').value),
+        aprobatoria:Number($('#esApr').value) }, descripcion:'Escala de calificacion' },
+    { clave:'periodo_activo', valor:{ nombre:$('#perNombre').value.trim(), inicio:$('#perIni').value||null,
+        fin:$('#perFin').value||null }, descripcion:'Periodo academico vigente' },
+  ].map(r=>({ ...r, actualizado_en:new Date().toISOString() }));
+  await run(sb.from('cem_settings').upsert(rows, { onConflict:'clave' }), 'No se pudo guardar');
+  await audit('configuracion_actualizada','cem_settings',null,'alto',{claves:rows.map(r=>r.clave)});
+  ok('Configuración guardada'); load();
+};
+</script>
+</body>
+</html>
