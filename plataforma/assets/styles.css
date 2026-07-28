@@ -253,3 +253,27 @@ td.wrap{white-space:normal;min-width:200px;}
 .price{font-size:19px;font-weight:700;color:var(--primary);}
 
 @media print{.sidebar,.topbar,.bottomnav,.no-print{display:none !important;} .content{padding:0;}}
+
+/* ============================================================
+   AJUSTES DE TELÉFONO
+   Va al final a propósito: estas reglas deben ganar sobre las
+   definiciones base (p. ej. `th` se declara más arriba con 10.5px).
+   ============================================================ */
+@media (max-width:900px){
+  /* Legibilidad: 10–12px se lee bien en un monitor, no en la mano. */
+  .tiny{font-size:12.8px;}
+  th{font-size:11.5px;}
+  .chip{font-size:11.5px;}
+  .bottomnav a{font-size:11px;}
+  .nav-group .lbl{font-size:11px;}
+  .kpi .k-top{font-size:12.5px;}
+
+  /* Área táctil: 40px de alto en todo lo que se toca con el pulgar. */
+  .btn, .icon-btn, select, input, textarea{min-height:40px;}
+  .btn.sm{padding:8px 13px;font-size:13px;min-height:40px;}
+  .chip-btn{min-height:36px;}
+  .bottomnav a{min-height:46px;justify-content:center;}
+
+  /* iOS hace zoom automático al enfocar un campo con fuente <16px. */
+  input, select, textarea{font-size:16px;}
+}

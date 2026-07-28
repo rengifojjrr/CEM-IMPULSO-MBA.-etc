@@ -143,6 +143,17 @@ const TEACHER_NAV = [
   ['panel.html', 'space_dashboard', 'Mi panel'],
 ];
 
+/* Barra inferior del teléfono: el menú institucional tiene 23 entradas y no cabe.
+   Se muestran las de uso diario con etiqueta corta; el resto sigue estando
+   completo en el menú lateral que abre el botón de hamburguesa. */
+const ADMIN_MOBILE = [
+  ['index.html', 'dashboard', 'Resumen'],
+  ['cursos.html', 'school', 'Cursos'],
+  ['estudiantes.html', 'person', 'Alumnos'],
+  ['inscripciones.html', 'assignment_ind', 'Pagos'],
+  ['calificar.html', 'grade', 'Calificar'],
+];
+
 const ROLES_STAFF = ['coordinador', 'admin', 'superadmin'];
 
 /**
@@ -219,7 +230,7 @@ function renderShell(p, area, active) {
       <main class="content" id="cemContent"></main>
     </div>
     <nav class="bottomnav">
-      ${flat.slice(0, 6).map(([href, ic, txt]) => `
+      ${(area === 'admin' ? ADMIN_MOBILE : flat).slice(0, 5).map(([href, ic, txt]) => `
         <a class="${active === href ? 'active' : ''}" href="${href}">
           <span class="material-symbols-outlined">${ic}</span>${txt}</a>`).join('')}
     </nav>`;

@@ -10,7 +10,10 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
   .ed{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start;}
-  @media(max-width:900px){ .ed{grid-template-columns:1fr;} }
+  .ed > *{min-width:0;}
+  @media(max-width:900px){ .ed{grid-template-columns:minmax(0,1fr);} }
+  /* el lienzo conserva su proporción y se desplaza dentro de su propia caja */
+  .lienzo-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .var{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:var(--primary-fixed);
     color:var(--primary);font-size:11.5px;font-weight:600;cursor:pointer;margin:3px 3px 0 0;}
   .var:hover{background:var(--primary-dim);}
@@ -62,7 +65,7 @@
       <div class="card">
         <div class="row between"><h2 class="sec">Vista previa</h2>
           <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir prueba</button></div>
-        <div id="prev"></div>
+        <div id="prev" class="lienzo-wrap"></div>
       </div>
       <div class="card">
         <h2 class="sec">Plantillas guardadas</h2>
