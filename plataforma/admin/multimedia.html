@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Biblioteca multimedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Gestor multimedia</h1><p>Administra archivos, videos y documentos para los cursos.</p></div>
+    <div class="actions">
+      <div class="row" style="gap:4px">
+        <button class="btn ghost sm" id="vGrid" title="Cuadrícula"><span class="material-symbols-outlined">grid_view</span></button>
+        <button class="btn ghost sm" id="vList" title="Lista"><span class="material-symbols-outlined">view_list</span></button>
+      </div>
+      <button class="btn" id="btnNuevo"><span class="material-symbols-outlined">cloud_upload</span> Agregar recurso</button>
+    </div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Nombre del archivo…"></div>
+      <div class="field"><label>Curso</label><select id="fCurso"><option value="">Todos</option></select></div>
+      <div class="field"><label>Formato</label><select id="fTipo"><option value="">Todos</option>
+        <option value="pdf">PDF</option><option value="excel">Excel</option><option value="video">Video</option>
+        <option value="imagen">Imagen</option><option value="enlace">Enlace</option></select></div>
+      <div class="field"><label>Visibilidad</label><select id="fPub"><option value="">Todas</option>
+        <option value="1">Pública</option><option value="0">Restringida</option></select></div>
+    </div>
+  </div>
+  <div id="cont"></div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'multimedia.html', area:'admin' });
+const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
+let rows=[], cursos=[], vista='grid';
+if (p) load();
+
+async function load(){
+  const [{data},{data:cs}] = await Promise.all([
+    sb.from('cem_media').select('*,cem_courses(nombre)').order('created_at',{ascending:false}),
+    sb.from('cem_courses').select('id,nombre').order('nombre'),
+  ]);
+  rows=data||[]; cursos=cs||[];
+  $('#fCurso').innerHTML='<option value="">Todos</option>'+cursos.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  const totalMB = rows.reduce((a,r)=>a+Number(r.tamano_bytes||0),0)/1048576;
+  $('#kpis').innerHTML = [
+    kpi('Archivos', num(rows.length),'perm_media','en la biblioteca'),
+    kpi('Almacenamiento', totalMB>1024?(totalMB/1024).toFixed(1)+' GB':totalMB.toFixed(0)+' MB','cloud','uso estimado'),
+    kpi('Videos', num(rows.filter(r=>r.tipo==='video').length),'play_circle','material audiovisual'),
+    kpi('Públicos', num(rows.filter(r=>r.publico).length),'public','sin restricción'),
+  ].join('');
+  render();
+}
+
+const ico = t => t==='pdf'?'picture_as_pdf':t==='excel'?'table_chart':t==='video'?'play_circle':t==='imagen'?'image':'link';
+
+function render(){
+  const q=$('#q').value.trim(), c=$('#fCurso').value, t=$('#fTipo').value, pu=$('#fPub').value;
+  const list = rows.filter(r=>match(r,q,['nombre','descripcion','cem_courses.nombre'])
+    && (!c||r.course_id===c) && (!t||r.tipo===t) && (pu===''||String(r.publico?1:0)===pu));
+
+  if (vista==='grid'){
+    $('#cont').innerHTML = `<div class="grid g3">${list.length? list.map(m=>`
+      <div class="card" style="margin:0">
+        <div class="row between" style="align-items:flex-start">
+          <span class="material-symbols-outlined" style="font-size:30px;color:var(--primary)">${ico(m.tipo)}</span>
+          ${m.publico?chip('pública','ok'):chip('restringida','warn')}</div>
+        <div style="font-weight:600;margin-top:8px">${esc(m.nombre)}</div>
+        <div class="tiny muted">${esc(m.cem_courses?.nombre||'Sin curso')} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div>
+        <div class="row" style="margin-top:10px">
+          ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
+          ${puede?`<button class="btn ghost sm" data-e="${m.id}"><span class="material-symbols-outlined">edit</span></button>
+          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>`:''}
+        </div></div>`).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">Sin archivos.</p></div>'}</div>`;
+  } else {
+    $('#cont').innerHTML = `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Archivo</th><th>Curso</th><th>Formato</th><th>Tamaño</th><th>Visibilidad</th><th>Subido</th><th></th></tr></thead>
+      <tbody>${list.length? list.map(m=>`<tr>
+        <td class="wrap"><div class="row" style="gap:8px;flex-wrap:nowrap">
+          <span class="material-symbols-outlined">${ico(m.tipo)}</span><b>${esc(m.nombre)}</b></div></td>
+        <td class="wrap">${esc(m.cem_courses?.nombre||'—')}</td><td>${esc(m.tipo)}</td>
+        <td>${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</td>
+        <td>${m.publico?chip('pública','ok'):chip('restringida','warn')}</td>
+        <td class="muted">${fdate(m.created_at)}</td>
+        <td style="white-space:nowrap">
+          ${m.url?`<a class="btn ghost sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
+          ${puede?`<button class="btn ghost sm" data-e="${m.id}"><span class="material-symbols-outlined">edit</span></button>
+          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>`:''}
+        </td></tr>`).join('') : emptyRow(7)}</tbody></table></div></div>`;
+  }
+  $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(r=>r.id===b.dataset.e)));
+  $$('[data-d]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Eliminar este recurso de la biblioteca?')) return;
+    await run(sb.from('cem_media').delete().eq('id',b.dataset.d),'No se pudo eliminar');
+    await audit('media_eliminado','cem_media',b.dataset.d,'medio',{}); ok('Recurso eliminado'); load();
+  });
+}
+['#q','#fCurso','#fTipo','#fPub'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#vGrid').onclick=()=>{vista='grid';render();};
+$('#vList').onclick=()=>{vista='list';render();};
+$('#btnNuevo').onclick=()=>form(null);
+
+function form(m){
+  const isNew=!m;
+  const dlg = modal({ title:isNew?'Agregar recurso':`Editar: ${m.nombre}`, body:`
+    <div class="field"><label>Nombre *</label><input id="rN" value="${esc(m?.nombre||'')}"></div>
+    <div class="field"><label>Descripción</label><input id="rD" value="${esc(m?.descripcion||'')}"></div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:130px"><label>Formato</label><select id="rT">
+        ${['pdf','excel','video','imagen','enlace'].map(v=>`<option ${m?.tipo===v?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Tamaño (MB)</label>
+        <input type="number" step="0.1" id="rS" value="${((Number(m?.tamano_bytes||0))/1048576).toFixed(1)}"></div>
+    </div>
+    <div class="field"><label>URL del recurso *</label><input id="rU" value="${esc(m?.url||'')}" placeholder="https://…"></div>
+    <div class="field"><label>Curso asociado</label><select id="rC"><option value="">Sin curso</option>
+      ${cursos.map(c=>`<option value="${c.id}" ${m?.course_id===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></div>
+    <div class="field"><label>Requiere módulo (deja vacío si es libre)</label><input id="rR" value="${esc(m?.requiere_modulo||'')}" placeholder="Módulo 4"></div>
+    <label class="check"><input type="checkbox" id="rP" ${m?.publico?'checked':''}> Visible para todos los estudiantes del curso</label>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+  $('[data-x]',dlg).onclick=dlg.close;
+  $('[data-s]',dlg).onclick=async()=>{
+    const payload={ nombre:$('#rN',dlg).value.trim(), descripcion:$('#rD',dlg).value.trim(),
+      tipo:$('#rT',dlg).value, tamano_bytes:Math.round((Number($('#rS',dlg).value)||0)*1048576),
+      url:$('#rU',dlg).value.trim(), course_id:$('#rC',dlg).value||null,
+      requiere_modulo:$('#rR',dlg).value.trim()||null, publico:$('#rP',dlg).checked, subido_por:p.id };
+    if (!payload.nombre || !payload.url) return;
+    if (isNew) await run(sb.from('cem_media').insert(payload),'No se pudo agregar');
+    else await run(sb.from('cem_media').update(payload).eq('id',m.id),'No se pudo guardar');
+    await audit(isNew?'media_creado':'media_actualizado','cem_media',m?.id,'bajo',{nombre:payload.nombre});
+    dlg.close(); ok(isNew?'Recurso agregado':'Recurso actualizado'); load();
+  };
+}
+</script>
+</body>
+</html>

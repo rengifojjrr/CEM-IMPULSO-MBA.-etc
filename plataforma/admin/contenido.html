@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Constructor de contenido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .builder{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr);gap:16px;align-items:start;}
+  @media(max-width:900px){ .builder{grid-template-columns:1fr;} }
+  .tree-mod{border:1px solid var(--outline-variant);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+  .tree-mod > .h{display:flex;align-items:center;gap:8px;padding:10px;background:var(--surface-container);cursor:pointer;}
+  .tree-mod > .h b{flex:1;font-size:13px;}
+  .tree-les{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 26px;font-size:12.7px;cursor:pointer;
+    border-top:1px solid var(--outline-variant);}
+  .tree-les:hover{background:var(--surface-container);}
+  .tree-les.on{background:var(--secondary-container);color:var(--secondary);font-weight:600;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Constructor de contenido</h1><p id="sub">Organiza módulos y lecciones del programa.</p></div>
+    <div class="actions">
+      <div class="field" style="margin:0;min-width:230px"><select id="curso"></select></div>
+    </div>
+  </div>
+
+  <div class="builder">
+    <div class="card">
+      <div class="row between"><h2 class="sec">Estructura del curso</h2>
+        <button class="btn outline sm" id="btnMod"><span class="material-symbols-outlined">create_new_folder</span></button></div>
+      <div id="arbol"></div>
+    </div>
+    <div id="editor"></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, modal, ok, run, audit, qs, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'contenido.html', area:'admin' });
+let cursos=[], cursoId=null, mods=[], sel=null;
+if (p) load();
+
+async function load(){
+  const { data } = await sb.from('cem_courses').select('id,nombre,estado').order('nombre');
+  cursos = data||[];
+  $('#curso').innerHTML = cursos.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  cursoId = qs('curso') || cursos[0]?.id;
+  if (cursoId) $('#curso').value = cursoId;
+  await loadMods();
+}
+$('#curso').onchange = async () => { cursoId = $('#curso').value; sel=null; await loadMods(); };
+
+async function loadMods(){
+  if (!cursoId) return;
+  const { data } = await sb.from('cem_modules').select('*,cem_lessons(*)').eq('course_id',cursoId).order('orden');
+  mods = (data||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
+  const c = cursos.find(x=>x.id===cursoId);
+  $('#sub').textContent = `${c?.nombre||''} · ${mods.length} módulos · ${mods.reduce((a,m)=>a+m.cem_lessons.length,0)} lecciones`;
+  render();
+}
+
+function render(){
+  $('#arbol').innerHTML = mods.length ? mods.map((m,mi)=>`
+    <div class="tree-mod">
+      <div class="h" data-mod="${m.id}">
+        <span class="material-symbols-outlined" style="font-size:18px">folder</span>
+        <b>${esc(m.titulo)}</b>
+        <button class="btn ghost sm" data-addles="${m.id}" title="Agregar lección"><span class="material-symbols-outlined">add</span></button>
+        <button class="btn ghost sm" data-editmod="${m.id}" title="Editar módulo"><span class="material-symbols-outlined">edit</span></button>
+      </div>
+      ${m.cem_lessons.map(l=>`<div class="tree-les ${sel?.id===l.id?'on':''}" data-les="${l.id}">
+        <span class="material-symbols-outlined" style="font-size:16px">
+          ${l.tipo==='video'?'play_circle':l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
+        <span style="flex:1">${esc(l.titulo)}</span>
+        ${l.estado==='publicado'?'<span class="material-symbols-outlined" style="font-size:15px;color:var(--ok)">check_circle</span>':''}
+        </div>`).join('')}
+    </div>`).join('') : '<p class="muted tiny">Este curso no tiene módulos. Crea el primero.</p>';
+
+  $$('[data-les]').forEach(el=>el.onclick=()=>{ sel = mods.flatMap(m=>m.cem_lessons).find(l=>l.id===el.dataset.les); render(); });
+  $$('[data-addles]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); nuevaLeccion(b.dataset.addles); });
+  $$('[data-editmod]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); formMod(mods.find(m=>m.id===b.dataset.editmod)); });
+  renderEditor();
+}
+
+function renderEditor(){
+  if (!sel){ $('#editor').innerHTML = `<div class="card" style="text-align:center;padding:44px">
+    <span class="material-symbols-outlined" style="font-size:42px;color:var(--outline)">edit_document</span>
+    <h3>Selecciona una lección</h3><p class="muted tiny">Elige una lección del árbol para editar su contenido.</p></div>`; return; }
+  const l = sel;
+  $('#editor').innerHTML = `<div class="card">
+    <div class="row between"><h2 class="sec">Editor: ${esc(l.titulo)}</h2>
+      <div class="row">${chip(l.estado)}
+        <button class="btn outline sm" id="btnPrev"><span class="material-symbols-outlined">visibility</span> Vista previa</button>
+        <button class="btn sm" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar</button></div></div>
+    <div class="field"><label>Título de la lección</label><input id="lT" value="${esc(l.titulo)}"></div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="lTipo">
+        ${['video','pdf','texto','enlace','quiz','tarea','en_vivo'].map(v=>`<option ${l.tipo===v?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:120px"><label>Duración (min)</label><input type="number" id="lDur" value="${l.duracion_min||0}"></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Orden</label><input type="number" id="lOrd" value="${l.orden||0}"></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Estado</label><select id="lEstado">
+        ${['borrador','en_revision','publicado','archivado'].map(v=>`<option ${l.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Descripción breve</label><input id="lDesc" value="${esc(l.descripcion||'')}"></div>
+    <div class="field"><label>URL del recurso (video, PDF o enlace)</label><input id="lUrl" value="${esc(l.url||'')}" placeholder="https://…"></div>
+    <div class="field"><label>Contenido / notas del docente</label><textarea id="lCont" style="min-height:140px">${esc(l.contenido||'')}</textarea></div>
+    <label class="check"><input type="checkbox" id="lObl" ${l.obligatorio?'checked':''}> Lección obligatoria para el avance</label>
+    <div class="row" style="margin-top:14px;justify-content:space-between">
+      <button class="btn danger sm" id="btnDel"><span class="material-symbols-outlined">delete</span> Eliminar lección</button>
+      <button class="btn outline sm" id="btnRev"><span class="material-symbols-outlined">fact_check</span> Enviar a revisión</button>
+    </div></div>`;
+
+  $('#btnSave').onclick = async () => {
+    await run(sb.from('cem_lessons').update({
+      titulo:$('#lT').value.trim(), tipo:$('#lTipo').value, duracion_min:Number($('#lDur').value)||0,
+      orden:Number($('#lOrd').value)||0, estado:$('#lEstado').value, descripcion:$('#lDesc').value.trim(),
+      url:$('#lUrl').value.trim()||null, contenido:$('#lCont').value, obligatorio:$('#lObl').checked,
+    }).eq('id',l.id),'No se pudo guardar');
+    await audit('leccion_actualizada','cem_lessons',l.id,'bajo',{titulo:$('#lT').value});
+    ok('Lección guardada'); await loadMods();
+    sel = mods.flatMap(m=>m.cem_lessons).find(x=>x.id===l.id); render();
+  };
+  $('#btnDel').onclick = async () => {
+    if (!await confirmDialog('¿Eliminar esta lección? Se perderá su contenido.')) return;
+    await run(sb.from('cem_lessons').delete().eq('id',l.id),'No se pudo eliminar');
+    await audit('leccion_eliminada','cem_lessons',l.id,'medio',{titulo:l.titulo});
+    sel=null; ok('Lección eliminada'); loadMods();
+  };
+  $('#btnRev').onclick = async () => {
+    await run(sb.from('cem_lessons').update({estado:'en_revision'}).eq('id',l.id),'No se pudo enviar');
+    await run(sb.from('cem_content_reviews').insert({ lesson_id:l.id, course_id:cursoId,
+      titulo:(cursos.find(c=>c.id===cursoId)?.nombre||'')+' - '+l.titulo, tipo:'leccion',
+      autor_id:p.id, estado:'pendiente', version:'v1' }),'No se pudo crear la revisión');
+    ok('Enviada a revisión'); loadMods();
+  };
+  $('#btnPrev').onclick = () => {
+    modal({ title:`Vista previa: ${l.titulo}`, wide:true, body:`
+      ${l.tipo==='video'&&l.url? `<div style="aspect-ratio:16/9"><iframe src="${esc(l.url)}" style="width:100%;height:100%;border:0"></iframe></div>`
+        : l.url? `<a class="btn outline" href="${esc(l.url)}" target="_blank">Abrir recurso</a>` : ''}
+      <h3>${esc(l.titulo)}</h3><p class="muted tiny">${esc(l.descripcion||'')}</p>
+      <p>${esc(l.contenido||'Sin contenido escrito.')}</p>` });
+  };
+}
+
+$('#btnMod').onclick = () => formMod(null);
+function formMod(m){
+  const isNew=!m;
+  const dlg = modal({ title:isNew?'Nuevo módulo':`Editar: ${m.titulo}`, body:`
+    <div class="field"><label>Título *</label><input id="mT" value="${esc(m?.titulo||'')}" placeholder="Módulo 1: Fundamentos"></div>
+    <div class="field"><label>Descripción</label><textarea id="mD" style="min-height:70px">${esc(m?.descripcion||'')}</textarea></div>
+    <div class="field"><label>Orden</label><input type="number" id="mO" value="${m?.orden ?? (mods.length+1)}"></div>`,
+    footer:`${isNew?'':'<button class="btn danger" data-del>Eliminar</button>'}
+      <button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+  $('[data-x]',dlg).onclick=dlg.close;
+  const d=$('[data-del]',dlg);
+  if (d) d.onclick=async()=>{
+    if (!await confirmDialog('¿Eliminar el módulo y todas sus lecciones?')) return;
+    await run(sb.from('cem_modules').delete().eq('id',m.id),'No se pudo eliminar');
+    dlg.close(); sel=null; ok('Módulo eliminado'); loadMods();
+  };
+  $('[data-s]',dlg).onclick=async()=>{
+    const payload={ course_id:cursoId, titulo:$('#mT',dlg).value.trim(), descripcion:$('#mD',dlg).value.trim(), orden:Number($('#mO',dlg).value)||0 };
+    if (!payload.titulo) return;
+    if (isNew) await run(sb.from('cem_modules').insert(payload),'No se pudo crear');
+    else await run(sb.from('cem_modules').update(payload).eq('id',m.id),'No se pudo guardar');
+    dlg.close(); ok(isNew?'Módulo creado':'Módulo actualizado'); loadMods();
+  };
+}
+
+function nuevaLeccion(moduleId){
+  const mod = mods.find(m=>m.id===moduleId);
+  const dlg = modal({ title:`Nueva lección en ${mod.titulo}`, body:`
+    <div class="field"><label>Título *</label><input id="nT" placeholder="1.1 Introducción"></div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="nTipo">
+        ${['video','pdf','texto','enlace','quiz','tarea','en_vivo'].map(v=>`<option>${v}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:120px"><label>Duración (min)</label><input type="number" id="nDur" value="20"></div>
+    </div>
+    <div class="field"><label>URL del recurso</label><input id="nUrl" placeholder="https://…"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Crear</button>` });
+  $('[data-x]',dlg).onclick=dlg.close;
+  $('[data-s]',dlg).onclick=async()=>{
+    if (!$('#nT',dlg).value.trim()) return;
+    await run(sb.from('cem_lessons').insert({ module_id:moduleId, titulo:$('#nT',dlg).value.trim(),
+      tipo:$('#nTipo',dlg).value, duracion_min:Number($('#nDur',dlg).value)||0,
+      url:$('#nUrl',dlg).value.trim()||null, orden:(mod.cem_lessons.length+1), estado:'borrador' }),'No se pudo crear');
+    dlg.close(); ok('Lección creada'); loadMods();
+  };
+}
+</script>
+</body>
+</html>

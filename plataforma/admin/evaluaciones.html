@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Gestión de evaluaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Gestión de evaluaciones</h1><p>Administra exámenes, pruebas y bancos de preguntas.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
+      <a class="btn outline" href="preguntas.html"><span class="material-symbols-outlined">help_center</span> Banco de preguntas</a>
+      <a class="btn" href="evaluacion-nueva.html"><span class="material-symbols-outlined">add</span> Nueva evaluación</a>
+    </div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar por nombre</label><input type="search" id="q"></div>
+      <div class="field"><label>Curso</label><select id="fCurso"><option value="">Todos</option></select></div>
+      <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
+        <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
+        <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
+      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
+        <option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="archivado">Archivado</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Evaluación</th><th>Curso</th><th>Tipo</th><th>Preguntas</th><th>Intentos</th><th>Tiempo</th>
+        <th>Entregas</th><th>Promedio</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
+const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
+let rows=[];
+if (p) load();
+
+async function load(){
+  const [{data:as},{data:cs},{data:aq},{data:subs}] = await Promise.all([
+    sb.from('cem_assessments').select('*,cem_courses(nombre)').order('created_at',{ascending:false}),
+    sb.from('cem_courses').select('id,nombre').order('nombre'),
+    sb.from('cem_assessment_questions').select('assessment_id'),
+    sb.from('cem_submissions').select('assessment_id,puntaje,estado'),
+  ]);
+  $('#fCurso').innerHTML='<option value="">Todos</option>'+(cs||[]).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  const nq={}; (aq||[]).forEach(x=>nq[x.assessment_id]=(nq[x.assessment_id]||0)+1);
+  const st={}; (subs||[]).forEach(s=>{ (st[s.assessment_id] ||= {n:0,sum:0,c:0,pend:0});
+    st[s.assessment_id].n++; if(s.puntaje!=null){st[s.assessment_id].sum+=Number(s.puntaje); st[s.assessment_id].c++;}
+    if(s.estado==='entregada') st[s.assessment_id].pend++; });
+  rows = (as||[]).map(a=>({ ...a, _nq:nq[a.id]||0, _subs:st[a.id]?.n||0,
+    _avg: st[a.id]?.c? st[a.id].sum/st[a.id].c : null, _pend: st[a.id]?.pend||0 }));
+  $('#kpis').innerHTML = [
+    kpi('Evaluaciones', num(rows.length),'quiz',`${rows.filter(r=>r.estado==='publicado').length} publicadas`),
+    kpi('Entregas totales', num((subs||[]).length),'assignment_turned_in','histórico'),
+    kpi('Por calificar', num((subs||[]).filter(s=>s.estado==='entregada').length),'grade','requieren revisión'),
+    kpi('Promedio global', (()=>{ const c=(subs||[]).filter(s=>s.puntaje!=null);
+      return c.length? (c.reduce((a,s)=>a+Number(s.puntaje),0)/c.length).toFixed(1) : '—'; })(),'trending_up','de todas las entregas'),
+  ].join('');
+  render();
+}
+
+function render(){
+  const q=$('#q').value.trim(), c=$('#fCurso').value, t=$('#fTipo').value, e=$('#fEstado').value;
+  const list = rows.filter(r=>match(r,q,['nombre','cem_courses.nombre'])
+    && (!c||r.course_id===c) && (!t||r.tipo===t) && (!e||r.estado===e));
+  $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
+    <td class="wrap"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}</td>
+    <td class="wrap">${esc(r.cem_courses?.nombre||'')}</td><td>${chip(r.tipo,'neutral')}</td>
+    <td>${num(r._nq)}</td><td>${r.intentos||1}</td><td>${r.tiempo_min?r.tiempo_min+' min':'sin límite'}</td>
+    <td>${num(r._subs)}</td><td>${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chip(r.estado)}</td>
+    <td style="white-space:nowrap">
+      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar"><span class="material-symbols-outlined">edit</span></a>
+      <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>
+      ${puede?`<button class="btn ghost sm" data-pub="${r.id}" title="${r.estado==='publicado'?'Despublicar':'Publicar'}">
+        <span class="material-symbols-outlined">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
+    </td></tr>`).join('') : emptyRow(10);
+  $$('[data-pub]').forEach(b=>b.onclick=async()=>{
+    const r=rows.find(x=>x.id===b.dataset.pub);
+    const nuevo = r.estado==='publicado'?'borrador':'publicado';
+    if (nuevo==='publicado' && r._nq===0){ if(!await confirmDialog('Esta evaluación no tiene preguntas. ¿Publicar de todas formas?')) return; }
+    await run(sb.from('cem_assessments').update({estado:nuevo}).eq('id',r.id),'No se pudo actualizar');
+    await audit('evaluacion_estado','cem_assessments',r.id,'medio',{estado:nuevo}); ok('Estado actualizado'); load();
+  });
+}
+['#q','#fCurso','#fTipo','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{['#q','#fCurso','#fTipo','#fEstado'].forEach(s=>$(s).value=''); render();};
+$('#btnExport').onclick=()=>download('evaluaciones_cem.csv', toCSV(rows.map(r=>({
+  nombre:r.nombre, curso:r.cem_courses?.nombre, tipo:r.tipo, preguntas:r._nq,
+  intentos:r.intentos, tiempo_min:r.tiempo_min, entregas:r._subs, promedio:r._avg, estado:r.estado }))));
+</script>
+</body>
+</html>

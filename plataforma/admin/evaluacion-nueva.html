@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Constructor de evaluaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Constructor de evaluaciones</h1><p id="crumb">Configura y diseña el examen módulo por módulo.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined">visibility</span> Previsualizar</button>
+      <button class="btn outline" id="btnDraft"><span class="material-symbols-outlined">save</span> Guardar borrador</button>
+      <button class="btn" id="btnPub"><span class="material-symbols-outlined">publish</span> Publicar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec"><span class="material-symbols-outlined">tune</span> Configuración general</h2>
+    <div class="field"><label>Nombre de la evaluación *</label><input id="nombre" placeholder="Examen final del módulo 3"></div>
+    <div class="row">
+      <div class="field" style="flex:2;min-width:200px"><label>Curso vinculado *</label><select id="curso"></select></div>
+      <div class="field" style="flex:1;min-width:160px"><label>Módulo</label><select id="modulo"></select></div>
+      <div class="field" style="flex:1;min-width:130px"><label>Tipo</label><select id="tipo">
+        <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
+        <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:120px"><label>Puntaje máx.</label><input type="number" id="pmax" value="100"></div>
+      <div class="field" style="flex:1;min-width:120px"><label>Tiempo (min)</label><input type="number" id="tiempo" value="45" placeholder="vacío = sin límite"></div>
+      <div class="field" style="flex:1;min-width:120px"><label>Intentos</label><select id="intentos">
+        <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="99">Ilimitados</option></select></div>
+      <div class="field" style="flex:1;min-width:140px"><label>Nota aprobatoria</label><input type="number" id="napr" value="70"></div>
+    </div>
+    <div class="field"><label>Descripción / instrucciones</label><textarea id="desc" style="min-height:70px"></textarea></div>
+    <label class="check"><input type="checkbox" id="barajar"> Barajar preguntas aleatoriamente</label>
+  </div>
+
+  <div class="card">
+    <div class="row between">
+      <h2 class="sec"><span class="material-symbols-outlined">format_list_numbered</span> Estructura de la evaluación</h2>
+      <div class="row">
+        <span class="chip neutral" id="totalPts">0 pts</span>
+        <button class="btn outline sm" id="btnAdd"><span class="material-symbols-outlined">add</span> Agregar del banco</button>
+      </div>
+    </div>
+    <div id="lista"></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, modal, ok, fail, run, audit, qs, confirmDialog } from '../assets/app.js';
+const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'evaluaciones.html', area:'admin' });
+const editId = qs('id');
+let cursos=[], mods=[], banco=[], sel=[]; // sel: [{question, puntaje}]
+if (p) init();
+
+async function init(){
+  const { data: cs } = await sb.from('cem_courses').select('id,nombre').order('nombre');
+  cursos = cs||[];
+  $('#curso').innerHTML = cursos.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  if (qs('curso')) $('#curso').value = qs('curso');
+  await onCurso();
+  if (editId) await cargarExistente();
+  render();
+}
+$('#curso').onchange = async () => { await onCurso(); render(); };
+
+async function onCurso(){
+  const cid = $('#curso').value;
+  const [{data:ms},{data:qsb}] = await Promise.all([
+    sb.from('cem_modules').select('id,titulo').eq('course_id',cid).order('orden'),
+    sb.from('cem_questions').select('*').eq('course_id',cid).order('created_at'),
+  ]);
+  mods = ms||[]; banco = qsb||[];
+  $('#modulo').innerHTML = '<option value="">Todo el curso</option>' + mods.map(m=>`<option value="${m.id}">${esc(m.titulo)}</option>`).join('');
+}
+
+async function cargarExistente(){
+  const { data: a } = await sb.from('cem_assessments').select('*').eq('id',editId).maybeSingle();
+  if (!a) return;
+  $('#nombre').value=a.nombre; $('#curso').value=a.course_id; await onCurso();
+  if (a.module_id) $('#modulo').value=a.module_id;
+  $('#tipo').value=a.tipo; $('#pmax').value=a.puntaje_max; $('#tiempo').value=a.tiempo_min||'';
+  $('#intentos').value=String(a.intentos||1); $('#napr').value=a.nota_aprobatoria;
+  $('#desc').value=a.descripcion||''; $('#barajar').checked=!!a.barajar;
+  $('#crumb').textContent = `Editando: ${a.nombre}`;
+  const { data: aq } = await sb.from('cem_assessment_questions')
+    .select('puntaje,orden,cem_questions(*)').eq('assessment_id',editId).order('orden');
+  sel = (aq||[]).map(x=>({ question:x.cem_questions, puntaje:Number(x.puntaje) }));
+}
+
+function render(){
+  const total = sel.reduce((a,x)=>a+Number(x.puntaje||0),0);
+  $('#totalPts').textContent = `${sel.length} preguntas · ${total.toFixed(1)} pts`;
+  $('#lista').innerHTML = sel.length ? sel.map((x,i)=>`
+    <div class="card" style="margin-bottom:10px;box-shadow:none">
+      <div class="row" style="gap:10px;align-items:flex-start;flex-wrap:nowrap">
+        <span class="chip neutral">${i+1}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${esc(x.question.enunciado)}</div>
+          <div class="row tiny muted" style="margin-top:5px">
+            ${chip(x.question.tipo,'neutral')} ${chip(x.question.dificultad)}
+            ${(x.question.opciones||[]).length?`<span>${(x.question.opciones||[]).length} opciones</span>`:''}</div>
+        </div>
+        <div class="field" style="margin:0;width:92px"><label class="tiny">Puntaje</label>
+          <input type="number" step="0.5" data-pt="${i}" value="${x.puntaje}"></div>
+        <div class="stack" style="gap:2px">
+          <button class="btn ghost sm" data-up="${i}" ${i===0?'disabled':''}><span class="material-symbols-outlined">arrow_upward</span></button>
+          <button class="btn ghost sm" data-down="${i}" ${i===sel.length-1?'disabled':''}><span class="material-symbols-outlined">arrow_downward</span></button>
+        </div>
+        <button class="btn ghost sm" data-rm="${i}" style="color:var(--error)"><span class="material-symbols-outlined">close</span></button>
+      </div></div>`).join('')
+    : '<p class="muted tiny">Todavía no has agregado preguntas. Usa «Agregar del banco».</p>';
+
+  $$('[data-pt]').forEach(i=>i.onchange=()=>{ sel[Number(i.dataset.pt)].puntaje=Number(i.value)||0; render(); });
+  $$('[data-rm]').forEach(b=>b.onclick=()=>{ sel.splice(Number(b.dataset.rm),1); render(); });
+  $$('[data-up]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.up); [sel[i-1],sel[i]]=[sel[i],sel[i-1]]; render(); });
+  $$('[data-down]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.down); [sel[i+1],sel[i]]=[sel[i],sel[i+1]]; render(); });
+}
+
+$('#btnAdd').onclick = () => {
+  const yaIds = new Set(sel.map(x=>x.question.id));
+  const disp = banco.filter(q=>!yaIds.has(q.id));
+  const m = modal({ title:'Agregar preguntas del banco', wide:true, body:`
+    ${disp.length? `<div class="stack">${disp.map(q=>`<label class="check" style="align-items:flex-start">
+      <input type="checkbox" data-q="${q.id}" style="margin-top:3px">
+      <span><b>${esc(q.enunciado)}</b>
+        <div class="tiny muted">${esc(q.tipo)} · dificultad ${esc(q.dificultad)}</div></span></label>`).join('')}</div>`
+      : `<p class="muted">No quedan preguntas disponibles en el banco para este curso.
+         <a href="preguntas.html">Crea nuevas preguntas</a>.</p>`}`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Agregar seleccionadas</button>` });
+  $('[data-x]',m).onclick=m.close;
+  $('[data-s]',m).onclick=()=>{
+    const ids = $$('[data-q]',m).filter(i=>i.checked).map(i=>i.dataset.q);
+    const pts = Math.round((Number($('#pmax').value)||100)/Math.max(sel.length+ids.length,1)*100)/100;
+    ids.forEach(id=>sel.push({ question:banco.find(q=>q.id===id), puntaje:pts }));
+    sel = sel.map(x=>({ ...x, puntaje:pts }));
+    m.close(); render();
+  };
+};
+
+$('#btnPrev').onclick = () => {
+  modal({ title:`Previsualización: ${$('#nombre').value||'Sin título'}`, wide:true, body:`
+    <p class="tiny muted">${esc($('#desc').value||'')}</p>
+    ${sel.map((x,i)=>`<div class="card" style="box-shadow:none;margin-bottom:10px">
+      <b>${i+1}. ${esc(x.question.enunciado)}</b>
+      <div style="margin-top:8px">${(x.question.opciones||[]).map(o=>`
+        <div style="padding:8px 11px;border:1px solid var(--outline-variant);border-radius:9px;margin-top:6px">${esc(o)}</div>`).join('')
+        || '<textarea placeholder="Respuesta abierta" disabled></textarea>'}</div>
+      <div class="tiny muted" style="margin-top:6px">${x.puntaje} pts</div></div>`).join('') || '<p class="muted">Sin preguntas.</p>'}` });
+};
+
+async function guardar(estado){
+  const nombre=$('#nombre').value.trim();
+  if (!nombre){ fail('El nombre de la evaluación es obligatorio.'); return; }
+  const payload = {
+    course_id:$('#curso').value, module_id:$('#modulo').value||null, nombre,
+    descripcion:$('#desc').value.trim(), tipo:$('#tipo').value,
+    puntaje_max:Number($('#pmax').value)||100, tiempo_min:Number($('#tiempo').value)||null,
+    intentos:Number($('#intentos').value)||1, nota_aprobatoria:Number($('#napr').value)||70,
+    barajar:$('#barajar').checked, estado,
+  };
+  let id = editId;
+  if (id) await run(sb.from('cem_assessments').update(payload).eq('id',id),'No se pudo guardar');
+  else { const r = await run(sb.from('cem_assessments').insert(payload).select().single(),'No se pudo crear'); id=r.id; }
+
+  await sb.from('cem_assessment_questions').delete().eq('assessment_id',id);
+  if (sel.length) await run(sb.from('cem_assessment_questions').insert(
+    sel.map((x,i)=>({ assessment_id:id, question_id:x.question.id, orden:i+1, puntaje:x.puntaje }))),'No se pudieron guardar las preguntas');
+
+  await audit(editId?'evaluacion_actualizada':'evaluacion_creada','cem_assessments',id,'medio',{nombre, estado});
+  ok(estado==='publicado'?'Evaluación publicada':'Borrador guardado');
+  setTimeout(()=>location.href='evaluaciones.html', 800);
+}
+$('#btnDraft').onclick = () => guardar('borrador');
+$('#btnPub').onclick = async () => {
+  if (!sel.length && !await confirmDialog('La evaluación no tiene preguntas. ¿Publicar igual?')) return;
+  guardar('publicado');
+};
+</script>
+</body>
+</html>
