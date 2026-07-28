@@ -51,7 +51,7 @@ async function load(){
   const cohIds = cohortes.map(c=>c.id), courseIds=[...new Set((tas||[]).map(t=>t.course_id).filter(Boolean))];
 
   const [{data:ens},{data:cls},{data:asis}] = await Promise.all([
-    cohIds.length? sb.from('cem_enrollments').select('id,cohort_id,progreso,profile_id,course_id,cem_profiles(nombre,apellido)').in('cohort_id',cohIds) : Promise.resolve({data:[]}),
+    cohIds.length? sb.from('cem_enrollments').select('id,cohort_id,progreso,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido)').in('cohort_id',cohIds) : Promise.resolve({data:[]}),
     cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre)').in('cohort_id',cohIds).order('fecha') : Promise.resolve({data:[]}),
     Promise.resolve({data:[]}),
   ]);

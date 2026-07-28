@@ -250,14 +250,14 @@ function renderPublicHeader(p) {
   const h = document.createElement('header');
   h.className = 'pub-header';
   h.innerHTML = `<div class="pub-inner">
-    <a href="catalogo.html" style="display:flex;align-items:center;gap:9px;font-weight:700;color:var(--primary)">
+    <a class="pub-brand" href="catalogo.html">
       <span class="material-symbols-outlined">account_balance</span> CEM International</a>
     <nav>
       <a href="catalogo.html">Cursos</a>
       <a href="catalogo.html?tipo=programa">Programas</a>
       <a href="../verificar.html">Verificar certificado</a>
     </nav>
-    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+    <div class="pub-cta">
       ${p ? `<a class="btn outline sm" href="${homeFor(p.rol)}">Mi panel</a>
              <div class="avatar" title="${esc(p.email)}">${initials(p.nombre, p.apellido)}</div>`
           : `<a class="btn outline sm" href="../index.html">Iniciar sesión</a>

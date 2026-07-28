@@ -73,9 +73,11 @@ async function load(){
   }).select().single(),'No se pudo iniciar la evaluación');
   respuestas = sub.respuestas || {};
 
-  const { data: qsData } = await sb.from('cem_assessment_questions')
-    .select('orden,puntaje,cem_questions(id,enunciado,ayuda,tipo,opciones)').eq('assessment_id',aId).order('orden');
-  preguntas = (qsData||[]).map(x=>({ ...x.cem_questions, _puntaje:x.puntaje }));
+  // RPC security-definer: entrega las preguntas sin exponer la respuesta correcta
+  const { data: qsData, error: qErr } = await sb.rpc('cem_exam_questions',{ p_assessment_id:aId });
+  if (qErr) { fail('No se pudieron cargar las preguntas: '+qErr.message); return; }
+  preguntas = (qsData||[]).map(x=>({ id:x.question_id, enunciado:x.enunciado, ayuda:x.ayuda,
+    tipo:x.tipo, opciones:x.opciones, _puntaje:x.puntaje }));
   if (assess.barajar) preguntas.sort(()=>Math.random()-0.5);
 
   $('#tit').textContent = assess.nombre;

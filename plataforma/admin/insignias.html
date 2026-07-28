@@ -41,7 +41,7 @@ if (p) load();
 async function load(){
   const [{data:bs},{data:aw}] = await Promise.all([
     sb.from('cem_badges').select('*').order('nombre'),
-    sb.from('cem_badge_awards').select('*,cem_badges(nombre,competencia,icono,color),cem_profiles(nombre,apellido,email)')
+    sb.from('cem_badge_awards').select('*,cem_badges(nombre,competencia,icono,color),cem_profiles!cem_badge_awards_profile_id_fkey(nombre,apellido,email)')
       .order('otorgado_en',{ascending:false}).limit(60),
   ]);
   badges=bs||[]; awards=aw||[];

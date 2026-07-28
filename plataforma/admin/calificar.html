@@ -52,7 +52,7 @@ $('#fAssess').onchange = fetchSubs;
 
 async function fetchSubs(){
   let q = sb.from('cem_submissions')
-    .select('*,cem_assessments(nombre,tipo,puntaje_max,nota_aprobatoria,cem_courses(nombre)),cem_enrollments(profile_id,cem_profiles(nombre,apellido,email))')
+    .select('*,cem_assessments(nombre,tipo,puntaje_max,nota_aprobatoria,cem_courses(nombre)),cem_enrollments(profile_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email))')
     .in('estado',['entregada','calificada']).order('entregado_en',{ascending:false});
   const a = $('#fAssess').value; if (a) q = q.eq('assessment_id',a);
   const { data } = await q;

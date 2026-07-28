@@ -20,7 +20,7 @@
   <div class="grid g2" id="cursos"></div>
 
   <div class="grid g2" style="margin-top:16px">
-    <div class="card"><h2 class="sec">Próximas entregas</h2><div id="entregas"></div></div>
+    <div class="card"><h2 class="sec">Mis evaluaciones</h2><div id="entregas"></div></div>
     <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
   </div>
 
@@ -37,13 +37,16 @@ async function init(){
     .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)').eq('profile_id',p.id);
   const eids = (ens||[]).map(e=>e.id), cohIds=(ens||[]).map(e=>e.cohort_id).filter(Boolean);
 
-  const [{data:clases},{data:insts},{data:subs},{data:anuncios},{data:certs}] = await Promise.all([
+  const cIds = (ens||[]).map(e=>e.course_id).filter(Boolean);
+  const [{data:clases},{data:insts},{data:subs},{data:anuncios},{data:certs},{data:evals}] = await Promise.all([
     cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre,cem_courses(nombre))').in('cohort_id',cohIds)
       .gte('fecha',new Date().toISOString().slice(0,10)).order('fecha').limit(5) : Promise.resolve({data:[]}),
     eids.length? sb.from('cem_installments').select('*').in('enrollment_id',eids).order('fecha_vencimiento') : Promise.resolve({data:[]}),
     eids.length? sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,course_id)').in('enrollment_id',eids) : Promise.resolve({data:[]}),
     sb.from('cem_announcements').select('*').eq('estado','enviado').order('enviado_en',{ascending:false}).limit(4),
     sb.from('cem_certificates').select('id').eq('profile_id',p.id),
+    cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria')
+      .in('course_id',cIds).eq('estado','publicado') : Promise.resolve({data:[]}),
   ]);
 
   const prog = ens?.length? ens.reduce((a,e)=>a+Number(e.progreso||0),0)/ens.length : 0;
@@ -87,13 +90,33 @@ async function init(){
       </div>
     </div>`).join('') : '<div class="card"><p class="muted">Aún no tienes cursos. <a href="catalogo.html">Explora el catálogo</a>.</p></div>';
 
-  const pend = (subs||[]).filter(s=>s.estado==='en_progreso'||s.estado==='entregada');
-  $('#entregas').innerHTML = pend.length ? pend.slice(0,6).map(s=>`
-    <div class="list-item"><span class="material-symbols-outlined" style="color:var(--on-surface-variant)">assignment</span>
-      <div class="grow"><div class="t">${esc(s.cem_assessments?.nombre||'')}</div>
-        <div class="s">${esc(s.cem_assessments?.tipo||'')} · ${s.entregado_en?'entregado '+fdate(s.entregado_en):'pendiente'}</div></div>
-      ${chip(s.estado)}</div>`).join('')
-    : '<p class="muted tiny">No tienes entregas pendientes.</p>';
+  const enrPorCurso = {}; (ens||[]).forEach(e=>{ enrPorCurso[e.course_id] = e.id; });
+  const tareas = (evals||[]).map(a=>{
+    const mias = (subs||[]).filter(s=>s.assessment_id===a.id).sort((x,y)=>y.intento-x.intento);
+    const ult = mias[0];
+    return { a, ult, usados:mias.length, abierta:mias.find(s=>s.estado==='en_progreso'), enr:enrPorCurso[a.course_id] };
+  }).filter(t=>t.enr);
+  const orden = { en_progreso:0, pendiente:1, entregada:2, calificada:3 };
+  tareas.sort((x,y)=>(orden[x.abierta?'en_progreso':x.ult?.estado||'pendiente']??9)
+                    -(orden[y.abierta?'en_progreso':y.ult?.estado||'pendiente']??9));
+  $('#entregas').innerHTML = tareas.length ? tareas.slice(0,6).map(({a,ult,usados,abierta,enr})=>{
+    const aprob = a.nota_aprobatoria||70;
+    const sinIntentos = !abierta && usados >= (a.intentos||1);
+    let estado, accion;
+    if (abierta){ estado = chip('en progreso','warn');
+      accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Continuar</a>`;
+    } else if (ult?.estado==='calificada'){
+      estado = `<span class="chip ${ult.puntaje>=aprob?'ok':'err'}">${ult.puntaje} pts</span>`;
+      accion = sinIntentos? '' : `<a class="btn outline sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Reintentar</a>`;
+    } else if (ult?.estado==='entregada'){ estado = chip('en revisión','info'); accion = '';
+    } else { estado = chip('pendiente','warn');
+      accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Rendir</a>`; }
+    return `<div class="list-item"><span class="material-symbols-outlined" style="color:var(--on-surface-variant)">${a.tipo==='examen'?'quiz':'assignment'}</span>
+      <div class="grow"><div class="t">${esc(a.nombre)}</div>
+        <div class="s">${esc(a.tipo||'')} · ${ult?.entregado_en?'entregado '+fdate(ult.entregado_en):`nota mínima ${aprob}`}</div></div>
+      ${estado}${accion}</div>`;
+  }).join('')
+    : '<p class="muted tiny">No tienes evaluaciones pendientes.</p>';
 
   $('#pagos').innerHTML = (insts||[]).length ? insts.slice(0,6).map(i=>{
     const venc = i.estado!=='pagada' && i.fecha_vencimiento < new Date().toISOString().slice(0,10);

@@ -9,8 +9,10 @@
 <link rel="stylesheet" href="../assets/styles.css">
 <style>
   .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:16px;}
-  @media(max-width:900px){ .aula{grid-template-columns:1fr;} }
+  .aula > *{min-width:0;}
+  @media(max-width:900px){ .aula{grid-template-columns:minmax(0,1fr);} }
   .les-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:13px;}
+  .les-t{flex:1;min-width:0;overflow-wrap:anywhere;}
   .les-item:hover{background:var(--surface-container);}
   .les-item.on{background:var(--secondary-container);color:var(--secondary);font-weight:600;}
   .les-item .material-symbols-outlined{font-size:18px;}
@@ -31,7 +33,6 @@
     <div class="card" style="align-self:start;max-height:78vh;overflow:auto">
       <h2 class="sec">Contenido del curso</h2>
       <div id="indice"></div>
-      <div style="margin-top:10px">${''}</div>
     </div>
 
     <div>
@@ -39,6 +40,7 @@
       <div class="card" style="margin-top:14px">
         <div class="tabs" id="tabs">
           <button class="active" data-t="notas">Mis notas</button>
+          <button data-t="evaluaciones">Evaluaciones</button>
           <button data-t="recursos">Recursos</button>
           <button data-t="sesiones">Sesiones en vivo</button>
         </div>
@@ -50,7 +52,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run } from '../assets/app.js';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
-let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[];
+let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
 if (me) load();
 
 async function load(){
@@ -66,15 +68,17 @@ async function load(){
   if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
   curso = enr.cem_courses;
 
-  const [{data:ms},{data:lp},{data:cls},{data:md}] = await Promise.all([
+  const [{data:ms},{data:lp},{data:cls},{data:md},{data:evs},{data:subs}] = await Promise.all([
     sb.from('cem_modules').select('*,cem_lessons(*)').eq('course_id',enr.course_id).order('orden'),
     sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id),
     enr.cohort_id? sb.from('cem_classes').select('*').eq('cohort_id',enr.cohort_id).order('fecha') : Promise.resolve({data:[]}),
     sb.from('cem_media').select('*').eq('course_id',enr.course_id),
+    sb.from('cem_assessments').select('*').eq('course_id',enr.course_id).eq('estado','publicado').order('nombre'),
+    sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id),
   ]);
   mods = (ms||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
   (lp||[]).forEach(x=>progreso[x.lesson_id]=x);
-  clases = cls||[]; media = md||[];
+  clases = cls||[]; media = md||[]; evals = evs||[]; entregas = subs||[];
   const all = mods.flatMap(m=>m.cem_lessons);
   actual = all.find(l=>!progreso[l.id]?.completado) || all[0];
   render();
@@ -91,8 +95,8 @@ function render(){
         return `<div class="les-item ${actual?.id===l.id?'on':''}" data-l="${l.id}">
           <span class="material-symbols-outlined" style="color:${done?'var(--ok)':'var(--outline)'}">
             ${done?'check_circle':'radio_button_unchecked'}</span>
-          <span style="flex:1">${esc(l.titulo)}</span>
-          <span class="tiny muted">${l.duracion_min||0}′</span></div>`;
+          <span class="les-t">${esc(l.titulo)}</span>
+          <span class="tiny muted" style="flex-shrink:0">${l.duracion_min||0}′</span></div>`;
       }).join('')}
     </div>`).join('');
   $$('[data-l]').forEach(el=>el.onclick=()=>{
@@ -150,6 +154,36 @@ function tab(t){
       progreso[actual.id] = { ...(progreso[actual.id]||{}), notas:$('#nota').value };
       ok('Nota guardada');
     };
+  }
+  if (t==='evaluaciones'){
+    P.innerHTML = evals.length ? evals.map(a=>{
+      const mias = entregas.filter(s=>s.assessment_id===a.id).sort((x,y)=>y.intento-x.intento);
+      const ult = mias[0];
+      const abierta = mias.find(s=>s.estado==='en_progreso');
+      const usados = mias.length;
+      const sinIntentos = !abierta && usados >= (a.intentos||1);
+      const aprob = a.nota_aprobatoria||70;
+      let estado, accion;
+      if (abierta){
+        estado = chip('en progreso','warn');
+        accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr.id}">Continuar</a>`;
+      } else if (ult?.estado==='calificada'){
+        estado = `<span class="chip ${ult.puntaje>=aprob?'ok':'err'}">${ult.puntaje} pts · ${ult.puntaje>=aprob?'aprobado':'reprobado'}</span>`;
+        accion = sinIntentos ? '<span class="tiny muted">Sin intentos</span>'
+          : `<a class="btn outline sm" href="evaluacion.html?id=${a.id}&enr=${enr.id}">Reintentar</a>`;
+      } else if (ult?.estado==='entregada'){
+        estado = chip('en revisión','info');
+        accion = '<span class="tiny muted">Esperando calificación</span>';
+      } else {
+        estado = chip('pendiente','warn');
+        accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr.id}">Rendir</a>`;
+      }
+      return `<div class="list-item">
+        <span class="material-symbols-outlined">${a.tipo==='examen'?'quiz':'assignment'}</span>
+        <div class="grow"><div class="t">${esc(a.nombre)}</div>
+          <div class="s">${esc(a.tipo||'')} · nota mínima ${aprob} · intento ${Math.min(usados||1,a.intentos||1)} de ${a.intentos||1}${a.tiempo_min?` · ${a.tiempo_min} min`:''}</div></div>
+        ${estado}${accion}</div>`;
+    }).join('') : '<p class="muted tiny">Este curso todavía no tiene evaluaciones publicadas.</p>';
   }
   if (t==='recursos'){
     P.innerHTML = media.length ? media.map(m=>`<div class="list-item">

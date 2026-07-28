@@ -95,7 +95,7 @@ async function init(){
     </div>`).join('') || '<p class="muted tiny">No hay clases próximas.</p>';
 
   const { data: ins } = await sb.from('cem_enrollments')
-    .select('id,precio_final,estado,fecha_inscripcion,cem_profiles(nombre,apellido),cem_courses(nombre)')
+    .select('id,precio_final,estado,fecha_inscripcion,profile_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)')
     .order('fecha_inscripcion',{ascending:false}).limit(6);
   $('#tbInscripciones').innerHTML = ins?.length ? ins.map(e => `<tr class="clickable" onclick="location.href='estudiante.html?id=${e.cem_profiles ? '' : ''}'">
       <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>

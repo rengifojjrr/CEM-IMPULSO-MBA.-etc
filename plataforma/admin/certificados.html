@@ -50,7 +50,7 @@ if (p) load();
 async function load(){
   const [{data:cs},{data:ens},{data:tp}] = await Promise.all([
     sb.from('cem_certificates').select('*,cem_profiles(nombre,apellido,email),cem_courses(nombre)').order('emitido_en',{ascending:false}),
-    sb.from('cem_enrollments').select('id,progreso,estado,profile_id,course_id,cem_profiles(nombre,apellido),cem_courses(nombre,certificado_nombre)'),
+    sb.from('cem_enrollments').select('id,progreso,estado,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre,certificado_nombre)'),
     sb.from('cem_certificate_templates').select('*').order('created_at'),
   ]);
   certs=cs||[]; tpls=tp||[];
@@ -115,7 +115,7 @@ $('#btnLote').onclick = async () => {
 
 $('#btnEmitir').onclick = async () => {
   const { data: ens } = await sb.from('cem_enrollments')
-    .select('id,progreso,cem_profiles(nombre,apellido),cem_courses(nombre)').order('fecha_inscripcion',{ascending:false});
+    .select('id,progreso,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)').order('fecha_inscripcion',{ascending:false});
   const m = modal({ title:'Emitir certificado manualmente', body:`
     <div class="field"><label>Inscripción *</label><select id="eE">
       ${(ens||[]).map(e=>`<option value="${e.id}">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))} — ${esc(e.cem_courses?.nombre||'')} (${Math.round(e.progreso)}%)</option>`).join('')}</select></div>
