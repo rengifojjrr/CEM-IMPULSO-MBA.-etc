@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Manual de operación · Plataforma CEM</title>
+<style>
+  :root{
+    --navy:#00122b;
+    --ink:#0d1a26;
+    --paper:#f7f9fb;
+    --card:#ffffff;
+    --mint:#97efe4;
+    --mint-deep:#0f6b5e;
+    --gold:#cea62b;
+    --slate:#5b6b7c;
+    --line:#dce4ec;
+    --ok:#1b7f5f;
+    --warn:#a8760c;
+    --crit:#a63232;
+    --code-bg:#eef3f8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --navy:#9fc3e8; --ink:#dbe6ef; --paper:#071019; --card:#0e1b27;
+      --mint:#4fd6c4; --mint-deep:#7ee8d8; --gold:#e0bb4a;
+      --slate:#93a5b6; --line:#1e2f3f; --ok:#5cc79f; --warn:#e0bb4a; --crit:#e88a8a;
+      --code-bg:#122232;
+    }
+  }
+  :root[data-theme="dark"]{
+    --navy:#9fc3e8; --ink:#dbe6ef; --paper:#071019; --card:#0e1b27;
+    --mint:#4fd6c4; --mint-deep:#7ee8d8; --gold:#e0bb4a;
+    --slate:#93a5b6; --line:#1e2f3f; --ok:#5cc79f; --warn:#e0bb4a; --crit:#e88a8a;
+    --code-bg:#122232;
+  }
+  :root[data-theme="light"]{
+    --navy:#00122b; --ink:#0d1a26; --paper:#f7f9fb; --card:#ffffff;
+    --mint:#97efe4; --mint-deep:#0f6b5e; --gold:#cea62b;
+    --slate:#5b6b7c; --line:#dce4ec; --ok:#1b7f5f; --warn:#a8760c; --crit:#a63232;
+    --code-bg:#eef3f8;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  .serif{font-family:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  code{background:var(--code-bg); padding:.12em .38em; border-radius:3px; font-size:.87em;}
+
+  .wrap{max-width:1220px; margin:0 auto; padding:0 24px;}
+  .layout{display:grid; grid-template-columns:minmax(0,1fr); gap:44px; padding-bottom:96px;}
+  .layout > *{min-width:0;}
+  @media(min-width:1080px){ .layout{grid-template-columns:236px minmax(0,1fr); gap:56px;} }
+
+  /* ---- portada ---- */
+  header.top{border-bottom:1px solid var(--line); background:var(--card);}
+  .top-in{max-width:1220px; margin:0 auto; padding:52px 24px 40px;}
+  .eyebrow{
+    font-size:12px; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--slate); font-weight:600; margin:0 0 14px;
+  }
+  h1{
+    font-family:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    font-size:clamp(30px,4.4vw,46px); line-height:1.12; margin:0 0 16px;
+    color:var(--navy); font-weight:600; text-wrap:balance; letter-spacing:-.012em;
+  }
+  .lede{font-size:17.5px; color:var(--slate); max-width:64ch; margin:0;}
+  .meta{
+    display:flex; flex-wrap:wrap; gap:10px 26px; margin-top:26px;
+    font-size:13px; color:var(--slate);
+  }
+  .meta b{color:var(--ink); font-weight:600;}
+
+  /* ---- índice ---- */
+  nav.toc{align-self:start; font-size:13.5px;}
+  @media(min-width:1080px){ nav.toc{position:sticky; top:24px; max-height:calc(100vh - 48px); overflow-y:auto;} }
+  nav.toc .lbl{
+    font-size:11px; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--slate); font-weight:700; margin:0 0 12px;
+  }
+  nav.toc ol{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1px;}
+  nav.toc a{
+    display:flex; gap:9px; padding:6px 9px; border-radius:5px;
+    color:var(--ink); text-decoration:none; border-left:2px solid transparent;
+  }
+  nav.toc a:hover{background:var(--code-bg); border-left-color:var(--mint);}
+  nav.toc a:focus-visible{outline:2px solid var(--navy); outline-offset:1px;}
+  nav.toc .n{color:var(--slate); font-variant-numeric:tabular-nums; min-width:1.1em;}
+
+  /* ---- secciones ---- */
+  section{scroll-margin-top:20px; padding-top:8px;}
+  section + section{margin-top:56px; padding-top:44px; border-top:1px solid var(--line);}
+  h2{
+    font-family:ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;
+    font-size:27px; line-height:1.22; margin:0 0 6px; color:var(--navy);
+    font-weight:600; text-wrap:balance;
+  }
+  h2 .num{
+    font-size:13px; color:var(--slate); font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    display:block; margin-bottom:7px; letter-spacing:.06em; font-weight:400;
+  }
+  h3{font-size:16.5px; margin:32px 0 8px; color:var(--ink); font-weight:650; text-wrap:balance;}
+  p{margin:0 0 14px; max-width:68ch;}
+  ul,ol.steps{max-width:68ch;}
+  .sub{color:var(--slate); margin:0 0 22px; max-width:68ch;}
+
+  /* ---- pasos numerados ---- */
+  ol.steps{list-style:none; margin:16px 0 0; padding:0; counter-reset:s; display:flex; flex-direction:column; gap:14px;}
+  ol.steps li{counter-increment:s; display:flex; gap:14px;}
+  ol.steps li::before{
+    content:counter(s); flex-shrink:0;
+    width:25px; height:25px; border-radius:50%;
+    background:var(--navy); color:var(--paper);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums;
+    margin-top:1px;
+  }
+  ol.steps li > div{flex:1; min-width:0;}
+  ol.steps .t{font-weight:600;}
+  ol.steps .d{color:var(--slate); font-size:14.5px;}
+
+  /* ---- avisos: dos tipos con significado distinto ---- */
+  .note{
+    border-left:3px solid var(--mint); background:var(--card);
+    padding:14px 18px; margin:20px 0; max-width:68ch; border-radius:0 6px 6px 0;
+  }
+  .note .h{
+    font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+    font-weight:700; color:var(--mint-deep); margin-bottom:5px;
+  }
+  .note p:last-child{margin-bottom:0;}
+  .flag{
+    border-left:3px solid var(--crit); background:var(--card);
+    padding:16px 18px; margin:18px 0; border-radius:0 6px 6px 0;
+  }
+  .flag.med{border-left-color:var(--gold);}
+  .flag .h{
+    font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+    font-weight:700; color:var(--crit); margin-bottom:6px;
+    display:flex; gap:9px; align-items:baseline; flex-wrap:wrap;
+  }
+  .flag.med .h{color:var(--warn);}
+  .flag .h .sev{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:10px; letter-spacing:.05em; padding:1px 6px; border-radius:3px;
+    background:var(--crit); color:var(--paper); text-transform:none;
+  }
+  .flag.med .h .sev{background:var(--warn);}
+  .flag .t{font-weight:650; margin-bottom:7px;}
+  .flag p:last-child{margin-bottom:0;}
+  .flag p{max-width:70ch;}
+
+  /* ---- tablas ---- */
+  .tw{overflow-x:auto; margin:20px 0; border:1px solid var(--line); border-radius:7px; background:var(--card);}
+  table{border-collapse:collapse; width:100%; font-size:14px; min-width:600px;}
+  th,td{padding:9px 13px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top;}
+  thead th{
+    background:var(--code-bg); font-size:11.5px; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--slate); font-weight:700; white-space:nowrap; position:sticky; top:0;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  td.c,th.c{text-align:center;}
+  .matrix td.c{font-weight:700; font-variant-numeric:tabular-nums;}
+  .yes{color:var(--ok);}
+  .ro{color:var(--slate);}
+  .no{color:var(--line);}
+  .lg{font-size:13px; color:var(--slate); display:flex; flex-wrap:wrap; gap:7px 20px; margin:12px 0 0;}
+  .lg span b{color:var(--ink);}
+
+  .enum{
+    display:inline-block; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:12.5px; background:var(--code-bg); padding:2px 7px; border-radius:3px;
+    margin:0 4px 4px 0; white-space:nowrap;
+  }
+  .arrow{color:var(--slate); margin:0 2px;}
+
+  /* ---- checklist ---- */
+  ul.check{list-style:none; margin:14px 0 0; padding:0; display:flex; flex-direction:column; gap:11px; max-width:70ch;}
+  ul.check li{display:flex; gap:12px; align-items:flex-start;}
+  ul.check li::before{
+    content:""; flex-shrink:0; width:15px; height:15px; margin-top:5px;
+    border:1.5px solid var(--slate); border-radius:3px;
+  }
+  ul.check .exp{color:var(--slate); font-size:14.5px;}
+
+  footer{border-top:1px solid var(--line); margin-top:60px; padding:26px 0 60px; color:var(--slate); font-size:13.5px;}
+  a{color:var(--mint-deep);}
+  a:focus-visible{outline:2px solid var(--navy); outline-offset:2px;}
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important;} }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <p class="eyebrow">Centro Educativo Multigeneracional</p>
+    <h1>Manual de operación de la plataforma CEM</h1>
+    <p class="lede">Cómo funciona cada rol, qué hace el sistema por su cuenta y en qué puntos
+      lo que se ve en pantalla no coincide con lo que el servidor realmente exige. Escrito
+      para revisarlo entre administradores.</p>
+    <div class="meta">
+      <span><b>36</b> páginas</span>
+      <span><b>6</b> roles</span>
+      <span><b>29</b> tablas <code>cem_</code></span>
+      <span>Backend <b>Supabase</b> · Postgres + RLS</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+
+  <nav class="toc">
+    <p class="lbl">Contenido</p>
+    <ol>
+      <li><a href="#s1"><span class="n">1</span> Acceso y portales</a></li>
+      <li><a href="#s2"><span class="n">2</span> Los seis roles</a></li>
+      <li><a href="#s3"><span class="n">3</span> Recorrido del estudiante</a></li>
+      <li><a href="#s4"><span class="n">4</span> Crear y publicar un programa</a></li>
+      <li><a href="#s5"><span class="n">5</span> Evaluación y calificación</a></li>
+      <li><a href="#s6"><span class="n">6</span> Inscripciones, cuotas y pagos</a></li>
+      <li><a href="#s7"><span class="n">7</span> Certificación</a></li>
+      <li><a href="#s8"><span class="n">8</span> Gobierno del sistema</a></li>
+      <li><a href="#s9"><span class="n">9</span> Estados del sistema</a></li>
+      <li><a href="#s10"><span class="n">10</span> Reglas automáticas</a></li>
+      <li><a href="#s11"><span class="n">11</span> Puntos a revisar</a></li>
+      <li><a href="#s12"><span class="n">12</span> Verificación guiada</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- 1 -->
+    <section id="s1">
+      <h2><span class="num">SECCIÓN 1</span>Acceso y portales</h2>
+      <p class="sub">La plataforma tiene una sola puerta de entrada y reparte a cada persona
+        según su rol.</p>
+
+      <p>Todos entran por la misma pantalla de inicio. Al validar la sesión, el sistema lee el rol
+        del perfil y redirige a uno de tres portales. Nadie elige a cuál entra.</p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>Rol</th><th>Portal de destino</th><th>Barra de navegación</th></tr></thead>
+          <tbody>
+            <tr><td><code>estudiante</code></td><td>Portal del estudiante</td><td>4 secciones</td></tr>
+            <tr><td><code>profesor</code></td><td>Portal docente</td><td>Panel propio + accesos académicos</td></tr>
+            <tr><td><code>coordinador</code>, <code>admin</code>, <code>superadmin</code>, <code>auditor</code></td>
+                <td>Portal institucional</td><td>7 grupos de menú</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Hay dos páginas que funcionan <b>sin sesión iniciada</b>: el catálogo público de programas
+        (con su ficha de detalle) y el verificador de certificados. Cualquiera con el código de un
+        certificado puede comprobar su validez sin tener cuenta.</p>
+
+      <div class="note">
+        <div class="h">Qué pasa si alguien entra donde no debe</div>
+        <p>La aplicación no muestra un error genérico: presenta una pantalla de <b>Sin acceso</b>
+          que nombra el rol de la persona y ofrece un botón para volver a su inicio. Si una cuenta
+          está desactivada, el mensaje es <b>Cuenta desactivada</b> y no carga ningún dato.</p>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <h2><span class="num">SECCIÓN 2</span>Los seis roles</h2>
+      <p class="sub">Quién ve qué, y quién además puede modificarlo.</p>
+
+      <p>La distinción importante no es el acceso sino la <b>escritura</b>. Varios roles abren la
+        misma pantalla pero solo algunos ven los botones de guardar, aprobar o emitir. El caso más
+        claro es el auditor: entra a casi todo el portal institucional y no puede modificar nada
+        en ninguna parte.</p>
+
+      <div class="tw">
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Módulo</th>
+              <th class="c">Estudiante</th><th class="c">Profesor</th><th class="c">Coordinador</th>
+              <th class="c">Admin</th><th class="c">Auditor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Portal del estudiante</td><td class="c yes">✔</td><td class="c no">·</td><td class="c no">·</td><td class="c no">·</td><td class="c no">·</td></tr>
+            <tr><td>Resumen y reportes</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Calendario</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Cursos y cohortes</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Contenidos</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c no">·</td></tr>
+            <tr><td>Revisión de contenidos</td><td class="c no">·</td><td class="c ro">👁</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Biblioteca multimedia</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Profesores</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Estudiantes</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Inscripciones y pagos</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Evaluaciones y preguntas</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Calificar y apelaciones</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Certificados e insignias</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Editor de certificados</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c no">·</td></tr>
+            <tr><td>Comunicaciones</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Soporte</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+            <tr><td>Configuración institucional</td><td class="c no">·</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c no">·</td></tr>
+            <tr><td>Usuarios, permisos, auditoría</td><td class="c no">·</td><td class="c no">·</td><td class="c no">·</td><td class="c yes">✔</td><td class="c ro">👁</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lg">
+        <span><b class="yes">✔</b> ver y modificar</span>
+        <span><b class="ro">👁</b> solo lectura</span>
+        <span><b>·</b> sin acceso</span>
+        <span><code>superadmin</code> tiene exactamente los mismos accesos que <code>admin</code></span>
+      </p>
+
+      <h3>Cómo leer los casos límite</h3>
+      <p>El profesor entra a <b>Revisión de contenidos</b> y ve la cola completa, pero los botones de
+        aprobar y devolver son solo para coordinación. Puede proponer contenido, no aprobar el suyo
+        propio. Del otro lado, el auditor entra a <b>Usuarios</b> y <b>Permisos</b> y ve la
+        configuración completa sin poder alterarla, que es justo el punto de un rol de control.</p>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <h2><span class="num">SECCIÓN 3</span>Recorrido del estudiante</h2>
+      <p class="sub">Desde que descubre un programa hasta que descarga su certificado.</p>
+
+      <ol class="steps">
+        <li><div><div class="t">Explora el catálogo</div>
+          <div class="d">Puede hacerlo sin cuenta. Ve los programas en estado <code>publicado</code>
+            y entra a la ficha de cada uno.</div></div></li>
+        <li><div><div class="t">Se inscribe</div>
+          <div class="d">Completa sus datos personales, elige cohorte, elige plan de pago y puede
+            aplicar un cupón. Al confirmar, la inscripción nace en estado <code>pendiente</code>.</div></div></li>
+        <li><div><div class="t">Recibe sus cuotas</div>
+          <div class="d">El sistema genera las cuotas automáticamente, una por mes a partir de la
+            fecha de inscripción. Aparecen en su panel con el saldo pendiente.</div></div></li>
+        <li><div><div class="t">Entra al aula</div>
+          <div class="d">Recorre módulos y lecciones, ve el video o el material, toma apuntes
+            personales por lección y marca cada una como completada.</div></div></li>
+        <li><div><div class="t">Rinde sus evaluaciones</div>
+          <div class="d">Desde la pestaña <b>Evaluaciones</b> del aula o desde su panel. Ve cuántos
+            intentos le quedan y la nota mínima antes de empezar.</div></div></li>
+        <li><div><div class="t">Obtiene su certificado</div>
+          <div class="d">Cuando coordinación lo emite, aparece en su sección de certificados con un
+            código verificable públicamente.</div></div></li>
+      </ol>
+
+      <div class="note">
+        <div class="h">El progreso se calcula solo</div>
+        <p>Cada vez que el estudiante marca una lección, el sistema recalcula el porcentaje como
+          <b>lecciones completadas ÷ total de lecciones del curso</b>, y guarda la fecha de último
+          acceso. Nadie captura el progreso a mano, y por eso agregar lecciones a un curso en marcha
+          baja el porcentaje de quienes ya avanzaban.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <h2><span class="num">SECCIÓN 4</span>Crear y publicar un programa</h2>
+      <p class="sub">El circuito académico, desde el borrador hasta la cohorte abierta.</p>
+
+      <ol class="steps">
+        <li><div><div class="t">Crear el programa</div>
+          <div class="d">Asistente de 6 pasos: identidad, tipo y nivel, precio y moneda, modalidad,
+            datos del certificado y publicación. Nace en <code>borrador</code>.</div></div></li>
+        <li><div><div class="t">Construir el contenido</div>
+          <div class="d">Se arma el árbol de módulos y lecciones. Cada lección tiene tipo
+            (video, PDF, texto, enlace, quiz, tarea o sesión en vivo) y duración.</div></div></li>
+        <li><div><div class="t">Enviar a revisión</div>
+          <div class="d">El autor manda la lección a la cola de revisión. Esto es lo que permite que
+            un profesor proponga material sin poder publicarlo por su cuenta.</div></div></li>
+        <li><div><div class="t">Aprobar o devolver</div>
+          <div class="d">Coordinación decide. Al aprobar, la lección pasa a <code>publicado</code>;
+            al devolver, vuelve a <code>borrador</code> con un comentario para el autor.</div></div></li>
+        <li><div><div class="t">Abrir la cohorte</div>
+          <div class="d">Se crea la cohorte con fechas, cupos y profesor asignado, y se pasa a
+            <code>inscripciones_abiertas</code> para que aparezca al inscribirse.</div></div></li>
+      </ol>
+
+      <p>La <b>biblioteca multimedia</b> es transversal: el material subido ahí queda asociado al
+        curso y el estudiante lo ve en la pestaña de recursos del aula, sin que haga falta enlazarlo
+        lección por lección.</p>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <h2><span class="num">SECCIÓN 5</span>Evaluación y calificación</h2>
+      <p class="sub">Qué se corrige solo y qué llega al escritorio de un docente.</p>
+
+      <p>Las preguntas viven en un <b>banco reutilizable</b>: se escriben una vez y se arman las
+        evaluaciones tomando preguntas de ahí, con su puntaje y su orden dentro de cada examen.</p>
+
+      <h3>La regla de corrección</h3>
+      <p>Al entregar, el sistema recorre las preguntas de la evaluación y decide en el momento:</p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>Composición de la evaluación</th><th>Qué hace el sistema</th><th>Estado resultante</th></tr></thead>
+          <tbody>
+            <tr><td>Solo opción múltiple y verdadero/falso</td>
+                <td>Corrige y califica sobre 100 al instante</td>
+                <td><code>calificada</code></td></tr>
+            <tr><td>Contiene al menos una pregunta abierta</td>
+                <td>Guarda las respuestas y espera al docente</td>
+                <td><code>entregada</code></td></tr>
+            <tr><td>Sin preguntas (entrega de archivo o proyecto)</td>
+                <td>Guarda la entrega y espera al docente</td>
+                <td><code>entregada</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Todo lo que quede en <code>entregada</code> aparece en la bandeja de <b>Calificar</b>. El
+        docente ve las respuestas del estudiante con las objetivas ya marcadas como correctas o
+        incorrectas, pone el puntaje y escribe la retroalimentación. El botón
+        <b>Guardar y siguiente</b> encadena la cola completa.</p>
+
+      <div class="note">
+        <div class="h">Las respuestas correctas nunca viajan al navegador del estudiante</div>
+        <p>El examen se sirve por una función del servidor que valida que quien pide las preguntas
+          esté inscrito en ese curso, y devuelve el enunciado y las opciones <b>sin</b> la respuesta
+          correcta. Aunque alguien inspeccione la página, la clave no está ahí.</p>
+      </div>
+
+      <p>Si un estudiante no está de acuerdo con su nota, existe el circuito de <b>apelaciones</b>:
+        se registra el reclamo, pasa por análisis y termina aceptado o rechazado con una resolución
+        escrita que queda asociada al caso.</p>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <h2><span class="num">SECCIÓN 6</span>Inscripciones, cuotas y pagos</h2>
+      <p class="sub">Cómo se convierte una inscripción en un alumno activo.</p>
+
+      <p>Una inscripción y sus cuotas nacen juntas. El precio final se fija en ese momento y las
+        cuotas se reparten en partes iguales con vencimiento mensual.</p>
+
+      <h3>Planes de pago que ofrece la pantalla</h3>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Plan</th><th>Ajuste sobre el precio de lista</th></tr></thead>
+          <tbody>
+            <tr><td>Pago único</td><td>10 % de descuento</td></tr>
+            <tr><td>3 cuotas</td><td>Precio de lista, sin recargo</td></tr>
+            <tr><td>6 cuotas</td><td>6 % de recargo</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Sobre eso se pueden aplicar cupones: <code>CEM10</code> (10 %), <code>BECA20</code> (20 %)
+        y <code>ALUMNI15</code> (15 %).</p>
+
+      <div class="note">
+        <div class="h">El primer pago activa al estudiante</div>
+        <p>Al registrar un pago, el sistema recalcula el saldo de la cuota y la marca
+          <code>pagada</code> o <code>parcial</code> según cubra o no el monto. Si la inscripción
+          todavía estaba en <code>pendiente</code>, la pasa a <code>activa</code> en la misma
+          operación. Ese es el único punto donde una inscripción se activa sola.</p>
+      </div>
+
+      <p>Todo pago queda registrado con quién lo cargó, método, referencia y comprobante, y genera
+        un evento de auditoría de <b>riesgo alto</b>. Es la operación más vigilada del sistema.</p>
+    </section>
+
+    <!-- 7 -->
+    <section id="s7">
+      <h2><span class="num">SECCIÓN 7</span>Certificación</h2>
+      <p class="sub">Emisión, plantillas y verificación pública.</p>
+
+      <p>La pantalla de certificados propone como <b>listos para emitir</b> a quienes superan el
+        80 % de avance y todavía no tienen certificado en ese programa. Coordinación emite desde ahí,
+        o manualmente eligiendo cualquier inscripción.</p>
+
+      <p>Al emitir, el sistema genera un código con el formato <code>CEM-AAAA-#####</code> y guarda
+        una <b>foto congelada</b> de los datos: nombre del estudiante, nombre del curso y fecha de
+        emisión. Si después cambia el nombre del programa, el certificado ya emitido conserva el
+        texto original, que es el comportamiento correcto para un documento acreditativo.</p>
+
+      <p>El <b>editor de certificados</b> permite diseñar la plantilla visual, y el
+        <b>verificador público</b> permite a un empleador confirmar la validez de un código sin
+        tener cuenta en la plataforma.</p>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <h2><span class="num">SECCIÓN 8</span>Gobierno del sistema</h2>
+      <p class="sub">Configuración, usuarios y rastro de auditoría.</p>
+
+      <p><b>Configuración institucional</b> guarda los datos de la institución que aparecen en
+        comunicaciones y certificados. <b>Usuarios</b> permite dar de alta, cambiar rol y activar o
+        desactivar cuentas; una cuenta desactivada no puede entrar a ninguna pantalla.</p>
+
+      <p>La <b>auditoría</b> registra automáticamente las operaciones sensibles con su nivel de
+        riesgo, quién las hizo y cuándo. Se alimenta sola desde el propio sistema: pagos, emisión de
+        certificados, calificaciones, cambios de permisos e inscripciones dejan rastro sin que nadie
+        tenga que anotarlo.</p>
+
+      <p>Complementan el circuito <b>Soporte</b>, con tickets priorizados y conversación por caso,
+        y <b>Comunicaciones</b>, para anuncios dirigidos a una cohorte o a todos.</p>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <h2><span class="num">SECCIÓN 9</span>Estados del sistema</h2>
+      <p class="sub">El vocabulario completo. Útil para detectar si alguien nombra un estado que no existe.</p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>Concepto</th><th>Valores posibles</th></tr></thead>
+          <tbody>
+            <tr><td>Publicación<br><span class="ro">cursos y lecciones</span></td><td>
+              <span class="enum">borrador</span><span class="enum">en_revision</span><span class="enum">publicado</span><span class="enum">pausado</span><span class="enum">archivado</span></td></tr>
+            <tr><td>Cohorte</td><td>
+              <span class="enum">planificada</span><span class="enum">inscripciones_abiertas</span><span class="enum">en_curso</span><span class="enum">finalizada</span><span class="enum">cancelada</span></td></tr>
+            <tr><td>Inscripción</td><td>
+              <span class="enum">pendiente</span><span class="enum">activa</span><span class="enum">suspendida</span><span class="enum">congelada</span><span class="enum">finalizada</span><span class="enum">cancelada</span></td></tr>
+            <tr><td>Cuota</td><td>
+              <span class="enum">pendiente</span><span class="enum">parcial</span><span class="enum">pagada</span><span class="enum">vencida</span><span class="enum">congelada</span><span class="enum">anulada</span><span class="enum">reembolsada</span></td></tr>
+            <tr><td>Entrega</td><td>
+              <span class="enum">en_progreso</span><span class="enum">entregada</span><span class="enum">calificada</span><span class="enum">tarde</span><span class="enum">anulada</span></td></tr>
+            <tr><td>Apelación</td><td>
+              <span class="enum">recibida</span><span class="enum">en_analisis</span><span class="enum">requiere_info</span><span class="enum">aceptada</span><span class="enum">rechazada</span></td></tr>
+            <tr><td>Ticket</td><td>
+              <span class="enum">abierto</span><span class="enum">en_proceso</span><span class="enum">esperando</span><span class="enum">resuelto</span><span class="enum">cerrado</span></td></tr>
+            <tr><td>Tipo de programa</td><td>
+              <span class="enum">masterclass</span><span class="enum">curso</span><span class="enum">programa</span><span class="enum">diplomado</span><span class="enum">maestria</span></td></tr>
+            <tr><td>Modalidad</td><td>
+              <span class="enum">online</span><span class="enum">en_vivo</span><span class="enum">presencial</span><span class="enum">hibrido</span></td></tr>
+            <tr><td>Tipo de lección</td><td>
+              <span class="enum">video</span><span class="enum">pdf</span><span class="enum">texto</span><span class="enum">enlace</span><span class="enum">quiz</span><span class="enum">tarea</span><span class="enum">en_vivo</span></td></tr>
+            <tr><td>Tipo de pregunta</td><td>
+              <span class="enum">multiple</span><span class="enum">verdadero_falso</span><span class="enum">corta</span><span class="enum">ensayo</span></td></tr>
+            <tr><td>Tipo de evaluación</td><td>
+              <span class="enum">examen</span><span class="enum">quiz</span><span class="enum">practica</span><span class="enum">ensayo</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <h2><span class="num">SECCIÓN 10</span>Reglas automáticas</h2>
+      <p class="sub">Lo que el sistema hace por su cuenta, sin que nadie lo dispare.</p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>Cuando ocurre esto…</th><th>…el sistema hace esto solo</th></tr></thead>
+          <tbody>
+            <tr><td>Un estudiante confirma su inscripción</td>
+                <td>Bloquea el duplicado si ya tiene una inscripción viva en ese programa, fija el
+                    precio final, genera las cuotas mensuales y registra el evento de auditoría</td></tr>
+            <tr><td>Marca una lección como completada</td>
+                <td>Recalcula el porcentaje de avance y actualiza la fecha de último acceso</td></tr>
+            <tr><td>Entrega una evaluación</td>
+                <td>Corrige las preguntas objetivas; si hay alguna abierta o ninguna pregunta, la
+                    manda a revisión manual sin nota</td></tr>
+            <tr><td>Un docente registra una calificación</td>
+                <td>Guarda quién calificó y cuándo, y deja evento de auditoría</td></tr>
+            <tr><td>Se registra un pago</td>
+                <td>Recalcula el saldo, marca la cuota, activa la inscripción si estaba pendiente y
+                    deja evento de riesgo alto</td></tr>
+            <tr><td>Se emite un certificado</td>
+                <td>Genera el código único y congela los datos del estudiante y del curso</td></tr>
+            <tr><td>Se aprueba una lección en revisión</td>
+                <td>Publica la lección; si se devuelve, la regresa a borrador</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <h2><span class="num">SECCIÓN 11</span>Puntos a revisar</h2>
+      <p class="sub">Lugares donde la pantalla sugiere una regla que el servidor no exige. Ninguno
+        impide operar; todos son decisiones pendientes.</p>
+
+      <div class="flag">
+        <div class="h"><span class="sev">CRÍTICO</span> Comercial</div>
+        <div class="t">El precio final lo decide el navegador, no el servidor</div>
+        <p>La pantalla de inscripción calcula el descuento (plan de pago + cupón) y se lo envía al
+          servidor como un número ya resuelto. El servidor lo acepta tal cual: resta ese descuento
+          al precio del curso sin comprobar que el cupón exista ni que el plan corresponda. Alguien
+          que manipule esa llamada puede inscribirse con el descuento que quiera, incluso dejando el
+          precio en cero.</p>
+        <p><b>Decisión pendiente:</b> mover los cupones y los factores de plan a la base de datos y
+          que el servidor calcule el precio, recibiendo el código de cupón en vez del monto.</p>
+      </div>
+
+      <div class="flag">
+        <div class="h"><span class="sev">CRÍTICO</span> Gobierno</div>
+        <div class="t">La matriz de permisos se guarda pero no se aplica</div>
+        <p>La pantalla de <b>Permisos</b> muestra una matriz de rol × módulo × acción, guarda los
+          cambios en la base y los registra en auditoría. Pero <b>ninguna parte del sistema la lee</b>
+          para decidir accesos: los permisos reales están escritos en cada página y en las reglas de
+          la base de datos. Mover un interruptor ahí no cambia lo que alguien puede hacer.</p>
+        <p><b>Decisión pendiente:</b> o se conecta la matriz al control de acceso real, o se marca
+          como referencia documental para que nadie crea que está aplicando un cambio.</p>
+      </div>
+
+      <div class="flag med">
+        <div class="h"><span class="sev">MEDIO</span> Académico</div>
+        <div class="t">El 80 % de avance es una sugerencia, no un requisito</div>
+        <p>La lista de «listos para emitir» filtra por avance mayor o igual al 80 %, pero la emisión
+          manual permite elegir cualquier inscripción y el servidor no verifica avance ni notas
+          aprobadas. Hoy es posible certificar a alguien con 0 % de progreso.</p>
+        <p><b>Decisión pendiente:</b> definir el requisito real de egreso y exigirlo al emitir, o
+          dejarlo abierto a criterio de coordinación de forma explícita.</p>
+      </div>
+
+      <div class="flag med">
+        <div class="h"><span class="sev">MEDIO</span> Certificación</div>
+        <div class="t">El código de certificado puede agotarse dentro de un año</div>
+        <p>El código es <code>CEM-AAAA-#####</code> con cinco dígitos al azar y unicidad obligatoria,
+          sin reintento si el número ya existe. Por la matemática de coincidencias, alrededor de los
+          <b>370 certificados en un mismo año</b> la probabilidad de choque llega al 50 %. No genera
+          duplicados —la base lo impide— pero la emisión fallaría con un error.</p>
+        <p><b>Decisión pendiente:</b> reintentar ante colisión o pasar a numeración secuencial, que
+          además es más presentable en un documento oficial.</p>
+      </div>
+
+      <div class="flag med">
+        <div class="h"><span class="sev">MENOR</span> Roles</div>
+        <div class="t">superadmin no se distingue de admin</div>
+        <p>El rol existe y está contemplado en todas las pantallas, pero tiene exactamente los mismos
+          accesos que <code>admin</code> y no hay ninguna cuenta creada con él.</p>
+        <p><b>Decisión pendiente:</b> darle atribuciones propias —por ejemplo, ser el único que puede
+          cambiar el rol de un administrador o borrar registros— o retirarlo para no sugerir una
+          jerarquía que no existe.</p>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section id="s12">
+      <h2><span class="num">SECCIÓN 12</span>Verificación guiada</h2>
+      <p class="sub">Recorrido corto para comprobar en vivo que todo encaja. Cada punto dice qué
+        debe pasar; si pasa otra cosa, hay algo que corregir.</p>
+
+      <h3>Coherencia de roles</h3>
+      <ul class="check">
+        <li><div>Entrar como <b>auditor</b> a Inscripciones y pagos.
+          <div class="exp">Debe verse la tabla completa y <b>ningún</b> botón de registrar pago.</div></div></li>
+        <li><div>Entrar como <b>profesor</b> a Revisión de contenidos.
+          <div class="exp">Debe verse la cola y <b>ningún</b> botón de aprobar o devolver.</div></div></li>
+        <li><div>Como <b>profesor</b>, escribir a mano la dirección de Inscripciones.
+          <div class="exp">Debe aparecer la pantalla «Sin acceso» nombrando el rol, no un error.</div></div></li>
+      </ul>
+
+      <h3>Coherencia académica</h3>
+      <ul class="check">
+        <li><div>Como <b>estudiante</b>, marcar una lección y volver al panel.
+          <div class="exp">El porcentaje debe subir en proporción al total de lecciones del curso.</div></div></li>
+        <li><div>Rendir una evaluación de solo opción múltiple.
+          <div class="exp">Debe dar la nota al instante y <b>no</b> aparecer en la bandeja de Calificar.</div></div></li>
+        <li><div>Rendir una que tenga una pregunta abierta.
+          <div class="exp">Debe quedar sin nota y <b>sí</b> aparecer en la bandeja del docente.</div></div></li>
+        <li><div>Abrir una «Práctica: caso de estudio» sin preguntas y entregarla.
+          <div class="exp">Debe quedar esperando revisión, nunca calificada en 0 automáticamente.</div></div></li>
+      </ul>
+
+      <h3>Coherencia administrativa</h3>
+      <ul class="check">
+        <li><div>Inscribir a alguien y mirar su estado y sus cuotas.
+          <div class="exp">Estado <code>pendiente</code> y tantas cuotas como indique el plan.</div></div></li>
+        <li><div>Registrar el primer pago de esa inscripción.
+          <div class="exp">La cuota pasa a <code>pagada</code> y la inscripción pasa sola a <code>activa</code>.</div></div></li>
+        <li><div>Emitir un certificado y copiar su código.
+          <div class="exp">El verificador público debe validarlo <b>sin sesión iniciada</b>.</div></div></li>
+        <li><div>Revisar Auditoría al terminar el recorrido.
+          <div class="exp">Deben estar el pago (riesgo alto), la calificación y la emisión del
+            certificado, con el nombre correcto de quien las hizo.</div></div></li>
+      </ul>
+    </section>
+
+    <footer>
+      Documento de operación interna · Plataforma CEM. Refleja el comportamiento verificado del
+      sistema, incluidas las diferencias entre lo que muestra la interfaz y lo que exige el servidor.
+    </footer>
+
+  </main>
+</div>
+</body>
+</html>
