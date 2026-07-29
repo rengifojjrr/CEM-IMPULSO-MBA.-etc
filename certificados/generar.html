@@ -55,6 +55,20 @@
   .field-label.inactive{opacity:.4;}
   .field-handle{position:absolute;width:9px;height:24px;background:var(--gold);border:1px solid var(--navy);border-radius:3px;cursor:ew-resize;transform:translate(-50%,-50%);z-index:3;touch-action:none;}
   .field-handle.inactive{opacity:.4;}
+  .img-box{position:absolute;transform:translate(-50%,-50%);cursor:grab;z-index:2;touch-action:none;outline:1px dashed rgba(19,39,67,.5);}
+  .img-box:active{cursor:grabbing;}
+  .img-box.inactive{opacity:.35 !important;}
+  .img-box img{display:block;width:100%;height:auto;pointer-events:none;}
+  .img-vacia{padding:10px 6px;text-align:center;font-size:10px;color:var(--muted);background:rgba(255,255,255,.75);}
+  .img-handle{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--teal);border:2px solid #fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.35);transform:translate(-50%,-50%);cursor:ew-resize;z-index:4;touch-action:none;}
+  .img-handle.inactive{opacity:.4;}
+  .modal-fondo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:flex-start;
+    justify-content:center;padding:24px 12px;overflow-y:auto;}
+  .modal-caja{background:#fff;border-radius:10px;max-width:760px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+  .modal-cab{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .modal-cab b{flex:1;min-width:0;}
+  .modal-cuerpo{padding:14px 16px 18px;}
   .field-settings{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 8px;border-bottom:1px solid var(--border);font-size:12px;}
   .field-settings label{color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;}
   .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
@@ -113,6 +127,14 @@
         <button class="btn danger" id="btnEliminarPlantilla">Eliminar</button>
       </div>
 
+      <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+        <label class="hint" style="min-width:150px;">Copiar estilo y márgenes de:</label>
+        <select id="selCopiarEstilo" style="flex:1;min-width:180px;"></select>
+        <button class="btn outline" id="btnCopiarEstilo">Copiar a esta plantilla</button>
+        <span class="hint" style="flex-basis:100%;">Toma posición, márgenes, tipografía, tamaños, color y opacidad
+          de los campos que se llamen igual. No toca el fondo ni los datos.</span>
+      </div>
+
       <p class="hint">Sube el diseño exportado de tu Canva (PDF, PNG o JPG). Cada campo tiene un cuadro de márgenes (dos marcas dorada) — arrastra la marca izquierda para fijar dónde empieza el texto y la derecha dónde termina; el tamaño de letra se ajusta solo para que el texto de cada estudiante quepa ahí, entre el máximo y el mínimo que definas.</p>
       <div class="row">
         <input type="file" id="inputBg" accept="image/png,image/jpeg,application/pdf">
@@ -128,6 +150,7 @@
         <select id="nuevoCampoTipo">
           <option value="texto">Texto</option>
           <option value="qr">Código QR</option>
+          <option value="imagen">Imagen (PNG/JPG)</option>
         </select>
         <button class="btn outline" id="btnAgregarCampo">+ Agregar campo</button>
       </div>
@@ -310,7 +333,10 @@ let rows = [];
 let assignment = [];     // assignment[rowIdx] = Set(templateIdx)
 let matrixTemplateSelection = new Set(); // qué índices de templatesFull participan en esta generación
 let issued = [];
-let dragging = null;     // { idx, role: 'left'|'right'|'point' }
+let dragging = null;     // { idx, role: 'left'|'right'|'point'|'imgW' }
+// Correcciones manuales de un certificado concreto, por si el ajuste automático
+// deja algo mal en un caso puntual: ajustesPorCert['fila:plantilla'] = { campo:{...} }
+let ajustesPorCert = {};
 let generationHistory = []; // [{ timestamp, results, zipUrl, okCount, totalCount, expanded }]
 
 document.querySelectorAll('[data-collapse-toggle]').forEach(btn => {
@@ -344,15 +370,66 @@ function defaultConfig(){
     background: defaultBackgroundDataUrl(),
     bgWidth: 1600, bgHeight: 1131,
     fields: [
-      { nombre:'Nombre',    tipo:'texto', activo:true,  leftPct:25, rightPct:75, yPct:44, maxFontSize:48, minFontSize:22, color:'#132743', align:'center', bold:true,  fontFamily:'Georgia, serif' },
-      { nombre:'Apellido',  tipo:'texto', activo:true,  leftPct:25, rightPct:75, yPct:52, maxFontSize:48, minFontSize:22, color:'#132743', align:'center', bold:true,  fontFamily:'Georgia, serif' },
-      { nombre:'Curso',     tipo:'texto', activo:true,  leftPct:20, rightPct:80, yPct:61, maxFontSize:28, minFontSize:14, color:'#1b7f76', align:'center', bold:false, fontFamily:'Georgia, serif' },
-      { nombre:'Fecha',     tipo:'texto', activo:true,  leftPct:30, rightPct:70, yPct:71, maxFontSize:18, minFontSize:12, color:'#333333', align:'center', bold:false, fontFamily:'Georgia, serif' },
-      { nombre:'Horas',     tipo:'texto', activo:true,  leftPct:8,  rightPct:32, yPct:88, maxFontSize:14, minFontSize:10, color:'#333333', align:'left',   bold:false, fontFamily:'Georgia, serif' },
-      { nombre:'Cédula',    tipo:'texto', activo:false, leftPct:25, rightPct:75, yPct:94, maxFontSize:12, minFontSize:9,  color:'#666666', align:'center', bold:false, fontFamily:'Georgia, serif' },
-      { nombre:'Código QR', tipo:'qr',    activo:true,  xPct:88, yPct:86, size:110 },
+      { nombre:'Nombre',    tipo:'texto', activo:true,  leftPct:25, rightPct:75, yPct:44, maxFontSize:48, minFontSize:22, color:'#132743', align:'center', bold:true,  fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Apellido',  tipo:'texto', activo:true,  leftPct:25, rightPct:75, yPct:52, maxFontSize:48, minFontSize:22, color:'#132743', align:'center', bold:true,  fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Curso',     tipo:'texto', activo:true,  leftPct:20, rightPct:80, yPct:61, maxFontSize:28, minFontSize:14, color:'#1b7f76', align:'center', bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Fecha',     tipo:'texto', activo:true,  leftPct:30, rightPct:70, yPct:71, maxFontSize:18, minFontSize:12, color:'#333333', align:'center', bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Horas',     tipo:'texto', activo:true,  leftPct:8,  rightPct:32, yPct:88, maxFontSize:14, minFontSize:10, color:'#333333', align:'left',   bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Cédula',    tipo:'texto', activo:false, leftPct:25, rightPct:75, yPct:94, maxFontSize:12, minFontSize:9,  color:'#666666', align:'center', bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'cedula' },
+      { nombre:'Código QR', tipo:'qr',    activo:true,  xPct:88, yPct:86, size:110, opacity:1 },
     ]
   };
+}
+
+/**
+ * Pone al día una plantilla guardada antes de que existieran la opacidad, el
+ * formato y las imágenes. No cambia nada de lo que ya estaba definido; sólo
+ * rellena lo que falta, y a un campo llamado "Cédula" (o similar) le asigna el
+ * formato con puntos, que es lo que se espera de él. Siempre se puede volver a
+ * "Tal cual" desde el propio panel del campo.
+ */
+function normalizarConfig(cfg){
+  if(!cfg || !Array.isArray(cfg.fields)) return cfg;
+  for(const f of cfg.fields){
+    if(f.opacity === undefined) f.opacity = 1;
+    if(f.tipo === 'texto' && f.formato === undefined){
+      f.formato = /^\s*(c[eé]dula|documento|dni|c\.?i\.?)\s*$/i.test(String(f.nombre||''))
+        ? 'cedula' : 'ninguno';
+    }
+    if(f.tipo === 'imagen'){
+      if(f.widthPct === undefined) f.widthPct = 18;
+      if(f.xPct === undefined) f.xPct = 50;
+      if(f.yPct === undefined) f.yPct = 50;
+    }
+  }
+  return cfg;
+}
+
+/** Opacidad de un campo, tolerando plantillas guardadas antes de existir esta opción. */
+function opacityOf(f){
+  const v = Number(f.opacity);
+  return (isFinite(v) && v >= 0 && v <= 1) ? v : 1;
+}
+
+/**
+ * Cédula al estilo 12.345.678, conservando el prefijo de nacionalidad
+ * (V-12345678 → V-12.345.678). Un documento sin dígitos se respeta tal cual.
+ */
+function formatearCedula(valor){
+  const v = String(valor ?? '').trim();
+  if(!v) return '';
+  const prefijo = (v.match(/^[^0-9]*/) || [''])[0].trim();
+  const digitos = v.replace(/[^0-9]/g, '');
+  if(!digitos) return v;
+  const conPuntos = digitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return prefijo ? `${prefijo}${/[-\s]$/.test(prefijo) ? '' : '-'}${conPuntos}`.replace(/--/g,'-') : conPuntos;
+}
+
+/** Aplica el formato elegido para el campo al valor que viene del Excel. */
+function aplicarFormato(valor, formato){
+  if(formato === 'cedula') return formatearCedula(valor);
+  if(formato === 'mayusculas') return String(valor ?? '').toUpperCase();
+  return String(valor ?? '');
 }
 
 function boxOf(f){
@@ -379,7 +456,8 @@ async function loadTemplates(){
     templatesFull = await Promise.all(data.map(async t => {
       const { data: full } = await supabase.rpc('get_cert_template', { p_id: t.id });
       const row = Array.isArray(full) ? full[0] : full;
-      return { id: t.id, nombre: t.nombre, config: (row && row.config && row.config.background) ? row.config : defaultConfig() };
+      return { id: t.id, nombre: t.nombre,
+               config: normalizarConfig((row && row.config && row.config.background) ? row.config : defaultConfig()) };
     }));
   }
   currentIdx = 0;
@@ -395,12 +473,14 @@ function renderTemplateSelector(){
   sel.innerHTML = templatesFull.map((t, i) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
   sel.value = currentIdx;
   document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
+  renderCopiarEstiloSelector();
 }
 
 document.getElementById('selPlantilla').addEventListener('change', e => {
   currentIdx = Number(e.target.value);
   config = templatesFull[currentIdx].config;
   document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
+  renderCopiarEstiloSelector();
   renderTemplatePreview();
 });
 
@@ -480,6 +560,44 @@ document.getElementById('btnGuardarPlantilla').addEventListener('click', async (
 });
 
 // ---------- Editor de plantilla ----------
+/** Propiedades de aspecto y colocación que se copian entre plantillas. */
+const PROPS_ESTILO = ['leftPct','rightPct','yPct','maxFontSize','minFontSize','color','align','bold',
+                      'fontFamily','opacity','formato','xPct','size','widthPct'];
+
+function renderCopiarEstiloSelector(){
+  const sel = document.getElementById('selCopiarEstilo');
+  if(!sel) return;
+  const otras = templatesFull.map((t, i) => ({ t, i })).filter(x => x.i !== currentIdx);
+  sel.innerHTML = otras.length
+    ? otras.map(x => `<option value="${x.i}">${escapeHtml(x.t.nombre)}</option>`).join('')
+    : '<option value="">— no hay otra plantilla —</option>';
+  sel.disabled = !otras.length;
+  document.getElementById('btnCopiarEstilo').disabled = !otras.length;
+}
+
+document.getElementById('btnCopiarEstilo').addEventListener('click', () => {
+  const sel = document.getElementById('selCopiarEstilo');
+  const origenIdx = Number(sel.value);
+  const origen = templatesFull[origenIdx];
+  if(!origen){ alert('Elige la plantilla de la que quieres copiar el estilo.'); return; }
+
+  const porNombre = new Map(origen.config.fields.map(f => [String(f.nombre||'').trim().toLowerCase(), f]));
+  let copiados = 0, sinPareja = [];
+  for(const destino of config.fields){
+    const fuente = porNombre.get(String(destino.nombre||'').trim().toLowerCase());
+    if(!fuente || fuente.tipo !== destino.tipo){ sinPareja.push(destino.nombre); continue; }
+    for(const p of PROPS_ESTILO) if(fuente[p] !== undefined) destino[p] = fuente[p];
+    copiados++;
+  }
+  renderChips(); renderFieldSettings();
+  const msg = document.getElementById('tplMsg');
+  msg.textContent = copiados
+    ? `Estilo copiado de «${origen.nombre}» a ${copiados} campo(s).` +
+      (sinPareja.length ? ` Sin equivalente: ${sinPareja.join(', ')}.` : '')
+    : 'Ningún campo coincide por nombre con esa plantilla, no se copió nada.';
+  setTimeout(() => { if(msg.textContent.startsWith('Estilo copiado') || msg.textContent.startsWith('Ningún')) msg.textContent = ''; }, 8000);
+});
+
 function renderTemplatePreview(){
   const img = document.getElementById('tplImg');
   img.onload = () => { renderChips(); renderFieldSettings(); };
@@ -488,7 +606,7 @@ function renderTemplatePreview(){
 
 function renderChips(){
   const wrap = document.getElementById('tplPreviewWrap');
-  wrap.querySelectorAll('.field-chip,.field-handle,.field-line,.field-label').forEach(el => el.remove());
+  wrap.querySelectorAll('.field-chip,.field-handle,.field-line,.field-label,.img-box,.img-handle').forEach(el => el.remove());
   config.fields.forEach((f, i) => {
     if(f.tipo === 'qr'){
       const chip = document.createElement('div');
@@ -498,6 +616,36 @@ function renderChips(){
       chip.dataset.idx = i; chip.dataset.role = 'point';
       chip.addEventListener('pointerdown', onHandlePointerDown);
       wrap.appendChild(chip);
+      return;
+    }
+    if(f.tipo === 'imagen'){
+      // La imagen se ve en su sitio y a su tamaño real, para poder cuadrarla.
+      const caja = document.createElement('div');
+      caja.className = 'img-box' + (f.activo ? '' : ' inactive');
+      caja.style.left = f.xPct + '%'; caja.style.top = f.yPct + '%';
+      caja.style.width = (f.widthPct ?? 18) + '%';
+      caja.style.opacity = opacityOf(f);
+      caja.dataset.idx = i; caja.dataset.role = 'point';
+      caja.innerHTML = f.dataUrl
+        ? `<img src="${f.dataUrl}" alt="">`
+        : `<div class="img-vacia">${escapeHtml(f.nombre || 'Imagen')}<br><small>sin archivo</small></div>`;
+      caja.addEventListener('pointerdown', onHandlePointerDown);
+      wrap.appendChild(caja);
+
+      const rot = document.createElement('div');
+      rot.className = 'img-handle' + (f.activo ? '' : ' inactive');
+      rot.style.left = `calc(${f.xPct}% + ${(f.widthPct ?? 18)/2}%)`;
+      rot.style.top = f.yPct + '%';
+      rot.dataset.idx = i; rot.dataset.role = 'imgW';
+      rot.title = 'Arrastra para cambiar el ancho';
+      rot.addEventListener('pointerdown', onHandlePointerDown);
+      wrap.appendChild(rot);
+
+      const et = document.createElement('div');
+      et.className = 'field-label' + (f.activo ? '' : ' inactive');
+      et.textContent = f.nombre || ('Imagen ' + (i+1));
+      et.style.left = f.xPct + '%'; et.style.top = f.yPct + '%';
+      wrap.appendChild(et);
       return;
     }
     const box = boxOf(f);
@@ -542,7 +690,11 @@ document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
   let yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
   xPct = Math.round(xPct * 10) / 10; yPct = Math.round(yPct * 10) / 10;
   const f = config.fields[dragging.idx];
-  if(dragging.role === 'point'){ f.xPct = xPct; f.yPct = yPct; }
+  if(dragging.role === 'imgW'){
+    // el tirador va al borde derecho: el ancho es el doble de la distancia al centro
+    f.widthPct = Math.max(2, Math.min(100, Math.round((xPct - f.xPct) * 2 * 10) / 10));
+  }
+  else if(dragging.role === 'point'){ f.xPct = xPct; f.yPct = yPct; }
   else if(dragging.role === 'left'){ const box = boxOf(f); f.leftPct = Math.min(xPct, box.rightPct - 2); f.rightPct = box.rightPct; f.yPct = yPct; }
   else if(dragging.role === 'right'){ const box = boxOf(f); f.rightPct = Math.max(xPct, box.leftPct + 2); f.leftPct = box.leftPct; f.yPct = yPct; }
   renderChips();
@@ -561,8 +713,29 @@ function renderFieldSettings(){
         <input type="text" data-i="${i}" data-p="nombre" value="${escapeHtml(f.nombre)}" style="width:120px;" placeholder="Nombre del campo">
         <input type="number" data-i="${i}" data-p="size" value="${f.size}" style="width:60px;" title="Tamaño px">
         <span class="hint">px del QR</span>
+        <label title="Opacidad">Opac. <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1" step="0.05"
+          value="${opacityOf(f)}" style="width:80px;"> <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>
         <span class="hint" style="margin-left:auto;">QR</span>
         <button class="btn outline small" data-remove="${i}">Quitar campo</button>
+      </div>`;
+    }
+    if(f.tipo === 'imagen'){
+      return `<div class="field-settings">
+        <label><input type="checkbox" data-i="${i}" data-p="activo" ${f.activo?'checked':''}> Activo</label>
+        <input type="text" data-i="${i}" data-p="nombre" value="${escapeHtml(f.nombre)}" style="width:110px;" placeholder="Nombre">
+        ${f.dataUrl
+          ? `<img src="${f.dataUrl}" alt="" style="height:30px;max-width:70px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:#fff;">`
+          : '<span class="hint">sin imagen</span>'}
+        <label class="btn outline small" style="margin:0;">
+          ${f.dataUrl ? 'Cambiar' : 'Subir PNG/JPG'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-img-file="${i}" style="display:none;">
+        </label>
+        <label title="Ancho respecto al certificado">Ancho <input type="number" data-i="${i}" data-p="widthPct"
+          value="${f.widthPct ?? 18}" min="1" max="100" step="0.5" style="width:58px;"> %</label>
+        <label title="Opacidad">Opac. <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1" step="0.05"
+          value="${opacityOf(f)}" style="width:80px;"> <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>
+        <button class="btn outline small" data-centrar="${i}">Centrar</button>
+        <button class="btn outline small" data-remove="${i}" style="margin-left:auto;">Quitar campo</button>
       </div>`;
     }
     return `<div class="field-settings">
@@ -583,17 +756,56 @@ function renderFieldSettings(){
         </div>
       </span>
       <label><input type="checkbox" data-i="${i}" data-p="bold" ${f.bold?'checked':''}> Negrita</label>
+      <label title="Formato del valor que llega del Excel">Formato
+        <select data-i="${i}" data-p="formato">
+          <option value="ninguno" ${(f.formato||'ninguno')==='ninguno'?'selected':''}>Tal cual</option>
+          <option value="cedula" ${f.formato==='cedula'?'selected':''}>Cédula 12.345.678</option>
+          <option value="mayusculas" ${f.formato==='mayusculas'?'selected':''}>MAYÚSCULAS</option>
+        </select></label>
+      <label title="Opacidad de las letras">Opac. <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1" step="0.05"
+        value="${opacityOf(f)}" style="width:80px;"> <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>
       <button class="btn outline small" data-remove="${i}" style="margin-left:auto;">Quitar campo</button>
     </div>`;
   }).join('');
   wrap.querySelectorAll('input,select').forEach(el => {
-    el.addEventListener('change', () => {
+    if(!el.dataset.p) return;                       // los file inputs se manejan aparte
+    const aplicar = () => {
       const i = Number(el.dataset.i), p = el.dataset.p;
-      const val = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? Number(el.value) : el.value);
+      const val = el.type === 'checkbox' ? el.checked
+        : (el.type === 'number' || el.type === 'range') ? Number(el.value) : el.value;
       config.fields[i][p] = val;
-      if(p === 'activo' || p === 'nombre') renderChips();
-    });
+      if(p === 'opacity'){
+        const lbl = wrap.querySelector(`[data-op-lbl="${i}"]`);
+        if(lbl) lbl.textContent = Math.round(val*100) + '%';
+      }
+      if(p === 'activo' || p === 'nombre' || p === 'widthPct' || p === 'opacity') renderChips();
+    };
+    el.addEventListener('change', aplicar);
+    if(el.type === 'range') el.addEventListener('input', aplicar);   // realimentación inmediata
   });
+  // subir la imagen de un campo tipo imagen
+  wrap.querySelectorAll('[data-img-file]').forEach(inp => inp.addEventListener('change', e => {
+    const i = Number(inp.dataset.imgFile);
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    if(!/^image\/(png|jpeg|webp)$/.test(file.type)){ alert('Usa un PNG, JPG o WEBP.'); return; }
+    if(file.size > 4*1024*1024){ alert('La imagen supera los 4 MB. Redúcela antes de subirla.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        config.fields[i].dataUrl = reader.result;
+        config.fields[i].ratio = img.naturalHeight / img.naturalWidth;   // para cuadrarla sin deformar
+        renderChips(); renderFieldSettings();
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }));
+  wrap.querySelectorAll('[data-centrar]').forEach(b => b.addEventListener('click', () => {
+    config.fields[Number(b.dataset.centrar)].xPct = 50;
+    renderChips(); renderFieldSettings();
+  }));
   wrap.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => {
     config.fields.splice(Number(b.dataset.remove), 1);
     renderChips();
@@ -622,9 +834,10 @@ document.getElementById('btnAgregarCampo').addEventListener('click', () => {
   const nombre = document.getElementById('nuevoCampoNombre').value.trim();
   const tipo = document.getElementById('nuevoCampoTipo').value;
   if(!nombre){ alert('Ponle un nombre al campo (debe coincidir con el encabezado de esa columna en tu Excel/CSV).'); return; }
-  const base = { nombre, tipo, activo: true };
+  const base = { nombre, tipo, activo: true, opacity: 1 };
   if(tipo === 'qr') Object.assign(base, { xPct: 50, yPct: 50, size: 110 });
-  else Object.assign(base, { leftPct: 25, rightPct: 75, yPct: 50, maxFontSize: 28, minFontSize: 14, color: '#132743', align: 'center', bold: false, fontFamily: 'Georgia, serif' });
+  else if(tipo === 'imagen') Object.assign(base, { xPct: 50, yPct: 50, widthPct: 18, dataUrl: null, ratio: 1 });
+  else Object.assign(base, { leftPct: 25, rightPct: 75, yPct: 50, maxFontSize: 28, minFontSize: 14, color: '#132743', align: 'center', bold: false, fontFamily: 'Georgia, serif', formato: 'ninguno' });
   config.fields.push(base);
   document.getElementById('nuevoCampoNombre').value = '';
   renderChips();
@@ -925,7 +1138,13 @@ function renderMatrix(){
     <tbody>
       ${rows.map((r, ri) => `<tr>
         <td>${escapeHtml(studentDisplayName(r, ri))}</td>
-        ${activeTis.map(ti => `<td><input type="checkbox" data-row="${ri}" data-tpl="${ti}" ${assignment[ri] && assignment[ri].has(ti) ? 'checked' : ''}></td>`).join('')}
+        ${activeTis.map(ti => {
+          const marcado = assignment[ri] && assignment[ri].has(ti);
+          const tieneAj = !!ajustesPorCert[`${ri}:${ti}`];
+          return `<td><input type="checkbox" data-row="${ri}" data-tpl="${ti}" ${marcado ? 'checked' : ''}>
+            ${marcado ? `<button class="btn outline small" data-ajustar="${ri}:${ti}" title="Ajustar este certificado a mano"
+                style="margin-left:4px;padding:2px 6px;">${tieneAj ? '✎ ajustado' : '✎'}</button>` : ''}</td>`;
+        }).join('')}
       </tr>`).join('')}
     </tbody>
   </table></div>`;
@@ -939,7 +1158,84 @@ function renderMatrix(){
   wrap.querySelectorAll('[data-row]').forEach(cb => cb.addEventListener('change', () => {
     const ri = Number(cb.dataset.row), ti = Number(cb.dataset.tpl);
     if(cb.checked) assignment[ri].add(ti); else assignment[ri].delete(ti);
+    renderMatrix();
   }));
+  wrap.querySelectorAll('[data-ajustar]').forEach(b => b.addEventListener('click', () => {
+    const [ri, ti] = b.dataset.ajustar.split(':').map(Number);
+    abrirAjuste(ri, ti);
+  }));
+}
+
+// ---------- Ajuste manual de un certificado concreto ----------
+async function abrirAjuste(ri, ti){
+  const clave = `${ri}:${ti}`;
+  const row = rows[ri], tpl = templatesFull[ti];
+  if(!tpl) return;
+  const aj = JSON.parse(JSON.stringify(ajustesPorCert[clave] || {}));
+  const campos = tpl.config.fields.filter(f => f.activo && f.tipo === 'texto');
+
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal-caja">
+    <div class="modal-cab">
+      <b>Ajustar certificado — ${escapeHtml(studentDisplayName(row, ri))}</b>
+      <span class="hint">${escapeHtml(tpl.nombre)}</span>
+      <button class="btn outline small" data-cerrar>Cerrar</button>
+    </div>
+    <div class="modal-cuerpo">
+      <p class="hint" style="margin-top:0;">Sólo afecta a este certificado. Los demás siguen usando la plantilla tal cual.</p>
+      <img id="ajustePrev" alt="Vista previa" style="width:100%;border:1px solid var(--border);border-radius:6px;background:#fff;">
+      <table style="margin-top:12px;">
+        <thead><tr><th>Campo</th><th>Texto (vacío = el del Excel)</th><th>Letra</th><th>← →</th><th>↑ ↓</th></tr></thead>
+        <tbody>
+          ${campos.map(f => {
+            const a = aj[f.nombre] || {};
+            return `<tr>
+              <td><b>${escapeHtml(f.nombre)}</b><br><span class="hint">${escapeHtml(String(row[f.nombre] ?? '—')).slice(0,28)}</span></td>
+              <td><input type="text" data-aj="${escapeHtml(f.nombre)}" data-k="texto" value="${escapeHtml(a.texto || '')}"
+                    placeholder="${escapeHtml(String(row[f.nombre] ?? ''))}" style="width:100%;min-width:130px;"></td>
+              <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dSize" value="${a.dSize ?? 0}" step="1" style="width:62px;" title="Puntos de más o de menos"></td>
+              <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dxPct" value="${a.dxPct ?? 0}" step="0.5" style="width:62px;" title="Desplazamiento horizontal en %"></td>
+              <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dyPct" value="${a.dyPct ?? 0}" step="0.5" style="width:62px;" title="Desplazamiento vertical en %"></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" data-guardar>Guardar ajuste</button>
+        <button class="btn outline" data-limpiar>Quitar ajustes de este certificado</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(fondo);
+
+  const pintar = async () => {
+    await ensureFontsLoadedForConfig(tpl.config);
+    const url = new URL('verificar.html', location.href).href + '?c=preview';
+    const c = await renderCertificateCanvas(row, url, tpl.config, aj);
+    fondo.querySelector('#ajustePrev').src = c.toDataURL('image/jpeg', 0.8);
+  };
+  await pintar();
+
+  fondo.querySelectorAll('[data-aj]').forEach(inp => inp.addEventListener('change', async () => {
+    const campo = inp.dataset.aj, k = inp.dataset.k;
+    const val = inp.type === 'number' ? Number(inp.value) : inp.value;
+    aj[campo] = aj[campo] || {};
+    if(val === '' || val === 0) delete aj[campo][k]; else aj[campo][k] = val;
+    if(!Object.keys(aj[campo]).length) delete aj[campo];
+    await pintar();
+  }));
+  const cerrar = () => fondo.remove();
+  fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+  fondo.addEventListener('click', e => { if(e.target === fondo) cerrar(); });
+  fondo.querySelector('[data-guardar]').addEventListener('click', () => {
+    if(Object.keys(aj).length) ajustesPorCert[clave] = aj; else delete ajustesPorCert[clave];
+    cerrar(); renderMatrix();
+  });
+  fondo.querySelector('[data-limpiar]').addEventListener('click', () => {
+    delete ajustesPorCert[clave];
+    cerrar(); renderMatrix();
+  });
 }
 
 // ---------- Generar ----------
@@ -952,7 +1248,12 @@ function fitFontSize(ctx, text, fontFamily, bold, maxSize, minSize, maxWidthPx){
   return size;
 }
 
-async function renderCertificateCanvas(rowData, verifyUrl, cfg){
+/**
+ * Dibuja un certificado.
+ * `ajustes` son las correcciones manuales de ESTE certificado concreto
+ * (ver sección "Ajustar"): { [nombreCampo]: {texto, dSize, dxPct, dyPct} }.
+ */
+async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
   const bgImg = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = cfg.background; });
   const canvas = document.createElement('canvas');
   canvas.width = cfg.bgWidth; canvas.height = cfg.bgHeight;
@@ -961,43 +1262,68 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg){
 
   for(const f of cfg.fields){
     if(!f.activo) continue;
+    const aj = (ajustes && ajustes[f.nombre]) || {};
+    const dx = (Number(aj.dxPct) || 0), dy = (Number(aj.dyPct) || 0);
+
     if(f.tipo === 'qr'){
       const qr = qrcode(0, 'M');
       qr.addData(verifyUrl);
       qr.make();
       const qrDataUrl = qr.createDataURL(8, 2);
       const qrImg = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = qrDataUrl; });
-      ctx.drawImage(qrImg, (f.xPct/100)*canvas.width - f.size/2, (f.yPct/100)*canvas.height - f.size/2, f.size, f.size);
-    } else {
-      const value = rowData[f.nombre];
-      if(!value) continue;
-      const text = String(value);
-      const fontFamily = f.fontFamily || 'Georgia, serif';
-      const box = boxOf(f);
-      const leftPx = (box.leftPct/100) * canvas.width;
-      const rightPx = (box.rightPct/100) * canvas.width;
-      const boxWidthPx = Math.max(10, rightPx - leftPx);
-      const maxSize = f.maxFontSize || f.fontSize || 32;
-      const minSize = Math.min(f.minFontSize || 12, maxSize);
-      const fitSize = fitFontSize(ctx, text, fontFamily, f.bold, maxSize, minSize, boxWidthPx);
-      ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
-      ctx.fillStyle = f.color;
-      ctx.textBaseline = 'middle';
-      let drawX;
-      if(f.align === 'left'){ ctx.textAlign = 'left'; drawX = leftPx; }
-      else if(f.align === 'right'){ ctx.textAlign = 'right'; drawX = rightPx; }
-      else { ctx.textAlign = 'center'; drawX = (leftPx + rightPx) / 2; }
-      const yPx = (f.yPct/100) * canvas.height;
-      // Si ni el tamaño mínimo alcanza a caber en el margen (texto muy largo
-      // con un mínimo alto), se recorta visualmente en vez de dejarlo salir
-      // del cuadro definido.
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(leftPx, yPx - fitSize, boxWidthPx, fitSize * 2);
-      ctx.clip();
-      ctx.fillText(text, drawX, yPx);
+      ctx.globalAlpha = opacityOf(f);
+      ctx.drawImage(qrImg, ((f.xPct+dx)/100)*canvas.width - f.size/2, ((f.yPct+dy)/100)*canvas.height - f.size/2, f.size, f.size);
       ctx.restore();
+      continue;
     }
+
+    if(f.tipo === 'imagen'){
+      if(!f.dataUrl) continue;
+      const im = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = f.dataUrl; });
+      if(!im) continue;
+      const wPx = ((f.widthPct ?? 18)/100) * canvas.width;
+      const hPx = wPx * (im.naturalHeight / im.naturalWidth);   // se cuadra sin deformar
+      ctx.save();
+      ctx.globalAlpha = opacityOf(f);
+      ctx.drawImage(im, ((f.xPct+dx)/100)*canvas.width - wPx/2, ((f.yPct+dy)/100)*canvas.height - hPx/2, wPx, hPx);
+      ctx.restore();
+      continue;
+    }
+
+    // texto
+    const bruto = (aj.texto !== undefined && aj.texto !== null && aj.texto !== '')
+      ? aj.texto : rowData[f.nombre];
+    if(bruto === undefined || bruto === null || bruto === '') continue;
+    const text = aplicarFormato(bruto, f.formato);
+    if(!text) continue;
+
+    const fontFamily = f.fontFamily || 'Georgia, serif';
+    const box = boxOf(f);
+    const leftPx = ((box.leftPct + dx)/100) * canvas.width;
+    const rightPx = ((box.rightPct + dx)/100) * canvas.width;
+    const boxWidthPx = Math.max(10, rightPx - leftPx);
+    const maxSize = Math.max(4, (f.maxFontSize || f.fontSize || 32) + (Number(aj.dSize) || 0));
+    const minSize = Math.min(f.minFontSize || 12, maxSize);
+    const fitSize = fitFontSize(ctx, text, fontFamily, f.bold, maxSize, minSize, boxWidthPx);
+    ctx.save();
+    ctx.globalAlpha = opacityOf(f);
+    ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
+    ctx.fillStyle = f.color;
+    ctx.textBaseline = 'middle';
+    let drawX;
+    if(f.align === 'left'){ ctx.textAlign = 'left'; drawX = leftPx; }
+    else if(f.align === 'right'){ ctx.textAlign = 'right'; drawX = rightPx; }
+    else { ctx.textAlign = 'center'; drawX = (leftPx + rightPx) / 2; }
+    const yPx = ((f.yPct + dy)/100) * canvas.height;
+    // Si ni el tamaño mínimo alcanza a caber en el margen (texto muy largo
+    // con un mínimo alto), se recorta visualmente en vez de dejarlo salir
+    // del cuadro definido.
+    ctx.beginPath();
+    ctx.rect(leftPx, yPx - fitSize, boxWidthPx, fitSize * 2);
+    ctx.clip();
+    ctx.fillText(text, drawX, yPx);
+    ctx.restore();
   }
   return canvas;
 }
@@ -1088,7 +1414,7 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
       try{
         const { error } = await supabase.rpc('issue_certificate', { p_datos: row, p_entidad: entidad, p_lote: loteId, p_id: id, p_plantilla: tpl.nombre });
         if(error) throw error;
-        const canvas = await renderCertificateCanvas(row, verifyUrl, tpl.config);
+        const canvas = await renderCertificateCanvas(row, verifyUrl, tpl.config, ajustesPorCert[`${ri}:${ti}`]);
         const thumbDataUrl = canvas.toDataURL('image/jpeg', 0.7);
         const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
         const widthPt = canvas.width * 72 / 96;
