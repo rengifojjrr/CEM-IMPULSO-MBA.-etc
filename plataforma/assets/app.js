@@ -120,6 +120,7 @@ const ADMIN_NAV = [
   ]},
   { lbl: 'Credenciales', items: [
     ['certificados.html', 'workspace_premium', 'Certificados'],
+    ['certificados-plantillas.html', 'design_services', 'Plantillas de certificados'],
     ['insignias.html', 'military_tech', 'Insignias'],
   ]},
   { lbl: 'Operación', items: [

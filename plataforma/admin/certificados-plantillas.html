@@ -3,21 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Generar Certificados · CEM</title>
+<title>CEM Admin · Certificados (plantillas)</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=EB+Garamond:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=PT+Serif:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Cinzel:wght@400;700&family=Marcellus&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Sacramento&family=Alex+Brush&family=Allura&family=Parisienne&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=EB+Garamond:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=PT+Serif:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Cinzel:wght@400;700&family=Marcellus&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Sacramento&family=Alex+Brush&family=Allura&family=Parisienne&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
 <style>
   :root{
-    --navy:#132743; --navy-2:#1c3a5e; --teal:#1b7f76; --gold:#c9a227;
-    --bg:#f4f6f8; --card:#ffffff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
+    --navy:#00122b; --navy-2:#1c3a5e; --teal:#006f67; --gold:#c9a227;
+    --bg:#f7f9fb; --card:#ffffff; --border:#c4c6ce; --text:#191c1e; --muted:#44474d;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
-  header{background:var(--navy);color:#fff;padding:14px 18px;}
-  header h1{font-size:16px;margin:0;}
-  header p{margin:4px 0 0;font-size:12.5px;color:#cfe0ea;}
-  main{max-width:1150px;margin:0 auto;padding:20px 16px 60px;}
+  body{margin:0;font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  #page{max-width:1150px;margin:0 auto;padding:20px 16px 60px;}
   .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
   .panel h2{margin-top:0;font-size:15px;color:var(--navy);}
   .panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
@@ -227,13 +226,15 @@
 </style>
 </head>
 <body>
-<header>
-  <h1>CEM · Generador de Certificados</h1>
-  <p>Digitalización de certificados de graduación — desde datos de Google Sheets/Excel hasta PDF verificable con QR.</p>
-</header>
-<main>
-
-  <div id="appContent">
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Certificados · Plantillas y emisión</h1>
+      <p>Diseña plantillas, organízalas en carpetas, asigna por estudiante y emite certificados y diplomas con QR de verificación.</p></div>
+    <div class="actions">
+      <a class="btn outline" href="certificados.html"><span class="material-symbols-outlined">workspace_premium</span> Certificados institucionales</a>
+      <a class="btn outline" href="../../certificados/generar.html" target="_blank"><span class="material-symbols-outlined">bolt</span> Abrir generador rápido</a>
+    </div>
+  </div>
 
     <div class="panel">
       <div class="panel-head">
@@ -418,8 +419,7 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
       </div>
     </div>
 
-  </div>
-</main>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -430,11 +430,9 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js';
 }
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sb as supabase, mount } from '../assets/app.js';
 
-const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados-plantillas.html', area:'admin' });
 
 function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function sanitizeName(s){ return String(s || '').trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'sin_nombre'; }
@@ -2021,7 +2019,7 @@ document.getElementById('btnVistaPrevia').addEventListener('click', async () => 
   await ensureFontsLoadedForConfig(config);
   const placeholderRow = {};
   for(const f of config.fields) if(f.tipo === 'texto') placeholderRow[f.nombre] = 'XXXXXXXXX';
-  const dummyUrl = new URL('verificar.html', location.href).href + '?c=preview';
+  const dummyUrl = new URL('../../certificados/verificar.html', location.href).href + '?c=preview';
   const canvas = await renderCertificateCanvas(placeholderRow, dummyUrl, config);
   document.getElementById('previewSingleImg').src = canvas.toDataURL('image/png');
   document.getElementById('previewSingleWrap').style.display = 'block';
@@ -2038,7 +2036,7 @@ document.getElementById('btnVistaPreviaTodas').addEventListener('click', async (
     await ensureFontsLoadedForConfig(t.config);
     const placeholderRow = {};
     for(const f of t.config.fields) if(f.tipo === 'texto') placeholderRow[f.nombre] = 'XXXXXXXXX';
-    const dummyUrl = new URL('verificar.html', location.href).href + '?c=preview';
+    const dummyUrl = new URL('../../certificados/verificar.html', location.href).href + '?c=preview';
     const canvas = await renderCertificateCanvas(placeholderRow, dummyUrl, t.config);
     items.push({ nombre: t.nombre, dataUrl: canvas.toDataURL('image/jpeg', 0.75) });
   }
@@ -2377,7 +2375,7 @@ async function abrirAjuste(ri, ti){
 
   const pintar = async () => {
     await ensureFontsLoadedForConfig(tpl.config);
-    const url = new URL('verificar.html', location.href).href + '?c=preview';
+    const url = new URL('../../certificados/verificar.html', location.href).href + '?c=preview';
     const c = await renderCertificateCanvas(row, url, tpl.config, aj);
     fondo.querySelector('#ajustePrev').src = c.toDataURL('image/jpeg', 0.8);
   };
@@ -2652,7 +2650,7 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
       const tpl = templatesFull[ti];
       if(!tpl) continue;
       const id = crypto.randomUUID();
-      const verifyUrl = new URL('verificar.html', location.href).href + '?c=' + id;
+      const verifyUrl = new URL('../../certificados/verificar.html', location.href).href + '?c=' + id;
       try{
         // Ojo: aquí SÓLO se dibuja y se arma el PDF; nada se guarda en la base
         // todavía. El QR ya lleva el id definitivo, así que el PDF generado
@@ -2741,7 +2739,7 @@ function renderIssuedTable(){
     <td><span class="badge ${c.estado}">${c.estado}</span></td>
     <td>${new Date(c.created_at).toLocaleDateString('es-ES')}</td>
     <td>
-      <a href="verificar.html?c=${c.id}" target="_blank" class="hint">Ver</a>
+      <a href="../../certificados/verificar.html?c=${c.id}" target="_blank" class="hint">Ver</a>
       ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger small">Revocar</button>` : ''}
     </td>
   </tr>`).join('')}</tbody></table>`;
@@ -2764,7 +2762,7 @@ document.getElementById('btnBorrarHistorial').addEventListener('click', async ()
   await loadIssued();
 });
 
-init();
+if (p) init();
 </script>
 </body>
 </html>
