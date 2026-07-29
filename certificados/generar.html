@@ -75,6 +75,8 @@
   .img-box{position:absolute;transform:translate(-50%,-50%);cursor:grab;z-index:2;touch-action:none;outline:1px dashed rgba(19,39,67,.5);}
   .img-box:active{cursor:grabbing;}
   .img-box.inactive{opacity:.35 !important;}
+  .img-box.sel{outline:2px solid var(--teal);outline-offset:2px;}
+  .field-chip.sel{background:var(--teal);border-color:var(--navy);}
   .img-box img{display:block;width:100%;height:auto;pointer-events:none;}
   .img-vacia{padding:10px 6px;text-align:center;font-size:10px;color:var(--muted);background:rgba(255,255,255,.75);}
   .img-handle{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--teal);border:2px solid #fff;
@@ -176,11 +178,12 @@
       </div>
 
       <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
-        <label class="hint" style="min-width:150px;">Copiar estilo y márgenes de:</label>
+        <label class="hint" style="min-width:150px;">Copiar todos los campos de:</label>
         <select id="selCopiarEstilo" style="flex:1;min-width:180px;"></select>
         <button class="btn outline" id="btnCopiarEstilo">Copiar a esta plantilla</button>
-        <span class="hint" style="flex-basis:100%;">Toma posición, márgenes, tipografía, tamaños, color y opacidad
-          de los campos que se llamen igual. No toca el fondo ni los datos.</span>
+        <span class="hint" style="flex-basis:100%;">Trae los campos completos de la otra plantilla —textos,
+          imágenes con su archivo y códigos QR— con sus posiciones, márgenes, tipografías y opacidades, y
+          <b>reemplaza</b> los campos que haya aquí. El fondo de este certificado no se toca.</span>
       </div>
 
       <p class="hint">Sube el diseño exportado de tu Canva (PDF, PNG o JPG). Cada campo tiene un cuadro de márgenes (dos marcas dorada) — arrastra la marca izquierda para fijar dónde empieza el texto y la derecha dónde termina; el tamaño de letra se ajusta solo para que el texto de cada estudiante quepa ahí, entre el máximo y el mínimo que definas.</p>
@@ -192,6 +195,9 @@
       <div id="tplPreviewWrap">
         <img id="tplImg" alt="Plantilla">
       </div>
+      <p class="hint" style="margin:7px 0 0;">Arrastra la etiqueta de un campo para moverlo entero y las
+        reglillas doradas para ajustar sus márgenes. Con el campo elegido, la tecla <b>Supr</b> (o
+        <b>Retroceso</b>) lo quita de la plantilla.</p>
 
       <div class="row" style="margin-top:14px;">
         <input type="text" id="nuevoCampoNombre" placeholder="Nombre del nuevo campo (ej. Cédula)" style="flex:1;min-width:180px;">
@@ -635,9 +641,12 @@ document.getElementById('btnGuardarPlantilla').addEventListener('click', async (
 
 // ---------- Editor de plantilla ----------
 /** Propiedades de aspecto y colocación que se copian entre plantillas. */
-const PROPS_ESTILO = ['leftPct','rightPct','yPct','maxFontSize','minFontSize','color','align','bold',
-                      'fontFamily','opacity','formato','xPct','size','widthPct'];
-
+/**
+ * Copia TODOS los campos de otra plantilla a esta: textos, imágenes con su
+ * archivo, códigos QR, posiciones, márgenes, tipografías y opacidades.
+ * Los campos que hubiera aquí se reemplazan, para que las dos plantillas
+ * queden idénticas salvo el fondo, que es lo propio de cada certificado.
+ */
 function renderCopiarEstiloSelector(){
   const sel = document.getElementById('selCopiarEstilo');
   if(!sel) return;
@@ -651,25 +660,32 @@ function renderCopiarEstiloSelector(){
 
 document.getElementById('btnCopiarEstilo').addEventListener('click', () => {
   const sel = document.getElementById('selCopiarEstilo');
-  const origenIdx = Number(sel.value);
-  const origen = templatesFull[origenIdx];
-  if(!origen){ alert('Elige la plantilla de la que quieres copiar el estilo.'); return; }
+  const origen = templatesFull[Number(sel.value)];
+  if(!origen){ alert('Elige la plantilla de la que quieres copiar.'); return; }
 
-  const porNombre = new Map(origen.config.fields.map(f => [String(f.nombre||'').trim().toLowerCase(), f]));
-  let copiados = 0, sinPareja = [];
-  for(const destino of config.fields){
-    const fuente = porNombre.get(String(destino.nombre||'').trim().toLowerCase());
-    if(!fuente || fuente.tipo !== destino.tipo){ sinPareja.push(destino.nombre); continue; }
-    for(const p of PROPS_ESTILO) if(fuente[p] !== undefined) destino[p] = fuente[p];
-    copiados++;
-  }
+  const nuevos = origen.config.fields || [];
+  const actuales = config.fields || [];
+  const aviso = actuales.length
+    ? `Se reemplazarán los ${actuales.length} campo(s) de esta plantilla por los ${nuevos.length} de «${origen.nombre}».\n\n` +
+      `El fondo de este certificado no se toca.\n¿Continuar?`
+    : `Se copiarán los ${nuevos.length} campo(s) de «${origen.nombre}». ¿Continuar?`;
+  if(!confirm(aviso)) return;
+
+  // copia profunda: cada plantilla debe quedar con sus propios objetos,
+  // si no, mover un campo aquí movería también el de la plantilla original
+  config.fields = JSON.parse(JSON.stringify(nuevos));
+  normalizarConfig(config);
+  campoSel = null;
   renderChips(); renderFieldSettings();
+
+  const cuenta = { texto:0, imagen:0, qr:0 };
+  for(const f of config.fields) cuenta[f.tipo] = (cuenta[f.tipo] || 0) + 1;
+  const conFoto = config.fields.filter(f => f.tipo === 'imagen' && f.dataUrl).length;
   const msg = document.getElementById('tplMsg');
-  msg.textContent = copiados
-    ? `Estilo copiado de «${origen.nombre}» a ${copiados} campo(s).` +
-      (sinPareja.length ? ` Sin equivalente: ${sinPareja.join(', ')}.` : '')
-    : 'Ningún campo coincide por nombre con esa plantilla, no se copió nada.';
-  setTimeout(() => { if(msg.textContent.startsWith('Estilo copiado') || msg.textContent.startsWith('Ningún')) msg.textContent = ''; }, 8000);
+  msg.textContent = `Copiado de «${origen.nombre}»: ${cuenta.texto||0} de texto, ` +
+    `${cuenta.imagen||0} imagen(es) (${conFoto} con archivo) y ${cuenta.qr||0} QR. ` +
+    `Recuerda guardar la plantilla.`;
+  setTimeout(() => { if(msg.textContent.startsWith('Copiado de')) msg.textContent = ''; }, 12000);
 });
 
 function renderTemplatePreview(){
@@ -684,7 +700,7 @@ function renderChips(){
   config.fields.forEach((f, i) => {
     if(f.tipo === 'qr'){
       const chip = document.createElement('div');
-      chip.className = 'field-chip' + (f.activo ? '' : ' inactive');
+      chip.className = 'field-chip' + (f.activo ? '' : ' inactive') + (campoSel === i ? ' sel' : '');
       chip.textContent = (f.nombre || ('Campo ' + (i+1))) + ' (QR)';
       chip.style.left = f.xPct + '%'; chip.style.top = f.yPct + '%';
       chip.dataset.idx = i; chip.dataset.role = 'point';
@@ -695,7 +711,7 @@ function renderChips(){
     if(f.tipo === 'imagen'){
       // La imagen se ve en su sitio y a su tamaño real, para poder cuadrarla.
       const caja = document.createElement('div');
-      caja.className = 'img-box' + (f.activo ? '' : ' inactive');
+      caja.className = 'img-box' + (f.activo ? '' : ' inactive') + (campoSel === i ? ' sel' : '');
       caja.style.left = f.xPct + '%'; caja.style.top = f.yPct + '%';
       caja.style.width = (f.widthPct ?? 18) + '%';
       caja.style.opacity = opacityOf(f);
@@ -836,8 +852,28 @@ document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
   renderChips();
 });
 window.addEventListener('pointerup', () => {
-  if(dragging) renderFieldSettings();
-  dragging = null;
+  // Se repinta siempre: con un clic simple (sin arrastrar) no pasa por
+  // pointermove, y sin esto el campo elegido no se resaltaría en la plantilla.
+  if(dragging){ dragging = null; renderChips(); renderFieldSettings(); }
+});
+
+/**
+ * Borrar el campo elegido con Supr o Retroceso.
+ * Sólo actúa si el foco no está en un cuadro de texto, para no borrar un
+ * campo mientras se le está escribiendo el nombre.
+ */
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Delete' && e.key !== 'Backspace') return;
+  if(campoSel === null || campoSel === undefined) return;
+  const a = document.activeElement;
+  if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+  const f = config.fields[campoSel];
+  if(!f) return;
+  e.preventDefault();
+  if(!confirm(`¿Quitar el campo «${f.nombre || 'sin nombre'}» de esta plantilla?`)) return;
+  config.fields.splice(campoSel, 1);
+  campoSel = null;
+  renderChips(); renderFieldSettings();
 });
 
 function bloqueOpacidad(f, i){
