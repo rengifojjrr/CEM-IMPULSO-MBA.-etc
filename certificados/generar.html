@@ -44,7 +44,39 @@
   .msg.ok{background:#e7f7f0;color:#065f46;}
   .msg.err{background:#fdecec;color:#7a1212;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
-  #tplPreviewWrap{position:relative;display:inline-block;max-width:100%;border:1px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;}
+  /* ---- reglas y guías, al estilo de un procesador de textos ---- */
+  .lienzo-con-reglas{display:grid;grid-template-columns:20px auto;grid-template-rows:20px auto;
+    width:max-content;max-width:100%;}
+  .regla-esquina{background:#e9edf1;border:1px solid var(--border);border-radius:4px 0 0 0;
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);
+    cursor:pointer;user-select:none;}
+  .regla-esquina:hover{background:#dbe2e9;color:#b91c1c;}
+  .regla{position:relative;background:#f1f4f7;border:1px solid var(--border);overflow:hidden;
+    touch-action:none;user-select:none;}
+  .regla-h{grid-column:2;grid-row:1;cursor:col-resize;}
+  .regla-v{grid-column:1;grid-row:2;cursor:row-resize;}
+  .regla .marca{position:absolute;background:#9aa7b4;}
+  .regla-h .marca{bottom:0;width:1px;}
+  .regla-v .marca{right:0;height:1px;}
+  .regla .num{position:absolute;font-size:8.5px;color:#5d6b7a;line-height:1;}
+  .regla-h .num{top:3px;transform:translateX(-50%);}
+  .regla-v .num{left:3px;transform:translateY(-50%) rotate(-90deg);transform-origin:center;}
+  .regla .fantasma{position:absolute;background:var(--teal);opacity:.55;}
+  .regla-h .fantasma{top:0;bottom:0;width:2px;}
+  .regla-v .fantasma{left:0;right:0;height:2px;}
+
+  /* Por debajo de las etiquetas y las marcas de los campos (z 3-5): una guía
+     nunca debe impedir agarrar un campo que quede justo encima de ella. */
+  .guia{position:absolute;z-index:2;touch-action:none;}
+  .guia.v{top:0;bottom:0;width:11px;margin-left:-5px;cursor:ew-resize;}
+  .guia.h{left:0;right:0;height:11px;margin-top:-5px;cursor:ns-resize;}
+  .guia::after{content:'';position:absolute;background:#12b3a6;}
+  .guia.v::after{left:5px;top:0;bottom:0;width:1px;}
+  .guia.h::after{top:5px;left:0;right:0;height:1px;}
+  .guia:hover::after,.guia.arrastrando::after{background:#0d8177;box-shadow:0 0 0 1px rgba(18,179,166,.35);}
+  .guia.borrar::after{background:#dc2626;}
+
+  #tplPreviewWrap{position:relative;display:block;grid-column:2;grid-row:2;max-width:100%;border:1px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;}
   #tplPreviewWrap img{display:block;max-width:900px;width:100%;height:auto;}
   .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);z-index:5;touch-action:none;}
   .field-chip:active{cursor:grabbing;}
@@ -192,11 +224,19 @@
         <button class="btn outline" id="btnResetBg">Usar plantilla de ejemplo</button>
       </div>
       <div id="bgMsg"></div>
-      <div id="tplPreviewWrap">
-        <img id="tplImg" alt="Plantilla">
+      <div class="lienzo-con-reglas">
+        <div class="regla-esquina" id="btnLimpiarGuias" title="Quitar todas las guías">✕</div>
+        <div class="regla regla-h" id="reglaH" title="Arrastra desde aquí para crear una guía vertical"></div>
+        <div class="regla regla-v" id="reglaV" title="Arrastra desde aquí para crear una guía horizontal"></div>
+        <div id="tplPreviewWrap">
+          <img id="tplImg" alt="Plantilla">
+        </div>
       </div>
-      <p class="hint" style="margin:7px 0 0;">Arrastra la etiqueta de un campo para moverlo entero y las
-        reglillas doradas para ajustar sus márgenes. Con el campo elegido, la tecla <b>Supr</b> (o
+      <p class="hint" style="margin:7px 0 0;">Arrastra desde la <b>regla</b> de arriba o de la izquierda para
+        soltar una guía; arrástrala de vuelta a la regla (o haz doble clic) para quitarla. Los campos se
+        pegan a las guías al moverlos. La esquina ✕ las borra todas.</p>
+      <p class="hint" style="margin:3px 0 0;">Arrastra la etiqueta de un campo para moverlo entero y las
+        marcas doradas para ajustar sus márgenes. Con el campo elegido, la tecla <b>Supr</b> (o
         <b>Retroceso</b>) lo quita de la plantilla.</p>
 
       <div class="row" style="margin-top:14px;">
@@ -447,6 +487,10 @@ function defaultConfig(){
  */
 function normalizarConfig(cfg){
   if(!cfg || !Array.isArray(cfg.fields)) return cfg;
+  // guías de alineación: sólo ayudan a colocar, nunca se imprimen
+  if(!cfg.guias || typeof cfg.guias !== 'object') cfg.guias = { v: [], h: [] };
+  if(!Array.isArray(cfg.guias.v)) cfg.guias.v = [];
+  if(!Array.isArray(cfg.guias.h)) cfg.guias.h = [];
   const altoFondo = cfg.bgHeight || 1131;
   for(const f of cfg.fields){
     if(f.opacity === undefined) f.opacity = 1;
@@ -689,9 +733,153 @@ document.getElementById('btnCopiarEstilo').addEventListener('click', () => {
 });
 
 function renderTemplatePreview(){
+  renderReglas();
   const img = document.getElementById('tplImg');
   img.onload = () => { renderChips(); renderFieldSettings(); };
   img.src = config.background;
+}
+
+/* ============================================================
+   REGLAS Y GUÍAS
+   Las guías son líneas de referencia como las de Word o Google Docs:
+   se sueltan arrastrando desde la regla, se mueven, y se quitan
+   devolviéndolas a la regla o con doble clic. No se imprimen nunca.
+   ============================================================ */
+const IMAN = 0.7;        // a menos de este % una arista se pega a la guía
+
+function guiasDe(){ return (config.guias = config.guias || { v: [], h: [] }); }
+
+/** Dibuja las marcas y los números de las dos reglas. */
+function renderReglas(){
+  const h = document.getElementById('reglaH');
+  const v = document.getElementById('reglaV');
+  if(!h || !v) return;
+  const pintar = (el, horizontal) => {
+    let html = '';
+    for(let p = 0; p <= 100; p += 2.5){
+      const mayor = Math.abs(p % 10) < 0.01;
+      const largo = mayor ? 9 : (Math.abs(p % 5) < 0.01 ? 6 : 4);
+      html += horizontal
+        ? `<span class="marca" style="left:${p}%;height:${largo}px"></span>`
+        : `<span class="marca" style="top:${p}%;width:${largo}px"></span>`;
+      if(mayor && p > 0 && p < 100){
+        html += horizontal
+          ? `<span class="num" style="left:${p}%">${p}</span>`
+          : `<span class="num" style="top:${p}%">${p}</span>`;
+      }
+    }
+    el.innerHTML = html;
+  };
+  pintar(h, true);
+  pintar(v, false);
+}
+
+/** Dibuja las guías sobre la plantilla. */
+function renderGuias(){
+  const wrap = document.getElementById('tplPreviewWrap');
+  if(!wrap) return;
+  wrap.querySelectorAll('.guia').forEach(el => el.remove());
+  const g = guiasDe();
+  g.v.forEach((pos, i) => wrap.appendChild(crearGuia('v', pos, i)));
+  g.h.forEach((pos, i) => wrap.appendChild(crearGuia('h', pos, i)));
+}
+
+function crearGuia(eje, pos, i){
+  const el = document.createElement('div');
+  el.className = 'guia ' + eje;
+  el.dataset.eje = eje; el.dataset.gi = i;
+  if(eje === 'v') el.style.left = pos + '%'; else el.style.top = pos + '%';
+  el.title = `Guía en ${pos}% — arrástrala a la regla o haz doble clic para quitarla`;
+  el.addEventListener('pointerdown', iniciarArrastreGuia);
+  el.addEventListener('dblclick', () => { guiasDe()[eje].splice(i, 1); renderGuias(); });
+  return el;
+}
+
+let guiaArrastrada = null;   // { eje, i, nueva }
+
+function iniciarArrastreGuia(e){
+  e.stopPropagation();
+  guiaArrastrada = { eje: e.currentTarget.dataset.eje, i: Number(e.currentTarget.dataset.gi) };
+  e.currentTarget.classList.add('arrastrando');
+  e.currentTarget.setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+/** Empezar a arrastrar desde la regla crea una guía nueva y la sigue moviendo. */
+function iniciarGuiaDesdeRegla(eje, e){
+  const wrap = document.getElementById('tplPreviewWrap').getBoundingClientRect();
+  const pos = eje === 'v'
+    ? ((e.clientX - wrap.left) / wrap.width) * 100
+    : ((e.clientY - wrap.top) / wrap.height) * 100;
+  const g = guiasDe();
+  g[eje].push(Math.round(Math.min(100, Math.max(0, pos)) * 10) / 10);
+  guiaArrastrada = { eje, i: g[eje].length - 1, nueva: true };
+  renderGuias();
+  e.preventDefault();
+}
+
+document.getElementById('reglaH').addEventListener('pointerdown', e => iniciarGuiaDesdeRegla('v', e));
+document.getElementById('reglaV').addEventListener('pointerdown', e => iniciarGuiaDesdeRegla('h', e));
+
+document.addEventListener('pointermove', e => {
+  if(!guiaArrastrada) return;
+  const wrap = document.getElementById('tplPreviewWrap').getBoundingClientRect();
+  const { eje, i } = guiaArrastrada;
+  const dentro = e.clientX >= wrap.left - 4 && e.clientX <= wrap.right + 4 &&
+                 e.clientY >= wrap.top - 4 && e.clientY <= wrap.bottom + 4;
+  const pos = eje === 'v'
+    ? ((e.clientX - wrap.left) / wrap.width) * 100
+    : ((e.clientY - wrap.top) / wrap.height) * 100;
+  guiasDe()[eje][i] = Math.round(Math.min(100, Math.max(0, pos)) * 10) / 10;
+  guiaArrastrada.fuera = !dentro;
+  renderGuias();
+  const el = document.querySelector(`.guia.${eje}[data-gi="${i}"]`);
+  if(el){ el.classList.add('arrastrando'); el.classList.toggle('borrar', !dentro); }
+});
+
+document.addEventListener('pointerup', () => {
+  if(!guiaArrastrada) return;
+  const { eje, i, fuera } = guiaArrastrada;
+  // soltarla fuera del lienzo (sobre la regla) equivale a quitarla
+  if(fuera) guiasDe()[eje].splice(i, 1);
+  guiaArrastrada = null;
+  renderGuias();
+});
+
+document.getElementById('btnLimpiarGuias').addEventListener('click', () => {
+  const g = guiasDe();
+  if(!g.v.length && !g.h.length) return;
+  if(!confirm(`¿Quitar las ${g.v.length + g.h.length} guías de esta plantilla?`)) return;
+  g.v = []; g.h = [];
+  renderGuias();
+});
+
+/**
+ * Desplazamiento necesario para pegar `valor` a la guía más cercana,
+ * o null si no hay ninguna dentro del alcance del imán.
+ * Se devuelve el desplazamiento —y no el valor ya pegado— porque al mover
+ * una caja hay que comparar sus dos aristas: si se comparasen los valores,
+ * la arista que no tiene guía cerca (desplazamiento cero) ganaría siempre.
+ */
+function ajusteIman(valor, eje){
+  const g = guiasDe()[eje];
+  let mejor = null, dist = IMAN;
+  for(const p of g){
+    const d = Math.abs(p - valor);
+    if(d < dist){ dist = d; mejor = p - valor; }
+  }
+  return mejor;
+}
+
+/** Pega un valor a la guía más cercana del eje indicado. */
+function iman(valor, eje){
+  const g = guiasDe()[eje];
+  let mejor = valor, dist = IMAN;
+  for(const p of g){
+    const d = Math.abs(p - valor);
+    if(d < dist){ dist = d; mejor = p; }
+  }
+  return mejor;
 }
 
 function renderChips(){
@@ -786,6 +974,7 @@ function renderChips(){
     asa('v', (box.leftPct+box.rightPct)/2, v.topPct, 'top', 'Margen superior');
     asa('v', (box.leftPct+box.rightPct)/2, v.botPct, 'bot', 'Margen inferior');
   });
+  renderGuias();     // se redibujan junto con los campos
 }
 
 /** Texto de muestra que se ve en la plantilla mientras se ajusta. */
@@ -833,22 +1022,32 @@ document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
     // el tirador va al borde derecho: el ancho es el doble de la distancia al centro
     f.widthPct = Math.max(2, Math.min(100, Math.round((xPct - f.xPct) * 2 * 10) / 10));
   }
-  else if(R === 'point'){ f.xPct = xPct; f.yPct = yPct; }
+  else if(R === 'point'){ f.xPct = iman(xPct,'v'); f.yPct = iman(yPct,'h'); }
   else if(R === 'move'){
     // mueve la caja completa conservando su ancho y su alto
     const o = dragging.orig;
     const dx = xPct - o.px, dy = yPct - o.py;
     const ancho = o.rightPct - o.leftPct, alto = o.botPct - o.topPct;
-    f.leftPct = Math.round(Math.max(0, Math.min(100 - ancho, o.leftPct + dx)) * 10) / 10;
+    let izq = Math.max(0, Math.min(100 - ancho, o.leftPct + dx));
+    let arr = Math.max(0, Math.min(100 - alto, o.topPct + dy));
+    // el imán mira las dos aristas y aplica el desplazamiento de la que
+    // esté más cerca de una guía; si ninguna lo está, no se toca nada
+    const dIzq = ajusteIman(izq, 'v'), dDer = ajusteIman(izq + ancho, 'v');
+    const dx2 = (dIzq !== null && (dDer === null || Math.abs(dIzq) <= Math.abs(dDer))) ? dIzq : dDer;
+    if(dx2 !== null) izq = Math.max(0, Math.min(100 - ancho, izq + dx2));
+    const dArr = ajusteIman(arr, 'h'), dAba = ajusteIman(arr + alto, 'h');
+    const dy2 = (dArr !== null && (dAba === null || Math.abs(dArr) <= Math.abs(dAba))) ? dArr : dAba;
+    if(dy2 !== null) arr = Math.max(0, Math.min(100 - alto, arr + dy2));
+    f.leftPct = Math.round(izq * 10) / 10;
     f.rightPct = Math.round((f.leftPct + ancho) * 10) / 10;
-    f.topPct = Math.round(Math.max(0, Math.min(100 - alto, o.topPct + dy)) * 10) / 10;
+    f.topPct = Math.round(arr * 10) / 10;
     f.botPct = Math.round((f.topPct + alto) * 10) / 10;
     f.yPct = centroV(f);
   }
-  else if(R === 'left'){ const b = boxOf(f); f.leftPct = Math.min(xPct, b.rightPct - 2); f.rightPct = b.rightPct; }
-  else if(R === 'right'){ const b = boxOf(f); f.rightPct = Math.max(xPct, b.leftPct + 2); f.leftPct = b.leftPct; }
-  else if(R === 'top'){ const v = cajaV(f); f.topPct = Math.min(yPct, v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f); }
-  else if(R === 'bot'){ const v = cajaV(f); f.botPct = Math.max(yPct, v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f); }
+  else if(R === 'left'){ const b = boxOf(f); f.leftPct = Math.min(iman(xPct,'v'), b.rightPct - 2); f.rightPct = b.rightPct; }
+  else if(R === 'right'){ const b = boxOf(f); f.rightPct = Math.max(iman(xPct,'v'), b.leftPct + 2); f.leftPct = b.leftPct; }
+  else if(R === 'top'){ const v = cajaV(f); f.topPct = Math.min(iman(yPct,'h'), v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f); }
+  else if(R === 'bot'){ const v = cajaV(f); f.botPct = Math.max(iman(yPct,'h'), v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f); }
   renderChips();
 });
 window.addEventListener('pointerup', () => {
