@@ -182,6 +182,10 @@
     display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;user-select:none;}
   .carpeta-card-head:hover{background:#f3f5f7;}
   .carpeta-flecha{display:inline-block;width:10px;color:var(--muted);}
+  .carpeta-card-acciones{display:flex;align-items:center;gap:3px;}
+  .carpeta-accion{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;
+    padding:2px 4px;border-radius:4px;line-height:1;}
+  .carpeta-accion:hover{background:rgba(0,0,0,.08);color:var(--navy);}
   .carpeta-card-body{padding:8px;display:flex;flex-wrap:wrap;gap:8px;min-height:38px;align-content:flex-start;}
   .carpeta-card-body.drag-over{background:#e7f7f0;outline:2px dashed var(--teal);outline-offset:-2px;}
   .plantilla-chip{display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);background:#fff;
@@ -249,7 +253,7 @@
 
       <div class="row" style="align-items:center;margin:12px 0 4px;">
         <b style="font-size:13px;">Carpetas</b>
-        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla.">?</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta.">?</button>
         <span style="flex:1;"></span>
         <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta de la plantilla abierta" style="min-width:200px;">
         <datalist id="listaCarpetas"></datalist>
@@ -801,7 +805,14 @@ function renderCarpetasBoard(){
     <div class="carpeta-card ${g.carpeta ? '' : 'sin-carpeta'}">
       <div class="carpeta-card-head" data-carpeta-toggle="${escapeHtml(g.carpeta)}">
         <span>${g.carpeta ? `📁 ${escapeHtml(g.carpeta)}` : 'Sin carpeta'}</span>
-        <span class="hint">${g.items.length} <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span></span>
+        <span class="carpeta-card-acciones">
+          ${g.carpeta ? `
+            <button type="button" class="carpeta-accion" data-carpeta-renombrar="${escapeHtml(g.carpeta)}" title="Renombrar esta carpeta">✎</button>
+            <button type="button" class="carpeta-accion" data-carpeta-eliminar="${escapeHtml(g.carpeta)}" title="Eliminar esta carpeta">🗑</button>
+          ` : ''}
+          <span class="hint">${g.items.length}</span>
+          <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span>
+        </span>
       </div>
       <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(g.carpeta)}" style="${colapsada ? 'display:none;' : ''}">
         ${g.items.map(({ t, i }) => `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''}" draggable="true"
@@ -819,6 +830,33 @@ function renderCarpetasBoard(){
     const c = head.dataset.carpetaToggle;
     if(carpetasColapsadas.has(c)) carpetasColapsadas.delete(c); else carpetasColapsadas.add(c);
     renderCarpetasBoard();
+  }));
+
+  wrap.querySelectorAll('[data-carpeta-renombrar]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();   // que no dispare también el plegado de la cabecera
+    const actual = btn.dataset.carpetaRenombrar;
+    const nuevo = prompt(`Nuevo nombre para la carpeta "${actual}":`, actual);
+    if(nuevo === null) return;
+    const limpio = nuevo.trim();
+    if(!limpio || limpio === actual) return;
+    if(carpetasExistentes().includes(limpio) && !confirm(`Ya existe una carpeta "${limpio}". ¿Fusionar "${actual}" con ella?`)) return;
+    templatesFull.forEach(t => { if((t.config.carpeta || '').trim() === actual) t.config.carpeta = limpio; });
+    if(carpetasVacias.has(actual)){ carpetasVacias.delete(actual); carpetasVacias.add(limpio); }
+    if(carpetasColapsadas.has(actual)){ carpetasColapsadas.delete(actual); carpetasColapsadas.add(limpio); }
+    renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+  }));
+  wrap.querySelectorAll('[data-carpeta-eliminar]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const nombre = btn.dataset.carpetaEliminar;
+    const n = templatesFull.filter(t => (t.config.carpeta || '').trim() === nombre).length;
+    const aviso = n
+      ? `¿Eliminar la carpeta "${nombre}"? Sus ${n} plantilla(s) NO se borran, sólo quedan "Sin carpeta" (puedes arrastrarlas a otra carpeta después). Si además quieres borrar esas plantillas, hazlo una por una con "Eliminar" en el editor de arriba.`
+      : `¿Eliminar la carpeta vacía "${nombre}"?`;
+    if(!confirm(aviso)) return;
+    templatesFull.forEach(t => { if((t.config.carpeta || '').trim() === nombre) t.config.carpeta = ''; });
+    carpetasVacias.delete(nombre);
+    carpetasColapsadas.delete(nombre);
+    renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
   }));
 
   wrap.querySelectorAll('[data-plantilla-chip]').forEach(chip => {
