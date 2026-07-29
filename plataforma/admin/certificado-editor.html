@@ -6,153 +6,651 @@
 <title>CEM Admin · Editor de certificados</title>
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Playfair+Display:wght@500;700&family=Lora:wght@400;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="../assets/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
-  .ed{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start;}
+  .ed{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;align-items:start;}
   .ed > *{min-width:0;}
-  @media(max-width:900px){ .ed{grid-template-columns:minmax(0,1fr);} }
-  /* el lienzo conserva su proporción y se desplaza dentro de su propia caja */
-  .lienzo-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  @media(max-width:1000px){ .ed{grid-template-columns:minmax(0,1fr);} }
+
+  /* ---------- lienzo ---------- */
+  .lienzo-wrap{overflow:auto;-webkit-overflow-scrolling:touch;background:var(--surface-container);
+    border-radius:var(--radius);padding:14px;display:flex;justify-content:center;}
+  .lienzo{position:relative;background:#fff;flex-shrink:0;box-shadow:var(--shadow);
+    background-size:cover;background-position:center;}
+  .lienzo .marco{position:absolute;inset:0;pointer-events:none;}
+  .lienzo .guia{position:absolute;border:1px dashed var(--info);opacity:.45;pointer-events:none;}
+
+  .blk{position:absolute;box-sizing:border-box;padding:2px;cursor:move;
+    outline:1px dashed transparent;transition:outline-color .12s;}
+  .blk:hover{outline-color:var(--info);}
+  .blk.sel{outline:2px solid var(--info);outline-offset:1px;}
+  .blk.fijo{cursor:default;}
+  .blk img{display:block;width:100%;height:auto;pointer-events:none;}
+  /* El tirador se dibuja siempre y solo se muestra en el elemento elegido:
+     asi arrastrar no obliga a reconstruir el lienzo. */
+  .tirador{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:50%;
+    background:var(--info);border:2px solid #fff;cursor:nwse-resize;box-shadow:0 1px 3px rgba(0,0,0,.3);
+    display:none;}
+  .blk.sel .tirador{display:block;}
+
+  /* ---------- panel ---------- */
   .var{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:var(--primary-fixed);
     color:var(--primary);font-size:11.5px;font-weight:600;cursor:pointer;margin:3px 3px 0 0;}
   .var:hover{background:var(--primary-dim);}
-  .lienzo{background:#fff;border:8px double var(--tertiary-container);padding:34px;text-align:center;min-height:330px;}
-  .lienzo.vertical{max-width:460px;margin:0 auto;min-height:520px;}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+  .g2 .field,.g4 .field{margin:0;}
+  .field.mini label{font-size:11px;}
+  .field.mini input,.field.mini select{padding:6px 8px;}
+  .lista-item{display:flex;gap:9px;align-items:center;padding:7px 9px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--outline-variant);margin-bottom:6px;}
+  .lista-item.sel{border-color:var(--info);background:var(--info-container);}
+  .lista-item .mini-img{width:34px;height:26px;object-fit:contain;background:var(--surface-container);border-radius:4px;flex-shrink:0;}
+  .rango{display:flex;align-items:center;gap:9px;}
+  .rango input[type=range]{flex:1;min-width:0;}
+  .rango b{font-variant-numeric:tabular-nums;min-width:42px;text-align:right;font-size:12.5px;}
+  .zona{border:2px dashed var(--outline-variant);border-radius:10px;padding:16px;text-align:center;
+    color:var(--on-surface-variant);font-size:12.5px;cursor:pointer;}
+  .zona.drag{border-color:var(--info);background:var(--info-container);}
+  details.sec-fold{border:1px solid var(--outline-variant);border-radius:10px;margin-bottom:10px;background:var(--surface-lowest);}
+  details.sec-fold > summary{padding:11px 13px;font-weight:700;font-size:13.5px;cursor:pointer;
+    display:flex;align-items:center;gap:8px;list-style:none;}
+  details.sec-fold > summary::-webkit-details-marker{display:none;}
+  details.sec-fold > summary::after{content:'expand_more';font-family:'Material Symbols Outlined';margin-left:auto;
+    transition:transform .16s;}
+  details.sec-fold[open] > summary::after{transform:rotate(180deg);}
+  details.sec-fold > .cuerpo{padding:0 13px 13px;}
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Editor de plantillas</h1><p>Diseña las plantillas de certificados y diplomas de la institución.</p></div>
+    <div><h1>Editor de certificados</h1><p>Diseña las plantillas y corrige certificados ya emitidos.</p></div>
     <div class="actions">
-      <div class="field" style="margin:0;min-width:200px"><select id="selTpl"></select></div>
+      <div class="field" style="margin:0;min-width:190px"><select id="selTpl"></select></div>
       <button class="btn outline" id="btnNueva"><span class="material-symbols-outlined">add</span> Nueva</button>
+      <button class="btn outline" id="btnDup"><span class="material-symbols-outlined">content_copy</span> Duplicar</button>
       <button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar</button>
     </div>
   </div>
 
   <div class="ed">
+    <!-- ================= PANEL ================= -->
     <div>
-      <div class="card">
-        <h2 class="sec"><span class="material-symbols-outlined">tune</span> General</h2>
-        <div class="field"><label>Nombre de la plantilla *</label><input id="nombre"></div>
-        <div class="field"><label>Orientación</label>
-          <div class="row"><button class="chip chip-btn" data-or="horizontal">Horizontal</button>
-            <button class="chip chip-btn" data-or="vertical">Vertical</button></div></div>
-      </div>
-      <div class="card">
-        <h2 class="sec">Marca e identidad</h2>
-        <div class="field"><label>Logo institucional (URL)</label><input id="logo" placeholder="https://…"></div>
-        <div class="field"><label>Firma (URL de imagen)</label><input id="firma" placeholder="https://…"></div>
-        <div class="field"><label>Nombre y cargo de quien firma</label><input id="firmaN" placeholder="Dra. Elena Rostova — Directora Académica"></div>
-        <div class="field"><label>Imagen de fondo (URL, opcional)</label><input id="fondo" placeholder="https://…"></div>
-        <label class="check"><input type="checkbox" id="qrOn" checked> Incluir código QR de verificación</label>
-      </div>
-      <div class="card">
-        <h2 class="sec">Variables dinámicas</h2>
-        <p class="tiny muted" style="margin-top:0">Se reemplazan automáticamente al emitir cada certificado.</p>
-        <div id="vars"></div>
-      </div>
-      <div class="card">
-        <h2 class="sec">Texto del certificado</h2>
-        <div class="field"><label>Encabezado</label><input id="txtTop" value="Certificado de finalización"></div>
-        <div class="field"><label>Cuerpo</label><textarea id="txtBody">Se otorga el presente certificado a {{estudiante_nombre}} por haber completado satisfactoriamente el programa {{curso_nombre}}.</textarea></div>
-      </div>
+      <details class="sec-fold" open>
+        <summary><span class="material-symbols-outlined">tune</span> General</summary>
+        <div class="cuerpo">
+          <div class="field"><label>Nombre de la plantilla *</label><input id="nombre"></div>
+          <div class="field"><label>Orientación</label>
+            <div class="row"><button class="chip chip-btn" data-or="horizontal">Horizontal</button>
+              <button class="chip chip-btn" data-or="vertical">Vertical</button></div></div>
+          <div class="field" style="margin-bottom:0"><label>Copiar estilo y márgenes de otra plantilla</label>
+            <div class="row" style="flex-wrap:nowrap;gap:6px">
+              <select id="selCopiar" style="flex:1;min-width:0"></select>
+              <button class="btn outline sm" id="btnCopiar" style="flex-shrink:0">Copiar</button>
+            </div>
+            <p class="tiny muted" style="margin:6px 0 0">Toma márgenes, colores, borde, tipografía y opacidad.
+              Conserva el nombre y los textos de esta plantilla.</p>
+          </div>
+        </div>
+      </details>
+
+      <details class="sec-fold" open>
+        <summary><span class="material-symbols-outlined">crop_free</span> Márgenes y estilo</summary>
+        <div class="cuerpo">
+          <label class="tiny" style="font-weight:600">Márgenes (mm)</label>
+          <div class="g4" style="margin:6px 0 12px">
+            <div class="field mini"><label>Sup.</label><input type="number" id="mT" min="0" max="60"></div>
+            <div class="field mini"><label>Der.</label><input type="number" id="mR" min="0" max="60"></div>
+            <div class="field mini"><label>Inf.</label><input type="number" id="mB" min="0" max="60"></div>
+            <div class="field mini"><label>Izq.</label><input type="number" id="mL" min="0" max="60"></div>
+          </div>
+          <label class="check" style="margin-bottom:10px"><input type="checkbox" id="verGuias"> Ver guía de márgenes</label>
+
+          <div class="g2">
+            <div class="field mini"><label>Color del papel</label><input type="color" id="cPapel"></div>
+            <div class="field mini"><label>Color del texto</label><input type="color" id="cTexto"></div>
+          </div>
+          <div class="g2">
+            <div class="field mini"><label>Tipografía</label>
+              <select id="fuente">
+                <option value="'Hanken Grotesk',sans-serif">Hanken Grotesk</option>
+                <option value="'Playfair Display',serif">Playfair Display</option>
+                <option value="'Lora',serif">Lora</option>
+                <option value="'Cormorant Garamond',serif">Cormorant Garamond</option>
+                <option value="Georgia,serif">Georgia</option>
+                <option value="'Times New Roman',serif">Times New Roman</option>
+              </select></div>
+            <div class="field mini"><label>Borde</label>
+              <select id="bordeEstilo">
+                <option value="none">Sin borde</option>
+                <option value="solid">Continuo</option>
+                <option value="double">Doble</option>
+                <option value="dashed">Discontinuo</option>
+              </select></div>
+          </div>
+          <div class="g2">
+            <div class="field mini"><label>Grosor del borde</label><input type="number" id="bordeAncho" min="0" max="24"></div>
+            <div class="field mini"><label>Color del borde</label><input type="color" id="bordeColor"></div>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>Opacidad general del texto</label>
+            <div class="rango"><input type="range" id="opTexto" min="10" max="100" step="5"><b id="opTextoV">100%</b></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="sec-fold" open>
+        <summary><span class="material-symbols-outlined">image</span> Imágenes</summary>
+        <div class="cuerpo">
+          <div class="zona" id="zona">
+            <span class="material-symbols-outlined" style="font-size:26px">upload</span>
+            <div>Arrastra un PNG o JPG, o toca para elegir</div>
+            <div class="tiny muted" style="margin-top:3px">Logo, firma, sello o foto · máx. 4 MB</div>
+          </div>
+          <input type="file" id="archivo" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden">
+          <div id="listaImg" style="margin-top:11px"></div>
+          <div id="imgCtl" class="hidden">
+            <div class="g2">
+              <div class="field mini"><label>Izquierda %</label><input type="number" id="iX" min="-20" max="120" step="0.5"></div>
+              <div class="field mini"><label>Arriba %</label><input type="number" id="iY" min="-20" max="120" step="0.5"></div>
+            </div>
+            <div class="field mini"><label>Ancho %</label><input type="number" id="iW" min="2" max="100" step="0.5"></div>
+            <div class="field mini"><label>Opacidad</label>
+              <div class="rango"><input type="range" id="iOp" min="5" max="100" step="5"><b id="iOpV">100%</b></div></div>
+            <div class="row">
+              <button class="btn outline sm" id="btnCentrarX">Centrar horizontal</button>
+              <button class="btn outline sm" id="btnAlFrente">Traer al frente</button>
+              <button class="btn danger sm" id="btnQuitarImg">Quitar</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="sec-fold" open>
+        <summary><span class="material-symbols-outlined">text_fields</span> Bloques de texto</summary>
+        <div class="cuerpo">
+          <div id="listaBlk"></div>
+          <div id="blkCtl" class="hidden" style="margin-top:10px;padding-top:11px;border-top:1px solid var(--outline-variant)">
+            <div class="field mini"><label>Contenido</label><textarea id="bTexto" rows="3"></textarea></div>
+            <div id="vars" style="margin-bottom:10px"></div>
+            <div class="g2">
+              <div class="field mini"><label>Tamaño (pt)</label><input type="number" id="bSize" min="6" max="72" step="0.5"></div>
+              <div class="field mini"><label>Grosor</label>
+                <select id="bPeso"><option value="400">Normal</option><option value="600">Semi</option><option value="700">Negrita</option></select></div>
+            </div>
+            <div class="g2">
+              <div class="field mini"><label>Color</label><input type="color" id="bColor"></div>
+              <div class="field mini"><label>Alineación</label>
+                <select id="bAlign"><option value="center">Centro</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></div>
+            </div>
+            <div class="g2">
+              <div class="field mini"><label>Izquierda %</label><input type="number" id="bX" min="-10" max="110" step="0.5"></div>
+              <div class="field mini"><label>Arriba %</label><input type="number" id="bY" min="-10" max="110" step="0.5"></div>
+            </div>
+            <div class="field mini"><label>Ancho %</label><input type="number" id="bW" min="5" max="100" step="0.5"></div>
+            <div class="field mini"><label>Opacidad</label>
+              <div class="rango"><input type="range" id="bOp" min="5" max="100" step="5"><b id="bOpV">100%</b></div></div>
+            <div class="row">
+              <label class="check"><input type="checkbox" id="bVisible"> Visible</label>
+              <button class="btn outline sm" id="btnCentrarBlk">Centrar</button>
+            </div>
+          </div>
+          <button class="btn outline sm block" id="btnRestaurar" style="margin-top:12px">
+            <span class="material-symbols-outlined">restart_alt</span> Restaurar disposición sugerida</button>
+        </div>
+      </details>
     </div>
 
+    <!-- ================= LIENZO ================= -->
     <div>
       <div class="card">
-        <div class="row between"><h2 class="sec">Vista previa</h2>
-          <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir prueba</button></div>
+        <div class="row between" style="margin-bottom:10px">
+          <h2 class="sec" style="margin:0">Vista previa</h2>
+          <div class="row">
+            <span class="tiny muted">Arrastra los elementos para colocarlos</span>
+            <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir prueba</button>
+          </div>
+        </div>
         <div id="prev" class="lienzo-wrap"></div>
       </div>
+
       <div class="card">
         <h2 class="sec">Plantillas guardadas</h2>
         <div class="table-wrap"><table>
           <thead><tr><th>Nombre</th><th>Orientación</th><th>QR</th><th>Firma</th><th>Creada</th><th></th></tr></thead>
           <tbody id="tbTpl"></tbody></table></div>
       </div>
+
+      <div class="card">
+        <div class="row between" style="margin-bottom:4px">
+          <h2 class="sec" style="margin:0">Certificados emitidos</h2>
+          <span class="tiny muted">Corrige uno si salió con datos equivocados</span>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Código</th><th>Estudiante</th><th>Cédula</th><th>Programa</th><th>Emitido</th><th></th></tr></thead>
+          <tbody id="tbCert"></tbody></table></div>
+      </div>
     </div>
   </div>
 </div>
+
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, fail, run, audit, confirmDialog } from '../assets/app.js';
 const p = await mount({ require:['coordinador','admin','superadmin'], active:'certificados.html', area:'admin' });
-const VARS = ['estudiante_nombre','curso_nombre','fecha_emision','id_certificado','cohorte_nombre','horas_programa'];
-let tpls=[], actual=null, orient='horizontal';
+
+const VARS = ['estudiante_nombre','estudiante_cedula','curso_nombre','fecha_emision',
+              'id_certificado','cohorte_nombre','horas_programa'];
+
+/* Proporciones de hoja A4 apaisada/vertical, en px de lienzo. */
+const HOJA = { horizontal:{w:960,h:679}, vertical:{w:679,h:960} };
+const MM_A_PX = 960/297;             // el ancho horizontal equivale a 297 mm
+
+/* Disposición sugerida: reproduce el diseño clásico del certificado.
+   Todas las posiciones van en % del lienzo para que escalen. */
+const BLOQUES_BASE = {
+  institucion:{ orden:1, etiqueta:'Nombre de la institución', texto:'CEM INTERNATIONAL EDUCATION',
+                x:10, y:12, w:80, size:11, peso:600, color:'#44474d', align:'center', op:1, visible:true, espaciado:.2 },
+  encabezado: { orden:2, etiqueta:'Encabezado', texto:'Certificado de finalización',
+                x:10, y:20, w:80, size:30, peso:700, color:'#00122b', align:'center', op:1, visible:true },
+  cuerpo:     { orden:3, etiqueta:'Cuerpo', texto:'Se otorga el presente certificado a {{estudiante_nombre}}, titular de la cédula {{estudiante_cedula}}, por haber completado satisfactoriamente el programa {{curso_nombre}}.',
+                x:15, y:36, w:70, size:14, peso:400, color:'#191c1e', align:'center', op:1, visible:true },
+  firmaNombre:{ orden:4, etiqueta:'Pie de firma', texto:'Dirección Académica',
+                x:52, y:76, w:34, size:11.5, peso:600, color:'#191c1e', align:'center', op:1, visible:true, linea:true },
+  codigo:     { orden:5, etiqueta:'Código y fecha', texto:'Código: {{id_certificado}} · {{fecha_emision}}',
+                x:10, y:90, w:80, size:10, peso:400, color:'#74777e', align:'center', op:1, visible:true },
+};
+const ESTILO_BASE = {
+  margenes:{ top:14, right:14, bottom:14, left:14 },
+  papel:'#ffffff', texto:'#191c1e', fuente:"'Hanken Grotesk',sans-serif",
+  bordeEstilo:'double', bordeAncho:8, bordeColor:'#cea62b', opTexto:1,
+};
+
+let tpls=[], certs=[], actual=null;
+let orient='horizontal', estilo=structuredClone(ESTILO_BASE),
+    bloques=structuredClone(BLOQUES_BASE), imagenes=[], qrCfg={ on:true, x:8, y:70, w:13, op:1 };
+let sel=null;             // {tipo:'blk'|'img'|'qr', id}
+
 if (p) load();
 
+/* ============================ carga ============================ */
 async function load(){
-  const { data } = await sb.from('cem_certificate_templates').select('*').order('created_at');
-  tpls = data||[];
-  $('#selTpl').innerHTML = tpls.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('') || '<option value="">Sin plantillas</option>';
+  const [{ data:ts }, { data:cs }] = await Promise.all([
+    sb.from('cem_certificate_templates').select('*').order('created_at'),
+    sb.from('cem_certificates').select('*').order('emitido_en',{ascending:false}).limit(60),
+  ]);
+  tpls = ts||[]; certs = cs||[];
+  $('#selTpl').innerHTML = tpls.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('')
+    || '<option value="">Sin plantillas</option>';
   actual = tpls[0]||null;
   if (actual) $('#selTpl').value = actual.id;
+  pintarVars();
+  cargarPlantilla();
+  renderTbl(); renderCerts();
+}
+
+function pintarVars(){
   $('#vars').innerHTML = VARS.map(v=>`<span class="var" data-v="{{${v}}}">
     <span class="material-symbols-outlined" style="font-size:14px">data_object</span>{{${v}}}</span>`).join('');
   $$('[data-v]').forEach(el=>el.onclick=()=>{
-    const ta=$('#txtBody'); const pos=ta.selectionStart||ta.value.length;
-    ta.value = ta.value.slice(0,pos)+el.dataset.v+ta.value.slice(pos); prev();
+    if (!sel || sel.tipo!=='blk') { fail('Elige primero un bloque de texto'); return; }
+    const ta=$('#bTexto'); const pos=ta.selectionStart ?? ta.value.length;
+    ta.value = ta.value.slice(0,pos)+el.dataset.v+ta.value.slice(pos);
+    bloques[sel.id].texto = ta.value; dibujar();
   });
-  fill(); renderTbl();
 }
-$('#selTpl').onchange = () => { actual = tpls.find(t=>t.id===$('#selTpl').value)||null; fill(); };
 
-function fill(){
-  const t=actual;
-  $('#nombre').value = t?.nombre||'';
-  orient = t?.orientacion||'horizontal';
-  $('#logo').value=t?.logo_url||''; $('#firma').value=t?.firma_url||'';
-  $('#firmaN').value=t?.firma_nombre||''; $('#fondo').value=t?.fondo_url||'';
-  $('#qrOn').checked = t? !!t.incluir_qr : true;
-  const c = t?.campos || {};
-  if (!Array.isArray(c)){ $('#txtTop').value = c.encabezado||'Certificado de finalización'; $('#txtBody').value = c.cuerpo||$('#txtBody').value; }
+/** Une lo guardado con la base, para que una plantilla vieja siga abriendo. */
+function cargarPlantilla(){
+  const t = actual, c = t?.campos || {};
+  $('#nombre').value = t?.nombre || '';
+  orient = t?.orientacion || 'horizontal';
+  qrCfg = { ...{on:true,x:8,y:70,w:13,op:1}, ...(c.qr||{}), on: t ? !!t.incluir_qr : true };
+  estilo = { ...structuredClone(ESTILO_BASE), ...(c.estilo||{}),
+             margenes:{ ...ESTILO_BASE.margenes, ...(c.estilo?.margenes||{}) } };
+  imagenes = Array.isArray(c.imagenes) ? structuredClone(c.imagenes) : [];
+
+  bloques = structuredClone(BLOQUES_BASE);
+  if (c.bloques) Object.keys(bloques).forEach(k=>{ if (c.bloques[k]) bloques[k]={...bloques[k], ...c.bloques[k]}; });
+  // compatibilidad con plantillas creadas antes de este editor
+  if (!c.bloques){
+    if (c.encabezado) bloques.encabezado.texto = c.encabezado;
+    if (c.cuerpo)     bloques.cuerpo.texto     = c.cuerpo;
+    if (t?.firma_nombre) bloques.firmaNombre.texto = t.firma_nombre;
+    if (t?.logo_url)  imagenes.push({ id:crypto.randomUUID(), url:t.logo_url,  x:42, y:4,  w:16, op:1, nombre:'Logo' });
+    if (t?.firma_url) imagenes.push({ id:crypto.randomUUID(), url:t.firma_url, x:57, y:66, w:14, op:1, nombre:'Firma' });
+  }
+  if (t?.fondo_url) estilo.fondo = t.fondo_url;
+
+  sel = null;
+  volcarEstilo();
   $$('[data-or]').forEach(b=>b.classList.toggle('on', b.dataset.or===orient));
-  prev();
+  $('#selCopiar').innerHTML = '<option value="">Elige una plantilla…</option>' +
+    tpls.filter(x=>x.id!==t?.id).map(x=>`<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+  dibujar();
 }
-$$('[data-or]').forEach(b=>b.onclick=()=>{ orient=b.dataset.or;
-  $$('[data-or]').forEach(x=>x.classList.toggle('on',x===b)); prev(); });
-['#nombre','#logo','#firma','#firmaN','#fondo','#txtTop','#txtBody'].forEach(s=>$(s).oninput=prev);
-$('#qrOn').onchange = prev;
 
-function prev(){
-  const demo = { estudiante_nombre:'Ana Rodríguez', curso_nombre:'Diplomado en Gestión Educativa Internacional',
-    fecha_emision:new Date().toLocaleDateString('es-ES'), id_certificado:'CEM-2026-00123',
-    cohorte_nombre:'Cohorte 24A', horas_programa:'90' };
-  let cuerpo = $('#txtBody').value;
-  Object.entries(demo).forEach(([k,v])=>cuerpo = cuerpo.replaceAll(`{{${k}}}`, v));
-  const qr = qrcode(0,'M'); qr.addData('https://cem.example/verificar?codigo=CEM-2026-00123'); qr.make();
-  $('#prev').innerHTML = `<div class="lienzo ${orient}" id="lienzo"
-    style="${$('#fondo').value?`background-image:url('${esc($('#fondo').value)}');background-size:cover;`:''}">
-    ${$('#logo').value?`<img src="${esc($('#logo').value)}" style="max-height:54px;margin-bottom:12px" onerror="this.remove()">`:''}
-    <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
-    <h2 style="margin:12px 0 14px;color:var(--primary)">${esc($('#txtTop').value)}</h2>
-    <p style="margin:0 auto;max-width:560px;line-height:1.6">${esc(cuerpo)}</p>
-    <div class="row" style="justify-content:center;gap:26px;margin-top:26px;align-items:flex-end">
-      ${$('#qrOn').checked?`<div>${qr.createImgTag(3,4)}<div class="tiny muted">Verificación</div></div>`:''}
-      <div style="text-align:center">
-        ${$('#firma').value?`<img src="${esc($('#firma').value)}" style="max-height:46px" onerror="this.remove()">`:''}
-        <div style="border-top:1px solid var(--outline);padding-top:6px;min-width:200px" class="tiny">
-          ${esc($('#firmaN').value||'Dirección Académica')}</div></div>
-    </div>
-    <div class="tiny muted" style="margin-top:16px">Código: ${demo.id_certificado} · ${demo.fecha_emision}</div>
+function volcarEstilo(){
+  $('#mT').value=estilo.margenes.top;   $('#mR').value=estilo.margenes.right;
+  $('#mB').value=estilo.margenes.bottom; $('#mL').value=estilo.margenes.left;
+  $('#cPapel').value=estilo.papel; $('#cTexto').value=estilo.texto;
+  $('#fuente').value=estilo.fuente; $('#bordeEstilo').value=estilo.bordeEstilo;
+  $('#bordeAncho').value=estilo.bordeAncho; $('#bordeColor').value=estilo.bordeColor;
+  $('#opTexto').value=Math.round(estilo.opTexto*100); $('#opTextoV').textContent=Math.round(estilo.opTexto*100)+'%';
+}
+
+/* ============================ dibujo ============================ */
+const DEMO = { estudiante_nombre:'Ana Rodríguez', estudiante_cedula:'12.345.678',
+  curso_nombre:'Diplomado en Gestión Educativa Internacional',
+  fecha_emision:new Date().toLocaleDateString('es-ES'), id_certificado:'CEM-2026-00123',
+  cohorte_nombre:'Cohorte 24A', horas_programa:'90' };
+
+function sustituir(txt){
+  let s = txt||'';
+  Object.entries(DEMO).forEach(([k,v])=>s = s.replaceAll(`{{${k}}}`, v));
+  return s;
+}
+
+function dibujar(){
+  const hoja = HOJA[orient];
+  const m = estilo.margenes;
+  const borde = estilo.bordeEstilo==='none' ? 'none'
+    : `${estilo.bordeAncho}px ${estilo.bordeEstilo} ${estilo.bordeColor}`;
+
+  const guias = $('#verGuias')?.checked ? `<div class="guia" style="
+      left:${m.left*MM_A_PX}px;top:${m.top*MM_A_PX}px;
+      right:${m.right*MM_A_PX}px;bottom:${m.bottom*MM_A_PX}px"></div>` : '';
+
+  const imgsHtml = imagenes.map((im,i)=>`
+    <div class="blk ${sel?.tipo==='img'&&sel.id===im.id?'sel':''}" data-img="${im.id}"
+      style="left:${im.x}%;top:${im.y}%;width:${im.w}%;opacity:${im.op};z-index:${10+i}">
+      <img src="${esc(im.url)}" alt="" onerror="this.style.opacity=.25">
+      <span class="tirador" data-rs="img"></span>
+    </div>`).join('');
+
+  const blksHtml = Object.entries(bloques)
+    .filter(([,b])=>b.visible)
+    .sort((a,b)=>a[1].orden-b[1].orden)
+    .map(([k,b])=>`
+      <div class="blk ${sel?.tipo==='blk'&&sel.id===k?'sel':''}" data-blk="${k}"
+        style="left:${b.x}%;top:${b.y}%;width:${b.w}%;text-align:${b.align};
+               font-size:${b.size}px;font-weight:${b.peso};color:${b.color};
+               opacity:${b.op*estilo.opTexto};line-height:1.45;z-index:30;
+               ${b.espaciado?`letter-spacing:${b.espaciado}em;text-transform:uppercase;`:''}">
+        ${b.linea?'<div style="border-top:1px solid currentColor;opacity:.5;margin-bottom:5px"></div>':''}
+        ${esc(sustituir(b.texto)).replaceAll('\n','<br>')}
+        <span class="tirador" data-rs="blk"></span>
+      </div>`).join('');
+
+  let qrHtml = '';
+  if (qrCfg.on){
+    const qr = qrcode(0,'M');
+    qr.addData('https://cem.example/verificar?codigo=CEM-2026-00123'); qr.make();
+    qrHtml = `<div class="blk ${sel?.tipo==='qr'?'sel':''}" data-qr="1"
+      style="left:${qrCfg.x}%;top:${qrCfg.y}%;width:${qrCfg.w}%;opacity:${qrCfg.op};z-index:29">
+      ${qr.createImgTag(4,0)}
+      <span class="tirador" data-rs="qr"></span></div>`;
+  }
+
+  $('#prev').innerHTML = `<div class="lienzo ${orient}" id="lienzo" style="
+      width:${hoja.w}px;height:${hoja.h}px;background-color:${estilo.papel};
+      font-family:${estilo.fuente};
+      ${estilo.fondo?`background-image:url('${esc(estilo.fondo)}');`:''}">
+    <div class="marco" style="border:${borde};margin:${m.top*MM_A_PX/2}px ${m.right*MM_A_PX/2}px ${m.bottom*MM_A_PX/2}px ${m.left*MM_A_PX/2}px"></div>
+    ${guias}${imgsHtml}${qrHtml}${blksHtml}
   </div>`;
+
+  $$('#lienzo .blk').forEach(el=>arrastrable(el));
+  $$('#lienzo .tirador').forEach(el=>redimensionable(el));
+  volcarSeleccion();
+  renderListaImg(); renderListaBlk();
 }
 
+/* ---------- arrastrar y redimensionar ---------- */
+function refDe(el){
+  if (el.dataset.blk) return { tipo:'blk', id:el.dataset.blk, o:bloques[el.dataset.blk] };
+  if (el.dataset.img) return { tipo:'img', id:el.dataset.img, o:imagenes.find(i=>i.id===el.dataset.img) };
+  if (el.dataset.qr)  return { tipo:'qr',  id:'qr', o:qrCfg };
+  return null;
+}
+
+/** Cambia el elemento elegido sin rehacer el lienzo: si se reconstruye
+    durante un pointerdown, el nodo que capturo el puntero desaparece
+    y el arrastre nunca llega a moverse. */
+function marcarSeleccion(){
+  $$('#lienzo .blk').forEach(x=>{
+    const r = refDe(x);
+    x.classList.toggle('sel', !!r && r.tipo===sel?.tipo && r.id===sel?.id);
+  });
+  volcarSeleccion(); renderListaImg(); renderListaBlk();
+}
+
+function arrastrable(el){
+  el.addEventListener('pointerdown', ev=>{
+    if (ev.target.classList.contains('tirador')) return;
+    const r = refDe(el); if (!r) return;
+    sel = { tipo:r.tipo, id:r.id };
+    const lienzo = $('#lienzo').getBoundingClientRect();
+    const inicio = { px:ev.clientX, py:ev.clientY, x:r.o.x, y:r.o.y };
+    el.setPointerCapture(ev.pointerId);
+    const mover = e=>{
+      r.o.x = redondea(inicio.x + (e.clientX-inicio.px)/lienzo.width*100);
+      r.o.y = redondea(inicio.y + (e.clientY-inicio.py)/lienzo.height*100);
+      el.style.left = r.o.x+'%'; el.style.top = r.o.y+'%';
+    };
+    const soltar = ()=>{ el.removeEventListener('pointermove',mover);
+      el.removeEventListener('pointerup',soltar); dibujar(); };
+    el.addEventListener('pointermove',mover);
+    el.addEventListener('pointerup',soltar);
+    marcarSeleccion();
+    ev.preventDefault();
+  });
+}
+
+function redimensionable(el){
+  el.addEventListener('pointerdown', ev=>{
+    ev.stopPropagation();
+    const padre = el.parentElement, r = refDe(padre); if (!r) return;
+    const lienzo = $('#lienzo').getBoundingClientRect();
+    const inicio = { px:ev.clientX, w:r.o.w, size:r.o.size };
+    el.setPointerCapture(ev.pointerId);
+    const mover = e=>{
+      const d = (e.clientX-inicio.px)/lienzo.width*100;
+      r.o.w = Math.max(4, redondea(inicio.w + d));
+      padre.style.width = r.o.w+'%';
+    };
+    const soltar = ()=>{ el.removeEventListener('pointermove',mover);
+      el.removeEventListener('pointerup',soltar); dibujar(); };
+    el.addEventListener('pointermove',mover);
+    el.addEventListener('pointerup',soltar);
+    ev.preventDefault();
+  });
+}
+const redondea = n => Math.round(n*2)/2;
+
+/* ---------- listas del panel ---------- */
+function renderListaImg(){
+  $('#listaImg').innerHTML = imagenes.length ? imagenes.map(im=>`
+    <div class="lista-item ${sel?.tipo==='img'&&sel.id===im.id?'sel':''}" data-selimg="${im.id}">
+      <img class="mini-img" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.3">
+      <div class="grow" style="flex:1;min-width:0">
+        <div class="tiny" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(im.nombre||'Imagen')}</div>
+        <div class="tiny muted">${im.w}% · ${Math.round(im.op*100)}%</div>
+      </div>
+    </div>`).join('') : '<p class="tiny muted" style="margin:0">Todavía no hay imágenes.</p>';
+  $$('[data-selimg]').forEach(el=>el.onclick=()=>{ sel={tipo:'img',id:el.dataset.selimg}; dibujar(); });
+}
+
+function renderListaBlk(){
+  const filas = Object.entries(bloques).sort((a,b)=>a[1].orden-b[1].orden).map(([k,b])=>`
+    <div class="lista-item ${sel?.tipo==='blk'&&sel.id===k?'sel':''}" data-selblk="${k}">
+      <span class="material-symbols-outlined" style="font-size:18px;color:var(--on-surface-variant)">
+        ${b.visible?'visibility':'visibility_off'}</span>
+      <div style="flex:1;min-width:0">
+        <div class="tiny" style="font-weight:600">${esc(b.etiqueta)}</div>
+        <div class="tiny muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.texto.slice(0,42))}</div>
+      </div>
+    </div>`).join('');
+  const qrFila = `<div class="lista-item ${sel?.tipo==='qr'?'sel':''}" data-selqr="1">
+      <span class="material-symbols-outlined" style="font-size:18px;color:var(--on-surface-variant)">
+        ${qrCfg.on?'qr_code_2':'visibility_off'}</span>
+      <div style="flex:1;min-width:0"><div class="tiny" style="font-weight:600">Código QR de verificación</div>
+        <div class="tiny muted">${qrCfg.on?`${qrCfg.w}% · ${Math.round(qrCfg.op*100)}%`:'oculto'}</div></div>
+    </div>`;
+  $('#listaBlk').innerHTML = filas + qrFila;
+  $$('[data-selblk]').forEach(el=>el.onclick=()=>{ sel={tipo:'blk',id:el.dataset.selblk}; dibujar(); });
+  $('[data-selqr]').onclick = ()=>{ sel={tipo:'qr',id:'qr'}; dibujar(); };
+}
+
+/* ---------- panel de la selección ---------- */
+function volcarSeleccion(){
+  const esBlk = sel?.tipo==='blk', esImg = sel?.tipo==='img', esQr = sel?.tipo==='qr';
+  $('#blkCtl').classList.toggle('hidden', !esBlk && !esQr);
+  $('#imgCtl').classList.toggle('hidden', !esImg);
+
+  if (esBlk){
+    const b = bloques[sel.id];
+    $('#bTexto').value=b.texto; $('#bSize').value=b.size; $('#bPeso').value=b.peso;
+    $('#bColor').value=b.color; $('#bAlign').value=b.align;
+    $('#bX').value=b.x; $('#bY').value=b.y; $('#bW').value=b.w;
+    $('#bOp').value=Math.round(b.op*100); $('#bOpV').textContent=Math.round(b.op*100)+'%';
+    $('#bVisible').checked=b.visible;
+    ['#bTexto','#bSize','#bPeso','#bColor','#bAlign'].forEach(s=>$(s).closest('.field')?.classList.remove('hidden'));
+  }
+  if (esQr){
+    // el QR reutiliza el panel pero solo posición, tamaño y opacidad
+    $('#bX').value=qrCfg.x; $('#bY').value=qrCfg.y; $('#bW').value=qrCfg.w;
+    $('#bOp').value=Math.round(qrCfg.op*100); $('#bOpV').textContent=Math.round(qrCfg.op*100)+'%';
+    $('#bVisible').checked=qrCfg.on;
+    ['#bTexto','#bSize','#bPeso','#bColor','#bAlign'].forEach(s=>$(s).closest('.field')?.classList.add('hidden'));
+  }
+  if (esImg){
+    const im = imagenes.find(i=>i.id===sel.id);
+    if (im){ $('#iX').value=im.x; $('#iY').value=im.y; $('#iW').value=im.w;
+      $('#iOp').value=Math.round(im.op*100); $('#iOpV').textContent=Math.round(im.op*100)+'%'; }
+  }
+}
+
+/* ============================ eventos ============================ */
+$('#selTpl').onchange = () => { actual = tpls.find(t=>t.id===$('#selTpl').value)||null; cargarPlantilla(); };
+$$('[data-or]').forEach(b=>b.onclick=()=>{ orient=b.dataset.or;
+  $$('[data-or]').forEach(x=>x.classList.toggle('on',x===b)); dibujar(); });
+
+['mT','mR','mB','mL'].forEach((id,i)=>$('#'+id).oninput=()=>{
+  estilo.margenes[['top','right','bottom','left'][i]] = Number($('#'+id).value)||0; dibujar(); });
+$('#verGuias').onchange = dibujar;
+$('#cPapel').oninput = ()=>{ estilo.papel=$('#cPapel').value; dibujar(); };
+$('#cTexto').oninput = ()=>{ estilo.texto=$('#cTexto').value;
+  Object.values(bloques).forEach(b=>b.color=estilo.texto); dibujar(); };
+$('#fuente').onchange = ()=>{ estilo.fuente=$('#fuente').value; dibujar(); };
+$('#bordeEstilo').onchange = ()=>{ estilo.bordeEstilo=$('#bordeEstilo').value; dibujar(); };
+$('#bordeAncho').oninput = ()=>{ estilo.bordeAncho=Number($('#bordeAncho').value)||0; dibujar(); };
+$('#bordeColor').oninput = ()=>{ estilo.bordeColor=$('#bordeColor').value; dibujar(); };
+$('#opTexto').oninput = ()=>{ estilo.opTexto=Number($('#opTexto').value)/100;
+  $('#opTextoV').textContent=$('#opTexto').value+'%'; dibujar(); };
+
+$('#bTexto').oninput = ()=>{ if (sel?.tipo==='blk'){ bloques[sel.id].texto=$('#bTexto').value; dibujar(); } };
+[['#bSize','size',Number],['#bPeso','peso',Number],['#bColor','color',String],['#bAlign','align',String]]
+  .forEach(([s,prop,cast])=>$(s).oninput = ()=>{ if (sel?.tipo==='blk'){ bloques[sel.id][prop]=cast($(s).value); dibujar(); } });
+[['#bX','x'],['#bY','y'],['#bW','w']].forEach(([s,prop])=>$(s).oninput = ()=>{
+  const v=Number($(s).value);
+  if (sel?.tipo==='blk') bloques[sel.id][prop]=v;
+  else if (sel?.tipo==='qr') qrCfg[prop]=v;
+  dibujar(); });
+$('#bOp').oninput = ()=>{ const v=Number($('#bOp').value)/100;
+  if (sel?.tipo==='blk') bloques[sel.id].op=v; else if (sel?.tipo==='qr') qrCfg.op=v;
+  $('#bOpV').textContent=$('#bOp').value+'%'; dibujar(); };
+$('#bVisible').onchange = ()=>{
+  if (sel?.tipo==='blk') bloques[sel.id].visible=$('#bVisible').checked;
+  else if (sel?.tipo==='qr') qrCfg.on=$('#bVisible').checked;
+  dibujar(); };
+$('#btnCentrarBlk').onclick = ()=>{
+  const o = sel?.tipo==='blk' ? bloques[sel.id] : sel?.tipo==='qr' ? qrCfg : null;
+  if (o){ o.x = redondea((100-o.w)/2); dibujar(); } };
+
+[['#iX','x'],['#iY','y'],['#iW','w']].forEach(([s,prop])=>$(s).oninput = ()=>{
+  const im=imagenes.find(i=>i.id===sel?.id); if (im){ im[prop]=Number($(s).value); dibujar(); } });
+$('#iOp').oninput = ()=>{ const im=imagenes.find(i=>i.id===sel?.id);
+  if (im){ im.op=Number($('#iOp').value)/100; $('#iOpV').textContent=$('#iOp').value+'%'; dibujar(); } };
+$('#btnCentrarX').onclick = ()=>{ const im=imagenes.find(i=>i.id===sel?.id);
+  if (im){ im.x = redondea((100-im.w)/2); dibujar(); } };
+$('#btnAlFrente').onclick = ()=>{ const i=imagenes.findIndex(x=>x.id===sel?.id);
+  if (i>=0){ imagenes.push(imagenes.splice(i,1)[0]); dibujar(); } };
+$('#btnQuitarImg').onclick = async ()=>{
+  if (!await confirmDialog('¿Quitar esta imagen de la plantilla?')) return;
+  imagenes = imagenes.filter(i=>i.id!==sel?.id); sel=null; dibujar(); };
+
+$('#btnRestaurar').onclick = async ()=>{
+  if (!await confirmDialog('¿Restaurar la disposición sugerida? Se conservan las imágenes y los textos.')) return;
+  const textos = Object.fromEntries(Object.entries(bloques).map(([k,b])=>[k,b.texto]));
+  bloques = structuredClone(BLOQUES_BASE);
+  Object.entries(textos).forEach(([k,t])=>{ if (bloques[k]) bloques[k].texto=t; });
+  estilo = { ...structuredClone(ESTILO_BASE), fondo:estilo.fondo };
+  volcarEstilo(); sel=null; dibujar(); ok('Disposición restaurada');
+};
+
+/* ---------- copiar estilo de otra plantilla ---------- */
+$('#btnCopiar').onclick = ()=>{
+  const otra = tpls.find(t=>t.id===$('#selCopiar').value);
+  if (!otra) { fail('Elige una plantilla de la que copiar'); return; }
+  const c = otra.campos||{};
+  estilo = { ...structuredClone(ESTILO_BASE), ...(c.estilo||{}),
+             margenes:{ ...ESTILO_BASE.margenes, ...(c.estilo?.margenes||{}) } };
+  orient = otra.orientacion || orient;
+  // posición, tamaño y color de cada bloque; el texto se conserva
+  if (c.bloques) Object.keys(bloques).forEach(k=>{
+    const o = c.bloques[k]; if (!o) return;
+    const { texto, ...resto } = o;            // el contenido no se copia
+    bloques[k] = { ...bloques[k], ...resto };
+  });
+  if (c.qr) qrCfg = { ...qrCfg, ...c.qr, on:qrCfg.on };
+  volcarEstilo();
+  $$('[data-or]').forEach(b=>b.classList.toggle('on', b.dataset.or===orient));
+  dibujar();
+  ok(`Estilo copiado de «${otra.nombre}»`);
+};
+
+/* ---------- subir imágenes ---------- */
+$('#zona').onclick = ()=>$('#archivo').click();
+['dragenter','dragover'].forEach(e=>$('#zona').addEventListener(e,ev=>{
+  ev.preventDefault(); $('#zona').classList.add('drag'); }));
+['dragleave','drop'].forEach(e=>$('#zona').addEventListener(e,ev=>{
+  ev.preventDefault(); $('#zona').classList.remove('drag'); }));
+$('#zona').addEventListener('drop', ev=>{ const f=ev.dataTransfer.files?.[0]; if (f) subir(f); });
+$('#archivo').onchange = ()=>{ const f=$('#archivo').files?.[0]; if (f) subir(f); $('#archivo').value=''; };
+
+async function subir(file){
+  if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)){
+    fail('Formato no admitido. Usa PNG, JPG, WEBP o SVG.'); return; }
+  if (file.size > 4*1024*1024){ fail('La imagen supera los 4 MB.'); return; }
+  const ext = (file.name.split('.').pop()||'png').toLowerCase();
+  const ruta = `plantillas/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('cem-assets').upload(ruta, file, { contentType:file.type, upsert:false });
+  if (error){ fail('No se pudo subir la imagen: '+error.message); return; }
+  const { data } = sb.storage.from('cem-assets').getPublicUrl(ruta);
+  const im = { id:crypto.randomUUID(), url:data.publicUrl, nombre:file.name,
+               x:42, y:6, w:16, op:1 };
+  imagenes.push(im); sel = { tipo:'img', id:im.id };
+  dibujar(); ok('Imagen agregada · arrástrala para colocarla');
+}
+
+/* ---------- plantillas ---------- */
 function renderTbl(){
   $('#tbTpl').innerHTML = tpls.length ? tpls.map(t=>`<tr>
-    <td><b>${esc(t.nombre)}</b></td><td>${esc(t.orientacion)}</td>
+    <td><b>${esc(t.nombre)}</b></td><td>${esc(t.orientacion||'—')}</td>
     <td>${t.incluir_qr?chip('sí','ok'):chip('no','neutral')}</td>
     <td class="wrap">${esc(t.firma_nombre||'—')}</td><td class="muted">${fdate(t.created_at)}</td>
     <td style="white-space:nowrap">
-      <button class="btn ghost sm" data-l="${t.id}" title="Cargar"><span class="material-symbols-outlined">edit</span></button>
-      <button class="btn ghost sm" data-del="${t.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>
+      <button class="btn ghost sm" data-l="${t.id}" title="Abrir"><span class="material-symbols-outlined">edit</span></button>
+      <button class="btn ghost sm" data-dup="${t.id}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
+      <button class="btn ghost sm" data-del="${t.id}" style="color:var(--error)" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
     </td></tr>`).join('') : emptyRow(6,'Sin plantillas.');
-  $$('[data-l]').forEach(b=>b.onclick=()=>{ $('#selTpl').value=b.dataset.l; actual=tpls.find(t=>t.id===b.dataset.l); fill(); });
+  $$('[data-l]').forEach(b=>b.onclick=()=>{ $('#selTpl').value=b.dataset.l;
+    actual=tpls.find(t=>t.id===b.dataset.l); cargarPlantilla(); });
+  $$('[data-dup]').forEach(b=>b.onclick=()=>duplicar(tpls.find(t=>t.id===b.dataset.dup)));
   $$('[data-del]').forEach(b=>b.onclick=async()=>{
     if (!await confirmDialog('¿Eliminar esta plantilla? Los certificados ya emitidos no se modifican.')) return;
     await run(sb.from('cem_certificate_templates').delete().eq('id',b.dataset.del),'No se pudo eliminar');
@@ -160,15 +658,37 @@ function renderTbl(){
   });
 }
 
-$('#btnNueva').onclick = () => { actual=null; $('#selTpl').value=''; $('#nombre').value='Nueva plantilla'; fill(); };
+async function duplicar(t){
+  if (!t) return;
+  const { id, created_at, ...resto } = t;
+  await run(sb.from('cem_certificate_templates').insert({ ...resto, nombre:`${t.nombre} (copia)` }),'No se pudo duplicar');
+  await audit('plantilla_duplicada','cem_certificate_templates',t.id,'bajo',{origen:t.nombre});
+  ok('Plantilla duplicada'); load();
+}
+$('#btnDup').onclick = ()=>duplicar(actual);
+
+$('#btnNueva').onclick = ()=>{
+  actual=null; $('#selTpl').value='';
+  orient='horizontal'; estilo=structuredClone(ESTILO_BASE);
+  bloques=structuredClone(BLOQUES_BASE); imagenes=[]; qrCfg={on:true,x:8,y:70,w:13,op:1}; sel=null;
+  $('#nombre').value='Nueva plantilla';
+  volcarEstilo(); $$('[data-or]').forEach(b=>b.classList.toggle('on', b.dataset.or==='horizontal'));
+  dibujar();
+};
 
 $('#btnSave').onclick = async () => {
+  const firmaBlk = bloques.firmaNombre;
   const payload = {
-    nombre:$('#nombre').value.trim()||'Plantilla sin nombre', orientacion:orient,
-    logo_url:$('#logo').value.trim()||null, firma_url:$('#firma').value.trim()||null,
-    firma_nombre:$('#firmaN').value.trim()||null, fondo_url:$('#fondo').value.trim()||null,
-    incluir_qr:$('#qrOn').checked,
-    campos:{ encabezado:$('#txtTop').value, cuerpo:$('#txtBody').value, variables:VARS },
+    nombre: $('#nombre').value.trim()||'Plantilla sin nombre',
+    orientacion: orient,
+    logo_url: imagenes[0]?.url || null,
+    firma_url: imagenes.find(i=>/firma/i.test(i.nombre||''))?.url || null,
+    firma_nombre: firmaBlk?.texto || null,
+    fondo_url: estilo.fondo || null,
+    incluir_qr: qrCfg.on,
+    campos: { estilo, bloques, imagenes, qr:qrCfg, variables:VARS,
+              // se conservan por compatibilidad con lo que ya lee el resto del sistema
+              encabezado: bloques.encabezado?.texto, cuerpo: bloques.cuerpo?.texto },
   };
   if (actual) await run(sb.from('cem_certificate_templates').update(payload).eq('id',actual.id),'No se pudo guardar');
   else await run(sb.from('cem_certificate_templates').insert(payload),'No se pudo crear');
@@ -176,12 +696,67 @@ $('#btnSave').onclick = async () => {
   ok('Plantilla guardada'); load();
 };
 
+/* ---------- certificados emitidos: corrección manual ---------- */
+function renderCerts(){
+  $('#tbCert').innerHTML = certs.length ? certs.map(c=>`<tr>
+    <td><code class="tiny">${esc(c.codigo)}</code></td>
+    <td class="wrap">${esc(c.datos?.estudiante||'—')}</td>
+    <td>${esc(c.datos?.cedula||'—')}</td>
+    <td class="wrap">${esc(c.datos?.curso||c.titulo||'—')}</td>
+    <td class="muted">${fdate(c.emitido_en)}</td>
+    <td><button class="btn ghost sm" data-fix="${c.id}" title="Corregir">
+      <span class="material-symbols-outlined">edit_note</span></button></td>
+  </tr>`).join('') : emptyRow(6,'Todavía no hay certificados emitidos.');
+  $$('[data-fix]').forEach(b=>b.onclick=()=>corregir(certs.find(c=>c.id===b.dataset.fix)));
+}
+
+function corregir(c){
+  if (!c) return;
+  const d = c.datos||{};
+  const m = modal({ title:`Corregir ${c.codigo}`, body:`
+    <p class="tiny muted" style="margin-top:0">Los datos del certificado se congelan al emitirlo.
+      Esta corrección queda registrada en auditoría con el antes y el después.</p>
+    <div class="field"><label>Nombre del estudiante</label><input id="fEst" value="${esc(d.estudiante||'')}"></div>
+    <div class="field"><label>Cédula</label><input id="fCed" value="${esc(d.cedula||'')}" placeholder="12.345.678">
+      <p class="tiny muted" style="margin:4px 0 0">Se guarda con puntos automáticamente.</p></div>
+    <div class="field"><label>Programa</label><input id="fCur" value="${esc(d.curso||'')}"></div>
+    <div class="field"><label>Título del certificado</label><input id="fTit" value="${esc(c.titulo||'')}"></div>
+    <div class="field"><label>Fecha de emisión (texto impreso)</label><input id="fFec" value="${esc(d.emision||'')}"></div>
+    <div class="field"><label>Motivo de la corrección *</label>
+      <input id="fMot" placeholder="Ej.: el apellido venía mal escrito en el registro"></div>`,
+    footer:`<button class="btn outline" data-no>Cancelar</button>
+            <button class="btn" data-si>Guardar corrección</button>` });
+
+  $('[data-no]',m).onclick = ()=>m.close();
+  $('[data-si]',m).onclick = async ()=>{
+    const motivo = $('#fMot',m).value.trim();
+    if (!motivo){ fail('Indica el motivo de la corrección'); return; }
+    await run(sb.rpc('cem_update_certificate',{
+      p_certificate_id: c.id,
+      p_titulo: $('#fTit',m).value.trim(),
+      p_datos: { estudiante:$('#fEst',m).value.trim(), cedula:$('#fCed',m).value.trim(),
+                 curso:$('#fCur',m).value.trim(), emision:$('#fFec',m).value.trim() },
+      p_motivo: motivo,
+    }),'No se pudo corregir el certificado');
+    m.close(); ok('Certificado corregido'); load();
+  };
+}
+
+/* ---------- impresión ---------- */
 $('#btnPrint').onclick = () => {
-  const w=window.open('','_blank');
-  w.document.write(`<html><head><title>Prueba de plantilla</title>
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="${new URL('../assets/styles.css',location.href).href}">
-    <style>body{padding:24px;background:#fff}</style></head>
+  const hoja = HOJA[orient];
+  const w = window.open('','_blank');
+  w.document.write(`<html><head><title>Prueba · ${esc($('#nombre').value)}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Playfair+Display:wght@500;700&family=Lora:wght@400;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+    <style>
+      @page{size:A4 ${orient==='horizontal'?'landscape':'portrait'};margin:0;}
+      body{margin:0;display:flex;align-items:center;justify-content:center;}
+      .lienzo{position:relative;width:${hoja.w}px;height:${hoja.h}px;background-size:cover;background-position:center;}
+      .marco{position:absolute;inset:0;}
+      .blk{position:absolute;box-sizing:border-box;padding:2px;}
+      .blk img{display:block;width:100%;height:auto;}
+      .tirador,.guia{display:none !important;}
+    </style></head>
     <body>${$('#lienzo').outerHTML}<script>onload=()=>print()<\/script></body></html>`);
   w.document.close();
 };
