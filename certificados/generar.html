@@ -46,14 +46,31 @@
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
   #tplPreviewWrap{position:relative;display:inline-block;max-width:100%;border:1px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;}
   #tplPreviewWrap img{display:block;max-width:900px;width:100%;height:auto;}
-  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);z-index:3;touch-action:none;}
+  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);z-index:5;touch-action:none;}
   .field-chip:active{cursor:grabbing;}
   .field-chip.inactive{opacity:.4;border-style:dashed;}
-  .field-line{position:absolute;height:0;border-top:2px dashed rgba(19,39,67,.65);transform:translateY(-50%);pointer-events:none;z-index:1;}
-  .field-line.inactive{border-top-color:rgba(107,114,128,.5);}
-  .field-label{position:absolute;transform:translate(-50%,-160%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:2px 6px;border-radius:8px;white-space:nowrap;pointer-events:none;z-index:3;border:1px solid var(--gold);}
-  .field-label.inactive{opacity:.4;}
-  .field-handle{position:absolute;width:9px;height:24px;background:var(--gold);border:1px solid var(--navy);border-radius:3px;cursor:ew-resize;transform:translate(-50%,-50%);z-index:3;touch-action:none;}
+
+  /* Caja del campo: reglillas de los cuatro lados. El texto se centra en
+     vertical, así todas las palabras quedan alineadas arriba y abajo. */
+  .field-box{position:absolute;border:1px dashed rgba(19,39,67,.55);background:rgba(19,39,67,.04);
+    z-index:1;pointer-events:none;display:flex;align-items:center;overflow:hidden;}
+  .field-box.inactive{border-color:rgba(107,114,128,.45);background:transparent;}
+  .field-box.sel{border-color:var(--teal);border-width:2px;background:rgba(27,127,118,.07);}
+  .field-box span{width:100%;white-space:nowrap;line-height:1;}
+  .field-box.inactive span{opacity:.35;}
+
+  /* La etiqueta flotante es el asa para mover todo el campo. */
+  .field-label{position:absolute;transform:translate(-50%,-100%);background:rgba(19,39,67,.9);color:#fff;
+    font-size:10px;padding:3px 8px;border-radius:8px;white-space:nowrap;z-index:4;border:1px solid var(--gold);
+    cursor:move;user-select:none;touch-action:none;}
+  .field-label:active{cursor:grabbing;}
+  .field-label.inactive{opacity:.45;}
+  .field-label.sel{background:var(--teal);border-color:var(--navy);}
+
+  .field-handle{position:absolute;background:var(--gold);border:1px solid var(--navy);border-radius:3px;
+    z-index:3;touch-action:none;transform:translate(-50%,-50%);}
+  .field-handle.h{width:9px;height:22px;cursor:ew-resize;}
+  .field-handle.v{width:22px;height:9px;cursor:ns-resize;}
   .field-handle.inactive{opacity:.4;}
   .img-box{position:absolute;transform:translate(-50%,-50%);cursor:grab;z-index:2;touch-action:none;outline:1px dashed rgba(19,39,67,.5);}
   .img-box:active{cursor:grabbing;}
@@ -71,6 +88,37 @@
   .modal-cuerpo{padding:14px 16px 18px;}
   .field-settings{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 8px;border-bottom:1px solid var(--border);font-size:12px;}
   .field-settings label{color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;}
+
+  /* ---- lista de campos ---- */
+  .campo{border:1px solid var(--border);border-radius:8px;margin-bottom:7px;background:#fff;}
+  .campo.abierto{border-color:var(--teal);box-shadow:0 1px 6px rgba(27,127,118,.12);}
+  .campo.apagado{background:#fafbfc;}
+  .campo-cab{display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer;}
+  .campo-cab:hover{background:#f6f8fa;}
+  .campo-orden{display:flex;flex-direction:column;gap:1px;}
+  .campo-orden .mini{width:20px;height:15px;line-height:1;padding:0;font-size:9px;border:1px solid var(--border);
+    background:#fff;border-radius:3px;color:var(--muted);cursor:pointer;}
+  .campo-orden .mini:disabled{opacity:.3;cursor:default;}
+  .campo-nombre{flex:1;min-width:90px;font-weight:600;}
+  .campo-tipo{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+    border:1px solid var(--border);border-radius:10px;padding:2px 8px;white-space:nowrap;}
+  .campo-resumen{font-size:11px;color:var(--muted);}
+  .campo-flecha{color:var(--navy);font-size:11px;background:#eef2f6;border:1px solid var(--border);
+    border-radius:6px;padding:4px 9px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+  .campo-flecha:hover{background:#e2e8f0;}
+  .campo-cuerpo{padding:4px 11px 11px;border-top:1px solid var(--border);}
+  .campo-fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:9px;font-size:12.5px;}
+  .campo-fila label{color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  .campo-pie{margin-top:11px;padding-top:9px;border-top:1px dashed var(--border);}
+  /* fondo a cuadros: deja ver una imagen blanca o transparente */
+  .img-muestra{width:56px;height:38px;border:1px solid var(--border);border-radius:5px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    background-image:linear-gradient(45deg,#dfe5ec 25%,transparent 25%,transparent 75%,#dfe5ec 75%),
+                     linear-gradient(45deg,#dfe5ec 25%,transparent 25%,transparent 75%,#dfe5ec 75%);
+    background-size:10px 10px;background-position:0 0,5px 5px;background-color:#fff;}
+  .img-muestra img{max-width:100%;max-height:100%;object-fit:contain;}
+  .img-muestra i{font-size:10px;color:var(--muted);}
+  @media (max-width:640px){ .campo-fila{gap:8px;} .campo-nombre{min-width:0;} }
   .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
   .badge.vigente{background:#16a34a;}
   .badge.revocado{background:#dc2626;}
@@ -333,7 +381,8 @@ let rows = [];
 let assignment = [];     // assignment[rowIdx] = Set(templateIdx)
 let matrixTemplateSelection = new Set(); // qué índices de templatesFull participan en esta generación
 let issued = [];
-let dragging = null;     // { idx, role: 'left'|'right'|'point'|'imgW' }
+let dragging = null;     // { idx, role: 'left'|'right'|'top'|'bot'|'move'|'point'|'imgW' }
+let campoSel = null;     // campo resaltado en la plantilla y en la lista
 // Correcciones manuales de un certificado concreto, por si el ajuste automático
 // deja algo mal en un caso puntual: ajustesPorCert['fila:plantilla'] = { campo:{...} }
 let ajustesPorCert = {};
@@ -380,6 +429,8 @@ function defaultConfig(){
     ]
   };
 }
+/* La plantilla por defecto se crea sin cajas verticales; normalizarConfig las
+   deriva de yPct y del tamaño máximo, así que el resultado no cambia. */
 
 /**
  * Pone al día una plantilla guardada antes de que existieran la opacidad, el
@@ -390,11 +441,23 @@ function defaultConfig(){
  */
 function normalizarConfig(cfg){
   if(!cfg || !Array.isArray(cfg.fields)) return cfg;
+  const altoFondo = cfg.bgHeight || 1131;
   for(const f of cfg.fields){
     if(f.opacity === undefined) f.opacity = 1;
-    if(f.tipo === 'texto' && f.formato === undefined){
-      f.formato = /^\s*(c[eé]dula|documento|dni|c\.?i\.?)\s*$/i.test(String(f.nombre||''))
-        ? 'cedula' : 'ninguno';
+    if(f.tipo === 'texto'){
+      if(f.formato === undefined){
+        f.formato = /^\s*(c[eé]dula|documento|dni|c\.?i\.?)\s*$/i.test(String(f.nombre||''))
+          ? 'cedula' : 'ninguno';
+      }
+      // Reglillas de arriba y abajo: antes el campo era una sola línea y el
+      // texto crecía hacia los lados. Con una caja, el alto y el centro
+      // quedan fijos y todas las palabras se alinean igual.
+      if(f.topPct === undefined || f.botPct === undefined){
+        const altoCaja = ((f.maxFontSize || 32) * 1.6 / altoFondo) * 100;
+        const centro = f.yPct ?? 50;
+        f.topPct = Math.max(0, +(centro - altoCaja/2).toFixed(1));
+        f.botPct = Math.min(100, +(centro + altoCaja/2).toFixed(1));
+      }
     }
     if(f.tipo === 'imagen'){
       if(f.widthPct === undefined) f.widthPct = 18;
@@ -404,6 +467,17 @@ function normalizarConfig(cfg){
   }
   return cfg;
 }
+
+/** Caja vertical de un campo de texto (arriba/abajo en %). */
+function cajaV(f){
+  if(typeof f.topPct === 'number' && typeof f.botPct === 'number'){
+    return { topPct: f.topPct, botPct: f.botPct };
+  }
+  const c = f.yPct ?? 50;
+  return { topPct: c - 3, botPct: c + 3 };
+}
+/** Centro vertical: es lo que mantiene alineadas todas las palabras. */
+function centroV(f){ const v = cajaV(f); return (v.topPct + v.botPct) / 2; }
 
 /** Opacidad de un campo, tolerando plantillas guardadas antes de existir esta opción. */
 function opacityOf(f){
@@ -449,7 +523,7 @@ async function init(){
 async function loadTemplates(){
   const { data, error } = await supabase.rpc('list_cert_templates_light');
   if(error || !data || !data.length){
-    const cfg = defaultConfig();
+    const cfg = normalizarConfig(defaultConfig());
     const { data: saved } = await supabase.rpc('save_cert_template', { p_id: null, p_nombre: 'Certificado CEM (genérico)', p_config: cfg });
     templatesFull = [{ id: saved.id, nombre: saved.nombre, config: cfg }];
   } else {
@@ -489,7 +563,7 @@ document.getElementById('nombrePlantilla').addEventListener('input', e => {
 });
 
 document.getElementById('btnNuevaPlantilla').addEventListener('click', () => {
-  const cfg = defaultConfig();
+  const cfg = normalizarConfig(defaultConfig());
   templatesFull.push({ id: null, nombre: 'Nueva plantilla', config: cfg });
   currentIdx = templatesFull.length - 1;
   config = cfg;
@@ -606,7 +680,7 @@ function renderTemplatePreview(){
 
 function renderChips(){
   const wrap = document.getElementById('tplPreviewWrap');
-  wrap.querySelectorAll('.field-chip,.field-handle,.field-line,.field-label,.img-box,.img-handle').forEach(el => el.remove());
+  wrap.querySelectorAll('.field-chip,.field-handle,.field-box,.field-label,.img-box,.img-handle').forEach(el => el.remove());
   config.fields.forEach((f, i) => {
     if(f.tipo === 'qr'){
       const chip = document.createElement('div');
@@ -648,39 +722,87 @@ function renderChips(){
       wrap.appendChild(et);
       return;
     }
-    const box = boxOf(f);
-    const line = document.createElement('div');
-    line.className = 'field-line' + (f.activo ? '' : ' inactive');
-    line.style.left = box.leftPct + '%'; line.style.top = f.yPct + '%'; line.style.width = (box.rightPct - box.leftPct) + '%';
-    wrap.appendChild(line);
+    const box = boxOf(f), v = cajaV(f);
+    const sel = (campoSel === i) ? ' sel' : '';
+    const anchoImg = wrap.querySelector('#tplImg')?.clientWidth || 900;
+    const altoImg  = wrap.querySelector('#tplImg')?.clientHeight || 640;
 
+    // Caja con el texto de muestra, tal como saldrá impreso
+    const caja = document.createElement('div');
+    caja.className = 'field-box' + (f.activo ? '' : ' inactive') + sel;
+    caja.style.left = box.leftPct + '%';
+    caja.style.top = v.topPct + '%';
+    caja.style.width = (box.rightPct - box.leftPct) + '%';
+    caja.style.height = (v.botPct - v.topPct) + '%';
+    const muestra = document.createElement('span');
+    muestra.textContent = textoMuestra(f);
+    const escalaX = anchoImg / (config.bgWidth || 1600);
+    const anchoCajaPx = ((box.rightPct - box.leftPct)/100) * (config.bgWidth || 1600);
+    const cuerpo = ajustarMuestra(muestra.textContent, f, anchoCajaPx);
+    muestra.style.cssText = `font-family:${f.fontFamily || 'Georgia, serif'};` +
+      `font-weight:${f.bold ? '700' : '400'};color:${f.color};opacity:${opacityOf(f)};` +
+      `text-align:${f.align};font-size:${Math.max(6, cuerpo * escalaX)}px;`;
+    caja.appendChild(muestra);
+    wrap.appendChild(caja);
+
+    // Etiqueta = asa para mover el campo entero
     const label = document.createElement('div');
-    label.className = 'field-label' + (f.activo ? '' : ' inactive');
+    label.className = 'field-label' + (f.activo ? '' : ' inactive') + sel;
     label.textContent = f.nombre || ('Campo ' + (i+1));
-    label.style.left = ((box.leftPct + box.rightPct)/2) + '%'; label.style.top = f.yPct + '%';
+    label.style.left = ((box.leftPct + box.rightPct)/2) + '%';
+    label.style.top = v.topPct + '%';
+    label.dataset.idx = i; label.dataset.role = 'move';
+    label.title = 'Arrastra para mover todo el campo';
+    label.addEventListener('pointerdown', onHandlePointerDown);
     wrap.appendChild(label);
 
-    const leftH = document.createElement('div');
-    leftH.className = 'field-handle' + (f.activo ? '' : ' inactive');
-    leftH.style.left = box.leftPct + '%'; leftH.style.top = f.yPct + '%';
-    leftH.dataset.idx = i; leftH.dataset.role = 'left';
-    leftH.title = 'Dónde empieza el texto';
-    leftH.addEventListener('pointerdown', onHandlePointerDown);
-    wrap.appendChild(leftH);
-
-    const rightH = document.createElement('div');
-    rightH.className = 'field-handle' + (f.activo ? '' : ' inactive');
-    rightH.style.left = box.rightPct + '%'; rightH.style.top = f.yPct + '%';
-    rightH.dataset.idx = i; rightH.dataset.role = 'right';
-    rightH.title = 'Dónde termina el texto';
-    rightH.addEventListener('pointerdown', onHandlePointerDown);
-    wrap.appendChild(rightH);
+    const centro = centroV(f);
+    const asa = (clase, izq, arriba, rol, titulo) => {
+      const h = document.createElement('div');
+      h.className = 'field-handle ' + clase + (f.activo ? '' : ' inactive');
+      h.style.left = izq + '%'; h.style.top = arriba + '%';
+      h.dataset.idx = i; h.dataset.role = rol; h.title = titulo;
+      h.addEventListener('pointerdown', onHandlePointerDown);
+      wrap.appendChild(h);
+    };
+    asa('h', box.leftPct,  centro,   'left',  'Margen izquierdo');
+    asa('h', box.rightPct, centro,   'right', 'Margen derecho');
+    asa('v', (box.leftPct+box.rightPct)/2, v.topPct, 'top', 'Margen superior');
+    asa('v', (box.leftPct+box.rightPct)/2, v.botPct, 'bot', 'Margen inferior');
   });
 }
 
+/** Texto de muestra que se ve en la plantilla mientras se ajusta. */
+function textoMuestra(f){
+  if(f.formato === 'cedula') return '12.345.678';
+  return 'XXXXXXXXX';
+}
+
+/** Cuerpo de letra que tendría ese texto dentro de la caja, para verlo real. */
+function ajustarMuestra(texto, f, anchoCajaPx){
+  const cv = ajustarMuestra._cv || (ajustarMuestra._cv = document.createElement('canvas'));
+  const ctx = cv.getContext('2d');
+  const maxS = f.maxFontSize || 32, minS = Math.min(f.minFontSize || 12, maxS);
+  return fitFontSize(ctx, texto, f.fontFamily || 'Georgia, serif', f.bold, maxS, minS, anchoCajaPx);
+}
+
 function onHandlePointerDown(e){
-  dragging = { idx: Number(e.currentTarget.dataset.idx), role: e.currentTarget.dataset.role };
+  const idx = Number(e.currentTarget.dataset.idx);
+  const rol = e.currentTarget.dataset.role;
+  const wrap = document.getElementById('tplPreviewWrap').getBoundingClientRect();
+  const f = config.fields[idx];
+  campoSel = idx;
+  dragging = { idx, role: rol };
+  if(rol === 'move'){
+    // se guarda el punto de agarre para mover la caja sin saltos
+    const b = boxOf(f), v = cajaV(f);
+    dragging.orig = { ...b, ...v,
+      px: ((e.clientX - wrap.left) / wrap.width) * 100,
+      py: ((e.clientY - wrap.top) / wrap.height) * 100 };
+  }
   e.currentTarget.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  renderFieldSettings();
 }
 document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
   if(!dragging) return;
@@ -690,13 +812,27 @@ document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
   let yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
   xPct = Math.round(xPct * 10) / 10; yPct = Math.round(yPct * 10) / 10;
   const f = config.fields[dragging.idx];
-  if(dragging.role === 'imgW'){
+  const R = dragging.role;
+  if(R === 'imgW'){
     // el tirador va al borde derecho: el ancho es el doble de la distancia al centro
     f.widthPct = Math.max(2, Math.min(100, Math.round((xPct - f.xPct) * 2 * 10) / 10));
   }
-  else if(dragging.role === 'point'){ f.xPct = xPct; f.yPct = yPct; }
-  else if(dragging.role === 'left'){ const box = boxOf(f); f.leftPct = Math.min(xPct, box.rightPct - 2); f.rightPct = box.rightPct; f.yPct = yPct; }
-  else if(dragging.role === 'right'){ const box = boxOf(f); f.rightPct = Math.max(xPct, box.leftPct + 2); f.leftPct = box.leftPct; f.yPct = yPct; }
+  else if(R === 'point'){ f.xPct = xPct; f.yPct = yPct; }
+  else if(R === 'move'){
+    // mueve la caja completa conservando su ancho y su alto
+    const o = dragging.orig;
+    const dx = xPct - o.px, dy = yPct - o.py;
+    const ancho = o.rightPct - o.leftPct, alto = o.botPct - o.topPct;
+    f.leftPct = Math.round(Math.max(0, Math.min(100 - ancho, o.leftPct + dx)) * 10) / 10;
+    f.rightPct = Math.round((f.leftPct + ancho) * 10) / 10;
+    f.topPct = Math.round(Math.max(0, Math.min(100 - alto, o.topPct + dy)) * 10) / 10;
+    f.botPct = Math.round((f.topPct + alto) * 10) / 10;
+    f.yPct = centroV(f);
+  }
+  else if(R === 'left'){ const b = boxOf(f); f.leftPct = Math.min(xPct, b.rightPct - 2); f.rightPct = b.rightPct; }
+  else if(R === 'right'){ const b = boxOf(f); f.rightPct = Math.max(xPct, b.leftPct + 2); f.leftPct = b.leftPct; }
+  else if(R === 'top'){ const v = cajaV(f); f.topPct = Math.min(yPct, v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f); }
+  else if(R === 'bot'){ const v = cajaV(f); f.botPct = Math.max(yPct, v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f); }
   renderChips();
 });
 window.addEventListener('pointerup', () => {
@@ -704,69 +840,93 @@ window.addEventListener('pointerup', () => {
   dragging = null;
 });
 
+function bloqueOpacidad(f, i){
+  return `<label title="Opacidad">Opacidad <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1"
+    step="0.05" value="${opacityOf(f)}" style="width:96px;vertical-align:middle;">
+    <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>`;
+}
+
 function renderFieldSettings(){
   const wrap = document.getElementById('fieldSettings');
   wrap.innerHTML = config.fields.map((f, i) => {
-    if(f.tipo === 'qr'){
-      return `<div class="field-settings">
-        <label><input type="checkbox" data-i="${i}" data-p="activo" ${f.activo?'checked':''}> Activo</label>
-        <input type="text" data-i="${i}" data-p="nombre" value="${escapeHtml(f.nombre)}" style="width:120px;" placeholder="Nombre del campo">
-        <input type="number" data-i="${i}" data-p="size" value="${f.size}" style="width:60px;" title="Tamaño px">
-        <span class="hint">px del QR</span>
-        <label title="Opacidad">Opac. <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1" step="0.05"
-          value="${opacityOf(f)}" style="width:80px;"> <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>
-        <span class="hint" style="margin-left:auto;">QR</span>
-        <button class="btn outline small" data-remove="${i}">Quitar campo</button>
-      </div>`;
-    }
-    if(f.tipo === 'imagen'){
-      return `<div class="field-settings">
-        <label><input type="checkbox" data-i="${i}" data-p="activo" ${f.activo?'checked':''}> Activo</label>
-        <input type="text" data-i="${i}" data-p="nombre" value="${escapeHtml(f.nombre)}" style="width:110px;" placeholder="Nombre">
-        ${f.dataUrl
-          ? `<img src="${f.dataUrl}" alt="" style="height:30px;max-width:70px;object-fit:contain;border:1px solid var(--border);border-radius:4px;background:#fff;">`
-          : '<span class="hint">sin imagen</span>'}
-        <label class="btn outline small" style="margin:0;">
-          ${f.dataUrl ? 'Cambiar' : 'Subir PNG/JPG'}
-          <input type="file" accept="image/png,image/jpeg,image/webp" data-img-file="${i}" style="display:none;">
-        </label>
-        <label title="Ancho respecto al certificado">Ancho <input type="number" data-i="${i}" data-p="widthPct"
-          value="${f.widthPct ?? 18}" min="1" max="100" step="0.5" style="width:58px;"> %</label>
-        <label title="Opacidad">Opac. <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1" step="0.05"
-          value="${opacityOf(f)}" style="width:80px;"> <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>
-        <button class="btn outline small" data-centrar="${i}">Centrar</button>
-        <button class="btn outline small" data-remove="${i}" style="margin-left:auto;">Quitar campo</button>
-      </div>`;
-    }
-    return `<div class="field-settings">
-      <label><input type="checkbox" data-i="${i}" data-p="activo" ${f.activo?'checked':''}> Activo</label>
-      <input type="text" data-i="${i}" data-p="nombre" value="${escapeHtml(f.nombre)}" style="width:110px;" placeholder="Nombre del campo">
-      <label>Máx <input type="number" data-i="${i}" data-p="maxFontSize" value="${f.maxFontSize}" style="width:50px;" title="Tamaño máximo de letra"></label>
-      <label>Mín <input type="number" data-i="${i}" data-p="minFontSize" value="${f.minFontSize}" style="width:50px;" title="Tamaño mínimo de letra"></label>
-      <input type="color" data-i="${i}" data-p="color" value="${f.color}">
-      <select data-i="${i}" data-p="align">
-        <option value="left" ${f.align==='left'?'selected':''}>Izq</option>
-        <option value="center" ${f.align==='center'?'selected':''}>Centro</option>
-        <option value="right" ${f.align==='right'?'selected':''}>Der</option>
-      </select>
-      <span class="font-picker" data-font-i="${i}">
-        <button type="button" class="font-picker-btn" style="font-family:${escapeHtml(f.fontFamily || 'Georgia, serif')};" data-font-btn="${i}">${escapeHtml(fontLabelFor(f.fontFamily))} ▾</button>
-        <div class="font-picker-list" data-font-list="${i}" style="display:none;">
-          ${FONT_OPTIONS.map(o => `<div class="font-picker-opt" data-font-i="${i}" data-font-value="${escapeHtml(o.value)}" style="font-family:${escapeHtml(o.value)};">${escapeHtml(o.label)}</div>`).join('')}
-        </div>
+    const abierto = campoSel === i;
+    const tipoEt = f.tipo === 'qr' ? 'QR' : f.tipo === 'imagen' ? 'Imagen' : 'Texto';
+
+    // ---- cabecera: siempre visible y corta ----
+    const cabecera = `<div class="campo-cab" data-abrir="${i}">
+      <span class="campo-orden">
+        <button class="mini" data-subir="${i}" title="Subir en la lista" ${i===0?'disabled':''}>&#9650;</button>
+        <button class="mini" data-bajar="${i}" title="Bajar en la lista" ${i===config.fields.length-1?'disabled':''}>&#9660;</button>
       </span>
-      <label><input type="checkbox" data-i="${i}" data-p="bold" ${f.bold?'checked':''}> Negrita</label>
-      <label title="Formato del valor que llega del Excel">Formato
-        <select data-i="${i}" data-p="formato">
-          <option value="ninguno" ${(f.formato||'ninguno')==='ninguno'?'selected':''}>Tal cual</option>
-          <option value="cedula" ${f.formato==='cedula'?'selected':''}>Cédula 12.345.678</option>
-          <option value="mayusculas" ${f.formato==='mayusculas'?'selected':''}>MAYÚSCULAS</option>
-        </select></label>
-      <label title="Opacidad de las letras">Opac. <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1" step="0.05"
-        value="${opacityOf(f)}" style="width:80px;"> <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>
-      <button class="btn outline small" data-remove="${i}" style="margin-left:auto;">Quitar campo</button>
+      <label onclick="event.stopPropagation()" title="Se imprime en el certificado">
+        <input type="checkbox" data-i="${i}" data-p="activo" ${f.activo?'checked':''}></label>
+      <input type="text" data-i="${i}" data-p="nombre" value="${escapeHtml(f.nombre)}"
+        onclick="event.stopPropagation()" title="Debe coincidir con el encabezado de esa columna en tu Excel"
+        placeholder="Nombre de la columna" class="campo-nombre">
+      <span class="campo-tipo">${tipoEt}</span>
+      <span class="campo-resumen">${f.activo ? '' : 'oculto'}</span>
+      <button class="campo-flecha" data-toggle="${i}" title="${abierto ? 'Cerrar opciones' : 'Abrir opciones'}"
+        onclick="event.stopPropagation()">${abierto ? '&#9650; opciones' : '&#9660; opciones'}</button>
     </div>`;
+
+    if(!abierto) return `<div class="campo ${f.activo?'':'apagado'}">${cabecera}</div>`;
+
+    // ---- cuerpo: sólo del campo elegido ----
+    let cuerpo = '';
+    if(f.tipo === 'qr'){
+      cuerpo = `<div class="campo-fila">
+        <label>Tamaño <input type="number" data-i="${i}" data-p="size" value="${f.size}" style="width:66px;"> px</label>
+        ${bloqueOpacidad(f, i)}
+      </div>`;
+    } else if(f.tipo === 'imagen'){
+      cuerpo = `<div class="campo-fila">
+        <span class="img-muestra">${f.dataUrl ? `<img src="${f.dataUrl}" alt="">` : '<i>sin archivo</i>'}</span>
+        <label class="btn outline small" style="margin:0;">${f.dataUrl ? 'Cambiar imagen' : 'Subir PNG o JPG'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-img-file="${i}" style="display:none;"></label>
+        <label>Ancho <input type="number" data-i="${i}" data-p="widthPct" value="${f.widthPct ?? 18}"
+          min="1" max="100" step="0.5" style="width:66px;"> %</label>
+        ${bloqueOpacidad(f, i)}
+        <button class="btn outline small" data-centrar="${i}">Centrar</button>
+      </div>
+      <p class="hint" style="margin:6px 0 0;">Arrástrala en la plantilla para colocarla; el punto verde cambia el ancho.</p>`;
+    } else {
+      cuerpo = `<div class="campo-fila">
+        <span class="font-picker" data-font-i="${i}">
+          <button type="button" class="font-picker-btn" style="font-family:${escapeHtml(f.fontFamily || 'Georgia, serif')};"
+            data-font-btn="${i}">${escapeHtml(fontLabelFor(f.fontFamily))} &#9662;</button>
+          <div class="font-picker-list" data-font-list="${i}" style="display:none;">
+            ${FONT_OPTIONS.map(o => `<div class="font-picker-opt" data-font-i="${i}" data-font-value="${escapeHtml(o.value)}" style="font-family:${escapeHtml(o.value)};">${escapeHtml(o.label)}</div>`).join('')}
+          </div></span>
+        <input type="color" data-i="${i}" data-p="color" value="${f.color}" title="Color de la letra">
+        <label><input type="checkbox" data-i="${i}" data-p="bold" ${f.bold?'checked':''}> Negrita</label>
+        <select data-i="${i}" data-p="align" title="Alineación dentro de la caja">
+          <option value="left" ${f.align==='left'?'selected':''}>Izquierda</option>
+          <option value="center" ${f.align==='center'?'selected':''}>Centro</option>
+          <option value="right" ${f.align==='right'?'selected':''}>Derecha</option>
+        </select>
+      </div>
+      <div class="campo-fila">
+        <label title="La letra se achica sola hasta el mínimo si el texto no cabe">
+          Letra de <input type="number" data-i="${i}" data-p="maxFontSize" value="${f.maxFontSize}" style="width:58px;">
+          a <input type="number" data-i="${i}" data-p="minFontSize" value="${f.minFontSize}" style="width:58px;"> px</label>
+        <label>Formato
+          <select data-i="${i}" data-p="formato">
+            <option value="ninguno" ${(f.formato||'ninguno')==='ninguno'?'selected':''}>Tal cual</option>
+            <option value="cedula" ${f.formato==='cedula'?'selected':''}>C&eacute;dula 12.345.678</option>
+            <option value="mayusculas" ${f.formato==='mayusculas'?'selected':''}>MAY&Uacute;SCULAS</option>
+          </select></label>
+        ${bloqueOpacidad(f, i)}
+      </div>
+      <p class="hint" style="margin:6px 0 0;">En la plantilla: arrastra la etiqueta para mover el campo entero
+        y las reglillas doradas para fijar los m&aacute;rgenes. El texto siempre queda centrado en la caja.</p>`;
+    }
+
+    return `<div class="campo abierto ${f.activo?'':'apagado'}">${cabecera}
+      <div class="campo-cuerpo">${cuerpo}
+        <div class="campo-pie"><button class="btn danger small" data-remove="${i}">Quitar campo</button></div>
+      </div></div>`;
   }).join('');
+
   wrap.querySelectorAll('input,select').forEach(el => {
     if(!el.dataset.p) return;                       // los file inputs se manejan aparte
     const aplicar = () => {
@@ -805,6 +965,31 @@ function renderFieldSettings(){
   wrap.querySelectorAll('[data-centrar]').forEach(b => b.addEventListener('click', () => {
     config.fields[Number(b.dataset.centrar)].xPct = 50;
     renderChips(); renderFieldSettings();
+  }));
+  // abrir / cerrar el campo elegido (y resaltarlo en la plantilla)
+  wrap.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
+    const i = Number(b.dataset.toggle);
+    campoSel = (campoSel === i) ? null : i;
+    renderChips(); renderFieldSettings();
+  }));
+  wrap.querySelectorAll('[data-abrir]').forEach(el => el.addEventListener('click', () => {
+    const i = Number(el.dataset.abrir);
+    campoSel = (campoSel === i) ? null : i;
+    renderChips(); renderFieldSettings();
+  }));
+  // reordenar: el orden de esta lista es el orden de las columnas del Excel
+  const mover = (i, salto) => {
+    const j = i + salto;
+    if(j < 0 || j >= config.fields.length) return;
+    [config.fields[i], config.fields[j]] = [config.fields[j], config.fields[i]];
+    if(campoSel === i) campoSel = j; else if(campoSel === j) campoSel = i;
+    renderChips(); renderFieldSettings();
+  };
+  wrap.querySelectorAll('[data-subir]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation(); mover(Number(b.dataset.subir), -1);
+  }));
+  wrap.querySelectorAll('[data-bajar]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation(); mover(Number(b.dataset.bajar), +1);
   }));
   wrap.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => {
     config.fields.splice(Number(b.dataset.remove), 1);
@@ -885,7 +1070,7 @@ document.getElementById('inputBg').addEventListener('change', async e => {
 });
 
 document.getElementById('btnResetBg').addEventListener('click', () => {
-  Object.assign(config, defaultConfig());
+  Object.assign(config, normalizarConfig(defaultConfig()));
   renderTemplatePreview();
 });
 
@@ -1303,7 +1488,12 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     const leftPx = ((box.leftPct + dx)/100) * canvas.width;
     const rightPx = ((box.rightPct + dx)/100) * canvas.width;
     const boxWidthPx = Math.max(10, rightPx - leftPx);
-    const maxSize = Math.max(4, (f.maxFontSize || f.fontSize || 32) + (Number(aj.dSize) || 0));
+    // El alto de la caja también limita la letra: así ninguna palabra se sale
+    // por arriba o por abajo y todas quedan alineadas entre sí.
+    const v = cajaV(f);
+    const altoCajaPx = Math.max(6, ((v.botPct - v.topPct)/100) * canvas.height);
+    const topeAlto = altoCajaPx / 1.25;
+    const maxSize = Math.max(4, Math.min((f.maxFontSize || f.fontSize || 32) + (Number(aj.dSize) || 0), topeAlto));
     const minSize = Math.min(f.minFontSize || 12, maxSize);
     const fitSize = fitFontSize(ctx, text, fontFamily, f.bold, maxSize, minSize, boxWidthPx);
     ctx.save();
@@ -1315,12 +1505,15 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     if(f.align === 'left'){ ctx.textAlign = 'left'; drawX = leftPx; }
     else if(f.align === 'right'){ ctx.textAlign = 'right'; drawX = rightPx; }
     else { ctx.textAlign = 'center'; drawX = (leftPx + rightPx) / 2; }
-    const yPx = ((f.yPct + dy)/100) * canvas.height;
+    // El texto se ancla al CENTRO de la caja, no a una línea suelta: por eso
+    // dos campos con la misma caja quedan alineados aunque cambie el cuerpo.
+    const yPx = ((centroV(f) + dy)/100) * canvas.height;
     // Si ni el tamaño mínimo alcanza a caber en el margen (texto muy largo
     // con un mínimo alto), se recorta visualmente en vez de dejarlo salir
     // del cuadro definido.
+    const topPx = ((v.topPct + dy)/100) * canvas.height;
     ctx.beginPath();
-    ctx.rect(leftPx, yPx - fitSize, boxWidthPx, fitSize * 2);
+    ctx.rect(leftPx, topPx, boxWidthPx, altoCajaPx);
     ctx.clip();
     ctx.fillText(text, drawX, yPx);
     ctx.restore();
