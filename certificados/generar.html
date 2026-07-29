@@ -164,6 +164,29 @@
   .badge.reemplazado{background:#6b7280;}
   .badge.borrador{background:var(--gold);color:#132743;}
   .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#eef2f6;color:var(--muted);margin-top:2px;}
+
+  /* ---- botón de ayuda "?": reemplaza los párrafos largos de explicación ---- */
+  .ayuda-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+    border-radius:50%;border:1px solid var(--border);background:#f3f5f7;color:var(--muted);
+    font-size:11px;font-weight:700;cursor:help;flex:none;padding:0;line-height:1;}
+  .ayuda-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .ayuda-pop{position:absolute;z-index:500;max-width:320px;background:#132743;color:#fff;font-size:12.5px;
+    line-height:1.45;padding:10px 12px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);}
+
+  /* ---- tablero visual de carpetas: arrastrar y soltar para organizar ---- */
+  .carpetas-board{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;}
+  .carpeta-card{border:1px solid var(--border);border-radius:10px;background:#fbfcfd;min-width:190px;
+    flex:1 1 190px;max-width:280px;}
+  .carpeta-card.sin-carpeta{background:#f8fafb;border-style:dashed;}
+  .carpeta-card-head{font-size:12.5px;font-weight:600;padding:7px 10px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .carpeta-card-body{padding:8px;display:flex;flex-direction:column;gap:5px;min-height:38px;}
+  .carpeta-card-body.drag-over{background:#e7f7f0;outline:2px dashed var(--teal);outline-offset:-2px;}
+  .plantilla-chip{border:1px solid var(--border);background:#fff;border-radius:7px;padding:5px 8px;
+    font-size:12px;cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .plantilla-chip:hover{border-color:var(--teal);}
+  .plantilla-chip.sel{border-color:var(--teal);background:rgba(27,127,118,.08);font-weight:600;}
+  .plantilla-chip:active{cursor:grabbing;}
   progress{width:100%;height:14px;}
   .hint{font-size:12px;color:var(--muted);}
   .matrix-wrap{overflow-x:auto;}
@@ -207,30 +230,53 @@
         <button class="btn outline small" data-collapse-toggle="secPlantillasBody">Minimizar</button>
       </div>
       <div class="panel-body" id="secPlantillasBody">
-      <p class="hint">Guarda tantos formatos de certificado como necesites (uno por diplomado/curso, por ejemplo). Cada uno tiene su propio diseño, campos y márgenes.</p>
+      <div class="row" style="align-items:center;">
+        <span class="hint">Guarda tantos formatos de certificado como necesites.</span>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Uno por diplomado o curso, por ejemplo. Cada plantilla tiene su propio diseño, campos y márgenes.">?</button>
+      </div>
       <div class="row">
         <select id="selPlantilla" style="min-width:220px;"></select>
         <input type="text" id="nombrePlantilla" placeholder="Nombre de esta plantilla" style="min-width:200px;">
-        <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta (ej. Diplomado de Marketing)" style="min-width:220px;">
-        <datalist id="listaCarpetas"></datalist>
         <button class="btn outline" id="btnNuevaPlantilla">+ Nueva plantilla</button>
         <button class="btn outline" id="btnDuplicarPlantilla">Duplicar</button>
         <button class="btn danger" id="btnEliminarPlantilla">Eliminar</button>
       </div>
-      <p class="hint" style="margin:-4px 0 10px;">La carpeta agrupa varias plantillas que van juntas (por
-        ejemplo, los 8 certificados de un mismo diplomado). Déjala vacía si esta plantilla no pertenece a
-        ninguna. Escribe el mismo nombre de carpeta en varias plantillas para que queden agrupadas.</p>
 
-      <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+      <div class="row" style="align-items:center;margin:12px 0 4px;">
+        <b style="font-size:13px;">Carpetas</b>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla.">?</button>
+        <span style="flex:1;"></span>
+        <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta de la plantilla abierta" style="min-width:200px;">
+        <datalist id="listaCarpetas"></datalist>
+        <span class="campo-orden" id="ordenCarpetaWrap" title="Orden dentro de la carpeta">
+          <button class="mini" type="button" id="btnSubirCarpeta">&#9650;</button>
+          <button class="mini" type="button" id="btnBajarCarpeta">&#9660;</button>
+        </span>
+        <input type="text" id="nuevaCarpetaNombre" placeholder="Carpeta nueva" style="max-width:170px;">
+        <button class="btn outline small" id="btnNuevaCarpeta">+ Carpeta</button>
+      </div>
+      <div class="carpetas-board" id="carpetasBoard"></div>
+
+      <div class="row" style="background:#fff8ec;border:1px solid var(--gold);border-radius:8px;padding:10px 12px;align-items:center;">
+        <label class="hint" style="min-width:150px;">Copiar a TODA una carpeta:</label>
+        <select id="selCarpetaDestinoMasivo" style="min-width:170px;"></select>
+        <span class="hint">desde</span>
+        <select id="selOrigenMasivo" style="flex:1;min-width:180px;"></select>
+        <button class="btn gold" id="btnCopiarEstiloMasivo">Copiar a toda la carpeta</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Aplica de una sola vez los mismos campos —textos, imágenes con su archivo, códigos QR, márgenes, tipografías y opacidades— de la plantilla elegida a TODAS las plantillas de la carpeta que selecciones, y las guarda de una vez. Útil recién creaste varias plantillas para un diplomado y quieres arrancarlas todas desde el mismo diseño. El fondo de cada certificado no se toca.">?</button>
+      </div>
+
+      <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;align-items:center;">
         <label class="hint" style="min-width:150px;">Copiar todos los campos de:</label>
         <select id="selCopiarEstilo" style="flex:1;min-width:180px;"></select>
         <button class="btn outline" id="btnCopiarEstilo">Copiar a esta plantilla</button>
-        <span class="hint" style="flex-basis:100%;">Trae los campos completos de la otra plantilla —textos,
-          imágenes con su archivo y códigos QR— con sus posiciones, márgenes, tipografías y opacidades, y
-          <b>reemplaza</b> los campos que haya aquí. El fondo de este certificado no se toca.</span>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Trae los campos completos de la otra plantilla —textos, imágenes con su archivo y códigos QR— con sus posiciones, márgenes, tipografías y opacidades, y reemplaza los campos que haya aquí. El fondo de este certificado no se toca.">?</button>
       </div>
 
-      <p class="hint">Sube el diseño exportado de tu Canva (PDF, PNG o JPG). Cada campo tiene un cuadro de márgenes (dos marcas dorada) — arrastra la marca izquierda para fijar dónde empieza el texto y la derecha dónde termina; el tamaño de letra se ajusta solo para que el texto de cada estudiante quepa ahí, entre el máximo y el mínimo que definas.</p>
+      <div class="row" style="align-items:center;">
+        <span class="hint">Sube el diseño exportado de tu Canva (PDF, PNG o JPG).</span>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Cada campo tiene un cuadro de márgenes (dos marcas doradas): arrastra la marca izquierda para fijar dónde empieza el texto y la derecha dónde termina. El tamaño de letra se ajusta solo para que el texto de cada estudiante quepa ahí, entre el máximo y el mínimo que definas.">?</button>
+      </div>
       <div class="row">
         <input type="file" id="inputBg" accept="image/png,image/jpeg,application/pdf">
         <button class="btn outline" id="btnResetBg">Usar plantilla de ejemplo</button>
@@ -244,14 +290,12 @@
           <img id="tplImg" alt="Plantilla">
         </div>
       </div>
-      <p class="hint" style="margin:7px 0 0;">Arrastra desde la <b>regla</b> de arriba o de la izquierda para
-        soltar una guía. Para quitarla, púlsala y dale a <b>Supr</b>, o arrástrala de vuelta a la regla, o
-        haz doble clic. Los campos se pegan a las guías al moverlos. La esquina ✕ las borra todas.</p>
-      <p class="hint" style="margin:3px 0 0;">El orden de la lista de abajo es el orden de las <b>capas</b>:
-        el primero se dibuja por delante y el último al fondo. Súbelo o bájalo con ▲▼ para decidir qué tapa a qué.</p>
-      <p class="hint" style="margin:3px 0 0;">Arrastra la etiqueta de un campo para moverlo entero y las
-        marcas doradas para ajustar sus márgenes. Con el campo elegido, la tecla <b>Supr</b> (o
-        <b>Retroceso</b>) lo quita de la plantilla.</p>
+      <div class="row" style="align-items:center;margin:7px 0 0;">
+        <span class="hint">Arrastra la etiqueta de un campo para moverlo, o sus marcas doradas para ajustar los márgenes. Con el campo elegido, <b>Supr</b> lo quita.</span>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Reglas y guías: arrastra desde la regla de arriba o de la izquierda para soltar una guía; para quitarla, púlsala y dale a Supr, arrástrala de vuelta a la regla, o haz doble clic. Los campos se pegan a las guías al moverlos. La esquina ✕ las borra todas.
+
+Capas: el orden de la lista de abajo es el orden de las capas — el primero se dibuja por delante y el último al fondo. Súbelo o bájalo con ▲▼ para decidir qué tapa a qué.">?</button>
+      </div>
 
       <div class="row" style="margin-top:14px;">
         <input type="text" id="nuevoCampoNombre" placeholder="Nombre del nuevo campo (ej. Cédula)" style="flex:1;min-width:180px;">
@@ -327,12 +371,9 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
         <button class="btn outline small" data-collapse-toggle="secGenerarBody">Minimizar</button>
       </div>
       <div class="panel-body" id="secGenerarBody">
-      <p class="hint" style="margin-top:0;">"Generar vista previa" arma los PDF y los muestra abajo, pero
-        <b>no guarda nada todavía</b> — puedes revisarlos con calma. Cuando estén bien, pulsa
-        <b>"Registrar certificados"</b> en ese mismo lote para que queden oficiales y sus códigos QR empiecen
-        a verificar. Si algo está mal, simplemente descarta la vista previa y vuelve a generar.</p>
-      <div class="row">
+      <div class="row" style="align-items:center;">
         <button class="btn gold" id="btnGenerar" disabled>Generar vista previa</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Genera vista previa arma los PDF y los muestra abajo, pero no guarda nada todavía — puedes revisarlos con calma. Cuando estén bien, pulsa Registrar certificados en ese mismo lote para que queden oficiales y sus códigos QR empiecen a verificar. Si algo está mal, descarta la vista previa y vuelve a generar.">?</button>
       </div>
       <progress id="progressBar" value="0" max="1" style="display:none;"></progress>
       <div id="genMsg"></div>
@@ -376,6 +417,36 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function sanitizeName(s){ return String(s || '').trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'sin_nombre'; }
+
+/** Botón "?" para generar dentro de HTML armado en JS (galerías, listas, etc.). */
+function ayuda(texto){
+  return `<button type="button" class="ayuda-btn" data-ayuda-texto="${escapeHtml(texto)}">?</button>`;
+}
+
+/**
+ * Un solo botón "?" abierto a la vez: los párrafos largos de explicación se
+ * reemplazan por esto, y el texto sólo aparece si se pide. Funciona tanto
+ * para los botones fijos del HTML como para los que arma renderChips/etc.
+ */
+let ayudaAbierta = null;
+function cerrarAyuda(){ if(ayudaAbierta){ ayudaAbierta.pop.remove(); ayudaAbierta = null; } }
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.ayuda-btn');
+  const mismoBotonQueYaEstaba = ayudaAbierta && btn === ayudaAbierta.btn;
+  cerrarAyuda();
+  if(!btn || mismoBotonQueYaEstaba) return;
+  const pop = document.createElement('div');
+  pop.className = 'ayuda-pop';
+  pop.textContent = btn.dataset.ayudaTexto || '';
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect();
+  const izq = Math.min(window.innerWidth - pop.offsetWidth - 12, Math.max(8, r.left));
+  pop.style.left = (izq + window.scrollX) + 'px';
+  pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+  ayudaAbierta = { btn, pop };
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarAyuda(); });
+document.addEventListener('scroll', cerrarAyuda, true);
 
 const FONT_OPTIONS = [
   { label: 'Georgia (serif)', value: 'Georgia, serif' },
@@ -517,6 +588,10 @@ function normalizarConfig(cfg){
   // carpeta: agrupa varias plantillas que van juntas (p.ej. los certificados
   // de un mismo diplomado). Es sólo una etiqueta de texto, no una tabla aparte.
   if(typeof cfg.carpeta !== 'string') cfg.carpeta = '';
+  // orden dentro de la carpeta: no es la posición en la lista de plantillas,
+  // así que moverla no descoloca las asignaciones ya hechas (que apuntan por
+  // índice) ni nada que dependa de esa lista.
+  if(typeof cfg.orden !== 'number') cfg.orden = 0;
   const altoFondo = cfg.bgHeight || 1131;
   for(const f of cfg.fields){
     if(f.opacity === undefined) f.opacity = 1;
@@ -635,9 +710,13 @@ function agruparPorCarpeta(lista, excluirIdx){
     if(!porCarpeta.has(c)) porCarpeta.set(c, []);
     porCarpeta.get(c).push({ t, i });
   });
+  // dentro de cada carpeta manda el "orden" que se fija con las flechitas
+  // ▲▼; con empates (el caso normal si nunca se han movido) se respeta el
+  // orden en que se fueron creando, porque sort() es estable
+  const ordenar = arr => arr.slice().sort((a, b) => (a.t.config.orden || 0) - (b.t.config.orden || 0));
   const grupos = [];
-  if(sinCarpeta.length) grupos.push({ carpeta: '', items: sinCarpeta });
-  [...porCarpeta.keys()].sort((a, b) => a.localeCompare(b, 'es')).forEach(c => grupos.push({ carpeta: c, items: porCarpeta.get(c) }));
+  if(sinCarpeta.length) grupos.push({ carpeta: '', items: ordenar(sinCarpeta) });
+  [...porCarpeta.keys()].sort((a, b) => a.localeCompare(b, 'es')).forEach(c => grupos.push({ carpeta: c, items: ordenar(porCarpeta.get(c)) }));
   return grupos;
 }
 
@@ -647,6 +726,121 @@ function carpetasExistentes(){
   for(const t of templatesFull){ const c = (t.config.carpeta || '').trim(); if(c) set.add(c); }
   return [...set].sort((a, b) => a.localeCompare(b, 'es'));
 }
+
+/** Próximo valor de "orden" para que una plantilla se sume al final de esa carpeta. */
+function siguienteOrdenEnCarpeta(carpeta){
+  const c = (carpeta || '').trim();
+  if(!c) return 0;
+  const ordenes = templatesFull.filter(t => (t.config.carpeta || '').trim() === c).map(t => t.config.orden || 0);
+  return ordenes.length ? Math.max(...ordenes) + 1 : 0;
+}
+
+/**
+ * Pone la plantilla `idx` en la carpeta `carpetaDestino`, en la posición
+ * `posInsercion` (0 = primero de esa carpeta; un número muy grande = al
+ * final). No toca la posición real de la plantilla en templatesFull —eso
+ * rompería las referencias por índice de assignment/matrixTemplateSelection/
+ * ajustesPorCert— sino sólo el "orden" de todas las que comparten carpeta.
+ * Sirve tanto para las flechitas ▲▼ como para arrastrar y soltar.
+ */
+function moverAPosicionEnCarpeta(idx, carpetaDestino, posInsercion){
+  const carpeta = (carpetaDestino || '').trim();
+  templatesFull[idx].config.carpeta = carpeta;
+  const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta)?.items || [];
+  const sinElMovido = grupo.filter(x => x.i !== idx);
+  const pos = Math.max(0, Math.min(posInsercion, sinElMovido.length));
+  sinElMovido.splice(pos, 0, { t: templatesFull[idx], i: idx });
+  sinElMovido.forEach((x, k) => { x.t.config.orden = k; });
+}
+
+/** Mueve la plantilla `idx` un lugar antes (dir=-1) o después (dir=+1) dentro de su propia carpeta. */
+function moverEnCarpeta(idx, dir){
+  const carpeta = (templatesFull[idx].config.carpeta || '').trim();
+  if(!carpeta) return;
+  const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta)?.items;
+  if(!grupo) return;
+  const pos = grupo.findIndex(x => x.i === idx);
+  const destino = pos + dir;
+  if(pos < 0 || destino < 0 || destino >= grupo.length) return;
+  moverAPosicionEnCarpeta(idx, carpeta, destino);
+}
+
+// Carpetas creadas a mano pero todavía sin ninguna plantilla adentro: sólo
+// existen en esta pestaña (una carpeta es sólo una etiqueta de texto, no una
+// fila en la base de datos), para poder arrastrarles la primera plantilla.
+let carpetasVacias = new Set();
+
+/** Tablero visual de carpetas: cada una es una tarjeta donde se arrastran las plantillas. */
+function renderCarpetasBoard(){
+  const wrap = document.getElementById('carpetasBoard');
+  if(!wrap) return;
+  const grupos = agruparPorCarpeta(templatesFull);
+  for(const c of carpetasVacias){
+    if(!grupos.some(g => g.carpeta === c)) grupos.push({ carpeta: c, items: [] });
+  }
+  grupos.sort((a, b) => a.carpeta === '' ? -1 : b.carpeta === '' ? 1 : a.carpeta.localeCompare(b.carpeta, 'es'));
+
+  wrap.innerHTML = grupos.map(g => `
+    <div class="carpeta-card ${g.carpeta ? '' : 'sin-carpeta'}">
+      <div class="carpeta-card-head">${g.carpeta ? `📁 ${escapeHtml(g.carpeta)}` : 'Sin carpeta'}
+        <span class="hint">${g.items.length}</span></div>
+      <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(g.carpeta)}">
+        ${g.items.map(({ t, i }) => `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''}" draggable="true"
+            data-plantilla-chip="${i}">${escapeHtml(t.nombre)}</div>`).join('')}
+        ${!g.items.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('[data-plantilla-chip]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const sel = document.getElementById('selPlantilla');
+      sel.value = chip.dataset.plantillaChip;
+      sel.dispatchEvent(new Event('change'));
+    });
+    chip.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', chip.dataset.plantillaChip);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idxArrastrado = Number(e.dataTransfer.getData('text/plain'));
+      if(idxArrastrado === Number(chip.dataset.plantillaChip)) return;
+      const body = chip.closest('.carpeta-card-body');
+      const otrasChips = [...body.querySelectorAll('.plantilla-chip')].filter(c => Number(c.dataset.plantillaChip) !== idxArrastrado);
+      const posChip = otrasChips.indexOf(chip);
+      const r = chip.getBoundingClientRect();
+      const posInsercion = (e.clientX - r.left) > r.width / 2 ? posChip + 1 : posChip;
+      moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, posInsercion);
+      carpetasVacias.delete(body.dataset.carpetaDrop);
+      renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+    });
+  });
+  wrap.querySelectorAll('.carpeta-card-body').forEach(body => {
+    body.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; body.classList.add('drag-over'); });
+    body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
+    body.addEventListener('drop', e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      if(e.target.closest('.plantilla-chip')) return;   // ya lo maneja el handler de esa ficha
+      const idxArrastrado = Number(e.dataTransfer.getData('text/plain'));
+      moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, Infinity);
+      carpetasVacias.delete(body.dataset.carpetaDrop);
+      renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+    });
+  });
+}
+
+document.getElementById('btnNuevaCarpeta').addEventListener('click', () => {
+  const inp = document.getElementById('nuevaCarpetaNombre');
+  const nombre = inp.value.trim();
+  if(!nombre) return;
+  carpetasVacias.add(nombre);
+  inp.value = '';
+  renderCarpetasBoard();
+});
 
 function renderTemplateSelector(){
   const sel = document.getElementById('selPlantilla');
@@ -660,27 +854,75 @@ function renderTemplateSelector(){
   document.getElementById('carpetaPlantilla').value = templatesFull[currentIdx].config.carpeta || '';
   document.getElementById('listaCarpetas').innerHTML =
     carpetasExistentes().map(c => `<option value="${escapeHtml(c)}">`).join('');
+  actualizarBotonesOrdenCarpeta();
+  renderCarpetasBoard();
   renderCopiarEstiloSelector();
+  renderCopiaMasivaSelectores();
 }
+
+/** Habilita/deshabilita ▲▼ según la posición de la plantilla actual dentro de su carpeta. */
+function actualizarBotonesOrdenCarpeta(){
+  const btnUp = document.getElementById('btnSubirCarpeta'), btnDown = document.getElementById('btnBajarCarpeta');
+  const carpeta = (templatesFull[currentIdx].config.carpeta || '').trim();
+  if(!carpeta){
+    btnUp.disabled = true; btnDown.disabled = true;
+    document.getElementById('ordenCarpetaWrap').style.visibility = 'hidden';
+    return;
+  }
+  document.getElementById('ordenCarpetaWrap').style.visibility = '';
+  const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta).items;
+  const pos = grupo.findIndex(x => x.i === currentIdx);
+  btnUp.disabled = pos <= 0;
+  btnDown.disabled = pos >= grupo.length - 1;
+}
+
+document.getElementById('btnSubirCarpeta').addEventListener('click', () => {
+  moverEnCarpeta(currentIdx, -1);
+  renderTemplateSelector();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
+document.getElementById('btnBajarCarpeta').addEventListener('click', () => {
+  moverEnCarpeta(currentIdx, 1);
+  renderTemplateSelector();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
 
 document.getElementById('selPlantilla').addEventListener('change', e => {
   currentIdx = Number(e.target.value);
   config = templatesFull[currentIdx].config;
   document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
   document.getElementById('carpetaPlantilla').value = config.carpeta || '';
+  actualizarBotonesOrdenCarpeta();
+  renderCarpetasBoard();
   renderCopiarEstiloSelector();
   renderTemplatePreview();
 });
 
 document.getElementById('nombrePlantilla').addEventListener('input', e => {
   templatesFull[currentIdx].nombre = e.target.value;
+  // se actualiza también la ficha del tablero de carpetas sin volver a
+  // pintarlo entero, para que el nombre se vea al momento mientras se escribe
+  const chip = document.querySelector(`[data-plantilla-chip="${currentIdx}"]`);
+  if(chip) chip.textContent = e.target.value;
 });
 
+document.getElementById('carpetaPlantilla').addEventListener('focus', e => {
+  e.target.dataset.previo = e.target.value;   // para saber si de verdad cambió de carpeta
+});
 document.getElementById('carpetaPlantilla').addEventListener('input', e => {
   templatesFull[currentIdx].config.carpeta = e.target.value;
 });
-document.getElementById('carpetaPlantilla').addEventListener('change', () => {
-  templatesFull[currentIdx].config.carpeta = templatesFull[currentIdx].config.carpeta.trim();
+document.getElementById('carpetaPlantilla').addEventListener('change', e => {
+  const t = templatesFull[currentIdx];
+  const nueva = t.config.carpeta.trim();
+  const previa = (e.target.dataset.previo || '').trim();
+  t.config.carpeta = nueva;
+  // si de verdad cambió a otra carpeta (o se le puso una nueva), se suma al
+  // final de esa carpeta; si sólo se retocó el nombre sin cambiar de carpeta,
+  // no se toca el orden que ya tenía
+  if(nueva && nueva !== previa) t.config.orden = siguienteOrdenEnCarpeta(nueva);
   renderTemplateSelector();
   renderMatrixTplSelector();
   renderMatrix();
@@ -689,8 +931,10 @@ document.getElementById('carpetaPlantilla').addEventListener('change', () => {
 document.getElementById('btnNuevaPlantilla').addEventListener('click', () => {
   const cfg = normalizarConfig(defaultConfig());
   // hereda la carpeta de la plantilla que estaba abierta: lo normal es que
-  // "+ Nueva plantilla" se use para sumar otro certificado al mismo diplomado
+  // "+ Nueva plantilla" se use para sumar otro certificado al mismo diplomado,
+  // y se agrega al final de la carpeta, después de los que ya había
   cfg.carpeta = templatesFull[currentIdx]?.config?.carpeta || '';
+  cfg.orden = siguienteOrdenEnCarpeta(cfg.carpeta);
   templatesFull.push({ id: null, nombre: 'Nueva plantilla', config: cfg });
   currentIdx = templatesFull.length - 1;
   config = cfg;
@@ -702,6 +946,7 @@ document.getElementById('btnNuevaPlantilla').addEventListener('click', () => {
 
 document.getElementById('btnDuplicarPlantilla').addEventListener('click', () => {
   const clone = JSON.parse(JSON.stringify(templatesFull[currentIdx].config));
+  clone.orden = siguienteOrdenEnCarpeta(clone.carpeta);   // la copia queda al final de la misma carpeta
   templatesFull.push({ id: null, nombre: templatesFull[currentIdx].nombre + ' (copia)', config: clone });
   currentIdx = templatesFull.length - 1;
   config = clone;
@@ -782,6 +1027,61 @@ function renderCopiarEstiloSelector(){
   sel.disabled = !hayOtras;
   document.getElementById('btnCopiarEstilo').disabled = !hayOtras;
 }
+
+/** Selectores de "Copiar a TODA una carpeta": carpeta destino y plantilla origen. */
+function renderCopiaMasivaSelectores(){
+  const selCarpeta = document.getElementById('selCarpetaDestinoMasivo');
+  const selOrigen = document.getElementById('selOrigenMasivo');
+  const btn = document.getElementById('btnCopiarEstiloMasivo');
+  if(!selCarpeta || !selOrigen) return;
+  const carpetas = carpetasExistentes();
+  selCarpeta.innerHTML = carpetas.length
+    ? carpetas.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')
+    : '<option value="">— crea primero una carpeta —</option>';
+  selCarpeta.disabled = !carpetas.length;
+
+  const grupos = agruparPorCarpeta(templatesFull);
+  selOrigen.innerHTML = grupos.map(g => {
+    const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
+    return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+  }).join('');
+
+  btn.disabled = !carpetas.length;
+}
+
+document.getElementById('btnCopiarEstiloMasivo').addEventListener('click', async () => {
+  const carpetaDestino = document.getElementById('selCarpetaDestinoMasivo').value;
+  const origenIdx = Number(document.getElementById('selOrigenMasivo').value);
+  const origen = templatesFull[origenIdx];
+  if(!origen){ alert('Elige la plantilla de la que quieres copiar.'); return; }
+  const destinos = templatesFull.map((t, i) => ({ t, i })).filter(x => (x.t.config.carpeta || '').trim() === carpetaDestino);
+  if(!destinos.length){ alert('Esa carpeta todavía no tiene ninguna plantilla.'); return; }
+  const nombreCarpeta = carpetaDestino || 'Sin carpeta';
+  if(!confirm(`Se reemplazarán los campos de las ${destinos.length} plantilla(s) de «${nombreCarpeta}» por los de «${origen.nombre}», y se guardan de una vez.\n\nEl fondo de cada certificado no se toca. ¿Continuar?`)) return;
+
+  const btn = document.getElementById('btnCopiarEstiloMasivo');
+  btn.disabled = true;
+  let ok = 0, fallos = 0;
+  for(const { t } of destinos){
+    // copia profunda: cada plantilla debe quedar con sus propios objetos, si
+    // no, mover un campo en una movería también el de las demás
+    t.config.fields = JSON.parse(JSON.stringify(origen.config.fields || []));
+    normalizarConfig(t.config);
+    const { data, error } = await supabase.rpc('save_cert_template', { p_id: t.id, p_nombre: t.nombre, p_config: t.config });
+    if(error){ fallos++; continue; }
+    t.id = data.id;
+    ok++;
+  }
+  btn.disabled = false;
+  config = templatesFull[currentIdx].config;   // por si la plantilla abierta estaba entre las tocadas
+  renderChips(); renderFieldSettings();
+  renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+  const el = document.getElementById('tplMsg');
+  el.textContent = fallos
+    ? `Copiado y guardado en ${ok} de ${destinos.length} plantilla(s) de «${nombreCarpeta}» (${fallos} con error).`
+    : `Copiado y guardado en las ${ok} plantilla(s) de «${nombreCarpeta}» ✓.`;
+  setTimeout(() => { if(el.textContent.startsWith('Copiado y guardado')) el.textContent = ''; }, 14000);
+});
 
 document.getElementById('btnCopiarEstilo').addEventListener('click', () => {
   const sel = document.getElementById('selCopiarEstilo');
@@ -2107,12 +2407,19 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
   const results = [];
   const { jsPDF } = window.jspdf;
   const mergedByTpl = new Map(); // ti -> { pdf, pageCount, templateNombre }
+  // Orden estable de todas las plantillas: agrupadas por carpeta y, dentro de
+  // cada una, en el orden que se fijó con las flechitas ▲▼. Con esto el ZIP
+  // de cada estudiante y el PDF combinado por plantilla salen en ese mismo
+  // orden, no en el orden en que se fueron marcando las casillas.
+  const ordenGlobal = agruparPorCarpeta(templatesFull).flatMap(g => g.items).map(x => x.i);
 
   for(let ri = 0; ri < rows.length; ri++){
     const row = rows[ri];
     const studentName = studentDisplayName(row, ri);
     const studentFolder = zip.folder(sanitizeName(studentName));
-    for(const ti of assignment[ri]){
+    const tisAsignados = ordenGlobal.filter(ti => assignment[ri].has(ti));
+    for(let pos = 0; pos < tisAsignados.length; pos++){
+      const ti = tisAsignados[pos];
       const tpl = templatesFull[ti];
       if(!tpl) continue;
       const id = crypto.randomUUID();
@@ -2130,7 +2437,9 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
         const pdf = new jsPDF({ orientation, unit: 'pt', format: [widthPt, heightPt] });
         pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
         const pdfBlob = pdf.output('blob');
-        const filename = `${sanitizeName(tpl.nombre)}_certificado.pdf`;
+        // el número al frente hace que el explorador de archivos ya los
+        // muestre en el orden correcto al abrir el ZIP
+        const filename = `${String(pos + 1).padStart(2, '0')}_${sanitizeName(tpl.nombre)}_certificado.pdf`;
         studentFolder.file(filename, pdfBlob);
         const pdfUrl = URL.createObjectURL(pdfBlob);
         results.push({ studentName, templateNombre: tpl.nombre, id, verifyUrl, pdfUrl, thumbDataUrl,
