@@ -498,6 +498,10 @@ function normalizarConfig(cfg){
   if(!cfg.guias || typeof cfg.guias !== 'object') cfg.guias = { v: [], h: [] };
   if(!Array.isArray(cfg.guias.v)) cfg.guias.v = [];
   if(!Array.isArray(cfg.guias.h)) cfg.guias.h = [];
+  // valores fijos por plantilla: mismo diseño y mismo Excel, pero una casilla
+  // (p.ej. la Fecha) distinta para todas las personas de ESTA plantilla en
+  // concreto, sin tocar el Excel ni las demás plantillas que la copiaron.
+  if(!cfg.overrides || typeof cfg.overrides !== 'object') cfg.overrides = {};
   const altoFondo = cfg.bgHeight || 1131;
   for(const f of cfg.fields){
     if(f.opacity === undefined) f.opacity = 1;
@@ -980,7 +984,10 @@ function renderChips(){
     muestra.textContent = textoMuestra(f);
     const escalaX = anchoImg / (config.bgWidth || 1600);
     const anchoCajaPx = ((box.rightPct - box.leftPct)/100) * (config.bgWidth || 1600);
-    const cuerpo = ajustarMuestra(muestra.textContent, f, anchoCajaPx);
+    // el alto se mide igual que en el lienzo real, no en píxeles de pantalla,
+    // para que el tope de tamaño sea el mismo en la muestra y en la impresión
+    const altoCajaPx = ((v.botPct - v.topPct)/100) * (config.bgHeight || 1131);
+    const cuerpo = ajustarMuestra(muestra.textContent, f, anchoCajaPx, altoCajaPx);
     muestra.style.cssText = `font-family:${f.fontFamily || 'Georgia, serif'};` +
       `font-weight:${f.bold ? '700' : '400'};color:${f.color};opacity:${opacityOf(f)};` +
       `text-align:${f.align};font-size:${Math.max(6, cuerpo * escalaX)}px;`;
@@ -1018,15 +1025,25 @@ function renderChips(){
 
 /** Texto de muestra que se ve en la plantilla mientras se ajusta. */
 function textoMuestra(f){
+  const fijo = config.overrides && config.overrides[f.nombre];
+  if(fijo) return aplicarFormato(fijo, f.formato);
   if(f.formato === 'cedula') return '12.345.678';
   return 'XXXXXXXXX';
 }
 
-/** Cuerpo de letra que tendría ese texto dentro de la caja, para verlo real. */
-function ajustarMuestra(texto, f, anchoCajaPx){
+/**
+ * Cuerpo de letra que tendría ese texto dentro de la caja, para verlo real.
+ * Debe aplicar EXACTAMENTE el mismo tope que renderCertificateCanvas (ancho Y
+ * alto de la caja); si sólo se limitara por el ancho, aquí se vería un cuerpo
+ * mucho más grande del que sale impreso y la muestra sería incoherente con
+ * el certificado final.
+ */
+function ajustarMuestra(texto, f, anchoCajaPx, altoCajaPx){
   const cv = ajustarMuestra._cv || (ajustarMuestra._cv = document.createElement('canvas'));
   const ctx = cv.getContext('2d');
-  const maxS = f.maxFontSize || 32, minS = Math.min(f.minFontSize || 12, maxS);
+  const topeAlto = altoCajaPx / 1.25;
+  const maxS = Math.max(4, Math.min(f.maxFontSize || 32, topeAlto));
+  const minS = Math.min(f.minFontSize || 12, maxS);
   return fitFontSize(ctx, texto, f.fontFamily || 'Georgia, serif', f.bold, maxS, minS, anchoCajaPx);
 }
 
@@ -1153,7 +1170,10 @@ function renderFieldSettings(){
         onclick="event.stopPropagation()" title="Debe coincidir con el encabezado de esa columna en tu Excel"
         placeholder="Nombre de la columna" class="campo-nombre">
       <span class="campo-tipo">${tipoEt}</span>
-      <span class="campo-resumen">${f.activo ? '' : 'oculto'}</span>
+      <span class="campo-resumen">${[
+        !f.activo ? 'oculto' : '',
+        (config.overrides && config.overrides[f.nombre]) ? `fijo: ${escapeHtml(String(config.overrides[f.nombre]))}` : '',
+      ].filter(Boolean).join(' · ')}</span>
       <button class="campo-flecha" data-toggle="${i}" title="${abierto ? 'Cerrar opciones' : 'Abrir opciones'}"
         onclick="event.stopPropagation()">${abierto ? '&#9650; opciones' : '&#9660; opciones'}</button>
     </div>`;
@@ -1206,6 +1226,19 @@ function renderFieldSettings(){
           </select></label>
         ${bloqueOpacidad(f, i)}
       </div>
+      <div class="campo-fila">
+        <label style="flex:1;min-width:240px;"
+          title="Deja vacío para que cada persona use su propio dato del Excel">
+          Valor fijo para TODOS los certificados de esta plantilla
+          <input type="text" data-valor-fijo="${i}" value="${escapeHtml((config.overrides && config.overrides[f.nombre]) || '')}"
+            placeholder="vacío = usa el Excel de cada persona" style="width:100%;">
+        </label>
+      </div>
+      <p class="hint" style="margin:2px 0 0;">Si escribes algo aquí, esa palabra reemplaza a la columna
+        «${escapeHtml(f.nombre || '')}» del Excel para <b>todas</b> las personas de esta plantilla — sin tocar
+        el Excel ni las demás plantillas. Sirve para reutilizar el mismo diseño y el mismo Excel en varias
+        sesiones que sólo cambian, por ejemplo, la fecha. El ajuste manual de un certificado puntual (en la
+        Matriz) sigue ganando sobre este valor.</p>
       <p class="hint" style="margin:6px 0 0;">En la plantilla: arrastra la etiqueta para mover el campo entero
         y las reglillas doradas para fijar los m&aacute;rgenes. El texto siempre queda centrado en la caja.</p>`;
     }
@@ -1222,6 +1255,15 @@ function renderFieldSettings(){
       const i = Number(el.dataset.i), p = el.dataset.p;
       const val = el.type === 'checkbox' ? el.checked
         : (el.type === 'number' || el.type === 'range') ? Number(el.value) : el.value;
+      // el valor fijo va indexado por nombre: al renombrar el campo hay que
+      // mudar la llave o quedaría huérfano bajo el nombre anterior
+      if(p === 'nombre' && config.overrides){
+        const anterior = config.fields[i].nombre;
+        if(val !== anterior && Object.prototype.hasOwnProperty.call(config.overrides, anterior)){
+          config.overrides[val] = config.overrides[anterior];
+          delete config.overrides[anterior];
+        }
+      }
       config.fields[i][p] = val;
       if(p === 'opacity'){
         const lbl = wrap.querySelector(`[data-op-lbl="${i}"]`);
@@ -1232,6 +1274,17 @@ function renderFieldSettings(){
     el.addEventListener('change', aplicar);
     if(el.type === 'range') el.addEventListener('input', aplicar);   // realimentación inmediata
   });
+  // valor fijo por plantilla: no vive en config.fields[i] sino en config.overrides,
+  // indexado por nombre de campo (igual que rowData), no por posición
+  wrap.querySelectorAll('[data-valor-fijo]').forEach(inp => inp.addEventListener('change', () => {
+    const i = Number(inp.dataset.valorFijo);
+    const nombre = config.fields[i].nombre;
+    config.overrides = config.overrides || {};
+    const val = inp.value.trim();
+    if(val) config.overrides[nombre] = val; else delete config.overrides[nombre];
+    renderChips(); renderFieldSettings();
+    renderMatrix();   // la insignia "✎ N fijos" de la cabecera debe verse al momento
+  }));
   // subir la imagen de un campo tipo imagen
   wrap.querySelectorAll('[data-img-file]').forEach(inp => inp.addEventListener('change', e => {
     const i = Number(inp.dataset.imgFile);
@@ -1609,7 +1662,15 @@ function renderMatrix(){
   }
   wrap.innerHTML = `<div class="matrix-wrap"><table>
     <thead>
-      <tr><th>Estudiante</th>${activeTis.map(ti => `<th>${escapeHtml(templatesFull[ti].nombre)}<br><label class="hint" style="justify-content:center;"><input type="checkbox" data-bulk="${ti}" ${rows.length && rows.every((_, ri) => assignment[ri] && assignment[ri].has(ti)) ? 'checked' : ''}> todos</label></th>`).join('')}</tr>
+      <tr><th>Estudiante</th>${activeTis.map(ti => {
+        const fijos = templatesFull[ti].config.overrides || {};
+        const nFijos = Object.keys(fijos).length;
+        const tituloFijos = nFijos ? `Valores fijos de esta plantilla: ${Object.entries(fijos).map(([k,v])=>`${k}=${v}`).join(', ')}` : '';
+        return `<th>${escapeHtml(templatesFull[ti].nombre)}
+          ${nFijos ? `<br><span title="${escapeHtml(tituloFijos)}"
+              style="display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:var(--teal);color:#fff;margin-top:2px;">✎ ${nFijos} fijo${nFijos>1?'s':''}</span>` : ''}
+          <br><label class="hint" style="justify-content:center;"><input type="checkbox" data-bulk="${ti}" ${rows.length && rows.every((_, ri) => assignment[ri] && assignment[ri].has(ti)) ? 'checked' : ''}> todos</label></th>`;
+      }).join('')}</tr>
     </thead>
     <tbody>
       ${rows.map((r, ri) => `<tr>
@@ -1662,14 +1723,17 @@ async function abrirAjuste(ri, ti){
       <p class="hint" style="margin-top:0;">Sólo afecta a este certificado. Los demás siguen usando la plantilla tal cual.</p>
       <img id="ajustePrev" alt="Vista previa" style="width:100%;border:1px solid var(--border);border-radius:6px;background:#fff;">
       <table style="margin-top:12px;">
-        <thead><tr><th>Campo</th><th>Texto (vacío = el del Excel)</th><th>Letra</th><th>← →</th><th>↑ ↓</th></tr></thead>
+        <thead><tr><th>Campo</th><th>Texto (vacío = el valor de abajo)</th><th>Letra</th><th>← →</th><th>↑ ↓</th></tr></thead>
         <tbody>
           ${campos.map(f => {
             const a = aj[f.nombre] || {};
+            const fijo = tpl.config.overrides && tpl.config.overrides[f.nombre];
+            const valorEfectivo = (fijo !== undefined && fijo !== null && fijo !== '') ? fijo : row[f.nombre];
+            const origen = (fijo !== undefined && fijo !== null && fijo !== '') ? 'fijo de esta plantilla' : 'del Excel';
             return `<tr>
-              <td><b>${escapeHtml(f.nombre)}</b><br><span class="hint">${escapeHtml(String(row[f.nombre] ?? '—')).slice(0,28)}</span></td>
+              <td><b>${escapeHtml(f.nombre)}</b><br><span class="hint">${escapeHtml(String(valorEfectivo ?? '—')).slice(0,28)} (${origen})</span></td>
               <td><input type="text" data-aj="${escapeHtml(f.nombre)}" data-k="texto" value="${escapeHtml(a.texto || '')}"
-                    placeholder="${escapeHtml(String(row[f.nombre] ?? ''))}" style="width:100%;min-width:130px;"></td>
+                    placeholder="${escapeHtml(String(valorEfectivo ?? ''))}" style="width:100%;min-width:130px;"></td>
               <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dSize" value="${a.dSize ?? 0}" step="1" style="width:62px;" title="Puntos de más o de menos"></td>
               <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dxPct" value="${a.dxPct ?? 0}" step="0.5" style="width:62px;" title="Desplazamiento horizontal en %"></td>
               <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dyPct" value="${a.dyPct ?? 0}" step="0.5" style="width:62px;" title="Desplazamiento vertical en %"></td>
@@ -1771,9 +1835,12 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
       continue;
     }
 
-    // texto
+    // texto: gana el ajuste manual de ESTE certificado; si no hay, el valor
+    // fijo de la plantilla (mismo para todas las personas); si no, el Excel
+    const fijo = cfg.overrides && cfg.overrides[f.nombre];
     const bruto = (aj.texto !== undefined && aj.texto !== null && aj.texto !== '')
-      ? aj.texto : rowData[f.nombre];
+      ? aj.texto
+      : (fijo !== undefined && fijo !== null && fijo !== '') ? fijo : rowData[f.nombre];
     if(bruto === undefined || bruto === null || bruto === '') continue;
     const text = aplicarFormato(bruto, f.formato);
     if(!text) continue;
