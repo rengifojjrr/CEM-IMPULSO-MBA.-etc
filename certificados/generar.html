@@ -188,13 +188,15 @@
   .carpeta-accion:hover{background:rgba(0,0,0,.08);color:var(--navy);}
   .carpeta-card-body{padding:8px;display:flex;flex-wrap:wrap;gap:8px;min-height:38px;align-content:flex-start;}
   .carpeta-card-body.drag-over{background:#e7f7f0;outline:2px dashed var(--teal);outline-offset:-2px;}
-  .plantilla-chip{display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);background:#fff;
-    border-radius:7px;padding:5px;font-size:11px;cursor:grab;width:104px;}
+  .plantilla-chip{position:relative;display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);
+    background:#fff;border-radius:7px;padding:5px;font-size:11px;cursor:grab;width:104px;}
   .plantilla-chip-img{width:100%;height:60px;object-fit:cover;border-radius:4px;background:#eef2f6;
     border:1px solid var(--border);display:block;}
   .plantilla-chip-nombre{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
   .plantilla-chip:hover{border-color:var(--teal);}
   .plantilla-chip.sel{border-color:var(--teal);background:rgba(27,127,118,.08);font-weight:600;}
+  .plantilla-chip.marcada{border-color:#dc2626;background:rgba(220,38,38,.06);}
+  .plantilla-chip-check{position:absolute;top:3px;left:3px;width:15px;height:15px;cursor:pointer;z-index:2;}
   .plantilla-chip:active{cursor:grabbing;}
   progress{width:100%;height:14px;}
   .hint{font-size:12px;color:var(--muted);}
@@ -253,7 +255,7 @@
 
       <div class="row" style="align-items:center;margin:12px 0 4px;">
         <b style="font-size:13px;">Carpetas</b>
-        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta.">?</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta. Marca la casilla de una o varias fichas para borrarlas de verdad de una sola vez con «Eliminar seleccionadas».">?</button>
         <span style="flex:1;"></span>
         <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta de la plantilla abierta" style="min-width:200px;">
         <datalist id="listaCarpetas"></datalist>
@@ -272,6 +274,8 @@
         <input type="file" id="inputSubirCarpetaCompleta" webkitdirectory directory multiple hidden>
         <button type="button" class="ayuda-btn" data-ayuda-texto="«Subir diseños» crea una plantilla por cada PNG, JPG o PDF que elijas, todas dentro de la carpeta que hayas escrito arriba (si no existe, se crea). «Subir carpeta de la computadora» hace lo mismo pero de una vez con todos los archivos de una carpeta de tu equipo, usando el nombre de esa carpeta como carpeta aquí. Cada plantilla nueva sale con los campos por defecto; usa después «Copiar a TODA una carpeta» para aplicarles a todas el diseño de campos que quieras.">?</button>
       </div>
+      <div id="carpetasSeleccionBar" class="row" style="display:none;align-items:center;background:#fdecec;
+        border:1px solid #f3b4b4;border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
       <div class="carpetas-board" id="carpetasBoard"></div>
 
       <div class="row" style="background:#fff8ec;border:1px solid var(--gold);border-radius:8px;padding:10px 12px;align-items:center;">
@@ -788,6 +792,59 @@ function moverEnCarpeta(idx, dir){
 let carpetasVacias = new Set();
 // Carpetas plegadas: por defecto todas abiertas; se recuerda cuáles se cerraron.
 let carpetasColapsadas = new Set();
+// Plantillas marcadas con la casilla de cada ficha, para borrarlas todas juntas.
+let plantillasSeleccionadas = new Set();
+
+/** Barra que aparece encima del tablero en cuanto hay al menos una ficha marcada. */
+function actualizarBarraSeleccionMasiva(){
+  const bar = document.getElementById('carpetasSeleccionBar');
+  const n = plantillasSeleccionadas.size;
+  if(!n){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = `<b>${n} plantilla(s) marcada(s)</b>
+    <button class="btn danger small" id="btnEliminarSeleccionadas">Eliminar seleccionadas</button>
+    <button class="btn outline small" id="btnCancelarSeleccion">Cancelar selección</button>`;
+  document.getElementById('btnEliminarSeleccionadas').addEventListener('click', eliminarPlantillasSeleccionadas);
+  document.getElementById('btnCancelarSeleccion').addEventListener('click', () => {
+    plantillasSeleccionadas.clear();
+    renderCarpetasBoard();
+    actualizarBarraSeleccionMasiva();
+  });
+}
+
+/**
+ * Borra de verdad (a diferencia de eliminar una carpeta) todas las
+ * plantillas marcadas con la casilla. Se procesan de mayor a menor índice
+ * para que reindexTemplateIdxAfterDelete —pensada para un borrado a la
+ * vez— siga siendo válida en cada paso.
+ */
+async function eliminarPlantillasSeleccionadas(){
+  const indices = [...plantillasSeleccionadas].sort((a, b) => b - a);
+  if(!indices.length) return;
+  if(indices.length >= templatesFull.length){
+    alert('Debe quedar al menos una plantilla: deja al menos una sin marcar.');
+    return;
+  }
+  const nombres = indices.slice().sort((a, b) => a - b).map(i => templatesFull[i].nombre);
+  if(!confirm(`¿Eliminar estas ${indices.length} plantilla(s)? Esto SÍ las borra por completo, no se puede deshacer:\n\n${nombres.join('\n')}`)) return;
+
+  const configAbierta = templatesFull[currentIdx]?.config;   // referencia, no índice: puede quedar invalidada
+  for(const idx of indices){
+    const t = templatesFull[idx];
+    if(t.id) await supabase.rpc('delete_cert_template', { p_id: t.id });
+    reindexTemplateIdxAfterDelete(idx);
+    templatesFull.splice(idx, 1);
+  }
+  plantillasSeleccionadas.clear();
+  const nuevoIdx = templatesFull.findIndex(t => t.config === configAbierta);
+  currentIdx = nuevoIdx >= 0 ? nuevoIdx : 0;
+  config = templatesFull[currentIdx].config;
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+  renderMatrix();
+  actualizarBarraSeleccionMasiva();
+}
 
 /** Tablero visual de carpetas: cada una es una tarjeta plegable con miniaturas de los certificados. */
 function renderCarpetasBoard(){
@@ -815,8 +872,10 @@ function renderCarpetasBoard(){
         </span>
       </div>
       <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(g.carpeta)}" style="${colapsada ? 'display:none;' : ''}">
-        ${g.items.map(({ t, i }) => `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''}" draggable="true"
+        ${g.items.map(({ t, i }) => `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''} ${plantillasSeleccionadas.has(i) ? 'marcada' : ''}" draggable="true"
             data-plantilla-chip="${i}" title="${escapeHtml(t.nombre)}">
+            <input type="checkbox" class="plantilla-chip-check" data-plantilla-check="${i}" title="Marcar para eliminar en bloque"
+              ${plantillasSeleccionadas.has(i) ? 'checked' : ''}>
             <img class="plantilla-chip-img" src="${t.config.background || ''}" alt="">
             <span class="plantilla-chip-nombre">${escapeHtml(t.nombre)}</span>
           </div>`).join('')}
@@ -825,6 +884,16 @@ function renderCarpetasBoard(){
     </div>
   `;
   }).join('');
+
+  wrap.querySelectorAll('[data-plantilla-check]').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());   // que no abra la plantilla ni arrastre
+    cb.addEventListener('change', () => {
+      const i = Number(cb.dataset.plantillaCheck);
+      if(cb.checked) plantillasSeleccionadas.add(i); else plantillasSeleccionadas.delete(i);
+      cb.closest('.plantilla-chip').classList.toggle('marcada', cb.checked);
+      actualizarBarraSeleccionMasiva();
+    });
+  });
 
   wrap.querySelectorAll('[data-carpeta-toggle]').forEach(head => head.addEventListener('click', () => {
     const c = head.dataset.carpetaToggle;
