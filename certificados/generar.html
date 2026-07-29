@@ -67,18 +67,22 @@
 
   /* Por debajo de las etiquetas y las marcas de los campos (z 3-5): una guía
      nunca debe impedir agarrar un campo que quede justo encima de ella. */
-  .guia{position:absolute;z-index:2;touch-action:none;}
+  .guia{position:absolute;z-index:100;touch-action:none;}
   .guia.v{top:0;bottom:0;width:11px;margin-left:-5px;cursor:ew-resize;}
   .guia.h{left:0;right:0;height:11px;margin-top:-5px;cursor:ns-resize;}
   .guia::after{content:'';position:absolute;background:#12b3a6;}
   .guia.v::after{left:5px;top:0;bottom:0;width:1px;}
   .guia.h::after{top:5px;left:0;right:0;height:1px;}
   .guia:hover::after,.guia.arrastrando::after{background:#0d8177;box-shadow:0 0 0 1px rgba(18,179,166,.35);}
+  /* Elegida con un clic: se engorda para que se vea cuál se va a borrar con Supr. */
+  .guia.sel::after{background:#0d8177;box-shadow:0 0 0 2px rgba(18,179,166,.45);}
+  .guia.sel.v::after{width:3px;left:4px;}
+  .guia.sel.h::after{height:3px;top:4px;}
   .guia.borrar::after{background:#dc2626;}
 
   #tplPreviewWrap{position:relative;display:block;grid-column:2;grid-row:2;max-width:100%;border:1px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;}
   #tplPreviewWrap img{display:block;max-width:900px;width:100%;height:auto;}
-  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);z-index:5;touch-action:none;}
+  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);z-index:400;touch-action:none;}
   .field-chip:active{cursor:grabbing;}
   .field-chip.inactive{opacity:.4;border-style:dashed;}
 
@@ -93,18 +97,18 @@
 
   /* La etiqueta flotante es el asa para mover todo el campo. */
   .field-label{position:absolute;transform:translate(-50%,-100%);background:rgba(19,39,67,.9);color:#fff;
-    font-size:10px;padding:3px 8px;border-radius:8px;white-space:nowrap;z-index:4;border:1px solid var(--gold);
+    font-size:10px;padding:3px 8px;border-radius:8px;white-space:nowrap;z-index:400;border:1px solid var(--gold);
     cursor:move;user-select:none;touch-action:none;}
   .field-label:active{cursor:grabbing;}
   .field-label.inactive{opacity:.45;}
   .field-label.sel{background:var(--teal);border-color:var(--navy);}
 
   .field-handle{position:absolute;background:var(--gold);border:1px solid var(--navy);border-radius:3px;
-    z-index:3;touch-action:none;transform:translate(-50%,-50%);}
+    z-index:300;touch-action:none;transform:translate(-50%,-50%);}
   .field-handle.h{width:9px;height:22px;cursor:ew-resize;}
   .field-handle.v{width:22px;height:9px;cursor:ns-resize;}
   .field-handle.inactive{opacity:.4;}
-  .img-box{position:absolute;transform:translate(-50%,-50%);cursor:grab;z-index:2;touch-action:none;outline:1px dashed rgba(19,39,67,.5);}
+  .img-box{position:absolute;transform:translate(-50%,-50%);cursor:grab;z-index:1;touch-action:none;outline:1px dashed rgba(19,39,67,.5);}
   .img-box:active{cursor:grabbing;}
   .img-box.inactive{opacity:.35 !important;}
   .img-box.sel{outline:2px solid var(--teal);outline-offset:2px;}
@@ -112,7 +116,7 @@
   .img-box img{display:block;width:100%;height:auto;pointer-events:none;}
   .img-vacia{padding:10px 6px;text-align:center;font-size:10px;color:var(--muted);background:rgba(255,255,255,.75);}
   .img-handle{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--teal);border:2px solid #fff;
-    box-shadow:0 1px 3px rgba(0,0,0,.35);transform:translate(-50%,-50%);cursor:ew-resize;z-index:4;touch-action:none;}
+    box-shadow:0 1px 3px rgba(0,0,0,.35);transform:translate(-50%,-50%);cursor:ew-resize;z-index:400;touch-action:none;}
   .img-handle.inactive{opacity:.4;}
   .modal-fondo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:flex-start;
     justify-content:center;padding:24px 12px;overflow-y:auto;}
@@ -233,8 +237,10 @@
         </div>
       </div>
       <p class="hint" style="margin:7px 0 0;">Arrastra desde la <b>regla</b> de arriba o de la izquierda para
-        soltar una guía; arrástrala de vuelta a la regla (o haz doble clic) para quitarla. Los campos se
-        pegan a las guías al moverlos. La esquina ✕ las borra todas.</p>
+        soltar una guía. Para quitarla, púlsala y dale a <b>Supr</b>, o arrástrala de vuelta a la regla, o
+        haz doble clic. Los campos se pegan a las guías al moverlos. La esquina ✕ las borra todas.</p>
+      <p class="hint" style="margin:3px 0 0;">El orden de la lista de abajo es el orden de las <b>capas</b>:
+        el primero se dibuja por delante y el último al fondo. Súbelo o bájalo con ▲▼ para decidir qué tapa a qué.</p>
       <p class="hint" style="margin:3px 0 0;">Arrastra la etiqueta de un campo para moverlo entero y las
         marcas doradas para ajustar sus márgenes. Con el campo elegido, la tecla <b>Supr</b> (o
         <b>Retroceso</b>) lo quita de la plantilla.</p>
@@ -429,6 +435,7 @@ let matrixTemplateSelection = new Set(); // qué índices de templatesFull parti
 let issued = [];
 let dragging = null;     // { idx, role: 'left'|'right'|'top'|'bot'|'move'|'point'|'imgW' }
 let campoSel = null;     // campo resaltado en la plantilla y en la lista
+let guiaSel  = null;     // { eje, i } — guía elegida con un clic; Supr la quita
 // Correcciones manuales de un certificado concreto, por si el ajuste automático
 // deja algo mal en un caso puntual: ajustesPorCert['fila:plantilla'] = { campo:{...} }
 let ajustesPorCert = {};
@@ -743,7 +750,8 @@ function renderTemplatePreview(){
    REGLAS Y GUÍAS
    Las guías son líneas de referencia como las de Word o Google Docs:
    se sueltan arrastrando desde la regla, se mueven, y se quitan
-   devolviéndolas a la regla o con doble clic. No se imprimen nunca.
+   pulsándolas y dándole a Supr, devolviéndolas a la regla o con doble clic.
+   No se imprimen nunca.
    ============================================================ */
 const IMAN = 0.7;        // a menos de este % una arista se pega a la guía
 
@@ -780,27 +788,43 @@ function renderGuias(){
   if(!wrap) return;
   wrap.querySelectorAll('.guia').forEach(el => el.remove());
   const g = guiasDe();
+  // al cambiar de plantilla las guías son otras: una selección que ya no
+  // apunta a nada se descarta, si no Supr borraría una guía al azar
+  if(guiaSel && g[guiaSel.eje]?.[guiaSel.i] === undefined) guiaSel = null;
   g.v.forEach((pos, i) => wrap.appendChild(crearGuia('v', pos, i)));
   g.h.forEach((pos, i) => wrap.appendChild(crearGuia('h', pos, i)));
 }
 
 function crearGuia(eje, pos, i){
   const el = document.createElement('div');
-  el.className = 'guia ' + eje;
+  el.className = 'guia ' + eje + (esGuiaSel(eje, i) ? ' sel' : '');
   el.dataset.eje = eje; el.dataset.gi = i;
   if(eje === 'v') el.style.left = pos + '%'; else el.style.top = pos + '%';
-  el.title = `Guía en ${pos}% — arrástrala a la regla o haz doble clic para quitarla`;
+  el.title = `Guía en ${pos}% — pulsa y dale a Supr, arrástrala a la regla o haz doble clic para quitarla`;
   el.addEventListener('pointerdown', iniciarArrastreGuia);
-  el.addEventListener('dblclick', () => { guiasDe()[eje].splice(i, 1); renderGuias(); });
+  el.addEventListener('dblclick', () => { quitarGuia(eje, i); });
   return el;
 }
 
 let guiaArrastrada = null;   // { eje, i, nueva }
 
+function esGuiaSel(eje, i){ return !!guiaSel && guiaSel.eje === eje && guiaSel.i === i; }
+
+/** Quita una guía y deja limpia la selección, que va por índice. */
+function quitarGuia(eje, i){
+  guiasDe()[eje].splice(i, 1);
+  guiaSel = null;
+  renderGuias();
+}
+
 function iniciarArrastreGuia(e){
   e.stopPropagation();
-  guiaArrastrada = { eje: e.currentTarget.dataset.eje, i: Number(e.currentTarget.dataset.gi) };
-  e.currentTarget.classList.add('arrastrando');
+  const eje = e.currentTarget.dataset.eje, i = Number(e.currentTarget.dataset.gi);
+  guiaArrastrada = { eje, i };
+  // elegirla excluye al campo: así Supr no tiene dos candidatos a borrar
+  guiaSel = { eje, i };
+  if(campoSel !== null && campoSel !== undefined){ campoSel = null; renderChips(); renderFieldSettings(); }
+  e.currentTarget.classList.add('arrastrando', 'sel');
   e.currentTarget.setPointerCapture(e.pointerId);
   e.preventDefault();
 }
@@ -814,6 +838,8 @@ function iniciarGuiaDesdeRegla(eje, e){
   const g = guiasDe();
   g[eje].push(Math.round(Math.min(100, Math.max(0, pos)) * 10) / 10);
   guiaArrastrada = { eje, i: g[eje].length - 1, nueva: true };
+  guiaSel = { eje, i: g[eje].length - 1 };
+  if(campoSel !== null && campoSel !== undefined){ campoSel = null; renderChips(); renderFieldSettings(); }
   renderGuias();
   e.preventDefault();
 }
@@ -840,9 +866,9 @@ document.addEventListener('pointermove', e => {
 document.addEventListener('pointerup', () => {
   if(!guiaArrastrada) return;
   const { eje, i, fuera } = guiaArrastrada;
-  // soltarla fuera del lienzo (sobre la regla) equivale a quitarla
-  if(fuera) guiasDe()[eje].splice(i, 1);
   guiaArrastrada = null;
+  // soltarla fuera del lienzo (sobre la regla) equivale a quitarla
+  if(fuera){ quitarGuia(eje, i); return; }
   renderGuias();
 });
 
@@ -851,6 +877,7 @@ document.getElementById('btnLimpiarGuias').addEventListener('click', () => {
   if(!g.v.length && !g.h.length) return;
   if(!confirm(`¿Quitar las ${g.v.length + g.h.length} guías de esta plantilla?`)) return;
   g.v = []; g.h = [];
+  guiaSel = null;
   renderGuias();
 });
 
@@ -882,6 +909,13 @@ function iman(valor, eje){
   return mejor;
 }
 
+/**
+ * Altura de capa de un campo: el primero de la lista queda por delante.
+ * Es el mismo criterio con el que renderCertificateCanvas dibuja, para que
+ * lo que se ve aquí sea lo que sale impreso.
+ */
+function capaDe(i){ return Math.max(1, Math.min(99, config.fields.length - i)); }
+
 function renderChips(){
   const wrap = document.getElementById('tplPreviewWrap');
   wrap.querySelectorAll('.field-chip,.field-handle,.field-box,.field-label,.img-box,.img-handle').forEach(el => el.remove());
@@ -891,6 +925,7 @@ function renderChips(){
       chip.className = 'field-chip' + (f.activo ? '' : ' inactive') + (campoSel === i ? ' sel' : '');
       chip.textContent = (f.nombre || ('Campo ' + (i+1))) + ' (QR)';
       chip.style.left = f.xPct + '%'; chip.style.top = f.yPct + '%';
+      chip.style.zIndex = 400 + capaDe(i);
       chip.dataset.idx = i; chip.dataset.role = 'point';
       chip.addEventListener('pointerdown', onHandlePointerDown);
       wrap.appendChild(chip);
@@ -903,6 +938,7 @@ function renderChips(){
       caja.style.left = f.xPct + '%'; caja.style.top = f.yPct + '%';
       caja.style.width = (f.widthPct ?? 18) + '%';
       caja.style.opacity = opacityOf(f);
+      caja.style.zIndex = capaDe(i);
       caja.dataset.idx = i; caja.dataset.role = 'point';
       caja.innerHTML = f.dataUrl
         ? `<img src="${f.dataUrl}" alt="">`
@@ -923,6 +959,7 @@ function renderChips(){
       et.className = 'field-label' + (f.activo ? '' : ' inactive');
       et.textContent = f.nombre || ('Imagen ' + (i+1));
       et.style.left = f.xPct + '%'; et.style.top = f.yPct + '%';
+      et.style.zIndex = 400 + capaDe(i);
       wrap.appendChild(et);
       return;
     }
@@ -938,6 +975,7 @@ function renderChips(){
     caja.style.top = v.topPct + '%';
     caja.style.width = (box.rightPct - box.leftPct) + '%';
     caja.style.height = (v.botPct - v.topPct) + '%';
+    caja.style.zIndex = capaDe(i);
     const muestra = document.createElement('span');
     muestra.textContent = textoMuestra(f);
     const escalaX = anchoImg / (config.bgWidth || 1600);
@@ -955,6 +993,7 @@ function renderChips(){
     label.textContent = f.nombre || ('Campo ' + (i+1));
     label.style.left = ((box.leftPct + box.rightPct)/2) + '%';
     label.style.top = v.topPct + '%';
+    label.style.zIndex = 400 + capaDe(i);
     label.dataset.idx = i; label.dataset.role = 'move';
     label.title = 'Arrastra para mover todo el campo';
     label.addEventListener('pointerdown', onHandlePointerDown);
@@ -997,6 +1036,7 @@ function onHandlePointerDown(e){
   const wrap = document.getElementById('tplPreviewWrap').getBoundingClientRect();
   const f = config.fields[idx];
   campoSel = idx;
+  if(guiaSel){ guiaSel = null; renderGuias(); }   // elegir un campo suelta la guía
   dragging = { idx, role: rol };
   if(rol === 'move'){
     // se guarda el punto de agarre para mover la caja sin saltos
@@ -1057,15 +1097,29 @@ window.addEventListener('pointerup', () => {
 });
 
 /**
- * Borrar el campo elegido con Supr o Retroceso.
- * Sólo actúa si el foco no está en un cuadro de texto, para no borrar un
- * campo mientras se le está escribiendo el nombre.
+ * Borrar con Supr o Retroceso lo que esté elegido: una guía si se acaba de
+ * pulsar una, y si no el campo resaltado. Sólo actúa si el foco no está en un
+ * cuadro de texto, para no borrar nada mientras se escribe un nombre.
  */
 document.addEventListener('keydown', e => {
-  if(e.key !== 'Delete' && e.key !== 'Backspace') return;
-  if(campoSel === null || campoSel === undefined) return;
+  if(e.key !== 'Delete' && e.key !== 'Backspace' && e.key !== 'Escape') return;
   const a = document.activeElement;
   if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+
+  if(e.key === 'Escape'){                       // soltar la selección sin borrar
+    if(guiaSel){ guiaSel = null; renderGuias(); e.preventDefault(); }
+    else if(campoSel !== null && campoSel !== undefined){ campoSel = null; renderChips(); renderFieldSettings(); e.preventDefault(); }
+    return;
+  }
+
+  // una guía se quita sin preguntar: vuelve a ponerse arrastrando desde la regla
+  if(guiaSel){
+    const { eje, i } = guiaSel;
+    if(guiasDe()[eje][i] !== undefined){ e.preventDefault(); quitarGuia(eje, i); return; }
+    guiaSel = null;
+  }
+
+  if(campoSel === null || campoSel === undefined) return;
   const f = config.fields[campoSel];
   if(!f) return;
   e.preventDefault();
@@ -1090,8 +1144,8 @@ function renderFieldSettings(){
     // ---- cabecera: siempre visible y corta ----
     const cabecera = `<div class="campo-cab" data-abrir="${i}">
       <span class="campo-orden">
-        <button class="mini" data-subir="${i}" title="Subir en la lista" ${i===0?'disabled':''}>&#9650;</button>
-        <button class="mini" data-bajar="${i}" title="Bajar en la lista" ${i===config.fields.length-1?'disabled':''}>&#9660;</button>
+        <button class="mini" data-subir="${i}" title="Subir: queda por delante de los de abajo" ${i===0?'disabled':''}>&#9650;</button>
+        <button class="mini" data-bajar="${i}" title="Bajar: queda por detrás de los de arriba" ${i===config.fields.length-1?'disabled':''}>&#9660;</button>
       </span>
       <label onclick="event.stopPropagation()" title="Se imprime en el certificado">
         <input type="checkbox" data-i="${i}" data-p="activo" ${f.activo?'checked':''}></label>
@@ -1205,11 +1259,13 @@ function renderFieldSettings(){
   wrap.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
     const i = Number(b.dataset.toggle);
     campoSel = (campoSel === i) ? null : i;
+    if(guiaSel){ guiaSel = null; renderGuias(); }
     renderChips(); renderFieldSettings();
   }));
   wrap.querySelectorAll('[data-abrir]').forEach(el => el.addEventListener('click', () => {
     const i = Number(el.dataset.abrir);
     campoSel = (campoSel === i) ? null : i;
+    if(guiaSel){ guiaSel = null; renderGuias(); }
     renderChips(); renderFieldSettings();
   }));
   // reordenar: el orden de esta lista es el orden de las columnas del Excel
@@ -1680,7 +1736,11 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
   const ctx = canvas.getContext('2d');
   ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
 
-  for(const f of cfg.fields){
+  // Se dibuja de abajo arriba: el último de la lista queda al fondo y el
+  // primero encima. Así el orden de la lista es el orden de las capas y no
+  // importa cuál se creó antes.
+  for(let iCapa = cfg.fields.length - 1; iCapa >= 0; iCapa--){
+    const f = cfg.fields[iCapa];
     if(!f.activo) continue;
     const aj = (ajustes && ajustes[f.nombre]) || {};
     const dx = (Number(aj.dxPct) || 0), dy = (Number(aj.dyPct) || 0);
