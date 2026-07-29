@@ -43,6 +43,7 @@
   .msg{padding:10px 12px;border-radius:8px;font-size:13px;margin-top:10px;}
   .msg.ok{background:#e7f7f0;color:#065f46;}
   .msg.err{background:#fdecec;color:#7a1212;}
+  .msg.warn{background:#fef3c7;color:#92400e;}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
   /* ---- reglas y guías, al estilo de un procesador de textos ---- */
   .lienzo-con-reglas{display:grid;grid-template-columns:20px auto;grid-template-rows:20px auto;
@@ -161,6 +162,8 @@
   .badge.vigente{background:#16a34a;}
   .badge.revocado{background:#dc2626;}
   .badge.reemplazado{background:#6b7280;}
+  .badge.borrador{background:var(--gold);color:#132743;}
+  .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#eef2f6;color:var(--muted);margin-top:2px;}
   progress{width:100%;height:14px;}
   .hint{font-size:12px;color:var(--muted);}
   .matrix-wrap{overflow-x:auto;}
@@ -208,10 +211,15 @@
       <div class="row">
         <select id="selPlantilla" style="min-width:220px;"></select>
         <input type="text" id="nombrePlantilla" placeholder="Nombre de esta plantilla" style="min-width:200px;">
+        <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta (ej. Diplomado de Marketing)" style="min-width:220px;">
+        <datalist id="listaCarpetas"></datalist>
         <button class="btn outline" id="btnNuevaPlantilla">+ Nueva plantilla</button>
         <button class="btn outline" id="btnDuplicarPlantilla">Duplicar</button>
         <button class="btn danger" id="btnEliminarPlantilla">Eliminar</button>
       </div>
+      <p class="hint" style="margin:-4px 0 10px;">La carpeta agrupa varias plantillas que van juntas (por
+        ejemplo, los 8 certificados de un mismo diplomado). Déjala vacía si esta plantilla no pertenece a
+        ninguna. Escribe el mismo nombre de carpeta en varias plantillas para que queden agrupadas.</p>
 
       <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
         <label class="hint" style="min-width:150px;">Copiar todos los campos de:</label>
@@ -315,12 +323,16 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
 
     <div class="panel">
       <div class="panel-head">
-        <h2>4. Generar y guardar</h2>
+        <h2>4. Generar y registrar</h2>
         <button class="btn outline small" data-collapse-toggle="secGenerarBody">Minimizar</button>
       </div>
       <div class="panel-body" id="secGenerarBody">
+      <p class="hint" style="margin-top:0;">"Generar vista previa" arma los PDF y los muestra abajo, pero
+        <b>no guarda nada todavía</b> — puedes revisarlos con calma. Cuando estén bien, pulsa
+        <b>"Registrar certificados"</b> en ese mismo lote para que queden oficiales y sus códigos QR empiecen
+        a verificar. Si algo está mal, simplemente descarta la vista previa y vuelve a generar.</p>
       <div class="row">
-        <button class="btn gold" id="btnGenerar" disabled>Generar certificados</button>
+        <button class="btn gold" id="btnGenerar" disabled>Generar vista previa</button>
       </div>
       <progress id="progressBar" value="0" max="1" style="display:none;"></progress>
       <div id="genMsg"></div>
@@ -502,6 +514,9 @@ function normalizarConfig(cfg){
   // (p.ej. la Fecha) distinta para todas las personas de ESTA plantilla en
   // concreto, sin tocar el Excel ni las demás plantillas que la copiaron.
   if(!cfg.overrides || typeof cfg.overrides !== 'object') cfg.overrides = {};
+  // carpeta: agrupa varias plantillas que van juntas (p.ej. los certificados
+  // de un mismo diplomado). Es sólo una etiqueta de texto, no una tabla aparte.
+  if(typeof cfg.carpeta !== 'string') cfg.carpeta = '';
   const altoFondo = cfg.bgHeight || 1131;
   for(const f of cfg.fields){
     if(f.opacity === undefined) f.opacity = 1;
@@ -603,11 +618,48 @@ async function loadTemplates(){
   renderMatrixTplSelector();
 }
 
+/**
+ * Agrupa una lista de plantillas por carpeta. Las que no tienen carpeta van
+ * primero, sueltas (así nadie que no use esta función nota ningún cambio);
+ * las carpetas van después, en orden alfabético.
+ * `excluirIdx` se usa en el selector de "copiar estilos", que no debe
+ * ofrecerse a sí mismo como origen.
+ */
+function agruparPorCarpeta(lista, excluirIdx){
+  const porCarpeta = new Map();
+  const sinCarpeta = [];
+  lista.forEach((t, i) => {
+    if(i === excluirIdx) return;
+    const c = (t.config.carpeta || '').trim();
+    if(!c){ sinCarpeta.push({ t, i }); return; }
+    if(!porCarpeta.has(c)) porCarpeta.set(c, []);
+    porCarpeta.get(c).push({ t, i });
+  });
+  const grupos = [];
+  if(sinCarpeta.length) grupos.push({ carpeta: '', items: sinCarpeta });
+  [...porCarpeta.keys()].sort((a, b) => a.localeCompare(b, 'es')).forEach(c => grupos.push({ carpeta: c, items: porCarpeta.get(c) }));
+  return grupos;
+}
+
+/** Nombres de carpeta ya usados en alguna plantilla, para el autocompletar. */
+function carpetasExistentes(){
+  const set = new Set();
+  for(const t of templatesFull){ const c = (t.config.carpeta || '').trim(); if(c) set.add(c); }
+  return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
 function renderTemplateSelector(){
   const sel = document.getElementById('selPlantilla');
-  sel.innerHTML = templatesFull.map((t, i) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
+  const grupos = agruparPorCarpeta(templatesFull);
+  sel.innerHTML = grupos.map(g => {
+    const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
+    return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+  }).join('');
   sel.value = currentIdx;
   document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
+  document.getElementById('carpetaPlantilla').value = templatesFull[currentIdx].config.carpeta || '';
+  document.getElementById('listaCarpetas').innerHTML =
+    carpetasExistentes().map(c => `<option value="${escapeHtml(c)}">`).join('');
   renderCopiarEstiloSelector();
 }
 
@@ -615,6 +667,7 @@ document.getElementById('selPlantilla').addEventListener('change', e => {
   currentIdx = Number(e.target.value);
   config = templatesFull[currentIdx].config;
   document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
+  document.getElementById('carpetaPlantilla').value = config.carpeta || '';
   renderCopiarEstiloSelector();
   renderTemplatePreview();
 });
@@ -623,8 +676,21 @@ document.getElementById('nombrePlantilla').addEventListener('input', e => {
   templatesFull[currentIdx].nombre = e.target.value;
 });
 
+document.getElementById('carpetaPlantilla').addEventListener('input', e => {
+  templatesFull[currentIdx].config.carpeta = e.target.value;
+});
+document.getElementById('carpetaPlantilla').addEventListener('change', () => {
+  templatesFull[currentIdx].config.carpeta = templatesFull[currentIdx].config.carpeta.trim();
+  renderTemplateSelector();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
+
 document.getElementById('btnNuevaPlantilla').addEventListener('click', () => {
   const cfg = normalizarConfig(defaultConfig());
+  // hereda la carpeta de la plantilla que estaba abierta: lo normal es que
+  // "+ Nueva plantilla" se use para sumar otro certificado al mismo diplomado
+  cfg.carpeta = templatesFull[currentIdx]?.config?.carpeta || '';
   templatesFull.push({ id: null, nombre: 'Nueva plantilla', config: cfg });
   currentIdx = templatesFull.length - 1;
   config = cfg;
@@ -705,12 +771,16 @@ document.getElementById('btnGuardarPlantilla').addEventListener('click', async (
 function renderCopiarEstiloSelector(){
   const sel = document.getElementById('selCopiarEstilo');
   if(!sel) return;
-  const otras = templatesFull.map((t, i) => ({ t, i })).filter(x => x.i !== currentIdx);
-  sel.innerHTML = otras.length
-    ? otras.map(x => `<option value="${x.i}">${escapeHtml(x.t.nombre)}</option>`).join('')
+  const grupos = agruparPorCarpeta(templatesFull, currentIdx);
+  const hayOtras = grupos.some(g => g.items.length);
+  sel.innerHTML = hayOtras
+    ? grupos.map(g => {
+        const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
+        return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+      }).join('')
     : '<option value="">— no hay otra plantilla —</option>';
-  sel.disabled = !otras.length;
-  document.getElementById('btnCopiarEstilo').disabled = !otras.length;
+  sel.disabled = !hayOtras;
+  document.getElementById('btnCopiarEstilo').disabled = !hayOtras;
 }
 
 document.getElementById('btnCopiarEstilo').addEventListener('click', () => {
@@ -1628,12 +1698,24 @@ function studentDisplayName(row, idx){
 function renderMatrixTplSelector(){
   const wrap = document.getElementById('matrixTplSelector');
   if(!templatesFull.length){ wrap.innerHTML = ''; return; }
+  const grupos = agruparPorCarpeta(templatesFull);
   wrap.innerHTML = `
     <p class="hint" style="margin-bottom:4px;">¿Qué plantillas quieres usar en esta generación?</p>
-    <div class="row" style="margin-bottom:12px;">
-      ${templatesFull.map((t, ti) => `<label class="hint" style="display:flex;align-items:center;gap:5px;">
-        <input type="checkbox" data-matrix-tpl="${ti}" ${matrixTemplateSelection.has(ti) ? 'checked' : ''}> ${escapeHtml(t.nombre)}
-      </label>`).join('')}
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      ${grupos.map(g => `
+        <div style="${g.carpeta ? 'border:1px solid var(--border);border-radius:8px;padding:7px 10px;' : ''}">
+          ${g.carpeta ? `<div class="hint" style="font-weight:600;margin-bottom:4px;">
+            📁 ${escapeHtml(g.carpeta)}
+            <label style="font-weight:400;margin-left:8px;"><input type="checkbox" data-matrix-carpeta="${escapeHtml(g.carpeta)}"
+              ${g.items.every(({i}) => matrixTemplateSelection.has(i)) ? 'checked' : ''}> todas</label>
+          </div>` : ''}
+          <div class="row" style="margin-bottom:0;">
+            ${g.items.map(({ t, i }) => `<label class="hint" style="display:flex;align-items:center;gap:5px;">
+              <input type="checkbox" data-matrix-tpl="${i}" ${matrixTemplateSelection.has(i) ? 'checked' : ''}> ${escapeHtml(t.nombre)}
+            </label>`).join('')}
+          </div>
+        </div>
+      `).join('')}
     </div>`;
   wrap.querySelectorAll('[data-matrix-tpl]').forEach(cb => cb.addEventListener('change', () => {
     const ti = Number(cb.dataset.matrixTpl);
@@ -1645,6 +1727,19 @@ function renderMatrixTplSelector(){
       // asignaciones puntuales que tuviera para no generarla "a escondidas".
       for(const set of assignment) set.delete(ti);
     }
+    // se vuelve a pintar también ESTE selector: si no, la casilla "todas" de
+    // su carpeta se queda con el estado de antes de tocar una individual
+    renderMatrixTplSelector();
+    renderMatrix();
+  }));
+  wrap.querySelectorAll('[data-matrix-carpeta]').forEach(cb => cb.addEventListener('change', () => {
+    const carpeta = cb.dataset.matrixCarpeta;
+    templatesFull.forEach((t, i) => {
+      if((t.config.carpeta || '').trim() !== carpeta) return;
+      if(cb.checked) matrixTemplateSelection.add(i);
+      else { matrixTemplateSelection.delete(i); for(const set of assignment) set.delete(i); }
+    });
+    renderMatrixTplSelector();
     renderMatrix();
   }));
 }
@@ -1663,10 +1758,12 @@ function renderMatrix(){
   wrap.innerHTML = `<div class="matrix-wrap"><table>
     <thead>
       <tr><th>Estudiante</th>${activeTis.map(ti => {
+        const carpeta = (templatesFull[ti].config.carpeta || '').trim();
         const fijos = templatesFull[ti].config.overrides || {};
         const nFijos = Object.keys(fijos).length;
         const tituloFijos = nFijos ? `Valores fijos de esta plantilla: ${Object.entries(fijos).map(([k,v])=>`${k}=${v}`).join(', ')}` : '';
-        return `<th>${escapeHtml(templatesFull[ti].nombre)}
+        return `<th>${carpeta ? `<div class="carpeta-chip">📁 ${escapeHtml(carpeta)}</div>` : ''}
+          ${escapeHtml(templatesFull[ti].nombre)}
           ${nFijos ? `<br><span title="${escapeHtml(tituloFijos)}"
               style="display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:var(--teal);color:#fff;margin-top:2px;">✎ ${nFijos} fijo${nFijos>1?'s':''}</span>` : ''}
           <br><label class="hint" style="justify-content:center;"><input type="checkbox" data-bulk="${ti}" ${rows.length && rows.every((_, ri) => assignment[ri] && assignment[ri].has(ti)) ? 'checked' : ''}> todos</label></th>`;
@@ -1889,16 +1986,37 @@ function renderGenerationHistory(){
     wrap.innerHTML = '<p class="hint">Todavía no has generado ningún lote de certificados.</p>';
     return;
   }
-  wrap.innerHTML = generationHistory.map((g, gi) => `
+  wrap.innerHTML = generationHistory.map((g, gi) => {
+    const pendientes = g.results.filter(r => r.ok && !r.registrado).length;
+    const todosRegistrados = g.okCount > 0 && pendientes === 0;
+    return `
     <div class="gen-entry">
       <div class="gen-entry-head" data-gen-toggle="${gi}">
         <div><b>Generación del ${g.timestamp.toLocaleDateString('es-ES')} · ${g.timestamp.toLocaleTimeString('es-ES')}</b>
-          <span class="hint"> — ${g.okCount} de ${g.totalCount} certificados</span></div>
+          <span class="hint"> — ${g.okCount} de ${g.totalCount} certificados</span>
+          ${g.okCount > 0 ? (todosRegistrados
+            ? ' <span class="badge vigente">Registrado</span>'
+            : ' <span class="badge borrador">Vista previa — sin registrar</span>') : ''}
+        </div>
         <span class="hint">${g.expanded ? '▲ ocultar' : '▼ ver'}</span>
       </div>
       ${g.expanded ? `
         <div class="gen-entry-body">
-          <div class="row">
+          ${g.okCount > 0 ? `
+            <div class="msg ${todosRegistrados ? 'ok' : 'warn'}">
+              ${todosRegistrados
+                ? `✓ Estos ${g.okCount} certificados ya están registrados: sus códigos QR verifican y aparecen en «Certificados emitidos».`
+                : `Esto es sólo una <b>vista previa</b> — nada se ha guardado todavía. Revisa los PDF y, cuando
+                   estén bien, pulsa "Registrar certificados" para que queden oficiales. Si algo está mal,
+                   descarta esta vista previa y vuelve a generar.`}
+            </div>
+            <div class="row" style="margin-top:8px;">
+              ${!todosRegistrados ? `<button class="btn gold" data-gen-registrar="${gi}" ${g.registrando ? 'disabled' : ''}>
+                ${g.registrando ? 'Registrando…' : `Registrar ${pendientes} certificado(s)`}</button>` : ''}
+              ${!todosRegistrados && pendientes === g.okCount ? `<button class="btn outline" data-gen-descartar="${gi}">Descartar vista previa</button>` : ''}
+            </div>
+          ` : ''}
+          <div class="row" style="margin-top:8px;">
             ${g.zipUrl ? `<button class="btn outline small" data-gen-zip="${gi}">Descargar ZIP (por estudiante)</button>` : ''}
           </div>
           ${(g.combinedPdfs && g.combinedPdfs.length) ? `
@@ -1914,13 +2032,15 @@ function renderGenerationHistory(){
           <tbody>${g.results.map(r => `<tr>
             <td>${escapeHtml(r.studentName)}</td>
             <td>${escapeHtml(r.templateNombre)}</td>
-            <td>${r.ok ? '<span class="badge vigente">Emitido</span>' : '<span class="badge revocado">Error</span>'}</td>
+            <td>${!r.ok ? '<span class="badge revocado">Error</span>'
+              : r.registrado ? '<span class="badge vigente">Emitido</span>' : '<span class="badge borrador">Vista previa</span>'}</td>
             <td>${r.ok ? `<a href="${r.pdfUrl}" download="${escapeHtml(r.path.split('/').pop())}">Descargar PDF</a> · <a href="${r.verifyUrl}" target="_blank">Verificación</a>` : escapeHtml(r.error)}</td>
           </tr>`).join('')}</tbody></table>
         </div>
       ` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
   wrap.querySelectorAll('[data-gen-toggle]').forEach(el => el.addEventListener('click', () => {
     const gi = Number(el.dataset.genToggle);
     generationHistory[gi].expanded = !generationHistory[gi].expanded;
@@ -1936,6 +2056,37 @@ function renderGenerationHistory(){
     const c = generationHistory[gi].combinedPdfs[ci];
     const a = document.createElement('a');
     a.href = c.url; a.download = c.filename; a.click();
+  }));
+  wrap.querySelectorAll('[data-gen-descartar]').forEach(btn => btn.addEventListener('click', () => {
+    const gi = Number(btn.dataset.genDescartar);
+    if(!confirm('¿Descartar esta vista previa? Como nada se había registrado, no queda ningún rastro guardado.')) return;
+    generationHistory.splice(gi, 1);
+    renderGenerationHistory();
+  }));
+  wrap.querySelectorAll('[data-gen-registrar]').forEach(btn => btn.addEventListener('click', async () => {
+    const gi = Number(btn.dataset.genRegistrar);
+    const g = generationHistory[gi];
+    const pendientes = g.results.filter(r => r.ok && !r.registrado);
+    if(!pendientes.length) return;
+    if(!confirm(`¿Registrar ${pendientes.length} certificado(s)? Quedarán oficiales: sus códigos QR empezarán a verificar y aparecerán en «Certificados emitidos». Un certificado registrado se quita después revocándolo, uno por uno, no descartando la vista previa.`)) return;
+    g.registrando = true;
+    renderGenerationHistory();
+    let fallos = 0;
+    for(const r of pendientes){
+      try{
+        const { error } = await supabase.rpc('issue_certificate',
+          { p_datos: r.row, p_entidad: g.entidad, p_lote: g.loteId, p_id: r.id, p_plantilla: r.templateNombre });
+        if(error) throw error;
+        r.registrado = true;
+      }catch(e){
+        r.registroError = e.message;
+        fallos++;
+      }
+    }
+    g.registrando = false;
+    renderGenerationHistory();
+    await loadIssued();
+    if(fallos) alert(`${fallos} certificado(s) no se pudieron registrar. Vuelve a pulsar "Registrar" para reintentar sólo esos.`);
   }));
 }
 
@@ -1967,8 +2118,9 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
       const id = crypto.randomUUID();
       const verifyUrl = new URL('verificar.html', location.href).href + '?c=' + id;
       try{
-        const { error } = await supabase.rpc('issue_certificate', { p_datos: row, p_entidad: entidad, p_lote: loteId, p_id: id, p_plantilla: tpl.nombre });
-        if(error) throw error;
+        // Ojo: aquí SÓLO se dibuja y se arma el PDF; nada se guarda en la base
+        // todavía. El QR ya lleva el id definitivo, así que el PDF generado
+        // ahora sigue siendo válido cuando más tarde se pulse "Registrar".
         const canvas = await renderCertificateCanvas(row, verifyUrl, tpl.config, ajustesPorCert[`${ri}:${ti}`]);
         const thumbDataUrl = canvas.toDataURL('image/jpeg', 0.7);
         const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
@@ -1981,7 +2133,8 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
         const filename = `${sanitizeName(tpl.nombre)}_certificado.pdf`;
         studentFolder.file(filename, pdfBlob);
         const pdfUrl = URL.createObjectURL(pdfBlob);
-        results.push({ studentName, templateNombre: tpl.nombre, id, verifyUrl, pdfUrl, thumbDataUrl, path: `${sanitizeName(studentName)}/${filename}`, ok: true });
+        results.push({ studentName, templateNombre: tpl.nombre, id, verifyUrl, pdfUrl, thumbDataUrl,
+          path: `${sanitizeName(studentName)}/${filename}`, ok: true, row, registrado: false });
 
         // Además del PDF individual por estudiante, se arma un PDF combinado por
         // plantilla (una página por estudiante) para poder imprimir de una sola
@@ -2020,11 +2173,11 @@ document.getElementById('btnGenerar').addEventListener('click', async () => {
     zipUrl = URL.createObjectURL(zipBlob);
   }
 
-  generationHistory.unshift({ timestamp: new Date(), results, zipUrl, combinedPdfs, okCount, totalCount: totalPairs, expanded: true });
+  generationHistory.unshift({ timestamp: new Date(), results, zipUrl, combinedPdfs, okCount, totalCount: totalPairs,
+    expanded: true, entidad, loteId, registrando: false });
   renderGenerationHistory();
 
   document.getElementById('btnGenerar').disabled = false;
-  await loadIssued();
 });
 
 // ---------- Certificados emitidos ----------
