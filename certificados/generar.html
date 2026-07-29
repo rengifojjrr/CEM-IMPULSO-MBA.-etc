@@ -174,16 +174,21 @@
     line-height:1.45;padding:10px 12px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);}
 
   /* ---- tablero visual de carpetas: arrastrar y soltar para organizar ---- */
-  .carpetas-board{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;}
-  .carpeta-card{border:1px solid var(--border);border-radius:10px;background:#fbfcfd;min-width:190px;
-    flex:1 1 190px;max-width:280px;}
+  .carpetas-board{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;align-items:flex-start;}
+  .carpeta-card{border:1px solid var(--border);border-radius:10px;background:#fbfcfd;min-width:230px;
+    flex:1 1 230px;max-width:460px;}
   .carpeta-card.sin-carpeta{background:#f8fafb;border-style:dashed;}
   .carpeta-card-head{font-size:12.5px;font-weight:600;padding:7px 10px;border-bottom:1px solid var(--border);
-    display:flex;align-items:center;justify-content:space-between;gap:6px;}
-  .carpeta-card-body{padding:8px;display:flex;flex-direction:column;gap:5px;min-height:38px;}
+    display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;user-select:none;}
+  .carpeta-card-head:hover{background:#f3f5f7;}
+  .carpeta-flecha{display:inline-block;width:10px;color:var(--muted);}
+  .carpeta-card-body{padding:8px;display:flex;flex-wrap:wrap;gap:8px;min-height:38px;align-content:flex-start;}
   .carpeta-card-body.drag-over{background:#e7f7f0;outline:2px dashed var(--teal);outline-offset:-2px;}
-  .plantilla-chip{border:1px solid var(--border);background:#fff;border-radius:7px;padding:5px 8px;
-    font-size:12px;cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .plantilla-chip{display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);background:#fff;
+    border-radius:7px;padding:5px;font-size:11px;cursor:grab;width:104px;}
+  .plantilla-chip-img{width:100%;height:60px;object-fit:cover;border-radius:4px;background:#eef2f6;
+    border:1px solid var(--border);display:block;}
+  .plantilla-chip-nombre{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
   .plantilla-chip:hover{border-color:var(--teal);}
   .plantilla-chip.sel{border-color:var(--teal);background:rgba(27,127,118,.08);font-weight:600;}
   .plantilla-chip:active{cursor:grabbing;}
@@ -252,8 +257,16 @@
           <button class="mini" type="button" id="btnSubirCarpeta">&#9650;</button>
           <button class="mini" type="button" id="btnBajarCarpeta">&#9660;</button>
         </span>
-        <input type="text" id="nuevaCarpetaNombre" placeholder="Carpeta nueva" style="max-width:170px;">
-        <button class="btn outline small" id="btnNuevaCarpeta">+ Carpeta</button>
+        <input type="text" id="nuevaCarpetaNombre" list="listaCarpetas" placeholder="Carpeta nueva o existente" style="max-width:190px;">
+        <button class="btn outline small" id="btnNuevaCarpeta">+ Crear vacía</button>
+      </div>
+      <div class="row" style="align-items:center;margin:0 0 6px;">
+        <span class="hint">Con el nombre de arriba puesto, subir diseños los crea directo como plantillas ahí dentro (el nombre de cada archivo es el nombre de la plantilla):</span>
+        <button class="btn outline small" id="btnSubirDisenos">📤 Subir diseños</button>
+        <input type="file" id="inputSubirDisenos" accept="image/png,image/jpeg,application/pdf" multiple hidden>
+        <button class="btn outline small" id="btnSubirCarpetaCompleta">📁 Subir carpeta de la computadora</button>
+        <input type="file" id="inputSubirCarpetaCompleta" webkitdirectory directory multiple hidden>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="«Subir diseños» crea una plantilla por cada PNG, JPG o PDF que elijas, todas dentro de la carpeta que hayas escrito arriba (si no existe, se crea). «Subir carpeta de la computadora» hace lo mismo pero de una vez con todos los archivos de una carpeta de tu equipo, usando el nombre de esa carpeta como carpeta aquí. Cada plantilla nueva sale con los campos por defecto; usa después «Copiar a TODA una carpeta» para aplicarles a todas el diseño de campos que quieras.">?</button>
       </div>
       <div class="carpetas-board" id="carpetasBoard"></div>
 
@@ -769,8 +782,10 @@ function moverEnCarpeta(idx, dir){
 // existen en esta pestaña (una carpeta es sólo una etiqueta de texto, no una
 // fila en la base de datos), para poder arrastrarles la primera plantilla.
 let carpetasVacias = new Set();
+// Carpetas plegadas: por defecto todas abiertas; se recuerda cuáles se cerraron.
+let carpetasColapsadas = new Set();
 
-/** Tablero visual de carpetas: cada una es una tarjeta donde se arrastran las plantillas. */
+/** Tablero visual de carpetas: cada una es una tarjeta plegable con miniaturas de los certificados. */
 function renderCarpetasBoard(){
   const wrap = document.getElementById('carpetasBoard');
   if(!wrap) return;
@@ -780,17 +795,31 @@ function renderCarpetasBoard(){
   }
   grupos.sort((a, b) => a.carpeta === '' ? -1 : b.carpeta === '' ? 1 : a.carpeta.localeCompare(b.carpeta, 'es'));
 
-  wrap.innerHTML = grupos.map(g => `
+  wrap.innerHTML = grupos.map(g => {
+    const colapsada = carpetasColapsadas.has(g.carpeta);
+    return `
     <div class="carpeta-card ${g.carpeta ? '' : 'sin-carpeta'}">
-      <div class="carpeta-card-head">${g.carpeta ? `📁 ${escapeHtml(g.carpeta)}` : 'Sin carpeta'}
-        <span class="hint">${g.items.length}</span></div>
-      <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(g.carpeta)}">
+      <div class="carpeta-card-head" data-carpeta-toggle="${escapeHtml(g.carpeta)}">
+        <span>${g.carpeta ? `📁 ${escapeHtml(g.carpeta)}` : 'Sin carpeta'}</span>
+        <span class="hint">${g.items.length} <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span></span>
+      </div>
+      <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(g.carpeta)}" style="${colapsada ? 'display:none;' : ''}">
         ${g.items.map(({ t, i }) => `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''}" draggable="true"
-            data-plantilla-chip="${i}">${escapeHtml(t.nombre)}</div>`).join('')}
+            data-plantilla-chip="${i}" title="${escapeHtml(t.nombre)}">
+            <img class="plantilla-chip-img" src="${t.config.background || ''}" alt="">
+            <span class="plantilla-chip-nombre">${escapeHtml(t.nombre)}</span>
+          </div>`).join('')}
         ${!g.items.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-carpeta-toggle]').forEach(head => head.addEventListener('click', () => {
+    const c = head.dataset.carpetaToggle;
+    if(carpetasColapsadas.has(c)) carpetasColapsadas.delete(c); else carpetasColapsadas.add(c);
+    renderCarpetasBoard();
+  }));
 
   wrap.querySelectorAll('[data-plantilla-chip]').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -1743,44 +1772,137 @@ document.getElementById('btnAgregarCampo').addEventListener('click', () => {
   renderFieldSettings();
 });
 
+/**
+ * Lee un PNG, JPG o PDF y lo deja listo para usar como fondo de una
+ * plantilla: si es PDF, convierte su primera página a imagen con pdf.js.
+ * La usan tanto la carga de un solo archivo (más abajo) como la carga
+ * masiva de varios diseños o de una carpeta completa de la computadora.
+ */
+async function cargarArchivoComoFondo(file){
+  if(file.type === 'application/pdf'){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const scale = 1600 / page.getViewport({ scale: 1 }).width;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    return { background: canvas.toDataURL('image/png'), bgWidth: canvas.width, bgHeight: canvas.height };
+  }
+  const dataUrl = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = () => rej(reader.error || new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error('El archivo no es una imagen válida'));
+    im.src = dataUrl;
+  });
+  return { background: dataUrl, bgWidth: img.naturalWidth, bgHeight: img.naturalHeight };
+}
+
 document.getElementById('inputBg').addEventListener('change', async e => {
   const file = e.target.files[0];
   if(!file) return;
   const bgMsg = document.getElementById('bgMsg');
-  if(file.type === 'application/pdf'){
-    bgMsg.innerHTML = '<span class="hint">Convirtiendo PDF…</span>';
-    try{
-      const buf = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-      const page = await pdf.getPage(1);
-      const scale = 1600 / page.getViewport({ scale: 1 }).width;
-      const viewport = page.getViewport({ scale });
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width; canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-      config.background = canvas.toDataURL('image/png');
-      config.bgWidth = canvas.width;
-      config.bgHeight = canvas.height;
-      renderTemplatePreview();
-      bgMsg.innerHTML = '<span class="hint">PDF convertido ✓ (se usó la primera página)</span>';
-    }catch(err){
-      bgMsg.innerHTML = `<div class="msg err">No se pudo leer el PDF: ${escapeHtml(err.message)}</div>`;
-    }
-    return;
+  const esPdf = file.type === 'application/pdf';
+  if(esPdf) bgMsg.innerHTML = '<span class="hint">Convirtiendo PDF…</span>';
+  try{
+    const { background, bgWidth, bgHeight } = await cargarArchivoComoFondo(file);
+    config.background = background;
+    config.bgWidth = bgWidth;
+    config.bgHeight = bgHeight;
+    renderTemplatePreview();
+    bgMsg.innerHTML = esPdf ? '<span class="hint">PDF convertido ✓ (se usó la primera página)</span>' : '';
+  }catch(err){
+    bgMsg.innerHTML = `<div class="msg err">No se pudo leer el archivo: ${escapeHtml(err.message)}</div>`;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const img = new Image();
-    img.onload = () => {
-      config.background = reader.result;
-      config.bgWidth = img.naturalWidth;
-      config.bgHeight = img.naturalHeight;
-      renderTemplatePreview();
-      bgMsg.innerHTML = '';
-    };
-    img.src = reader.result;
-  };
-  reader.readAsDataURL(file);
+});
+
+/**
+ * Crea una plantilla nueva por cada archivo válido (PNG/JPG/PDF), todas en
+ * la misma carpeta, con el nombre del archivo (sin extensión) como nombre
+ * de la plantilla. Salen con los campos por defecto — para eso está
+ * "Copiar a TODA una carpeta", que las deja a todas con el mismo diseño
+ * de campos de una sola vez.
+ */
+async function crearPlantillasDesdeArchivos(archivos, carpeta){
+  const nombreCarpeta = (carpeta || '').trim();
+  const validos = archivos
+    .filter(f => /^image\/(png|jpeg)$|^application\/pdf$/.test(f.type))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }));
+  const indices = [];
+  let fallos = 0;
+  for(const file of validos){
+    try{
+      const { background, bgWidth, bgHeight } = await cargarArchivoComoFondo(file);
+      const cfg = normalizarConfig(defaultConfig());
+      cfg.background = background;
+      cfg.bgWidth = bgWidth;
+      cfg.bgHeight = bgHeight;
+      cfg.carpeta = nombreCarpeta;
+      cfg.orden = siguienteOrdenEnCarpeta(nombreCarpeta);
+      const nombre = file.name.replace(/\.[^./]+$/, '') || file.name;
+      templatesFull.push({ id: null, nombre, config: cfg });
+      indices.push(templatesFull.length - 1);
+    }catch(e){ fallos++; }
+  }
+  return { indices, fallos, ignorados: archivos.length - validos.length };
+}
+
+function despuesDeSubirPlantillas(indices, carpeta){
+  for(const i of indices) matrixTemplateSelection.add(i);
+  if(indices.length){ currentIdx = indices[indices.length - 1]; config = templatesFull[currentIdx].config; }
+  carpetasVacias.delete((carpeta || '').trim());
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+  renderMatrix();
+}
+
+document.getElementById('btnSubirDisenos').addEventListener('click', () => {
+  const carpeta = document.getElementById('nuevaCarpetaNombre').value.trim();
+  if(!carpeta){ alert('Escribe primero, en el campo de arriba, el nombre de la carpeta donde quieres subir los diseños.'); return; }
+  document.getElementById('inputSubirDisenos').click();
+});
+document.getElementById('inputSubirDisenos').addEventListener('change', async e => {
+  const carpeta = document.getElementById('nuevaCarpetaNombre').value.trim();
+  const archivos = [...e.target.files];
+  e.target.value = '';
+  if(!archivos.length || !carpeta) return;
+  const el = document.getElementById('tplMsg');
+  el.textContent = `Subiendo ${archivos.length} archivo(s)…`;
+  const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpeta);
+  despuesDeSubirPlantillas(indices, carpeta);
+  el.textContent = `${indices.length} plantilla(s) creada(s) en «${carpeta}» ✓.` +
+    (fallos ? ` ${fallos} archivo(s) con error.` : '') +
+    (ignorados ? ` ${ignorados} archivo(s) se ignoraron por no ser PNG, JPG ni PDF.` : '') +
+    ` Ahora puedes usar "Copiar a TODA una carpeta" para ponerles a todas el mismo diseño de campos.`;
+});
+
+document.getElementById('btnSubirCarpetaCompleta').addEventListener('click', () => {
+  document.getElementById('inputSubirCarpetaCompleta').click();
+});
+document.getElementById('inputSubirCarpetaCompleta').addEventListener('change', async e => {
+  const archivos = [...e.target.files];
+  e.target.value = '';
+  if(!archivos.length) return;
+  // el nombre de la carpeta que se eligió en el explorador de archivos del
+  // sistema es la primera parte de la ruta relativa de cualquiera de sus archivos
+  const carpeta = (archivos[0].webkitRelativePath || '').split('/')[0] || 'Carpeta subida';
+  const el = document.getElementById('tplMsg');
+  el.textContent = `Subiendo ${archivos.length} archivo(s) de "${carpeta}"…`;
+  const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpeta);
+  despuesDeSubirPlantillas(indices, carpeta);
+  el.textContent = indices.length
+    ? `${indices.length} plantilla(s) creada(s) en «${carpeta}» a partir de la carpeta de tu computadora ✓.` +
+      (fallos ? ` ${fallos} archivo(s) con error.` : '') +
+      (ignorados ? ` ${ignorados} archivo(s) se ignoraron por no ser PNG, JPG ni PDF.` : '')
+    : `No se encontró ningún PNG, JPG o PDF dentro de "${carpeta}".`;
 });
 
 document.getElementById('btnResetBg').addEventListener('click', () => {
