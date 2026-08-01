@@ -161,6 +161,7 @@
   .badge.vigente{background:#16a34a;}
   .badge.revocado{background:#dc2626;}
   .badge.reemplazado{background:#6b7280;}
+  tr.fila-marcada{background:rgba(27,127,118,.08);}
   .badge.borrador{background:var(--gold);color:#132743;}
   .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#eef2f6;color:var(--muted);margin-top:2px;}
 
@@ -410,11 +411,14 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
         <button class="btn outline small" data-collapse-toggle="secEmitidosBody">Minimizar</button>
       </div>
       <div class="panel-body" id="secEmitidosBody">
-      <div class="row">
+      <div class="row" style="align-items:center;">
         <input type="text" id="buscarEmitidos" placeholder="Buscar por cualquier dato (nombre, cédula, curso…)" style="flex:1;">
         <button class="btn outline" id="btnRefrescarLista">Refrescar</button>
         <button class="btn danger" id="btnBorrarHistorial">Borrar todo el historial</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Marca uno o varios certificados con su casilla para editar sus datos (por ejemplo, corregir una cédula mal escrita) y volver a descargarlos listos para imprimir. Editar NO borra el certificado original: lo marca como «reemplazado» y crea uno nuevo con los datos corregidos y su propio código QR. También puedes descargar de nuevo sin cambiar nada, uno o varios a la vez.">?</button>
       </div>
+      <div id="emitidosSeleccionBar" class="row" style="display:none;align-items:center;background:#eef2f6;
+        border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
       <div id="listaEmitidosWrap">Cargando…</div>
       </div>
     </div>
@@ -535,6 +539,7 @@ let rows = [];
 let assignment = [];     // assignment[rowIdx] = Set(templateIdx)
 let matrixTemplateSelection = new Set(); // qué índices de templatesFull participan en esta generación
 let issued = [];
+let issuedSeleccionados = new Set();  // ids (uuid, string) marcados en «Certificados emitidos»
 let dragging = null;     // { idx, role: 'left'|'right'|'top'|'bot'|'move'|'point'|'imgW' }
 let campoSel = null;     // campo resaltado en la plantilla y en la lista
 let guiaSel  = null;     // { eje, i } — guía elegida con un clic; Supr la quita
@@ -2725,24 +2730,71 @@ async function loadIssued(){
   renderIssuedTable();
 }
 
+function tplPorNombreEmitido(nombre){
+  return templatesFull.find(t => t.nombre === nombre);
+}
+
+function actualizarBarraSeleccionEmitidos(){
+  const bar = document.getElementById('emitidosSeleccionBar');
+  if(!issuedSeleccionados.size){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = `<b>${issuedSeleccionados.size} certificado(s) marcado(s)</b>
+    <button class="btn teal small" id="btnEditarSeleccionEmitidos">✎ Editar</button>
+    <button class="btn outline small" id="btnDescargarSeleccionEmitidos">⬇ Descargar</button>
+    <button class="btn outline small" id="btnCancelarSeleccionEmitidos">Cancelar selección</button>`;
+  document.getElementById('btnEditarSeleccionEmitidos').addEventListener('click', editarCertificadosSeleccionados);
+  document.getElementById('btnDescargarSeleccionEmitidos').addEventListener('click', () => descargarCertificados([...issuedSeleccionados]));
+  document.getElementById('btnCancelarSeleccionEmitidos').addEventListener('click', () => {
+    issuedSeleccionados.clear();
+    renderIssuedTable();
+  });
+}
+
 function renderIssuedTable(){
   const wrap = document.getElementById('listaEmitidosWrap');
   const q = document.getElementById('buscarEmitidos').value.trim().toLowerCase();
   const filtered = issued.filter(c => !q
     || Object.values(c.datos || {}).some(v => String(v).toLowerCase().includes(q))
     || (c.plantilla_nombre || '').toLowerCase().includes(q));
+  actualizarBarraSeleccionEmitidos();
   if(!filtered.length){ wrap.innerHTML = '<p class="hint">Sin certificados que coincidan.</p>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Datos</th><th>Plantilla</th><th>Estado</th><th>Emitido</th><th>Acciones</th></tr></thead>
-  <tbody>${filtered.map(c => `<tr>
+  const todosMarcados = filtered.every(c => issuedSeleccionados.has(c.id));
+  wrap.innerHTML = `<table><thead><tr>
+    <th><input type="checkbox" id="chkTodosEmitidos" ${todosMarcados ? 'checked' : ''}></th>
+    <th>Datos</th><th>Plantilla</th><th>Estado</th><th>Emitido</th><th>Acciones</th></tr></thead>
+  <tbody>${filtered.map(c => {
+    const reemplazoPor = c.estado === 'reemplazado' ? issued.find(x => x.reemplaza_a === c.id) : null;
+    return `<tr id="emitido-${c.id}" class="${issuedSeleccionados.has(c.id) ? 'fila-marcada' : ''}">
+    <td><input type="checkbox" data-emitido-check="${c.id}" ${issuedSeleccionados.has(c.id) ? 'checked' : ''}></td>
     <td>${Object.entries(c.datos || {}).filter(([,v]) => v).map(([k,v]) => `<b>${escapeHtml(k)}:</b> ${escapeHtml(v)}`).join('<br>')}</td>
     <td>${escapeHtml(c.plantilla_nombre || '—')}</td>
-    <td><span class="badge ${c.estado}">${c.estado}</span></td>
+    <td><span class="badge ${c.estado}">${c.estado}</span>${reemplazoPor ? `<br><a href="#" data-ir-a="${reemplazoPor.id}" class="hint">→ ver el que lo reemplaza</a>` : ''}</td>
     <td>${new Date(c.created_at).toLocaleDateString('es-ES')}</td>
     <td>
       <a href="../../certificados/verificar.html?c=${c.id}" target="_blank" class="hint">Ver</a>
+      ${c.estado === 'vigente' ? ` · <button data-editar-emitido="${c.id}" class="btn outline small">Editar</button>` : ''}
       ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger small">Revocar</button>` : ''}
     </td>
-  </tr>`).join('')}</tbody></table>`;
+  </tr>`;
+  }).join('')}</tbody></table>`;
+
+  document.getElementById('chkTodosEmitidos').addEventListener('change', e => {
+    filtered.forEach(c => { if(e.target.checked) issuedSeleccionados.add(c.id); else issuedSeleccionados.delete(c.id); });
+    renderIssuedTable();
+  });
+  wrap.querySelectorAll('[data-emitido-check]').forEach(cb => cb.addEventListener('change', () => {
+    if(cb.checked) issuedSeleccionados.add(cb.dataset.emitidoCheck); else issuedSeleccionados.delete(cb.dataset.emitidoCheck);
+    cb.closest('tr').classList.toggle('fila-marcada', cb.checked);
+    actualizarBarraSeleccionEmitidos();
+  }));
+  wrap.querySelectorAll('[data-editar-emitido]').forEach(b => b.addEventListener('click', () => {
+    const c = issued.find(x => x.id === b.dataset.editarEmitido);
+    if(c) abrirEditarCertificado(c);
+  }));
+  wrap.querySelectorAll('[data-ir-a]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById(`emitido-${a.dataset.irA}`)?.scrollIntoView({ behavior:'smooth', block:'center' });
+  }));
   wrap.querySelectorAll('[data-revocar]').forEach(b => b.addEventListener('click', async () => {
     const motivo = prompt('Motivo de revocación:');
     if(motivo === null) return;
@@ -2752,6 +2804,170 @@ function renderIssuedTable(){
   }));
 }
 
+/** Reconstruye y descarga uno o varios certificados ya emitidos, sin cambiar sus datos. */
+async function descargarCertificados(ids){
+  const certs = ids.map(id => issued.find(c => c.id === id)).filter(Boolean);
+  if(!certs.length) return;
+  const { jsPDF } = window.jspdf;
+  const listos = [];
+  const sinPlantilla = [];
+  for(const c of certs){
+    const tpl = tplPorNombreEmitido(c.plantilla_nombre);
+    if(!tpl){ sinPlantilla.push(c); continue; }
+    await ensureFontsLoadedForConfig(tpl.config);
+    const verifyUrl = new URL('../../certificados/verificar.html', location.href).href + '?c=' + c.id;
+    const canvas = await renderCertificateCanvas(c.datos || {}, verifyUrl, tpl.config);
+    const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const widthPt = canvas.width * 72 / 96, heightPt = canvas.height * 72 / 96;
+    const orientation = widthPt > heightPt ? 'landscape' : 'portrait';
+    const pdf = new jsPDF({ orientation, unit:'pt', format:[widthPt, heightPt] });
+    pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
+    const nombrePersona = Object.values(c.datos || {}).find(v => v) || c.id.slice(0, 8);
+    listos.push({ blob: pdf.output('blob'), filename: `${sanitizeName(tpl.nombre)}_${sanitizeName(String(nombrePersona))}_${c.id.slice(0,8)}.pdf` });
+  }
+  if(sinPlantilla.length) alert(`${sinPlantilla.length} certificado(s) no se pudieron regenerar: su plantilla («${sinPlantilla.map(c=>c.plantilla_nombre).join('», «')}») ya no existe.`);
+  if(!listos.length) return;
+  if(listos.length === 1){
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(listos[0].blob); a.download = listos[0].filename; a.click();
+    return;
+  }
+  const zip = new JSZip();
+  listos.forEach(l => zip.file(l.filename, l.blob));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'certificados_editados.zip'; a.click();
+}
+
+/** Modal para editar los datos de UN certificado ya emitido y, si se quiere, descargarlo de una vez. */
+async function abrirEditarCertificado(c){
+  const tpl = tplPorNombreEmitido(c.plantilla_nombre);
+  if(!tpl){ alert(`No se encontró la plantilla «${c.plantilla_nombre}». Puede que haya sido renombrada o eliminada; no se puede editar ni volver a generar este certificado sin ella.`); return; }
+  await ensureFontsLoadedForConfig(tpl.config);
+  const datos = { ...(c.datos || {}) };
+  const camposTexto = tpl.config.fields.filter(f => f.tipo === 'texto');
+
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal-caja">
+    <div class="modal-cab"><b>Editar certificado — ${escapeHtml(tpl.nombre)}</b><button class="btn outline small" data-cerrar>Cerrar</button></div>
+    <div class="modal-cuerpo">
+      <img id="editarPrev" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin-bottom:12px;">
+      <table><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>
+        ${camposTexto.map(f => `<tr><td><b>${escapeHtml(f.nombre)}</b></td>
+          <td><input type="text" data-campo-editar="${escapeHtml(f.nombre)}" value="${escapeHtml(datos[f.nombre] ?? '')}" style="width:100%;"></td></tr>`).join('')}
+      </tbody></table>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" data-guardar>Guardar cambios</button>
+        <button class="btn gold" data-guardar-descargar>Guardar y descargar PDF</button>
+      </div>
+      <p class="hint" style="margin-top:8px;">Guardar marca el certificado actual como «reemplazado» y crea uno nuevo con estos datos y su propio código QR; el anterior deja de listarse como vigente.</p>
+      <div id="editarMsg"></div>
+    </div>
+  </div>`;
+  document.body.appendChild(fondo);
+
+  const verifyUrlPreview = new URL('../../certificados/verificar.html', location.href).href + '?c=preview';
+  const pintar = async () => {
+    const canvas = await renderCertificateCanvas(datos, verifyUrlPreview, tpl.config);
+    fondo.querySelector('#editarPrev').src = canvas.toDataURL('image/jpeg', 0.85);
+  };
+  await pintar();
+
+  fondo.querySelectorAll('[data-campo-editar]').forEach(inp => inp.addEventListener('input', () => {
+    datos[inp.dataset.campoEditar] = inp.value;
+    pintar();
+  }));
+  const cerrar = () => fondo.remove();
+  fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+  fondo.addEventListener('click', e => { if(e.target === fondo) cerrar(); });
+
+  async function guardar(){
+    const { data, error } = await supabase.rpc('replace_cert_certificate', { p_id: c.id, p_datos: datos });
+    if(error){ fondo.querySelector('#editarMsg').innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return null; }
+    issuedSeleccionados.delete(c.id);
+    await loadIssued();
+    return data;
+  }
+  fondo.querySelector('[data-guardar]').addEventListener('click', async () => {
+    const nuevo = await guardar();
+    if(nuevo) cerrar();
+  });
+  fondo.querySelector('[data-guardar-descargar]').addEventListener('click', async () => {
+    const nuevo = await guardar();
+    if(!nuevo) return;
+    await descargarCertificados([nuevo.id]);
+    cerrar();
+  });
+}
+
+/** Modal para editar VARIOS certificados emitidos de golpe, en una tabla, y descargarlos juntos. */
+async function editarCertificadosSeleccionados(){
+  const seleccion = [...issuedSeleccionados].map(id => issued.find(c => c.id === id)).filter(Boolean);
+  const editables = seleccion.filter(c => c.estado === 'vigente' && tplPorNombreEmitido(c.plantilla_nombre));
+  const descartados = seleccion.length - editables.length;
+  if(!editables.length){ alert('Ninguno de los certificados marcados se puede editar (deben estar vigentes y su plantilla debe seguir existiendo).'); return; }
+  if(editables.length === 1){ await abrirEditarCertificado(editables[0]); return; }
+
+  for(const c of editables) await ensureFontsLoadedForConfig(tplPorNombreEmitido(c.plantilla_nombre).config);
+  const camposUnion = [...new Set(editables.flatMap(c => tplPorNombreEmitido(c.plantilla_nombre).config.fields.filter(f => f.tipo === 'texto').map(f => f.nombre)))];
+  const cambios = editables.map(c => ({ c, datos: { ...(c.datos || {}) } }));
+
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal-caja" style="max-width:min(96vw, 1100px);">
+    <div class="modal-cab"><b>Editar ${editables.length} certificados${descartados ? ` (${descartados} no se pudieron incluir)` : ''}</b>
+      <button class="btn outline small" data-cerrar>Cerrar</button></div>
+    <div class="modal-cuerpo">
+      <div style="overflow-x:auto;"><table><thead><tr><th>Plantilla</th>${camposUnion.map(n => `<th>${escapeHtml(n)}</th>`).join('')}</tr></thead>
+      <tbody>${cambios.map((it, fi) => {
+        const tpl = tplPorNombreEmitido(it.c.plantilla_nombre);
+        const nombresTpl = new Set(tpl.config.fields.filter(f => f.tipo === 'texto').map(f => f.nombre));
+        return `<tr><td>${escapeHtml(tpl.nombre)}</td>${camposUnion.map(n => nombresTpl.has(n)
+          ? `<td><input type="text" data-fila="${fi}" data-campo="${escapeHtml(n)}" value="${escapeHtml(it.datos[n] ?? '')}" style="min-width:120px;"></td>`
+          : `<td class="hint">—</td>`).join('')}</tr>`;
+      }).join('')}</tbody></table></div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" data-guardar-todos>Guardar todos los cambios</button>
+        <button class="btn gold" data-guardar-descargar-todos>Guardar y descargar todo (ZIP)</button>
+      </div>
+      <p class="hint" style="margin-top:8px;">Cada certificado editado se marca como «reemplazado» y se crea uno nuevo con estos datos y su propio código QR.</p>
+      <div id="editarMasivoMsg"></div>
+    </div>
+  </div>`;
+  document.body.appendChild(fondo);
+
+  fondo.querySelectorAll('[data-fila]').forEach(inp => inp.addEventListener('input', () => {
+    cambios[Number(inp.dataset.fila)].datos[inp.dataset.campo] = inp.value;
+  }));
+  const cerrar = () => fondo.remove();
+  fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+  fondo.addEventListener('click', e => { if(e.target === fondo) cerrar(); });
+
+  async function guardarTodos(){
+    const msg = fondo.querySelector('#editarMasivoMsg');
+    msg.innerHTML = '<p class="hint">Guardando…</p>';
+    const nuevos = []; let fallos = 0;
+    for(const it of cambios){
+      const { data, error } = await supabase.rpc('replace_cert_certificate', { p_id: it.c.id, p_datos: it.datos });
+      if(error){ fallos++; continue; }
+      nuevos.push(data);
+      issuedSeleccionados.delete(it.c.id);
+    }
+    await loadIssued();
+    msg.innerHTML = fallos
+      ? `<div class="msg warn">${nuevos.length} guardado(s), ${fallos} con error.</div>`
+      : `<div class="msg ok">${nuevos.length} certificado(s) actualizados.</div>`;
+    return nuevos;
+  }
+  fondo.querySelector('[data-guardar-todos]').addEventListener('click', () => guardarTodos());
+  fondo.querySelector('[data-guardar-descargar-todos]').addEventListener('click', async () => {
+    const nuevos = await guardarTodos();
+    if(nuevos.length) await descargarCertificados(nuevos.map(n => n.id));
+    cerrar();
+  });
+}
+
 document.getElementById('buscarEmitidos').addEventListener('input', renderIssuedTable);
 document.getElementById('btnRefrescarLista').addEventListener('click', loadIssued);
 document.getElementById('btnBorrarHistorial').addEventListener('click', async () => {
@@ -2759,6 +2975,7 @@ document.getElementById('btnBorrarHistorial').addEventListener('click', async ()
   if(!confirm('Confirma una vez más: no se puede deshacer. ¿Borrar todo el historial?')) return;
   const { error } = await supabase.rpc('delete_all_cert_certificates');
   if(error){ alert('Error: ' + error.message); return; }
+  issuedSeleccionados.clear();
   await loadIssued();
 });
 
