@@ -6,7 +6,7 @@
 <title>Generar Certificados · CEM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=EB+Garamond:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=PT+Serif:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Cinzel:wght@400;700&family=Marcellus&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Sacramento&family=Alex+Brush&family=Allura&family=Parisienne&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=EB+Garamond:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=PT+Serif:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Cinzel:wght@400;700&family=Marcellus&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Sacramento&family=Alex+Brush&family=Allura&family=Parisienne&family=UnifrakturMaguntia&family=UnifrakturCook:wght@700&family=Pirata+One&display=swap" rel="stylesheet">
 <style>
   :root{
     --navy:#132743; --navy-2:#1c3a5e; --teal:#1b7f76; --gold:#c9a227;
@@ -158,6 +158,9 @@
   .img-muestra img{max-width:100%;max-height:100%;object-fit:contain;}
   .img-muestra i{font-size:10px;color:var(--muted);}
   @media (max-width:640px){ .campo-fila{gap:8px;} .campo-nombre{min-width:0;} }
+  .resaltado-muestra{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:18px;
+    background:#fff;cursor:text;user-select:text;line-height:1.5;word-break:break-word;}
+  .resaltado-muestra span{white-space:pre;}
   .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
   .badge.vigente{background:#16a34a;}
   .badge.revocado{background:#dc2626;}
@@ -488,6 +491,10 @@ const FONT_OPTIONS = [
   { label: 'Roboto Slab (slab serif)', value: "'Roboto Slab', serif" },
   { label: 'Cinzel (títulos, mayúsculas)', value: "'Cinzel', serif" },
   { label: 'Marcellus (elegante)', value: "'Marcellus', serif" },
+  // Góticas / blackletter
+  { label: 'UnifrakturMaguntia (gótica/blackletter)', value: "'UnifrakturMaguntia', cursive" },
+  { label: 'UnifrakturCook (gótica negrita)', value: "'UnifrakturCook', cursive" },
+  { label: 'Pirata One (gótica decorativa)', value: "'Pirata One', cursive" },
   // Sans modernas
   { label: 'Montserrat (moderna)', value: "'Montserrat', sans-serif" },
   { label: 'Open Sans (moderna)', value: "'Open Sans', sans-serif" },
@@ -507,7 +514,7 @@ const GOOGLE_FONT_FAMILIES = [
   'Playfair Display','Cormorant Garamond','EB Garamond','Merriweather','Lora','PT Serif',
   'Libre Baskerville','Roboto Slab','Cinzel','Marcellus','Montserrat','Open Sans','Lato',
   'Raleway','Poppins','Great Vibes','Dancing Script','Pacifico','Sacramento','Alex Brush',
-  'Allura','Parisienne',
+  'Allura','Parisienne','UnifrakturMaguntia','UnifrakturCook','Pirata One',
 ];
 function fontLabelFor(value){
   const found = FONT_OPTIONS.find(o => o.value === value);
@@ -626,6 +633,10 @@ function normalizarConfig(cfg){
         f.formato = /^\s*(c[eé]dula|documento|dni|c\.?i\.?)\s*$/i.test(String(f.nombre||''))
           ? 'cedula' : 'ninguno';
       }
+      // letras sueltas con un color distinto al del resto (p.ej. las iniciales):
+      // se guardan por posición dentro de la palabra, no por texto literal, así
+      // sirven igual sin importar el nombre real de cada persona.
+      if(!Array.isArray(f.resaltados)) f.resaltados = [];
       // Reglillas de arriba y abajo: antes el campo era una sola línea y el
       // texto crecía hacia los lados. Con una caja, el alto y el centro
       // quedan fijos y todas las palabras se alinean igual.
@@ -1750,6 +1761,20 @@ function renderFieldSettings(){
         el Excel ni las demás plantillas. Sirve para reutilizar el mismo diseño y el mismo Excel en varias
         sesiones que sólo cambian, por ejemplo, la fecha. El ajuste manual de un certificado puntual (en la
         Matriz) sigue ganando sobre este valor.</p>
+      <div class="campo-fila" style="flex-direction:column;align-items:stretch;margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:6px;">Colores por letra (por ejemplo, las iniciales)
+          <button type="button" class="ayuda-btn" data-ayuda-texto="Selecciona una o varias letras del texto de ejemplo de abajo —arrastra el mouse sobre ellas, o doble clic en una palabra— y pulsa «Colorear selección» con el color que quieras. Se guarda por posición dentro de la palabra (p.ej. «la 1ª letra de la 1ª palabra»), así que funciona igual sin importar el nombre real de cada persona ni cuánto mida.">?</button>
+        </label>
+        <div class="resaltado-muestra" data-resaltado-muestra="${i}" style="font-family:${escapeHtml(f.fontFamily || 'Georgia, serif')};">${renderMuestraResaltado(f)}</div>
+        <div class="row" style="margin-top:6px;">
+          <input type="color" data-resaltado-color="${i}"
+            value="${escapeHtml((f.resaltados && f.resaltados.length) ? f.resaltados[f.resaltados.length-1].color : '#c0392b')}"
+            title="Color a aplicar">
+          <button type="button" class="btn teal small" data-resaltado-aplicar="${i}">Colorear selección</button>
+          <button type="button" class="btn outline small" data-resaltado-quitar="${i}">Quitar color de la selección</button>
+          ${f.resaltados && f.resaltados.length ? `<button type="button" class="btn outline small" data-resaltado-limpiar="${i}">Quitar todos (${f.resaltados.length})</button>` : ''}
+        </div>
+      </div>
       <p class="hint" style="margin:6px 0 0;">En la plantilla: arrastra la etiqueta para mover el campo entero
         y las reglillas doradas para fijar los m&aacute;rgenes. El texto siempre queda centrado en la caja.</p>`;
     }
@@ -1795,6 +1820,20 @@ function renderFieldSettings(){
     if(val) config.overrides[nombre] = val; else delete config.overrides[nombre];
     renderChips(); renderFieldSettings();
     renderMatrix();   // la insignia "✎ N fijos" de la cabecera debe verse al momento
+  }));
+  // colores por letra: aplicar/quitar sobre lo que esté seleccionado en el
+  // recuadro de muestra, o borrar todos los de ese campo de una vez
+  wrap.querySelectorAll('[data-resaltado-aplicar]').forEach(btn => btn.addEventListener('click', () => {
+    const i = Number(btn.dataset.resaltadoAplicar);
+    const color = wrap.querySelector(`[data-resaltado-color="${i}"]`).value;
+    aplicarColorASeleccion(i, color);
+  }));
+  wrap.querySelectorAll('[data-resaltado-quitar]').forEach(btn => btn.addEventListener('click', () => {
+    aplicarColorASeleccion(Number(btn.dataset.resaltadoQuitar), null);
+  }));
+  wrap.querySelectorAll('[data-resaltado-limpiar]').forEach(btn => btn.addEventListener('click', () => {
+    config.fields[Number(btn.dataset.resaltadoLimpiar)].resaltados = [];
+    renderChips(); renderTemplatePreview(); renderFieldSettings();
   }));
   // subir la imagen de un campo tipo imagen
   wrap.querySelectorAll('[data-img-file]').forEach(inp => inp.addEventListener('change', e => {
@@ -2409,6 +2448,91 @@ async function abrirAjuste(ri, ti){
   });
 }
 
+/**
+ * Recorre `text` y para cada carácter dice a qué palabra pertenece (0-based,
+ * separadas por espacios) y qué posición ocupa dentro de esa palabra (0-based).
+ * Los espacios devuelven null. Es la MISMA función que usa el editor (para
+ * saber qué letra se seleccionó) y el render (para pintarla), así que
+ * «la 1ª letra de la 1ª palabra» significa lo mismo en los dos lados, sin
+ * importar el nombre real de cada persona ni cuánto mida.
+ */
+function posicionesPorPalabra(text){
+  const out = new Array(text.length).fill(null);
+  let palabra = -1, letra = 0, enPalabra = false;
+  for(let i = 0; i < text.length; i++){
+    if(/\s/.test(text[i])){ enPalabra = false; continue; }
+    if(!enPalabra){ palabra++; letra = 0; enPalabra = true; }
+    out[i] = { palabra, letra };
+    letra++;
+  }
+  return out;
+}
+
+/** Color de cada carácter de `text` según los resaltados del campo `f`, o null si no tiene ninguno (camino rápido). */
+function coloresPorCaracter(text, f){
+  if(!f.resaltados || !f.resaltados.length) return null;
+  const posiciones = posicionesPorPalabra(text);
+  return text.split('').map((ch, i) => {
+    const pos = posiciones[i];
+    if(!pos) return f.color;
+    const r = f.resaltados.find(r => r.palabra === pos.palabra && r.letra === pos.letra);
+    return r ? r.color : f.color;
+  });
+}
+
+/** Texto de muestra para el editor de "colores por letra": el dato real si ya hay, si no el valor fijo, si no un ejemplo genérico. */
+function muestraTextoPara(f){
+  if(rows.length && rows[0][f.nombre]) return String(rows[0][f.nombre]);
+  if(config.overrides && config.overrides[f.nombre]) return String(config.overrides[f.nombre]);
+  return 'Nombre Apellido';
+}
+
+/** Arma el HTML del recuadro de muestra: una letra por span, ya pintada con su color actual. */
+function renderMuestraResaltado(f){
+  const texto = aplicarFormato(muestraTextoPara(f), f.formato) || '';
+  const colores = coloresPorCaracter(texto, f);
+  return texto.split('').map((ch, i) =>
+    `<span data-idx="${i}" style="color:${escapeHtml((colores && colores[i]) || f.color)};">${ch === ' ' ? '&nbsp;' : escapeHtml(ch)}</span>`
+  ).join('');
+}
+
+/**
+ * Aplica (o, si `color` es null, quita) un color a las letras seleccionadas en
+ * el recuadro de muestra del campo `i`. La selección se traduce a posiciones
+ * "letra N de la palabra M" con `posicionesPorPalabra`, así que queda válida
+ * para cualquier nombre real, no sólo para el texto de ejemplo.
+ */
+function aplicarColorASeleccion(i, color){
+  const cont = document.querySelector(`[data-resaltado-muestra="${i}"]`);
+  if(!cont) return;
+  const sel = window.getSelection();
+  if(!sel || !sel.rangeCount || sel.isCollapsed){
+    alert('Primero selecciona una o varias letras del texto de ejemplo (arrastra el mouse sobre ellas, o doble clic en una palabra).');
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  if(!cont.contains(range.commonAncestorContainer)){
+    alert('Selecciona letras dentro del recuadro de ejemplo de este campo.');
+    return;
+  }
+  const f = config.fields[i];
+  const texto = aplicarFormato(muestraTextoPara(f), f.formato) || '';
+  const posiciones = posicionesPorPalabra(texto);
+  f.resaltados = f.resaltados || [];
+  let tocadas = 0;
+  cont.querySelectorAll('span[data-idx]').forEach(span => {
+    if(!range.intersectsNode(span)) return;
+    const pos = posiciones[Number(span.dataset.idx)];
+    if(!pos) return;   // los espacios no se colorean
+    f.resaltados = f.resaltados.filter(r => !(r.palabra === pos.palabra && r.letra === pos.letra));
+    if(color) f.resaltados.push({ palabra: pos.palabra, letra: pos.letra, color });
+    tocadas++;
+  });
+  sel.removeAllRanges();
+  if(!tocadas){ alert('La selección no tocó ninguna letra (¿elegiste sólo un espacio?).'); return; }
+  renderChips(); renderTemplatePreview(); renderFieldSettings();
+}
+
 // ---------- Generar ----------
 function fitFontSize(ctx, text, fontFamily, bold, maxSize, minSize, maxWidthPx){
   let size = maxSize;
@@ -2508,7 +2632,25 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     ctx.beginPath();
     ctx.rect(leftPx, topPx, boxWidthPx, altoCajaPx);
     ctx.clip();
-    ctx.fillText(text, drawX, yPx);
+    const colores = coloresPorCaracter(text, f);
+    if(!colores){
+      ctx.fillText(text, drawX, yPx);
+    } else {
+      // con letras de colores distintos hay que pintar carácter por carácter;
+      // se calcula el ancho total UNA vez para que el bloque completo quede
+      // anclado igual que antes (a la izquierda/centro/derecha de la caja).
+      const totalWidth = ctx.measureText(text).width;
+      let x;
+      if(f.align === 'left') x = leftPx;
+      else if(f.align === 'right') x = rightPx - totalWidth;
+      else x = (leftPx + rightPx)/2 - totalWidth/2;
+      ctx.textAlign = 'left';
+      for(let i = 0; i < text.length; i++){
+        ctx.fillStyle = colores[i];
+        ctx.fillText(text[i], x, yPx);
+        x += ctx.measureText(text[i]).width;
+      }
+    }
     ctx.restore();
   }
   return canvas;
