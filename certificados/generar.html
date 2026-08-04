@@ -161,6 +161,12 @@
   .resaltado-muestra{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:18px;
     background:#fff;cursor:text;user-select:text;line-height:1.5;word-break:break-word;}
   .resaltado-muestra span{white-space:pre;}
+  .plantilla-editor{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;
+    background:#fff;min-height:36px;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+  .plantilla-editor:focus{outline:2px solid var(--teal);outline-offset:1px;}
+  .var-chip{display:inline-block;background:var(--gold);color:#132743;border-radius:10px;padding:1px 8px;
+    margin:0 1px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none;}
+  .var-chip:hover{background:#b8901f;color:#fff;}
   .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
   .badge.vigente{background:#16a34a;}
   .badge.revocado{background:#dc2626;}
@@ -527,9 +533,11 @@ const fontsLoadedCache = new Set();
 async function ensureFontsLoadedForConfig(cfg){
   const toLoad = new Set();
   for(const f of cfg.fields){
-    if(f.tipo === 'texto' && f.activo && f.fontFamily){
+    if(f.tipo !== 'texto' || !f.activo) continue;
+    const familias = [f.fontFamily, ...(f.resaltados || []).map(r => r.fontFamily)].filter(Boolean);
+    for(const familia of familias){
       for(const gf of GOOGLE_FONT_FAMILIES){
-        if(f.fontFamily.includes(gf) && !fontsLoadedCache.has(gf)) toLoad.add(gf);
+        if(familia.includes(gf) && !fontsLoadedCache.has(gf)) toLoad.add(gf);
       }
     }
   }
@@ -637,6 +645,11 @@ function normalizarConfig(cfg){
       // se guardan por posición dentro de la palabra, no por texto literal, así
       // sirven igual sin importar el nombre real de cada persona.
       if(!Array.isArray(f.resaltados)) f.resaltados = [];
+      // texto con una parte fija y variables incrustadas del Excel, p.ej.
+      // "Titular de la cédula {{Cedula}} quien...": reemplaza al valor fijo
+      // y a la columna del Excel cuando está activado.
+      if(f.usarPlantillaTexto === undefined) f.usarPlantillaTexto = false;
+      if(typeof f.plantillaTexto !== 'string') f.plantillaTexto = '';
       // Reglillas de arriba y abajo: antes el campo era una sola línea y el
       // texto crecía hacia los lados. Con una caja, el alto y el centro
       // quedan fijos y todas las palabras se alinean igual.
@@ -1753,25 +1766,47 @@ function renderFieldSettings(){
           title="Deja vacío para que cada persona use su propio dato del Excel">
           Valor fijo para TODOS los certificados de esta plantilla
           <input type="text" data-valor-fijo="${i}" value="${escapeHtml((config.overrides && config.overrides[f.nombre]) || '')}"
-            placeholder="vacío = usa el Excel de cada persona" style="width:100%;">
+            placeholder="vacío = usa el Excel de cada persona" style="width:100%;" ${f.usarPlantillaTexto ? 'disabled' : ''}>
         </label>
       </div>
-      <p class="hint" style="margin:2px 0 0;">Si escribes algo aquí, esa palabra reemplaza a la columna
+      <p class="hint" style="margin:2px 0 0;">${f.usarPlantillaTexto
+        ? 'Se ignora mientras esté activo el «texto con una parte fija y una variable» de abajo.'
+        : `Si escribes algo aquí, esa palabra reemplaza a la columna
         «${escapeHtml(f.nombre || '')}» del Excel para <b>todas</b> las personas de esta plantilla — sin tocar
         el Excel ni las demás plantillas. Sirve para reutilizar el mismo diseño y el mismo Excel en varias
         sesiones que sólo cambian, por ejemplo, la fecha. El ajuste manual de un certificado puntual (en la
-        Matriz) sigue ganando sobre este valor.</p>
+        Matriz) sigue ganando sobre este valor.`}</p>
       <div class="campo-fila" style="flex-direction:column;align-items:stretch;margin-top:10px;">
-        <label style="display:flex;align-items:center;gap:6px;">Colores por letra (por ejemplo, las iniciales)
-          <button type="button" class="ayuda-btn" data-ayuda-texto="Selecciona una o varias letras del texto de ejemplo de abajo —arrastra el mouse sobre ellas, o doble clic en una palabra— y pulsa «Colorear selección» con el color que quieras. Se guarda por posición dentro de la palabra (p.ej. «la 1ª letra de la 1ª palabra»), así que funciona igual sin importar el nombre real de cada persona ni cuánto mida.">?</button>
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" data-plantilla-activar="${i}" ${f.usarPlantillaTexto ? 'checked' : ''}>
+          Texto con una parte fija y una variable dentro (p.ej. «Titular de la cédula XX.XXX.XXX quien…»)
+          <button type="button" class="ayuda-btn" data-ayuda-texto="Escribe el texto tal cual debe salir, y usa el selector «+ Insertar variable» para meter en el medio un dato que cambia por persona (una columna de tu Excel, como la Cédula, o el valor de otro campo de esta plantilla). Haz doble clic sobre una variable ya puesta para quitarla; el resto se escribe y se le pone espacios como cualquier texto normal. Mientras esto esté marcado, el valor fijo de arriba y la columna del Excel con el mismo nombre de este campo se ignoran: todo el texto sale de aquí.">?</button>
         </label>
-        <div class="resaltado-muestra" data-resaltado-muestra="${i}" style="font-family:${escapeHtml(f.fontFamily || 'Georgia, serif')};">${renderMuestraResaltado(f)}</div>
+        ${f.usarPlantillaTexto ? `
+        <div class="plantilla-editor" data-plantilla-editor="${i}" contenteditable="true" spellcheck="false">${renderPlantillaEditorHtml(f.plantillaTexto)}</div>
+        <div class="row" style="margin-top:6px;">
+          <select data-plantilla-var-select="${i}">
+            <option value="">+ Insertar variable…</option>
+            ${variablesDisponibles(f).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
+          </select>
+        </div>` : ''}
+      </div>
+      <div class="campo-fila" style="flex-direction:column;align-items:stretch;margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:6px;">Colores y tipografías por letra (por ejemplo, las iniciales)
+          <button type="button" class="ayuda-btn" data-ayuda-texto="Selecciona una o varias letras del texto de ejemplo de abajo —arrastra el mouse sobre ellas, o doble clic en una palabra— y pulsa «Aplicar a la selección» con el color y/o la tipografía que quieras (deja la tipografía en «misma del campo» si sólo quieres cambiar el color). Se guarda por posición dentro de la palabra (p.ej. «la 1ª letra de la 1ª palabra»), así que funciona igual sin importar el nombre real de cada persona ni cuánto mida.">?</button>
+        </label>
+        <div class="resaltado-muestra" data-resaltado-muestra="${i}">${renderMuestraResaltado(f)}</div>
         <div class="row" style="margin-top:6px;">
           <input type="color" data-resaltado-color="${i}"
             value="${escapeHtml((f.resaltados && f.resaltados.length) ? f.resaltados[f.resaltados.length-1].color : '#c0392b')}"
             title="Color a aplicar">
-          <button type="button" class="btn teal small" data-resaltado-aplicar="${i}">Colorear selección</button>
-          <button type="button" class="btn outline small" data-resaltado-quitar="${i}">Quitar color de la selección</button>
+          <select data-resaltado-font="${i}" title="Tipografía a aplicar" style="max-width:190px;">
+            <option value="">(misma tipografía del campo)</option>
+            ${FONT_OPTIONS.map(o => `<option value="${escapeHtml(o.value)}" style="font-family:${escapeHtml(o.value)};"
+              ${((f.resaltados && f.resaltados.length) ? f.resaltados[f.resaltados.length-1].fontFamily : '') === o.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+          </select>
+          <button type="button" class="btn teal small" data-resaltado-aplicar="${i}">Aplicar a la selección</button>
+          <button type="button" class="btn outline small" data-resaltado-quitar="${i}">Quitar de la selección</button>
           ${f.resaltados && f.resaltados.length ? `<button type="button" class="btn outline small" data-resaltado-limpiar="${i}">Quitar todos (${f.resaltados.length})</button>` : ''}
         </div>
       </div>
@@ -1821,15 +1856,49 @@ function renderFieldSettings(){
     renderChips(); renderFieldSettings();
     renderMatrix();   // la insignia "✎ N fijos" de la cabecera debe verse al momento
   }));
-  // colores por letra: aplicar/quitar sobre lo que esté seleccionado en el
-  // recuadro de muestra, o borrar todos los de ese campo de una vez
+  // texto con una parte fija y variables incrustadas: prender/apagar,
+  // escribir libremente (con espacios y todo) e insertar/quitar variables
+  wrap.querySelectorAll('[data-plantilla-activar]').forEach(chk => chk.addEventListener('change', () => {
+    const i = Number(chk.dataset.plantillaActivar);
+    config.fields[i].usarPlantillaTexto = chk.checked;
+    renderChips(); renderTemplatePreview(); renderFieldSettings();
+  }));
+  wrap.querySelectorAll('[data-plantilla-editor]').forEach(cont => {
+    cont.addEventListener('keydown', e => { if(e.key === 'Enter') e.preventDefault(); });
+    cont.addEventListener('paste', e => {
+      e.preventDefault();
+      document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+    });
+    cont.addEventListener('dblclick', e => {
+      const chip = e.target.closest('.var-chip');
+      if(!chip || !cont.contains(chip)) return;
+      if(!confirm(`¿Quitar la variable «${chip.dataset.var}» del texto?`)) return;
+      chip.remove();
+      const i = Number(cont.dataset.plantillaEditor);
+      config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
+      renderChips(); renderTemplatePreview(); renderFieldSettings();
+    });
+    cont.addEventListener('blur', () => {
+      const i = Number(cont.dataset.plantillaEditor);
+      config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
+      renderChips(); renderTemplatePreview(); renderFieldSettings();
+    });
+  });
+  wrap.querySelectorAll('[data-plantilla-var-select]').forEach(sel => sel.addEventListener('change', () => {
+    const i = Number(sel.dataset.plantillaVarSelect);
+    if(sel.value) insertarVariableEnPlantilla(i, sel.value);
+    sel.value = '';
+  }));
+  // colores y tipografías por letra: aplicar/quitar sobre lo que esté
+  // seleccionado en el recuadro de muestra, o borrar todos los de ese campo
   wrap.querySelectorAll('[data-resaltado-aplicar]').forEach(btn => btn.addEventListener('click', () => {
     const i = Number(btn.dataset.resaltadoAplicar);
     const color = wrap.querySelector(`[data-resaltado-color="${i}"]`).value;
-    aplicarColorASeleccion(i, color);
+    const fontFamily = wrap.querySelector(`[data-resaltado-font="${i}"]`).value;
+    aplicarEstiloASeleccion(i, { color, fontFamily: fontFamily || undefined });
   }));
   wrap.querySelectorAll('[data-resaltado-quitar]').forEach(btn => btn.addEventListener('click', () => {
-    aplicarColorASeleccion(Number(btn.dataset.resaltadoQuitar), null);
+    aplicarEstiloASeleccion(Number(btn.dataset.resaltadoQuitar), null);
   }));
   wrap.querySelectorAll('[data-resaltado-limpiar]').forEach(btn => btn.addEventListener('click', () => {
     config.fields[Number(btn.dataset.resaltadoLimpiar)].resaltados = [];
@@ -2100,19 +2169,42 @@ document.getElementById('btnVistaPreviaTodas').addEventListener('click', async (
 // Cada columna del Excel/CSV se empareja por nombre (sin distinguir mayúsculas)
 // contra los campos de texto activos de TODAS las plantillas guardadas (un
 // estudiante puede necesitar datos para más de un formato de certificado).
+/** Nombres de columna usados como {{variable}} dentro de algún "texto con variables incrustadas", en cualquier plantilla. */
+function variablesUsadasEnPlantillas(){
+  const nombres = new Set();
+  for(const t of templatesFull){
+    for(const f of t.config.fields){
+      if(f.tipo === 'texto' && f.usarPlantillaTexto && f.plantillaTexto){
+        for(const m of f.plantillaTexto.matchAll(/\{\{([^{}]+)\}\}/g)) nombres.add(m[1].trim());
+      }
+    }
+  }
+  return nombres;
+}
+
 function activeTextFieldNamesUnion(){
   // Los nombres se emparejan sin distinguir mayúsculas/minúsculas en todo el resto
   // del flujo (importación, matrix, etc.), así que la unión también debe deduplicar
   // así — si no, "Fecha" y "fecha" en dos plantillas distintas generan dos columnas
   // separadas que terminan con el mismo dato duplicado.
   const seen = new Map(); // clave en minúsculas -> primera variante de mayúsculas/minúsculas vista
+  const variablesUsadas = variablesUsadasEnPlantillas();
   for(const t of templatesFull){
     for(const f of t.config.fields){
-      if(f.tipo === 'texto' && f.activo){
+      // un campo cuenta aunque esté apagado si se usa como variable dentro de
+      // un texto compuesto: puede que nunca se imprima "suelto", sólo incrustado
+      if(f.tipo === 'texto' && (f.activo || variablesUsadas.has(f.nombre))){
         const key = f.nombre.trim().toLowerCase();
         if(!seen.has(key)) seen.set(key, f.nombre);
       }
     }
+  }
+  // columnas usadas como variable que no coinciden con ningún campo definido
+  // (p.ej. una columna del Excel que sólo se usa dentro de una frase, sin
+  // tener su propia caja en el certificado) también deben poder importarse
+  for(const nombre of variablesUsadas){
+    const key = nombre.trim().toLowerCase();
+    if(!seen.has(key)) seen.set(key, nombre);
   }
   return [...seen.values()];
 }
@@ -2205,6 +2297,7 @@ document.getElementById('inputXlsx').addEventListener('change', async e => {
     assignment = rows.map(() => new Set());
     renderPreviewTable(missing);
     renderMatrix();
+    renderFieldSettings();   // refresca la vista de ejemplo si hay un campo abierto (texto con variables, colores por letra)
   }catch(err){
     alert('No se pudo leer el archivo Excel: ' + err.message);
   }
@@ -2241,6 +2334,7 @@ document.getElementById('btnParsePaste').addEventListener('click', () => {
   assignment = rows.map(() => new Set());
   renderPreviewTable(missing);
   renderMatrix();
+  renderFieldSettings();   // refresca la vista de ejemplo si hay un campo abierto (texto con variables, colores por letra)
 });
 
 document.getElementById('btnImportarUrl').addEventListener('click', async () => {
@@ -2254,6 +2348,7 @@ document.getElementById('btnImportarUrl').addEventListener('click', async () => 
     assignment = rows.map(() => new Set());
     renderPreviewTable(missing);
     renderMatrix();
+    renderFieldSettings();   // refresca la vista de ejemplo si hay un campo abierto (texto con variables, colores por letra)
   }catch(e){
     alert('No se pudo importar desde esa URL (revisa que el Sheet esté publicado como CSV). Puedes pegar los datos manualmente.');
   }
@@ -2275,21 +2370,33 @@ function renderMatrixTplSelector(){
   wrap.innerHTML = `
     <p class="hint" style="margin-bottom:4px;">¿Qué plantillas quieres usar en esta generación?</p>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-      ${grupos.map(g => `
+      ${grupos.map(g => {
+        const colapsada = g.carpeta && carpetasColapsadas.has(g.carpeta);
+        return `
         <div style="${g.carpeta ? 'border:1px solid var(--border);border-radius:8px;padding:7px 10px;' : ''}">
-          ${g.carpeta ? `<div class="hint" style="font-weight:600;margin-bottom:4px;">
+          ${g.carpeta ? `<div class="hint" style="font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px;cursor:pointer;"
+              data-matrix-carpeta-toggle="${escapeHtml(g.carpeta)}">
+            <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span>
             📁 ${escapeHtml(g.carpeta)}
-            <label style="font-weight:400;margin-left:8px;"><input type="checkbox" data-matrix-carpeta="${escapeHtml(g.carpeta)}"
+            <span class="hint" style="font-weight:400;">(${g.items.length})</span>
+            <label style="font-weight:400;margin-left:8px;" onclick="event.stopPropagation()">
+              <input type="checkbox" data-matrix-carpeta="${escapeHtml(g.carpeta)}"
               ${g.items.every(({i}) => matrixTemplateSelection.has(i)) ? 'checked' : ''}> todas</label>
           </div>` : ''}
-          <div class="row" style="margin-bottom:0;">
+          <div class="row" style="margin-bottom:0;${colapsada ? 'display:none;' : ''}">
             ${g.items.map(({ t, i }) => `<label class="hint" style="display:flex;align-items:center;gap:5px;">
               <input type="checkbox" data-matrix-tpl="${i}" ${matrixTemplateSelection.has(i) ? 'checked' : ''}> ${escapeHtml(t.nombre)}
             </label>`).join('')}
           </div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>`;
+  wrap.querySelectorAll('[data-matrix-carpeta-toggle]').forEach(head => head.addEventListener('click', () => {
+    const c = head.dataset.matrixCarpetaToggle;
+    if(carpetasColapsadas.has(c)) carpetasColapsadas.delete(c); else carpetasColapsadas.add(c);
+    renderMatrixTplSelector();
+  }));
   wrap.querySelectorAll('[data-matrix-tpl]').forEach(cb => cb.addEventListener('change', () => {
     const ti = Number(cb.dataset.matrixTpl);
     if(cb.checked){
@@ -2448,6 +2555,70 @@ async function abrirAjuste(ri, ti){
   });
 }
 
+/** Reemplaza cada "{{Columna}}" de `plantilla` por el dato de esa columna en `rowData` (vacío si no existe). */
+function resolverPlantillaTexto(plantilla, rowData){
+  return String(plantilla || '').replace(/\{\{([^{}]+)\}\}/g, (m, nombre) => {
+    const val = (rowData || {})[nombre.trim()];
+    return (val === undefined || val === null) ? '' : String(val);
+  });
+}
+
+/** Nombres de columna que se pueden insertar como variable: las del Excel ya importado y los demás campos de texto de esta plantilla. */
+function variablesDisponibles(f){
+  const deExcel = rows.length ? Object.keys(rows[0]) : [];
+  const deCampos = config.fields.filter(x => x !== f && x.tipo === 'texto').map(x => x.nombre);
+  return [...new Set([...deExcel, ...deCampos])].filter(Boolean);
+}
+
+/** Arma el HTML editable (texto suelto + una "chip" no editable por cada variable) a partir de una plantilla "...{{Var}}...". */
+function renderPlantillaEditorHtml(plantilla){
+  const partes = String(plantilla || '').split(/(\{\{[^{}]+\}\})/g);
+  return partes.map(p => {
+    const m = p.match(/^\{\{([^{}]+)\}\}$/);
+    if(m) return `<span class="var-chip" contenteditable="false" data-var="${escapeHtml(m[1].trim())}">${escapeHtml(m[1].trim())}</span>`;
+    return escapeHtml(p);
+  }).join('');
+}
+
+/** Lee el recuadro editable y arma de vuelta la plantilla "...{{Var}}..." a partir de su texto y sus chips. */
+function leerPlantillaEditorHtml(cont){
+  let out = '';
+  cont.childNodes.forEach(n => {
+    if(n.nodeType === Node.TEXT_NODE) out += n.textContent;
+    else if(n.classList && n.classList.contains('var-chip')) out += `{{${n.dataset.var}}}`;
+    else out += n.textContent;   // por si el navegador mete algún elemento inesperado al escribir
+  });
+  return out;
+}
+
+/** Inserta una "chip" de variable en el punto donde estaba el cursor (o al final si no había) y guarda. */
+function insertarVariableEnPlantilla(i, nombreVar){
+  const cont = document.querySelector(`[data-plantilla-editor="${i}"]`);
+  if(!cont || !nombreVar) return;
+  cont.focus();
+  const sel = window.getSelection();
+  let range;
+  if(sel && sel.rangeCount && cont.contains(sel.getRangeAt(0).commonAncestorContainer)){
+    range = sel.getRangeAt(0);
+  } else {
+    range = document.createRange();
+    range.selectNodeContents(cont);
+    range.collapse(false);
+  }
+  range.deleteContents();
+  const chip = document.createElement('span');
+  chip.className = 'var-chip';
+  chip.contentEditable = 'false';
+  chip.dataset.var = nombreVar;
+  chip.textContent = nombreVar;
+  range.insertNode(chip);
+  range.setStartAfter(chip);
+  range.setEndAfter(chip);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
+}
+
 /**
  * Recorre `text` y para cada carácter dice a qué palabra pertenece (0-based,
  * separadas por espacios) y qué posición ocupa dentro de esa palabra (0-based).
@@ -2468,41 +2639,47 @@ function posicionesPorPalabra(text){
   return out;
 }
 
-/** Color de cada carácter de `text` según los resaltados del campo `f`, o null si no tiene ninguno (camino rápido). */
-function coloresPorCaracter(text, f){
+/** Color y tipografía de cada carácter de `text` según los resaltados del campo `f`, o null si no tiene ninguno (camino rápido). */
+function estilosPorCaracter(text, f){
   if(!f.resaltados || !f.resaltados.length) return null;
   const posiciones = posicionesPorPalabra(text);
+  const base = { color: f.color, fontFamily: f.fontFamily || 'Georgia, serif' };
   return text.split('').map((ch, i) => {
     const pos = posiciones[i];
-    if(!pos) return f.color;
+    if(!pos) return base;
     const r = f.resaltados.find(r => r.palabra === pos.palabra && r.letra === pos.letra);
-    return r ? r.color : f.color;
+    if(!r) return base;
+    return { color: r.color || base.color, fontFamily: r.fontFamily || base.fontFamily };
   });
 }
 
-/** Texto de muestra para el editor de "colores por letra": el dato real si ya hay, si no el valor fijo, si no un ejemplo genérico. */
+/** Texto de muestra para el editor de "colores y tipografías por letra": el dato real si ya hay, si no el valor fijo, si no un ejemplo genérico. */
 function muestraTextoPara(f){
+  if(f.usarPlantillaTexto) return resolverPlantillaTexto(f.plantillaTexto, (rows.length && rows[0]) || {}) || 'Nombre Apellido';
   if(rows.length && rows[0][f.nombre]) return String(rows[0][f.nombre]);
   if(config.overrides && config.overrides[f.nombre]) return String(config.overrides[f.nombre]);
   return 'Nombre Apellido';
 }
 
-/** Arma el HTML del recuadro de muestra: una letra por span, ya pintada con su color actual. */
+/** Arma el HTML del recuadro de muestra: una letra por span, ya pintada con su color/tipografía actual. */
 function renderMuestraResaltado(f){
   const texto = aplicarFormato(muestraTextoPara(f), f.formato) || '';
-  const colores = coloresPorCaracter(texto, f);
-  return texto.split('').map((ch, i) =>
-    `<span data-idx="${i}" style="color:${escapeHtml((colores && colores[i]) || f.color)};">${ch === ' ' ? '&nbsp;' : escapeHtml(ch)}</span>`
-  ).join('');
+  const estilos = estilosPorCaracter(texto, f);
+  const base = { color: f.color, fontFamily: f.fontFamily || 'Georgia, serif' };
+  return texto.split('').map((ch, i) => {
+    const e = (estilos && estilos[i]) || base;
+    return `<span data-idx="${i}" style="color:${escapeHtml(e.color)};font-family:${escapeHtml(e.fontFamily)};">${ch === ' ' ? '&nbsp;' : escapeHtml(ch)}</span>`;
+  }).join('');
 }
 
 /**
- * Aplica (o, si `color` es null, quita) un color a las letras seleccionadas en
- * el recuadro de muestra del campo `i`. La selección se traduce a posiciones
- * "letra N de la palabra M" con `posicionesPorPalabra`, así que queda válida
- * para cualquier nombre real, no sólo para el texto de ejemplo.
+ * Aplica (o, si `estilo` es null, quita) un color y/o tipografía a las letras
+ * seleccionadas en el recuadro de muestra del campo `i`. La selección se
+ * traduce a posiciones "letra N de la palabra M" con `posicionesPorPalabra`,
+ * así que queda válida para cualquier nombre real, no sólo para el texto de
+ * ejemplo. `estilo.fontFamily` en `undefined` deja la tipografía del campo.
  */
-function aplicarColorASeleccion(i, color){
+function aplicarEstiloASeleccion(i, estilo){
   const cont = document.querySelector(`[data-resaltado-muestra="${i}"]`);
   if(!cont) return;
   const sel = window.getSelection();
@@ -2525,12 +2702,12 @@ function aplicarColorASeleccion(i, color){
     const pos = posiciones[Number(span.dataset.idx)];
     if(!pos) return;   // los espacios no se colorean
     f.resaltados = f.resaltados.filter(r => !(r.palabra === pos.palabra && r.letra === pos.letra));
-    if(color) f.resaltados.push({ palabra: pos.palabra, letra: pos.letra, color });
+    if(estilo) f.resaltados.push({ palabra: pos.palabra, letra: pos.letra, ...estilo });
     tocadas++;
   });
   sel.removeAllRanges();
   if(!tocadas){ alert('La selección no tocó ninguna letra (¿elegiste sólo un espacio?).'); return; }
-  renderChips(); renderTemplatePreview(); renderFieldSettings();
+  ensureFontsLoadedForConfig(config).then(() => { renderChips(); renderTemplatePreview(); renderFieldSettings(); });
 }
 
 // ---------- Generar ----------
@@ -2539,6 +2716,24 @@ function fitFontSize(ctx, text, fontFamily, bold, maxSize, minSize, maxWidthPx){
   for(; size > minSize; size--){
     ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`;
     if(ctx.measureText(text).width <= maxWidthPx) break;
+  }
+  return size;
+}
+
+/** Ancho de `text` a un tamaño dado cuando cada carácter puede tener su propia tipografía (letras con estilo distinto). */
+function anchoMixto(ctx, text, estilos, bold, size){
+  let w = 0;
+  for(let i = 0; i < text.length; i++){
+    ctx.font = `${bold ? 'bold ' : ''}${size}px ${estilos[i].fontFamily}`;
+    w += ctx.measureText(text[i]).width;
+  }
+  return w;
+}
+/** Igual que fitFontSize, pero cuando el campo tiene letras con tipografía propia (distinta a la del resto). */
+function fitFontSizeMixto(ctx, text, estilos, bold, maxSize, minSize, maxWidthPx){
+  let size = maxSize;
+  for(; size > minSize; size--){
+    if(anchoMixto(ctx, text, estilos, bold, size) <= maxWidthPx) break;
   }
   return size;
 }
@@ -2590,11 +2785,13 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
       continue;
     }
 
-    // texto: gana el ajuste manual de ESTE certificado; si no hay, el valor
-    // fijo de la plantilla (mismo para todas las personas); si no, el Excel
+    // texto: gana el ajuste manual de ESTE certificado; si no hay, el texto
+    // con variables incrustadas (si está activado); si no, el valor fijo de
+    // la plantilla (mismo para todas las personas); si no, el Excel
     const fijo = cfg.overrides && cfg.overrides[f.nombre];
     const bruto = (aj.texto !== undefined && aj.texto !== null && aj.texto !== '')
       ? aj.texto
+      : f.usarPlantillaTexto ? resolverPlantillaTexto(f.plantillaTexto, rowData)
       : (fijo !== undefined && fijo !== null && fijo !== '') ? fijo : rowData[f.nombre];
     if(bruto === undefined || bruto === null || bruto === '') continue;
     const text = aplicarFormato(bruto, f.formato);
@@ -2612,7 +2809,10 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     const topeAlto = altoCajaPx / 1.25;
     const maxSize = Math.max(4, Math.min((f.maxFontSize || f.fontSize || 32) + (Number(aj.dSize) || 0), topeAlto));
     const minSize = Math.min(f.minFontSize || 12, maxSize);
-    const fitSize = fitFontSize(ctx, text, fontFamily, f.bold, maxSize, minSize, boxWidthPx);
+    const estilos = estilosPorCaracter(text, f);
+    const fitSize = estilos
+      ? fitFontSizeMixto(ctx, text, estilos, f.bold, maxSize, minSize, boxWidthPx)
+      : fitFontSize(ctx, text, fontFamily, f.bold, maxSize, minSize, boxWidthPx);
     ctx.save();
     ctx.globalAlpha = opacityOf(f);
     ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
@@ -2632,21 +2832,21 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     ctx.beginPath();
     ctx.rect(leftPx, topPx, boxWidthPx, altoCajaPx);
     ctx.clip();
-    const colores = coloresPorCaracter(text, f);
-    if(!colores){
+    if(!estilos){
       ctx.fillText(text, drawX, yPx);
     } else {
-      // con letras de colores distintos hay que pintar carácter por carácter;
-      // se calcula el ancho total UNA vez para que el bloque completo quede
-      // anclado igual que antes (a la izquierda/centro/derecha de la caja).
-      const totalWidth = ctx.measureText(text).width;
+      // con letras de color/tipografía distinta hay que pintar carácter por
+      // carácter; se calcula el ancho total UNA vez para que el bloque
+      // completo quede anclado igual que antes (izquierda/centro/derecha).
+      const totalWidth = anchoMixto(ctx, text, estilos, f.bold, fitSize);
       let x;
       if(f.align === 'left') x = leftPx;
       else if(f.align === 'right') x = rightPx - totalWidth;
       else x = (leftPx + rightPx)/2 - totalWidth/2;
       ctx.textAlign = 'left';
       for(let i = 0; i < text.length; i++){
-        ctx.fillStyle = colores[i];
+        ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${estilos[i].fontFamily}`;
+        ctx.fillStyle = estilos[i].color;
         ctx.fillText(text[i], x, yPx);
         x += ctx.measureText(text[i]).width;
       }
