@@ -107,6 +107,7 @@
     z-index:300;touch-action:none;transform:translate(-50%,-50%);}
   .field-handle.h{width:9px;height:22px;cursor:ew-resize;}
   .field-handle.v{width:22px;height:9px;cursor:ns-resize;}
+  .field-handle.c{width:13px;height:13px;border-radius:50%;z-index:310;}
   .field-handle.inactive{opacity:.4;}
   .img-box{position:absolute;transform:translate(-50%,-50%);cursor:grab;z-index:1;touch-action:none;outline:1px dashed rgba(19,39,67,.5);}
   .img-box:active{cursor:grabbing;}
@@ -228,6 +229,7 @@
     .row{flex-direction:column;align-items:stretch;}
     .panel-head .btn{width:auto;}
     .field-handle{width:18px;height:34px;}
+    .field-handle.c{width:20px;height:20px;border-radius:50%;}
     .field-chip{font-size:12px;padding:5px 9px;}
     .font-picker{display:block;width:100%;}
     .font-picker-btn{min-width:0;max-width:none;width:100%;}
@@ -555,7 +557,7 @@ let assignment = [];     // assignment[rowIdx] = Set(templateIdx)
 let matrixTemplateSelection = new Set(); // qué índices de templatesFull participan en esta generación
 let issued = [];
 let issuedSeleccionados = new Set();  // ids (uuid, string) marcados en «Certificados emitidos»
-let dragging = null;     // { idx, role: 'left'|'right'|'top'|'bot'|'move'|'point'|'imgW' }
+let dragging = null;     // { idx, role: 'left'|'right'|'top'|'bot'|'tl'|'tr'|'bl'|'br'|'move'|'point'|'imgW' }
 let campoSel = null;     // campo resaltado en la plantilla y en la lista
 let guiaSel  = null;     // { eje, i } — guía elegida con un clic; Supr la quita
 // Correcciones manuales de un certificado concreto, por si el ajuste automático
@@ -1540,10 +1542,11 @@ function renderChips(){
     wrap.appendChild(label);
 
     const centro = centroV(f);
-    const asa = (clase, izq, arriba, rol, titulo) => {
+    const asa = (clase, izq, arriba, rol, titulo, cursor) => {
       const h = document.createElement('div');
       h.className = 'field-handle ' + clase + (f.activo ? '' : ' inactive');
       h.style.left = izq + '%'; h.style.top = arriba + '%';
+      if(cursor) h.style.cursor = cursor;
       h.dataset.idx = i; h.dataset.role = rol; h.title = titulo;
       h.addEventListener('pointerdown', onHandlePointerDown);
       wrap.appendChild(h);
@@ -1552,6 +1555,11 @@ function renderChips(){
     asa('h', box.rightPct, centro,   'right', 'Margen derecho');
     asa('v', (box.leftPct+box.rightPct)/2, v.topPct, 'top', 'Margen superior');
     asa('v', (box.leftPct+box.rightPct)/2, v.botPct, 'bot', 'Margen inferior');
+    // esquinas: mueven los dos márgenes de ese lado a la vez (p.ej. derecho + inferior)
+    asa('c', box.leftPct,  v.topPct, 'tl', 'Esquina superior izquierda', 'nwse-resize');
+    asa('c', box.rightPct, v.topPct, 'tr', 'Esquina superior derecha',   'nesw-resize');
+    asa('c', box.leftPct,  v.botPct, 'bl', 'Esquina inferior izquierda', 'nesw-resize');
+    asa('c', box.rightPct, v.botPct, 'br', 'Esquina inferior derecha',   'nwse-resize');
   });
   renderGuias();     // se redibujan junto con los campos
 }
@@ -1638,6 +1646,28 @@ document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
   else if(R === 'right'){ const b = boxOf(f); f.rightPct = Math.max(iman(xPct,'v'), b.leftPct + 2); f.leftPct = b.leftPct; }
   else if(R === 'top'){ const v = cajaV(f); f.topPct = Math.min(iman(yPct,'h'), v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f); }
   else if(R === 'bot'){ const v = cajaV(f); f.botPct = Math.max(iman(yPct,'h'), v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f); }
+  // esquinas: la misma lógica de un borde horizontal y uno vertical, juntas,
+  // así se ajustan los dos márgenes de ese lado en un solo arrastre
+  else if(R === 'tl'){
+    const b = boxOf(f), v = cajaV(f);
+    f.leftPct = Math.min(iman(xPct,'v'), b.rightPct - 2); f.rightPct = b.rightPct;
+    f.topPct = Math.min(iman(yPct,'h'), v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f);
+  }
+  else if(R === 'tr'){
+    const b = boxOf(f), v = cajaV(f);
+    f.rightPct = Math.max(iman(xPct,'v'), b.leftPct + 2); f.leftPct = b.leftPct;
+    f.topPct = Math.min(iman(yPct,'h'), v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f);
+  }
+  else if(R === 'bl'){
+    const b = boxOf(f), v = cajaV(f);
+    f.leftPct = Math.min(iman(xPct,'v'), b.rightPct - 2); f.rightPct = b.rightPct;
+    f.botPct = Math.max(iman(yPct,'h'), v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f);
+  }
+  else if(R === 'br'){
+    const b = boxOf(f), v = cajaV(f);
+    f.rightPct = Math.max(iman(xPct,'v'), b.leftPct + 2); f.leftPct = b.leftPct;
+    f.botPct = Math.max(iman(yPct,'h'), v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f);
+  }
   renderChips();
 });
 window.addEventListener('pointerup', () => {
