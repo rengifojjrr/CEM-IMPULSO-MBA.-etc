@@ -2647,6 +2647,23 @@ function insertarVariableEnPlantilla(i, nombreVar){
   sel.removeAllRanges();
   sel.addRange(range);
   config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
+
+  // si ese mismo dato ya se imprime aparte, en su propio recuadro, se avisa
+  // para poder apagarlo y que no salga repetido dos veces en el certificado
+  const key = nombreVar.trim().toLowerCase();
+  const otroIdx = config.fields.findIndex((f, fi) => fi !== i && f.tipo === 'texto' && f.activo && f.nombre.trim().toLowerCase() === key);
+  if(otroIdx >= 0){
+    const otro = config.fields[otroIdx];
+    if(confirm(`El campo «${otro.nombre}» ya está activo y se imprime aparte, en su propio recuadro. Si sigue así, «${nombreVar}» va a salir dos veces en el certificado (aquí adentro del texto y en ese recuadro). ¿Apagar «${otro.nombre}» para que no se repita?`)){
+      otro.activo = false;
+      renderChips();
+      // no se hace un renderFieldSettings() completo aquí para no perder el
+      // cursor en el editor que se está usando ahora mismo; se actualiza sólo
+      // lo necesario del otro campo (su casilla y el atenuado de su tarjeta)
+      const chkOtro = document.querySelector(`[data-i="${otroIdx}"][data-p="activo"]`);
+      if(chkOtro){ chkOtro.checked = false; chkOtro.closest('.campo')?.classList.add('apagado'); }
+    }
+  }
 }
 
 /**
