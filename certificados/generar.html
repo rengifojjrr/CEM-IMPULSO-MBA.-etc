@@ -1568,6 +1568,10 @@ function renderChips(){
 
 /** Texto de muestra que se ve en la plantilla mientras se ajusta. */
 function textoMuestra(f){
+  if(f.usarPlantillaTexto){
+    const texto = String(f.plantillaTexto || '').replace(/\{\{[^{}]+\}\}/g, 'XXXXXXXXX');
+    return aplicarFormato(texto, f.formato) || 'XXXXXXXXX';
+  }
   const fijo = config.overrides && config.overrides[f.nombre];
   if(fijo) return aplicarFormato(fijo, f.formato);
   if(f.formato === 'cedula') return '12.345.678';
@@ -1890,7 +1894,15 @@ function renderFieldSettings(){
   // escribir libremente (con espacios y todo) e insertar/quitar variables
   wrap.querySelectorAll('[data-plantilla-activar]').forEach(chk => chk.addEventListener('change', () => {
     const i = Number(chk.dataset.plantillaActivar);
-    config.fields[i].usarPlantillaTexto = chk.checked;
+    const f = config.fields[i];
+    // un texto compuesto suele ser una frase larga: si se prende por primera
+    // vez y la caja todavía es la angosta de un campo de una sola palabra,
+    // se ensancha sola para que no se recorte contra el margen
+    if(chk.checked && !f.plantillaTexto){
+      const b = boxOf(f);
+      if(b.rightPct - b.leftPct < 80){ f.leftPct = 4; f.rightPct = 96; }
+    }
+    f.usarPlantillaTexto = chk.checked;
     renderChips(); renderTemplatePreview(); renderFieldSettings();
   }));
   wrap.querySelectorAll('[data-plantilla-editor]').forEach(cont => {
