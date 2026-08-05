@@ -453,6 +453,16 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function sanitizeName(s){ return String(s || '').trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'sin_nombre'; }
+/**
+ * Compara nombres de columna sin importar mayúsculas/minúsculas NI tildes, para
+ * que «Cédula», «cedula» y «CÉDULA» sean la misma columna en todos lados: al
+ * importar el Excel, al armar la lista de variables para insertar y al
+ * sustituirlas dentro de un texto compuesto. Sin esto, un campo escrito sin
+ * tilde y otro con tilde generan dos columnas separadas con el mismo dato.
+ */
+function normalizarNombreCampo(s){
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 
 /** Botón "?" para generar dentro de HTML armado en JS (galerías, listas, etc.). */
 function ayuda(texto){
@@ -2211,13 +2221,17 @@ document.getElementById('btnVistaPreviaTodas').addEventListener('click', async (
 // Cada columna del Excel/CSV se empareja por nombre (sin distinguir mayúsculas)
 // contra los campos de texto activos de TODAS las plantillas guardadas (un
 // estudiante puede necesitar datos para más de un formato de certificado).
-/** Nombres de columna usados como {{variable}} dentro de algún "texto con variables incrustadas", en cualquier plantilla. */
+/** Nombres de columna usados como {{variable}} dentro de algún "texto con variables incrustadas", en cualquier plantilla: clave normalizada (sin tildes/mayúsculas) -> nombre tal cual se escribió la primera vez. */
 function variablesUsadasEnPlantillas(){
-  const nombres = new Set();
+  const nombres = new Map();
   for(const t of templatesFull){
     for(const f of t.config.fields){
       if(f.tipo === 'texto' && f.usarPlantillaTexto && f.plantillaTexto){
-        for(const m of f.plantillaTexto.matchAll(/\{\{([^{}]+)\}\}/g)) nombres.add(m[1].trim());
+        for(const m of f.plantillaTexto.matchAll(/\{\{([^{}]+)\}\}/g)){
+          const nombre = m[1].trim();
+          const key = normalizarNombreCampo(nombre);
+          if(!nombres.has(key)) nombres.set(key, nombre);
+        }
       }
     }
   }
@@ -2225,18 +2239,18 @@ function variablesUsadasEnPlantillas(){
 }
 
 function activeTextFieldNamesUnion(){
-  // Los nombres se emparejan sin distinguir mayúsculas/minúsculas en todo el resto
-  // del flujo (importación, matrix, etc.), así que la unión también debe deduplicar
-  // así — si no, "Fecha" y "fecha" en dos plantillas distintas generan dos columnas
-  // separadas que terminan con el mismo dato duplicado.
-  const seen = new Map(); // clave en minúsculas -> primera variante de mayúsculas/minúsculas vista
+  // Los nombres se emparejan sin distinguir mayúsculas/minúsculas NI tildes en
+  // todo el resto del flujo (importación, matrix, etc.), así que la unión
+  // también debe deduplicar así — si no, "Fecha"/"fecha" o "Cédula"/"cedula"
+  // en dos plantillas distintas generan dos columnas separadas con el mismo dato.
+  const seen = new Map(); // clave normalizada -> primera variante de mayúsculas/tildes vista
   const variablesUsadas = variablesUsadasEnPlantillas();
   for(const t of templatesFull){
     for(const f of t.config.fields){
       // un campo cuenta aunque esté apagado si se usa como variable dentro de
       // un texto compuesto: puede que nunca se imprima "suelto", sólo incrustado
-      if(f.tipo === 'texto' && (f.activo || variablesUsadas.has(f.nombre))){
-        const key = f.nombre.trim().toLowerCase();
+      if(f.tipo === 'texto' && (f.activo || variablesUsadas.has(normalizarNombreCampo(f.nombre)))){
+        const key = normalizarNombreCampo(f.nombre);
         if(!seen.has(key)) seen.set(key, f.nombre);
       }
     }
@@ -2244,8 +2258,7 @@ function activeTextFieldNamesUnion(){
   // columnas usadas como variable que no coinciden con ningún campo definido
   // (p.ej. una columna del Excel que sólo se usa dentro de una frase, sin
   // tener su propia caja en el certificado) también deben poder importarse
-  for(const nombre of variablesUsadas){
-    const key = nombre.trim().toLowerCase();
+  for(const [key, nombre] of variablesUsadas){
     if(!seen.has(key)) seen.set(key, nombre);
   }
   return [...seen.values()];
@@ -2268,12 +2281,12 @@ document.getElementById('btnDescargarExcel').addEventListener('click', () => {
 });
 
 function findHeaderRowIndex(lines, fieldNames){
-  const lowerNames = fieldNames.map(n => n.trim().toLowerCase());
+  const normNames = fieldNames.map(normalizarNombreCampo);
   let bestIdx = 0, bestScore = -1;
   const scanLimit = Math.min(lines.length, 15);
   for(let i = 0; i < scanLimit; i++){
-    const rowLower = lines[i].map(c => String(c ?? '').trim().toLowerCase());
-    const score = lowerNames.filter(n => rowLower.includes(n)).length;
+    const rowNorm = lines[i].map(c => normalizarNombreCampo(c));
+    const score = normNames.filter(n => rowNorm.includes(n)).length;
     if(score > bestScore){ bestScore = score; bestIdx = i; }
   }
   return bestIdx;
@@ -2283,11 +2296,11 @@ function mapLinesToRows(lines){
   if(!lines.length) return { rows: [], missing: [] };
   const activeTextFields = activeTextFieldNamesUnion();
   const headerIdx = findHeaderRowIndex(lines, activeTextFields);
-  const header = lines[headerIdx].map(h => String(h ?? '').trim().toLowerCase());
+  const header = lines[headerIdx].map(h => normalizarNombreCampo(h));
   const idxByField = {};
   const missing = [];
   for(const name of activeTextFields){
-    const idx = header.findIndex(h => h === name.trim().toLowerCase());
+    const idx = header.findIndex(h => h === normalizarNombreCampo(name));
     idxByField[name] = idx;
     if(idx < 0) missing.push(name);
   }
@@ -2597,19 +2610,27 @@ async function abrirAjuste(ri, ti){
   });
 }
 
-/** Reemplaza cada "{{Columna}}" de `plantilla` por el dato de esa columna en `rowData` (vacío si no existe). */
+/** Reemplaza cada "{{Columna}}" de `plantilla` por el dato de esa columna en `rowData` (vacío si no existe). Empareja sin tildes/mayúsculas, igual que el resto de la importación. */
 function resolverPlantillaTexto(plantilla, rowData){
+  const porNombreNormalizado = new Map();
+  for(const clave of Object.keys(rowData || {})) porNombreNormalizado.set(normalizarNombreCampo(clave), rowData[clave]);
   return String(plantilla || '').replace(/\{\{([^{}]+)\}\}/g, (m, nombre) => {
-    const val = (rowData || {})[nombre.trim()];
+    const val = porNombreNormalizado.get(normalizarNombreCampo(nombre));
     return (val === undefined || val === null) ? '' : String(val);
   });
 }
 
-/** Nombres de columna que se pueden insertar como variable: las del Excel ya importado y los demás campos de texto de esta plantilla. */
+/** Nombres de columna que se pueden insertar como variable: las del Excel ya importado y los demás campos de texto de esta plantilla. Sin duplicados por tildes/mayúsculas. */
 function variablesDisponibles(f){
+  const vistos = new Map();
   const deExcel = rows.length ? Object.keys(rows[0]) : [];
   const deCampos = config.fields.filter(x => x !== f && x.tipo === 'texto').map(x => x.nombre);
-  return [...new Set([...deExcel, ...deCampos])].filter(Boolean);
+  for(const nombre of [...deExcel, ...deCampos]){
+    if(!nombre) continue;
+    const key = normalizarNombreCampo(nombre);
+    if(!vistos.has(key)) vistos.set(key, nombre);
+  }
+  return [...vistos.values()];
 }
 
 /** Arma el HTML editable (texto suelto + una "chip" no editable por cada variable) a partir de una plantilla "...{{Var}}...". */
@@ -2662,8 +2683,8 @@ function insertarVariableEnPlantilla(i, nombreVar){
 
   // si ese mismo dato ya se imprime aparte, en su propio recuadro, se avisa
   // para poder apagarlo y que no salga repetido dos veces en el certificado
-  const key = nombreVar.trim().toLowerCase();
-  const otroIdx = config.fields.findIndex((f, fi) => fi !== i && f.tipo === 'texto' && f.activo && f.nombre.trim().toLowerCase() === key);
+  const key = normalizarNombreCampo(nombreVar);
+  const otroIdx = config.fields.findIndex((f, fi) => fi !== i && f.tipo === 'texto' && f.activo && normalizarNombreCampo(f.nombre) === key);
   if(otroIdx >= 0){
     const otro = config.fields[otroIdx];
     if(confirm(`El campo «${otro.nombre}» ya está activo y se imprime aparte, en su propio recuadro. Si sigue así, «${nombreVar}» va a salir dos veces en el certificado (aquí adentro del texto y en ese recuadro). ¿Apagar «${otro.nombre}» para que no se repita?`)){
