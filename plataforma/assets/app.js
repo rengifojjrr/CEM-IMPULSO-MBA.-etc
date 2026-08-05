@@ -75,6 +75,117 @@ export async function audit(accion, entidad, entidad_id, riesgo = 'bajo', detall
   } catch { /* la auditoría nunca debe romper el flujo */ }
 }
 
+/* ============ video (YouTube, sin costo y sin límite de espacio) ============
+ * Los videos de los cursos no se guardan en Supabase Storage (su plan
+ * gratuito sólo trae 1 GB, insuficiente para clases grabadas); se suben
+ * directo desde el navegador a un canal de YouTube "no listado" conectado
+ * en Configuración → Integraciones, y sólo se guarda el enlace embebible.
+ * El archivo nunca pasa por nuestro servidor: pedimos un access_token de
+ * corta duración a la función youtube-upload-token y con eso se habla
+ * directo con la API de subida resumible de YouTube. */
+export class YoutubeNoConectadoError extends Error {}
+
+async function youtubeAccessToken() {
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-youtube-upload-token`, {
+    headers: { Authorization: `Bearer ${session?.access_token}`, apikey: SUPABASE_KEY },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (json.error === 'not_connected' || json.error === 'reauth_required') {
+      throw new YoutubeNoConectadoError('El canal de YouTube no está conectado o hay que reconectarlo. Ve a Configuración → Integraciones.');
+    }
+    throw new Error(json.error || 'No se pudo preparar la subida.');
+  }
+  return json;
+}
+
+/**
+ * Sube un archivo de video directo a YouTube (no listado) y devuelve el
+ * enlace embebible listo para guardar en cem_lessons.url / cem_media.url.
+ * onProgress recibe un número de 0 a 1.
+ */
+export async function subirVideoYoutube(file, { titulo = '', descripcion = '' } = {}, onProgress = () => {}) {
+  const { access_token } = await youtubeAccessToken();
+
+  const initRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Length': String(file.size),
+      'X-Upload-Content-Type': file.type || 'video/*',
+    },
+    body: JSON.stringify({
+      snippet: { title: titulo || file.name, description: descripcion || '' },
+      status: { privacyStatus: 'unlisted', selfDeclaredMadeForKids: false },
+    }),
+  });
+  if (!initRes.ok) throw new Error('YouTube rechazó iniciar la subida (' + initRes.status + ').');
+  const uploadUrl = initRes.headers.get('Location');
+  if (!uploadUrl) throw new Error('YouTube no devolvió la URL de subida.');
+
+  const videoId = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', file.type || 'video/*');
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText).id); }
+        catch { reject(new Error('Respuesta inesperada de YouTube.')); }
+      } else reject(new Error('La subida a YouTube falló (' + xhr.status + ').'));
+    };
+    xhr.onerror = () => reject(new Error('Error de red durante la subida.'));
+    xhr.send(file);
+  });
+
+  return { videoId, embedUrl: `https://www.youtube.com/embed/${videoId}` };
+}
+
+/**
+ * Modal reutilizable de "Subir video" (elegir archivo, título, progreso).
+ * Devuelve una promesa que resuelve con { embedUrl, videoId } si se subió,
+ * o null si se canceló.
+ */
+export function abrirSubidaVideo({ tituloDefault = '' } = {}) {
+  return new Promise((resolve) => {
+    const dlg = modal({ title: 'Subir video a YouTube', body: `
+      <div class="field"><label>Archivo de video</label><input type="file" id="vArchivo" accept="video/*"></div>
+      <div class="field"><label>Título en YouTube</label><input id="vTitulo" value="${esc(tituloDefault)}"></div>
+      <p class="tiny muted">Se sube como "no listado": no aparece en búsquedas de YouTube, sólo es visible con el enlace.</p>
+      <div id="vProgWrap" style="display:none;margin:10px 0">
+        <div class="bar"><i id="vProgBar" style="width:0%"></i></div>
+        <div class="tiny muted" id="vProgTxt" style="margin-top:4px">Subiendo… 0%</div>
+      </div>
+      <div id="vErr" class="tiny" style="color:var(--error)"></div>`,
+      footer: `<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Subir</button>` });
+    let subiendo = false;
+    $('[data-x]', dlg).onclick = () => { if (!subiendo) { dlg.close(); resolve(null); } };
+    $('[data-s]', dlg).onclick = async () => {
+      const file = $('#vArchivo', dlg).files[0];
+      const err = $('#vErr', dlg);
+      err.textContent = '';
+      if (!file) { err.textContent = 'Elige un archivo de video.'; return; }
+      subiendo = true;
+      $('[data-s]', dlg).disabled = true; $('[data-x]', dlg).disabled = true;
+      $('#vProgWrap', dlg).style.display = 'block';
+      try {
+        const resultado = await subirVideoYoutube(file, { titulo: $('#vTitulo', dlg).value.trim() || file.name }, (frac) => {
+          const pctTxt = Math.round(frac * 100);
+          $('#vProgBar', dlg).style.width = pctTxt + '%';
+          $('#vProgTxt', dlg).textContent = `Subiendo… ${pctTxt}%`;
+        });
+        dlg.close(); resolve({ ...resultado, nombreArchivo: file.name, tamanoBytes: file.size });
+      } catch (e) {
+        subiendo = false;
+        $('[data-s]', dlg).disabled = false; $('[data-x]', dlg).disabled = false;
+        err.textContent = e instanceof YoutubeNoConectadoError ? e.message : (e.message || 'No se pudo subir el video.');
+      }
+    };
+  });
+}
+
 /* ============ sesión y perfil ============ */
 let _profile = null;
 export async function profile() {

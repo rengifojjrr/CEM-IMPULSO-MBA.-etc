@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Conectar YouTube</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Integración con YouTube</h1>
+      <p>Los videos de los cursos se suben directo a un canal de YouTube "no listado": sin costo y sin límite práctico de espacio.</p></div>
+    <div class="actions"><a class="btn outline" href="configuracion.html"><span class="material-symbols-outlined">arrow_back</span> Configuración</a></div>
+  </div>
+
+  <div id="cont"></div>
+</div>
+<script type="module">
+import { sb, mount, $, esc, ok, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
+const p = await mount({ require:['admin','superadmin'], area:'admin' });
+
+const FN = `${SUPABASE_URL}/functions/v1/cem-youtube-oauth-exchange`;
+let estado = null;
+
+async function authHeaders(){
+  const { data: { session } } = await sb.auth.getSession();
+  return { Authorization: `Bearer ${session?.access_token}`, apikey: SUPABASE_KEY };
+}
+
+async function init(){
+  const params = new URLSearchParams(location.search);
+  if (params.get('error')) {
+    render({ cargando:false, errorFlujo: 'Google no completó la conexión: ' + params.get('error') });
+    history.replaceState(null, '', location.pathname);
+    return;
+  }
+  if (params.get('code')) {
+    render({ cargando:true, mensaje:'Terminando de conectar con Google…' });
+    try {
+      const res = await fetch(FN, { method:'POST', headers:{ ...(await authHeaders()), 'Content-Type':'application/json' },
+        body: JSON.stringify({ code: params.get('code') }) });
+      const json = await res.json();
+      history.replaceState(null, '', location.pathname);
+      if (!res.ok) { await cargarEstado(); render({ cargando:false, errorFlujo: json.error }); return; }
+      await cargarEstado();
+      ok('Canal de YouTube conectado' + (json.channel_title ? `: ${json.channel_title}` : ''));
+      render({ cargando:false });
+    } catch (e) {
+      history.replaceState(null, '', location.pathname);
+      render({ cargando:false, errorFlujo: String(e) });
+    }
+    return;
+  }
+  render({ cargando:true });
+  await cargarEstado();
+  render({ cargando:false });
+}
+
+async function cargarEstado(){
+  try {
+    const res = await fetch(FN, { headers: await authHeaders() });
+    estado = await res.json();
+    if (!res.ok) { estado = { error: estado.error || 'No se pudo consultar el estado.' }; }
+  } catch (e) { estado = { error: String(e) }; }
+}
+
+function render({ cargando, mensaje, errorFlujo }){
+  if (cargando) {
+    $('#cont').innerHTML = `<div class="card"><p class="muted">${esc(mensaje || 'Cargando…')}</p></div>`;
+    return;
+  }
+  if (estado?.error && !estado?.configured && !estado?.connected) {
+    // el GET también puede fallar por falta de permisos; distinguimos del "no configurado"
+  }
+  const redirectUri = location.origin + location.pathname;
+  const authUrl = estado?.client_id ? 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+    client_id: estado.client_id,
+    redirect_uri: estado.redirect_uri || redirectUri,
+    response_type: 'code',
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly',
+  }).toString() : null;
+
+  $('#cont').innerHTML = `
+    ${errorFlujo ? `<div class="card" style="border-color:var(--error)"><p style="color:var(--error)">${esc(errorFlujo)}</p></div>` : ''}
+    <div class="grid g2">
+      <div class="card">
+        <h2 class="sec">Estado</h2>
+        ${!estado?.configured ? `
+          <p class="muted">Todavía no se configuraron las credenciales de Google en el servidor (client_id / client_secret de un proyecto de Google Cloud con la API de YouTube habilitada). Ese paso lo hace quien administra la plataforma.</p>
+        ` : estado?.connected ? `
+          <div class="row" style="gap:10px;align-items:center">
+            <span class="material-symbols-outlined" style="font-size:32px;color:var(--ok)">check_circle</span>
+            <div><div style="font-weight:600">Conectado${estado.channel_title ? ': ' + esc(estado.channel_title) : ''}</div>
+              <div class="tiny muted">${estado.conectado_por ? 'Conectado por ' + esc(estado.conectado_por) : ''}${estado.conectado_en ? ' · ' + new Date(estado.conectado_en).toLocaleString('es-ES') : ''}</div></div>
+          </div>
+          <p class="tiny muted" style="margin-top:12px">Si las subidas empiezan a fallar con un error de autorización, es probable que el acceso haya expirado (pasa cada 7 días mientras la app de Google esté en modo "prueba"). Sólo hace falta reconectar de nuevo, abajo.</p>
+        ` : `<p class="muted">Todavía no hay ningún canal de YouTube conectado.</p>`}
+      </div>
+      <div class="card">
+        <h2 class="sec">${estado?.connected ? 'Reconectar' : 'Conectar'}</h2>
+        <p class="tiny muted">Vas a iniciar sesión con la cuenta de Google dueña del canal donde quieres que se suban los videos de los cursos (puede ser un canal dedicado, no tiene que ser personal).</p>
+        <button class="btn" id="btnConectar" ${authUrl ? '' : 'disabled'}>
+          <span class="material-symbols-outlined">link</span> ${estado?.connected ? 'Reconectar con YouTube' : 'Conectar con YouTube'}</button>
+      </div>
+    </div>`;
+  const btn = $('#btnConectar');
+  if (btn && authUrl) btn.onclick = () => { location.href = authUrl; };
+}
+
+if (p) init();
+</script>
+</body>
+</html>

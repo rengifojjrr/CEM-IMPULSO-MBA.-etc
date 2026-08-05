@@ -41,7 +41,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, modal, ok, run, audit, qs, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, modal, ok, run, audit, qs, confirmDialog, abrirSubidaVideo } from '../assets/app.js';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'contenido.html', area:'admin' });
 let cursos=[], cursoId=null, mods=[], sel=null;
 if (p) load();
@@ -108,7 +108,11 @@ function renderEditor(){
         ${['borrador','en_revision','publicado','archivado'].map(v=>`<option ${l.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
     </div>
     <div class="field"><label>Descripción breve</label><input id="lDesc" value="${esc(l.descripcion||'')}"></div>
-    <div class="field"><label>URL del recurso (video, PDF o enlace)</label><input id="lUrl" value="${esc(l.url||'')}" placeholder="https://…"></div>
+    <div class="field"><label>URL del recurso (video, PDF o enlace)</label>
+      <div class="row" style="gap:8px">
+        <input id="lUrl" value="${esc(l.url||'')}" placeholder="https://…" style="flex:1">
+        <button class="btn outline sm" id="btnSubirVideo" type="button"><span class="material-symbols-outlined">cloud_upload</span> Subir video</button>
+      </div></div>
     <div class="field"><label>Contenido / notas del docente</label><textarea id="lCont" style="min-height:140px">${esc(l.contenido||'')}</textarea></div>
     <label class="check"><input type="checkbox" id="lObl" ${l.obligatorio?'checked':''}> Lección obligatoria para el avance</label>
     <div class="row" style="margin-top:14px;justify-content:space-between">
@@ -116,6 +120,13 @@ function renderEditor(){
       <button class="btn outline sm" id="btnRev"><span class="material-symbols-outlined">fact_check</span> Enviar a revisión</button>
     </div></div>`;
 
+  $('#btnSubirVideo').onclick = async () => {
+    const resultado = await abrirSubidaVideo({ tituloDefault: l.titulo });
+    if (!resultado) return;
+    $('#lUrl').value = resultado.embedUrl;
+    $('#lTipo').value = 'video';
+    ok('Video subido. Revisa y guarda la lección.');
+  };
   $('#btnSave').onclick = async () => {
     await run(sb.from('cem_lessons').update({
       titulo:$('#lT').value.trim(), tipo:$('#lTipo').value, duracion_min:Number($('#lDur').value)||0,
