@@ -1730,3 +1730,39 @@ function bloqueOpacidad(f, i){
     step="0.05" value="${opacityOf(f)}" style="width:96px;vertical-align:middle;">
     <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>`;
 }
+
+function renderFieldSettings(){
+  const wrap = document.getElementById('fieldSettings');
+  wrap.innerHTML = config.fields.map((f, i) => {
+    const abierto = campoSel === i;
+    const tipoEt = f.tipo === 'qr' ? 'QR' : f.tipo === 'imagen' ? 'Imagen' : 'Texto';
+
+    // ---- cabecera: siempre visible y corta ----
+    const cabecera = `<div class="campo-cab" data-abrir="${i}">
+      <span class="campo-orden">
+        <button class="mini" data-subir="${i}" title="Subir: queda por delante de los de abajo" ${i===0?'disabled':''}>&#9650;</button>
+        <button class="mini" data-bajar="${i}" title="Bajar: queda por detrás de los de arriba" ${i===config.fields.length-1?'disabled':''}>&#9660;</button>
+      </span>
+      <label onclick="event.stopPropagation()" title="Se imprime en el certificado">
+        <input type="checkbox" data-i="${i}" data-p="activo" ${f.activo?'checked':''}></label>
+      <input type="text" data-i="${i}" data-p="nombre" value="${escapeHtml(f.nombre)}"
+        onclick="event.stopPropagation()" title="Debe coincidir con el encabezado de esa columna en tu Excel"
+        placeholder="Nombre de la columna" class="campo-nombre">
+      <span class="campo-tipo">${tipoEt}</span>
+      <span class="campo-resumen">${[
+        !f.activo ? 'oculto' : '',
+        (config.overrides && config.overrides[f.nombre]) ? `fijo: ${escapeHtml(String(config.overrides[f.nombre]))}` : '',
+      ].filter(Boolean).join(' · ')}</span>
+      <button class="campo-flecha" data-toggle="${i}" title="${abierto ? 'Cerrar opciones' : 'Abrir opciones'}"
+        onclick="event.stopPropagation()">${abierto ? '&#9650; opciones' : '&#9660; opciones'}</button>
+    </div>`;
+
+    if(!abierto) return `<div class="campo ${f.activo?'':'apagado'}">${cabecera}</div>`;
+
+    // ---- cuerpo: sólo del campo elegido ----
+    let cuerpo = '';
+    if(f.tipo === 'qr'){
+      cuerpo = `<div class="campo-fila">
+        <label>Tamaño <input type="number" data-i="${i}" data-p="size" value="${f.size}" style="width:66px;"> px</label>
+        ${bloqueOpacidad(f, i)}
+      </div>`;
