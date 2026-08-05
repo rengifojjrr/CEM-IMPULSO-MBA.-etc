@@ -92,7 +92,14 @@ $('#formLogin').onsubmit = async (e) => {
   loginMsg.innerHTML = '';
   const { error } = await sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#pass').value });
   if (error) { loginMsg.innerHTML = `<div class="chip err" style="margin-top:10px">${esc(error.message)}</div>`; return; }
-  const p = await (async () => { const { data } = await sb.rpc('cem_my_profile'); return Array.isArray(data) ? data[0] : data; })();
+  const p = await (async () => {
+    const { data } = await sb.rpc('cem_my_profile');
+    const row = Array.isArray(data) ? data[0] : data;
+    // cem_my_profile() devuelve una sola fila, no un conjunto: sin perfil
+    // coincidente da un registro con todo en null (sigue siendo un objeto,
+    // no null), así que hay que comprobar el id, no sólo si "hay algo".
+    return (row && row.id) ? row : null;
+  })();
   if (!p) { loginMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Tu usuario no tiene perfil asignado.</div>'; await sb.auth.signOut(); return; }
   if (!p.activo) { loginMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Cuenta desactivada.</div>'; await sb.auth.signOut(); return; }
   location.href = homeForRoot(p.rol);

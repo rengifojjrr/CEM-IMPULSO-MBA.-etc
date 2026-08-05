@@ -2816,6 +2816,61 @@ function fitFontSizeMixto(ctx, text, estilos, bold, maxSize, minSize, maxWidthPx
   return size;
 }
 
+/** Ancho de `text` (que empieza en `startIdx` dentro del texto completo) a un tamaño dado, con o sin letras de estilo propio. */
+function medirAncho(ctx, text, estilos, startIdx, bold, fontFamily, size){
+  if(!estilos){ ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`; return ctx.measureText(text).width; }
+  return anchoMixto(ctx, text, estilos.slice(startIdx, startIdx + text.length), bold, size);
+}
+
+/**
+ * Reparte `text` en líneas que quepan en `maxWidthPx`, cortando sólo entre
+ * palabras (nunca a mitad de una palabra: si una sola palabra ya es más
+ * ancha que la caja, se deja sola en su línea aunque se salga un poco —
+ * no hay forma de partirla). Se usa cuando ni el tamaño mínimo de letra
+ * alcanza para que el texto quepa entero en una sola línea.
+ */
+function envolverLineas(ctx, text, estilos, bold, fontFamily, size, maxWidthPx){
+  const palabras = [];
+  const re = /\S+/g;
+  let m;
+  while((m = re.exec(text))) palabras.push({ inicio: m.index, fin: m.index + m[0].length });
+  if(!palabras.length) return [{ texto: text, inicio: 0, fin: text.length }];
+  const lineas = [];
+  let actual = { inicio: palabras[0].inicio, fin: palabras[0].fin };
+  for(let i = 1; i < palabras.length; i++){
+    const p = palabras[i];
+    const ancho = medirAncho(ctx, text.slice(actual.inicio, p.fin), estilos, actual.inicio, bold, fontFamily, size);
+    if(ancho <= maxWidthPx){ actual.fin = p.fin; continue; }
+    lineas.push(actual);
+    actual = { inicio: p.inicio, fin: p.fin };
+  }
+  lineas.push(actual);
+  return lineas.map(l => ({ texto: text.slice(l.inicio, l.fin), inicio: l.inicio, fin: l.fin }));
+}
+
+/**
+ * Igual que envolverLineas, pero reparte las palabras de forma más pareja
+ * entre las líneas en vez de llenar la primera al tope y dejar la última
+ * cortita (lo típico de un salto de línea "codicioso"). Prueba anchos cada
+ * vez más angostos —sin aumentar la cantidad de líneas que ya hacían falta—
+ * hasta encontrar el más chico que sigue funcionando; con ese ancho las
+ * líneas quedan más equilibradas entre sí, igual que el balanceo de texto
+ * de un procesador de texto. El texto se sigue dibujando al ancho real de
+ * la caja: sólo cambia DÓNDE se corta cada línea.
+ */
+function envolverLineasBalanceado(ctx, text, estilos, bold, fontFamily, size, maxWidthPx){
+  const base = envolverLineas(ctx, text, estilos, bold, fontFamily, size, maxWidthPx);
+  if(base.length <= 1) return base;
+  let mejor = base, lo = maxWidthPx * 0.5, hi = maxWidthPx;
+  for(let i = 0; i < 10; i++){
+    const medio = (lo + hi) / 2;
+    const candidata = envolverLineas(ctx, text, estilos, bold, fontFamily, size, medio);
+    if(candidata.length === base.length){ mejor = candidata; hi = medio; }
+    else { lo = medio; }
+  }
+  return mejor;
+}
+
 /**
  * Dibuja un certificado.
  * `ajustes` son las correcciones manuales de ESTE certificado concreto
@@ -2903,31 +2958,63 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     // El texto se ancla al CENTRO de la caja, no a una línea suelta: por eso
     // dos campos con la misma caja quedan alineados aunque cambie el cuerpo.
     const yPx = ((centroV(f) + dy)/100) * canvas.height;
-    // Si ni el tamaño mínimo alcanza a caber en el margen (texto muy largo
-    // con un mínimo alto), se recorta visualmente en vez de dejarlo salir
-    // del cuadro definido.
     const topPx = ((v.topPct + dy)/100) * canvas.height;
-    ctx.beginPath();
-    ctx.rect(leftPx, topPx, boxWidthPx, altoCajaPx);
-    ctx.clip();
-    if(!estilos){
-      ctx.fillText(text, drawX, yPx);
-    } else {
-      // con letras de color/tipografía distinta hay que pintar carácter por
-      // carácter; se calcula el ancho total UNA vez para que el bloque
-      // completo quede anclado igual que antes (izquierda/centro/derecha).
-      const totalWidth = anchoMixto(ctx, text, estilos, f.bold, fitSize);
-      let x;
-      if(f.align === 'left') x = leftPx;
-      else if(f.align === 'right') x = rightPx - totalWidth;
-      else x = (leftPx + rightPx)/2 - totalWidth/2;
-      ctx.textAlign = 'left';
-      for(let i = 0; i < text.length; i++){
-        ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${estilos[i].fontFamily}`;
-        ctx.fillStyle = estilos[i].color;
-        ctx.fillText(text[i], x, yPx);
-        x += ctx.measureText(text[i]).width;
+    const anchoTextoCompleto = medirAncho(ctx, text, estilos, 0, f.bold, fontFamily, fitSize);
+
+    if(anchoTextoCompleto <= boxWidthPx){
+      // cabe entero en una sola línea: se dibuja igual que siempre.
+      ctx.beginPath();
+      ctx.rect(leftPx, topPx, boxWidthPx, altoCajaPx);
+      ctx.clip();
+      if(!estilos){
+        ctx.fillText(text, drawX, yPx);
+      } else {
+        // con letras de color/tipografía distinta hay que pintar carácter por
+        // carácter; se usa el ancho total ya medido para que el bloque
+        // completo quede anclado igual que antes (izquierda/centro/derecha).
+        let x;
+        if(f.align === 'left') x = leftPx;
+        else if(f.align === 'right') x = rightPx - anchoTextoCompleto;
+        else x = (leftPx + rightPx)/2 - anchoTextoCompleto/2;
+        ctx.textAlign = 'left';
+        for(let i = 0; i < text.length; i++){
+          ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${estilos[i].fontFamily}`;
+          ctx.fillStyle = estilos[i].color;
+          ctx.fillText(text[i], x, yPx);
+          x += ctx.measureText(text[i]).width;
+        }
       }
+    } else {
+      // ni al tamaño mínimo cabe en una sola línea: se reparte en varias,
+      // cortando sólo entre palabras y respetando los mismos márgenes
+      // izquierdo/derecho, en vez de recortarlo con el borde de la caja.
+      const lineas = envolverLineasBalanceado(ctx, text, estilos, f.bold, fontFamily, fitSize, boxWidthPx);
+      const lineHeight = fitSize * 1.22;
+      const altoBloque = lineas.length * lineHeight;
+      ctx.beginPath();
+      ctx.rect(leftPx, Math.min(topPx, yPx - altoBloque/2), boxWidthPx, Math.max(altoCajaPx, altoBloque));
+      ctx.clip();
+      lineas.forEach((linea, li) => {
+        const yLinea = yPx - altoBloque/2 + lineHeight * (li + 0.5);
+        if(!estilos){
+          ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
+          ctx.fillText(linea.texto, drawX, yLinea);
+        } else {
+          const anchoLinea = medirAncho(ctx, linea.texto, estilos, linea.inicio, f.bold, fontFamily, fitSize);
+          let x;
+          if(f.align === 'left') x = leftPx;
+          else if(f.align === 'right') x = rightPx - anchoLinea;
+          else x = (leftPx + rightPx)/2 - anchoLinea/2;
+          ctx.textAlign = 'left';
+          for(let k = 0; k < linea.texto.length; k++){
+            const e = estilos[linea.inicio + k];
+            ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${e.fontFamily}`;
+            ctx.fillStyle = e.color;
+            ctx.fillText(linea.texto[k], x, yLinea);
+            x += ctx.measureText(linea.texto[k]).width;
+          }
+        }
+      });
     }
     ctx.restore();
   }
