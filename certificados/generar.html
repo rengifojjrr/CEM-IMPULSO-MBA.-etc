@@ -461,4 +461,296 @@ function sanitizeName(s){ return String(s || '').trim().replace(/[^a-z0-9]+/gi, 
  * tilde y otro con tilde generan dos columnas separadas con el mismo dato.
  */
 function normalizarNombreCampo(s){
-  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+/** Botón "?" para generar dentro de HTML armado en JS (galerías, listas, etc.). */
+function ayuda(texto){
+  return `<button type="button" class="ayuda-btn" data-ayuda-texto="${escapeHtml(texto)}">?</button>`;
+}
+
+/**
+ * Un solo botón "?" abierto a la vez: los párrafos largos de explicación se
+ * reemplazan por esto, y el texto sólo aparece si se pide. Funciona tanto
+ * para los botones fijos del HTML como para los que arma renderChips/etc.
+ */
+let ayudaAbierta = null;
+function cerrarAyuda(){ if(ayudaAbierta){ ayudaAbierta.pop.remove(); ayudaAbierta = null; } }
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.ayuda-btn');
+  const mismoBotonQueYaEstaba = ayudaAbierta && btn === ayudaAbierta.btn;
+  cerrarAyuda();
+  if(!btn || mismoBotonQueYaEstaba) return;
+  const pop = document.createElement('div');
+  pop.className = 'ayuda-pop';
+  pop.textContent = btn.dataset.ayudaTexto || '';
+  document.body.appendChild(pop);
+  const r = btn.getBoundingClientRect();
+  const izq = Math.min(window.innerWidth - pop.offsetWidth - 12, Math.max(8, r.left));
+  pop.style.left = (izq + window.scrollX) + 'px';
+  pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+  ayudaAbierta = { btn, pop };
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') cerrarAyuda(); });
+document.addEventListener('scroll', cerrarAyuda, true);
+
+const FONT_OPTIONS = [
+  { label: 'Georgia (serif)', value: 'Georgia, serif' },
+  { label: "Times New Roman (serif)", value: "'Times New Roman', Times, serif" },
+  { label: 'Arial (sans)', value: 'Arial, Helvetica, sans-serif' },
+  // Serif elegantes
+  { label: 'Playfair Display (elegante)', value: "'Playfair Display', serif" },
+  { label: 'Cormorant Garamond (elegante)', value: "'Cormorant Garamond', serif" },
+  { label: 'EB Garamond (clásica)', value: "'EB Garamond', serif" },
+  { label: 'Merriweather (serif)', value: "'Merriweather', serif" },
+  { label: 'Lora (serif)', value: "'Lora', serif" },
+  { label: 'PT Serif (serif)', value: "'PT Serif', serif" },
+  { label: 'Libre Baskerville (serif)', value: "'Libre Baskerville', serif" },
+  { label: 'Roboto Slab (slab serif)', value: "'Roboto Slab', serif" },
+  { label: 'Cinzel (títulos, mayúsculas)', value: "'Cinzel', serif" },
+  { label: 'Marcellus (elegante)', value: "'Marcellus', serif" },
+  // Góticas / blackletter
+  { label: 'UnifrakturMaguntia (gótica/blackletter)', value: "'UnifrakturMaguntia', cursive" },
+  { label: 'UnifrakturCook (gótica negrita)', value: "'UnifrakturCook', cursive" },
+  { label: 'Pirata One (gótica decorativa)', value: "'Pirata One', cursive" },
+  // Sans modernas
+  { label: 'Montserrat (moderna)', value: "'Montserrat', sans-serif" },
+  { label: 'Open Sans (moderna)', value: "'Open Sans', sans-serif" },
+  { label: 'Lato (moderna)', value: "'Lato', sans-serif" },
+  { label: 'Raleway (moderna)', value: "'Raleway', sans-serif" },
+  { label: 'Poppins (moderna)', value: "'Poppins', sans-serif" },
+  // Script / firma
+  { label: 'Great Vibes (script/firma)', value: "'Great Vibes', cursive" },
+  { label: 'Dancing Script (script)', value: "'Dancing Script', cursive" },
+  { label: 'Pacifico (script)', value: "'Pacifico', cursive" },
+  { label: 'Sacramento (script fino)', value: "'Sacramento', cursive" },
+  { label: 'Alex Brush (firma)', value: "'Alex Brush', cursive" },
+  { label: 'Allura (script elegante)', value: "'Allura', cursive" },
+  { label: 'Parisienne (script)', value: "'Parisienne', cursive" },
+];
+const GOOGLE_FONT_FAMILIES = [
+  'Playfair Display','Cormorant Garamond','EB Garamond','Merriweather','Lora','PT Serif',
+  'Libre Baskerville','Roboto Slab','Cinzel','Marcellus','Montserrat','Open Sans','Lato',
+  'Raleway','Poppins','Great Vibes','Dancing Script','Pacifico','Sacramento','Alex Brush',
+  'Allura','Parisienne','UnifrakturMaguntia','UnifrakturCook','Pirata One',
+];
+function fontLabelFor(value){
+  const found = FONT_OPTIONS.find(o => o.value === value);
+  return found ? found.label : (value || 'Georgia (serif)');
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.font-picker-list').forEach(l => { l.style.display = 'none'; });
+});
+const fontsLoadedCache = new Set();
+async function ensureFontsLoadedForConfig(cfg){
+  const toLoad = new Set();
+  for(const f of cfg.fields){
+    if(f.tipo !== 'texto' || !f.activo) continue;
+    const familias = [f.fontFamily, ...(f.resaltados || []).map(r => r.fontFamily)].filter(Boolean);
+    for(const familia of familias){
+      for(const gf of GOOGLE_FONT_FAMILIES){
+        if(familia.includes(gf) && !fontsLoadedCache.has(gf)) toLoad.add(gf);
+      }
+    }
+  }
+  if(!toLoad.size) return;
+  await Promise.all([...toLoad].flatMap(name => [
+    document.fonts.load(`16px "${name}"`).catch(()=>{}),
+    document.fonts.load(`700 16px "${name}"`).catch(()=>{}),
+  ]));
+  toLoad.forEach(name => fontsLoadedCache.add(name));
+}
+
+let templatesFull = [];  // [{ id, nombre, config }]
+let currentIdx = 0;
+let config = null;       // alias por referencia a templatesFull[currentIdx].config
+let rows = [];
+let assignment = [];     // assignment[rowIdx] = Set(templateIdx)
+let matrixTemplateSelection = new Set(); // qué índices de templatesFull participan en esta generación
+let issued = [];
+let issuedSeleccionados = new Set();  // ids (uuid, string) marcados en «Certificados emitidos»
+let dragging = null;     // { idx, role: 'left'|'right'|'top'|'bot'|'tl'|'tr'|'bl'|'br'|'move'|'point'|'imgW' }
+let campoSel = null;     // campo resaltado en la plantilla y en la lista
+let guiaSel  = null;     // { eje, i } — guía elegida con un clic; Supr la quita
+// Correcciones manuales de un certificado concreto, por si el ajuste automático
+// deja algo mal en un caso puntual: ajustesPorCert['fila:plantilla'] = { campo:{...} }
+let ajustesPorCert = {};
+let generationHistory = []; // [{ timestamp, results, zipUrl, okCount, totalCount, expanded }]
+
+document.querySelectorAll('[data-collapse-toggle]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const body = document.getElementById(btn.dataset.collapseToggle);
+    const collapsed = body.classList.toggle('collapsed');
+    btn.textContent = collapsed ? 'Mostrar' : 'Minimizar';
+  });
+});
+
+// ---------- Plantilla por defecto (placeholder, hasta que suban su diseño real) ----------
+function defaultBackgroundDataUrl(){
+  const c = document.createElement('canvas');
+  c.width = 1600; c.height = 1131;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle = '#132743'; ctx.lineWidth = 14; ctx.strokeRect(30,30,c.width-60,c.height-60);
+  ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 4; ctx.strokeRect(55,55,c.width-110,c.height-110);
+  ctx.fillStyle = '#132743'; ctx.textAlign = 'center';
+  ctx.font = 'bold 30px Georgia, serif'; ctx.fillText('CEM', c.width/2, 140);
+  ctx.font = 'bold 56px Georgia, serif'; ctx.fillText('CERTIFICADO DE GRADUACIÓN', c.width/2, 250);
+  ctx.font = '22px Georgia, serif'; ctx.fillStyle = '#555';
+  ctx.fillText('Se otorga el presente certificado a', c.width/2, 420);
+  ctx.strokeStyle = '#c9a227'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(c.width*0.25, 640); ctx.lineTo(c.width*0.75, 640); ctx.stroke();
+  return c.toDataURL('image/png');
+}
+
+function defaultConfig(){
+  return {
+    background: defaultBackgroundDataUrl(),
+    bgWidth: 1600, bgHeight: 1131,
+    fields: [
+      { nombre:'Nombre',    tipo:'texto', activo:true,  leftPct:25, rightPct:75, yPct:44, maxFontSize:48, minFontSize:22, color:'#132743', align:'center', bold:true,  fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Apellido',  tipo:'texto', activo:true,  leftPct:25, rightPct:75, yPct:52, maxFontSize:48, minFontSize:22, color:'#132743', align:'center', bold:true,  fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Curso',     tipo:'texto', activo:true,  leftPct:20, rightPct:80, yPct:61, maxFontSize:28, minFontSize:14, color:'#1b7f76', align:'center', bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Fecha',     tipo:'texto', activo:true,  leftPct:30, rightPct:70, yPct:71, maxFontSize:18, minFontSize:12, color:'#333333', align:'center', bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Horas',     tipo:'texto', activo:true,  leftPct:8,  rightPct:32, yPct:88, maxFontSize:14, minFontSize:10, color:'#333333', align:'left',   bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'ninguno' },
+      { nombre:'Cédula',    tipo:'texto', activo:false, leftPct:25, rightPct:75, yPct:94, maxFontSize:12, minFontSize:9,  color:'#666666', align:'center', bold:false, fontFamily:'Georgia, serif', opacity:1, formato:'cedula' },
+      { nombre:'Código QR', tipo:'qr',    activo:true,  xPct:88, yPct:86, size:110, opacity:1 },
+    ]
+  };
+}
+/* La plantilla por defecto se crea sin cajas verticales; normalizarConfig las
+   deriva de yPct y del tamaño máximo, así que el resultado no cambia. */
+
+/**
+ * Pone al día una plantilla guardada antes de que existieran la opacidad, el
+ * formato y las imágenes. No cambia nada de lo que ya estaba definido; sólo
+ * rellena lo que falta, y a un campo llamado "Cédula" (o similar) le asigna el
+ * formato con puntos, que es lo que se espera de él. Siempre se puede volver a
+ * "Tal cual" desde el propio panel del campo.
+ */
+function normalizarConfig(cfg){
+  if(!cfg || !Array.isArray(cfg.fields)) return cfg;
+  // guías de alineación: sólo ayudan a colocar, nunca se imprimen
+  if(!cfg.guias || typeof cfg.guias !== 'object') cfg.guias = { v: [], h: [] };
+  if(!Array.isArray(cfg.guias.v)) cfg.guias.v = [];
+  if(!Array.isArray(cfg.guias.h)) cfg.guias.h = [];
+  // valores fijos por plantilla: mismo diseño y mismo Excel, pero una casilla
+  // (p.ej. la Fecha) distinta para todas las personas de ESTA plantilla en
+  // concreto, sin tocar el Excel ni las demás plantillas que la copiaron.
+  if(!cfg.overrides || typeof cfg.overrides !== 'object') cfg.overrides = {};
+  // carpeta: agrupa varias plantillas que van juntas (p.ej. los certificados
+  // de un mismo diplomado). Es sólo una etiqueta de texto, no una tabla aparte.
+  if(typeof cfg.carpeta !== 'string') cfg.carpeta = '';
+  // orden dentro de la carpeta: no es la posición en la lista de plantillas,
+  // así que moverla no descoloca las asignaciones ya hechas (que apuntan por
+  // índice) ni nada que dependa de esa lista.
+  if(typeof cfg.orden !== 'number') cfg.orden = 0;
+  const altoFondo = cfg.bgHeight || 1131;
+  for(const f of cfg.fields){
+    if(f.opacity === undefined) f.opacity = 1;
+    if(f.tipo === 'texto'){
+      if(f.formato === undefined){
+        f.formato = /^\s*(c[eé]dula|documento|dni|c\.?i\.?)\s*$/i.test(String(f.nombre||''))
+          ? 'cedula' : 'ninguno';
+      }
+      // letras sueltas con un color distinto al del resto (p.ej. las iniciales):
+      // se guardan por posición dentro de la palabra, no por texto literal, así
+      // sirven igual sin importar el nombre real de cada persona.
+      if(!Array.isArray(f.resaltados)) f.resaltados = [];
+      // texto con una parte fija y variables incrustadas del Excel, p.ej.
+      // "Titular de la cédula {{Cedula}} quien...": reemplaza al valor fijo
+      // y a la columna del Excel cuando está activado.
+      if(f.usarPlantillaTexto === undefined) f.usarPlantillaTexto = false;
+      if(typeof f.plantillaTexto !== 'string') f.plantillaTexto = '';
+      // Reglillas de arriba y abajo: antes el campo era una sola línea y el
+      // texto crecía hacia los lados. Con una caja, el alto y el centro
+      // quedan fijos y todas las palabras se alinean igual.
+      if(f.topPct === undefined || f.botPct === undefined){
+        const altoCaja = ((f.maxFontSize || 32) * 1.6 / altoFondo) * 100;
+        const centro = f.yPct ?? 50;
+        f.topPct = Math.max(0, +(centro - altoCaja/2).toFixed(1));
+        f.botPct = Math.min(100, +(centro + altoCaja/2).toFixed(1));
+      }
+    }
+    if(f.tipo === 'imagen'){
+      if(f.widthPct === undefined) f.widthPct = 18;
+      if(f.xPct === undefined) f.xPct = 50;
+      if(f.yPct === undefined) f.yPct = 50;
+    }
+  }
+  return cfg;
+}
+
+/** Caja vertical de un campo de texto (arriba/abajo en %). */
+function cajaV(f){
+  if(typeof f.topPct === 'number' && typeof f.botPct === 'number'){
+    return { topPct: f.topPct, botPct: f.botPct };
+  }
+  const c = f.yPct ?? 50;
+  return { topPct: c - 3, botPct: c + 3 };
+}
+/** Centro vertical: es lo que mantiene alineadas todas las palabras. */
+function centroV(f){ const v = cajaV(f); return (v.topPct + v.botPct) / 2; }
+
+/** Opacidad de un campo, tolerando plantillas guardadas antes de existir esta opción. */
+function opacityOf(f){
+  const v = Number(f.opacity);
+  return (isFinite(v) && v >= 0 && v <= 1) ? v : 1;
+}
+
+/**
+ * Cédula al estilo 12.345.678, conservando el prefijo de nacionalidad
+ * (V-12345678 → V-12.345.678). Un documento sin dígitos se respeta tal cual.
+ */
+function formatearCedula(valor){
+  const v = String(valor ?? '').trim();
+  if(!v) return '';
+  const prefijo = (v.match(/^[^0-9]*/) || [''])[0].trim();
+  const digitos = v.replace(/[^0-9]/g, '');
+  if(!digitos) return v;
+  const conPuntos = digitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return prefijo ? `${prefijo}${/[-\s]$/.test(prefijo) ? '' : '-'}${conPuntos}`.replace(/--/g,'-') : conPuntos;
+}
+
+/** Aplica el formato elegido para el campo al valor que viene del Excel. */
+function aplicarFormato(valor, formato){
+  if(formato === 'cedula') return formatearCedula(valor);
+  if(formato === 'mayusculas') return String(valor ?? '').toUpperCase();
+  return String(valor ?? '');
+}
+
+function boxOf(f){
+  if(typeof f.leftPct === 'number' && typeof f.rightPct === 'number') return { leftPct: f.leftPct, rightPct: f.rightPct };
+  const center = typeof f.xPct === 'number' ? f.xPct : 50;
+  return { leftPct: Math.max(0, center - 25), rightPct: Math.min(100, center + 25) };
+}
+
+// ---------- Arranque ----------
+// Sin login por ahora: una sola persona prueba todo, sin división de roles.
+async function init(){
+  await loadTemplates();
+  await loadIssued();
+}
+
+// ---------- Biblioteca de plantillas ----------
+async function loadTemplates(){
+  const { data, error } = await supabase.rpc('list_cert_templates_light');
+  if(error || !data || !data.length){
+    const cfg = normalizarConfig(defaultConfig());
+    const { data: saved } = await supabase.rpc('save_cert_template', { p_id: null, p_nombre: 'Certificado CEM (genérico)', p_config: cfg });
+    templatesFull = [{ id: saved.id, nombre: saved.nombre, config: cfg }];
+  } else {
+    templatesFull = await Promise.all(data.map(async t => {
+      const { data: full } = await supabase.rpc('get_cert_template', { p_id: t.id });
+      const row = Array.isArray(full) ? full[0] : full;
+      return { id: t.id, nombre: t.nombre,
+               config: normalizarConfig((row && row.config && row.config.background) ? row.config : defaultConfig()) };
+    }));
+  }
+  currentIdx = 0;
+  config = templatesFull[currentIdx].config;
+  matrixTemplateSelection = new Set(templatesFull.map((_, i) => i));
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+}
