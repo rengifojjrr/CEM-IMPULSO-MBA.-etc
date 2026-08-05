@@ -461,7 +461,7 @@ function sanitizeName(s){ return String(s || '').trim().replace(/[^a-z0-9]+/gi, 
  * tilde y otro con tilde generan dos columnas separadas con el mismo dato.
  */
 function normalizarNombreCampo(s){
-  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 /** Botón "?" para generar dentro de HTML armado en JS (galerías, listas, etc.). */
@@ -1766,3 +1766,1731 @@ function renderFieldSettings(){
         <label>Tamaño <input type="number" data-i="${i}" data-p="size" value="${f.size}" style="width:66px;"> px</label>
         ${bloqueOpacidad(f, i)}
       </div>`;
+    } else if(f.tipo === 'imagen'){
+      cuerpo = `<div class="campo-fila">
+        <span class="img-muestra">${f.dataUrl ? `<img src="${f.dataUrl}" alt="">` : '<i>sin archivo</i>'}</span>
+        <label class="btn outline small" style="margin:0;">${f.dataUrl ? 'Cambiar imagen' : 'Subir PNG o JPG'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-img-file="${i}" style="display:none;"></label>
+        <label>Ancho <input type="number" data-i="${i}" data-p="widthPct" value="${f.widthPct ?? 18}"
+          min="1" max="100" step="0.5" style="width:66px;"> %</label>
+        ${bloqueOpacidad(f, i)}
+        <button class="btn outline small" data-centrar="${i}">Centrar</button>
+      </div>
+      <p class="hint" style="margin:6px 0 0;">Arrástrala en la plantilla para colocarla; el punto verde cambia el ancho.</p>`;
+    } else {
+      cuerpo = `<div class="campo-fila">
+        <span class="font-picker" data-font-i="${i}">
+          <button type="button" class="font-picker-btn" style="font-family:${escapeHtml(f.fontFamily || 'Georgia, serif')};"
+            data-font-btn="${i}">${escapeHtml(fontLabelFor(f.fontFamily))} &#9662;</button>
+          <div class="font-picker-list" data-font-list="${i}" style="display:none;">
+            ${FONT_OPTIONS.map(o => `<div class="font-picker-opt" data-font-i="${i}" data-font-value="${escapeHtml(o.value)}" style="font-family:${escapeHtml(o.value)};">${escapeHtml(o.label)}</div>`).join('')}
+          </div></span>
+        <input type="color" data-i="${i}" data-p="color" value="${f.color}" title="Color de la letra">
+        <label><input type="checkbox" data-i="${i}" data-p="bold" ${f.bold?'checked':''}> Negrita</label>
+        <select data-i="${i}" data-p="align" title="Alineación dentro de la caja">
+          <option value="left" ${f.align==='left'?'selected':''}>Izquierda</option>
+          <option value="center" ${f.align==='center'?'selected':''}>Centro</option>
+          <option value="right" ${f.align==='right'?'selected':''}>Derecha</option>
+        </select>
+      </div>
+      <div class="campo-fila">
+        <label title="La letra se achica sola hasta el mínimo si el texto no cabe">
+          Letra de <input type="number" data-i="${i}" data-p="maxFontSize" value="${f.maxFontSize}" style="width:58px;">
+          a <input type="number" data-i="${i}" data-p="minFontSize" value="${f.minFontSize}" style="width:58px;"> px</label>
+        <label>Formato
+          <select data-i="${i}" data-p="formato">
+            <option value="ninguno" ${(f.formato||'ninguno')==='ninguno'?'selected':''}>Tal cual</option>
+            <option value="cedula" ${f.formato==='cedula'?'selected':''}>C&eacute;dula 12.345.678</option>
+            <option value="mayusculas" ${f.formato==='mayusculas'?'selected':''}>MAY&Uacute;SCULAS</option>
+          </select></label>
+        ${bloqueOpacidad(f, i)}
+      </div>
+      <div class="campo-fila">
+        <label style="flex:1;min-width:240px;"
+          title="Deja vacío para que cada persona use su propio dato del Excel">
+          Valor fijo para TODOS los certificados de esta plantilla
+          <input type="text" data-valor-fijo="${i}" value="${escapeHtml((config.overrides && config.overrides[f.nombre]) || '')}"
+            placeholder="vacío = usa el Excel de cada persona" style="width:100%;" ${f.usarPlantillaTexto ? 'disabled' : ''}>
+        </label>
+      </div>
+      <p class="hint" style="margin:2px 0 0;">${f.usarPlantillaTexto
+        ? 'Se ignora mientras esté activo el «texto con una parte fija y una variable» de abajo.'
+        : `Si escribes algo aquí, esa palabra reemplaza a la columna
+        «${escapeHtml(f.nombre || '')}» del Excel para <b>todas</b> las personas de esta plantilla — sin tocar
+        el Excel ni las demás plantillas. Sirve para reutilizar el mismo diseño y el mismo Excel en varias
+        sesiones que sólo cambian, por ejemplo, la fecha. El ajuste manual de un certificado puntual (en la
+        Matriz) sigue ganando sobre este valor.`}</p>
+      <div class="campo-fila" style="flex-direction:column;align-items:stretch;margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" data-plantilla-activar="${i}" ${f.usarPlantillaTexto ? 'checked' : ''}>
+          Texto con una parte fija y una variable dentro (p.ej. «Titular de la cédula XX.XXX.XXX quien…»)
+          <button type="button" class="ayuda-btn" data-ayuda-texto="Escribe el texto tal cual debe salir, y usa el selector «+ Insertar variable» para meter en el medio un dato que cambia por persona (una columna de tu Excel, como la Cédula, o el valor de otro campo de esta plantilla). Haz doble clic sobre una variable ya puesta para quitarla; el resto se escribe y se le pone espacios como cualquier texto normal. Mientras esto esté marcado, el valor fijo de arriba y la columna del Excel con el mismo nombre de este campo se ignoran: todo el texto sale de aquí.">?</button>
+        </label>
+        ${f.usarPlantillaTexto ? `
+        <div class="plantilla-editor" data-plantilla-editor="${i}" contenteditable="true" spellcheck="false">${renderPlantillaEditorHtml(f.plantillaTexto)}</div>
+        <div class="row" style="margin-top:6px;">
+          <select data-plantilla-var-select="${i}">
+            <option value="">+ Insertar variable…</option>
+            ${variablesDisponibles(f).map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
+          </select>
+        </div>` : ''}
+      </div>
+      <div class="campo-fila" style="flex-direction:column;align-items:stretch;margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:6px;">Colores y tipografías por letra (por ejemplo, las iniciales)
+          <button type="button" class="ayuda-btn" data-ayuda-texto="Selecciona una o varias letras del texto de ejemplo de abajo —arrastra el mouse sobre ellas, o doble clic en una palabra— y pulsa «Aplicar a la selección» con el color y/o la tipografía que quieras (deja la tipografía en «misma del campo» si sólo quieres cambiar el color). Se guarda por posición dentro de la palabra (p.ej. «la 1ª letra de la 1ª palabra»), así que funciona igual sin importar el nombre real de cada persona ni cuánto mida.">?</button>
+        </label>
+        <div class="resaltado-muestra" data-resaltado-muestra="${i}">${renderMuestraResaltado(f)}</div>
+        <div class="row" style="margin-top:6px;">
+          <input type="color" data-resaltado-color="${i}"
+            value="${escapeHtml((f.resaltados && f.resaltados.length) ? f.resaltados[f.resaltados.length-1].color : '#c0392b')}"
+            title="Color a aplicar">
+          <select data-resaltado-font="${i}" title="Tipografía a aplicar" style="max-width:190px;">
+            <option value="">(misma tipografía del campo)</option>
+            ${FONT_OPTIONS.map(o => `<option value="${escapeHtml(o.value)}" style="font-family:${escapeHtml(o.value)};"
+              ${((f.resaltados && f.resaltados.length) ? f.resaltados[f.resaltados.length-1].fontFamily : '') === o.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+          </select>
+          <button type="button" class="btn teal small" data-resaltado-aplicar="${i}">Aplicar a la selección</button>
+          <button type="button" class="btn outline small" data-resaltado-quitar="${i}">Quitar de la selección</button>
+          ${f.resaltados && f.resaltados.length ? `<button type="button" class="btn outline small" data-resaltado-limpiar="${i}">Quitar todos (${f.resaltados.length})</button>` : ''}
+        </div>
+      </div>
+      <p class="hint" style="margin:6px 0 0;">En la plantilla: arrastra la etiqueta para mover el campo entero
+        y las reglillas doradas para fijar los m&aacute;rgenes. El texto siempre queda centrado en la caja.</p>`;
+    }
+
+    return `<div class="campo abierto ${f.activo?'':'apagado'}">${cabecera}
+      <div class="campo-cuerpo">${cuerpo}
+        <div class="campo-pie"><button class="btn danger small" data-remove="${i}">Quitar campo</button></div>
+      </div></div>`;
+  }).join('');
+
+  wrap.querySelectorAll('input,select').forEach(el => {
+    if(!el.dataset.p) return;                       // los file inputs se manejan aparte
+    const aplicar = () => {
+      const i = Number(el.dataset.i), p = el.dataset.p;
+      const val = el.type === 'checkbox' ? el.checked
+        : (el.type === 'number' || el.type === 'range') ? Number(el.value) : el.value;
+      // el valor fijo va indexado por nombre: al renombrar el campo hay que
+      // mudar la llave o quedaría huérfano bajo el nombre anterior
+      if(p === 'nombre' && config.overrides){
+        const anterior = config.fields[i].nombre;
+        if(val !== anterior && Object.prototype.hasOwnProperty.call(config.overrides, anterior)){
+          config.overrides[val] = config.overrides[anterior];
+          delete config.overrides[anterior];
+        }
+      }
+      config.fields[i][p] = val;
+      if(p === 'opacity'){
+        const lbl = wrap.querySelector(`[data-op-lbl="${i}"]`);
+        if(lbl) lbl.textContent = Math.round(val*100) + '%';
+      }
+      if(p === 'activo' || p === 'nombre' || p === 'widthPct' || p === 'opacity') renderChips();
+    };
+    el.addEventListener('change', aplicar);
+    if(el.type === 'range') el.addEventListener('input', aplicar);   // realimentación inmediata
+  });
+  // valor fijo por plantilla: no vive en config.fields[i] sino en config.overrides,
+  // indexado por nombre de campo (igual que rowData), no por posición
+  wrap.querySelectorAll('[data-valor-fijo]').forEach(inp => inp.addEventListener('change', () => {
+    const i = Number(inp.dataset.valorFijo);
+    const nombre = config.fields[i].nombre;
+    config.overrides = config.overrides || {};
+    const val = inp.value.trim();
+    if(val) config.overrides[nombre] = val; else delete config.overrides[nombre];
+    renderChips(); renderFieldSettings();
+    renderMatrix();   // la insignia "✎ N fijos" de la cabecera debe verse al momento
+  }));
+  // texto con una parte fija y variables incrustadas: prender/apagar,
+  // escribir libremente (con espacios y todo) e insertar/quitar variables
+  wrap.querySelectorAll('[data-plantilla-activar]').forEach(chk => chk.addEventListener('change', () => {
+    const i = Number(chk.dataset.plantillaActivar);
+    const f = config.fields[i];
+    // un texto compuesto suele ser una frase larga: si se prende por primera
+    // vez y la caja todavía es la angosta de un campo de una sola palabra,
+    // se ensancha sola para que no se recorte contra el margen
+    if(chk.checked && !f.plantillaTexto){
+      const b = boxOf(f);
+      if(b.rightPct - b.leftPct < 80){ f.leftPct = 4; f.rightPct = 96; }
+    }
+    f.usarPlantillaTexto = chk.checked;
+    renderChips(); renderTemplatePreview(); renderFieldSettings();
+  }));
+  wrap.querySelectorAll('[data-plantilla-editor]').forEach(cont => {
+    cont.addEventListener('keydown', e => { if(e.key === 'Enter') e.preventDefault(); });
+    cont.addEventListener('paste', e => {
+      e.preventDefault();
+      document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
+    });
+    cont.addEventListener('dblclick', e => {
+      const chip = e.target.closest('.var-chip');
+      if(!chip || !cont.contains(chip)) return;
+      if(!confirm(`¿Quitar la variable «${chip.dataset.var}» del texto?`)) return;
+      chip.remove();
+      const i = Number(cont.dataset.plantillaEditor);
+      config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
+      renderChips(); renderTemplatePreview(); renderFieldSettings();
+    });
+    cont.addEventListener('blur', () => {
+      const i = Number(cont.dataset.plantillaEditor);
+      config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
+      renderChips(); renderTemplatePreview(); renderFieldSettings();
+    });
+  });
+  wrap.querySelectorAll('[data-plantilla-var-select]').forEach(sel => sel.addEventListener('change', () => {
+    const i = Number(sel.dataset.plantillaVarSelect);
+    if(sel.value) insertarVariableEnPlantilla(i, sel.value);
+    sel.value = '';
+  }));
+  // colores y tipografías por letra: aplicar/quitar sobre lo que esté
+  // seleccionado en el recuadro de muestra, o borrar todos los de ese campo
+  wrap.querySelectorAll('[data-resaltado-aplicar]').forEach(btn => btn.addEventListener('click', () => {
+    const i = Number(btn.dataset.resaltadoAplicar);
+    const color = wrap.querySelector(`[data-resaltado-color="${i}"]`).value;
+    const fontFamily = wrap.querySelector(`[data-resaltado-font="${i}"]`).value;
+    aplicarEstiloASeleccion(i, { color, fontFamily: fontFamily || undefined });
+  }));
+  wrap.querySelectorAll('[data-resaltado-quitar]').forEach(btn => btn.addEventListener('click', () => {
+    aplicarEstiloASeleccion(Number(btn.dataset.resaltadoQuitar), null);
+  }));
+  wrap.querySelectorAll('[data-resaltado-limpiar]').forEach(btn => btn.addEventListener('click', () => {
+    config.fields[Number(btn.dataset.resaltadoLimpiar)].resaltados = [];
+    renderChips(); renderTemplatePreview(); renderFieldSettings();
+  }));
+  // subir la imagen de un campo tipo imagen
+  wrap.querySelectorAll('[data-img-file]').forEach(inp => inp.addEventListener('change', e => {
+    const i = Number(inp.dataset.imgFile);
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    if(!/^image\/(png|jpeg|webp)$/.test(file.type)){ alert('Usa un PNG, JPG o WEBP.'); return; }
+    if(file.size > 4*1024*1024){ alert('La imagen supera los 4 MB. Redúcela antes de subirla.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        config.fields[i].dataUrl = reader.result;
+        config.fields[i].ratio = img.naturalHeight / img.naturalWidth;   // para cuadrarla sin deformar
+        renderChips(); renderFieldSettings();
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }));
+  wrap.querySelectorAll('[data-centrar]').forEach(b => b.addEventListener('click', () => {
+    config.fields[Number(b.dataset.centrar)].xPct = 50;
+    renderChips(); renderFieldSettings();
+  }));
+  // abrir / cerrar el campo elegido (y resaltarlo en la plantilla)
+  wrap.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
+    const i = Number(b.dataset.toggle);
+    campoSel = (campoSel === i) ? null : i;
+    if(guiaSel){ guiaSel = null; renderGuias(); }
+    renderChips(); renderFieldSettings();
+  }));
+  wrap.querySelectorAll('[data-abrir]').forEach(el => el.addEventListener('click', () => {
+    const i = Number(el.dataset.abrir);
+    campoSel = (campoSel === i) ? null : i;
+    if(guiaSel){ guiaSel = null; renderGuias(); }
+    renderChips(); renderFieldSettings();
+  }));
+  // reordenar: el orden de esta lista es el orden de las columnas del Excel
+  const mover = (i, salto) => {
+    const j = i + salto;
+    if(j < 0 || j >= config.fields.length) return;
+    [config.fields[i], config.fields[j]] = [config.fields[j], config.fields[i]];
+    if(campoSel === i) campoSel = j; else if(campoSel === j) campoSel = i;
+    renderChips(); renderFieldSettings();
+  };
+  wrap.querySelectorAll('[data-subir]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation(); mover(Number(b.dataset.subir), -1);
+  }));
+  wrap.querySelectorAll('[data-bajar]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation(); mover(Number(b.dataset.bajar), +1);
+  }));
+  wrap.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => {
+    config.fields.splice(Number(b.dataset.remove), 1);
+    renderChips();
+    renderFieldSettings();
+  }));
+  wrap.querySelectorAll('[data-font-btn]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const list = wrap.querySelector(`[data-font-list="${btn.dataset.fontBtn}"]`);
+      const wasOpen = list.style.display === 'block';
+      document.querySelectorAll('.font-picker-list').forEach(l => { l.style.display = 'none'; });
+      list.style.display = wasOpen ? 'none' : 'block';
+    });
+  });
+  wrap.querySelectorAll('.font-picker-opt').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      const i = Number(opt.dataset.fontI);
+      config.fields[i].fontFamily = opt.dataset.fontValue;
+      renderFieldSettings();
+    });
+  });
+}
+
+document.getElementById('btnAgregarCampo').addEventListener('click', () => {
+  const nombre = document.getElementById('nuevoCampoNombre').value.trim();
+  const tipo = document.getElementById('nuevoCampoTipo').value;
+  if(!nombre){ alert('Ponle un nombre al campo (debe coincidir con el encabezado de esa columna en tu Excel/CSV).'); return; }
+  const base = { nombre, tipo, activo: true, opacity: 1 };
+  if(tipo === 'qr') Object.assign(base, { xPct: 50, yPct: 50, size: 110 });
+  else if(tipo === 'imagen') Object.assign(base, { xPct: 50, yPct: 50, widthPct: 18, dataUrl: null, ratio: 1 });
+  else Object.assign(base, { leftPct: 25, rightPct: 75, yPct: 50, maxFontSize: 28, minFontSize: 14, color: '#132743', align: 'center', bold: false, fontFamily: 'Georgia, serif', formato: 'ninguno' });
+  config.fields.push(base);
+  document.getElementById('nuevoCampoNombre').value = '';
+  renderChips();
+  renderFieldSettings();
+});
+
+/**
+ * Lee un PNG, JPG o PDF y lo deja listo para usar como fondo de una
+ * plantilla: si es PDF, convierte su primera página a imagen con pdf.js.
+ * La usan tanto la carga de un solo archivo (más abajo) como la carga
+ * masiva de varios diseños o de una carpeta completa de la computadora.
+ */
+async function cargarArchivoComoFondo(file){
+  if(file.type === 'application/pdf'){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const scale = 1600 / page.getViewport({ scale: 1 }).width;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    return { background: canvas.toDataURL('image/png'), bgWidth: canvas.width, bgHeight: canvas.height };
+  }
+  const dataUrl = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = () => rej(reader.error || new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error('El archivo no es una imagen válida'));
+    im.src = dataUrl;
+  });
+  return { background: dataUrl, bgWidth: img.naturalWidth, bgHeight: img.naturalHeight };
+}
+
+document.getElementById('inputBg').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const bgMsg = document.getElementById('bgMsg');
+  const esPdf = file.type === 'application/pdf';
+  if(esPdf) bgMsg.innerHTML = '<span class="hint">Convirtiendo PDF…</span>';
+  try{
+    const { background, bgWidth, bgHeight } = await cargarArchivoComoFondo(file);
+    config.background = background;
+    config.bgWidth = bgWidth;
+    config.bgHeight = bgHeight;
+    renderTemplatePreview();
+    bgMsg.innerHTML = esPdf ? '<span class="hint">PDF convertido ✓ (se usó la primera página)</span>' : '';
+  }catch(err){
+    bgMsg.innerHTML = `<div class="msg err">No se pudo leer el archivo: ${escapeHtml(err.message)}</div>`;
+  }
+});
+
+/**
+ * Crea una plantilla nueva por cada archivo válido (PNG/JPG/PDF), todas en
+ * la misma carpeta, con el nombre del archivo (sin extensión) como nombre
+ * de la plantilla. Salen con los campos por defecto — para eso está
+ * "Copiar a TODA una carpeta", que las deja a todas con el mismo diseño
+ * de campos de una sola vez.
+ */
+async function crearPlantillasDesdeArchivos(archivos, carpeta){
+  const nombreCarpeta = (carpeta || '').trim();
+  const validos = archivos
+    .filter(f => /^image\/(png|jpeg)$|^application\/pdf$/.test(f.type))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }));
+  const indices = [];
+  let fallos = 0;
+  for(const file of validos){
+    try{
+      const { background, bgWidth, bgHeight } = await cargarArchivoComoFondo(file);
+      const cfg = normalizarConfig(defaultConfig());
+      cfg.background = background;
+      cfg.bgWidth = bgWidth;
+      cfg.bgHeight = bgHeight;
+      cfg.carpeta = nombreCarpeta;
+      cfg.orden = siguienteOrdenEnCarpeta(nombreCarpeta);
+      const nombre = file.name.replace(/\.[^./]+$/, '') || file.name;
+      templatesFull.push({ id: null, nombre, config: cfg });
+      indices.push(templatesFull.length - 1);
+    }catch(e){ fallos++; }
+  }
+  return { indices, fallos, ignorados: archivos.length - validos.length };
+}
+
+function despuesDeSubirPlantillas(indices, carpeta){
+  for(const i of indices) matrixTemplateSelection.add(i);
+  if(indices.length){ currentIdx = indices[indices.length - 1]; config = templatesFull[currentIdx].config; }
+  carpetasVacias.delete((carpeta || '').trim());
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+  renderMatrix();
+}
+
+document.getElementById('btnSubirDisenos').addEventListener('click', () => {
+  const carpeta = document.getElementById('nuevaCarpetaNombre').value.trim();
+  if(!carpeta){ alert('Escribe primero, en el campo de arriba, el nombre de la carpeta donde quieres subir los diseños.'); return; }
+  document.getElementById('inputSubirDisenos').click();
+});
+document.getElementById('inputSubirDisenos').addEventListener('change', async e => {
+  const carpeta = document.getElementById('nuevaCarpetaNombre').value.trim();
+  const archivos = [...e.target.files];
+  e.target.value = '';
+  if(!archivos.length || !carpeta) return;
+  const el = document.getElementById('tplMsg');
+  el.textContent = `Subiendo ${archivos.length} archivo(s)…`;
+  const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpeta);
+  despuesDeSubirPlantillas(indices, carpeta);
+  el.textContent = `${indices.length} plantilla(s) creada(s) en «${carpeta}» ✓.` +
+    (fallos ? ` ${fallos} archivo(s) con error.` : '') +
+    (ignorados ? ` ${ignorados} archivo(s) se ignoraron por no ser PNG, JPG ni PDF.` : '') +
+    ` Ahora puedes usar "Copiar a TODA una carpeta" para ponerles a todas el mismo diseño de campos.`;
+});
+
+document.getElementById('btnSubirCarpetaCompleta').addEventListener('click', () => {
+  document.getElementById('inputSubirCarpetaCompleta').click();
+});
+document.getElementById('inputSubirCarpetaCompleta').addEventListener('change', async e => {
+  const archivos = [...e.target.files];
+  e.target.value = '';
+  if(!archivos.length) return;
+  // el nombre de la carpeta que se eligió en el explorador de archivos del
+  // sistema es la primera parte de la ruta relativa de cualquiera de sus archivos
+  const carpeta = (archivos[0].webkitRelativePath || '').split('/')[0] || 'Carpeta subida';
+  const el = document.getElementById('tplMsg');
+  el.textContent = `Subiendo ${archivos.length} archivo(s) de "${carpeta}"…`;
+  const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpeta);
+  despuesDeSubirPlantillas(indices, carpeta);
+  el.textContent = indices.length
+    ? `${indices.length} plantilla(s) creada(s) en «${carpeta}» a partir de la carpeta de tu computadora ✓.` +
+      (fallos ? ` ${fallos} archivo(s) con error.` : '') +
+      (ignorados ? ` ${ignorados} archivo(s) se ignoraron por no ser PNG, JPG ni PDF.` : '')
+    : `No se encontró ningún PNG, JPG o PDF dentro de "${carpeta}".`;
+});
+
+document.getElementById('btnResetBg').addEventListener('click', () => {
+  Object.assign(config, normalizarConfig(defaultConfig()));
+  renderTemplatePreview();
+});
+
+document.getElementById('btnVistaPrevia').addEventListener('click', async () => {
+  await ensureFontsLoadedForConfig(config);
+  const placeholderRow = {};
+  for(const f of config.fields) if(f.tipo === 'texto') placeholderRow[f.nombre] = 'XXXXXXXXX';
+  const dummyUrl = new URL('verificar.html', location.href).href + '?c=preview';
+  const canvas = await renderCertificateCanvas(placeholderRow, dummyUrl, config);
+  document.getElementById('previewSingleImg').src = canvas.toDataURL('image/png');
+  document.getElementById('previewSingleWrap').style.display = 'block';
+});
+document.getElementById('btnCerrarPreview').addEventListener('click', () => {
+  document.getElementById('previewSingleWrap').style.display = 'none';
+});
+
+document.getElementById('btnVistaPreviaTodas').addEventListener('click', async () => {
+  const wrap = document.getElementById('galeriaPlantillasWrap');
+  wrap.innerHTML = '<p class="hint">Generando vista previa de cada plantilla…</p>';
+  const items = [];
+  for(const t of templatesFull){
+    await ensureFontsLoadedForConfig(t.config);
+    const placeholderRow = {};
+    for(const f of t.config.fields) if(f.tipo === 'texto') placeholderRow[f.nombre] = 'XXXXXXXXX';
+    const dummyUrl = new URL('verificar.html', location.href).href + '?c=preview';
+    const canvas = await renderCertificateCanvas(placeholderRow, dummyUrl, t.config);
+    items.push({ nombre: t.nombre, dataUrl: canvas.toDataURL('image/jpeg', 0.75) });
+  }
+  wrap.innerHTML = `
+    <div class="row" style="margin-top:6px;">
+      <button class="btn outline small" id="btnCerrarGaleriaPlantillas">Ocultar biblioteca de certificados</button>
+    </div>
+    <div class="gallery">${items.map(it => `
+      <figure><img src="${it.dataUrl}" alt=""><figcaption><b>${escapeHtml(it.nombre)}</b></figcaption></figure>
+    `).join('')}</div>`;
+  document.getElementById('btnCerrarGaleriaPlantillas').addEventListener('click', () => { wrap.innerHTML = ''; });
+});
+
+// ---------- Importar datos ----------
+// Cada columna del Excel/CSV se empareja por nombre (sin distinguir mayúsculas)
+// contra los campos de texto activos de TODAS las plantillas guardadas (un
+// estudiante puede necesitar datos para más de un formato de certificado).
+/** Nombres de columna usados como {{variable}} dentro de algún "texto con variables incrustadas", en cualquier plantilla: clave normalizada (sin tildes/mayúsculas) -> nombre tal cual se escribió la primera vez. */
+function variablesUsadasEnPlantillas(){
+  const nombres = new Map();
+  for(const t of templatesFull){
+    for(const f of t.config.fields){
+      if(f.tipo === 'texto' && f.usarPlantillaTexto && f.plantillaTexto){
+        for(const m of f.plantillaTexto.matchAll(/\{\{([^{}]+)\}\}/g)){
+          const nombre = m[1].trim();
+          const key = normalizarNombreCampo(nombre);
+          if(!nombres.has(key)) nombres.set(key, nombre);
+        }
+      }
+    }
+  }
+  return nombres;
+}
+
+function activeTextFieldNamesUnion(){
+  // Los nombres se emparejan sin distinguir mayúsculas/minúsculas NI tildes en
+  // todo el resto del flujo (importación, matrix, etc.), así que la unión
+  // también debe deduplicar así — si no, "Fecha"/"fecha" o "Cédula"/"cedula"
+  // en dos plantillas distintas generan dos columnas separadas con el mismo dato.
+  const seen = new Map(); // clave normalizada -> primera variante de mayúsculas/tildes vista
+  const variablesUsadas = variablesUsadasEnPlantillas();
+  for(const t of templatesFull){
+    for(const f of t.config.fields){
+      // un campo cuenta aunque esté apagado si se usa como variable dentro de
+      // un texto compuesto: puede que nunca se imprima "suelto", sólo incrustado
+      if(f.tipo === 'texto' && (f.activo || variablesUsadas.has(normalizarNombreCampo(f.nombre)))){
+        const key = normalizarNombreCampo(f.nombre);
+        if(!seen.has(key)) seen.set(key, f.nombre);
+      }
+    }
+  }
+  // columnas usadas como variable que no coinciden con ningún campo definido
+  // (p.ej. una columna del Excel que sólo se usa dentro de una frase, sin
+  // tener su propia caja en el certificado) también deben poder importarse
+  for(const [key, nombre] of variablesUsadas){
+    if(!seen.has(key)) seen.set(key, nombre);
+  }
+  return [...seen.values()];
+}
+
+document.getElementById('btnDescargarExcel').addEventListener('click', () => {
+  const fields = activeTextFieldNamesUnion();
+  if(!fields.length){ alert('No hay campos de texto activos en ninguna plantilla todavía.'); return; }
+  const aoa = [
+    ['Plantilla de graduados — completa una fila por estudiante. No cambies los nombres de columna (fila 2).'],
+    fields,
+  ];
+  for(let i = 0; i < 30; i++) aoa.push(fields.map(() => ''));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(0, fields.length - 1) } }];
+  ws['!cols'] = fields.map(() => ({ wch: 22 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Graduados');
+  XLSX.writeFile(wb, 'plantilla_graduados.xlsx');
+});
+
+function findHeaderRowIndex(lines, fieldNames){
+  const normNames = fieldNames.map(normalizarNombreCampo);
+  let bestIdx = 0, bestScore = -1;
+  const scanLimit = Math.min(lines.length, 15);
+  for(let i = 0; i < scanLimit; i++){
+    const rowNorm = lines[i].map(c => normalizarNombreCampo(c));
+    const score = normNames.filter(n => rowNorm.includes(n)).length;
+    if(score > bestScore){ bestScore = score; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
+function mapLinesToRows(lines){
+  if(!lines.length) return { rows: [], missing: [] };
+  const activeTextFields = activeTextFieldNamesUnion();
+  const headerIdx = findHeaderRowIndex(lines, activeTextFields);
+  const header = lines[headerIdx].map(h => normalizarNombreCampo(h));
+  const idxByField = {};
+  const missing = [];
+  for(const name of activeTextFields){
+    const idx = header.findIndex(h => h === normalizarNombreCampo(name));
+    idxByField[name] = idx;
+    if(idx < 0) missing.push(name);
+  }
+  const parsedRows = lines.slice(headerIdx + 1).filter(r => r.some(c => String(c ?? '').trim() !== '')).map(r => {
+    const row = {};
+    for(const name of activeTextFields){
+      row[name] = idxByField[name] >= 0 ? String(r[idxByField[name]] ?? '').trim() : '';
+    }
+    return row;
+  });
+  return { rows: parsedRows, missing };
+}
+
+function parseDelimited(text){
+  text = text.trim();
+  if(!text) return { rows: [], missing: [] };
+  const firstLine = text.split('\n')[0];
+  const delim = (firstLine.split('\t').length > firstLine.split(',').length) ? '\t' : ',';
+  const lines = [];
+  let cur = '', row = [], inQuotes = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ cur += '"'; i++; } else inQuotes = false;
+      } else cur += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === delim){ row.push(cur); cur = ''; }
+      else if(c === '\n'){ row.push(cur); lines.push(row); row = []; cur = ''; }
+      else if(c === '\r'){ /* skip */ }
+      else cur += c;
+    }
+  }
+  row.push(cur); lines.push(row);
+  return mapLinesToRows(lines);
+}
+
+document.getElementById('inputXlsx').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const lines = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    const { rows: r, missing } = mapLinesToRows(lines);
+    rows = r;
+    assignment = rows.map(() => new Set());
+    renderPreviewTable(missing);
+    renderMatrix();
+    renderFieldSettings();   // refresca la vista de ejemplo si hay un campo abierto (texto con variables, colores por letra)
+  }catch(err){
+    alert('No se pudo leer el archivo Excel: ' + err.message);
+  }
+});
+
+function renderPreviewTable(missing){
+  const wrap = document.getElementById('previewTableWrap');
+  const warn = (missing && missing.length)
+    ? `<div class="msg err">No se encontraron estas columnas en tu archivo (el nombre debe coincidir con el del campo en alguna plantilla): ${missing.map(escapeHtml).join(', ')}</div>`
+    : '';
+  if(!rows.length){
+    wrap.innerHTML = warn + '<p class="hint">Sin datos importados todavía.</p>';
+    document.getElementById('btnGenerar').disabled = true;
+    return;
+  }
+  const cols = activeTextFieldNamesUnion();
+  wrap.innerHTML = warn + `<table><thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}<th></th></tr></thead>
+  <tbody>${rows.map((r,i) => `<tr>${cols.map(c => `<td>${escapeHtml(r[c])}</td>`).join('')}
+    <td><button class="btn outline small" data-del="${i}">Quitar</button></td>
+  </tr>`).join('')}</tbody></table>`;
+  wrap.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    const idx = Number(b.dataset.del);
+    rows.splice(idx, 1);
+    assignment.splice(idx, 1);
+    renderPreviewTable();
+    renderMatrix();
+  }));
+  document.getElementById('btnGenerar').disabled = rows.length === 0;
+}
+
+document.getElementById('btnParsePaste').addEventListener('click', () => {
+  const { rows: r, missing } = parseDelimited(document.getElementById('pasteData').value);
+  rows = r;
+  assignment = rows.map(() => new Set());
+  renderPreviewTable(missing);
+  renderMatrix();
+  renderFieldSettings();   // refresca la vista de ejemplo si hay un campo abierto (texto con variables, colores por letra)
+});
+
+document.getElementById('btnImportarUrl').addEventListener('click', async () => {
+  const url = document.getElementById('sheetUrl').value.trim();
+  if(!url) return;
+  try{
+    const res = await fetch(url);
+    const text = await res.text();
+    const { rows: r, missing } = parseDelimited(text);
+    rows = r;
+    assignment = rows.map(() => new Set());
+    renderPreviewTable(missing);
+    renderMatrix();
+    renderFieldSettings();   // refresca la vista de ejemplo si hay un campo abierto (texto con variables, colores por letra)
+  }catch(e){
+    alert('No se pudo importar desde esa URL (revisa que el Sheet esté publicado como CSV). Puedes pegar los datos manualmente.');
+  }
+});
+
+// ---------- Asignación de certificados por estudiante ----------
+function studentDisplayName(row, idx){
+  const nombre = row['Nombre'] || row['nombre'];
+  const apellido = row['Apellido'] || row['apellido'];
+  if(nombre || apellido) return [nombre, apellido].filter(Boolean).join(' ');
+  const first = Object.values(row).find(v => v);
+  return first || `Estudiante ${idx + 1}`;
+}
+
+function renderMatrixTplSelector(){
+  const wrap = document.getElementById('matrixTplSelector');
+  if(!templatesFull.length){ wrap.innerHTML = ''; return; }
+  const grupos = agruparPorCarpeta(templatesFull);
+  wrap.innerHTML = `
+    <p class="hint" style="margin-bottom:4px;">¿Qué plantillas quieres usar en esta generación?</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      ${grupos.map(g => {
+        const colapsada = g.carpeta && carpetasColapsadas.has(g.carpeta);
+        return `
+        <div style="${g.carpeta ? 'border:1px solid var(--border);border-radius:8px;padding:7px 10px;' : ''}">
+          ${g.carpeta ? `<div class="hint" style="font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px;cursor:pointer;"
+              data-matrix-carpeta-toggle="${escapeHtml(g.carpeta)}">
+            <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span>
+            📁 ${escapeHtml(g.carpeta)}
+            <span class="hint" style="font-weight:400;">(${g.items.length})</span>
+            <label style="font-weight:400;margin-left:8px;" onclick="event.stopPropagation()">
+              <input type="checkbox" data-matrix-carpeta="${escapeHtml(g.carpeta)}"
+              ${g.items.every(({i}) => matrixTemplateSelection.has(i)) ? 'checked' : ''}> todas</label>
+          </div>` : ''}
+          <div class="row" style="margin-bottom:0;${colapsada ? 'display:none;' : ''}">
+            ${g.items.map(({ t, i }) => `<label class="hint" style="display:flex;align-items:center;gap:5px;">
+              <input type="checkbox" data-matrix-tpl="${i}" ${matrixTemplateSelection.has(i) ? 'checked' : ''}> ${escapeHtml(t.nombre)}
+            </label>`).join('')}
+          </div>
+        </div>
+      `;
+      }).join('')}
+    </div>`;
+  wrap.querySelectorAll('[data-matrix-carpeta-toggle]').forEach(head => head.addEventListener('click', () => {
+    const c = head.dataset.matrixCarpetaToggle;
+    if(carpetasColapsadas.has(c)) carpetasColapsadas.delete(c); else carpetasColapsadas.add(c);
+    renderMatrixTplSelector();
+  }));
+  wrap.querySelectorAll('[data-matrix-tpl]').forEach(cb => cb.addEventListener('change', () => {
+    const ti = Number(cb.dataset.matrixTpl);
+    if(cb.checked){
+      matrixTemplateSelection.add(ti);
+    } else {
+      matrixTemplateSelection.delete(ti);
+      // Si se quita una plantilla de esta generación, también se limpian las
+      // asignaciones puntuales que tuviera para no generarla "a escondidas".
+      for(const set of assignment) set.delete(ti);
+    }
+    // se vuelve a pintar también ESTE selector: si no, la casilla "todas" de
+    // su carpeta se queda con el estado de antes de tocar una individual
+    renderMatrixTplSelector();
+    renderMatrix();
+  }));
+  wrap.querySelectorAll('[data-matrix-carpeta]').forEach(cb => cb.addEventListener('change', () => {
+    const carpeta = cb.dataset.matrixCarpeta;
+    templatesFull.forEach((t, i) => {
+      if((t.config.carpeta || '').trim() !== carpeta) return;
+      if(cb.checked) matrixTemplateSelection.add(i);
+      else { matrixTemplateSelection.delete(i); for(const set of assignment) set.delete(i); }
+    });
+    renderMatrixTplSelector();
+    renderMatrix();
+  }));
+}
+
+function renderMatrix(){
+  const wrap = document.getElementById('matrixWrap');
+  if(!rows.length){
+    wrap.innerHTML = '<p class="hint">Importa graduados arriba para poder asignarles certificados.</p>';
+    return;
+  }
+  const activeTis = templatesFull.map((_, i) => i).filter(ti => matrixTemplateSelection.has(ti));
+  if(!activeTis.length){
+    wrap.innerHTML = '<p class="hint">Elige arriba al menos una plantilla para esta generación.</p>';
+    return;
+  }
+  wrap.innerHTML = `<div class="matrix-wrap"><table>
+    <thead>
+      <tr><th>Estudiante</th>${activeTis.map(ti => {
+        const carpeta = (templatesFull[ti].config.carpeta || '').trim();
+        const fijos = templatesFull[ti].config.overrides || {};
+        const nFijos = Object.keys(fijos).length;
+        const tituloFijos = nFijos ? `Valores fijos de esta plantilla: ${Object.entries(fijos).map(([k,v])=>`${k}=${v}`).join(', ')}` : '';
+        return `<th>${carpeta ? `<div class="carpeta-chip">📁 ${escapeHtml(carpeta)}</div>` : ''}
+          ${escapeHtml(templatesFull[ti].nombre)}
+          ${nFijos ? `<br><span title="${escapeHtml(tituloFijos)}"
+              style="display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:var(--teal);color:#fff;margin-top:2px;">✎ ${nFijos} fijo${nFijos>1?'s':''}</span>` : ''}
+          <br><label class="hint" style="justify-content:center;"><input type="checkbox" data-bulk="${ti}" ${rows.length && rows.every((_, ri) => assignment[ri] && assignment[ri].has(ti)) ? 'checked' : ''}> todos</label></th>`;
+      }).join('')}</tr>
+    </thead>
+    <tbody>
+      ${rows.map((r, ri) => `<tr>
+        <td>${escapeHtml(studentDisplayName(r, ri))}</td>
+        ${activeTis.map(ti => {
+          const marcado = assignment[ri] && assignment[ri].has(ti);
+          const tieneAj = !!ajustesPorCert[`${ri}:${ti}`];
+          return `<td><input type="checkbox" data-row="${ri}" data-tpl="${ti}" ${marcado ? 'checked' : ''}>
+            ${marcado ? `<button class="btn outline small" data-ajustar="${ri}:${ti}" title="Ajustar este certificado a mano"
+                style="margin-left:4px;padding:2px 6px;">${tieneAj ? '✎ ajustado' : '✎'}</button>` : ''}</td>`;
+        }).join('')}
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+  wrap.querySelectorAll('[data-bulk]').forEach(cb => cb.addEventListener('change', () => {
+    const ti = Number(cb.dataset.bulk);
+    for(let ri = 0; ri < rows.length; ri++){
+      if(cb.checked) assignment[ri].add(ti); else assignment[ri].delete(ti);
+    }
+    renderMatrix();
+  }));
+  wrap.querySelectorAll('[data-row]').forEach(cb => cb.addEventListener('change', () => {
+    const ri = Number(cb.dataset.row), ti = Number(cb.dataset.tpl);
+    if(cb.checked) assignment[ri].add(ti); else assignment[ri].delete(ti);
+    renderMatrix();
+  }));
+  wrap.querySelectorAll('[data-ajustar]').forEach(b => b.addEventListener('click', () => {
+    const [ri, ti] = b.dataset.ajustar.split(':').map(Number);
+    abrirAjuste(ri, ti);
+  }));
+}
+
+// ---------- Ajuste manual de un certificado concreto ----------
+async function abrirAjuste(ri, ti){
+  const clave = `${ri}:${ti}`;
+  const row = rows[ri], tpl = templatesFull[ti];
+  if(!tpl) return;
+  const aj = JSON.parse(JSON.stringify(ajustesPorCert[clave] || {}));
+  const campos = tpl.config.fields.filter(f => f.activo && f.tipo === 'texto');
+
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal-caja">
+    <div class="modal-cab">
+      <b>Ajustar certificado — ${escapeHtml(studentDisplayName(row, ri))}</b>
+      <span class="hint">${escapeHtml(tpl.nombre)}</span>
+      <button class="btn outline small" data-cerrar>Cerrar</button>
+    </div>
+    <div class="modal-cuerpo">
+      <p class="hint" style="margin-top:0;">Sólo afecta a este certificado. Los demás siguen usando la plantilla tal cual.</p>
+      <img id="ajustePrev" alt="Vista previa" style="width:100%;border:1px solid var(--border);border-radius:6px;background:#fff;">
+      <table style="margin-top:12px;">
+        <thead><tr><th>Campo</th><th>Texto (vacío = el valor de abajo)</th><th>Letra</th><th>← →</th><th>↑ ↓</th></tr></thead>
+        <tbody>
+          ${campos.map(f => {
+            const a = aj[f.nombre] || {};
+            const fijo = tpl.config.overrides && tpl.config.overrides[f.nombre];
+            const valorEfectivo = (fijo !== undefined && fijo !== null && fijo !== '') ? fijo : row[f.nombre];
+            const origen = (fijo !== undefined && fijo !== null && fijo !== '') ? 'fijo de esta plantilla' : 'del Excel';
+            return `<tr>
+              <td><b>${escapeHtml(f.nombre)}</b><br><span class="hint">${escapeHtml(String(valorEfectivo ?? '—')).slice(0,28)} (${origen})</span></td>
+              <td><input type="text" data-aj="${escapeHtml(f.nombre)}" data-k="texto" value="${escapeHtml(a.texto || '')}"
+                    placeholder="${escapeHtml(String(valorEfectivo ?? ''))}" style="width:100%;min-width:130px;"></td>
+              <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dSize" value="${a.dSize ?? 0}" step="1" style="width:62px;" title="Puntos de más o de menos"></td>
+              <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dxPct" value="${a.dxPct ?? 0}" step="0.5" style="width:62px;" title="Desplazamiento horizontal en %"></td>
+              <td><input type="number" data-aj="${escapeHtml(f.nombre)}" data-k="dyPct" value="${a.dyPct ?? 0}" step="0.5" style="width:62px;" title="Desplazamiento vertical en %"></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" data-guardar>Guardar ajuste</button>
+        <button class="btn outline" data-limpiar>Quitar ajustes de este certificado</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(fondo);
+
+  const pintar = async () => {
+    await ensureFontsLoadedForConfig(tpl.config);
+    const url = new URL('verificar.html', location.href).href + '?c=preview';
+    const c = await renderCertificateCanvas(row, url, tpl.config, aj);
+    fondo.querySelector('#ajustePrev').src = c.toDataURL('image/jpeg', 0.8);
+  };
+  await pintar();
+
+  fondo.querySelectorAll('[data-aj]').forEach(inp => inp.addEventListener('change', async () => {
+    const campo = inp.dataset.aj, k = inp.dataset.k;
+    const val = inp.type === 'number' ? Number(inp.value) : inp.value;
+    aj[campo] = aj[campo] || {};
+    if(val === '' || val === 0) delete aj[campo][k]; else aj[campo][k] = val;
+    if(!Object.keys(aj[campo]).length) delete aj[campo];
+    await pintar();
+  }));
+  const cerrar = () => fondo.remove();
+  fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+  fondo.addEventListener('click', e => { if(e.target === fondo) cerrar(); });
+  fondo.querySelector('[data-guardar]').addEventListener('click', () => {
+    if(Object.keys(aj).length) ajustesPorCert[clave] = aj; else delete ajustesPorCert[clave];
+    cerrar(); renderMatrix();
+  });
+  fondo.querySelector('[data-limpiar]').addEventListener('click', () => {
+    delete ajustesPorCert[clave];
+    cerrar(); renderMatrix();
+  });
+}
+
+/** Reemplaza cada "{{Columna}}" de `plantilla` por el dato de esa columna en `rowData` (vacío si no existe). Empareja sin tildes/mayúsculas, igual que el resto de la importación. */
+function resolverPlantillaTexto(plantilla, rowData){
+  const porNombreNormalizado = new Map();
+  for(const clave of Object.keys(rowData || {})) porNombreNormalizado.set(normalizarNombreCampo(clave), rowData[clave]);
+  return String(plantilla || '').replace(/\{\{([^{}]+)\}\}/g, (m, nombre) => {
+    const val = porNombreNormalizado.get(normalizarNombreCampo(nombre));
+    return (val === undefined || val === null) ? '' : String(val);
+  });
+}
+
+/** Nombres de columna que se pueden insertar como variable: las del Excel ya importado y los demás campos de texto de esta plantilla. Sin duplicados por tildes/mayúsculas. */
+function variablesDisponibles(f){
+  const vistos = new Map();
+  const deExcel = rows.length ? Object.keys(rows[0]) : [];
+  const deCampos = config.fields.filter(x => x !== f && x.tipo === 'texto').map(x => x.nombre);
+  for(const nombre of [...deExcel, ...deCampos]){
+    if(!nombre) continue;
+    const key = normalizarNombreCampo(nombre);
+    if(!vistos.has(key)) vistos.set(key, nombre);
+  }
+  return [...vistos.values()];
+}
+
+/** Arma el HTML editable (texto suelto + una "chip" no editable por cada variable) a partir de una plantilla "...{{Var}}...". */
+function renderPlantillaEditorHtml(plantilla){
+  const partes = String(plantilla || '').split(/(\{\{[^{}]+\}\})/g);
+  return partes.map(p => {
+    const m = p.match(/^\{\{([^{}]+)\}\}$/);
+    if(m) return `<span class="var-chip" contenteditable="false" data-var="${escapeHtml(m[1].trim())}">${escapeHtml(m[1].trim())}</span>`;
+    return escapeHtml(p);
+  }).join('');
+}
+
+/** Lee el recuadro editable y arma de vuelta la plantilla "...{{Var}}..." a partir de su texto y sus chips. */
+function leerPlantillaEditorHtml(cont){
+  let out = '';
+  cont.childNodes.forEach(n => {
+    if(n.nodeType === Node.TEXT_NODE) out += n.textContent;
+    else if(n.classList && n.classList.contains('var-chip')) out += `{{${n.dataset.var}}}`;
+    else out += n.textContent;   // por si el navegador mete algún elemento inesperado al escribir
+  });
+  return out;
+}
+
+/** Inserta una "chip" de variable en el punto donde estaba el cursor (o al final si no había) y guarda. */
+function insertarVariableEnPlantilla(i, nombreVar){
+  const cont = document.querySelector(`[data-plantilla-editor="${i}"]`);
+  if(!cont || !nombreVar) return;
+  cont.focus();
+  const sel = window.getSelection();
+  let range;
+  if(sel && sel.rangeCount && cont.contains(sel.getRangeAt(0).commonAncestorContainer)){
+    range = sel.getRangeAt(0);
+  } else {
+    range = document.createRange();
+    range.selectNodeContents(cont);
+    range.collapse(false);
+  }
+  range.deleteContents();
+  const chip = document.createElement('span');
+  chip.className = 'var-chip';
+  chip.contentEditable = 'false';
+  chip.dataset.var = nombreVar;
+  chip.textContent = nombreVar;
+  range.insertNode(chip);
+  range.setStartAfter(chip);
+  range.setEndAfter(chip);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
+
+  // si ese mismo dato ya se imprime aparte, en su propio recuadro, se avisa
+  // para poder apagarlo y que no salga repetido dos veces en el certificado
+  const key = normalizarNombreCampo(nombreVar);
+  const otroIdx = config.fields.findIndex((f, fi) => fi !== i && f.tipo === 'texto' && f.activo && normalizarNombreCampo(f.nombre) === key);
+  if(otroIdx >= 0){
+    const otro = config.fields[otroIdx];
+    if(confirm(`El campo «${otro.nombre}» ya está activo y se imprime aparte, en su propio recuadro. Si sigue así, «${nombreVar}» va a salir dos veces en el certificado (aquí adentro del texto y en ese recuadro). ¿Apagar «${otro.nombre}» para que no se repita?`)){
+      otro.activo = false;
+      renderChips();
+      // no se hace un renderFieldSettings() completo aquí para no perder el
+      // cursor en el editor que se está usando ahora mismo; se actualiza sólo
+      // lo necesario del otro campo (su casilla y el atenuado de su tarjeta)
+      const chkOtro = document.querySelector(`[data-i="${otroIdx}"][data-p="activo"]`);
+      if(chkOtro){ chkOtro.checked = false; chkOtro.closest('.campo')?.classList.add('apagado'); }
+    }
+  }
+}
+
+/**
+ * Recorre `text` y para cada carácter dice a qué palabra pertenece (0-based,
+ * separadas por espacios) y qué posición ocupa dentro de esa palabra (0-based).
+ * Los espacios devuelven null. Es la MISMA función que usa el editor (para
+ * saber qué letra se seleccionó) y el render (para pintarla), así que
+ * «la 1ª letra de la 1ª palabra» significa lo mismo en los dos lados, sin
+ * importar el nombre real de cada persona ni cuánto mida.
+ */
+function posicionesPorPalabra(text){
+  const out = new Array(text.length).fill(null);
+  let palabra = -1, letra = 0, enPalabra = false;
+  for(let i = 0; i < text.length; i++){
+    if(/\s/.test(text[i])){ enPalabra = false; continue; }
+    if(!enPalabra){ palabra++; letra = 0; enPalabra = true; }
+    out[i] = { palabra, letra };
+    letra++;
+  }
+  return out;
+}
+
+/** Color y tipografía de cada carácter de `text` según los resaltados del campo `f`, o null si no tiene ninguno (camino rápido). */
+function estilosPorCaracter(text, f){
+  if(!f.resaltados || !f.resaltados.length) return null;
+  const posiciones = posicionesPorPalabra(text);
+  const base = { color: f.color, fontFamily: f.fontFamily || 'Georgia, serif' };
+  return text.split('').map((ch, i) => {
+    const pos = posiciones[i];
+    if(!pos) return base;
+    const r = f.resaltados.find(r => r.palabra === pos.palabra && r.letra === pos.letra);
+    if(!r) return base;
+    return { color: r.color || base.color, fontFamily: r.fontFamily || base.fontFamily };
+  });
+}
+
+/** Texto de muestra para el editor de "colores y tipografías por letra": el dato real si ya hay, si no el valor fijo, si no un ejemplo genérico. */
+function muestraTextoPara(f){
+  if(f.usarPlantillaTexto) return resolverPlantillaTexto(f.plantillaTexto, (rows.length && rows[0]) || {}) || 'Nombre Apellido';
+  if(rows.length && rows[0][f.nombre]) return String(rows[0][f.nombre]);
+  if(config.overrides && config.overrides[f.nombre]) return String(config.overrides[f.nombre]);
+  return 'Nombre Apellido';
+}
+
+/** Arma el HTML del recuadro de muestra: una letra por span, ya pintada con su color/tipografía actual. */
+function renderMuestraResaltado(f){
+  const texto = aplicarFormato(muestraTextoPara(f), f.formato) || '';
+  const estilos = estilosPorCaracter(texto, f);
+  const base = { color: f.color, fontFamily: f.fontFamily || 'Georgia, serif' };
+  return texto.split('').map((ch, i) => {
+    const e = (estilos && estilos[i]) || base;
+    return `<span data-idx="${i}" style="color:${escapeHtml(e.color)};font-family:${escapeHtml(e.fontFamily)};">${ch === ' ' ? '&nbsp;' : escapeHtml(ch)}</span>`;
+  }).join('');
+}
+
+/**
+ * Aplica (o, si `estilo` es null, quita) un color y/o tipografía a las letras
+ * seleccionadas en el recuadro de muestra del campo `i`. La selección se
+ * traduce a posiciones "letra N de la palabra M" con `posicionesPorPalabra`,
+ * así que queda válida para cualquier nombre real, no sólo para el texto de
+ * ejemplo. `estilo.fontFamily` en `undefined` deja la tipografía del campo.
+ */
+function aplicarEstiloASeleccion(i, estilo){
+  const cont = document.querySelector(`[data-resaltado-muestra="${i}"]`);
+  if(!cont) return;
+  const sel = window.getSelection();
+  if(!sel || !sel.rangeCount || sel.isCollapsed){
+    alert('Primero selecciona una o varias letras del texto de ejemplo (arrastra el mouse sobre ellas, o doble clic en una palabra).');
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  if(!cont.contains(range.commonAncestorContainer)){
+    alert('Selecciona letras dentro del recuadro de ejemplo de este campo.');
+    return;
+  }
+  const f = config.fields[i];
+  const texto = aplicarFormato(muestraTextoPara(f), f.formato) || '';
+  const posiciones = posicionesPorPalabra(texto);
+  f.resaltados = f.resaltados || [];
+  let tocadas = 0;
+  cont.querySelectorAll('span[data-idx]').forEach(span => {
+    if(!range.intersectsNode(span)) return;
+    const pos = posiciones[Number(span.dataset.idx)];
+    if(!pos) return;   // los espacios no se colorean
+    f.resaltados = f.resaltados.filter(r => !(r.palabra === pos.palabra && r.letra === pos.letra));
+    if(estilo) f.resaltados.push({ palabra: pos.palabra, letra: pos.letra, ...estilo });
+    tocadas++;
+  });
+  sel.removeAllRanges();
+  if(!tocadas){ alert('La selección no tocó ninguna letra (¿elegiste sólo un espacio?).'); return; }
+  ensureFontsLoadedForConfig(config).then(() => { renderChips(); renderTemplatePreview(); renderFieldSettings(); });
+}
+
+// ---------- Generar ----------
+function fitFontSize(ctx, text, fontFamily, bold, maxSize, minSize, maxWidthPx){
+  let size = maxSize;
+  for(; size > minSize; size--){
+    ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`;
+    if(ctx.measureText(text).width <= maxWidthPx) break;
+  }
+  return size;
+}
+
+/** Ancho de `text` a un tamaño dado cuando cada carácter puede tener su propia tipografía (letras con estilo distinto). */
+function anchoMixto(ctx, text, estilos, bold, size){
+  let w = 0;
+  for(let i = 0; i < text.length; i++){
+    ctx.font = `${bold ? 'bold ' : ''}${size}px ${estilos[i].fontFamily}`;
+    w += ctx.measureText(text[i]).width;
+  }
+  return w;
+}
+/** Igual que fitFontSize, pero cuando el campo tiene letras con tipografía propia (distinta a la del resto). */
+function fitFontSizeMixto(ctx, text, estilos, bold, maxSize, minSize, maxWidthPx){
+  let size = maxSize;
+  for(; size > minSize; size--){
+    if(anchoMixto(ctx, text, estilos, bold, size) <= maxWidthPx) break;
+  }
+  return size;
+}
+
+/** Ancho de `text` (que empieza en `startIdx` dentro del texto completo) a un tamaño dado, con o sin letras de estilo propio. */
+function medirAncho(ctx, text, estilos, startIdx, bold, fontFamily, size){
+  if(!estilos){ ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`; return ctx.measureText(text).width; }
+  return anchoMixto(ctx, text, estilos.slice(startIdx, startIdx + text.length), bold, size);
+}
+
+/**
+ * Reparte `text` en líneas que quepan en `maxWidthPx`, cortando sólo entre
+ * palabras (nunca a mitad de una palabra: si una sola palabra ya es más
+ * ancha que la caja, se deja sola en su línea aunque se salga un poco —
+ * no hay forma de partirla). Se usa cuando ni el tamaño mínimo de letra
+ * alcanza para que el texto quepa entero en una sola línea.
+ */
+function envolverLineas(ctx, text, estilos, bold, fontFamily, size, maxWidthPx){
+  const palabras = [];
+  const re = /\S+/g;
+  let m;
+  while((m = re.exec(text))) palabras.push({ inicio: m.index, fin: m.index + m[0].length });
+  if(!palabras.length) return [{ texto: text, inicio: 0, fin: text.length }];
+  const lineas = [];
+  let actual = { inicio: palabras[0].inicio, fin: palabras[0].fin };
+  for(let i = 1; i < palabras.length; i++){
+    const p = palabras[i];
+    const ancho = medirAncho(ctx, text.slice(actual.inicio, p.fin), estilos, actual.inicio, bold, fontFamily, size);
+    if(ancho <= maxWidthPx){ actual.fin = p.fin; continue; }
+    lineas.push(actual);
+    actual = { inicio: p.inicio, fin: p.fin };
+  }
+  lineas.push(actual);
+  return lineas.map(l => ({ texto: text.slice(l.inicio, l.fin), inicio: l.inicio, fin: l.fin }));
+}
+
+/**
+ * Igual que envolverLineas, pero reparte las palabras de forma más pareja
+ * entre las líneas en vez de llenar la primera al tope y dejar la última
+ * cortita (lo típico de un salto de línea "codicioso"). Prueba anchos cada
+ * vez más angostos —sin aumentar la cantidad de líneas que ya hacían falta—
+ * hasta encontrar el más chico que sigue funcionando; con ese ancho las
+ * líneas quedan más equilibradas entre sí, igual que el balanceo de texto
+ * de un procesador de texto. El texto se sigue dibujando al ancho real de
+ * la caja: sólo cambia DÓNDE se corta cada línea.
+ */
+function envolverLineasBalanceado(ctx, text, estilos, bold, fontFamily, size, maxWidthPx){
+  const base = envolverLineas(ctx, text, estilos, bold, fontFamily, size, maxWidthPx);
+  if(base.length <= 1) return base;
+  let mejor = base, lo = maxWidthPx * 0.5, hi = maxWidthPx;
+  for(let i = 0; i < 10; i++){
+    const medio = (lo + hi) / 2;
+    const candidata = envolverLineas(ctx, text, estilos, bold, fontFamily, size, medio);
+    if(candidata.length === base.length){ mejor = candidata; hi = medio; }
+    else { lo = medio; }
+  }
+  return mejor;
+}
+
+/**
+ * Dibuja un certificado.
+ * `ajustes` son las correcciones manuales de ESTE certificado concreto
+ * (ver sección "Ajustar"): { [nombreCampo]: {texto, dSize, dxPct, dyPct} }.
+ */
+async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
+  const bgImg = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = cfg.background; });
+  const canvas = document.createElement('canvas');
+  canvas.width = cfg.bgWidth; canvas.height = cfg.bgHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+  // Se dibuja de abajo arriba: el último de la lista queda al fondo y el
+  // primero encima. Así el orden de la lista es el orden de las capas y no
+  // importa cuál se creó antes.
+  for(let iCapa = cfg.fields.length - 1; iCapa >= 0; iCapa--){
+    const f = cfg.fields[iCapa];
+    if(!f.activo) continue;
+    const aj = (ajustes && ajustes[f.nombre]) || {};
+    const dx = (Number(aj.dxPct) || 0), dy = (Number(aj.dyPct) || 0);
+
+    if(f.tipo === 'qr'){
+      const qr = qrcode(0, 'M');
+      qr.addData(verifyUrl);
+      qr.make();
+      const qrDataUrl = qr.createDataURL(8, 2);
+      const qrImg = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = qrDataUrl; });
+      ctx.save();
+      ctx.globalAlpha = opacityOf(f);
+      ctx.drawImage(qrImg, ((f.xPct+dx)/100)*canvas.width - f.size/2, ((f.yPct+dy)/100)*canvas.height - f.size/2, f.size, f.size);
+      ctx.restore();
+      continue;
+    }
+
+    if(f.tipo === 'imagen'){
+      if(!f.dataUrl) continue;
+      const im = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = f.dataUrl; });
+      if(!im) continue;
+      const wPx = ((f.widthPct ?? 18)/100) * canvas.width;
+      const hPx = wPx * (im.naturalHeight / im.naturalWidth);   // se cuadra sin deformar
+      ctx.save();
+      ctx.globalAlpha = opacityOf(f);
+      ctx.drawImage(im, ((f.xPct+dx)/100)*canvas.width - wPx/2, ((f.yPct+dy)/100)*canvas.height - hPx/2, wPx, hPx);
+      ctx.restore();
+      continue;
+    }
+
+    // texto: gana el ajuste manual de ESTE certificado; si no hay, el texto
+    // con variables incrustadas (si está activado); si no, el valor fijo de
+    // la plantilla (mismo para todas las personas); si no, el Excel
+    const fijo = cfg.overrides && cfg.overrides[f.nombre];
+    const bruto = (aj.texto !== undefined && aj.texto !== null && aj.texto !== '')
+      ? aj.texto
+      : f.usarPlantillaTexto ? resolverPlantillaTexto(f.plantillaTexto, rowData)
+      : (fijo !== undefined && fijo !== null && fijo !== '') ? fijo : rowData[f.nombre];
+    if(bruto === undefined || bruto === null || bruto === '') continue;
+    const text = aplicarFormato(bruto, f.formato);
+    if(!text) continue;
+
+    const fontFamily = f.fontFamily || 'Georgia, serif';
+    const box = boxOf(f);
+    const leftPx = ((box.leftPct + dx)/100) * canvas.width;
+    const rightPx = ((box.rightPct + dx)/100) * canvas.width;
+    const boxWidthPx = Math.max(10, rightPx - leftPx);
+    // El alto de la caja también limita la letra: así ninguna palabra se sale
+    // por arriba o por abajo y todas quedan alineadas entre sí.
+    const v = cajaV(f);
+    const altoCajaPx = Math.max(6, ((v.botPct - v.topPct)/100) * canvas.height);
+    const topeAlto = altoCajaPx / 1.25;
+    const maxSize = Math.max(4, Math.min((f.maxFontSize || f.fontSize || 32) + (Number(aj.dSize) || 0), topeAlto));
+    const minSize = Math.min(f.minFontSize || 12, maxSize);
+    const estilos = estilosPorCaracter(text, f);
+    const fitSize = estilos
+      ? fitFontSizeMixto(ctx, text, estilos, f.bold, maxSize, minSize, boxWidthPx)
+      : fitFontSize(ctx, text, fontFamily, f.bold, maxSize, minSize, boxWidthPx);
+    ctx.save();
+    ctx.globalAlpha = opacityOf(f);
+    ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
+    ctx.fillStyle = f.color;
+    ctx.textBaseline = 'middle';
+    let drawX;
+    if(f.align === 'left'){ ctx.textAlign = 'left'; drawX = leftPx; }
+    else if(f.align === 'right'){ ctx.textAlign = 'right'; drawX = rightPx; }
+    else { ctx.textAlign = 'center'; drawX = (leftPx + rightPx) / 2; }
+    // El texto se ancla al CENTRO de la caja, no a una línea suelta: por eso
+    // dos campos con la misma caja quedan alineados aunque cambie el cuerpo.
+    const yPx = ((centroV(f) + dy)/100) * canvas.height;
+    const topPx = ((v.topPct + dy)/100) * canvas.height;
+    const anchoTextoCompleto = medirAncho(ctx, text, estilos, 0, f.bold, fontFamily, fitSize);
+
+    if(anchoTextoCompleto <= boxWidthPx){
+      // cabe entero en una sola línea: se dibuja igual que siempre.
+      ctx.beginPath();
+      ctx.rect(leftPx, topPx, boxWidthPx, altoCajaPx);
+      ctx.clip();
+      if(!estilos){
+        ctx.fillText(text, drawX, yPx);
+      } else {
+        // con letras de color/tipografía distinta hay que pintar carácter por
+        // carácter; se usa el ancho total ya medido para que el bloque
+        // completo quede anclado igual que antes (izquierda/centro/derecha).
+        let x;
+        if(f.align === 'left') x = leftPx;
+        else if(f.align === 'right') x = rightPx - anchoTextoCompleto;
+        else x = (leftPx + rightPx)/2 - anchoTextoCompleto/2;
+        ctx.textAlign = 'left';
+        for(let i = 0; i < text.length; i++){
+          ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${estilos[i].fontFamily}`;
+          ctx.fillStyle = estilos[i].color;
+          ctx.fillText(text[i], x, yPx);
+          x += ctx.measureText(text[i]).width;
+        }
+      }
+    } else {
+      // ni al tamaño mínimo cabe en una sola línea: se reparte en varias,
+      // cortando sólo entre palabras y respetando los mismos márgenes
+      // izquierdo/derecho, en vez de recortarlo con el borde de la caja.
+      const lineas = envolverLineasBalanceado(ctx, text, estilos, f.bold, fontFamily, fitSize, boxWidthPx);
+      const lineHeight = fitSize * 1.22;
+      const altoBloque = lineas.length * lineHeight;
+      ctx.beginPath();
+      ctx.rect(leftPx, Math.min(topPx, yPx - altoBloque/2), boxWidthPx, Math.max(altoCajaPx, altoBloque));
+      ctx.clip();
+      lineas.forEach((linea, li) => {
+        const yLinea = yPx - altoBloque/2 + lineHeight * (li + 0.5);
+        if(!estilos){
+          ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
+          ctx.fillText(linea.texto, drawX, yLinea);
+        } else {
+          const anchoLinea = medirAncho(ctx, linea.texto, estilos, linea.inicio, f.bold, fontFamily, fitSize);
+          let x;
+          if(f.align === 'left') x = leftPx;
+          else if(f.align === 'right') x = rightPx - anchoLinea;
+          else x = (leftPx + rightPx)/2 - anchoLinea/2;
+          ctx.textAlign = 'left';
+          for(let k = 0; k < linea.texto.length; k++){
+            const e = estilos[linea.inicio + k];
+            ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${e.fontFamily}`;
+            ctx.fillStyle = e.color;
+            ctx.fillText(linea.texto[k], x, yLinea);
+            x += ctx.measureText(linea.texto[k]).width;
+          }
+        }
+      });
+    }
+    ctx.restore();
+  }
+  return canvas;
+}
+
+function renderGenerationHistory(){
+  const wrap = document.getElementById('generationHistoryWrap');
+  if(!generationHistory.length){
+    wrap.innerHTML = '<p class="hint">Todavía no has generado ningún lote de certificados.</p>';
+    return;
+  }
+  wrap.innerHTML = generationHistory.map((g, gi) => {
+    const pendientes = g.results.filter(r => r.ok && !r.registrado).length;
+    const todosRegistrados = g.okCount > 0 && pendientes === 0;
+    return `
+    <div class="gen-entry">
+      <div class="gen-entry-head" data-gen-toggle="${gi}">
+        <div><b>Generación del ${g.timestamp.toLocaleDateString('es-ES')} · ${g.timestamp.toLocaleTimeString('es-ES')}</b>
+          <span class="hint"> — ${g.okCount} de ${g.totalCount} certificados</span>
+          ${g.okCount > 0 ? (todosRegistrados
+            ? ' <span class="badge vigente">Registrado</span>'
+            : ' <span class="badge borrador">Vista previa — sin registrar</span>') : ''}
+        </div>
+        <span class="hint">${g.expanded ? '▲ ocultar' : '▼ ver'}</span>
+      </div>
+      ${g.expanded ? `
+        <div class="gen-entry-body">
+          ${g.okCount > 0 ? `
+            <div class="msg ${todosRegistrados ? 'ok' : 'warn'}">
+              ${todosRegistrados
+                ? `✓ Estos ${g.okCount} certificados ya están registrados: sus códigos QR verifican y aparecen en «Certificados emitidos».`
+                : `Esto es sólo una <b>vista previa</b> — nada se ha guardado todavía. Revisa los PDF y, cuando
+                   estén bien, pulsa "Registrar certificados" para que queden oficiales. Si algo está mal,
+                   descarta esta vista previa y vuelve a generar.`}
+            </div>
+            <div class="row" style="margin-top:8px;">
+              ${!todosRegistrados ? `<button class="btn gold" data-gen-registrar="${gi}" ${g.registrando ? 'disabled' : ''}>
+                ${g.registrando ? 'Registrando…' : `Registrar ${pendientes} certificado(s)`}</button>` : ''}
+              ${!todosRegistrados && pendientes === g.okCount ? `<button class="btn outline" data-gen-descartar="${gi}">Descartar vista previa</button>` : ''}
+            </div>
+          ` : ''}
+          <div class="row" style="margin-top:8px;">
+            ${g.zipUrl ? `<button class="btn outline small" data-gen-zip="${gi}">Descargar ZIP (por estudiante)</button>` : ''}
+          </div>
+          ${(g.combinedPdfs && g.combinedPdfs.length) ? `
+            <p class="hint" style="margin-bottom:4px;">PDF combinado por plantilla (todas las páginas juntas, para imprimir de una vez):</p>
+            <div class="row">
+              ${g.combinedPdfs.map((c, ci) => `<button class="btn outline small" data-gen-combined="${gi}:${ci}">${escapeHtml(c.templateNombre)} (${c.pageCount} pág.)</button>`).join('')}
+            </div>
+          ` : ''}
+          <div class="gallery">${g.results.filter(r=>r.ok).map(r => `
+            <figure><img src="${r.thumbDataUrl}" alt=""><figcaption><b>${escapeHtml(r.studentName)}</b>${escapeHtml(r.templateNombre)}</figcaption></figure>
+          `).join('')}</div>
+          <table style="margin-top:10px;"><thead><tr><th>Estudiante</th><th>Plantilla</th><th>Estado</th><th>Descargas</th></tr></thead>
+          <tbody>${g.results.map(r => `<tr>
+            <td>${escapeHtml(r.studentName)}</td>
+            <td>${escapeHtml(r.templateNombre)}</td>
+            <td>${!r.ok ? '<span class="badge revocado">Error</span>'
+              : r.registrado ? '<span class="badge vigente">Emitido</span>' : '<span class="badge borrador">Vista previa</span>'}</td>
+            <td>${r.ok ? `<a href="${r.pdfUrl}" download="${escapeHtml(r.path.split('/').pop())}">Descargar PDF</a> · <a href="${r.verifyUrl}" target="_blank">Verificación</a>` : escapeHtml(r.error)}</td>
+          </tr>`).join('')}</tbody></table>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  }).join('');
+  wrap.querySelectorAll('[data-gen-toggle]').forEach(el => el.addEventListener('click', () => {
+    const gi = Number(el.dataset.genToggle);
+    generationHistory[gi].expanded = !generationHistory[gi].expanded;
+    renderGenerationHistory();
+  }));
+  wrap.querySelectorAll('[data-gen-zip]').forEach(btn => btn.addEventListener('click', () => {
+    const gi = Number(btn.dataset.genZip);
+    const a = document.createElement('a');
+    a.href = generationHistory[gi].zipUrl; a.download = 'certificados_por_estudiante.zip'; a.click();
+  }));
+  wrap.querySelectorAll('[data-gen-combined]').forEach(btn => btn.addEventListener('click', () => {
+    const [gi, ci] = btn.dataset.genCombined.split(':').map(Number);
+    const c = generationHistory[gi].combinedPdfs[ci];
+    const a = document.createElement('a');
+    a.href = c.url; a.download = c.filename; a.click();
+  }));
+  wrap.querySelectorAll('[data-gen-descartar]').forEach(btn => btn.addEventListener('click', () => {
+    const gi = Number(btn.dataset.genDescartar);
+    if(!confirm('¿Descartar esta vista previa? Como nada se había registrado, no queda ningún rastro guardado.')) return;
+    generationHistory.splice(gi, 1);
+    renderGenerationHistory();
+  }));
+  wrap.querySelectorAll('[data-gen-registrar]').forEach(btn => btn.addEventListener('click', async () => {
+    const gi = Number(btn.dataset.genRegistrar);
+    const g = generationHistory[gi];
+    const pendientes = g.results.filter(r => r.ok && !r.registrado);
+    if(!pendientes.length) return;
+    if(!confirm(`¿Registrar ${pendientes.length} certificado(s)? Quedarán oficiales: sus códigos QR empezarán a verificar y aparecerán en «Certificados emitidos». Un certificado registrado se quita después revocándolo, uno por uno, no descartando la vista previa.`)) return;
+    g.registrando = true;
+    renderGenerationHistory();
+    let fallos = 0;
+    for(const r of pendientes){
+      try{
+        const { error } = await supabase.rpc('issue_certificate',
+          { p_datos: r.row, p_entidad: g.entidad, p_lote: g.loteId, p_id: r.id, p_plantilla: r.templateNombre });
+        if(error) throw error;
+        r.registrado = true;
+      }catch(e){
+        r.registroError = e.message;
+        fallos++;
+      }
+    }
+    g.registrando = false;
+    renderGenerationHistory();
+    await loadIssued();
+    if(fallos) alert(`${fallos} certificado(s) no se pudieron registrar. Vuelve a pulsar "Registrar" para reintentar sólo esos.`);
+  }));
+}
+
+document.getElementById('btnGenerar').addEventListener('click', async () => {
+  const totalPairs = assignment.reduce((n, s) => n + s.size, 0);
+  if(totalPairs === 0){ alert('Marca al menos un certificado para al menos un estudiante en la sección 3.'); return; }
+
+  for(const t of templatesFull) await ensureFontsLoadedForConfig(t.config);
+
+  const entidad = document.getElementById('entidadEmisora').value.trim() || 'CEM';
+  const loteId = crypto.randomUUID();
+  const progress = document.getElementById('progressBar');
+  progress.style.display = 'block'; progress.max = totalPairs; progress.value = 0;
+  document.getElementById('btnGenerar').disabled = true;
+  const genMsg = document.getElementById('genMsg');
+  genMsg.innerHTML = '<p class="hint">Generando…</p>';
+  const zip = new JSZip();
+  const results = [];
+  const { jsPDF } = window.jspdf;
+  const mergedByTpl = new Map(); // ti -> { pdf, pageCount, templateNombre }
+  // Orden estable de todas las plantillas: agrupadas por carpeta y, dentro de
+  // cada una, en el orden que se fijó con las flechitas ▲▼. Con esto el ZIP
+  // de cada estudiante y el PDF combinado por plantilla salen en ese mismo
+  // orden, no en el orden en que se fueron marcando las casillas.
+  const ordenGlobal = agruparPorCarpeta(templatesFull).flatMap(g => g.items).map(x => x.i);
+
+  for(let ri = 0; ri < rows.length; ri++){
+    const row = rows[ri];
+    const studentName = studentDisplayName(row, ri);
+    const studentFolder = zip.folder(sanitizeName(studentName));
+    const tisAsignados = ordenGlobal.filter(ti => assignment[ri].has(ti));
+    for(let pos = 0; pos < tisAsignados.length; pos++){
+      const ti = tisAsignados[pos];
+      const tpl = templatesFull[ti];
+      if(!tpl) continue;
+      const id = crypto.randomUUID();
+      const verifyUrl = new URL('verificar.html', location.href).href + '?c=' + id;
+      try{
+        // Ojo: aquí SÓLO se dibuja y se arma el PDF; nada se guarda en la base
+        // todavía. El QR ya lleva el id definitivo, así que el PDF generado
+        // ahora sigue siendo válido cuando más tarde se pulse "Registrar".
+        const canvas = await renderCertificateCanvas(row, verifyUrl, tpl.config, ajustesPorCert[`${ri}:${ti}`]);
+        const thumbDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        const widthPt = canvas.width * 72 / 96;
+        const heightPt = canvas.height * 72 / 96;
+        const orientation = widthPt > heightPt ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'pt', format: [widthPt, heightPt] });
+        pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
+        const pdfBlob = pdf.output('blob');
+        // el número al frente hace que el explorador de archivos ya los
+        // muestre en el orden correcto al abrir el ZIP
+        const filename = `${String(pos + 1).padStart(2, '0')}_${sanitizeName(tpl.nombre)}_certificado.pdf`;
+        studentFolder.file(filename, pdfBlob);
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        results.push({ studentName, templateNombre: tpl.nombre, id, verifyUrl, pdfUrl, thumbDataUrl,
+          path: `${sanitizeName(studentName)}/${filename}`, ok: true, row, registrado: false });
+
+        // Además del PDF individual por estudiante, se arma un PDF combinado por
+        // plantilla (una página por estudiante) para poder imprimir de una sola
+        // vez todos los certificados de ese mismo formato.
+        let merged = mergedByTpl.get(ti);
+        if(!merged){
+          merged = { pdf: new jsPDF({ orientation, unit: 'pt', format: [widthPt, heightPt] }), pageCount: 0, templateNombre: tpl.nombre };
+          mergedByTpl.set(ti, merged);
+        } else {
+          merged.pdf.addPage([widthPt, heightPt], orientation);
+        }
+        merged.pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
+        merged.pageCount++;
+      }catch(e){
+        results.push({ studentName, templateNombre: tpl.nombre, error: e.message, ok: false });
+      }
+      progress.value++;
+    }
+  }
+
+  const okCount = results.filter(r => r.ok).length;
+  genMsg.innerHTML = '';
+  progress.style.display = 'none';
+
+  const combinedPdfs = [];
+  for(const merged of mergedByTpl.values()){
+    const blob = merged.pdf.output('blob');
+    const filename = `${sanitizeName(merged.templateNombre)}_TODOS.pdf`;
+    zip.file(filename, blob);
+    combinedPdfs.push({ templateNombre: merged.templateNombre, pageCount: merged.pageCount, url: URL.createObjectURL(blob), filename });
+  }
+
+  let zipUrl = null;
+  if(okCount){
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    zipUrl = URL.createObjectURL(zipBlob);
+  }
+
+  generationHistory.unshift({ timestamp: new Date(), results, zipUrl, combinedPdfs, okCount, totalCount: totalPairs,
+    expanded: true, entidad, loteId, registrando: false });
+  renderGenerationHistory();
+
+  document.getElementById('btnGenerar').disabled = false;
+});
+
+// ---------- Certificados emitidos ----------
+async function loadIssued(){
+  const { data, error } = await supabase.rpc('list_cert_certificates');
+  const wrap = document.getElementById('listaEmitidosWrap');
+  if(error){ wrap.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+  issued = data || [];
+  renderIssuedTable();
+}
+
+function tplPorNombreEmitido(nombre){
+  return templatesFull.find(t => t.nombre === nombre);
+}
+
+function actualizarBarraSeleccionEmitidos(){
+  const bar = document.getElementById('emitidosSeleccionBar');
+  if(!issuedSeleccionados.size){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = `<b>${issuedSeleccionados.size} certificado(s) marcado(s)</b>
+    <button class="btn teal small" id="btnEditarSeleccionEmitidos">✎ Editar</button>
+    <button class="btn outline small" id="btnDescargarSeleccionEmitidos">⬇ Descargar</button>
+    <button class="btn outline small" id="btnCancelarSeleccionEmitidos">Cancelar selección</button>`;
+  document.getElementById('btnEditarSeleccionEmitidos').addEventListener('click', editarCertificadosSeleccionados);
+  document.getElementById('btnDescargarSeleccionEmitidos').addEventListener('click', () => descargarCertificados([...issuedSeleccionados]));
+  document.getElementById('btnCancelarSeleccionEmitidos').addEventListener('click', () => {
+    issuedSeleccionados.clear();
+    renderIssuedTable();
+  });
+}
+
+function renderIssuedTable(){
+  const wrap = document.getElementById('listaEmitidosWrap');
+  const q = document.getElementById('buscarEmitidos').value.trim().toLowerCase();
+  const filtered = issued.filter(c => !q
+    || Object.values(c.datos || {}).some(v => String(v).toLowerCase().includes(q))
+    || (c.plantilla_nombre || '').toLowerCase().includes(q));
+  actualizarBarraSeleccionEmitidos();
+  if(!filtered.length){ wrap.innerHTML = '<p class="hint">Sin certificados que coincidan.</p>'; return; }
+  const todosMarcados = filtered.every(c => issuedSeleccionados.has(c.id));
+  wrap.innerHTML = `<table><thead><tr>
+    <th><input type="checkbox" id="chkTodosEmitidos" ${todosMarcados ? 'checked' : ''}></th>
+    <th>Datos</th><th>Plantilla</th><th>Estado</th><th>Emitido</th><th>Acciones</th></tr></thead>
+  <tbody>${filtered.map(c => {
+    const reemplazoPor = c.estado === 'reemplazado' ? issued.find(x => x.reemplaza_a === c.id) : null;
+    return `<tr id="emitido-${c.id}" class="${issuedSeleccionados.has(c.id) ? 'fila-marcada' : ''}">
+    <td><input type="checkbox" data-emitido-check="${c.id}" ${issuedSeleccionados.has(c.id) ? 'checked' : ''}></td>
+    <td>${Object.entries(c.datos || {}).filter(([,v]) => v).map(([k,v]) => `<b>${escapeHtml(k)}:</b> ${escapeHtml(v)}`).join('<br>')}</td>
+    <td>${escapeHtml(c.plantilla_nombre || '—')}</td>
+    <td><span class="badge ${c.estado}">${c.estado}</span>${reemplazoPor ? `<br><a href="#" data-ir-a="${reemplazoPor.id}" class="hint">→ ver el que lo reemplaza</a>` : ''}</td>
+    <td>${new Date(c.created_at).toLocaleDateString('es-ES')}</td>
+    <td>
+      <a href="verificar.html?c=${c.id}" target="_blank" class="hint">Ver</a>
+      ${c.estado === 'vigente' ? ` · <button data-editar-emitido="${c.id}" class="btn outline small">Editar</button>` : ''}
+      ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger small">Revocar</button>` : ''}
+    </td>
+  </tr>`;
+  }).join('')}</tbody></table>`;
+
+  document.getElementById('chkTodosEmitidos').addEventListener('change', e => {
+    filtered.forEach(c => { if(e.target.checked) issuedSeleccionados.add(c.id); else issuedSeleccionados.delete(c.id); });
+    renderIssuedTable();
+  });
+  wrap.querySelectorAll('[data-emitido-check]').forEach(cb => cb.addEventListener('change', () => {
+    if(cb.checked) issuedSeleccionados.add(cb.dataset.emitidoCheck); else issuedSeleccionados.delete(cb.dataset.emitidoCheck);
+    cb.closest('tr').classList.toggle('fila-marcada', cb.checked);
+    actualizarBarraSeleccionEmitidos();
+  }));
+  wrap.querySelectorAll('[data-editar-emitido]').forEach(b => b.addEventListener('click', () => {
+    const c = issued.find(x => x.id === b.dataset.editarEmitido);
+    if(c) abrirEditarCertificado(c);
+  }));
+  wrap.querySelectorAll('[data-ir-a]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById(`emitido-${a.dataset.irA}`)?.scrollIntoView({ behavior:'smooth', block:'center' });
+  }));
+  wrap.querySelectorAll('[data-revocar]').forEach(b => b.addEventListener('click', async () => {
+    const motivo = prompt('Motivo de revocación:');
+    if(motivo === null) return;
+    const { error } = await supabase.rpc('revoke_certificate', { p_id: b.dataset.revocar, p_motivo: motivo });
+    if(error) alert('Error: ' + error.message);
+    await loadIssued();
+  }));
+}
+
+/** Reconstruye y descarga uno o varios certificados ya emitidos, sin cambiar sus datos. */
+async function descargarCertificados(ids){
+  const certs = ids.map(id => issued.find(c => c.id === id)).filter(Boolean);
+  if(!certs.length) return;
+  const { jsPDF } = window.jspdf;
+  const listos = [];
+  const sinPlantilla = [];
+  for(const c of certs){
+    const tpl = tplPorNombreEmitido(c.plantilla_nombre);
+    if(!tpl){ sinPlantilla.push(c); continue; }
+    await ensureFontsLoadedForConfig(tpl.config);
+    const verifyUrl = new URL('verificar.html', location.href).href + '?c=' + c.id;
+    const canvas = await renderCertificateCanvas(c.datos || {}, verifyUrl, tpl.config);
+    const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const widthPt = canvas.width * 72 / 96, heightPt = canvas.height * 72 / 96;
+    const orientation = widthPt > heightPt ? 'landscape' : 'portrait';
+    const pdf = new jsPDF({ orientation, unit:'pt', format:[widthPt, heightPt] });
+    pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
+    const nombrePersona = Object.values(c.datos || {}).find(v => v) || c.id.slice(0, 8);
+    listos.push({ blob: pdf.output('blob'), filename: `${sanitizeName(tpl.nombre)}_${sanitizeName(String(nombrePersona))}_${c.id.slice(0,8)}.pdf` });
+  }
+  if(sinPlantilla.length) alert(`${sinPlantilla.length} certificado(s) no se pudieron regenerar: su plantilla («${sinPlantilla.map(c=>c.plantilla_nombre).join('», «')}») ya no existe.`);
+  if(!listos.length) return;
+  if(listos.length === 1){
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(listos[0].blob); a.download = listos[0].filename; a.click();
+    return;
+  }
+  const zip = new JSZip();
+  listos.forEach(l => zip.file(l.filename, l.blob));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'certificados_editados.zip'; a.click();
+}
+
+/** Modal para editar los datos de UN certificado ya emitido y, si se quiere, descargarlo de una vez. */
+async function abrirEditarCertificado(c){
+  const tpl = tplPorNombreEmitido(c.plantilla_nombre);
+  if(!tpl){ alert(`No se encontró la plantilla «${c.plantilla_nombre}». Puede que haya sido renombrada o eliminada; no se puede editar ni volver a generar este certificado sin ella.`); return; }
+  await ensureFontsLoadedForConfig(tpl.config);
+  const datos = { ...(c.datos || {}) };
+  const camposTexto = tpl.config.fields.filter(f => f.tipo === 'texto');
+
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal-caja">
+    <div class="modal-cab"><b>Editar certificado — ${escapeHtml(tpl.nombre)}</b><button class="btn outline small" data-cerrar>Cerrar</button></div>
+    <div class="modal-cuerpo">
+      <img id="editarPrev" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin-bottom:12px;">
+      <table><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>
+        ${camposTexto.map(f => `<tr><td><b>${escapeHtml(f.nombre)}</b></td>
+          <td><input type="text" data-campo-editar="${escapeHtml(f.nombre)}" value="${escapeHtml(datos[f.nombre] ?? '')}" style="width:100%;"></td></tr>`).join('')}
+      </tbody></table>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" data-guardar>Guardar cambios</button>
+        <button class="btn gold" data-guardar-descargar>Guardar y descargar PDF</button>
+      </div>
+      <p class="hint" style="margin-top:8px;">Guardar marca el certificado actual como «reemplazado» y crea uno nuevo con estos datos y su propio código QR; el anterior deja de listarse como vigente.</p>
+      <div id="editarMsg"></div>
+    </div>
+  </div>`;
+  document.body.appendChild(fondo);
+
+  const verifyUrlPreview = new URL('verificar.html', location.href).href + '?c=preview';
+  const pintar = async () => {
+    const canvas = await renderCertificateCanvas(datos, verifyUrlPreview, tpl.config);
+    fondo.querySelector('#editarPrev').src = canvas.toDataURL('image/jpeg', 0.85);
+  };
+  await pintar();
+
+  fondo.querySelectorAll('[data-campo-editar]').forEach(inp => inp.addEventListener('input', () => {
+    datos[inp.dataset.campoEditar] = inp.value;
+    pintar();
+  }));
+  const cerrar = () => fondo.remove();
+  fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+  fondo.addEventListener('click', e => { if(e.target === fondo) cerrar(); });
+
+  async function guardar(){
+    const { data, error } = await supabase.rpc('replace_cert_certificate', { p_id: c.id, p_datos: datos });
+    if(error){ fondo.querySelector('#editarMsg').innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return null; }
+    issuedSeleccionados.delete(c.id);
+    await loadIssued();
+    return data;
+  }
+  fondo.querySelector('[data-guardar]').addEventListener('click', async () => {
+    const nuevo = await guardar();
+    if(nuevo) cerrar();
+  });
+  fondo.querySelector('[data-guardar-descargar]').addEventListener('click', async () => {
+    const nuevo = await guardar();
+    if(!nuevo) return;
+    await descargarCertificados([nuevo.id]);
+    cerrar();
+  });
+}
+
+/** Modal para editar VARIOS certificados emitidos de golpe, en una tabla, y descargarlos juntos. */
+async function editarCertificadosSeleccionados(){
+  const seleccion = [...issuedSeleccionados].map(id => issued.find(c => c.id === id)).filter(Boolean);
+  const editables = seleccion.filter(c => c.estado === 'vigente' && tplPorNombreEmitido(c.plantilla_nombre));
+  const descartados = seleccion.length - editables.length;
+  if(!editables.length){ alert('Ninguno de los certificados marcados se puede editar (deben estar vigentes y su plantilla debe seguir existiendo).'); return; }
+  if(editables.length === 1){ await abrirEditarCertificado(editables[0]); return; }
+
+  for(const c of editables) await ensureFontsLoadedForConfig(tplPorNombreEmitido(c.plantilla_nombre).config);
+  const camposUnion = [...new Set(editables.flatMap(c => tplPorNombreEmitido(c.plantilla_nombre).config.fields.filter(f => f.tipo === 'texto').map(f => f.nombre)))];
+  const cambios = editables.map(c => ({ c, datos: { ...(c.datos || {}) } }));
+
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal-caja" style="max-width:min(96vw, 1100px);">
+    <div class="modal-cab"><b>Editar ${editables.length} certificados${descartados ? ` (${descartados} no se pudieron incluir)` : ''}</b>
+      <button class="btn outline small" data-cerrar>Cerrar</button></div>
+    <div class="modal-cuerpo">
+      <div style="overflow-x:auto;"><table><thead><tr><th>Plantilla</th>${camposUnion.map(n => `<th>${escapeHtml(n)}</th>`).join('')}</tr></thead>
+      <tbody>${cambios.map((it, fi) => {
+        const tpl = tplPorNombreEmitido(it.c.plantilla_nombre);
+        const nombresTpl = new Set(tpl.config.fields.filter(f => f.tipo === 'texto').map(f => f.nombre));
+        return `<tr><td>${escapeHtml(tpl.nombre)}</td>${camposUnion.map(n => nombresTpl.has(n)
+          ? `<td><input type="text" data-fila="${fi}" data-campo="${escapeHtml(n)}" value="${escapeHtml(it.datos[n] ?? '')}" style="min-width:120px;"></td>`
+          : `<td class="hint">—</td>`).join('')}</tr>`;
+      }).join('')}</tbody></table></div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" data-guardar-todos>Guardar todos los cambios</button>
+        <button class="btn gold" data-guardar-descargar-todos>Guardar y descargar todo (ZIP)</button>
+      </div>
+      <p class="hint" style="margin-top:8px;">Cada certificado editado se marca como «reemplazado» y se crea uno nuevo con estos datos y su propio código QR.</p>
+      <div id="editarMasivoMsg"></div>
+    </div>
+  </div>`;
+  document.body.appendChild(fondo);
+
+  fondo.querySelectorAll('[data-fila]').forEach(inp => inp.addEventListener('input', () => {
+    cambios[Number(inp.dataset.fila)].datos[inp.dataset.campo] = inp.value;
+  }));
+  const cerrar = () => fondo.remove();
+  fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+  fondo.addEventListener('click', e => { if(e.target === fondo) cerrar(); });
+
+  async function guardarTodos(){
+    const msg = fondo.querySelector('#editarMasivoMsg');
+    msg.innerHTML = '<p class="hint">Guardando…</p>';
+    const nuevos = []; let fallos = 0;
+    for(const it of cambios){
+      const { data, error } = await supabase.rpc('replace_cert_certificate', { p_id: it.c.id, p_datos: it.datos });
+      if(error){ fallos++; continue; }
+      nuevos.push(data);
+      issuedSeleccionados.delete(it.c.id);
+    }
+    await loadIssued();
+    msg.innerHTML = fallos
+      ? `<div class="msg warn">${nuevos.length} guardado(s), ${fallos} con error.</div>`
+      : `<div class="msg ok">${nuevos.length} certificado(s) actualizados.</div>`;
+    return nuevos;
+  }
+  fondo.querySelector('[data-guardar-todos]').addEventListener('click', () => guardarTodos());
+  fondo.querySelector('[data-guardar-descargar-todos]').addEventListener('click', async () => {
+    const nuevos = await guardarTodos();
+    if(nuevos.length) await descargarCertificados(nuevos.map(n => n.id));
+    cerrar();
+  });
+}
+
+document.getElementById('buscarEmitidos').addEventListener('input', renderIssuedTable);
+document.getElementById('btnRefrescarLista').addEventListener('click', loadIssued);
+document.getElementById('btnBorrarHistorial').addEventListener('click', async () => {
+  if(!confirm(`Esto borra PERMANENTEMENTE los ${issued.length} certificados emitidos hasta ahora (incluye los códigos QR ya impresos, que dejarán de verificar). Úsalo solo para limpiar pruebas. ¿Continuar?`)) return;
+  if(!confirm('Confirma una vez más: no se puede deshacer. ¿Borrar todo el historial?')) return;
+  const { error } = await supabase.rpc('delete_all_cert_certificates');
+  if(error){ alert('Error: ' + error.message); return; }
+  issuedSeleccionados.clear();
+  await loadIssued();
+});
+
+init();
+</script>
+</body>
+</html>
