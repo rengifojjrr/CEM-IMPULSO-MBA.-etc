@@ -1197,10 +1197,536 @@ function renderCopiarEstiloSelector(){
   const hayOtras = grupos.some(g => g.items.length);
   sel.innerHTML = hayOtras
     ? grupos.map(g => {
-        const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('')
+        const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
         return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
       }).join('')
     : '<option value="">— no hay otra plantilla —</option>';
   sel.disabled = !hayOtras;
   document.getElementById('btnCopiarEstilo').disabled = !hayOtras;
+}
+
+/** Selectores de "Copiar a TODA una carpeta": carpeta destino y plantilla origen. */
+function renderCopiaMasivaSelectores(){
+  const selCarpeta = document.getElementById('selCarpetaDestinoMasivo');
+  const selOrigen = document.getElementById('selOrigenMasivo');
+  const btn = document.getElementById('btnCopiarEstiloMasivo');
+  if(!selCarpeta || !selOrigen) return;
+  const carpetas = carpetasExistentes();
+  selCarpeta.innerHTML = carpetas.length
+    ? carpetas.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')
+    : '<option value="">— crea primero una carpeta —</option>';
+  selCarpeta.disabled = !carpetas.length;
+
+  const grupos = agruparPorCarpeta(templatesFull);
+  selOrigen.innerHTML = grupos.map(g => {
+    const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
+    return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+  }).join('');
+
+  btn.disabled = !carpetas.length;
+}
+
+document.getElementById('btnCopiarEstiloMasivo').addEventListener('click', async () => {
+  const carpetaDestino = document.getElementById('selCarpetaDestinoMasivo').value;
+  const origenIdx = Number(document.getElementById('selOrigenMasivo').value);
+  const origen = templatesFull[origenIdx];
+  if(!origen){ alert('Elige la plantilla de la que quieres copiar.'); return; }
+  const destinos = templatesFull.map((t, i) => ({ t, i })).filter(x => (x.t.config.carpeta || '').trim() === carpetaDestino);
+  if(!destinos.length){ alert('Esa carpeta todavía no tiene ninguna plantilla.'); return; }
+  const nombreCarpeta = carpetaDestino || 'Sin carpeta';
+  if(!confirm(`Se reemplazarán los campos de las ${destinos.length} plantilla(s) de «${nombreCarpeta}» por los de «${origen.nombre}», y se guardan de una vez.\n\nEl fondo de cada certificado no se toca. ¿Continuar?`)) return;
+
+  const btn = document.getElementById('btnCopiarEstiloMasivo');
+  btn.disabled = true;
+  let ok = 0, fallos = 0;
+  for(const { t } of destinos){
+    // copia profunda: cada plantilla debe quedar con sus propios objetos, si
+    // no, mover un campo en una movería también el de las demás
+    t.config.fields = JSON.parse(JSON.stringify(origen.config.fields || []));
+    normalizarConfig(t.config);
+    const { data, error } = await supabase.rpc('save_cert_template', { p_id: t.id, p_nombre: t.nombre, p_config: t.config });
+    if(error){ fallos++; continue; }
+    t.id = data.id;
+    ok++;
+  }
+  btn.disabled = false;
+  config = templatesFull[currentIdx].config;   // por si la plantilla abierta estaba entre las tocadas
+  renderChips(); renderFieldSettings();
+  renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+  const el = document.getElementById('tplMsg');
+  el.textContent = fallos
+    ? `Copiado y guardado en ${ok} de ${destinos.length} plantilla(s) de «${nombreCarpeta}» (${fallos} con error).`
+    : `Copiado y guardado en las ${ok} plantilla(s) de «${nombreCarpeta}» ✓.`;
+  setTimeout(() => { if(el.textContent.startsWith('Copiado y guardado')) el.textContent = ''; }, 14000);
+});
+
+document.getElementById('btnCopiarEstilo').addEventListener('click', () => {
+  const sel = document.getElementById('selCopiarEstilo');
+  const origen = templatesFull[Number(sel.value)];
+  if(!origen){ alert('Elige la plantilla de la que quieres copiar.'); return; }
+
+  const nuevos = origen.config.fields || [];
+  const actuales = config.fields || [];
+  const aviso = actuales.length
+    ? `Se reemplazarán los ${actuales.length} campo(s) de esta plantilla por los ${nuevos.length} de «${origen.nombre}».\n\n` +
+      `El fondo de este certificado no se toca.\n¿Continuar?`
+    : `Se copiarán los ${nuevos.length} campo(s) de «${origen.nombre}». ¿Continuar?`;
+  if(!confirm(aviso)) return;
+
+  // copia profunda: cada plantilla debe quedar con sus propios objetos,
+  // si no, mover un campo aquí movería también el de la plantilla original
+  config.fields = JSON.parse(JSON.stringify(nuevos));
+  normalizarConfig(config);
+  campoSel = null;
+  renderChips(); renderFieldSettings();
+
+  const cuenta = { texto:0, imagen:0, qr:0 };
+  for(const f of config.fields) cuenta[f.tipo] = (cuenta[f.tipo] || 0) + 1;
+  const conFoto = config.fields.filter(f => f.tipo === 'imagen' && f.dataUrl).length;
+  const msg = document.getElementById('tplMsg');
+  msg.textContent = `Copiado de «${origen.nombre}»: ${cuenta.texto||0} de texto, ` +
+    `${cuenta.imagen||0} imagen(es) (${conFoto} con archivo) y ${cuenta.qr||0} QR. ` +
+    `Recuerda guardar la plantilla.`;
+  setTimeout(() => { if(msg.textContent.startsWith('Copiado de')) msg.textContent = ''; }, 12000);
+});
+
+function renderTemplatePreview(){
+  renderReglas();
+  const img = document.getElementById('tplImg');
+  img.onload = () => { renderChips(); renderFieldSettings(); };
+  img.src = config.background;
+}
+
+/* ============================================================
+   REGLAS Y GUÍAS
+   Las guías son líneas de referencia como las de Word o Google Docs:
+   se sueltan arrastrando desde la regla, se mueven, y se quitan
+   pulsándolas y dándole a Supr, devolviéndolas a la regla o con doble clic.
+   No se imprimen nunca.
+   ============================================================ */
+const IMAN = 0.7;        // a menos de este % una arista se pega a la guía
+
+function guiasDe(){ return (config.guias = config.guias || { v: [], h: [] }); }
+
+/** Dibuja las marcas y los números de las dos reglas. */
+function renderReglas(){
+  const h = document.getElementById('reglaH');
+  const v = document.getElementById('reglaV');
+  if(!h || !v) return;
+  const pintar = (el, horizontal) => {
+    let html = '';
+    for(let p = 0; p <= 100; p += 2.5){
+      const mayor = Math.abs(p % 10) < 0.01;
+      const largo = mayor ? 9 : (Math.abs(p % 5) < 0.01 ? 6 : 4);
+      html += horizontal
+        ? `<span class="marca" style="left:${p}%;height:${largo}px"></span>`
+        : `<span class="marca" style="top:${p}%;width:${largo}px"></span>`;
+      if(mayor && p > 0 && p < 100){
+        html += horizontal
+          ? `<span class="num" style="left:${p}%">${p}</span>`
+          : `<span class="num" style="top:${p}%">${p}</span>`;
+      }
+    }
+    el.innerHTML = html;
+  };
+  pintar(h, true);
+  pintar(v, false);
+}
+
+/** Dibuja las guías sobre la plantilla. */
+function renderGuias(){
+  const wrap = document.getElementById('tplPreviewWrap');
+  if(!wrap) return;
+  wrap.querySelectorAll('.guia').forEach(el => el.remove());
+  const g = guiasDe();
+  // al cambiar de plantilla las guías son otras: una selección que ya no
+  // apunta a nada se descarta, si no Supr borraría una guía al azar
+  if(guiaSel && g[guiaSel.eje]?.[guiaSel.i] === undefined) guiaSel = null;
+  g.v.forEach((pos, i) => wrap.appendChild(crearGuia('v', pos, i)));
+  g.h.forEach((pos, i) => wrap.appendChild(crearGuia('h', pos, i)));
+}
+
+function crearGuia(eje, pos, i){
+  const el = document.createElement('div');
+  el.className = 'guia ' + eje + (esGuiaSel(eje, i) ? ' sel' : '');
+  el.dataset.eje = eje; el.dataset.gi = i;
+  if(eje === 'v') el.style.left = pos + '%'; else el.style.top = pos + '%';
+  el.title = `Guía en ${pos}% — pulsa y dale a Supr, arrástrala a la regla o haz doble clic para quitarla`;
+  el.addEventListener('pointerdown', iniciarArrastreGuia);
+  el.addEventListener('dblclick', () => { quitarGuia(eje, i); });
+  return el;
+}
+
+let guiaArrastrada = null;   // { eje, i, nueva }
+
+function esGuiaSel(eje, i){ return !!guiaSel && guiaSel.eje === eje && guiaSel.i === i; }
+
+/** Quita una guía y deja limpia la selección, que va por índice. */
+function quitarGuia(eje, i){
+  guiasDe()[eje].splice(i, 1);
+  guiaSel = null;
+  renderGuias();
+}
+
+function iniciarArrastreGuia(e){
+  e.stopPropagation();
+  const eje = e.currentTarget.dataset.eje, i = Number(e.currentTarget.dataset.gi);
+  guiaArrastrada = { eje, i };
+  // elegirla excluye al campo: así Supr no tiene dos candidatos a borrar
+  guiaSel = { eje, i };
+  if(campoSel !== null && campoSel !== undefined){ campoSel = null; renderChips(); renderFieldSettings(); }
+  e.currentTarget.classList.add('arrastrando', 'sel');
+  e.currentTarget.setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+/** Empezar a arrastrar desde la regla crea una guía nueva y la sigue moviendo. */
+function iniciarGuiaDesdeRegla(eje, e){
+  const wrap = document.getElementById('tplPreviewWrap').getBoundingClientRect();
+  const pos = eje === 'v'
+    ? ((e.clientX - wrap.left) / wrap.width) * 100
+    : ((e.clientY - wrap.top) / wrap.height) * 100;
+  const g = guiasDe();
+  g[eje].push(Math.round(Math.min(100, Math.max(0, pos)) * 10) / 10);
+  guiaArrastrada = { eje, i: g[eje].length - 1, nueva: true };
+  guiaSel = { eje, i: g[eje].length - 1 };
+  if(campoSel !== null && campoSel !== undefined){ campoSel = null; renderChips(); renderFieldSettings(); }
+  renderGuias();
+  e.preventDefault();
+}
+
+document.getElementById('reglaH').addEventListener('pointerdown', e => iniciarGuiaDesdeRegla('v', e));
+document.getElementById('reglaV').addEventListener('pointerdown', e => iniciarGuiaDesdeRegla('h', e));
+
+document.addEventListener('pointermove', e => {
+  if(!guiaArrastrada) return;
+  const wrap = document.getElementById('tplPreviewWrap').getBoundingClientRect();
+  const { eje, i } = guiaArrastrada;
+  const dentro = e.clientX >= wrap.left - 4 && e.clientX <= wrap.right + 4 &&
+                 e.clientY >= wrap.top - 4 && e.clientY <= wrap.bottom + 4;
+  const pos = eje === 'v'
+    ? ((e.clientX - wrap.left) / wrap.width) * 100
+    : ((e.clientY - wrap.top) / wrap.height) * 100;
+  guiasDe()[eje][i] = Math.round(Math.min(100, Math.max(0, pos)) * 10) / 10;
+  guiaArrastrada.fuera = !dentro;
+  renderGuias();
+  const el = document.querySelector(`.guia.${eje}[data-gi="${i}"]`);
+  if(el){ el.classList.add('arrastrando'); el.classList.toggle('borrar', !dentro); }
+});
+
+document.addEventListener('pointerup', () => {
+  if(!guiaArrastrada) return;
+  const { eje, i, fuera } = guiaArrastrada;
+  guiaArrastrada = null;
+  // soltarla fuera del lienzo (sobre la regla) equivale a quitarla
+  if(fuera){ quitarGuia(eje, i); return; }
+  renderGuias();
+});
+
+document.getElementById('btnLimpiarGuias').addEventListener('click', () => {
+  const g = guiasDe();
+  if(!g.v.length && !g.h.length) return;
+  if(!confirm(`¿Quitar las ${g.v.length + g.h.length} guías de esta plantilla?`)) return;
+  g.v = []; g.h = [];
+  guiaSel = null;
+  renderGuias();
+});
+
+/**
+ * Desplazamiento necesario para pegar `valor` a la guía más cercana,
+ * o null si no hay ninguna dentro del alcance del imán.
+ * Se devuelve el desplazamiento —y no el valor ya pegado— porque al mover
+ * una caja hay que comparar sus dos aristas: si se comparasen los valores,
+ * la arista que no tiene guía cerca (desplazamiento cero) ganaría siempre.
+ */
+function ajusteIman(valor, eje){
+  const g = guiasDe()[eje];
+  let mejor = null, dist = IMAN;
+  for(const p of g){
+    const d = Math.abs(p - valor);
+    if(d < dist){ dist = d; mejor = p - valor; }
+  }
+  return mejor;
+}
+
+/** Pega un valor a la guía más cercana del eje indicado. */
+function iman(valor, eje){
+  const g = guiasDe()[eje];
+  let mejor = valor, dist = IMAN;
+  for(const p of g){
+    const d = Math.abs(p - valor);
+    if(d < dist){ dist = d; mejor = p; }
+  }
+  return mejor;
+}
+
+/**
+ * Altura de capa de un campo: el primero de la lista queda por delante.
+ * Es el mismo criterio con el que renderCertificateCanvas dibuja, para que
+ * lo que se ve aquí sea lo que sale impreso.
+ */
+function capaDe(i){ return Math.max(1, Math.min(99, config.fields.length - i)); }
+
+function renderChips(){
+  const wrap = document.getElementById('tplPreviewWrap');
+  wrap.querySelectorAll('.field-chip,.field-handle,.field-box,.field-label,.img-box,.img-handle').forEach(el => el.remove());
+  config.fields.forEach((f, i) => {
+    if(f.tipo === 'qr'){
+      const chip = document.createElement('div');
+      chip.className = 'field-chip' + (f.activo ? '' : ' inactive') + (campoSel === i ? ' sel' : '');
+      chip.textContent = (f.nombre || ('Campo ' + (i+1))) + ' (QR)';
+      chip.style.left = f.xPct + '%'; chip.style.top = f.yPct + '%';
+      chip.style.zIndex = 400 + capaDe(i);
+      chip.dataset.idx = i; chip.dataset.role = 'point';
+      chip.addEventListener('pointerdown', onHandlePointerDown);
+      wrap.appendChild(chip);
+      return;
+    }
+    if(f.tipo === 'imagen'){
+      // La imagen se ve en su sitio y a su tamaño real, para poder cuadrarla.
+      const caja = document.createElement('div');
+      caja.className = 'img-box' + (f.activo ? '' : ' inactive') + (campoSel === i ? ' sel' : '');
+      caja.style.left = f.xPct + '%'; caja.style.top = f.yPct + '%';
+      caja.style.width = (f.widthPct ?? 18) + '%';
+      caja.style.opacity = opacityOf(f);
+      caja.style.zIndex = capaDe(i);
+      caja.dataset.idx = i; caja.dataset.role = 'point';
+      caja.innerHTML = f.dataUrl
+        ? `<img src="${f.dataUrl}" alt="">`
+        : `<div class="img-vacia">${escapeHtml(f.nombre || 'Imagen')}<br><small>sin archivo</small></div>`;
+      caja.addEventListener('pointerdown', onHandlePointerDown);
+      wrap.appendChild(caja);
+
+      const rot = document.createElement('div');
+      rot.className = 'img-handle' + (f.activo ? '' : ' inactive');
+      rot.style.left = `calc(${f.xPct}% + ${(f.widthPct ?? 18)/2}%)`;
+      rot.style.top = f.yPct + '%';
+      rot.dataset.idx = i; rot.dataset.role = 'imgW';
+      rot.title = 'Arrastra para cambiar el ancho';
+      rot.addEventListener('pointerdown', onHandlePointerDown);
+      wrap.appendChild(rot);
+
+      const et = document.createElement('div');
+      et.className = 'field-label' + (f.activo ? '' : ' inactive');
+      et.textContent = f.nombre || ('Imagen ' + (i+1));
+      et.style.left = f.xPct + '%'; et.style.top = f.yPct + '%';
+      et.style.zIndex = 400 + capaDe(i);
+      wrap.appendChild(et);
+      return;
+    }
+    const box = boxOf(f), v = cajaV(f);
+    const sel = (campoSel === i) ? ' sel' : '';
+    const anchoImg = wrap.querySelector('#tplImg')?.clientWidth || 900;
+    const altoImg  = wrap.querySelector('#tplImg')?.clientHeight || 640;
+
+    // Caja con el texto de muestra, tal como saldrá impreso
+    const caja = document.createElement('div');
+    caja.className = 'field-box' + (f.activo ? '' : ' inactive') + sel;
+    caja.style.left = box.leftPct + '%';
+    caja.style.top = v.topPct + '%';
+    caja.style.width = (box.rightPct - box.leftPct) + '%';
+    caja.style.height = (v.botPct - v.topPct) + '%';
+    caja.style.zIndex = capaDe(i);
+    const muestra = document.createElement('span');
+    muestra.textContent = textoMuestra(f);
+    const escalaX = anchoImg / (config.bgWidth || 1600);
+    const anchoCajaPx = ((box.rightPct - box.leftPct)/100) * (config.bgWidth || 1600);
+    // el alto se mide igual que en el lienzo real, no en píxeles de pantalla,
+    // para que el tope de tamaño sea el mismo en la muestra y en la impresión
+    const altoCajaPx = ((v.botPct - v.topPct)/100) * (config.bgHeight || 1131);
+    const cuerpo = ajustarMuestra(muestra.textContent, f, anchoCajaPx, altoCajaPx);
+    muestra.style.cssText = `font-family:${f.fontFamily || 'Georgia, serif'};` +
+      `font-weight:${f.bold ? '700' : '400'};color:${f.color};opacity:${opacityOf(f)};` +
+      `text-align:${f.align};font-size:${Math.max(6, cuerpo * escalaX)}px;`;
+    caja.appendChild(muestra);
+    wrap.appendChild(caja);
+
+    // Etiqueta = asa para mover el campo entero
+    const label = document.createElement('div');
+    label.className = 'field-label' + (f.activo ? '' : ' inactive') + sel;
+    label.textContent = f.nombre || ('Campo ' + (i+1));
+    label.style.left = ((box.leftPct + box.rightPct)/2) + '%';
+    label.style.top = v.topPct + '%';
+    label.style.zIndex = 400 + capaDe(i);
+    label.dataset.idx = i; label.dataset.role = 'move';
+    label.title = 'Arrastra para mover todo el campo';
+    label.addEventListener('pointerdown', onHandlePointerDown);
+    wrap.appendChild(label);
+
+    const centro = centroV(f);
+    const asa = (clase, izq, arriba, rol, titulo, cursor) => {
+      const h = document.createElement('div');
+      h.className = 'field-handle ' + clase + (f.activo ? '' : ' inactive');
+      h.style.left = izq + '%'; h.style.top = arriba + '%';
+      if(cursor) h.style.cursor = cursor;
+      h.dataset.idx = i; h.dataset.role = rol; h.title = titulo;
+      h.addEventListener('pointerdown', onHandlePointerDown);
+      wrap.appendChild(h);
+    };
+    asa('h', box.leftPct,  centro,   'left',  'Margen izquierdo');
+    asa('h', box.rightPct, centro,   'right', 'Margen derecho');
+    asa('v', (box.leftPct+box.rightPct)/2, v.topPct, 'top', 'Margen superior');
+    asa('v', (box.leftPct+box.rightPct)/2, v.botPct, 'bot', 'Margen inferior');
+    // esquinas: mueven los dos márgenes de ese lado a la vez (p.ej. derecho + inferior)
+    asa('c', box.leftPct,  v.topPct, 'tl', 'Esquina superior izquierda', 'nwse-resize');
+    asa('c', box.rightPct, v.topPct, 'tr', 'Esquina superior derecha',   'nesw-resize');
+    asa('c', box.leftPct,  v.botPct, 'bl', 'Esquina inferior izquierda', 'nesw-resize');
+    asa('c', box.rightPct, v.botPct, 'br', 'Esquina inferior derecha',   'nwse-resize');
+  });
+  renderGuias();     // se redibujan junto con los campos
+}
+
+/** Texto de muestra que se ve en la plantilla mientras se ajusta. */
+function textoMuestra(f){
+  if(f.usarPlantillaTexto){
+    const texto = String(f.plantillaTexto || '').replace(/\{\{[^{}]+\}\}/g, 'XXXXXXXXX');
+    return aplicarFormato(texto, f.formato) || 'XXXXXXXXX';
+  }
+  const fijo = config.overrides && config.overrides[f.nombre];
+  if(fijo) return aplicarFormato(fijo, f.formato);
+  if(f.formato === 'cedula') return '12.345.678';
+  return 'XXXXXXXXX';
+}
+
+/**
+ * Cuerpo de letra que tendría ese texto dentro de la caja, para verlo real.
+ * Debe aplicar EXACTAMENTE el mismo tope que renderCertificateCanvas (ancho Y
+ * alto de la caja); si sólo se limitara por el ancho, aquí se vería un cuerpo
+ * mucho más grande del que sale impreso y la muestra sería incoherente con
+ * el certificado final.
+ */
+function ajustarMuestra(texto, f, anchoCajaPx, altoCajaPx){
+  const cv = ajustarMuestra._cv || (ajustarMuestra._cv = document.createElement('canvas'));
+  const ctx = cv.getContext('2d');
+  const topeAlto = altoCajaPx / 1.25;
+  const maxS = Math.max(4, Math.min(f.maxFontSize || 32, topeAlto));
+  const minS = Math.min(f.minFontSize || 12, maxS);
+  return fitFontSize(ctx, texto, f.fontFamily || 'Georgia, serif', f.bold, maxS, minS, anchoCajaPx);
+}
+
+function onHandlePointerDown(e){
+  const idx = Number(e.currentTarget.dataset.idx);
+  const rol = e.currentTarget.dataset.role;
+  const wrap = document.getElementById('tplPreviewWrap').getBoundingClientRect();
+  const f = config.fields[idx];
+  campoSel = idx;
+  if(guiaSel){ guiaSel = null; renderGuias(); }   // elegir un campo suelta la guía
+  dragging = { idx, role: rol };
+  if(rol === 'move'){
+    // se guarda el punto de agarre para mover la caja sin saltos
+    const b = boxOf(f), v = cajaV(f);
+    dragging.orig = { ...b, ...v,
+      px: ((e.clientX - wrap.left) / wrap.width) * 100,
+      py: ((e.clientY - wrap.top) / wrap.height) * 100 };
+  }
+  e.currentTarget.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  renderFieldSettings();
+}
+document.getElementById('tplPreviewWrap').addEventListener('pointermove', e => {
+  if(!dragging) return;
+  const wrap = document.getElementById('tplPreviewWrap');
+  const rect = wrap.getBoundingClientRect();
+  let xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+  let yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+  xPct = Math.round(xPct * 10) / 10; yPct = Math.round(yPct * 10) / 10;
+  const f = config.fields[dragging.idx];
+  const R = dragging.role;
+  if(R === 'imgW'){
+    // el tirador va al borde derecho: el ancho es el doble de la distancia al centro
+    f.widthPct = Math.max(2, Math.min(100, Math.round((xPct - f.xPct) * 2 * 10) / 10));
+  }
+  else if(R === 'point'){ f.xPct = iman(xPct,'v'); f.yPct = iman(yPct,'h'); }
+  else if(R === 'move'){
+    // mueve la caja completa conservando su ancho y su alto
+    const o = dragging.orig;
+    const dx = xPct - o.px, dy = yPct - o.py;
+    const ancho = o.rightPct - o.leftPct, alto = o.botPct - o.topPct;
+    let izq = Math.max(0, Math.min(100 - ancho, o.leftPct + dx));
+    let arr = Math.max(0, Math.min(100 - alto, o.topPct + dy));
+    // el imán mira las dos aristas y aplica el desplazamiento de la que
+    // esté más cerca de una guía; si ninguna lo está, no se toca nada
+    const dIzq = ajusteIman(izq, 'v'), dDer = ajusteIman(izq + ancho, 'v');
+    const dx2 = (dIzq !== null && (dDer === null || Math.abs(dIzq) <= Math.abs(dDer))) ? dIzq : dDer;
+    if(dx2 !== null) izq = Math.max(0, Math.min(100 - ancho, izq + dx2));
+    const dArr = ajusteIman(arr, 'h'), dAba = ajusteIman(arr + alto, 'h');
+    const dy2 = (dArr !== null && (dAba === null || Math.abs(dArr) <= Math.abs(dAba))) ? dArr : dAba;
+    if(dy2 !== null) arr = Math.max(0, Math.min(100 - alto, arr + dy2));
+    f.leftPct = Math.round(izq * 10) / 10;
+    f.rightPct = Math.round((f.leftPct + ancho) * 10) / 10;
+    f.topPct = Math.round(arr * 10) / 10;
+    f.botPct = Math.round((f.topPct + alto) * 10) / 10;
+    f.yPct = centroV(f);
+  }
+  else if(R === 'left'){ const b = boxOf(f); f.leftPct = Math.min(iman(xPct,'v'), b.rightPct - 2); f.rightPct = b.rightPct; }
+  else if(R === 'right'){ const b = boxOf(f); f.rightPct = Math.max(iman(xPct,'v'), b.leftPct + 2); f.leftPct = b.leftPct; }
+  else if(R === 'top'){ const v = cajaV(f); f.topPct = Math.min(iman(yPct,'h'), v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f); }
+  else if(R === 'bot'){ const v = cajaV(f); f.botPct = Math.max(iman(yPct,'h'), v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f); }
+  // esquinas: la misma lógica de un borde horizontal y uno vertical, juntas,
+  // así se ajustan los dos márgenes de ese lado en un solo arrastre
+  else if(R === 'tl'){
+    const b = boxOf(f), v = cajaV(f);
+    f.leftPct = Math.min(iman(xPct,'v'), b.rightPct - 2); f.rightPct = b.rightPct;
+    f.topPct = Math.min(iman(yPct,'h'), v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f);
+  }
+  else if(R === 'tr'){
+    const b = boxOf(f), v = cajaV(f);
+    f.rightPct = Math.max(iman(xPct,'v'), b.leftPct + 2); f.leftPct = b.leftPct;
+    f.topPct = Math.min(iman(yPct,'h'), v.botPct - 1); f.botPct = v.botPct; f.yPct = centroV(f);
+  }
+  else if(R === 'bl'){
+    const b = boxOf(f), v = cajaV(f);
+    f.leftPct = Math.min(iman(xPct,'v'), b.rightPct - 2); f.rightPct = b.rightPct;
+    f.botPct = Math.max(iman(yPct,'h'), v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f);
+  }
+  else if(R === 'br'){
+    const b = boxOf(f), v = cajaV(f);
+    f.rightPct = Math.max(iman(xPct,'v'), b.leftPct + 2); f.leftPct = b.leftPct;
+    f.botPct = Math.max(iman(yPct,'h'), v.topPct + 1); f.topPct = v.topPct; f.yPct = centroV(f);
+  }
+  renderChips();
+});
+window.addEventListener('pointerup', () => {
+  // Se repinta siempre: con un clic simple (sin arrastrar) no pasa por
+  // pointermove, y sin esto el campo elegido no se resaltaría en la plantilla.
+  if(dragging){ dragging = null; renderChips(); renderFieldSettings(); }
+});
+
+/**
+ * Borrar con Supr o Retroceso lo que esté elegido: una guía si se acaba de
+ * pulsar una, y si no el campo resaltado. Sólo actúa si el foco no está en un
+ * cuadro de texto, para no borrar nada mientras se escribe un nombre.
+ */
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Delete' && e.key !== 'Backspace' && e.key !== 'Escape') return;
+  const a = document.activeElement;
+  if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+
+  if(e.key === 'Escape'){                       // soltar la selección sin borrar
+    if(guiaSel){ guiaSel = null; renderGuias(); e.preventDefault(); }
+    else if(campoSel !== null && campoSel !== undefined){ campoSel = null; renderChips(); renderFieldSettings(); e.preventDefault(); }
+    return;
+  }
+
+  // una guía se quita sin preguntar: vuelve a ponerse arrastrando desde la regla
+  if(guiaSel){
+    const { eje, i } = guiaSel;
+    if(guiasDe()[eje][i] !== undefined){ e.preventDefault(); quitarGuia(eje, i); return; }
+    guiaSel = null;
+  }
+
+  if(campoSel === null || campoSel === undefined) return;
+  const f = config.fields[campoSel];
+  if(!f) return;
+  e.preventDefault();
+  if(!confirm(`¿Quitar el campo «${f.nombre || 'sin nombre'}» de esta plantilla?`)) return;
+  config.fields.splice(campoSel, 1);
+  campoSel = null;
+  renderChips(); renderFieldSettings();
+});
+
+function bloqueOpacidad(f, i){
+  return `<label title="Opacidad">Opacidad <input type="range" data-i="${i}" data-p="opacity" min="0.05" max="1"
+    step="0.05" value="${opacityOf(f)}" style="width:96px;vertical-align:middle;">
+    <b data-op-lbl="${i}">${Math.round(opacityOf(f)*100)}%</b></label>`;
 }
