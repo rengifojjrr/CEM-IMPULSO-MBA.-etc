@@ -754,3 +754,453 @@ async function loadTemplates(){
   renderTemplatePreview();
   renderMatrixTplSelector();
 }
+
+/**
+ * Agrupa una lista de plantillas por carpeta. Las que no tienen carpeta van
+ * primero, sueltas (así nadie que no use esta función nota ningún cambio);
+ * las carpetas van después, en orden alfabético.
+ * `excluirIdx` se usa en el selector de "copiar estilos", que no debe
+ * ofrecerse a sí mismo como origen.
+ */
+function agruparPorCarpeta(lista, excluirIdx){
+  const porCarpeta = new Map();
+  const sinCarpeta = [];
+  lista.forEach((t, i) => {
+    if(i === excluirIdx) return;
+    const c = (t.config.carpeta || '').trim();
+    if(!c){ sinCarpeta.push({ t, i }); return; }
+    if(!porCarpeta.has(c)) porCarpeta.set(c, []);
+    porCarpeta.get(c).push({ t, i });
+  });
+  // dentro de cada carpeta manda el "orden" que se fija con las flechitas
+  // ▲▼; con empates (el caso normal si nunca se han movido) se respeta el
+  // orden en que se fueron creando, porque sort() es estable
+  const ordenar = arr => arr.slice().sort((a, b) => (a.t.config.orden || 0) - (b.t.config.orden || 0));
+  const grupos = [];
+  if(sinCarpeta.length) grupos.push({ carpeta: '', items: ordenar(sinCarpeta) });
+  [...porCarpeta.keys()].sort((a, b) => a.localeCompare(b, 'es')).forEach(c => grupos.push({ carpeta: c, items: ordenar(porCarpeta.get(c)) }));
+  return grupos;
+}
+
+/** Nombres de carpeta ya usados en alguna plantilla, para el autocompletar. */
+function carpetasExistentes(){
+  const set = new Set();
+  for(const t of templatesFull){ const c = (t.config.carpeta || '').trim(); if(c) set.add(c); }
+  return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+/** Próximo valor de "orden" para que una plantilla se sume al final de esa carpeta. */
+function siguienteOrdenEnCarpeta(carpeta){
+  const c = (carpeta || '').trim();
+  if(!c) return 0;
+  const ordenes = templatesFull.filter(t => (t.config.carpeta || '').trim() === c).map(t => t.config.orden || 0);
+  return ordenes.length ? Math.max(...ordenes) + 1 : 0;
+}
+
+/**
+ * Pone la plantilla `idx` en la carpeta `carpetaDestino`, en la posición
+ * `posInsercion` (0 = primero de esa carpeta; un número muy grande = al
+ * final). No toca la posición real de la plantilla en templatesFull —eso
+ * rompería las referencias por índice de assignment/matrixTemplateSelection/
+ * ajustesPorCert— sino sólo el "orden" de todas las que comparten carpeta.
+ * Sirve tanto para las flechitas ▲▼ como para arrastrar y soltar.
+ */
+function moverAPosicionEnCarpeta(idx, carpetaDestino, posInsercion){
+  const carpeta = (carpetaDestino || '').trim();
+  templatesFull[idx].config.carpeta = carpeta;
+  const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta)?.items || [];
+  const sinElMovido = grupo.filter(x => x.i !== idx);
+  const pos = Math.max(0, Math.min(posInsercion, sinElMovido.length));
+  sinElMovido.splice(pos, 0, { t: templatesFull[idx], i: idx });
+  sinElMovido.forEach((x, k) => { x.t.config.orden = k; });
+}
+
+/** Mueve la plantilla `idx` un lugar antes (dir=-1) o después (dir=+1) dentro de su propia carpeta. */
+function moverEnCarpeta(idx, dir){
+  const carpeta = (templatesFull[idx].config.carpeta || '').trim();
+  if(!carpeta) return;
+  const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta)?.items;
+  if(!grupo) return;
+  const pos = grupo.findIndex(x => x.i === idx);
+  const destino = pos + dir;
+  if(pos < 0 || destino < 0 || destino >= grupo.length) return;
+  moverAPosicionEnCarpeta(idx, carpeta, destino);
+}
+
+// Carpetas creadas a mano pero todavía sin ninguna plantilla adentro: sólo
+// existen en esta pestaña (una carpeta es sólo una etiqueta de texto, no una
+// fila en la base de datos), para poder arrastrarles la primera plantilla.
+let carpetasVacias = new Set();
+// Carpetas plegadas: por defecto todas abiertas; se recuerda cuáles se cerraron.
+let carpetasColapsadas = new Set();
+// Plantillas marcadas con la casilla de cada ficha, para borrarlas todas juntas.
+let plantillasSeleccionadas = new Set();
+
+/** Barra que aparece encima del tablero en cuanto hay al menos una ficha marcada. */
+function actualizarBarraSeleccionMasiva(){
+  const bar = document.getElementById('carpetasSeleccionBar');
+  const n = plantillasSeleccionadas.size;
+  if(!n){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = `<b>${n} plantilla(s) marcada(s)</b>
+    <button class="btn danger small" id="btnEliminarSeleccionadas">Eliminar seleccionadas</button>
+    <button class="btn outline small" id="btnCancelarSeleccion">Cancelar selección</button>`;
+  document.getElementById('btnEliminarSeleccionadas').addEventListener('click', eliminarPlantillasSeleccionadas);
+  document.getElementById('btnCancelarSeleccion').addEventListener('click', () => {
+    plantillasSeleccionadas.clear();
+    renderCarpetasBoard();
+    actualizarBarraSeleccionMasiva();
+  });
+}
+
+/**
+ * Borra de verdad (a diferencia de eliminar una carpeta) todas las
+ * plantillas marcadas con la casilla. Se procesan de mayor a menor índice
+ * para que reindexTemplateIdxAfterDelete —pensada para un borrado a la
+ * vez— siga siendo válida en cada paso.
+ */
+async function eliminarPlantillasSeleccionadas(){
+  const indices = [...plantillasSeleccionadas].sort((a, b) => b - a);
+  if(!indices.length) return;
+  if(indices.length >= templatesFull.length){
+    alert('Debe quedar al menos una plantilla: deja al menos una sin marcar.');
+    return;
+  }
+  const nombres = indices.slice().sort((a, b) => a - b).map(i => templatesFull[i].nombre);
+  if(!confirm(`¿Eliminar estas ${indices.length} plantilla(s)? Esto SÍ las borra por completo, no se puede deshacer:\n\n${nombres.join('\n')}`)) return;
+
+  const configAbierta = templatesFull[currentIdx]?.config;   // referencia, no índice: puede quedar invalidada
+  for(const idx of indices){
+    const t = templatesFull[idx];
+    if(t.id) await supabase.rpc('delete_cert_template', { p_id: t.id });
+    reindexTemplateIdxAfterDelete(idx);
+    templatesFull.splice(idx, 1);
+  }
+  plantillasSeleccionadas.clear();
+  const nuevoIdx = templatesFull.findIndex(t => t.config === configAbierta);
+  currentIdx = nuevoIdx >= 0 ? nuevoIdx : 0;
+  config = templatesFull[currentIdx].config;
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+  renderMatrix();
+  actualizarBarraSeleccionMasiva();
+}
+
+/** Tablero visual de carpetas: cada una es una tarjeta plegable con miniaturas de los certificados. */
+function renderCarpetasBoard(){
+  const wrap = document.getElementById('carpetasBoard');
+  if(!wrap) return;
+  const grupos = agruparPorCarpeta(templatesFull);
+  for(const c of carpetasVacias){
+    if(!grupos.some(g => g.carpeta === c)) grupos.push({ carpeta: c, items: [] });
+  }
+  grupos.sort((a, b) => a.carpeta === '' ? -1 : b.carpeta === '' ? 1 : a.carpeta.localeCompare(b.carpeta, 'es'));
+
+  wrap.innerHTML = grupos.map(g => {
+    const colapsada = carpetasColapsadas.has(g.carpeta);
+    return `
+    <div class="carpeta-card ${g.carpeta ? '' : 'sin-carpeta'}">
+      <div class="carpeta-card-head" data-carpeta-toggle="${escapeHtml(g.carpeta)}">
+        <span>${g.carpeta ? `📁 ${escapeHtml(g.carpeta)}` : 'Sin carpeta'}</span>
+        <span class="carpeta-card-acciones">
+          ${g.carpeta ? `
+            <button type="button" class="carpeta-accion" data-carpeta-renombrar="${escapeHtml(g.carpeta)}" title="Renombrar esta carpeta">✎</button>
+            <button type="button" class="carpeta-accion" data-carpeta-eliminar="${escapeHtml(g.carpeta)}" title="Eliminar esta carpeta">🗑</button>
+          ` : ''}
+          <span class="hint">${g.items.length}</span>
+          <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span>
+        </span>
+      </div>
+      <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(g.carpeta)}" style="${colapsada ? 'display:none;' : ''}">
+        ${g.items.map(({ t, i }) => `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''} ${plantillasSeleccionadas.has(i) ? 'marcada' : ''}" draggable="true"
+            data-plantilla-chip="${i}" title="${escapeHtml(t.nombre)}">
+            <input type="checkbox" class="plantilla-chip-check" data-plantilla-check="${i}" title="Marcar para eliminar en bloque"
+              ${plantillasSeleccionadas.has(i) ? 'checked' : ''}>
+            <img class="plantilla-chip-img" src="${t.config.background || ''}" alt="">
+            <span class="plantilla-chip-nombre">${escapeHtml(t.nombre)}</span>
+          </div>`).join('')}
+        ${!g.items.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
+      </div>
+    </div>
+  `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-plantilla-check]').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());   // que no abra la plantilla ni arrastre
+    cb.addEventListener('change', () => {
+      const i = Number(cb.dataset.plantillaCheck);
+      if(cb.checked) plantillasSeleccionadas.add(i); else plantillasSeleccionadas.delete(i);
+      cb.closest('.plantilla-chip').classList.toggle('marcada', cb.checked);
+      actualizarBarraSeleccionMasiva();
+    });
+  });
+
+  wrap.querySelectorAll('[data-carpeta-toggle]').forEach(head => head.addEventListener('click', () => {
+    const c = head.dataset.carpetaToggle;
+    if(carpetasColapsadas.has(c)) carpetasColapsadas.delete(c); else carpetasColapsadas.add(c);
+    renderCarpetasBoard();
+  }));
+
+  wrap.querySelectorAll('[data-carpeta-renombrar]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();   // que no dispare también el plegado de la cabecera
+    const actual = btn.dataset.carpetaRenombrar;
+    const nuevo = prompt(`Nuevo nombre para la carpeta "${actual}":`, actual);
+    if(nuevo === null) return;
+    const limpio = nuevo.trim();
+    if(!limpio || limpio === actual) return;
+    if(carpetasExistentes().includes(limpio) && !confirm(`Ya existe una carpeta "${limpio}". ¿Fusionar "${actual}" con ella?`)) return;
+    templatesFull.forEach(t => { if((t.config.carpeta || '').trim() === actual) t.config.carpeta = limpio; });
+    if(carpetasVacias.has(actual)){ carpetasVacias.delete(actual); carpetasVacias.add(limpio); }
+    if(carpetasColapsadas.has(actual)){ carpetasColapsadas.delete(actual); carpetasColapsadas.add(limpio); }
+    renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+  }));
+  wrap.querySelectorAll('[data-carpeta-eliminar]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const nombre = btn.dataset.carpetaEliminar;
+    const n = templatesFull.filter(t => (t.config.carpeta || '').trim() === nombre).length;
+    const aviso = n
+      ? `¿Eliminar la carpeta "${nombre}"? Sus ${n} plantilla(s) NO se borran, sólo quedan "Sin carpeta" (puedes arrastrarlas a otra carpeta después). Si además quieres borrar esas plantillas, hazlo una por una con "Eliminar" en el editor de arriba.`
+      : `¿Eliminar la carpeta vacía "${nombre}"?`;
+    if(!confirm(aviso)) return;
+    templatesFull.forEach(t => { if((t.config.carpeta || '').trim() === nombre) t.config.carpeta = ''; });
+    carpetasVacias.delete(nombre);
+    carpetasColapsadas.delete(nombre);
+    renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+  }));
+
+  wrap.querySelectorAll('[data-plantilla-chip]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const sel = document.getElementById('selPlantilla');
+      sel.value = chip.dataset.plantillaChip;
+      sel.dispatchEvent(new Event('change'));
+    });
+    chip.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', chip.dataset.plantillaChip);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idxArrastrado = Number(e.dataTransfer.getData('text/plain'));
+      if(idxArrastrado === Number(chip.dataset.plantillaChip)) return;
+      const body = chip.closest('.carpeta-card-body');
+      const otrasChips = [...body.querySelectorAll('.plantilla-chip')].filter(c => Number(c.dataset.plantillaChip) !== idxArrastrado);
+      const posChip = otrasChips.indexOf(chip);
+      const r = chip.getBoundingClientRect();
+      const posInsercion = (e.clientX - r.left) > r.width / 2 ? posChip + 1 : posChip;
+      moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, posInsercion);
+      carpetasVacias.delete(body.dataset.carpetaDrop);
+      renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+    });
+  });
+  wrap.querySelectorAll('.carpeta-card-body').forEach(body => {
+    body.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; body.classList.add('drag-over'); });
+    body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
+    body.addEventListener('drop', e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      if(e.target.closest('.plantilla-chip')) return;   // ya lo maneja el handler de esa ficha
+      const idxArrastrado = Number(e.dataTransfer.getData('text/plain'));
+      moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, Infinity);
+      carpetasVacias.delete(body.dataset.carpetaDrop);
+      renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+    });
+  });
+}
+
+document.getElementById('btnNuevaCarpeta').addEventListener('click', () => {
+  const inp = document.getElementById('nuevaCarpetaNombre');
+  const nombre = inp.value.trim();
+  if(!nombre) return;
+  carpetasVacias.add(nombre);
+  inp.value = '';
+  renderCarpetasBoard();
+});
+
+function renderTemplateSelector(){
+  const sel = document.getElementById('selPlantilla');
+  const grupos = agruparPorCarpeta(templatesFull);
+  sel.innerHTML = grupos.map(g => {
+    const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
+    return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+  }).join('');
+  sel.value = currentIdx;
+  document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
+  document.getElementById('carpetaPlantilla').value = templatesFull[currentIdx].config.carpeta || '';
+  document.getElementById('listaCarpetas').innerHTML =
+    carpetasExistentes().map(c => `<option value="${escapeHtml(c)}">`).join('');
+  actualizarBotonesOrdenCarpeta();
+  renderCarpetasBoard();
+  renderCopiarEstiloSelector();
+  renderCopiaMasivaSelectores();
+}
+
+/** Habilita/deshabilita ▲▼ según la posición de la plantilla actual dentro de su carpeta. */
+function actualizarBotonesOrdenCarpeta(){
+  const btnUp = document.getElementById('btnSubirCarpeta'), btnDown = document.getElementById('btnBajarCarpeta');
+  const carpeta = (templatesFull[currentIdx].config.carpeta || '').trim();
+  if(!carpeta){
+    btnUp.disabled = true; btnDown.disabled = true;
+    document.getElementById('ordenCarpetaWrap').style.visibility = 'hidden';
+    return;
+  }
+  document.getElementById('ordenCarpetaWrap').style.visibility = '';
+  const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta).items;
+  const pos = grupo.findIndex(x => x.i === currentIdx);
+  btnUp.disabled = pos <= 0;
+  btnDown.disabled = pos >= grupo.length - 1;
+}
+
+document.getElementById('btnSubirCarpeta').addEventListener('click', () => {
+  moverEnCarpeta(currentIdx, -1);
+  renderTemplateSelector();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
+document.getElementById('btnBajarCarpeta').addEventListener('click', () => {
+  moverEnCarpeta(currentIdx, 1);
+  renderTemplateSelector();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
+
+document.getElementById('selPlantilla').addEventListener('change', e => {
+  currentIdx = Number(e.target.value);
+  config = templatesFull[currentIdx].config;
+  document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
+  document.getElementById('carpetaPlantilla').value = config.carpeta || '';
+  actualizarBotonesOrdenCarpeta();
+  renderCarpetasBoard();
+  renderCopiarEstiloSelector();
+  renderTemplatePreview();
+});
+
+document.getElementById('nombrePlantilla').addEventListener('input', e => {
+  templatesFull[currentIdx].nombre = e.target.value;
+  // se actualiza también la ficha del tablero de carpetas sin volver a
+  // pintarlo entero, para que el nombre se vea al momento mientras se escribe
+  const chip = document.querySelector(`[data-plantilla-chip="${currentIdx}"] .plantilla-chip-nombre`);
+  if(chip) chip.textContent = e.target.value;
+});
+
+document.getElementById('carpetaPlantilla').addEventListener('focus', e => {
+  e.target.dataset.previo = e.target.value;   // para saber si de verdad cambió de carpeta
+});
+document.getElementById('carpetaPlantilla').addEventListener('input', e => {
+  templatesFull[currentIdx].config.carpeta = e.target.value;
+});
+document.getElementById('carpetaPlantilla').addEventListener('change', e => {
+  const t = templatesFull[currentIdx];
+  const nueva = t.config.carpeta.trim();
+  const previa = (e.target.dataset.previo || '').trim();
+  t.config.carpeta = nueva;
+  // si de verdad cambió a otra carpeta (o se le puso una nueva), se suma al
+  // final de esa carpeta; si sólo se retocó el nombre sin cambiar de carpeta,
+  // no se toca el orden que ya tenía
+  if(nueva && nueva !== previa) t.config.orden = siguienteOrdenEnCarpeta(nueva);
+  renderTemplateSelector();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
+
+document.getElementById('btnNuevaPlantilla').addEventListener('click', () => {
+  const cfg = normalizarConfig(defaultConfig());
+  // hereda la carpeta de la plantilla que estaba abierta: lo normal es que
+  // "+ Nueva plantilla" se use para sumar otro certificado al mismo diplomado,
+  // y se agrega al final de la carpeta, después de los que ya había
+  cfg.carpeta = templatesFull[currentIdx]?.config?.carpeta || '';
+  cfg.orden = siguienteOrdenEnCarpeta(cfg.carpeta);
+  templatesFull.push({ id: null, nombre: 'Nueva plantilla', config: cfg });
+  currentIdx = templatesFull.length - 1;
+  config = cfg;
+  matrixTemplateSelection.add(currentIdx);
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+});
+
+document.getElementById('btnDuplicarPlantilla').addEventListener('click', () => {
+  const clone = JSON.parse(JSON.stringify(templatesFull[currentIdx].config));
+  clone.orden = siguienteOrdenEnCarpeta(clone.carpeta);   // la copia queda al final de la misma carpeta
+  templatesFull.push({ id: null, nombre: templatesFull[currentIdx].nombre + ' (copia)', config: clone });
+  currentIdx = templatesFull.length - 1;
+  config = clone;
+  matrixTemplateSelection.add(currentIdx);
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+});
+
+// Al borrar una plantilla, los índices de las plantillas siguientes se recorren
+// una posición; hay que reflejar ese corrimiento en las asignaciones existentes
+// y en la selección de plantillas activas de la matriz, para no dejar referencias
+// apuntando a la plantilla equivocada.
+function reindexTemplateIdxAfterDelete(delIdx){
+  for(const set of assignment){
+    const shifted = new Set();
+    for(const ti of set){
+      if(ti === delIdx) continue;
+      shifted.add(ti > delIdx ? ti - 1 : ti);
+    }
+    set.clear();
+    for(const ti of shifted) set.add(ti);
+  }
+  const shiftedSel = new Set();
+  for(const ti of matrixTemplateSelection){
+    if(ti === delIdx) continue;
+    shiftedSel.add(ti > delIdx ? ti - 1 : ti);
+  }
+  matrixTemplateSelection = shiftedSel;
+}
+
+document.getElementById('btnEliminarPlantilla').addEventListener('click', async () => {
+  if(templatesFull.length <= 1){ alert('Debe quedar al menos una plantilla.'); return; }
+  if(!confirm(`¿Eliminar la plantilla "${templatesFull[currentIdx].nombre}"?`)) return;
+  const t = templatesFull[currentIdx];
+  if(t.id) await supabase.rpc('delete_cert_template', { p_id: t.id });
+  reindexTemplateIdxAfterDelete(currentIdx);
+  templatesFull.splice(currentIdx, 1);
+  currentIdx = 0;
+  config = templatesFull[0].config;
+  renderTemplateSelector();
+  renderTemplatePreview();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
+
+document.getElementById('btnGuardarPlantilla').addEventListener('click', async () => {
+  const t = templatesFull[currentIdx];
+  const { data, error } = await supabase.rpc('save_cert_template', { p_id: t.id, p_nombre: t.nombre, p_config: t.config });
+  const el = document.getElementById('tplMsg');
+  if(error){ el.textContent = 'Error: ' + error.message; return; }
+  t.id = data.id;
+  el.textContent = 'Plantilla guardada ✓';
+  renderTemplateSelector();
+  renderMatrixTplSelector();
+  renderMatrix();
+});
+
+// ---------- Editor de plantilla ----------
+/** Propiedades de aspecto y colocación que se copian entre plantillas. */
+/**
+ * Copia TODOS los campos de otra plantilla a esta: textos, imágenes con su
+ * archivo, códigos QR, posiciones, márgenes, tipografías y opacidades.
+ * Los campos que hubiera aquí se reemplazan, para que las dos plantillas
+ * queden idénticas salvo el fondo, que es lo propio de cada certificado.
+ */
+function renderCopiarEstiloSelector(){
+  const sel = document.getElementById('selCopiarEstilo');
+  if(!sel) return;
+  const grupos = agruparPorCarpeta(templatesFull, currentIdx);
+  const hayOtras = grupos.some(g => g.items.length);
+  sel.innerHTML = hayOtras
+    ? grupos.map(g => {
+        const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('')
+        return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+      }).join('')
+    : '<option value="">— no hay otra plantilla —</option>';
+  sel.disabled = !hayOtras;
+  document.getElementById('btnCopiarEstilo').disabled = !hayOtras;
+}
