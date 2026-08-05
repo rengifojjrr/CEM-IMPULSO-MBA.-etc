@@ -24,3 +24,441 @@
   .panel-head h2{margin:0;flex:1 1 auto;min-width:0;}
   .panel-head .btn{flex:0 0 auto;}
   .panel-body.collapsed{display:none;}
+  .gen-entry{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+  .gen-entry-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:10px 12px;background:#f8fafb;cursor:pointer;}
+  .gen-entry-body{padding:10px 12px;border-top:1px solid var(--border);}
+  .btn{cursor:pointer;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:6px;padding:8px 14px;font-size:13px;}
+  .btn.outline{background:#fff;color:var(--navy);}
+  .btn.teal{background:var(--teal);border-color:var(--teal);}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:#20200a;}
+  .btn.danger{background:#fff;color:#b91c1c;border-color:#b91c1c;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn.small{padding:4px 9px;font-size:11.5px;}
+  input[type=email], input[type=text], input[type=number], input[type=date], input[type=color], select, textarea{
+    padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
+  textarea{width:100%;min-height:110px;font-family:ui-monospace,monospace;font-size:12px;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left;}
+  th{color:var(--muted);text-transform:uppercase;font-size:10.5px;}
+  .msg{padding:10px 12px;border-radius:8px;font-size:13px;margin-top:10px;}
+  .msg.ok{background:#e7f7f0;color:#065f46;}
+  .msg.err{background:#fdecec;color:#7a1212;}
+  .msg.warn{background:#fef3c7;color:#92400e;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  /* ---- reglas y guías, al estilo de un procesador de textos ---- */
+  .lienzo-con-reglas{display:grid;grid-template-columns:20px auto;grid-template-rows:20px auto;
+    width:max-content;max-width:100%;}
+  .regla-esquina{background:#e9edf1;border:1px solid var(--border);border-radius:4px 0 0 0;
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);
+    cursor:pointer;user-select:none;}
+  .regla-esquina:hover{background:#dbe2e9;color:#b91c1c;}
+  .regla{position:relative;background:#f1f4f7;border:1px solid var(--border);overflow:hidden;
+    touch-action:none;user-select:none;}
+  .regla-h{grid-column:2;grid-row:1;cursor:col-resize;}
+  .regla-v{grid-column:1;grid-row:2;cursor:row-resize;}
+  .regla .marca{position:absolute;background:#9aa7b4;}
+  .regla-h .marca{bottom:0;width:1px;}
+  .regla-v .marca{right:0;height:1px;}
+  .regla .num{position:absolute;font-size:8.5px;color:#5d6b7a;line-height:1;}
+  .regla-h .num{top:3px;transform:translateX(-50%);}
+  .regla-v .num{left:3px;transform:translateY(-50%) rotate(-90deg);transform-origin:center;}
+  .regla .fantasma{position:absolute;background:var(--teal);opacity:.55;}
+  .regla-h .fantasma{top:0;bottom:0;width:2px;}
+  .regla-v .fantasma{left:0;right:0;height:2px;}
+
+  /* Por debajo de las etiquetas y las marcas de los campos (z 3-5): una guía
+     nunca debe impedir agarrar un campo que quede justo encima de ella. */
+  .guia{position:absolute;z-index:100;touch-action:none;}
+  .guia.v{top:0;bottom:0;width:11px;margin-left:-5px;cursor:ew-resize;}
+  .guia.h{left:0;right:0;height:11px;margin-top:-5px;cursor:ns-resize;}
+  .guia::after{content:'';position:absolute;background:#12b3a6;}
+  .guia.v::after{left:5px;top:0;bottom:0;width:1px;}
+  .guia.h::after{top:5px;left:0;right:0;height:1px;}
+  .guia:hover::after,.guia.arrastrando::after{background:#0d8177;box-shadow:0 0 0 1px rgba(18,179,166,.35);}
+  /* Elegida con un clic: se engorda para que se vea cuál se va a borrar con Supr. */
+  .guia.sel::after{background:#0d8177;box-shadow:0 0 0 2px rgba(18,179,166,.45);}
+  .guia.sel.v::after{width:3px;left:4px;}
+  .guia.sel.h::after{height:3px;top:4px;}
+  .guia.borrar::after{background:#dc2626;}
+
+  #tplPreviewWrap{position:relative;display:block;grid-column:2;grid-row:2;max-width:100%;border:1px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;}
+  #tplPreviewWrap img{display:block;max-width:900px;width:100%;height:auto;}
+  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);z-index:400;touch-action:none;}
+  .field-chip:active{cursor:grabbing;}
+  .field-chip.inactive{opacity:.4;border-style:dashed;}
+
+  /* Caja del campo: reglillas de los cuatro lados. El texto se centra en
+     vertical, así todas las palabras quedan alineadas arriba y abajo. */
+  .field-box{position:absolute;border:1px dashed rgba(19,39,67,.55);background:rgba(19,39,67,.04);
+    z-index:1;pointer-events:none;display:flex;align-items:center;overflow:hidden;}
+  .field-box.inactive{border-color:rgba(107,114,128,.45);background:transparent;}
+  .field-box.sel{border-color:var(--teal);border-width:2px;background:rgba(27,127,118,.07);}
+  .field-box span{width:100%;white-space:nowrap;line-height:1;}
+  .field-box.inactive span{opacity:.35;}
+
+  /* La etiqueta flotante es el asa para mover todo el campo. */
+  .field-label{position:absolute;transform:translate(-50%,-100%);background:rgba(19,39,67,.9);color:#fff;
+    font-size:10px;padding:3px 8px;border-radius:8px;white-space:nowrap;z-index:400;border:1px solid var(--gold);
+    cursor:move;user-select:none;touch-action:none;}
+  .field-label:active{cursor:grabbing;}
+  .field-label.inactive{opacity:.45;}
+  .field-label.sel{background:var(--teal);border-color:var(--navy);}
+
+  .field-handle{position:absolute;background:var(--gold);border:1px solid var(--navy);border-radius:3px;
+    z-index:300;touch-action:none;transform:translate(-50%,-50%);}
+  .field-handle.h{width:9px;height:22px;cursor:ew-resize;}
+  .field-handle.v{width:22px;height:9px;cursor:ns-resize;}
+  .field-handle.c{width:13px;height:13px;border-radius:50%;z-index:310;}
+  .field-handle.inactive{opacity:.4;}
+  .img-box{position:absolute;transform:translate(-50%,-50%);cursor:grab;z-index:1;touch-action:none;outline:1px dashed rgba(19,39,67,.5);}
+  .img-box:active{cursor:grabbing;}
+  .img-box.inactive{opacity:.35 !important;}
+  .img-box.sel{outline:2px solid var(--teal);outline-offset:2px;}
+  .field-chip.sel{background:var(--teal);border-color:var(--navy);}
+  .img-box img{display:block;width:100%;height:auto;pointer-events:none;}
+  .img-vacia{padding:10px 6px;text-align:center;font-size:10px;color:var(--muted);background:rgba(255,255,255,.75);}
+  .img-handle{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--teal);border:2px solid #fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.35);transform:translate(-50%,-50%);cursor:ew-resize;z-index:400;touch-action:none;}
+  .img-handle.inactive{opacity:.4;}
+  .modal-fondo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:flex-start;
+    justify-content:center;padding:24px 12px;overflow-y:auto;}
+  .modal-caja{background:#fff;border-radius:10px;max-width:760px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+  .modal-cab{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .modal-cab b{flex:1;min-width:0;}
+  .modal-cuerpo{padding:14px 16px 18px;}
+  .field-settings{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 8px;border-bottom:1px solid var(--border);font-size:12px;}
+  .field-settings label{color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;}
+
+  /* ---- lista de campos ---- */
+  .campo{border:1px solid var(--border);border-radius:8px;margin-bottom:7px;background:#fff;}
+  .campo.abierto{border-color:var(--teal);box-shadow:0 1px 6px rgba(27,127,118,.12);}
+  .campo.apagado{background:#fafbfc;}
+  .campo-cab{display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer;}
+  .campo-cab:hover{background:#f6f8fa;}
+  .campo-orden{display:flex;flex-direction:column;gap:1px;}
+  .campo-orden .mini{width:20px;height:15px;line-height:1;padding:0;font-size:9px;border:1px solid var(--border);
+    background:#fff;border-radius:3px;color:var(--muted);cursor:pointer;}
+  .campo-orden .mini:disabled{opacity:.3;cursor:default;}
+  .campo-nombre{flex:1;min-width:90px;font-weight:600;}
+  .campo-tipo{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+    border:1px solid var(--border);border-radius:10px;padding:2px 8px;white-space:nowrap;}
+  .campo-resumen{font-size:11px;color:var(--muted);}
+  .campo-flecha{color:var(--navy);font-size:11px;background:#eef2f6;border:1px solid var(--border);
+    border-radius:6px;padding:4px 9px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+  .campo-flecha:hover{background:#e2e8f0;}
+  .campo-cuerpo{padding:4px 11px 11px;border-top:1px solid var(--border);}
+  .campo-fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:9px;font-size:12.5px;}
+  .campo-fila label{color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  .campo-pie{margin-top:11px;padding-top:9px;border-top:1px dashed var(--border);}
+  /* fondo a cuadros: deja ver una imagen blanca o transparente */
+  .img-muestra{width:56px;height:38px;border:1px solid var(--border);border-radius:5px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    background-image:linear-gradient(45deg,#dfe5ec 25%,transparent 25%,transparent 75%,#dfe5ec 75%),
+                     linear-gradient(45deg,#dfe5ec 25%,transparent 25%,transparent 75%,#dfe5ec 75%);
+    background-size:10px 10px;background-position:0 0,5px 5px;background-color:#fff;}
+  .img-muestra img{max-width:100%;max-height:100%;object-fit:contain;}
+  .img-muestra i{font-size:10px;color:var(--muted);}
+  @media (max-width:640px){ .campo-fila{gap:8px;} .campo-nombre{min-width:0;} }
+  .resaltado-muestra{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:18px;
+    background:#fff;cursor:text;user-select:text;line-height:1.5;word-break:break-word;}
+  .resaltado-muestra span{white-space:pre;}
+  .plantilla-editor{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;
+    background:#fff;min-height:36px;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+  .plantilla-editor:focus{outline:2px solid var(--teal);outline-offset:1px;}
+  .var-chip{display:inline-block;background:var(--gold);color:#132743;border-radius:10px;padding:1px 8px;
+    margin:0 1px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none;}
+  .var-chip:hover{background:#b8901f;color:#fff;}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
+  .badge.vigente{background:#16a34a;}
+  .badge.revocado{background:#dc2626;}
+  .badge.reemplazado{background:#6b7280;}
+  tr.fila-marcada{background:rgba(27,127,118,.08);}
+  .badge.borrador{background:var(--gold);color:#132743;}
+  .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#eef2f6;color:var(--muted);margin-top:2px;}
+
+  /* ---- botón de ayuda "?": reemplaza los párrafos largos de explicación ---- */
+  .ayuda-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+    border-radius:50%;border:1px solid var(--border);background:#f3f5f7;color:var(--muted);
+    font-size:11px;font-weight:700;cursor:help;flex:none;padding:0;line-height:1;}
+  .ayuda-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .ayuda-pop{position:absolute;z-index:500;max-width:320px;background:#132743;color:#fff;font-size:12.5px;
+    line-height:1.45;padding:10px 12px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);}
+
+  /* ---- tablero visual de carpetas: arrastrar y soltar para organizar ---- */
+  .carpetas-board{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;align-items:flex-start;}
+  .carpeta-card{border:1px solid var(--border);border-radius:10px;background:#fbfcfd;min-width:230px;
+    flex:1 1 230px;max-width:460px;}
+  .carpeta-card.sin-carpeta{background:#f8fafb;border-style:dashed;}
+  .carpeta-card-head{font-size:12.5px;font-weight:600;padding:7px 10px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;user-select:none;}
+  .carpeta-card-head:hover{background:#f3f5f7;}
+  .carpeta-flecha{display:inline-block;width:10px;color:var(--muted);}
+  .carpeta-card-acciones{display:flex;align-items:center;gap:3px;}
+  .carpeta-accion{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;
+    padding:2px 4px;border-radius:4px;line-height:1;}
+  .carpeta-accion:hover{background:rgba(0,0,0,.08);color:var(--navy);}
+  .carpeta-card-body{padding:8px;display:flex;flex-wrap:wrap;gap:8px;min-height:38px;align-content:flex-start;}
+  .carpeta-card-body.drag-over{background:#e7f7f0;outline:2px dashed var(--teal);outline-offset:-2px;}
+  .plantilla-chip{position:relative;display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);
+    background:#fff;border-radius:7px;padding:5px;font-size:11px;cursor:grab;width:104px;}
+  .plantilla-chip-img{width:100%;height:60px;object-fit:cover;border-radius:4px;background:#eef2f6;
+    border:1px solid var(--border);display:block;}
+  .plantilla-chip-nombre{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
+  .plantilla-chip:hover{border-color:var(--teal);}
+  .plantilla-chip.sel{border-color:var(--teal);background:rgba(27,127,118,.08);font-weight:600;}
+  .plantilla-chip.marcada{border-color:#dc2626;background:rgba(220,38,38,.06);}
+  .plantilla-chip-check{position:absolute;top:3px;left:3px;width:15px;height:15px;cursor:pointer;z-index:2;}
+  .plantilla-chip:active{cursor:grabbing;}
+  progress{width:100%;height:14px;}
+  .hint{font-size:12px;color:var(--muted);}
+  .matrix-wrap{overflow-x:auto;}
+  .matrix-wrap table{white-space:nowrap;}
+  .matrix-wrap th, .matrix-wrap td{text-align:center;}
+  .matrix-wrap td:first-child, .matrix-wrap th:first-child{text-align:left;position:sticky;left:0;background:#fff;}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px;}
+  .gallery figure{margin:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fafbfc;}
+  .gallery img{width:100%;display:block;}
+  .gallery figcaption{padding:6px 8px;font-size:11px;color:var(--muted);}
+  .gallery figcaption b{color:var(--text);display:block;font-size:11.5px;}
+  .font-picker{position:relative;display:inline-block;}
+  .font-picker-btn{padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:13px;cursor:pointer;min-width:150px;max-width:220px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .font-picker-list{position:absolute;top:100%;left:0;z-index:20;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:260px;overflow-y:auto;min-width:230px;margin-top:2px;}
+  .font-picker-opt{padding:9px 12px;font-size:15px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .font-picker-opt:hover, .font-picker-opt:active{background:#f4f6f8;}
+  @media (max-width:640px){
+    .btn{width:100%;}
+    .row{flex-direction:column;align-items:stretch;}
+    .panel-head .btn{width:auto;}
+    .field-handle{width:18px;height:34px;}
+    .field-handle.c{width:20px;height:20px;border-radius:50%;}
+    .field-chip{font-size:12px;padding:5px 9px;}
+    .font-picker{display:block;width:100%;}
+    .font-picker-btn{min-width:0;max-width:none;width:100%;}
+    .font-picker-list{left:0;right:0;min-width:0;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>CEM · Generador de Certificados</h1>
+  <p>Digitalización de certificados de graduación — desde datos de Google Sheets/Excel hasta PDF verificable con QR.</p>
+</header>
+<main>
+
+  <div id="appContent">
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>1. Plantillas de certificado</h2>
+        <button class="btn outline small" data-collapse-toggle="secPlantillasBody">Minimizar</button>
+      </div>
+      <div class="panel-body" id="secPlantillasBody">
+      <div class="row" style="align-items:center;">
+        <span class="hint">Guarda tantos formatos de certificado como necesites.</span>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Uno por diplomado o curso, por ejemplo. Cada plantilla tiene su propio diseño, campos y márgenes.">?</button>
+      </div>
+      <div class="row">
+        <select id="selPlantilla" style="min-width:220px;"></select>
+        <input type="text" id="nombrePlantilla" placeholder="Nombre de esta plantilla" style="min-width:200px;">
+        <button class="btn outline" id="btnNuevaPlantilla">+ Nueva plantilla</button>
+        <button class="btn outline" id="btnDuplicarPlantilla">Duplicar</button>
+        <button class="btn danger" id="btnEliminarPlantilla">Eliminar</button>
+      </div>
+
+      <div class="row" style="align-items:center;margin:12px 0 4px;">
+        <b style="font-size:13px;">Carpetas</b>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta. Marca la casilla de una o varias fichas para borrarlas de verdad de una sola vez con «Eliminar seleccionadas».">?</button>
+        <span style="flex:1;"></span>
+        <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta de la plantilla abierta" style="min-width:200px;">
+        <datalist id="listaCarpetas"></datalist>
+        <span class="campo-orden" id="ordenCarpetaWrap" title="Orden dentro de la carpeta">
+          <button class="mini" type="button" id="btnSubirCarpeta">&#9650;</button>
+          <button class="mini" type="button" id="btnBajarCarpeta">&#9660;</button>
+        </span>
+        <input type="text" id="nuevaCarpetaNombre" list="listaCarpetas" placeholder="Carpeta nueva o existente" style="max-width:190px;">
+        <button class="btn outline small" id="btnNuevaCarpeta">+ Crear vacía</button>
+      </div>
+      <div class="row" style="align-items:center;margin:0 0 6px;">
+        <span class="hint">Con el nombre de arriba puesto, subir diseños los crea directo como plantillas ahí dentro (el nombre de cada archivo es el nombre de la plantilla):</span>
+        <button class="btn outline small" id="btnSubirDisenos">📤 Subir diseños</button>
+        <input type="file" id="inputSubirDisenos" accept="image/png,image/jpeg,application/pdf" multiple hidden>
+        <button class="btn outline small" id="btnSubirCarpetaCompleta">📁 Subir carpeta de la computadora</button>
+        <input type="file" id="inputSubirCarpetaCompleta" webkitdirectory directory multiple hidden>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="«Subir diseños» crea una plantilla por cada PNG, JPG o PDF que elijas, todas dentro de la carpeta que hayas escrito arriba (si no existe, se crea). «Subir carpeta de la computadora» hace lo mismo pero de una vez con todos los archivos de una carpeta de tu equipo, usando el nombre de esa carpeta como carpeta aquí. Cada plantilla nueva sale con los campos por defecto; usa después «Copiar a TODA una carpeta» para aplicarles a todas el diseño de campos que quieras.">?</button>
+      </div>
+      <div id="carpetasSeleccionBar" class="row" style="display:none;align-items:center;background:#fdecec;
+        border:1px solid #f3b4b4;border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
+      <div class="carpetas-board" id="carpetasBoard"></div>
+
+      <div class="row" style="background:#fff8ec;border:1px solid var(--gold);border-radius:8px;padding:10px 12px;align-items:center;">
+        <label class="hint" style="min-width:150px;">Copiar a TODA una carpeta:</label>
+        <select id="selCarpetaDestinoMasivo" style="min-width:170px;"></select>
+        <span class="hint">desde</span>
+        <select id="selOrigenMasivo" style="flex:1;min-width:180px;"></select>
+        <button class="btn gold" id="btnCopiarEstiloMasivo">Copiar a toda la carpeta</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Aplica de una sola vez los mismos campos —textos, imágenes con su archivo, códigos QR, márgenes, tipografías y opacidades— de la plantilla elegida a TODAS las plantillas de la carpeta que selecciones, y las guarda de una vez. Útil recién creaste varias plantillas para un diplomado y quieres arrancarlas todas desde el mismo diseño. El fondo de cada certificado no se toca.">?</button>
+      </div>
+
+      <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;align-items:center;">
+        <label class="hint" style="min-width:150px;">Copiar todos los campos de:</label>
+        <select id="selCopiarEstilo" style="flex:1;min-width:180px;"></select>
+        <button class="btn outline" id="btnCopiarEstilo">Copiar a esta plantilla</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Trae los campos completos de la otra plantilla —textos, imágenes con su archivo y códigos QR— con sus posiciones, márgenes, tipografías y opacidades, y reemplaza los campos que haya aquí. El fondo de este certificado no se toca.">?</button>
+      </div>
+
+      <div class="row" style="align-items:center;">
+        <span class="hint">Sube el diseño exportado de tu Canva (PDF, PNG o JPG).</span>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Cada campo tiene un cuadro de márgenes (dos marcas doradas): arrastra la marca izquierda para fijar dónde empieza el texto y la derecha dónde termina. El tamaño de letra se ajusta solo para que el texto de cada estudiante quepa ahí, entre el máximo y el mínimo que definas.">?</button>
+      </div>
+      <div class="row">
+        <input type="file" id="inputBg" accept="image/png,image/jpeg,application/pdf">
+        <button class="btn outline" id="btnResetBg">Usar plantilla de ejemplo</button>
+      </div>
+      <div id="bgMsg"></div>
+      <div class="lienzo-con-reglas">
+        <div class="regla-esquina" id="btnLimpiarGuias" title="Quitar todas las guías">✕</div>
+        <div class="regla regla-h" id="reglaH" title="Arrastra desde aquí para crear una guía vertical"></div>
+        <div class="regla regla-v" id="reglaV" title="Arrastra desde aquí para crear una guía horizontal"></div>
+        <div id="tplPreviewWrap">
+          <img id="tplImg" alt="Plantilla">
+        </div>
+      </div>
+      <div class="row" style="align-items:center;margin:7px 0 0;">
+        <span class="hint">Arrastra la etiqueta de un campo para moverlo, o sus marcas doradas para ajustar los márgenes. Con el campo elegido, <b>Supr</b> lo quita.</span>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Reglas y guías: arrastra desde la regla de arriba o de la izquierda para soltar una guía; para quitarla, púlsala y dale a Supr, arrástrala de vuelta a la regla, o haz doble clic. Los campos se pegan a las guías al moverlos. La esquina ✕ las borra todas.
+
+Capas: el orden de la lista de abajo es el orden de las capas — el primero se dibuja por delante y el último al fondo. Súbelo o bájalo con ▲▼ para decidir qué tapa a qué.">?</button>
+      </div>
+
+      <div class="row" style="margin-top:14px;">
+        <input type="text" id="nuevoCampoNombre" placeholder="Nombre del nuevo campo (ej. Cédula)" style="flex:1;min-width:180px;">
+        <select id="nuevoCampoTipo">
+          <option value="texto">Texto</option>
+          <option value="qr">Código QR</option>
+          <option value="imagen">Imagen (PNG/JPG)</option>
+        </select>
+        <button class="btn outline" id="btnAgregarCampo">+ Agregar campo</button>
+      </div>
+      <div id="fieldSettings"></div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn teal" id="btnGuardarPlantilla">Guardar plantilla</button>
+        <button class="btn outline" id="btnVistaPrevia">Vista previa (con XXXX)</button>
+        <button class="btn outline" id="btnVistaPreviaTodas">Vista previa de todas mis plantillas</button>
+        <span id="tplMsg" class="hint"></span>
+      </div>
+      <div id="previewSingleWrap" style="display:none;margin-top:10px;">
+        <img id="previewSingleImg" style="max-width:500px;width:100%;border:1px solid var(--border);border-radius:6px;">
+        <div><button class="btn outline small" id="btnCerrarPreview" style="margin-top:6px;">Cerrar vista previa</button></div>
+      </div>
+      <div id="galeriaPlantillasWrap"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>2. Importar graduados</h2>
+        <button class="btn outline small" data-collapse-toggle="secImportarBody">Minimizar</button>
+      </div>
+      <div class="panel-body" id="secImportarBody">
+      <p class="hint">Tres formas de traer los datos — el nombre de cada columna debe coincidir con el nombre de un campo de alguna de tus plantillas (sin importar mayúsculas/minúsculas).</p>
+      <div class="row">
+        <button class="btn outline" id="btnDescargarExcel">Descargar Excel en blanco para llenar</button>
+        <span class="hint">Trae las columnas de los campos activos de tus plantillas (si agregas campos nuevos, descárgalo de nuevo).</span>
+      </div>
+      <div class="row">
+        <label class="hint" style="min-width:170px;">1. Subir archivo Excel (.xlsx)</label>
+        <input type="file" id="inputXlsx" accept=".xlsx,.xls">
+      </div>
+      <label class="hint">2. Pegar datos (CSV o TSV, copiados directo de tu Google Sheet)</label>
+      <textarea id="pasteData" placeholder="Nombre	Apellido	Curso	Fecha	Horas
+Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
+      <div class="row">
+        <input type="text" id="sheetUrl" placeholder="3. o URL de Google Sheet publicado como CSV" style="flex:1;min-width:220px;">
+        <button class="btn outline" id="btnImportarUrl">Importar desde URL</button>
+        <button class="btn outline" id="btnParsePaste">Previsualizar datos pegados</button>
+      </div>
+      <div class="row">
+        <label class="hint">Entidad emisora:</label>
+        <input type="text" id="entidadEmisora" value="CEM">
+      </div>
+      <div id="previewTableWrap"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>3. Asignar certificados a cada estudiante</h2>
+        <button class="btn outline small" data-collapse-toggle="secAsignarBody">Minimizar</button>
+      </div>
+      <div class="panel-body" id="secAsignarBody">
+      <p class="hint">Primero elige qué plantillas participan en esta generación; luego marca qué aplican a todos (encabezado de cada columna) y ajusta casos puntuales fila por fila — por ejemplo, un estudiante que además de su diplomado principal se graduó de otro curso extra.</p>
+      <div id="matrixTplSelector"></div>
+      <div id="matrixWrap"><p class="hint">Importa graduados arriba para poder asignarles certificados.</p></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>4. Generar y registrar</h2>
+        <button class="btn outline small" data-collapse-toggle="secGenerarBody">Minimizar</button>
+      </div>
+      <div class="panel-body" id="secGenerarBody">
+      <div class="row" style="align-items:center;">
+        <button class="btn gold" id="btnGenerar" disabled>Generar vista previa</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Genera vista previa arma los PDF y los muestra abajo, pero no guarda nada todavía — puedes revisarlos con calma. Cuando estén bien, pulsa Registrar certificados en ese mismo lote para que queden oficiales y sus códigos QR empiecen a verificar. Si algo está mal, descarta la vista previa y vuelve a generar.">?</button>
+      </div>
+      <progress id="progressBar" value="0" max="1" style="display:none;"></progress>
+      <div id="genMsg"></div>
+      <p class="hint" style="margin-top:14px;">Historial de generaciones (todas quedan aquí, listas para descargar, hasta que recargues la página):</p>
+      <div id="generationHistoryWrap"><p class="hint">Todavía no has generado ningún lote de certificados.</p></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Certificados emitidos</h2>
+        <button class="btn outline small" data-collapse-toggle="secEmitidosBody">Minimizar</button>
+      </div>
+      <div class="panel-body" id="secEmitidosBody">
+      <div class="row" style="align-items:center;">
+        <input type="text" id="buscarEmitidos" placeholder="Buscar por cualquier dato (nombre, cédula, curso…)" style="flex:1;">
+        <button class="btn outline" id="btnRefrescarLista">Refrescar</button>
+        <button class="btn danger" id="btnBorrarHistorial">Borrar todo el historial</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Marca uno o varios certificados con su casilla para editar sus datos (por ejemplo, corregir una cédula mal escrita) y volver a descargarlos listos para imprimir. Editar NO borra el certificado original: lo marca como «reemplazado» y crea uno nuevo con los datos corregidos y su propio código QR. También puedes descargar de nuevo sin cambiar nada, uno o varios a la vez.">?</button>
+      </div>
+      <div id="emitidosSeleccionBar" class="row" style="display:none;align-items:center;background:#eef2f6;
+        border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
+      <div id="listaEmitidosWrap">Cargando…</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script type="module">
+if(window.pdfjsLib){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js';
+}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sanitizeName(s){ return String(s || '').trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'sin_nombre'; }
+/**
+ * Compara nombres de columna sin importar mayúsculas/minúsculas NI tildes, para
+ * que «Cédula», «cedula» y «CÉDULA» sean la misma columna en todos lados: al
+ * importar el Excel, al armar la lista de variables para insertar y al
+ * sustituirlas dentro de un texto compuesto. Sin esto, un campo escrito sin
+ * tilde y otro con tilde generan dos columnas separadas con el mismo dato.
+ */
+function normalizarNombreCampo(s){
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[
