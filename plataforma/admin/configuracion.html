@@ -65,6 +65,16 @@
   </div>
 
   <div class="card">
+    <h2 class="sec">Integraciones</h2>
+    <div class="list-item">
+      <span class="material-symbols-outlined" style="color:var(--primary)">smart_display</span>
+      <div class="grow"><div class="t">Video de los cursos (YouTube)</div>
+        <div class="s" id="ytEstado">Consultando estado…</div></div>
+      <a class="btn outline sm" href="youtube-conectar.html">Gestionar</a>
+    </div>
+  </div>
+
+  <div class="card">
     <h2 class="sec">Otras claves de configuración</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>Clave</th><th>Valor</th><th>Descripción</th></tr></thead>
@@ -73,10 +83,21 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, esc, ok, run, audit } from '../assets/app.js';
+import { sb, mount, $, esc, ok, run, audit, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
 let all = [];
-if (p) load();
+if (p) { load(); cargarEstadoYoutube(); }
+
+async function cargarEstadoYoutube(){
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-youtube-oauth-exchange`,
+      { headers: { Authorization: `Bearer ${session?.access_token}`, apikey: SUPABASE_KEY } });
+    const json = await res.json();
+    $('#ytEstado').textContent = !res.ok || !json.configured ? 'Sin configurar todavía'
+      : json.connected ? `Conectado${json.channel_title ? ': ' + json.channel_title : ''}` : 'Configurado, falta conectar un canal';
+  } catch { $('#ytEstado').textContent = 'No se pudo consultar el estado'; }
+}
 
 async function load(){
   const { data } = await sb.from('cem_settings').select('*').order('clave');
