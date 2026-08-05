@@ -2290,6 +2290,18 @@ function findHeaderRowIndex(lines, fieldNames){
   return bestIdx;
 }
 
+/**
+ * Excel/Sheets suele exportar números grandes ya formateados con coma de
+ * miles ("14,130,689"), pero acá los números de cédula se escriben con
+ * puntos ("14.130.689"). Sólo se toca el valor si tiene exactamente esa
+ * forma (dígitos agrupados de a 3 separados por comas, sin nada más), para
+ * no alterar texto que use comas por otro motivo (p. ej. una lista de
+ * cursos separados por coma).
+ */
+function normalizarSeparadorMiles(valor){
+  return /^\d{1,3}(,\d{3})+$/.test(valor) ? valor.replace(/,/g, '.') : valor;
+}
+
 function mapLinesToRows(lines){
   if(!lines.length) return { rows: [], missing: [] };
   const activeTextFields = activeTextFieldNamesUnion();
@@ -2305,7 +2317,7 @@ function mapLinesToRows(lines){
   const parsedRows = lines.slice(headerIdx + 1).filter(r => r.some(c => String(c ?? '').trim() !== '')).map(r => {
     const row = {};
     for(const name of activeTextFields){
-      row[name] = idxByField[name] >= 0 ? String(r[idxByField[name]] ?? '').trim() : '';
+      row[name] = idxByField[name] >= 0 ? normalizarSeparadorMiles(String(r[idxByField[name]] ?? '').trim()) : '';
     }
     return row;
   });
