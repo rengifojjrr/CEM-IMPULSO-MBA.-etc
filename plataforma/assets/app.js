@@ -82,7 +82,13 @@ export async function profile() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return null;
   const { data } = await sb.rpc('cem_my_profile');
-  _profile = Array.isArray(data) ? data[0] : data;
+  const row = Array.isArray(data) ? data[0] : data;
+  // cem_my_profile() devuelve UNA fila (no un conjunto): si la sesión no
+  // tiene perfil todavía, Postgres no da "sin filas" sino un registro con
+  // todos los campos en null — un objeto, así que sigue siendo verdadero en
+  // JS. Sin este chequeo, una cuenta sin perfil se veía como "desactivada"
+  // en vez de mandarla al login (que sí sabe qué hacer si no hay sesión).
+  _profile = (row && row.id) ? row : null;
   return _profile;
 }
 export async function logout() { await sb.auth.signOut(); location.href = base() + 'index.html'; }
