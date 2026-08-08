@@ -46,12 +46,12 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toCSV, download, ok, fail, modal, confirmDialog, run, audit } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toCSV, download, ok, fail, modal, confirmDialog, run, audit, mejorarSelects, subirImagenCurso } from '../assets/app.js';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cursos.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
-let rows = [];
-if (p) load();
+let rows = [], categorias = [];
+if (p) { load(); sb.from('cem_categorias').select('nombre').eq('activo',true).order('orden').then(({data})=>categorias=data||[]); }
 
 async function load(){
   const { data } = await sb.from('cem_courses').select('*').order('created_at',{ascending:false});
@@ -101,14 +101,33 @@ function edit(c){
     <div class="row">
       <div class="field" style="flex:1;min-width:110px"><label>Horas</label><input type="number" id="eHoras" value="${c.horas||0}"></div>
       <div class="field" style="flex:1;min-width:110px"><label>Precio</label><input type="number" step="0.01" id="ePrecio" value="${c.precio||0}"></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Categoría</label><input id="eCat" value="${esc(c.categoria||'')}"></div>
+      <div class="field" style="flex:1;min-width:130px"><label>Categoría</label><select id="eCat">
+        ${categorias.map(cat=>`<option value="${esc(cat.nombre)}" ${c.categoria===cat.nombre?'selected':''}>${esc(cat.nombre)}</option>`).join('') || `<option value="${esc(c.categoria||'')}">${esc(c.categoria||'Sin categorías definidas')}</option>`}</select></div>
       <div class="field" style="flex:1;min-width:140px"><label>Estado</label><select id="eEstado">
         ${['borrador','en_revision','publicado','pausado','archivado'].map(v=>`<option ${c.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
     </div>
-    <div class="field"><label>Imagen (URL)</label><input id="eImg" value="${esc(c.imagen_url||'')}"></div>
+    <div class="field"><label>Imagen de portada</label>
+      <div class="row" style="gap:8px;align-items:center">
+        <input id="eImg" value="${esc(c.imagen_url||'')}" style="flex:1">
+        <button type="button" class="btn outline sm" id="eBtnImg"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
+        <input type="file" id="eImgArchivo" accept="image/*" class="hidden">
+      </div>
+      <img id="eImgPreview" src="${esc(c.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${c.imagen_url?'':'display:none'}">
+    </div>
     <label class="check"><input type="checkbox" id="eDest" ${c.destacado?'checked':''}> Destacado en el catálogo</label>`,
     footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+  mejorarSelects(m);
   $('[data-c]',m).onclick = m.close;
+  $('#eBtnImg',m).onclick = () => $('#eImgArchivo',m).click();
+  $('#eImgArchivo',m).onchange = async () => {
+    const file = $('#eImgArchivo',m).files[0];
+    if (!file) return;
+    try {
+      const url = await subirImagenCurso(file);
+      $('#eImg',m).value = url; $('#eImgPreview',m).src = url; $('#eImgPreview',m).style.display = 'block';
+      ok('Imagen subida');
+    } catch (e) { fail(e.message || 'No se pudo subir la imagen.'); }
+  };
   $('[data-s]',m).onclick = async () => {
     await run(sb.from('cem_courses').update({
       nombre:$('#eNombre',m).value.trim(), codigo:$('#eCodigo',m).value.trim()||null, subtitulo:$('#eSub',m).value.trim(),

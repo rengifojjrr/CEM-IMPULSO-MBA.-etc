@@ -439,3 +439,125 @@ export function match(obj, q, keys) {
   const s = q.toLowerCase();
   return keys.some(k => String(k.split('.').reduce((o, kk) => o?.[kk], obj) ?? '').toLowerCase().includes(s));
 }
+
+/* ============ select mejorado (siempre abre hacia abajo) ============
+ * Los <select> nativos a veces se abren hacia arriba (el navegador decide
+ * la dirección según el espacio disponible) tapando el propio campo. Este
+ * envoltorio deja el <select> real intacto (mismo id, mismo .value, mismos
+ * listeners de "change") pero lo oculta y dibuja un botón + panel propio,
+ * posicionado con JS en document.body para que siempre caiga debajo del
+ * campo y nunca se recorte por el overflow de un contenedor o modal. */
+export function mejorarSelect(select){
+  if (!select || select.dataset.mejorado) return;
+  select.dataset.mejorado = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'sel-mejorado';
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'sel-trigger';
+  trigger.innerHTML = '<span data-txt></span><span class="material-symbols-outlined">expand_more</span>';
+  wrap.appendChild(trigger);
+
+  const panel = document.createElement('div');
+  panel.className = 'sel-panel';
+  document.body.appendChild(panel);
+
+  const actualizarTrigger = () => {
+    const opt = select.options[select.selectedIndex];
+    trigger.querySelector('[data-txt]').textContent = opt ? opt.textContent : '';
+  };
+  const posicionar = () => {
+    const r = trigger.getBoundingClientRect();
+    panel.style.left = r.left + 'px';
+    panel.style.top = (r.bottom + 4) + 'px';
+    panel.style.width = r.width + 'px';
+    panel.style.maxHeight = Math.max(140, window.innerHeight - r.bottom - 12) + 'px';
+  };
+  const cerrar = () => { panel.classList.remove('abierto'); document.removeEventListener('mousedown', fueraClick); };
+  const fueraClick = (e) => { if (!panel.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) cerrar(); };
+  const renderPanel = () => {
+    panel.innerHTML = [...select.options].map((o, i) =>
+      `<div class="sel-op ${i === select.selectedIndex ? 'on' : ''}" data-i="${i}">${esc(o.textContent)}</div>`).join('');
+    panel.querySelectorAll('[data-i]').forEach(el => el.onclick = () => {
+      select.selectedIndex = Number(el.dataset.i);
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      actualizarTrigger(); cerrar();
+    });
+  };
+  trigger.onclick = () => {
+    if (panel.classList.contains('abierto')) { cerrar(); return; }
+    renderPanel(); posicionar(); panel.classList.add('abierto');
+    document.addEventListener('mousedown', fueraClick);
+  };
+  window.addEventListener('scroll', () => panel.classList.contains('abierto') && posicionar(), true);
+  window.addEventListener('resize', () => panel.classList.contains('abierto') && posicionar());
+  // si algo externo repuebla las <option> o cambia el valor por código, refleja el texto
+  new MutationObserver(actualizarTrigger).observe(select, { childList: true, subtree: true, attributes: true });
+  select.addEventListener('change', actualizarTrigger);
+  actualizarTrigger();
+}
+/** Aplica mejorarSelect() a todos los <select> dentro de un contenedor. */
+export function mejorarSelects(root = document){
+  $$('select', root).forEach(mejorarSelect);
+}
+
+/* ============ imagen de portada (Supabase Storage, gratis y de sobra para fotos) ============ */
+export async function subirImagenCurso(file){
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const ruta = `cursos/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('cem-assets').upload(ruta, file, { contentType: file.type || 'image/*' });
+  if (error) throw new Error(error.message || 'No se pudo subir la imagen.');
+  const { data } = sb.storage.from('cem-assets').getPublicUrl(ruta);
+  return data.publicUrl;
+}
+
+/* ============ picker de días de la semana + horario (cohortes) ============ */
+export const DIAS_SEMANA = [
+  { v: 'lun', l: 'Lun' }, { v: 'mar', l: 'Mar' }, { v: 'mie', l: 'Mié' }, { v: 'jue', l: 'Jue' },
+  { v: 'vie', l: 'Vie' }, { v: 'sab', l: 'Sáb' }, { v: 'dom', l: 'Dom' },
+];
+/** Texto legible a partir de {dias, horaInicio, horaFin}, p. ej. "Lun, Mié 18:30–20:30". */
+export function horarioResumen({ dias, horaInicio, horaFin } = {}){
+  if (!dias?.length) return '';
+  const etiquetas = dias.map(d => DIAS_SEMANA.find(x => x.v === d)?.l || d);
+  const rango = (horaInicio && horaFin) ? ` ${horaInicio.slice(0, 5)}–${horaFin.slice(0, 5)}` : '';
+  return etiquetas.join(', ') + rango;
+}
+/**
+ * Monta en `container` un selector de días (chips) + hora inicio/fin que se
+ * despliega al hacer clic, en vez de un campo de texto libre. onChange(valor)
+ * se llama con {dias, horaInicio, horaFin} en cada cambio.
+ */
+export function montarHorarioPicker(container, valorInicial, onChange){
+  let valor = { dias: valorInicial?.dias || [], horaInicio: valorInicial?.horaInicio || '', horaFin: valorInicial?.horaFin || '' };
+  let abierto = false;
+  function render(){
+    container.innerHTML = `
+      <button type="button" class="sel-trigger" id="hpTrigger">
+        <span>${esc(horarioResumen(valor) || 'Elegir días y horario…')}</span>
+        <span class="material-symbols-outlined">${abierto ? 'expand_less' : 'expand_more'}</span></button>
+      ${abierto ? `<div class="horario-panel">
+        <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          ${DIAS_SEMANA.map(d => `<span class="dia-chip ${valor.dias.includes(d.v) ? 'on' : ''}" data-dia="${d.v}">${d.l}</span>`).join('')}
+        </div>
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:1;margin-bottom:0"><label>Hora inicio</label><input type="time" id="hpIni" value="${esc(valor.horaInicio)}"></div>
+          <div class="field" style="flex:1;margin-bottom:0"><label>Hora fin</label><input type="time" id="hpFin" value="${esc(valor.horaFin)}"></div>
+        </div></div>` : ''}`;
+    $('#hpTrigger', container).onclick = () => { abierto = !abierto; render(); };
+    $$('[data-dia]', container).forEach(el => el.onclick = () => {
+      const d = el.dataset.dia;
+      valor = { ...valor, dias: valor.dias.includes(d) ? valor.dias.filter(x => x !== d) : [...valor.dias, d] };
+      onChange(valor); render();
+    });
+    const ini = $('#hpIni', container), fin = $('#hpFin', container);
+    if (ini) ini.onchange = () => { valor = { ...valor, horaInicio: ini.value }; onChange(valor); };
+    if (fin) fin.onchange = () => { valor = { ...valor, horaFin: fin.value }; onChange(valor); };
+  }
+  render();
+  return { get: () => valor };
+}
