@@ -64,6 +64,27 @@
     </div>
   </div>
 
+  <div class="grid g2">
+    <div class="card">
+      <h2 class="sec">Categorías de programas</h2>
+      <p class="tiny muted" style="margin-top:0">Se usan para clasificar y filtrar los programas en el catálogo.</p>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px" id="listaCategorias"></div>
+      <div class="row" style="gap:8px">
+        <input id="nuevaCategoria" placeholder="Nueva categoría…" style="flex:1">
+        <button class="btn outline sm" id="btnAddCategoria"><span class="material-symbols-outlined">add</span> Agregar</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2 class="sec">Turnos disponibles</h2>
+      <p class="tiny muted" style="margin-top:0">Franjas horarias que se pueden asignar a una cohorte.</p>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px" id="listaTurnos"></div>
+      <div class="row" style="gap:8px">
+        <input id="nuevoTurno" placeholder="Nuevo turno…" style="flex:1">
+        <button class="btn outline sm" id="btnAddTurno"><span class="material-symbols-outlined">add</span> Agregar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <h2 class="sec">Integraciones</h2>
     <div class="list-item">
@@ -83,10 +104,43 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, esc, ok, run, audit, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
+import { sb, mount, $, esc, ok, run, audit, confirmDialog, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
 let all = [];
-if (p) { load(); cargarEstadoYoutube(); }
+if (p) { load(); cargarEstadoYoutube(); cargarListas(); }
+
+async function cargarListas(){
+  const [{ data: cats }, { data: turs }] = await Promise.all([
+    sb.from('cem_categorias').select('*').order('orden'),
+    sb.from('cem_turnos').select('*').order('orden'),
+  ]);
+  renderLista('#listaCategorias', cats||[], 'cem_categorias', cargarListas);
+  renderLista('#listaTurnos', turs||[], 'cem_turnos', cargarListas);
+}
+function renderLista(sel, items, tabla, recargar){
+  $(sel).innerHTML = items.length ? items.map(it => `<span class="chip neutral" style="display:inline-flex;align-items:center;gap:6px">
+    ${esc(it.nombre)}<button type="button" data-del="${it.id}" title="Quitar"
+      style="background:none;border:0;padding:0;cursor:pointer;color:var(--on-surface-variant);display:flex">
+      <span class="material-symbols-outlined" style="font-size:15px">close</span></button></span>`).join('')
+    : '<p class="tiny muted">Todavía no hay ninguno.</p>';
+  $(sel).querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!await confirmDialog('¿Quitar esta opción de la lista?')) return;
+    await run(sb.from(tabla).delete().eq('id', b.dataset.del), 'No se pudo quitar');
+    ok('Quitado de la lista'); recargar();
+  });
+}
+$('#btnAddCategoria').onclick = async () => {
+  const v = $('#nuevaCategoria').value.trim();
+  if (!v) return;
+  await run(sb.from('cem_categorias').insert({ nombre:v, orden:999 }), 'No se pudo agregar (¿ya existe?)');
+  $('#nuevaCategoria').value = ''; ok('Categoría agregada'); cargarListas();
+};
+$('#btnAddTurno').onclick = async () => {
+  const v = $('#nuevoTurno').value.trim();
+  if (!v) return;
+  await run(sb.from('cem_turnos').insert({ nombre:v, orden:999 }), 'No se pudo agregar (¿ya existe?)');
+  $('#nuevoTurno').value = ''; ok('Turno agregado'); cargarListas();
+};
 
 async function cargarEstadoYoutube(){
   try {

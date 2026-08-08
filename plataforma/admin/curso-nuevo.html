@@ -20,6 +20,10 @@
     display:inline-flex;align-items:center;justify-content:center;font-size:11px;}
   .steps button.on .n{background:rgba(255,255,255,.25);color:#fff;}
   .step{display:none;} .step.on{display:block;}
+  .imagen-preview{margin-top:8px;width:160px;height:90px;border-radius:var(--radius-sm);object-fit:cover;
+    border:1px solid var(--outline-variant);display:none;}
+  .imagen-preview.on{display:block;}
+  .metodos-pago{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;}
 </style>
 </head>
 <body>
@@ -45,7 +49,14 @@
         <div class="field"><label>Subtítulo</label><input id="subtitulo" placeholder="Certificación avanzada para…"></div>
         <div class="field"><label>Descripción corta</label><textarea id="descCorta" style="min-height:60px"></textarea></div>
         <div class="field"><label>Descripción completa</label><textarea id="descripcion"></textarea></div>
-        <div class="field"><label>Imagen de portada (URL)</label><input id="imagen" placeholder="https://…"></div>
+        <div class="field"><label>Imagen de portada</label>
+          <div class="row" style="gap:8px;align-items:center">
+            <input id="imagen" placeholder="https://…" style="flex:1">
+            <button type="button" class="btn outline sm" id="btnSubirImagen"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
+            <input type="file" id="imagenArchivo" accept="image/*" class="hidden">
+          </div>
+          <img id="imagenPreview" class="imagen-preview">
+        </div>
       </div>
     </div>
 
@@ -57,7 +68,7 @@
             <option value="curso">Curso (20 h)</option><option value="masterclass">Masterclass (hasta 4 h)</option>
             <option value="programa">Programa (20–89 h)</option><option value="diplomado" selected>Diplomado (90 h)</option>
             <option value="maestria">Maestría (240 h)</option></select></div>
-          <div class="field" style="flex:1;min-width:150px"><label>Categoría</label><input id="categoria" placeholder="Negocios"></div>
+          <div class="field" style="flex:1;min-width:150px"><label>Categoría</label><select id="categoria"></select></div>
           <div class="field" style="flex:1;min-width:130px"><label>Nivel</label><select id="nivel">
             <option value="basico">Básico</option><option value="intermedio">Intermedio</option><option value="avanzado" selected>Avanzado</option></select></div>
         </div>
@@ -88,14 +99,13 @@
         <div id="cohorteFields">
           <div class="row">
             <div class="field" style="flex:1;min-width:150px"><label>Nombre de la cohorte</label><input id="cohNombre" value="Cohorte 25A"></div>
-            <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cohTurno">
-              <option value="matutino">Matutino</option><option value="nocturno" selected>Nocturno</option><option value="sabatino">Sabatino</option></select></div>
+            <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cohTurno"></select></div>
             <div class="field" style="flex:1;min-width:130px"><label>Cupos</label><input type="number" id="cohCupos" value="30"></div>
           </div>
           <div class="row">
             <div class="field" style="flex:1;min-width:150px"><label>Fecha de inicio</label><input type="date" id="cohIni"></div>
             <div class="field" style="flex:1;min-width:150px"><label>Fecha de fin</label><input type="date" id="cohFin"></div>
-            <div class="field" style="flex:1;min-width:170px"><label>Horario</label><input id="cohHorario" placeholder="Lun a Mié 18:30-20:30"></div>
+            <div class="field" style="flex:1;min-width:220px"><label>Horario</label><div id="cohHorarioPicker"></div></div>
           </div>
         </div>
       </div>
@@ -109,6 +119,20 @@
           <div class="field" style="flex:1;min-width:130px"><label>Moneda</label><select id="moneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
         </div>
         <label class="check"><input type="checkbox" id="destacado"> Mostrar como destacado en el catálogo público</label>
+      </div>
+      <div class="card">
+        <h2 class="sec">Descuentos y facilidades de pago</h2>
+        <div class="row">
+          <div class="field" style="flex:1;min-width:150px"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="descuentoPct" placeholder="0"></div>
+          <div class="field" style="flex:2;min-width:220px"><label>Condición del descuento</label><input id="descuentoNota" placeholder="Pago de contado, pronto pago, alianza…"></div>
+        </div>
+        <label class="check" style="margin-bottom:12px"><input type="checkbox" id="cuotasHab"> Se acepta pago en cuotas</label>
+        <div class="row" id="cuotasCantidadWrap" style="display:none">
+          <div class="field" style="flex:1;min-width:150px"><label>Cantidad de cuotas</label><input type="number" min="2" id="cuotasCantidad" value="3"></div>
+        </div>
+        <div class="field"><label>Métodos / pasarelas de pago aceptados</label>
+          <div class="metodos-pago" id="metodosPago"></div>
+        </div>
       </div>
     </div>
 
@@ -124,13 +148,35 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, ok, fail, run, audit } from '../assets/app.js';
+import { sb, mount, $, $$, esc, money, ok, fail, run, audit, mejorarSelects, subirImagenCurso, montarHorarioPicker, horarioResumen } from '../assets/app.js';
 
 const p = await mount({ require:['coordinador','admin','superadmin'], active:'cursos.html', area:'admin' });
 const LABELS = ['Información general','Información académica','Estructura','Disponibilidad','Precio','Revisión'];
+const METODOS_PAGO = ['Transferencia bancaria','Tarjeta de crédito/débito','Zelle','PayPal','Pago móvil','Efectivo'];
 let step = 0, mods = [{titulo:'Módulo 1: Fundamentos'},{titulo:'Módulo 2: Desarrollo'}];
+let categorias = [], turnos = [];
+let horarioValor = { dias: [], horaInicio: '', horaFin: '' };
 
-if (p) { renderSteps(); renderMods(); }
+if (p) { await cargarListas(); renderSteps(); renderMods(); renderMetodosPago(); montarHorario(); mejorarSelects(); }
+
+async function cargarListas(){
+  const [{ data: cs }, { data: ts }] = await Promise.all([
+    sb.from('cem_categorias').select('nombre').eq('activo', true).order('orden'),
+    sb.from('cem_turnos').select('nombre').eq('activo', true).order('orden'),
+  ]);
+  categorias = cs || []; turnos = ts || [];
+  $('#categoria').innerHTML = categorias.map(c => `<option value="${esc(c.nombre)}">${esc(c.nombre)}</option>`).join('') || '<option value="">Sin categorías definidas</option>';
+  $('#cohTurno').innerHTML = turnos.map(t => `<option value="${esc(t.nombre)}">${esc(t.nombre)}</option>`).join('') || '<option value="">Sin turnos definidos</option>';
+}
+
+function montarHorario(){
+  montarHorarioPicker($('#cohHorarioPicker'), horarioValor, (v) => { horarioValor = v; });
+}
+
+function renderMetodosPago(){
+  $('#metodosPago').innerHTML = METODOS_PAGO.map(m => `<label class="check"><input type="checkbox" data-metodo="${esc(m)}"> ${esc(m)}</label>`).join('');
+}
+$('#cuotasHab').onchange = () => { $('#cuotasCantidadWrap').style.display = $('#cuotasHab').checked ? 'flex' : 'none'; };
 
 function renderSteps(){
   $('#steps').innerHTML = LABELS.map((l,i)=>`<button type="button" class="${i===step?'on':''}" data-go="${i}">
@@ -158,18 +204,38 @@ function renderMods(){
   $$('[data-del]').forEach(b => b.onclick = () => { mods.splice(Number(b.dataset.del),1); renderMods(); });
 }
 
+$('#btnSubirImagen').onclick = () => $('#imagenArchivo').click();
+$('#imagenArchivo').onchange = async () => {
+  const file = $('#imagenArchivo').files[0];
+  if (!file) return;
+  try {
+    const url = await subirImagenCurso(file);
+    $('#imagen').value = url;
+    $('#imagenPreview').src = url; $('#imagenPreview').classList.add('on');
+    ok('Imagen subida');
+  } catch (e) { fail(e.message || 'No se pudo subir la imagen.'); }
+};
+$('#imagen').oninput = () => {
+  const v = $('#imagen').value.trim();
+  if (v) { $('#imagenPreview').src = v; $('#imagenPreview').classList.add('on'); }
+  else $('#imagenPreview').classList.remove('on');
+};
+
 function review(){
   $('#review').innerHTML = [
     ['Nombre', $('#nombre').value], ['Código', $('#codigo').value||'—'], ['Tipo', $('#tipo').value],
-    ['Modalidad', $('#modalidad').value], ['Nivel', $('#nivel').value], ['Horas', $('#horas').value],
+    ['Categoría', $('#categoria').value || '—'], ['Modalidad', $('#modalidad').value], ['Nivel', $('#nivel').value], ['Horas', $('#horas').value],
     ['Precio', money(Number($('#precio').value)||0, $('#moneda').value)],
+    ['Descuento', $('#descuentoPct').value ? `${$('#descuentoPct').value}%` : 'Sin descuento'],
+    ['Cuotas', $('#cuotasHab').checked ? `${$('#cuotasCantidad').value} cuotas` : 'No'],
     ['Módulos', mods.filter(m=>m.titulo.trim()).length],
-    ['Cohorte inicial', $('#crearCohorte').checked ? $('#cohNombre').value : 'No'],
+    ['Cohorte inicial', $('#crearCohorte').checked ? `${$('#cohNombre').value} · ${$('#cohTurno').value} · ${horarioResumen(horarioValor)||'sin horario'}` : 'No'],
   ].map(([k,v])=>`<div class="list-item"><div class="grow"><div class="s">${k}</div><div class="t">${esc(String(v))}</div></div></div>`).join('');
 }
 
 async function crear(estado='publicado'){
   if (!$('#nombre').value.trim()) { fail('El nombre es obligatorio.'); go(0); return; }
+  const metodosPago = $$('[data-metodo]').filter(c=>c.checked).map(c=>c.dataset.metodo);
   const course = await run(sb.from('cem_courses').insert({
     nombre:$('#nombre').value.trim(), codigo:$('#codigo').value.trim()||null, subtitulo:$('#subtitulo').value.trim(),
     descripcion_corta:$('#descCorta').value.trim(), descripcion:$('#descripcion').value.trim(),
@@ -177,6 +243,9 @@ async function crear(estado='publicado'){
     nivel:$('#nivel').value, horas:Number($('#horas').value)||0, duracion_texto:$('#duracion').value.trim(),
     precio:Number($('#precio').value)||0, moneda:$('#moneda').value, imagen_url:$('#imagen').value.trim()||null,
     destacado:$('#destacado').checked, estado, certificado_nombre:$('#certNombre').value.trim()||null,
+    descuento_pct:$('#descuentoPct').value?Number($('#descuentoPct').value):null, descuento_nota:$('#descuentoNota').value.trim()||null,
+    cuotas_habilitadas:$('#cuotasHab').checked, cuotas_cantidad:$('#cuotasHab').checked?Number($('#cuotasCantidad').value)||null:null,
+    metodos_pago:metodosPago.length?metodosPago:null,
   }).select().single(), 'No se pudo crear el programa');
 
   const validMods = mods.filter(m=>m.titulo.trim());
@@ -187,7 +256,8 @@ async function crear(estado='publicado'){
     await run(sb.from('cem_cohorts').insert({
       course_id:course.id, codigo:(course.codigo||'CEM')+'-'+Date.now().toString().slice(-4),
       nombre:$('#cohNombre').value.trim()||'Cohorte inicial', modalidad:$('#modalidad').value,
-      turno:$('#cohTurno').value, horario:$('#cohHorario').value.trim(),
+      turno:$('#cohTurno').value, horario:horarioResumen(horarioValor),
+      horario_dias:horarioValor.dias.length?horarioValor.dias:null, horario_hora_inicio:horarioValor.horaInicio||null, horario_hora_fin:horarioValor.horaFin||null,
       fecha_inicio:$('#cohIni').value||null, fecha_fin:$('#cohFin').value||null,
       cupos:Number($('#cohCupos').value)||30, estado:'inscripciones_abiertas',
     }), 'No se pudo crear la cohorte');
