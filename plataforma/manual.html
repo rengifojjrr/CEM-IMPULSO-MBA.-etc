@@ -202,9 +202,9 @@
       lo que se ve en pantalla no coincide con lo que el servidor realmente exige. Escrito
       para revisarlo entre administradores.</p>
     <div class="meta">
-      <span><b>36</b> páginas</span>
+      <span><b>37</b> páginas</span>
       <span><b>6</b> roles</span>
-      <span><b>29</b> tablas <code>cem_</code></span>
+      <span><b>32</b> tablas <code>cem_</code></span>
       <span>Backend <b>Supabase</b> · Postgres + RLS</span>
     </div>
   </div>
@@ -263,6 +263,28 @@
           que nombra el rol de la persona y ofrece un botón para volver a su inicio. Si una cuenta
           está desactivada, el mensaje es <b>Cuenta desactivada</b> y no carga ningún dato.</p>
       </div>
+
+      <h3>Cuentas de prueba</h3>
+      <p>La pantalla de acceso trae accesos directos a cinco cuentas de demostración, todas con la
+        contraseña <code>CemDemo2026!</code>. Ya tienen datos reales cargados (programas, cohortes,
+        inscripciones, pagos, evaluaciones y un certificado emitido), así que sirven para recorrer la
+        plataforma sin tener que crear nada primero.</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Cuenta</th><th>Rol</th><th>Qué vas a encontrar</th></tr></thead>
+          <tbody>
+            <tr><td><code>admin@cem.demo</code></td><td>admin</td><td>Portal institucional completo, los 7 programas y las 6 cohortes sembradas.</td></tr>
+            <tr><td><code>coordinador@cem.demo</code></td><td>coordinador</td><td>Mismo portal institucional que admin, sin Configuración ni Usuarios/Permisos.</td></tr>
+            <tr><td><code>profesor@cem.demo</code></td><td>profesor</td><td>Asignado como docente del MBA Ejecutivo y del Diplomado de Trading.</td></tr>
+            <tr><td><code>estudiante@cem.demo</code></td><td>estudiante (Ana)</td><td>Inscrita y activa en el MBA (42% de avance, pagando en 6 cuotas) y con el Diplomado de Trading <b>finalizado</b>, con certificado emitido e insignias.</td></tr>
+            <tr><td><code>auditor@cem.demo</code></td><td>auditor</td><td>Ve todo el portal institucional, sin ningún botón de escritura.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tiny muted">También existen <code>profesor2@cem.demo</code> (Alan, docente de Marketing y
+        Liderazgo), <code>estudiante2@cem.demo</code> (Michael, con una inscripción pendiente de pago) y
+        <code>estudiante3@cem.demo</code> (Sarah, con una cuota vencida y una apelación resuelta), con la
+        misma contraseña.</p>
     </section>
 
     <!-- 2 -->
@@ -362,8 +384,8 @@
 
       <ol class="steps">
         <li><div><div class="t">Crear el programa</div>
-          <div class="d">Asistente de 6 pasos: identidad, tipo y nivel, precio y moneda, modalidad,
-            datos del certificado y publicación. Nace en <code>borrador</code>.</div></div></li>
+          <div class="d">Asistente de 6 pasos: identidad, información académica, estructura,
+            disponibilidad, precio y revisión final. Nace en <code>borrador</code>.</div></div></li>
         <li><div><div class="t">Construir el contenido</div>
           <div class="d">Se arma el árbol de módulos y lecciones. Cada lección tiene tipo
             (video, PDF, texto, enlace, quiz, tarea o sesión en vivo) y duración.</div></div></li>
@@ -374,13 +396,60 @@
           <div class="d">Coordinación decide. Al aprobar, la lección pasa a <code>publicado</code>;
             al devolver, vuelve a <code>borrador</code> con un comentario para el autor.</div></div></li>
         <li><div><div class="t">Abrir la cohorte</div>
-          <div class="d">Se crea la cohorte con fechas, cupos y profesor asignado, y se pasa a
-            <code>inscripciones_abiertas</code> para que aparezca al inscribirse.</div></div></li>
+          <div class="d">Se crea la cohorte con turno, horario (días de la semana + hora de inicio/fin)
+            fechas, cupos y profesor asignado, y se pasa a <code>inscripciones_abiertas</code> para que
+            aparezca al inscribirse.</div></div></li>
       </ol>
 
       <p>La <b>biblioteca multimedia</b> es transversal: el material subido ahí queda asociado al
         curso y el estudiante lo ve en la pestaña de recursos del aula, sin que haga falta enlazarlo
         lección por lección.</p>
+
+      <h3>Imagen de portada y video de las lecciones</h3>
+      <p>Ambos se suben desde el propio formulario, con un botón <b>Subir foto</b> / <b>Subir video</b>
+        en vez de tener que pegar un enlace externo:</p>
+      <ul class="check">
+        <li><div><b>Imagen de portada</b> — se sube al bucket público <code>cem-assets</code> de
+          Supabase Storage (gratis hasta 1&nbsp;GB, de sobra para fotos de catálogo) y queda con una
+          URL pública permanente.
+          <div class="exp">Disponible en el asistente de creación y en el modal de edición de
+            <b>Cursos y programas</b>.</div></div></li>
+        <li><div><b>Video de las lecciones</b> — se sube directo desde el navegador a un canal de
+          YouTube <i>no listado</i> (gratis, sin límite práctico de espacio, con streaming adaptativo
+          real). El archivo nunca pasa por el servidor de la plataforma: se usa el protocolo de
+          subida resumible de YouTube con un token de corta duración.
+          <div class="exp">Requiere conectar un canal una sola vez desde
+            <b>Configuración → Integraciones → Video (YouTube)</b>. Hasta que esa conexión no se haga,
+            el botón de subir video explica que hace falta conectar el canal en vez de fallar en
+            silencio. Mientras la app de Google esté en modo de prueba (lo normal al empezar), el
+            acceso expira cada 7 días y sólo hace falta reconectar con un clic.</div></div></li>
+      </ul>
+
+      <h3>Categorías y turnos: listas fijas, no texto libre</h3>
+      <p>La <b>Categoría</b> del programa y el <b>Turno</b> de la cohorte se eligen de una lista
+        administrada, no se escriben a mano. Esto es lo que permite que el catálogo público y los
+        filtros del portal institucional agrupen de forma consistente (sin duplicados como
+        "Finanzas" y "finanzas" contando como cosas distintas). Las listas se gestionan desde
+        <b>Configuración → Categorías de programas</b> y <b>Configuración → Turnos disponibles</b>,
+        donde cualquier admin o coordinador puede agregar o quitar opciones.</p>
+
+      <h3>Descuentos y facilidades de pago del programa</h3>
+      <p>El paso de precio del asistente también permite declarar, a nivel de programa, un
+        <b>descuento general</b> (porcentaje + condición, p. ej. "10% por pago de contado"), si se
+        <b>acepta pago en cuotas</b> (y cuántas) y qué <b>métodos o pasarelas de pago</b> se aceptan
+        (transferencia, tarjeta, Zelle, PayPal, pago móvil, efectivo).</p>
+      <div class="flag med">
+        <div class="h"><span class="sev">MEDIO</span> Comercial</div>
+        <div class="t">Estos campos son informativos: todavía no mueven el precio real de una inscripción</div>
+        <p>Se guardan en el programa y se pueden editar desde <b>Cursos y programas</b>, pero hoy
+          <b>ningún flujo de inscripción los lee</b>. El descuento y las cuotas que efectivamente se
+          le cobran a un estudiante al inscribirse siguen siendo los que calcula el navegador en la
+          pantalla de inscripción (ver la Sección 11, "El precio final lo decide el navegador"), que
+          es un mecanismo distinto y anterior a este.</p>
+        <p><b>Decisión pendiente:</b> o se conecta este descuento/cuotas de programa como el valor por
+          defecto que la pantalla de inscripción ofrece, o se deja como ficha de referencia comercial
+          para el equipo y se aclara en la propia pantalla que no se aplica automáticamente.</p>
+      </div>
     </section>
 
     <!-- 5 -->
@@ -487,8 +556,11 @@
       <p class="sub">Configuración, usuarios y rastro de auditoría.</p>
 
       <p><b>Configuración institucional</b> guarda los datos de la institución que aparecen en
-        comunicaciones y certificados. <b>Usuarios</b> permite dar de alta, cambiar rol y activar o
-        desactivar cuentas; una cuenta desactivada no puede entrar a ninguna pantalla.</p>
+        comunicaciones y certificados, además de las <b>categorías de programas</b> y los
+        <b>turnos de cohorte</b> (listas fijas que se agregan/quitan ahí mismo — ver Sección 4) y la
+        integración de <b>video con YouTube</b> (conectar/reconectar el canal de subida). <b>Usuarios</b>
+        permite dar de alta, cambiar rol y activar o desactivar cuentas; una cuenta desactivada no puede
+        entrar a ninguna pantalla.</p>
 
       <p>La <b>auditoría</b> registra automáticamente las operaciones sensibles con su nivel de
         riesgo, quién las hizo y cuándo. Se alimenta sola desde el propio sistema: pagos, emisión de
@@ -634,6 +706,28 @@
       <h2><span class="num">SECCIÓN 12</span>Verificación guiada</h2>
       <p class="sub">Recorrido corto para comprobar en vivo que todo encaja. Cada punto dice qué
         debe pasar; si pasa otra cosa, hay algo que corregir.</p>
+
+      <h3>Con los datos ya sembrados (cero preparación)</h3>
+      <p>Estos puntos usan las cuentas de demostración de la Sección 1 tal cual quedaron cargadas —
+        no hace falta inscribir ni pagar nada antes de verificarlos.</p>
+      <ul class="check">
+        <li><div>Entrar como <code>estudiante@cem.demo</code> (Ana) y abrir su panel.
+          <div class="exp">Debe verse el MBA Ejecutivo activo al 42% de avance y el Diplomado de
+            Trading como finalizado al 100%.</div></div></li>
+        <li><div>Como Ana, abrir <b>Certificados</b>.
+          <div class="exp">Debe aparecer el certificado <code>CEM-2026-00417</code> del Diplomado de
+            Trading, junto con la insignia "Graduado CEM".</div></div></li>
+        <li><div>Copiar ese código y abrir el verificador público (sin iniciar sesión).
+          <div class="exp">Debe validarlo y mostrar el nombre del programa y la fecha de emisión.</div></div></li>
+        <li><div>Como <code>admin@cem.demo</code>, abrir <b>Inscripciones y pagos</b> del MBA Ejecutivo.
+          <div class="exp">Michael debe verse con estado <code>pendiente</code> (todavía no pagó
+            ninguna cuota) y Ana con <code>activa</code> (2 de 6 cuotas pagadas).</div></div></li>
+        <li><div>Como admin, abrir <b>Apelaciones</b>.
+          <div class="exp">Debe verse la apelación de Sarah sobre el quiz de Liderazgo, ya resuelta
+            como <code>aceptada</code>.</div></div></li>
+        <li><div>Como admin, abrir <b>Revisión de contenidos</b>.
+          <div class="exp">Debe verse pendiente la lección "Proyecto integrador final" del MBA.</div></div></li>
+      </ul>
 
       <h3>Coherencia de roles</h3>
       <ul class="check">
