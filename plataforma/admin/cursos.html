@@ -50,6 +50,7 @@ import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toC
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cursos.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
+const METODOS_PAGO = ['Transferencia bancaria','Tarjeta de crédito/débito','Zelle','PayPal','Pago móvil','Efectivo'];
 let rows = [], categorias = [];
 if (p) { load(); sb.from('cem_categorias').select('nombre').eq('activo',true).order('orden').then(({data})=>categorias=data||[]); }
 
@@ -114,9 +115,24 @@ function edit(c){
       </div>
       <img id="eImgPreview" src="${esc(c.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${c.imagen_url?'':'display:none'}">
     </div>
-    <label class="check"><input type="checkbox" id="eDest" ${c.destacado?'checked':''}> Destacado en el catálogo</label>`,
+    <label class="check"><input type="checkbox" id="eDest" ${c.destacado?'checked':''}> Destacado en el catálogo</label>
+    <h2 class="sec" style="margin-top:18px">Descuentos y facilidades de pago</h2>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:150px"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="eDescPct" value="${c.descuento_pct??''}" placeholder="0"></div>
+      <div class="field" style="flex:2;min-width:220px"><label>Condición del descuento</label><input id="eDescNota" value="${esc(c.descuento_nota||'')}" placeholder="Pago de contado, pronto pago, alianza…"></div>
+    </div>
+    <label class="check" style="margin-bottom:12px"><input type="checkbox" id="eCuotasHab" ${c.cuotas_habilitadas?'checked':''}> Se acepta pago en cuotas</label>
+    <div class="row" id="eCuotasCantidadWrap" style="display:${c.cuotas_habilitadas?'flex':'none'}">
+      <div class="field" style="flex:1;min-width:150px"><label>Cantidad de cuotas</label><input type="number" min="2" id="eCuotasCantidad" value="${c.cuotas_cantidad||3}"></div>
+    </div>
+    <div class="field"><label>Métodos / pasarelas de pago aceptados</label>
+      <div class="metodos-pago" id="eMetodosPago" style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px">
+        ${METODOS_PAGO.map(mp=>`<label class="check"><input type="checkbox" data-metodo="${esc(mp)}" ${(c.metodos_pago||[]).includes(mp)?'checked':''}> ${esc(mp)}</label>`).join('')}
+      </div>
+    </div>`,
     footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar</button>` });
   mejorarSelects(m);
+  $('#eCuotasHab',m).onchange = () => { $('#eCuotasCantidadWrap',m).style.display = $('#eCuotasHab',m).checked ? 'flex' : 'none'; };
   $('[data-c]',m).onclick = m.close;
   $('#eBtnImg',m).onclick = () => $('#eImgArchivo',m).click();
   $('#eImgArchivo',m).onchange = async () => {
@@ -129,12 +145,16 @@ function edit(c){
     } catch (e) { fail(e.message || 'No se pudo subir la imagen.'); }
   };
   $('[data-s]',m).onclick = async () => {
+    const metodosPago = $$('[data-metodo]',m).filter(x=>x.checked).map(x=>x.dataset.metodo);
     await run(sb.from('cem_courses').update({
       nombre:$('#eNombre',m).value.trim(), codigo:$('#eCodigo',m).value.trim()||null, subtitulo:$('#eSub',m).value.trim(),
       descripcion_corta:$('#eDesc',m).value.trim(), tipo:$('#eTipo',m).value, modalidad:$('#eMod',m).value,
       nivel:$('#eNivel',m).value, horas:Number($('#eHoras',m).value)||0, precio:Number($('#ePrecio',m).value)||0,
       categoria:$('#eCat',m).value.trim(), estado:$('#eEstado',m).value, imagen_url:$('#eImg',m).value.trim()||null,
       destacado:$('#eDest',m).checked, updated_at:new Date().toISOString(),
+      descuento_pct:$('#eDescPct',m).value?Number($('#eDescPct',m).value):null, descuento_nota:$('#eDescNota',m).value.trim()||null,
+      cuotas_habilitadas:$('#eCuotasHab',m).checked, cuotas_cantidad:$('#eCuotasHab',m).checked?Number($('#eCuotasCantidad',m).value)||null:null,
+      metodos_pago:metodosPago.length?metodosPago:null,
     }).eq('id',c.id), 'No se pudo guardar');
     await audit('curso_actualizado','cem_courses',c.id,'medio',{nombre:$('#eNombre',m).value});
     m.close(); ok('Curso actualizado'); load();
