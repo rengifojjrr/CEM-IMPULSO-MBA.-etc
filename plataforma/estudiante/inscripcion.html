@@ -150,10 +150,9 @@ function resumen(){
 
 $('#btnCupon').onclick = () => {
   const code = $('#cupon').value.trim().toUpperCase();
-  const cupones = { 'CEM10':0.10, 'BECA20':0.20, 'ALUMNI15':0.15 };
-  if (cupones[code]) {
-    descuento = Math.round((Number(curso.precio)||0)*cupones[code]*100)/100;
-    $('#cuponMsg').innerHTML = `<span class="chip ok">Cupón aplicado: ${Math.round(cupones[code]*100)}% de descuento</span>`;
+  if (code && curso.codigo_descuento && code === String(curso.codigo_descuento).trim().toUpperCase() && Number(curso.descuento_pct) > 0) {
+    descuento = Math.round((Number(curso.precio)||0)*(Number(curso.descuento_pct)/100)*100)/100;
+    $('#cuponMsg').innerHTML = `<span class="chip ok">Cupón aplicado: ${curso.descuento_pct}% de descuento</span>`;
   } else { descuento=0; $('#cuponMsg').innerHTML = '<span class="chip err">Cupón no válido</span>'; }
   resumen();
 };
@@ -169,7 +168,7 @@ $('#btnConfirmar').onclick = async () => {
 
     const enr = await run(sb.rpc('cem_self_enroll',{
       p_course_id:cursoId, p_cohort_id:$('#cohorte').value||null,
-      p_cuotas:plan, p_descuento:(Number(curso.precio)||0)-totalPlan(),
+      p_cuotas:plan, p_codigo_descuento:$('#cupon').value.trim()||null,
     }),'No se pudo completar la inscripción');
 
     await audit('inscripcion_estudiante','cem_enrollments',enr?.id,'medio',{curso:curso.nombre, plan});

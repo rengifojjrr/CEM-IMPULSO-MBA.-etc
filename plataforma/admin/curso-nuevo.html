@@ -24,6 +24,11 @@
     border:1px solid var(--outline-variant);display:none;}
   .imagen-preview.on{display:block;}
   .metodos-pago{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;}
+  .mod-thumb{width:46px;height:32px;border-radius:6px;object-fit:cover;border:1px solid var(--outline-variant);
+    background:var(--surface-container);flex:0 0 auto;}
+  .review-mod{margin:0;padding:0;overflow:hidden;text-align:center}
+  .review-mod img{width:100%;height:70px;object-fit:cover;display:block}
+  .review-mod .n{padding:8px;font-size:12px;font-weight:600}
 </style>
 </head>
 <body>
@@ -69,12 +74,9 @@
             <option value="programa">Programa (20–89 h)</option><option value="diplomado" selected>Diplomado (90 h)</option>
             <option value="maestria">Maestría (240 h)</option></select></div>
           <div class="field" style="flex:1;min-width:150px"><label>Categoría</label><select id="categoria"></select></div>
-          <div class="field" style="flex:1;min-width:130px"><label>Nivel</label><select id="nivel">
-            <option value="basico">Básico</option><option value="intermedio">Intermedio</option><option value="avanzado" selected>Avanzado</option></select></div>
         </div>
         <div class="row">
           <div class="field" style="flex:1;min-width:130px"><label>Horas cronológicas</label><input type="number" id="horas" value="90"></div>
-          <div class="field" style="flex:1;min-width:150px"><label>Duración (texto)</label><input id="duracion" placeholder="12 Semanas"></div>
           <div class="field" style="flex:1;min-width:150px"><label>Modalidad</label><select id="modalidad">
             <option value="online">Online</option><option value="en_vivo">En vivo</option>
             <option value="presencial">Presencial</option><option value="hibrido" selected>Híbrido</option></select></div>
@@ -124,8 +126,10 @@
         <h2 class="sec">Descuentos y facilidades de pago</h2>
         <div class="row">
           <div class="field" style="flex:1;min-width:150px"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="descuentoPct" placeholder="0"></div>
+          <div class="field" style="flex:1;min-width:150px"><label>Código de descuento</label><input id="codigoDescuento" placeholder="Ej. CEM10"></div>
           <div class="field" style="flex:2;min-width:220px"><label>Condición del descuento</label><input id="descuentoNota" placeholder="Pago de contado, pronto pago, alianza…"></div>
         </div>
+        <p class="tiny muted" style="margin-top:-6px;margin-bottom:12px">Si defines un código, el estudiante debe escribirlo al inscribirse para recibir el % de descuento; sin código, el descuento es solo informativo.</p>
         <label class="check" style="margin-bottom:12px"><input type="checkbox" id="cuotasHab"> Se acepta pago en cuotas</label>
         <div class="row" id="cuotasCantidadWrap" style="display:none">
           <div class="field" style="flex:1;min-width:150px"><label>Cantidad de cuotas</label><input type="number" min="2" id="cuotasCantidad" value="3"></div>
@@ -137,7 +141,8 @@
     </div>
 
     <div class="step" data-step="5">
-      <div class="card"><h2 class="sec">Revisión final</h2><div id="review"></div></div>
+      <div class="card"><h2 class="sec">Revisión final</h2><div id="review"></div>
+        <h3 class="sec" style="margin-top:16px">Módulos</h3><div id="reviewMods" class="grid g3"></div></div>
     </div>
   </form>
 
@@ -153,7 +158,7 @@ import { sb, mount, $, $$, esc, money, ok, fail, run, audit, mejorarSelects, sub
 const p = await mount({ require:['coordinador','admin','superadmin'], active:'cursos.html', area:'admin' });
 const LABELS = ['Información general','Información académica','Estructura','Disponibilidad','Precio','Revisión'];
 const METODOS_PAGO = ['Transferencia bancaria','Tarjeta de crédito/débito','Zelle','PayPal','Pago móvil','Efectivo'];
-let step = 0, mods = [{titulo:'Módulo 1: Fundamentos'},{titulo:'Módulo 2: Desarrollo'}];
+let step = 0, mods = [{titulo:'Módulo 1: Fundamentos', imagen_url:null},{titulo:'Módulo 2: Desarrollo', imagen_url:null}];
 let categorias = [], turnos = [];
 let horarioValor = { dias: [], horaInicio: '', horaFin: '' };
 
@@ -194,14 +199,24 @@ function go(i){ if(i>0 && !$('#nombre').value.trim()){ fail('Primero escribe el 
 $('#btnPrev').onclick = () => go(Math.max(0,step-1));
 $('#btnNext').onclick = () => step===LABELS.length-1 ? crear() : go(Math.min(LABELS.length-1,step+1));
 
-$('#addMod').onclick = () => { mods.push({titulo:`Módulo ${mods.length+1}: `}); renderMods(); };
+$('#addMod').onclick = () => { mods.push({titulo:`Módulo ${mods.length+1}: `, imagen_url:null}); renderMods(); };
 function renderMods(){
-  $('#mods').innerHTML = mods.map((m,i)=>`<div class="row" style="gap:8px">
+  $('#mods').innerHTML = mods.map((m,i)=>`<div class="row" style="gap:8px;align-items:center">
     <span class="chip neutral">${i+1}</span>
+    ${m.imagen_url?`<img class="mod-thumb" src="${esc(m.imagen_url)}">`:''}
     <input class="inp" style="flex:1" data-m="${i}" value="${esc(m.titulo)}" placeholder="Título del módulo">
+    <button type="button" class="btn outline sm" data-img="${i}" title="Miniatura del módulo"><span class="material-symbols-outlined">add_photo_alternate</span></button>
+    <input type="file" accept="image/*" class="hidden" data-imgfile="${i}">
     <button type="button" class="btn ghost sm" data-del="${i}"><span class="material-symbols-outlined">delete</span></button></div>`).join('');
   $$('[data-m]').forEach(inp => inp.oninput = () => mods[Number(inp.dataset.m)].titulo = inp.value);
   $$('[data-del]').forEach(b => b.onclick = () => { mods.splice(Number(b.dataset.del),1); renderMods(); });
+  $$('[data-img]').forEach(b => b.onclick = () => $(`[data-imgfile="${b.dataset.img}"]`).click());
+  $$('[data-imgfile]').forEach(inp => inp.onchange = async () => {
+    const i = Number(inp.dataset.imgfile), file = inp.files[0];
+    if (!file) return;
+    try { mods[i].imagen_url = await subirImagenCurso(file, 'modulos'); renderMods(); ok('Miniatura subida'); }
+    catch (e) { fail(e.message || 'No se pudo subir la miniatura.'); }
+  });
 }
 
 $('#btnSubirImagen').onclick = () => $('#imagenArchivo').click();
@@ -224,13 +239,17 @@ $('#imagen').oninput = () => {
 function review(){
   $('#review').innerHTML = [
     ['Nombre', $('#nombre').value], ['Código', $('#codigo').value||'—'], ['Tipo', $('#tipo').value],
-    ['Categoría', $('#categoria').value || '—'], ['Modalidad', $('#modalidad').value], ['Nivel', $('#nivel').value], ['Horas', $('#horas').value],
+    ['Categoría', $('#categoria').value || '—'], ['Modalidad', $('#modalidad').value], ['Horas', $('#horas').value],
     ['Precio', money(Number($('#precio').value)||0, $('#moneda').value)],
-    ['Descuento', $('#descuentoPct').value ? `${$('#descuentoPct').value}%` : 'Sin descuento'],
+    ['Descuento', $('#descuentoPct').value ? `${$('#descuentoPct').value}%${$('#codigoDescuento').value.trim()?' con código '+$('#codigoDescuento').value.trim().toUpperCase():' (sin código, informativo)'}` : 'Sin descuento'],
     ['Cuotas', $('#cuotasHab').checked ? `${$('#cuotasCantidad').value} cuotas` : 'No'],
     ['Módulos', mods.filter(m=>m.titulo.trim()).length],
     ['Cohorte inicial', $('#crearCohorte').checked ? `${$('#cohNombre').value} · ${$('#cohTurno').value} · ${horarioResumen(horarioValor)||'sin horario'}` : 'No'],
   ].map(([k,v])=>`<div class="list-item"><div class="grow"><div class="s">${k}</div><div class="t">${esc(String(v))}</div></div></div>`).join('');
+  $('#reviewMods').innerHTML = mods.filter(m=>m.titulo.trim()).map(m=>`<div class="card review-mod">
+    ${m.imagen_url?`<img src="${esc(m.imagen_url)}">`:`<div style="height:70px;display:flex;align-items:center;justify-content:center;background:var(--surface-container)">
+      <span class="material-symbols-outlined" style="color:var(--outline)">image</span></div>`}
+    <div class="n">${esc(m.titulo)}</div></div>`).join('') || '<p class="muted tiny">Sin módulos.</p>';
 }
 
 async function crear(estado='publicado'){
@@ -240,17 +259,18 @@ async function crear(estado='publicado'){
     nombre:$('#nombre').value.trim(), codigo:$('#codigo').value.trim()||null, subtitulo:$('#subtitulo').value.trim(),
     descripcion_corta:$('#descCorta').value.trim(), descripcion:$('#descripcion').value.trim(),
     tipo:$('#tipo').value, categoria:$('#categoria').value.trim(), modalidad:$('#modalidad').value,
-    nivel:$('#nivel').value, horas:Number($('#horas').value)||0, duracion_texto:$('#duracion').value.trim(),
+    horas:Number($('#horas').value)||0,
     precio:Number($('#precio').value)||0, moneda:$('#moneda').value, imagen_url:$('#imagen').value.trim()||null,
     destacado:$('#destacado').checked, estado, certificado_nombre:$('#certNombre').value.trim()||null,
     descuento_pct:$('#descuentoPct').value?Number($('#descuentoPct').value):null, descuento_nota:$('#descuentoNota').value.trim()||null,
+    codigo_descuento:$('#codigoDescuento').value.trim().toUpperCase()||null,
     cuotas_habilitadas:$('#cuotasHab').checked, cuotas_cantidad:$('#cuotasHab').checked?Number($('#cuotasCantidad').value)||null:null,
     metodos_pago:metodosPago.length?metodosPago:null,
   }).select().single(), 'No se pudo crear el programa');
 
   const validMods = mods.filter(m=>m.titulo.trim());
   if (validMods.length) {
-    await run(sb.from('cem_modules').insert(validMods.map((m,i)=>({ course_id:course.id, titulo:m.titulo.trim(), orden:i+1 }))), 'No se pudieron crear los módulos');
+    await run(sb.from('cem_modules').insert(validMods.map((m,i)=>({ course_id:course.id, titulo:m.titulo.trim(), imagen_url:m.imagen_url||null, orden:i+1 }))), 'No se pudieron crear los módulos');
   }
   if ($('#crearCohorte').checked) {
     await run(sb.from('cem_cohorts').insert({
