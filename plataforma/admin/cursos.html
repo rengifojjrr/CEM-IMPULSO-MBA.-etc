@@ -119,6 +119,7 @@ function edit(c){
     <h2 class="sec" style="margin-top:18px">Descuentos y facilidades de pago</h2>
     <div class="row">
       <div class="field" style="flex:1;min-width:150px"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="eDescPct" value="${c.descuento_pct??''}" placeholder="0"></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Código de descuento</label><input id="eCodigoDesc" value="${esc(c.codigo_descuento||'')}" placeholder="Ej. CEM10"></div>
       <div class="field" style="flex:2;min-width:220px"><label>Condición del descuento</label><input id="eDescNota" value="${esc(c.descuento_nota||'')}" placeholder="Pago de contado, pronto pago, alianza…"></div>
     </div>
     <label class="check" style="margin-bottom:12px"><input type="checkbox" id="eCuotasHab" ${c.cuotas_habilitadas?'checked':''}> Se acepta pago en cuotas</label>
@@ -153,6 +154,7 @@ function edit(c){
       categoria:$('#eCat',m).value.trim(), estado:$('#eEstado',m).value, imagen_url:$('#eImg',m).value.trim()||null,
       destacado:$('#eDest',m).checked, updated_at:new Date().toISOString(),
       descuento_pct:$('#eDescPct',m).value?Number($('#eDescPct',m).value):null, descuento_nota:$('#eDescNota',m).value.trim()||null,
+      codigo_descuento:$('#eCodigoDesc',m).value.trim().toUpperCase()||null,
       cuotas_habilitadas:$('#eCuotasHab',m).checked, cuotas_cantidad:$('#eCuotasHab',m).checked?Number($('#eCuotasCantidad',m).value)||null:null,
       metodos_pago:metodosPago.length?metodosPago:null,
     }).eq('id',c.id), 'No se pudo guardar');

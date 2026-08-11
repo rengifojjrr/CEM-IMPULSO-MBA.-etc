@@ -506,13 +506,25 @@ export function mejorarSelects(root = document){
 }
 
 /* ============ imagen de portada (Supabase Storage, gratis y de sobra para fotos) ============ */
-export async function subirImagenCurso(file){
+export async function subirImagenCurso(file, carpeta = 'cursos'){
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  const ruta = `cursos/${crypto.randomUUID()}.${ext}`;
+  const ruta = `${carpeta}/${crypto.randomUUID()}.${ext}`;
   const { error } = await sb.storage.from('cem-assets').upload(ruta, file, { contentType: file.type || 'image/*' });
   if (error) throw new Error(error.message || 'No se pudo subir la imagen.');
   const { data } = sb.storage.from('cem-assets').getPublicUrl(ruta);
   return data.publicUrl;
+}
+
+/* ============ documentos adjuntos de una lección (mismo bucket, sin límite práctico) ============ */
+export async function subirDocumentoLeccion(file){
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const ruta = `materiales/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('cem-assets').upload(ruta, file, { contentType: file.type || 'application/octet-stream' });
+  if (error) throw new Error(error.message || 'No se pudo subir el documento.');
+  const { data } = sb.storage.from('cem-assets').getPublicUrl(ruta);
+  const tipo = /pdf/.test(file.type) ? 'pdf' : /sheet|excel|csv/.test(file.type) ? 'excel'
+    : /image\//.test(file.type) ? 'imagen' : /video\//.test(file.type) ? 'video' : 'enlace';
+  return { url: data.publicUrl, tamanoBytes: file.size, tipo, nombre: file.name };
 }
 
 /* ============ picker de días de la semana + horario (cohortes) ============ */
