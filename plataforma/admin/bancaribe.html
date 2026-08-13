@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Banco (Bancaribe)</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .dato-tec{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;
+    background:var(--surface-container);padding:8px 10px;border-radius:6px;border:1px solid var(--outline-variant);}
+  .oculto-secreto{filter:blur(5px);transition:filter .15s;cursor:pointer;}
+  .oculto-secreto.ver{filter:none;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Banco (Bancaribe)</h1>
+      <p>Conexión con el API Manager de Bancaribe: tasa BCV, saldo, verificación de pagos y conciliación automática.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnDiag"><span class="material-symbols-outlined">stethoscope</span> Diagnóstico</button>
+      <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined">refresh</span> Refrescar</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card hidden" id="cardDiag">
+    <div class="row between"><h2 class="sec">Diagnóstico de la conexión</h2>
+      <button class="btn ghost sm" id="btnCerrarDiag"><span class="material-symbols-outlined">close</span></button></div>
+    <p class="tiny muted">Separa dos cosas distintas: si <b>nuestras credenciales autentican</b> contra el API Manager,
+      y si <b>cada API está habilitada</b> para nuestra aplicación. Útil para llevar evidencia concreta a la
+      sesión técnica con el banco.</p>
+    <div id="diag"></div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2 class="sec">Estado de la conexión</h2>
+      <div id="estado"><p class="muted">Cargando…</p></div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Datos que necesita el banco</h2>
+      <p class="tiny muted">Para activar el servicio de <b>Notificación de Pagos</b>, Bancaribe necesita
+        que le entreguemos el endpoint y su ApiKey. Estos son los valores actuales:</p>
+      <div class="field"><label>Endpoint REST (nuestro)</label><div class="dato-tec" id="webhookUrl">—</div></div>
+      <div class="field"><label>ApiKey (haz clic para revelar)</label>
+        <div class="dato-tec oculto-secreto" id="webhookKey" title="Clic para mostrar/ocultar">—</div></div>
+      <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar ambos</button>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2 class="sec">Tasa BCV</h2>
+      <div id="tasas"><p class="muted tiny">Sin consultar todavía.</p></div>
+      <button class="btn sm" id="btnTasa" style="margin-top:10px"><span class="material-symbols-outlined">currency_exchange</span> Consultar tasa del día</button>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Saldo de la cuenta</h2>
+      <div id="saldo"><p class="muted tiny">Sin consultar todavía.</p></div>
+      <button class="btn sm" id="btnSaldo" style="margin-top:10px"><span class="material-symbols-outlined">savings</span> Consultar saldo</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Verificar un pago (Consulta de Operaciones PLUS)</h2>
+    <p class="tiny muted">Sirve para confirmar contra el banco un pago que un estudiante dice haber hecho,
+      antes de darlo por bueno.</p>
+    <div class="filters">
+      <div class="field"><label>Referencia</label><input id="vRef" placeholder="254151380"></div>
+      <div class="field"><label>Monto</label><input type="number" step="0.01" id="vMonto" placeholder="777.77"></div>
+      <div class="field"><label>Cédula del pagador</label><input id="vDoc" placeholder="V12345678"></div>
+      <div class="field"><label>Tipo</label><select id="vTipo">
+        <option value="PM">Pago móvil</option><option value="TRF">Transferencia</option><option value="DEPO">Depósito</option></select></div>
+      <div class="field"><label>Fecha (mm/dd/aaaa)</label><input id="vFecha" placeholder="08/13/2026"></div>
+      <button class="btn" id="btnVerificar"><span class="material-symbols-outlined">search</span> Verificar</button>
+    </div>
+    <div id="resVerificar"></div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Pagos notificados por el banco</h2>
+      <div class="field" style="margin:0"><select id="fEstado">
+        <option value="">Todos</option><option value="pendiente">Pendientes</option>
+        <option value="conciliada">Conciliadas</option><option value="descartada">Descartadas</option></select></div></div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Recibido</th><th>Referencia</th><th>Pagador</th><th>Monto</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tb"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
+
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'bancaribe.html', area:'admin' });
+const puedeOperar = p && ['coordinador','admin','superadmin'].includes(p.rol);
+const FN = `${SUPABASE_URL}/functions/v1/cem-bancaribe`;
+let notifs = [], estado = null;
+
+if (p) { cargar(); }
+
+async function llamar(accion, params = {}){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(FN, {
+    method:'POST',
+    headers:{ Authorization:`Bearer ${session?.access_token}`, apikey:SUPABASE_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify({ accion, ...params }),
+  });
+  const json = await res.json().catch(()=>({ error:'Respuesta ilegible del servidor' }));
+  if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+  return json;
+}
+
+async function cargar(){
+  try { estado = await llamar('estado'); } catch(e){ estado = { error: e.message }; }
+  renderEstado();
+  await cargarNotifs();
+}
+
+function renderEstado(){
+  if (estado?.error){
+    $('#estado').innerHTML = `<div class="chip err">${esc(estado.error)}</div>`;
+    return;
+  }
+  $('#estado').innerHTML = `
+    <div class="list-item"><div class="grow"><div class="s">Ambiente</div>
+      <div class="t">${chip(estado.ambiente === 'qa' ? 'Calidad (QA)' : estado.ambiente, estado.ambiente==='qa'?'warn':'ok')}</div></div></div>
+    <div class="list-item"><div class="grow"><div class="s">RIF afiliado</div><div class="t">${esc(estado.rif||'—')}</div></div></div>
+    <div class="list-item"><div class="grow"><div class="s">Cuenta</div><div class="t">${esc(estado.cuenta||'—')}</div></div></div>
+    <div class="list-item"><div class="grow"><div class="s">Servicios habilitados</div>
+      <div class="t">${(estado.servicios||[]).map(s=>chip(s.replace(/_/g,' '),'neutral')).join(' ')}</div></div></div>`;
+  $('#webhookUrl').textContent = estado.webhook_url || '—';
+  $('#webhookKey').textContent = estado.webhook_api_key || '—';
+}
+
+$('#webhookKey').onclick = () => $('#webhookKey').classList.toggle('ver');
+$('#btnCopiar').onclick = async () => {
+  await navigator.clipboard.writeText(`Endpoint: ${estado?.webhook_url||''}\nApiKey: ${estado?.webhook_api_key||''}`);
+  ok('Copiado al portapapeles');
+};
+$('#btnRefrescar').onclick = cargar;
+$('#btnCerrarDiag').onclick = () => $('#cardDiag').classList.add('hidden');
+
+$('#btnDiag').onclick = async () => {
+  $('#cardDiag').classList.remove('hidden');
+  $('#diag').innerHTML = '<p class="muted tiny">Probando el token y cada servicio contra el banco… (puede tardar)</p>';
+  try {
+    const r = await llamar('diagnostico');
+    // El token es lo que separa "la credencial sirve" de "el API está habilitado".
+    const tok = r.token?.ok
+      ? `<div class="list-item"><div class="grow"><div class="s">Autenticación (OAuth2 client_credentials)</div>
+         <div class="t">${chip('Token obtenido correctamente','ok')}
+         <span class="tiny muted">HTTP ${esc(String(r.token.http??''))} · scope "${esc(String(r.token.scope??''))}" · vence en ${esc(String(r.token.expires_in??''))}s</span></div></div></div>`
+      : `<div class="list-item"><div class="grow"><div class="s">Autenticación</div>
+         <div class="t">${chip('No se pudo obtener el token','err')}
+         <div class="tiny muted">${esc(String(r.token?.error||''))}</div></div></div></div>`;
+
+    const filas = (r.servicios||[]).map(s=>{
+      const bien = s.http >= 200 && s.http < 300;
+      const etiqueta = bien ? chip('responde','ok')
+        : s.codigo === '900908' ? chip('no suscrito (900908)','err')
+        : s.http === 404 ? chip('ruta no encontrada (404)','err')
+        : chip(`HTTP ${s.http??'—'}`,'warn');
+      return `<tr><td class="wrap"><b>${esc(s.servicio)}</b>
+          <div class="tiny muted" style="word-break:break-all">${esc(s.url||'')}</div></td>
+        <td>${etiqueta}</td>
+        <td class="wrap tiny muted">${esc(String(s.mensaje||s.error||''))}</td></tr>`;
+    }).join('');
+
+    const noSuscritos = (r.servicios||[]).filter(s=>s.codigo==='900908').length;
+    $('#diag').innerHTML = `${tok}
+      <div class="table-wrap" style="margin-top:12px"><table>
+        <thead><tr><th>Servicio</th><th>Resultado</th><th>Mensaje del banco</th></tr></thead>
+        <tbody>${filas || emptyRow(3)}</tbody></table></div>
+      ${noSuscritos ? `<div class="chip warn" style="margin-top:12px">
+        ${noSuscritos} servicio(s) responden 900908: el token es válido pero nuestra aplicación
+        no aparece suscrita a esas APIs en el API Manager. Es una habilitación que hace Bancaribe de su lado.</div>` : ''}`;
+  } catch(e){ $('#diag').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+};
+
+$('#btnTasa').onclick = async () => {
+  $('#tasas').innerHTML = '<p class="muted tiny">Consultando al banco…</p>';
+  try {
+    const r = await llamar('tasa-bcv');
+    const lista = r.datos?.listTasasActuales || r.datos?.listTasaHistorico || [];
+    $('#tasas').innerHTML = Array.isArray(lista) && lista.length
+      ? lista.map(t=>`<div class="list-item"><div class="grow"><div class="s">${esc(t.descripcion||t.idTasa||'Tasa')}</div>
+          <div class="t">${esc(String(t.valor))} Bs${t.fechaArch?` · ${esc(String(t.fechaArch))}`:''}</div></div></div>`).join('')
+      : `<div class="chip warn">El banco respondió sin tasas</div>
+         <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
+         <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(r.datos,null,2)).slice(0,1500)}</pre></details>`;
+  } catch(e){ $('#tasas').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+};
+
+$('#btnSaldo').onclick = async () => {
+  $('#saldo').innerHTML = '<p class="muted tiny">Consultando al banco…</p>';
+  try {
+    const r = await llamar('saldo');
+    const d = r.datos;
+    const disp = d?.saldo?.disponible ?? d?.producto?.saldo?.disponible;
+    $('#saldo').innerHTML = disp != null
+      ? `<div class="list-item"><div class="grow"><div class="s">Disponible</div>
+         <div class="t" style="font-size:22px;font-weight:700;color:var(--primary)">${esc(String(disp))} ${esc(d?.moneda?.codigo||'')}</div></div></div>`
+      : `<div class="chip warn">El banco respondió sin saldo</div>
+         <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
+         <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,1500)}</pre></details>`;
+  } catch(e){ $('#saldo').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+};
+
+$('#btnVerificar').onclick = async () => {
+  $('#resVerificar').innerHTML = '<p class="muted tiny">Consultando al banco…</p>';
+  try {
+    const r = await llamar('operaciones', {
+      referencia: $('#vRef').value.trim() || null,
+      monto: $('#vMonto').value || null,
+      documento: $('#vDoc').value.trim() || null,
+      tipoTrx: $('#vTipo').value,
+      fecha: $('#vFecha').value.trim() || null,
+    });
+    const d = r.datos;
+    $('#resVerificar').innerHTML = `<div style="margin-top:12px">
+      ${d?.success === true ? chip('El banco confirma la operación','ok') : chip('El banco no confirmó la operación','warn')}
+      ${d?.descripción||d?.descripcion ? `<div class="tiny muted" style="margin-top:6px">${esc(String(d.descripción||d.descripcion))}</div>`:''}
+      <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta completa</summary>
+      <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,2000)}</pre></details></div>`;
+  } catch(e){ $('#resVerificar').innerHTML = `<div class="chip err" style="margin-top:12px">${esc(e.message)}</div>`; }
+};
+
+async function cargarNotifs(){
+  const { data } = await sb.from('cem_bancaribe_notificaciones')
+    .select('*').order('recibido_en',{ascending:false}).limit(200);
+  notifs = data || [];
+  const pend = notifs.filter(n=>n.estado==='pendiente');
+  const conc = notifs.filter(n=>n.estado==='conciliada');
+  $('#kpis').innerHTML = [
+    kpi('Notificaciones', num(notifs.length), 'notifications', 'recibidas del banco'),
+    kpi('Conciliadas', num(conc.length), 'task_alt', 'aplicadas a una cuota'),
+    kpi('Por revisar', num(pend.length), 'pending', 'requieren decisión humana'),
+    kpi('Monto pendiente', money(pend.reduce((a,n)=>a+Number(n.amount||0),0), 'VES'), 'payments', 'sin conciliar'),
+  ].join('');
+  renderNotifs();
+}
+
+function renderNotifs(){
+  const f = $('#fEstado').value;
+  const list = notifs.filter(n=>!f || n.estado===f);
+  $('#tb').innerHTML = list.length ? list.map(n=>`<tr>
+    <td class="muted tiny">${fdate(n.recibido_en)}</td>
+    <td><b>${esc(n.origin_bank_reference||'—')}</b><div class="tiny muted">${esc(n.bank_name||'')}</div></td>
+    <td class="wrap">${esc(n.debtor_id||'—')}<div class="tiny muted">${esc(n.client_phone||'')}</div></td>
+    <td><b>${esc(String(n.amount ?? '—'))}</b> <span class="tiny muted">${esc(n.currency_code||'')}</span></td>
+    <td>${chip(n.payment_type||'—','neutral')}</td>
+    <td>${chip(n.estado, n.estado==='conciliada'?'ok':n.estado==='descartada'?'neutral':'warn')}</td>
+    <td style="white-space:nowrap">
+      <button class="btn ghost sm" data-ver="${n.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
+      ${puedeOperar && n.estado==='pendiente' ? `<button class="btn ghost sm" data-desc="${n.id}" title="Descartar"><span class="material-symbols-outlined">block</span></button>` : ''}
+    </td></tr>`).join('') : emptyRow(7);
+
+  $$('[data-ver]').forEach(b=>b.onclick=()=>verDetalle(notifs.find(n=>n.id===b.dataset.ver)));
+  $$('[data-desc]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Descartar esta notificación? Se marcará como no aplicable a ninguna cuota.')) return;
+    await run(sb.from('cem_bancaribe_notificaciones').update({
+      estado:'descartada', conciliado_por:p.id, conciliado_en:new Date().toISOString(),
+    }).eq('id', b.dataset.desc), 'No se pudo descartar');
+    await audit('notificacion_descartada','cem_bancaribe_notificaciones',b.dataset.desc,'bajo',{});
+    ok('Notificación descartada'); cargarNotifs();
+  });
+}
+$('#fEstado').onchange = renderNotifs;
+
+function verDetalle(n){
+  modal({ title:`Notificación ${n.origin_bank_reference||''}`, wide:true, body:`
+    <div class="row" style="gap:18px;flex-wrap:wrap">
+      <div><div class="s tiny muted">Monto</div><div class="t"><b>${esc(String(n.amount??'—'))}</b> ${esc(n.currency_code||'')}</div></div>
+      <div><div class="s tiny muted">Fecha del banco</div><div class="t">${esc(n.fecha_banco||'—')} ${esc(n.hora_banco||'')}</div></div>
+      <div><div class="s tiny muted">Tipo</div><div class="t">${esc(n.payment_type||'—')}</div></div>
+      <div><div class="s tiny muted">Estado</div><div class="t">${chip(n.estado)}</div></div>
+    </div>
+    <div class="field" style="margin-top:14px"><label>Cuenta ordenante / beneficiaria</label>
+      <div class="dato-tec">${esc(n.debtor_account||'—')} → ${esc(n.creditor_account||'—')}</div></div>
+    ${n.nota?`<div class="field"><label>Nota</label><div class="tiny">${esc(n.nota)}</div></div>`:''}
+    <details><summary class="tiny muted">Ver el JSON exacto que envió el banco</summary>
+      <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(n.payload,null,2))}</pre></details>` });
+}
+
+mejorarSelects();
+</script>
+</body>
+</html>

@@ -228,6 +228,7 @@ const ADMIN_NAV = [
   { lbl: 'Estudiantes', items: [
     ['estudiantes.html', 'person', 'Estudiantes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
+    ['bancaribe.html', 'account_balance', 'Banco (Bancaribe)'],
   ]},
   { lbl: 'Evaluación', items: [
     ['evaluaciones.html', 'quiz', 'Evaluaciones'],
