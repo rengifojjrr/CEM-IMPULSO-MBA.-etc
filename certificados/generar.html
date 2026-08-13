@@ -271,7 +271,7 @@
 
       <div class="row" style="align-items:center;margin:12px 0 4px;">
         <b style="font-size:13px;">Carpetas</b>
-        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre (o la ruta completa, para moverla) y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta. Con 📁+ creas una subcarpeta dentro. También puedes escribir rutas con / para anidar, por ejemplo «Diplomados/Cohorte 2026/Módulo 1». Marca la casilla de una o varias fichas para borrarlas de verdad de una sola vez con «Eliminar seleccionadas».">?</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. También puedes arrastrar un archivo PNG, JPG o PDF directo desde tu computadora y soltarlo encima de una carpeta ya creada: se crea la plantilla ahí mismo, sin tener que escribir antes el nombre de la carpeta. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre (o la ruta completa, para moverla) y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta. Con 📁+ creas una subcarpeta dentro. También puedes escribir rutas con / para anidar, por ejemplo «Diplomados/Cohorte 2026/Módulo 1». Marca la casilla de una o varias fichas para borrarlas de verdad de una sola vez con «Eliminar seleccionadas».">?</button>
         <span style="flex:1;"></span>
         <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta de la plantilla abierta (usa / para anidar)" style="min-width:220px;">
         <datalist id="listaCarpetas"></datalist>
@@ -1000,7 +1000,7 @@ function carpetaNodoHtml(nodo, anidada){
         ${hijos.length ? `<div class="carpeta-subcarpetas">${hijos.map(h => carpetaNodoHtml(h, true)).join('')}</div>` : ''}
         <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(nodo.ruta)}">
           ${nodo.items.map(({ t, i }) => plantillaChipHtml(t, i)).join('')}
-          ${!nodo.items.length && !hijos.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
+          ${!nodo.items.length && !hijos.length ? '<span class="hint">arrastra aquí una plantilla, o suelta un archivo de tu computadora</span>' : ''}
         </div>
       </div>
     </div>`;
@@ -1025,7 +1025,7 @@ function renderCarpetasBoard(){
       </div>
       <div class="carpeta-card-body" data-carpeta-drop="" style="${colapsadaSinCarpeta ? 'display:none;' : ''}">
         ${sinCarpetaItems.map(({ t, i }) => plantillaChipHtml(t, i)).join('')}
-        ${!sinCarpetaItems.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
+        ${!sinCarpetaItems.length ? '<span class="hint">arrastra aquí una plantilla, o suelta un archivo de tu computadora</span>' : ''}
       </div>
     </div>
     ${nodosRaiz.map(n => carpetaNodoHtml(n, false)).join('')}
@@ -1105,9 +1105,15 @@ function renderCarpetasBoard(){
     chip.addEventListener('drop', e => {
       e.preventDefault();
       e.stopPropagation();
+      const body = chip.closest('.carpeta-card-body');
+      // arrastre desde el escritorio de la computadora (no una ficha ya existente):
+      // crea la(s) plantilla(s) directo en esta carpeta, junto a la ficha soltada
+      if(e.dataTransfer.files && e.dataTransfer.files.length){
+        manejarDropDeArchivosExternos([...e.dataTransfer.files], body.dataset.carpetaDrop);
+        return;
+      }
       const idxArrastrado = Number(e.dataTransfer.getData('text/plain'));
       if(idxArrastrado === Number(chip.dataset.plantillaChip)) return;
-      const body = chip.closest('.carpeta-card-body');
       const otrasChips = [...body.querySelectorAll('.plantilla-chip')].filter(c => Number(c.dataset.plantillaChip) !== idxArrastrado);
       const posChip = otrasChips.indexOf(chip);
       const r = chip.getBoundingClientRect();
@@ -1124,6 +1130,12 @@ function renderCarpetasBoard(){
       e.preventDefault();
       body.classList.remove('drag-over');
       if(e.target.closest('.plantilla-chip')) return;   // ya lo maneja el handler de esa ficha
+      // arrastre desde el escritorio de la computadora: crea la(s) plantilla(s) ahí mismo,
+      // en esta carpeta (funciona igual en "Sin carpeta" y en cualquier subcarpeta anidada)
+      if(e.dataTransfer.files && e.dataTransfer.files.length){
+        manejarDropDeArchivosExternos([...e.dataTransfer.files], body.dataset.carpetaDrop);
+        return;
+      }
       const idxArrastrado = Number(e.dataTransfer.getData('text/plain'));
       moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, Infinity);
       carpetasVacias.delete(body.dataset.carpetaDrop);
@@ -2263,6 +2275,31 @@ function despuesDeSubirPlantillas(indices, carpetas){
   renderMatrixTplSelector();
   renderMatrix();
 }
+
+/**
+ * Soltar uno o varios archivos del escritorio de la computadora directo
+ * encima de una carpeta ya creada en el tablero: los crea como plantillas
+ * ahí mismo, sin tener que escribir antes el nombre de la carpeta y usar el
+ * botón "Subir diseños". `carpetaDestino` es la ruta exacta de la carpeta
+ * (o '' para "Sin carpeta").
+ */
+async function manejarDropDeArchivosExternos(archivos, carpetaDestino){
+  const etiqueta = carpetaDestino ? etiquetaCarpeta(carpetaDestino) : 'Sin carpeta';
+  const el = document.getElementById('tplMsg');
+  el.textContent = `Subiendo ${archivos.length} archivo(s) a «${etiqueta}»…`;
+  const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpetaDestino);
+  despuesDeSubirPlantillas(indices, carpetaDestino);
+  el.textContent = indices.length
+    ? `${indices.length} plantilla(s) creada(s) directo en «${etiqueta}» ✓.` +
+      (fallos ? ` ${fallos} archivo(s) con error.` : '') +
+      (ignorados ? ` ${ignorados} archivo(s) se ignoraron por no ser PNG, JPG ni PDF.` : '')
+    : 'Ninguno de los archivos soltados era un PNG, JPG o PDF válido.';
+}
+
+// Sin esto, si el arrastre cae fuera de una carpeta (o falla algo), el
+// navegador intenta "abrir" el archivo y navega fuera de la página.
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
 
 document.getElementById('btnSubirDisenos').addEventListener('click', () => {
   const carpeta = document.getElementById('nuevaCarpetaNombre').value.trim();
