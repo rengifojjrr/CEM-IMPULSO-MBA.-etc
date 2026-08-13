@@ -300,7 +300,7 @@
         <span class="hint">desde</span>
         <select id="selOrigenMasivo" style="flex:1;min-width:180px;"></select>
         <button class="btn gold" id="btnCopiarEstiloMasivo">Copiar a toda la carpeta</button>
-        <button type="button" class="ayuda-btn" data-ayuda-texto="Aplica de una sola vez los mismos campos —textos, imágenes con su archivo, códigos QR, márgenes, tipografías y opacidades— de la plantilla elegida a TODAS las plantillas de la carpeta que selecciones, y las guarda de una vez. Útil recién creaste varias plantillas para un diplomado y quieres arrancarlas todas desde el mismo diseño. El fondo de cada certificado no se toca.">?</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Aplica de una sola vez los mismos campos —textos, imágenes con su archivo, códigos QR, márgenes, tipografías y opacidades— de la plantilla elegida a TODAS las plantillas de la carpeta que selecciones, y las guarda de una vez. Útil recién creaste varias plantillas para un diplomado y quieres arrancarlas todas desde el mismo diseño. El fondo de cada certificado no se toca. Además te pregunta aparte si también quieres copiar los valores fijos de esa plantilla (por ejemplo una Fecha puesta a mano) a las demás, o si cada una debe conservar los suyos.">?</button>
       </div>
 
       <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;align-items:center;">
@@ -1371,6 +1371,21 @@ document.getElementById('btnCopiarEstiloMasivo').addEventListener('click', async
   const nombreCarpeta = carpetaDestino || 'Sin carpeta';
   if(!confirm(`Se reemplazarán los campos de las ${destinos.length} plantilla(s) de «${nombreCarpeta}» por los de «${origen.nombre}», y se guardan de una vez.\n\nEl fondo de cada certificado no se toca. ¿Continuar?`)) return;
 
+  // Los "valores fijos" (overrides) son aparte del diseño de los campos: p.ej. una
+  // Fecha puesta a mano SOLO para esa plantilla, sin tocar el Excel. Como es algo
+  // propio de cada plantilla y no del diseño visual, se pregunta por separado en
+  // vez de arrastrarlo siempre junto con "copiar estilo".
+  const fijosOrigen = origen.config.overrides || {};
+  const nFijosOrigen = Object.keys(fijosOrigen).length;
+  const detalleFijos = nFijosOrigen
+    ? ` Tiene ${nFijosOrigen}: ${Object.entries(fijosOrigen).map(([k, v]) => `${k}=${v}`).join(', ')}.`
+    : ' No tiene ninguno puesto.';
+  const copiarFijos = confirm(
+    `¿También quieres copiar los valores fijos de «${origen.nombre}» a las demás plantillas de «${nombreCarpeta}»?${detalleFijos}\n\n` +
+    `Aceptar: se reemplazan los valores fijos que ya tuviera cada plantilla, por los de «${origen.nombre}».\n` +
+    `Cancelar: cada plantilla conserva sus propios valores fijos; solo se copia el diseño de los campos.`
+  );
+
   const btn = document.getElementById('btnCopiarEstiloMasivo');
   btn.disabled = true;
   let ok = 0, fallos = 0;
@@ -1378,6 +1393,7 @@ document.getElementById('btnCopiarEstiloMasivo').addEventListener('click', async
     // copia profunda: cada plantilla debe quedar con sus propios objetos, si
     // no, mover un campo en una movería también el de las demás
     t.config.fields = JSON.parse(JSON.stringify(origen.config.fields || []));
+    if(copiarFijos) t.config.overrides = JSON.parse(JSON.stringify(fijosOrigen));
     normalizarConfig(t.config);
     const { data, error } = await supabase.rpc('save_cert_template', { p_id: t.id, p_nombre: t.nombre, p_config: t.config });
     if(error){ fallos++; continue; }
@@ -2644,6 +2660,13 @@ function renderMatrixTplSelector(){
     const ti = Number(cb.dataset.matrixTpl);
     if(cb.checked){
       matrixTemplateSelection.add(ti);
+      // Activar una plantilla para la generación la asigna de una vez a TODOS
+      // los estudiantes de la lista (lo mismo que marcar "todos" en su columna
+      // de la Matriz): es el caso normal — casi siempre todos reciben el mismo
+      // certificado — y evita el doble paso de venir aquí y luego ir a la
+      // Matriz a marcar cada columna. Quien quiera dejarla fuera para algún
+      // estudiante puntual puede desmarcar esa celda a mano después.
+      for(const set of assignment) set.add(ti);
     } else {
       matrixTemplateSelection.delete(ti);
       // Si se quita una plantilla de esta generación, también se limpian las
@@ -2659,7 +2682,7 @@ function renderMatrixTplSelector(){
     const carpeta = cb.dataset.matrixCarpeta;
     templatesFull.forEach((t, i) => {
       if((t.config.carpeta || '').trim() !== carpeta) return;
-      if(cb.checked) matrixTemplateSelection.add(i);
+      if(cb.checked){ matrixTemplateSelection.add(i); for(const set of assignment) set.add(i); }
       else { matrixTemplateSelection.delete(i); for(const set of assignment) set.delete(i); }
     });
     renderMatrixTplSelector();
@@ -2669,6 +2692,11 @@ function renderMatrixTplSelector(){
 
 function renderMatrix(){
   const wrap = document.getElementById('matrixWrap');
+  // Al marcar una casilla se vuelve a construir toda la tabla desde cero, y
+  // con eso el navegador reinicia el scroll horizontal a 0: sin guardar y
+  // restaurar aquí, cada clic manda la vista de vuelta al borde izquierdo y
+  // hay que volver a desplazarse para ver el resto de las columnas.
+  const scrollPrevio = wrap.querySelector('.matrix-wrap')?.scrollLeft || 0;
   if(!rows.length){
     wrap.innerHTML = '<p class="hint">Importa graduados arriba para poder asignarles certificados.</p>';
     return;
@@ -2705,6 +2733,7 @@ function renderMatrix(){
       </tr>`).join('')}
     </tbody>
   </table></div>`;
+  wrap.querySelector('.matrix-wrap').scrollLeft = scrollPrevio;
   wrap.querySelectorAll('[data-bulk]').forEach(cb => cb.addEventListener('change', () => {
     const ti = Number(cb.dataset.bulk);
     for(let ri = 0; ri < rows.length; ri++){
