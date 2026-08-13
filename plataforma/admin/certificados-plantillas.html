@@ -198,6 +198,10 @@
   .carpeta-accion:hover{background:rgba(0,0,0,.08);color:var(--navy);}
   .carpeta-card-body{padding:8px;display:flex;flex-wrap:wrap;gap:8px;min-height:38px;align-content:flex-start;}
   .carpeta-card-body.drag-over{background:#e7f7f0;outline:2px dashed var(--teal);outline-offset:-2px;}
+  /* carpetas dentro de carpetas: la subcarpeta ocupa todo el ancho de su padre,
+     apiladas verticalmente, con una guía punteada que marca el nivel */
+  .carpeta-subcarpetas{display:flex;flex-direction:column;gap:8px;margin:8px 0 0;padding:8px 0 0 12px;border-left:2px dashed var(--border);}
+  .carpeta-card--anidada{width:100%;max-width:none;min-width:0;flex:none;}
   .plantilla-chip{position:relative;display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);
     background:#fff;border-radius:7px;padding:5px;font-size:11px;cursor:grab;width:104px;}
   .plantilla-chip-img{width:100%;height:60px;object-fit:cover;border-radius:4px;background:#eef2f6;
@@ -268,15 +272,15 @@
 
       <div class="row" style="align-items:center;margin:12px 0 4px;">
         <b style="font-size:13px;">Carpetas</b>
-        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta. Marca la casilla de una o varias fichas para borrarlas de verdad de una sola vez con «Eliminar seleccionadas».">?</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Agrupa varias plantillas que van juntas, por ejemplo los 8 certificados de un mismo diplomado. Arrastra una plantilla a la carpeta donde quieras que quede, o suéltala entre dos para ubicarla ahí — ese es el orden en que sale en el selector, en la Matriz y en el ZIP de cada estudiante. Haz clic en una plantilla para abrirla y editarla, y en la cabecera de una carpeta para plegarla. Con ✎ le cambias el nombre (o la ruta completa, para moverla) y con 🗑 la eliminas: las plantillas que tenía NO se borran, sólo quedan sin carpeta. Con 📁+ creas una subcarpeta dentro. También puedes escribir rutas con / para anidar, por ejemplo «Diplomados/Cohorte 2026/Módulo 1». Marca la casilla de una o varias fichas para borrarlas de verdad de una sola vez con «Eliminar seleccionadas».">?</button>
         <span style="flex:1;"></span>
-        <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta de la plantilla abierta" style="min-width:200px;">
+        <input type="text" id="carpetaPlantilla" list="listaCarpetas" placeholder="Carpeta de la plantilla abierta (usa / para anidar)" style="min-width:220px;">
         <datalist id="listaCarpetas"></datalist>
         <span class="campo-orden" id="ordenCarpetaWrap" title="Orden dentro de la carpeta">
           <button class="mini" type="button" id="btnSubirCarpeta">&#9650;</button>
           <button class="mini" type="button" id="btnBajarCarpeta">&#9660;</button>
         </span>
-        <input type="text" id="nuevaCarpetaNombre" list="listaCarpetas" placeholder="Carpeta nueva o existente" style="max-width:190px;">
+        <input type="text" id="nuevaCarpetaNombre" list="listaCarpetas" placeholder="Carpeta nueva o existente (usa / para anidar)" style="max-width:220px;">
         <button class="btn outline small" id="btnNuevaCarpeta">+ Crear vacía</button>
       </div>
       <div class="row" style="align-items:center;margin:0 0 6px;">
@@ -754,9 +758,36 @@ async function loadTemplates(){
 }
 
 /**
- * Agrupa una lista de plantillas por carpeta. Las que no tienen carpeta van
- * primero, sueltas (así nadie que no use esta función nota ningún cambio);
- * las carpetas van después, en orden alfabético.
+ * Carpetas dentro de carpetas: una "carpeta" es sólo texto, y "/" separa
+ * niveles ("Diplomados/Cohorte 2026/Módulo 1"). normalizarRutaCarpeta limpia
+ * espacios sueltos y barras dobles para que esa ruta sea siempre la misma
+ * clave, la escriba quien la escriba a mano o venga de una carpeta real del
+ * sistema de archivos.
+ */
+function normalizarRutaCarpeta(ruta){
+  return String(ruta ?? '').split('/').map(s => s.trim()).filter(Boolean).join('/');
+}
+
+/**
+ * Si `ruta` es exactamente `desde` o vive dentro de esa carpeta, la traslada
+ * a `hacia` (conservando lo que tuviera debajo). Si `hacia` es '' y `ruta`
+ * era una subcarpeta de `desde`, la sube un nivel en vez de dejarla huérfana
+ * (p.ej. borrar "A" deja "A/B" convertida en sólo "B", no la manda a ciegas
+ * a "Sin carpeta"). Cualquier otra ruta que no toque `desde` sale intacta.
+ * La usan tanto renombrar/mover como eliminar una carpeta.
+ */
+function trasladarRuta(ruta, desde, hacia){
+  if(ruta === desde) return hacia;
+  if(ruta.startsWith(desde + '/')) return hacia ? hacia + ruta.slice(desde.length) : ruta.slice(desde.length + 1);
+  return ruta;
+}
+
+/**
+ * Agrupa una lista de plantillas por carpeta (ruta completa exacta, tal cual
+ * "Diplomados/2026"). Las que no tienen carpeta van primero, sueltas (así
+ * nadie que no use esta función nota ningún cambio); las carpetas van
+ * después, en orden alfabético. Para pintar el árbol de carpetas dentro de
+ * carpetas ver construirArbolCarpetas(), que arma esto en niveles.
  * `excluirIdx` se usa en el selector de "copiar estilos", que no debe
  * ofrecerse a sí mismo como origen.
  */
@@ -765,7 +796,7 @@ function agruparPorCarpeta(lista, excluirIdx){
   const sinCarpeta = [];
   lista.forEach((t, i) => {
     if(i === excluirIdx) return;
-    const c = (t.config.carpeta || '').trim();
+    const c = normalizarRutaCarpeta(t.config.carpeta);
     if(!c){ sinCarpeta.push({ t, i }); return; }
     if(!porCarpeta.has(c)) porCarpeta.set(c, []);
     porCarpeta.get(c).push({ t, i });
@@ -780,11 +811,29 @@ function agruparPorCarpeta(lista, excluirIdx){
   return grupos;
 }
 
-/** Nombres de carpeta ya usados en alguna plantilla, para el autocompletar. */
+/**
+ * Rutas de carpeta ya usadas, para el autocompletar: incluye tanto las
+ * rutas completas ("Diplomados/2026") como cada nivel intermedio
+ * ("Diplomados" sola), para poder elegir o escribir un nivel padre aunque
+ * ninguna plantilla viva ahí directamente.
+ */
 function carpetasExistentes(){
   const set = new Set();
-  for(const t of templatesFull){ const c = (t.config.carpeta || '').trim(); if(c) set.add(c); }
+  const registrar = ruta => {
+    let acumulado = '';
+    for(const seg of normalizarRutaCarpeta(ruta).split('/').filter(Boolean)){
+      acumulado = acumulado ? `${acumulado}/${seg}` : seg;
+      set.add(acumulado);
+    }
+  };
+  for(const t of templatesFull) registrar(t.config.carpeta);
+  for(const c of carpetasVacias) registrar(c);
   return [...set].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+/** Texto legible de una ruta de carpeta para mostrar en selectores y encabezados. */
+function etiquetaCarpeta(ruta){
+  return ruta.split('/').join(' › ');
 }
 
 /** Próximo valor de "orden" para que una plantilla se sume al final de esa carpeta. */
@@ -885,44 +934,100 @@ async function eliminarPlantillasSeleccionadas(){
   actualizarBarraSeleccionMasiva();
 }
 
-/** Tablero visual de carpetas: cada una es una tarjeta plegable con miniaturas de los certificados. */
-function renderCarpetasBoard(){
-  const wrap = document.getElementById('carpetasBoard');
-  if(!wrap) return;
-  const grupos = agruparPorCarpeta(templatesFull);
-  for(const c of carpetasVacias){
-    if(!grupos.some(g => g.carpeta === c)) grupos.push({ carpeta: c, items: [] });
+/**
+ * Arma el árbol de carpetas dentro de carpetas: parte de los grupos por ruta
+ * exacta (agruparPorCarpeta) y de las carpetas creadas vacías, y va creando
+ * un nodo por cada segmento de la ruta ("Diplomados/2026" crea el nodo
+ * "Diplomados" con un hijo "2026" adentro), aunque ese nivel intermedio no
+ * tenga ninguna plantilla puesta directamente ahí.
+ */
+function construirArbolCarpetas(){
+  const raiz = { nombre: '', ruta: '', items: [], hijos: new Map() };
+  let sinCarpetaItems = [];
+  function nodoEn(ruta){
+    let actual = raiz, rutaParcial = '';
+    for(const seg of ruta.split('/')){
+      rutaParcial = rutaParcial ? `${rutaParcial}/${seg}` : seg;
+      if(!actual.hijos.has(seg)) actual.hijos.set(seg, { nombre: seg, ruta: rutaParcial, items: [], hijos: new Map() });
+      actual = actual.hijos.get(seg);
+    }
+    return actual;
   }
-  grupos.sort((a, b) => a.carpeta === '' ? -1 : b.carpeta === '' ? 1 : a.carpeta.localeCompare(b.carpeta, 'es'));
+  for(const g of agruparPorCarpeta(templatesFull)){
+    if(!g.carpeta){ sinCarpetaItems = g.items; continue; }
+    nodoEn(g.carpeta).items = g.items;
+  }
+  for(const c of carpetasVacias) if(c) nodoEn(c);
+  return { raiz, sinCarpetaItems };
+}
 
-  wrap.innerHTML = grupos.map(g => {
-    const colapsada = carpetasColapsadas.has(g.carpeta);
-    return `
-    <div class="carpeta-card ${g.carpeta ? '' : 'sin-carpeta'}">
-      <div class="carpeta-card-head" data-carpeta-toggle="${escapeHtml(g.carpeta)}">
-        <span>${g.carpeta ? `📁 ${escapeHtml(g.carpeta)}` : 'Sin carpeta'}</span>
+/** Total de plantillas de una carpeta MÁS todas sus subcarpetas, para el número del encabezado. */
+function contarItemsSubarbol(nodo){
+  let n = nodo.items.length;
+  for(const hijo of nodo.hijos.values()) n += contarItemsSubarbol(hijo);
+  return n;
+}
+
+function plantillaChipHtml(t, i){
+  return `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''} ${plantillasSeleccionadas.has(i) ? 'marcada' : ''}" draggable="true"
+      data-plantilla-chip="${i}" title="${escapeHtml(t.nombre)}">
+      <input type="checkbox" class="plantilla-chip-check" data-plantilla-check="${i}" title="Marcar para eliminar en bloque"
+        ${plantillasSeleccionadas.has(i) ? 'checked' : ''}>
+      <img class="plantilla-chip-img" src="${t.config.background || ''}" alt="">
+      <span class="plantilla-chip-nombre">${escapeHtml(t.nombre)}</span>
+    </div>`;
+}
+
+/** Una carpeta del árbol: su propia ficha, con sus subcarpetas anidadas adentro antes de sus propias plantillas. */
+function carpetaNodoHtml(nodo, anidada){
+  const colapsada = carpetasColapsadas.has(nodo.ruta);
+  const hijos = [...nodo.hijos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  return `
+    <div class="carpeta-card ${anidada ? 'carpeta-card--anidada' : ''}">
+      <div class="carpeta-card-head" data-carpeta-toggle="${escapeHtml(nodo.ruta)}">
+        <span>📁 ${escapeHtml(nodo.nombre)}</span>
         <span class="carpeta-card-acciones">
-          ${g.carpeta ? `
-            <button type="button" class="carpeta-accion" data-carpeta-renombrar="${escapeHtml(g.carpeta)}" title="Renombrar esta carpeta">✎</button>
-            <button type="button" class="carpeta-accion" data-carpeta-eliminar="${escapeHtml(g.carpeta)}" title="Eliminar esta carpeta">🗑</button>
-          ` : ''}
-          <span class="hint">${g.items.length}</span>
+          <button type="button" class="carpeta-accion" data-carpeta-subcarpeta="${escapeHtml(nodo.ruta)}" title="Crear una subcarpeta aquí dentro">📁+</button>
+          <button type="button" class="carpeta-accion" data-carpeta-renombrar="${escapeHtml(nodo.ruta)}" title="Renombrar o mover esta carpeta">✎</button>
+          <button type="button" class="carpeta-accion" data-carpeta-eliminar="${escapeHtml(nodo.ruta)}" title="Eliminar esta carpeta">🗑</button>
+          <span class="hint">${contarItemsSubarbol(nodo)}</span>
           <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span>
         </span>
       </div>
-      <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(g.carpeta)}" style="${colapsada ? 'display:none;' : ''}">
-        ${g.items.map(({ t, i }) => `<div class="plantilla-chip ${i === currentIdx ? 'sel' : ''} ${plantillasSeleccionadas.has(i) ? 'marcada' : ''}" draggable="true"
-            data-plantilla-chip="${i}" title="${escapeHtml(t.nombre)}">
-            <input type="checkbox" class="plantilla-chip-check" data-plantilla-check="${i}" title="Marcar para eliminar en bloque"
-              ${plantillasSeleccionadas.has(i) ? 'checked' : ''}>
-            <img class="plantilla-chip-img" src="${t.config.background || ''}" alt="">
-            <span class="plantilla-chip-nombre">${escapeHtml(t.nombre)}</span>
-          </div>`).join('')}
-        ${!g.items.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
+      <div class="carpeta-card-contenido" style="${colapsada ? 'display:none;' : ''}">
+        ${hijos.length ? `<div class="carpeta-subcarpetas">${hijos.map(h => carpetaNodoHtml(h, true)).join('')}</div>` : ''}
+        <div class="carpeta-card-body" data-carpeta-drop="${escapeHtml(nodo.ruta)}">
+          ${nodo.items.map(({ t, i }) => plantillaChipHtml(t, i)).join('')}
+          ${!nodo.items.length && !hijos.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+/** Tablero visual de carpetas: cada una es una tarjeta plegable con miniaturas de los certificados, y puede tener subcarpetas adentro. */
+function renderCarpetasBoard(){
+  const wrap = document.getElementById('carpetasBoard');
+  if(!wrap) return;
+  const { raiz, sinCarpetaItems } = construirArbolCarpetas();
+  const colapsadaSinCarpeta = carpetasColapsadas.has('');
+  const nodosRaiz = [...raiz.hijos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+  wrap.innerHTML = `
+    <div class="carpeta-card sin-carpeta">
+      <div class="carpeta-card-head" data-carpeta-toggle="">
+        <span>Sin carpeta</span>
+        <span class="carpeta-card-acciones">
+          <span class="hint">${sinCarpetaItems.length}</span>
+          <span class="carpeta-flecha">${colapsadaSinCarpeta ? '▸' : '▾'}</span>
+        </span>
+      </div>
+      <div class="carpeta-card-body" data-carpeta-drop="" style="${colapsadaSinCarpeta ? 'display:none;' : ''}">
+        ${sinCarpetaItems.map(({ t, i }) => plantillaChipHtml(t, i)).join('')}
+        ${!sinCarpetaItems.length ? '<span class="hint">arrastra aquí una plantilla</span>' : ''}
       </div>
     </div>
+    ${nodosRaiz.map(n => carpetaNodoHtml(n, false)).join('')}
   `;
-  }).join('');
 
   wrap.querySelectorAll('[data-plantilla-check]').forEach(cb => {
     cb.addEventListener('click', e => e.stopPropagation());   // que no abra la plantilla ni arrastre
@@ -940,30 +1045,47 @@ function renderCarpetasBoard(){
     renderCarpetasBoard();
   }));
 
+  wrap.querySelectorAll('[data-carpeta-subcarpeta]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const padre = btn.dataset.carpetaSubcarpeta;
+    const nombre = prompt(`Nombre de la nueva subcarpeta dentro de "${padre}":`);
+    if(nombre === null) return;
+    const limpio = normalizarRutaCarpeta(nombre);
+    if(!limpio) return;
+    carpetasVacias.add(`${padre}/${limpio}`);
+    carpetasColapsadas.delete(padre);   // para que se vea de una vez la subcarpeta recién creada
+    renderCarpetasBoard();
+  }));
   wrap.querySelectorAll('[data-carpeta-renombrar]').forEach(btn => btn.addEventListener('click', e => {
     e.stopPropagation();   // que no dispare también el plegado de la cabecera
     const actual = btn.dataset.carpetaRenombrar;
-    const nuevo = prompt(`Nuevo nombre para la carpeta "${actual}":`, actual);
+    const nuevo = prompt(`Nuevo nombre o ruta para "${actual}" (escribe algo con / para moverla a otro lugar del árbol):`, actual);
     if(nuevo === null) return;
-    const limpio = nuevo.trim();
+    const limpio = normalizarRutaCarpeta(nuevo);
     if(!limpio || limpio === actual) return;
-    if(carpetasExistentes().includes(limpio) && !confirm(`Ya existe una carpeta "${limpio}". ¿Fusionar "${actual}" con ella?`)) return;
-    templatesFull.forEach(t => { if((t.config.carpeta || '').trim() === actual) t.config.carpeta = limpio; });
-    if(carpetasVacias.has(actual)){ carpetasVacias.delete(actual); carpetasVacias.add(limpio); }
-    if(carpetasColapsadas.has(actual)){ carpetasColapsadas.delete(actual); carpetasColapsadas.add(limpio); }
+    if(carpetasExistentes().includes(limpio) && !confirm(`Ya existe una carpeta "${limpio}". ¿Fusionar "${actual}" con ella (junto con sus subcarpetas, si tiene)?`)) return;
+    templatesFull.forEach(t => { t.config.carpeta = trasladarRuta(normalizarRutaCarpeta(t.config.carpeta), actual, limpio); });
+    carpetasVacias = new Set([...carpetasVacias].map(c => trasladarRuta(c, actual, limpio)).filter(Boolean));
+    carpetasColapsadas = new Set([...carpetasColapsadas].map(c => trasladarRuta(c, actual, limpio)));
     renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
   }));
   wrap.querySelectorAll('[data-carpeta-eliminar]').forEach(btn => btn.addEventListener('click', e => {
     e.stopPropagation();
     const nombre = btn.dataset.carpetaEliminar;
-    const n = templatesFull.filter(t => (t.config.carpeta || '').trim() === nombre).length;
-    const aviso = n
-      ? `¿Eliminar la carpeta "${nombre}"? Sus ${n} plantilla(s) NO se borran, sólo quedan "Sin carpeta" (puedes arrastrarlas a otra carpeta después). Si además quieres borrar esas plantillas, hazlo una por una con "Eliminar" en el editor de arriba.`
-      : `¿Eliminar la carpeta vacía "${nombre}"?`;
+    const enSubarbol = templatesFull.filter(t => {
+      const c = normalizarRutaCarpeta(t.config.carpeta);
+      return c === nombre || c.startsWith(nombre + '/');
+    }).length;
+    const tieneSubcarpetas = carpetasExistentes().some(c => c !== nombre && c.startsWith(nombre + '/'));
+    const aviso = enSubarbol
+      ? `¿Eliminar la carpeta "${nombre}"? Sus ${enSubarbol} plantilla(s) NO se borran: las que estaban directo ahí quedan "Sin carpeta"${tieneSubcarpetas ? `, y las de sus subcarpetas suben un nivel (por ejemplo "${nombre}/Módulo 1" pasa a llamarse sólo "Módulo 1")` : ''}. Si además quieres borrar esas plantillas, hazlo una por una con "Eliminar" en el editor de arriba.`
+      : tieneSubcarpetas
+        ? `¿Eliminar la carpeta vacía "${nombre}"? Sus subcarpetas suben un nivel.`
+        : `¿Eliminar la carpeta vacía "${nombre}"?`;
     if(!confirm(aviso)) return;
-    templatesFull.forEach(t => { if((t.config.carpeta || '').trim() === nombre) t.config.carpeta = ''; });
-    carpetasVacias.delete(nombre);
-    carpetasColapsadas.delete(nombre);
+    templatesFull.forEach(t => { t.config.carpeta = trasladarRuta(normalizarRutaCarpeta(t.config.carpeta), nombre, ''); });
+    carpetasVacias = new Set([...carpetasVacias].map(c => trasladarRuta(c, nombre, '')).filter(Boolean));
+    carpetasColapsadas = new Set([...carpetasColapsadas].map(c => trasladarRuta(c, nombre, '')).filter(Boolean));
     renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
   }));
 
@@ -1010,7 +1132,7 @@ function renderCarpetasBoard(){
 
 document.getElementById('btnNuevaCarpeta').addEventListener('click', () => {
   const inp = document.getElementById('nuevaCarpetaNombre');
-  const nombre = inp.value.trim();
+  const nombre = normalizarRutaCarpeta(inp.value);
   if(!nombre) return;
   carpetasVacias.add(nombre);
   inp.value = '';
@@ -1022,7 +1144,7 @@ function renderTemplateSelector(){
   const grupos = agruparPorCarpeta(templatesFull);
   sel.innerHTML = grupos.map(g => {
     const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
-    return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+    return g.carpeta ? `<optgroup label="${escapeHtml(etiquetaCarpeta(g.carpeta))}">${opts}</optgroup>` : opts;
   }).join('');
   sel.value = currentIdx;
   document.getElementById('nombrePlantilla').value = templatesFull[currentIdx].nombre;
@@ -1091,9 +1213,10 @@ document.getElementById('carpetaPlantilla').addEventListener('input', e => {
 });
 document.getElementById('carpetaPlantilla').addEventListener('change', e => {
   const t = templatesFull[currentIdx];
-  const nueva = t.config.carpeta.trim();
-  const previa = (e.target.dataset.previo || '').trim();
+  const nueva = normalizarRutaCarpeta(t.config.carpeta);
+  const previa = normalizarRutaCarpeta(e.target.dataset.previo);
   t.config.carpeta = nueva;
+  e.target.value = nueva;   // refleja la normalización (espacios sueltos, / de más) en el propio campo
   // si de verdad cambió a otra carpeta (o se le puso una nueva), se suma al
   // final de esa carpeta; si sólo se retocó el nombre sin cambiar de carpeta,
   // no se toca el orden que ya tenía
@@ -1196,7 +1319,7 @@ function renderCopiarEstiloSelector(){
   sel.innerHTML = hayOtras
     ? grupos.map(g => {
         const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
-        return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+        return g.carpeta ? `<optgroup label="${escapeHtml(etiquetaCarpeta(g.carpeta))}">${opts}</optgroup>` : opts;
       }).join('')
     : '<option value="">— no hay otra plantilla —</option>';
   sel.disabled = !hayOtras;
@@ -1211,14 +1334,14 @@ function renderCopiaMasivaSelectores(){
   if(!selCarpeta || !selOrigen) return;
   const carpetas = carpetasExistentes();
   selCarpeta.innerHTML = carpetas.length
-    ? carpetas.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')
+    ? carpetas.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(etiquetaCarpeta(c))}</option>`).join('')
     : '<option value="">— crea primero una carpeta —</option>';
   selCarpeta.disabled = !carpetas.length;
 
   const grupos = agruparPorCarpeta(templatesFull);
   selOrigen.innerHTML = grupos.map(g => {
     const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
-    return g.carpeta ? `<optgroup label="${escapeHtml(g.carpeta)}">${opts}</optgroup>` : opts;
+    return g.carpeta ? `<optgroup label="${escapeHtml(etiquetaCarpeta(g.carpeta))}">${opts}</optgroup>` : opts;
   }).join('');
 
   btn.disabled = !carpetas.length;
@@ -2094,17 +2217,20 @@ document.getElementById('inputBg').addEventListener('change', async e => {
 });
 
 /**
- * Crea una plantilla nueva por cada archivo válido (PNG/JPG/PDF), todas en
- * la misma carpeta, con el nombre del archivo (sin extensión) como nombre
- * de la plantilla. Salen con los campos por defecto — para eso está
- * "Copiar a TODA una carpeta", que las deja a todas con el mismo diseño
- * de campos de una sola vez.
+ * Crea una plantilla nueva por cada archivo válido (PNG/JPG/PDF), con el
+ * nombre del archivo (sin extensión) como nombre de la plantilla. Salen con
+ * los campos por defecto — para eso está "Copiar a TODA una carpeta", que
+ * las deja a todas con el mismo diseño de campos de una sola vez.
+ * `obtenerCarpeta` puede ser una carpeta fija (texto) para todos los
+ * archivos, o una función `file => carpeta` cuando la carpeta de cada
+ * archivo depende de en qué subcarpeta venía dentro de la carpeta que se
+ * subió desde la computadora (carpetas dentro de carpetas reales).
  */
-async function crearPlantillasDesdeArchivos(archivos, carpeta){
-  const nombreCarpeta = (carpeta || '').trim();
+async function crearPlantillasDesdeArchivos(archivos, obtenerCarpeta){
+  const resolverCarpeta = typeof obtenerCarpeta === 'function' ? obtenerCarpeta : () => obtenerCarpeta;
   const validos = archivos
     .filter(f => /^image\/(png|jpeg)$|^application\/pdf$/.test(f.type))
-    .sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }));
+    .sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, 'es', { numeric: true }));
   const indices = [];
   let fallos = 0;
   for(const file of validos){
@@ -2114,8 +2240,8 @@ async function crearPlantillasDesdeArchivos(archivos, carpeta){
       cfg.background = background;
       cfg.bgWidth = bgWidth;
       cfg.bgHeight = bgHeight;
-      cfg.carpeta = nombreCarpeta;
-      cfg.orden = siguienteOrdenEnCarpeta(nombreCarpeta);
+      cfg.carpeta = normalizarRutaCarpeta(resolverCarpeta(file));
+      cfg.orden = siguienteOrdenEnCarpeta(cfg.carpeta);
       const nombre = file.name.replace(/\.[^./]+$/, '') || file.name;
       templatesFull.push({ id: null, nombre, config: cfg });
       indices.push(templatesFull.length - 1);
@@ -2124,10 +2250,12 @@ async function crearPlantillasDesdeArchivos(archivos, carpeta){
   return { indices, fallos, ignorados: archivos.length - validos.length };
 }
 
-function despuesDeSubirPlantillas(indices, carpeta){
+/** `carpetas` es una ruta (texto) o una lista de rutas, cuando la subida tocó varias subcarpetas a la vez. */
+function despuesDeSubirPlantillas(indices, carpetas){
   for(const i of indices) matrixTemplateSelection.add(i);
   if(indices.length){ currentIdx = indices[indices.length - 1]; config = templatesFull[currentIdx].config; }
-  carpetasVacias.delete((carpeta || '').trim());
+  const lista = Array.isArray(carpetas) ? carpetas : [carpetas];
+  for(const c of lista) carpetasVacias.delete(normalizarRutaCarpeta(c));
   renderTemplateSelector();
   renderTemplatePreview();
   renderMatrixTplSelector();
@@ -2140,7 +2268,7 @@ document.getElementById('btnSubirDisenos').addEventListener('click', () => {
   document.getElementById('inputSubirDisenos').click();
 });
 document.getElementById('inputSubirDisenos').addEventListener('change', async e => {
-  const carpeta = document.getElementById('nuevaCarpetaNombre').value.trim();
+  const carpeta = normalizarRutaCarpeta(document.getElementById('nuevaCarpetaNombre').value);
   const archivos = [...e.target.files];
   e.target.value = '';
   if(!archivos.length || !carpeta) return;
@@ -2148,7 +2276,7 @@ document.getElementById('inputSubirDisenos').addEventListener('change', async e 
   el.textContent = `Subiendo ${archivos.length} archivo(s)…`;
   const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpeta);
   despuesDeSubirPlantillas(indices, carpeta);
-  el.textContent = `${indices.length} plantilla(s) creada(s) en «${carpeta}» ✓.` +
+  el.textContent = `${indices.length} plantilla(s) creada(s) en «${etiquetaCarpeta(carpeta)}» ✓.` +
     (fallos ? ` ${fallos} archivo(s) con error.` : '') +
     (ignorados ? ` ${ignorados} archivo(s) se ignoraron por no ser PNG, JPG ni PDF.` : '') +
     ` Ahora puedes usar "Copiar a TODA una carpeta" para ponerles a todas el mismo diseño de campos.`;
@@ -2163,16 +2291,27 @@ document.getElementById('inputSubirCarpetaCompleta').addEventListener('change', 
   if(!archivos.length) return;
   // el nombre de la carpeta que se eligió en el explorador de archivos del
   // sistema es la primera parte de la ruta relativa de cualquiera de sus archivos
-  const carpeta = (archivos[0].webkitRelativePath || '').split('/')[0] || 'Carpeta subida';
+  const carpetaRaiz = (archivos[0].webkitRelativePath || '').split('/')[0] || 'Carpeta subida';
+  // si dentro de esa carpeta hay sub-subcarpetas (p.ej. "Diplomado 2026/Módulo 1/cert.png"),
+  // cada archivo hereda TODA su ruta de carpetas, no sólo el nombre de la carpeta raíz que
+  // se eligió: así "carpetas dentro de carpetas" del disco se reflejan igual aquí adentro.
+  const carpetaDeArchivo = file => {
+    const partes = (file.webkitRelativePath || '').split('/');
+    partes.pop();   // el último segmento es el nombre del archivo, no una carpeta
+    return normalizarRutaCarpeta(partes.join('/')) || normalizarRutaCarpeta(carpetaRaiz);
+  };
   const el = document.getElementById('tplMsg');
-  el.textContent = `Subiendo ${archivos.length} archivo(s) de "${carpeta}"…`;
-  const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpeta);
-  despuesDeSubirPlantillas(indices, carpeta);
+  el.textContent = `Subiendo ${archivos.length} archivo(s) de "${carpetaRaiz}"…`;
+  const { indices, fallos, ignorados } = await crearPlantillasDesdeArchivos(archivos, carpetaDeArchivo);
+  const carpetasTocadas = [...new Set(archivos.map(carpetaDeArchivo))];
+  despuesDeSubirPlantillas(indices, carpetasTocadas);
+  const huboSubcarpetas = carpetasTocadas.some(c => c.includes('/'));
   el.textContent = indices.length
-    ? `${indices.length} plantilla(s) creada(s) en «${carpeta}» a partir de la carpeta de tu computadora ✓.` +
+    ? `${indices.length} plantilla(s) creada(s) a partir de "${carpetaRaiz}" de tu computadora` +
+      (huboSubcarpetas ? ', respetando sus subcarpetas' : '') + ' ✓.' +
       (fallos ? ` ${fallos} archivo(s) con error.` : '') +
       (ignorados ? ` ${ignorados} archivo(s) se ignoraron por no ser PNG, JPG ni PDF.` : '')
-    : `No se encontró ningún PNG, JPG o PDF dentro de "${carpeta}".`;
+    : `No se encontró ningún PNG, JPG o PDF dentro de "${carpetaRaiz}".`;
 });
 
 document.getElementById('btnResetBg').addEventListener('click', () => {
@@ -2442,7 +2581,7 @@ function renderMatrixTplSelector(){
           ${g.carpeta ? `<div class="hint" style="font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px;cursor:pointer;"
               data-matrix-carpeta-toggle="${escapeHtml(g.carpeta)}">
             <span class="carpeta-flecha">${colapsada ? '▸' : '▾'}</span>
-            📁 ${escapeHtml(g.carpeta)}
+            📁 ${escapeHtml(etiquetaCarpeta(g.carpeta))}
             <span class="hint" style="font-weight:400;">(${g.items.length})</span>
             <label style="font-weight:400;margin-left:8px;" onclick="event.stopPropagation()">
               <input type="checkbox" data-matrix-carpeta="${escapeHtml(g.carpeta)}"
@@ -2507,7 +2646,7 @@ function renderMatrix(){
         const fijos = templatesFull[ti].config.overrides || {};
         const nFijos = Object.keys(fijos).length;
         const tituloFijos = nFijos ? `Valores fijos de esta plantilla: ${Object.entries(fijos).map(([k,v])=>`${k}=${v}`).join(', ')}` : '';
-        return `<th>${carpeta ? `<div class="carpeta-chip">📁 ${escapeHtml(carpeta)}</div>` : ''}
+        return `<th>${carpeta ? `<div class="carpeta-chip">📁 ${escapeHtml(etiquetaCarpeta(carpeta))}</div>` : ''}
           ${escapeHtml(templatesFull[ti].nombre)}
           ${nFijos ? `<br><span title="${escapeHtml(tituloFijos)}"
               style="display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:var(--teal);color:#fff;margin-top:2px;">✎ ${nFijos} fijo${nFijos>1?'s':''}</span>` : ''}
