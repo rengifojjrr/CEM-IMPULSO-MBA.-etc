@@ -18,6 +18,132 @@ export const initials = (a, b) => ((a || '?')[0] + (b ? b[0] : '')).toUpperCase(
 export const qs = (k) => new URLSearchParams(location.search).get(k);
 export const pct = (n) => `${Math.round(Number(n) || 0)}%`;
 
+/* ============ cómo se escribe el dinero ============
+   Una columna de cifras sólo se puede comparar de un vistazo si están alineadas
+   a la derecha y todos los dígitos ocupan lo mismo. Antes cada pantalla lo
+   resolvía a su manera —o no lo resolvía— y en la misma columna convivían
+   «2160,00 US$» y un «0» pelado. */
+
+/** Celda de dinero para una tabla: alineada, con dígitos de ancho fijo. */
+export const celdaMoney = (n, cur = 'USD') =>
+  `<td class="num">${n == null ? '—' : esc(money(n, cur))}</td>`;
+
+/** Un saldo: cuando no se debe nada lo dice con palabras, que es lo que importa. */
+export const saldo = (n, cur = 'USD') =>
+  (Number(n) || 0) <= 0 ? '<span class="chip ok">Al día</span>' : esc(money(n, cur));
+
+/** El mismo importe en bolívares y en dólares, con la tasa que se usó. */
+export function moneyBs(montoUsd, tasa, cur = 'USD') {
+  if (montoUsd == null) return '—';
+  const enUsd = money(montoUsd, cur);
+  if (!tasa || Number(tasa) <= 0) return enUsd;
+  const bs = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .format(Number(montoUsd) * Number(tasa));
+  return `${enUsd}<span class="tiny muted"> · ${bs} Bs a ${num(tasa)}</span>`;
+}
+
+/* ============ cómo se llaman las cosas ============
+   La base guarda `en_revision`, `verdadero_falso`, `pago movil`. Eso está bien
+   dentro de la base y muy mal en la pantalla: sin tildes, en minúscula y con
+   guiones bajos. Aquí está la traducción, en un solo sitio, para que la misma
+   cosa se llame igual en las 50 pantallas. */
+export const ETIQUETAS = {
+  // publicación de cursos, contenidos y evaluaciones
+  borrador: 'Borrador', en_revision: 'En revisión', publicado: 'Publicado',
+  pausado: 'En pausa', archivado: 'Archivado',
+  // modalidad
+  online: 'En línea', en_vivo: 'En vivo', presencial: 'Presencial', hibrido: 'Híbrido',
+  // nivel
+  basico: 'Básico', intermedio: 'Intermedio', avanzado: 'Avanzado',
+  // tipo de programa
+  masterclass: 'Masterclass', curso: 'Curso', programa: 'Programa',
+  diplomado: 'Diplomado', maestria: 'Maestría',
+  // cohortes
+  planificada: 'Planificada', inscripciones_abiertas: 'Inscripciones abiertas',
+  en_curso: 'En curso', finalizada: 'Finalizada', cancelada: 'Cancelada',
+  // inscripciones
+  pendiente: 'Pendiente', activa: 'Activa', suspendida: 'Suspendida', congelada: 'Congelada',
+  // cuotas
+  parcial: 'Pagada a medias', pagada: 'Pagada', vencida: 'Vencida',
+  anulada: 'Anulada', reembolsada: 'Reembolsada',
+  // pagos
+  reportado: 'En revisión', confirmado: 'Confirmado', rechazado: 'Rechazado',
+  transferencia: 'Transferencia', zelle: 'Zelle', paypal: 'PayPal', binance: 'Binance',
+  efectivo: 'Efectivo', 'pago movil': 'Pago móvil', pago_movil: 'Pago móvil', tarjeta: 'Tarjeta',
+  // lecciones y biblioteca
+  video: 'Vídeo', pdf: 'PDF', texto: 'Texto', enlace: 'Enlace', quiz: 'Cuestionario',
+  tarea: 'Tarea', excel: 'Excel', imagen: 'Imagen',
+  // evaluaciones y preguntas
+  examen: 'Examen', practica: 'Práctica', ensayo: 'Desarrollo',
+  multiple: 'Opción múltiple', verdadero_falso: 'Verdadero o falso', corta: 'Respuesta corta',
+  // entregas
+  en_progreso: 'En progreso', entregada: 'Entregada', calificada: 'Calificada', tarde: 'Entregada tarde',
+  // clases
+  programada: 'Programada', dictada: 'Dictada', reprogramada: 'Reprogramada',
+  // prioridad y dificultad
+  baja: 'Baja', media: 'Media', alta: 'Alta', urgente: 'Urgente',
+  // tickets
+  abierto: 'Abierto', en_proceso: 'En proceso', esperando: 'Esperando respuesta',
+  resuelto: 'Resuelto', cerrado: 'Cerrado',
+  acceso: 'Acceso', contenido: 'Contenido', pagos: 'Pagos',
+  certificados: 'Certificados', general: 'General',
+  // apelaciones
+  recibida: 'Recibida', en_analisis: 'En análisis', requiere_info: 'Falta información',
+  aceptada: 'Aceptada',
+  // comunicaciones
+  todos: 'Todos', estudiantes: 'Estudiantes', profesores: 'Profesores',
+  administrativos: 'Administrativos', plataforma: 'En la plataforma', email: 'Por correo',
+  ambos: 'Plataforma y correo',
+  // roles
+  estudiante: 'Estudiante', profesor: 'Profesor', coordinador: 'Coordinador',
+  cobranza: 'Cobranza', admin: 'Administrador', auditor: 'Auditor',
+  superadmin: 'Administrador general',
+};
+
+/** Qué puede hacer cada rol, para que asignarlo no sea adivinar. */
+export const QUE_HACE_EL_ROL = {
+  estudiante: 'Ve lo suyo: sus cursos, sus notas y sus pagos.',
+  profesor: 'Sólo los cursos que dicta. Pone notas y pasa asistencia.',
+  coordinador: 'Lo académico y lo administrativo. No cambia roles ni cuentas.',
+  cobranza: 'Sólo dinero: cuotas, pagos y estudiantes. Nada de cursos ni notas.',
+  admin: 'Todo, incluidos los roles y las cuentas.',
+  auditor: 'Lee todo y no puede escribir nada.',
+  superadmin: 'Todo, sin límites.',
+};
+
+/** El nombre en castellano de un valor guardado. Si no lo conoce, lo deja presentable. */
+export const etiqueta = (v) => {
+  if (v == null || v === '') return '—';
+  const k = String(v).trim();
+  if (ETIQUETAS[k]) return ETIQUETAS[k];
+  const suelto = k.replace(/_/g, ' ');
+  return suelto.charAt(0).toUpperCase() + suelto.slice(1);
+};
+
+/**
+ * Opciones de un desplegable, ya traducidas.
+ * `opciones(['borrador','publicado'], curso.estado)` en vez de repetir el map.
+ */
+export const opciones = (valores, seleccionado) => valores.map((v) =>
+  `<option value="${esc(v)}"${v === seleccionado ? ' selected' : ''}>${esc(etiqueta(v))}</option>`).join('');
+
+/** Igual que `chip`, pero traduciendo el valor. */
+export const chipEstado = (v, kind) => chip(etiqueta(v), kind);
+
+/* ============ fechas ============ */
+/** «hace 3 días», «ayer», «en 2 semanas» — cómo lo piensa la gente. */
+export function fdesde(d) {
+  if (!d) return '—';
+  const dias = Math.round((new Date(d) - new Date()) / 86400000);
+  const rtf = new Intl.RelativeTimeFormat('es-ES', { numeric: 'auto' });
+  if (Math.abs(dias) === 0) return 'hoy';
+  if (Math.abs(dias) < 30) return rtf.format(dias, 'day');
+  if (Math.abs(dias) < 365) return rtf.format(Math.round(dias / 30), 'month');
+  return fdate(d);
+}
+/** La fecha de siempre y, al lado, cuánto hace. */
+export const fdateRel = (d) => d ? `${fdate(d)}<span class="tiny muted"> · ${fdesde(d)}</span>` : '—';
+
 export function toast(msg, kind = '') {
   let host = $('#toasts');
   if (!host) { host = document.createElement('div'); host.id = 'toasts'; document.body.appendChild(host); }
@@ -30,6 +156,80 @@ export function toast(msg, kind = '') {
 }
 export const ok = (m) => toast(m, 'ok');
 export const fail = (m) => toast(m, 'err');
+
+/**
+ * Aviso de que algo salió bien, diciendo QUÉ salió bien y ofreciendo deshacerlo.
+ * Antes salía «Guardado» y desaparecía: si guardaste la fila equivocada no había
+ * forma de saberlo ni de volver atrás.
+ */
+export function okDeshacer(msg, deshacer) {
+  let host = $('#toasts');
+  if (!host) { host = document.createElement('div'); host.id = 'toasts'; document.body.appendChild(host); }
+  const el = document.createElement('div');
+  el.className = 'toast ok';
+  el.innerHTML = `<span class="material-symbols-outlined">check_circle</span>
+    <span class="grow">${esc(msg)}</span>
+    <button type="button" class="btn ghost sm deshacer">Deshacer</button>`;
+  host.appendChild(el);
+  const quitar = () => el.remove();
+  const plazo = setTimeout(quitar, 7000);   // más que un aviso normal: hay que poder leerlo y decidir
+  el.querySelector('.deshacer').addEventListener('click', async () => {
+    clearTimeout(plazo); quitar();
+    try { await deshacer(); toast('Deshecho'); }
+    catch (e) { fail(mensajeError(e, 'No se pudo deshacer.')); }
+  });
+}
+
+/**
+ * El botoncito «?» junto a una etiqueta: dos frases donde surge la duda, en vez
+ * de mandar a la persona al manual en otra pestaña.
+ */
+export const ayuda = (texto) =>
+  `<button type="button" class="ayuda-btn" data-ayuda="${esc(texto)}"
+     aria-label="Qué es esto">?</button>`;
+
+/** Conecta los «?» de un contenedor. Se llama solo en cada mount(). */
+export function montarAyudas(root = document) {
+  $$('[data-ayuda]', root).forEach((b) => {
+    if (b.dataset.listo) return;
+    b.dataset.listo = '1';
+    b.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const previo = $('.ayuda-globo');
+      if (previo) previo.remove();
+      const globo = document.createElement('div');
+      globo.className = 'ayuda-globo';
+      globo.textContent = b.dataset.ayuda;
+      document.body.appendChild(globo);
+      const r = b.getBoundingClientRect();
+      globo.style.top = `${r.bottom + window.scrollY + 6}px`;
+      globo.style.left = `${Math.max(8, Math.min(r.left + window.scrollX, innerWidth - 300))}px`;
+      const cerrar = (ev) => {
+        if (globo.contains(ev.target) || b.contains(ev.target)) return;
+        globo.remove(); document.removeEventListener('click', cerrar);
+      };
+      setTimeout(() => document.addEventListener('click', cerrar), 0);
+    });
+  });
+}
+
+/**
+ * Avisa antes de salir de un formulario con cambios sin guardar.
+ * Devuelve `{ tocado(), limpio() }` para marcar cuándo se guardó.
+ */
+export function vigilarCambiosSinGuardar(form) {
+  let sucio = false;
+  const marcar = () => { sucio = true; };
+  form.addEventListener('input', marcar);
+  form.addEventListener('change', marcar);
+  const avisar = (e) => { if (sucio) { e.preventDefault(); e.returnValue = ''; } };
+  window.addEventListener('beforeunload', avisar);
+  return {
+    tocado: () => sucio,
+    limpio: () => { sucio = false; },
+    soltar: () => window.removeEventListener('beforeunload', avisar),
+  };
+}
 
 /** Modal reutilizable. Devuelve el nodo; se cierra con .close() */
 export function modal({ title, body, footer, wide = false }) {
@@ -507,7 +707,27 @@ export async function mount(opts = {}) {
     return DETENER_LA_PAGINA;
   }
   renderShell(p, area, opts.active);
+  // Los «?» de ayuda y las cifras de dinero funcionan igual en todas las
+  // pantallas: se conectan aquí y no hay que acordarse en cada una.
+  montarAyudas(document);
   return p;
+}
+
+/**
+ * El camino hasta donde estás: Estudiantes › Ana Rodríguez › Pagos.
+ * Se llega a la misma ficha desde tres sitios y todas se veían igual, sin rastro
+ * de por dónde entraste ni forma de volver que no fuera el botón del navegador.
+ * @param {Array<[string,string]|string>} tramos  [texto, enlace] o sólo texto
+ */
+export function migas(tramos) {
+  return `<nav class="migas" aria-label="Dónde estás">${tramos.map((t, i) => {
+    const ultimo = i === tramos.length - 1;
+    const [txt, href] = Array.isArray(t) ? t : [t, null];
+    const sep = i ? '<span class="material-symbols-outlined sep">chevron_right</span>' : '';
+    return sep + (href && !ultimo
+      ? `<a href="${esc(href)}">${esc(txt)}</a>`
+      : `<span${ultimo ? ' aria-current="page"' : ''}>${esc(txt)}</span>`);
+  }).join('')}</nav>`;
 }
 
 export function homeFor(rol) {
@@ -535,13 +755,29 @@ function renderShell(p, area, active) {
     ? (p.rol === 'cobranza' ? 'Cobranza' : p.rol === 'auditor' ? 'Auditoría' : 'Portal institucional')
     : area === 'docente' ? 'Portal docente' : 'Portal del estudiante';
 
-  const sideHtml = nav.map(g => `
-    <div class="nav-group">
-      ${g.lbl ? `<div class="lbl">${g.lbl}</div>` : ''}
-      ${g.items.map(([href, ic, txt]) => `
+  /* El menú del administrador son 27 entradas en 7 grupos, y antes se veían los
+     7 abiertos a la vez: había que recorrer la lista entera con la vista para
+     encontrar cualquier cosa. Ahora sólo queda abierto el grupo de la pantalla
+     en la que estás; los demás se abren al pulsarlos y se recuerda cuáles. */
+  let abiertosGuardados = [];
+  try { abiertosGuardados = JSON.parse(localStorage.getItem('cemNavAbiertos') || '[]'); } catch {}
+  const conVariosGrupos = nav.filter(g => g.lbl).length > 1;
+
+  const sideHtml = nav.map((g, gi) => {
+    const tieneLaActiva = g.items.some(([href]) => href === active);
+    const abierto = !conVariosGrupos || tieneLaActiva || abiertosGuardados.includes(g.lbl);
+    return `
+    <div class="nav-group${abierto ? ' abierto' : ''}" data-grupo="${esc(g.lbl || gi)}">
+      ${g.lbl ? `<button type="button" class="lbl" aria-expanded="${abierto}">
+        <span>${g.lbl}</span>
+        <span class="material-symbols-outlined flecha">expand_more</span></button>` : ''}
+      <div class="nav-items">
+        ${g.items.map(([href, ic, txt]) => `
         <a class="nav-item ${active === href ? 'active' : ''}" href="${href}">
           <span class="material-symbols-outlined">${ic}</span><span>${txt}</span></a>`).join('')}
-    </div>`).join('');
+      </div>
+    </div>`;
+  }).join('');
 
   const shell = document.createElement('div');
   shell.className = 'shell';
@@ -583,6 +819,16 @@ function renderShell(p, area, active) {
   if (page) { $('#cemContent', shell).appendChild(page); page.classList.remove('hidden'); }
 
   $('#cemLogout').onclick = logout;
+
+  // Plegar y desplegar los grupos del menú, recordando cuáles quedaron abiertos.
+  $$('.nav-group .lbl', shell).forEach((btn) => btn.addEventListener('click', () => {
+    const grupo = btn.closest('.nav-group');
+    const abierto = grupo.classList.toggle('abierto');
+    btn.setAttribute('aria-expanded', String(abierto));
+    const abiertos = $$('.nav-group.abierto', shell).map(g => g.dataset.grupo);
+    try { localStorage.setItem('cemNavAbiertos', JSON.stringify(abiertos)); } catch {}
+  }));
+
   const sidebar = $('#cemSidebar');
   $('#cemMenu').onclick = () => {
     sidebar.classList.add('open');
@@ -693,8 +939,74 @@ export function chip(txt, kind) {
   const k = kind || CHIP_MAP[String(txt).toLowerCase()] || 'neutral';
   return `<span class="chip ${k}">${esc(String(txt).replace(/_/g, ' '))}</span>`;
 }
-export function emptyRow(cols, msg = 'Sin resultados.') {
-  return `<tr><td colspan="${cols}"><div class="empty">${esc(msg)}</div></td></tr>`;
+/**
+ * Fila de tabla vacía. Con `accion` ofrece por dónde empezar, en vez de dejar a
+ * la persona en un callejón: eran 41 mensajes de «no hay nada» y sólo uno decía
+ * qué hacer a continuación.
+ * @param {{texto:string, id:string, icono?:string}} [accion]
+ */
+export function emptyRow(cols, msg = 'Sin resultados.', accion = null) {
+  const boton = accion ? `<button class="btn sm" id="${esc(accion.id)}" style="margin-top:10px">
+      <span class="material-symbols-outlined">${esc(accion.icono || 'add')}</span>
+      ${esc(accion.texto)}</button>` : '';
+  return `<tr><td colspan="${cols}"><div class="empty">${esc(msg)}${boton}</div></td></tr>`;
+}
+
+/* ============ ordenar una tabla pulsando su encabezado ============
+   Ninguna tabla se podía ordenar: para saber quién debía más había que
+   exportar a Excel y ordenar allí. */
+
+/**
+ * Hace ordenable una tabla ya dibujada.
+ * @param {string} sel        selector de la <table>
+ * @param {Function} redibujar  se llama con ({campo, asc}) para repintar
+ * @param {{campo:string, asc:boolean}} estado  el orden actual
+ *
+ * Los `<th>` participan si traen `data-ord="campo"`.
+ */
+export function ordenable(sel, estado, redibujar) {
+  const tabla = $(sel);
+  if (!tabla) return;
+  $$('th[data-ord]', tabla).forEach((th) => {
+    const campo = th.dataset.ord;
+    th.classList.add('ordenable');
+    if (estado.campo === campo) th.classList.add(estado.asc ? 'asc' : 'desc');
+    th.setAttribute('role', 'button');
+    th.setAttribute('tabindex', '0');
+    th.title = `Ordenar por ${th.textContent.trim().toLowerCase()}`;
+    const pulsar = () => {
+      if (estado.campo === campo) estado.asc = !estado.asc;
+      else { estado.campo = campo; estado.asc = true; }
+      redibujar(estado);
+    };
+    th.addEventListener('click', pulsar);
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pulsar(); }
+    });
+  });
+}
+
+/** Ordena una lista por el campo indicado, con números y fechas bien tratados. */
+export function ordenarPor(lista, { campo, asc }) {
+  if (!campo) return lista;
+  const valor = (o) => campo.split('.').reduce((x, k) => x?.[k], o);
+  return [...lista].sort((a, b) => {
+    const x = valor(a), y = valor(b);
+    if (x == null && y == null) return 0;
+    if (x == null) return 1;          // lo vacío siempre al final
+    if (y == null) return -1;
+    const nx = Number(x), ny = Number(y);
+    const cmp = (!Number.isNaN(nx) && !Number.isNaN(ny) && x !== '' && y !== '')
+      ? nx - ny
+      : String(x).localeCompare(String(y), 'es', { numeric: true, sensitivity: 'base' });
+    return asc ? cmp : -cmp;
+  });
+}
+
+/** Fila de totales al pie de una tabla de dinero, que responde al filtro puesto. */
+export function filaTotales(celdas) {
+  return `<tfoot><tr class="totales">${celdas.map((c) =>
+    `<td${c && c.num ? ' class="num"' : ''}>${c ? (c.html ?? esc(c.texto ?? c)) : ''}</td>`).join('')}</tr></tfoot>`;
 }
 /** Descarga contenido como archivo (CSV/JSON). */
 export function download(filename, content, mime = 'text/csv;charset=utf-8') {
@@ -779,6 +1091,170 @@ export function mejorarSelect(select){
 /** Aplica mejorarSelect() a todos los <select> dentro de un contenedor. */
 export function mejorarSelects(root = document){
   $$('select', root).forEach(mejorarSelect);
+}
+
+/* ============ elegir un archivo, no pegar una dirección ============
+   Casi todas las pantallas pedían una dirección web para la portada de un
+   curso, el material de una lección o el comprobante de un pago. Quien está
+   trabajando tiene el archivo delante, no una dirección: subirlo tiene que ser
+   lo normal y pegar el enlace, la excepción. */
+
+/** Lo que se acepta en cada sitio, para poder avisarlo ANTES de subir. */
+export const TIPOS_ARCHIVO = {
+  imagen:      { accept: 'image/png,image/jpeg,image/webp', ayuda: 'JPG, PNG o WEBP', maxMB: 8 },
+  comprobante: { accept: 'image/png,image/jpeg,image/webp,application/pdf',
+                 ayuda: 'Foto o PDF del comprobante', maxMB: 10 },
+  documento:   { accept: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*',
+                 ayuda: 'PDF, Word, Excel, PowerPoint o imagen', maxMB: 50 },
+  video:       { accept: 'video/*', ayuda: 'MP4, MOV o WEBM', maxMB: 500 },
+};
+
+/**
+ * Encoge una foto antes de subirla.
+ * Una foto de teléfono son entre tres y ocho megas y se muestra a 300 píxeles:
+ * subirla entera es tiempo de espera y de descarga que no le sirve a nadie.
+ * Si el archivo no es una imagen, o ya es pequeño, se devuelve tal cual.
+ */
+export async function encogerImagen(file, ladoMax = 1600, calidad = 0.85) {
+  if (!/^image\/(jpe?g|png|webp)$/i.test(file.type || '')) return file;
+  if (file.size < 300 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const escala = Math.min(1, ladoMax / Math.max(bitmap.width, bitmap.height));
+    if (escala >= 1 && file.size < 1024 * 1024) return file;
+    const lienzo = document.createElement('canvas');
+    lienzo.width = Math.round(bitmap.width * escala);
+    lienzo.height = Math.round(bitmap.height * escala);
+    lienzo.getContext('2d').drawImage(bitmap, 0, 0, lienzo.width, lienzo.height);
+    const blob = await new Promise((r) => lienzo.toBlob(r, 'image/jpeg', calidad));
+    if (!blob || blob.size >= file.size) return file;   // si no mejora, se deja el original
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch { return file; }
+}
+
+/**
+ * Zona para elegir o soltar un archivo, con miniatura, avance y el enlace como
+ * alternativa plegada. Devuelve `{ valor(), fijar(url), elemento }`.
+ *
+ * @param {object} o
+ * @param {string} o.id          prefijo para los identificadores internos
+ * @param {string} o.tipo        una clave de TIPOS_ARCHIVO
+ * @param {string} o.valor       la dirección que ya tuviera guardada
+ * @param {Function} o.subir     recibe el File y devuelve la dirección
+ * @param {string} o.etiquetaSubir  texto del botón
+ * @param {boolean} o.permitirEnlace  si se ofrece pegar una dirección
+ */
+export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
+                               etiquetaSubir = 'Elegir archivo', permitirEnlace = true }) {
+  const cfg = TIPOS_ARCHIVO[tipo] || TIPOS_ARCHIVO.imagen;
+  const esImagen = tipo === 'imagen' || tipo === 'comprobante';
+  let actual = valor || '';
+
+  const html = `
+    <div class="subida" id="${id}Zona" tabindex="0" role="button"
+         aria-label="${esc(etiquetaSubir)}">
+      <div class="subida-vacia" ${actual ? 'hidden' : ''}>
+        <span class="material-symbols-outlined">cloud_upload</span>
+        <div><b>${esc(etiquetaSubir)}</b> o suéltalo aquí</div>
+        <div class="tiny muted">${esc(cfg.ayuda)}, hasta ${cfg.maxMB} MB</div>
+      </div>
+      <div class="subida-hecha" ${actual ? '' : 'hidden'}>
+        ${esImagen ? `<img id="${id}Mini" alt="" ${actual ? `src="${esc(actual)}"` : ''}>` : ''}
+        <div class="grow">
+          <div class="t" id="${id}Nombre">Archivo cargado</div>
+          <div class="tiny muted" id="${id}Detalle"></div>
+        </div>
+        <button type="button" class="btn ghost sm" id="${id}Quitar"
+                title="Quitar el archivo">
+          <span class="material-symbols-outlined">close</span></button>
+      </div>
+      <progress id="${id}Avance" max="100" hidden></progress>
+      <input type="file" id="${id}File" accept="${esc(cfg.accept)}" hidden>
+    </div>
+    ${permitirEnlace ? `
+    <details class="subida-enlace">
+      <summary class="tiny">o pega una dirección, si ya está publicado en otro sitio</summary>
+      <input id="${id}Url" placeholder="https://…" value="${esc(actual)}">
+    </details>` : ''}`;
+
+  /** Se llama después de insertar el html en el documento. */
+  function conectar(raiz = document) {
+    const zona = raiz.querySelector('#' + id + 'Zona');
+    if (!zona) return api;
+    const input = raiz.querySelector('#' + id + 'File');
+    const url = raiz.querySelector('#' + id + 'Url');
+    const avance = raiz.querySelector('#' + id + 'Avance');
+    const vacia = zona.querySelector('.subida-vacia');
+    const hecha = zona.querySelector('.subida-hecha');
+    const mini = raiz.querySelector('#' + id + 'Mini');
+    const nombre = raiz.querySelector('#' + id + 'Nombre');
+    const detalle = raiz.querySelector('#' + id + 'Detalle');
+
+    const pintar = (u, texto, sub) => {
+      actual = u || '';
+      vacia.hidden = !!actual;
+      hecha.hidden = !actual;
+      if (mini && actual) mini.src = actual;
+      if (nombre) nombre.textContent = texto || 'Archivo cargado';
+      if (detalle) detalle.textContent = sub || '';
+      if (url) url.value = actual;
+    };
+    if (actual) pintar(actual, 'Archivo cargado');
+
+    async function tomar(file) {
+      if (!file) return;
+      const max = cfg.maxMB * 1024 * 1024;
+      const listo = await encogerImagen(file);
+      if (listo.size > max) {
+        fail(`«${file.name}» pesa ${(file.size / 1048576).toFixed(1)} MB y el máximo son ${cfg.maxMB} MB.`);
+        return;
+      }
+      // Miniatura al instante, antes de que termine la subida: así se ve qué se
+      // eligió sin tener que guardar y recargar para comprobarlo.
+      if (mini) { pintar(URL.createObjectURL(listo), listo.name, 'subiendo…'); }
+      else pintar('pendiente', listo.name, 'subiendo…');
+      avance.hidden = false; avance.removeAttribute('value');
+      zona.classList.add('subiendo');
+      try {
+        const dir = await subir(listo);
+        pintar(dir, listo.name, `${(listo.size / 1048576).toFixed(1)} MB`);
+        ok('Archivo subido');
+      } catch (e) {
+        pintar('', '', '');
+        fail(mensajeError(e, 'No se pudo subir el archivo.'));
+      } finally {
+        avance.hidden = true;
+        zona.classList.remove('subiendo');
+      }
+    }
+
+    zona.addEventListener('click', (e) => {
+      if (e.target.closest('#' + id + 'Quitar')) return;
+      input.click();
+    });
+    zona.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+    });
+    input.addEventListener('change', () => tomar(input.files[0]));
+
+    // Soltar el archivo encima: es el gesto que la gente ya intenta.
+    zona.addEventListener('dragover', (e) => { e.preventDefault(); zona.classList.add('encima'); });
+    zona.addEventListener('dragleave', () => zona.classList.remove('encima'));
+    zona.addEventListener('drop', (e) => {
+      e.preventDefault(); zona.classList.remove('encima');
+      tomar(e.dataTransfer.files && e.dataTransfer.files[0]);
+    });
+
+    const quitar = raiz.querySelector('#' + id + 'Quitar');
+    if (quitar) quitar.addEventListener('click', (e) => { e.stopPropagation(); pintar('', '', ''); });
+    if (url) url.addEventListener('change', () => pintar(url.value.trim(), 'Enlace pegado'));
+
+    api.fijar = (u) => pintar(u, 'Archivo cargado');
+    return api;
+  }
+
+  const api = { html, conectar, valor: () => actual, fijar: () => {} };
+  return api;
 }
 
 /* ============ imagen de portada (Supabase Storage, gratis y de sobra para fotos) ============ */

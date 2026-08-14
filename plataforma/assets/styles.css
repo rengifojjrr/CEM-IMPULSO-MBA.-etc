@@ -320,3 +320,116 @@ td.wrap{white-space:normal;min-width:200px;}
   /* iOS hace zoom automático al enfocar un campo con fuente <16px. */
   input, select, textarea{font-size:16px;}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Simplificación de la interfaz — lo que antes resolvía cada pantalla a mano
+   con estilos sueltos dentro del HTML (había 660 repartidos por el portal).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ---------- dinero y cifras ----------
+   Una columna de números sólo se compara de un vistazo si están alineados a la
+   derecha y todos los dígitos ocupan lo mismo. */
+td.num, th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+tfoot tr.totales td{border-top:2px solid var(--outline);font-weight:700;
+  background:var(--surface-container);}
+tfoot tr.totales td.num{font-variant-numeric:tabular-nums;}
+
+/* Lo vencido se ve vencido, sin tener que leer la fecha. */
+tr.vencida td{background:color-mix(in srgb, var(--error) 7%, transparent);}
+tr.vencida .dias-mora{color:var(--error);font-weight:600;}
+
+/* ---------- elegir un archivo ---------- */
+.subida{border:2px dashed var(--outline-variant);border-radius:12px;padding:18px 16px;
+  display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;
+  text-align:center;cursor:pointer;background:var(--surface-container-low);
+  transition:border-color .15s, background .15s;min-height:104px;}
+.subida:hover, .subida:focus-visible{border-color:var(--primary);background:var(--surface-container);}
+.subida:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.subida.encima{border-color:var(--primary);background:color-mix(in srgb, var(--primary) 8%, transparent);}
+.subida.subiendo{opacity:.75;pointer-events:none;}
+.subida-vacia{display:flex;flex-direction:column;gap:4px;align-items:center;}
+.subida-vacia .material-symbols-outlined{font-size:30px;color:var(--on-surface-variant);}
+.subida-hecha{display:flex;gap:12px;align-items:center;width:100%;text-align:left;}
+.subida-hecha img{width:74px;height:74px;object-fit:cover;border-radius:8px;flex:none;
+  border:1px solid var(--outline-variant);background:var(--surface-container);}
+.subida-hecha .t{font-weight:600;font-size:13.5px;word-break:break-word;}
+.subida progress{width:100%;height:6px;}
+.subida-enlace{margin-top:6px;}
+.subida-enlace summary{color:var(--on-surface-variant);cursor:pointer;padding:4px 0;}
+.subida-enlace input{margin-top:6px;}
+
+/* ---------- el menú, plegable ---------- */
+.nav-group .lbl{display:flex;align-items:center;justify-content:space-between;width:100%;
+  background:none;border:0;cursor:pointer;font-family:inherit;color:inherit;text-align:left;}
+.nav-group .lbl:hover{opacity:.85;}
+.nav-group .lbl .flecha{font-size:18px;transition:transform .18s;}
+.nav-group:not(.abierto) .lbl .flecha{transform:rotate(-90deg);}
+.nav-group:not(.abierto) .nav-items{display:none;}
+
+/* ---------- dónde estás ---------- */
+.migas{display:flex;flex-wrap:wrap;align-items:center;gap:2px;font-size:12.5px;
+  color:var(--on-surface-variant);margin-bottom:6px;}
+.migas a{color:var(--on-surface-variant);text-decoration:none;}
+.migas a:hover{color:var(--primary);text-decoration:underline;}
+.migas [aria-current]{color:var(--on-surface);font-weight:600;}
+.migas .sep{font-size:16px;opacity:.5;}
+
+/* ---------- ordenar pulsando la columna ---------- */
+th.ordenable{cursor:pointer;user-select:none;white-space:nowrap;}
+th.ordenable:hover{color:var(--primary);}
+th.ordenable::after{content:'unfold_more';font-family:'Material Symbols Outlined';
+  font-size:15px;vertical-align:-3px;margin-left:3px;opacity:.35;}
+th.ordenable.asc::after{content:'arrow_upward';opacity:.9;}
+th.ordenable.desc::after{content:'arrow_downward';opacity:.9;}
+th.ordenable:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}
+
+/* ---------- el «?» de ayuda ---------- */
+.ayuda-btn{width:17px;height:17px;min-height:0;border-radius:50%;border:1px solid var(--outline);
+  background:var(--surface-container);color:var(--on-surface-variant);font-size:11px;
+  line-height:1;cursor:pointer;padding:0;margin-left:5px;vertical-align:1px;}
+.ayuda-btn:hover{border-color:var(--primary);color:var(--primary);}
+.ayuda-globo{position:absolute;z-index:80;max-width:290px;background:var(--inverse-surface);
+  color:var(--inverse-on-surface);padding:9px 12px;border-radius:8px;font-size:12.5px;
+  line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.22);}
+
+/* ---------- filtros plegados ---------- */
+.filtros-plegables summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;
+  gap:6px;padding:8px 13px;border:1px solid var(--outline-variant);border-radius:20px;
+  font-size:13px;font-weight:600;color:var(--on-surface-variant);}
+.filtros-plegables summary::-webkit-details-marker{display:none;}
+.filtros-plegables summary:hover{border-color:var(--primary);color:var(--on-surface);}
+.filtros-plegables .cuantos{background:var(--primary);color:var(--on-primary);border-radius:10px;
+  padding:0 7px;font-size:11px;}
+.filtros-plegables[open] .campos{margin-top:12px;}
+
+/* ---------- barra de acciones sobre varias filas ---------- */
+.barra-seleccion{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--surface-container);border:1px solid var(--outline-variant);
+  border-radius:10px;padding:9px 13px;margin-bottom:10px;}
+.barra-seleccion .cuenta{font-weight:600;}
+
+/* ---------- estado vacío que ofrece por dónde empezar ---------- */
+.empty{display:flex;flex-direction:column;align-items:center;gap:2px;}
+
+/* ═══════════ en el teléfono, cada fila una tarjeta ═══════════
+   Una tabla de diez columnas en una pantalla de 390 puntos se lee de lado:
+   se ve «CURSO · TIPO · M…» y el resto se alcanza arrastrando. Con las
+   etiquetas en data-col, cada fila se apila y se lee de frente. */
+@media (max-width:720px){
+  table.tarjetas thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+  table.tarjetas, table.tarjetas tbody, table.tarjetas tr, table.tarjetas td{display:block;width:100%;}
+  table.tarjetas tr{border:1px solid var(--outline-variant);border-radius:11px;
+    margin-bottom:9px;padding:11px 13px;background:var(--surface);}
+  table.tarjetas td{border:0;padding:3px 0;display:flex;justify-content:space-between;
+    align-items:center;gap:12px;text-align:right;}
+  table.tarjetas td::before{content:attr(data-col);font-size:11.5px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.04em;color:var(--on-surface-variant);
+    text-align:left;flex:none;}
+  /* la primera celda es el título de la tarjeta: ocupa la línea entera */
+  table.tarjetas td:first-child{display:block;text-align:left;font-weight:600;
+    font-size:15px;margin-bottom:6px;}
+  table.tarjetas td:first-child::before{display:none;}
+  table.tarjetas td.num{justify-content:space-between;}
+  table.tarjetas tfoot tr.totales{background:var(--surface-container);}
+  .table-wrap{overflow-x:visible;}
+}
