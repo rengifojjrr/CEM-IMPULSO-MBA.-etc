@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Cierre de mes</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<style>
+  /* La hoja que se imprime: sin menú, sin botones y con las cifras grandes. */
+  @media print{
+    .no-print{display:none !important;}
+    .cuadro{break-inside:avoid;}
+  }
+  .cuadro{border:1px solid var(--outline-variant);border-radius:var(--radius);padding:16px;flex:1;min-width:190px;}
+  .cuadro .n{font-size:26px;font-weight:750;letter-spacing:-.02em;line-height:1.15;}
+  .cuadro .q{font-size:12.5px;color:var(--on-surface-variant);margin-top:3px;}
+  .cuadro.entra .n{color:var(--ok);}
+  .cuadro.debe .n{color:var(--error);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head no-print">
+    <div><h1>Cierre de mes</h1>
+      <p>Cuánto se facturó, cuánto entró, cuánto quedó debiéndose y de quién. Es la hoja
+         que hay que armar cada fin de mes: aquí sale hecha y se puede imprimir.</p></div>
+    <div class="actions">
+      <div class="field" style="margin:0"><label>Mes</label><input type="month" id="mes"></div>
+      <button class="btn outline" id="btnCsv"><span class="material-symbols-outlined">download</span> Exportar el detalle</button>
+      <button class="btn" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir el cierre</button>
+    </div>
+  </div>
+
+  <h2 class="sec" id="titulo"></h2>
+  <div class="row" style="gap:12px;flex-wrap:wrap;margin-bottom:16px" id="cuadros"></div>
+
+  <div class="card cuadro-caja">
+    <h2 class="sec">Lo que entró</h2>
+    <p class="tiny muted no-print">Pagos aprobados con fecha de este mes. Lo cobrado en bolívares se
+      muestra tal como se recibió y también convertido, con la tasa que se usó.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Fecha</th><th>Estudiante</th><th>Programa</th><th>Cómo</th>
+        <th>Referencia</th><th class="num">Cobrado</th><th class="num">En dólares</th></tr></thead>
+      <tbody id="tbCobrado"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Lo que venció y sigue sin pagarse</h2>
+    <p class="tiny muted no-print">Cuotas cuyo vencimiento cayó en este mes y a día de hoy siguen debiendo.
+      Ordenadas por los días que llevan de mora.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Programa</th><th class="num">Cuota</th>
+        <th>Venció</th><th class="num">Mora</th><th class="num">Debe</th></tr></thead>
+      <tbody id="tbVencido"></tbody></table></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, money, num, fdate, fdatetime, emptyRow, ok, fail,
+         mensajeError, etiqueta, toCSV, download, ayuda, montarAyudas,
+         filaTotales } from '../assets/app.js?v=2026-08-14';
+
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'],
+                        active:'cierre-mes.html', area:'admin' });
+let cierre = null;
+
+/* Al entrar se muestra el mes que acaba de terminar, que es el que se cierra:
+   entrar el día 2 y ver el mes en curso, medio vacío, no ayuda a nadie. */
+const hoy = new Date();
+const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+if (p) {
+  $('#mes').value = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, '0')}`;
+  $('#mes').max = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+  cargar();
+}
+$('#mes').onchange = cargar;
+
+const MESES = ['enero','febrero','marzo','abril','mayo','junio',
+               'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+async function cargar(){
+  const v = $('#mes').value;
+  if (!v) return;
+  const { data, error } = await sb.rpc('cem_cierre_de_mes', { p_mes: `${v}-01` });
+  if (error) { fail(mensajeError(error, 'No se pudo armar el cierre de este mes.')); return; }
+  cierre = data;
+
+  const [anio, mes] = v.split('-');
+  $('#titulo').textContent = `${MESES[Number(mes) - 1]} de ${anio}`;
+
+  /* Las cuatro cifras, cada una diciendo qué cuenta: si no, «facturado» y
+     «cobrado» parecen lo mismo y no cuadran nunca. */
+  const cobrado = Number(cierre.cobrado), facturado = Number(cierre.facturado);
+  $('#cuadros').innerHTML = [
+    { c:'', t:'Se facturó', n: money(facturado, 'USD'),
+      q: `${num(cierre.cuotas)} cuota(s) con vencimiento en el mes`,
+      a: 'Suma de las cuotas cuya fecha de vencimiento cae dentro del mes, se hayan cobrado o no. Es lo que había que cobrar.' },
+    { c:'entra', t:'Entró', n: money(cobrado, 'USD'),
+      q: `${num(cierre.pagos)} pago(s) aprobado(s)` +
+         (facturado > 0 ? ` · ${Math.round(100 * cobrado / facturado)}% de lo facturado` : ''),
+      a: 'Pagos aprobados con fecha del mes, convertidos a dólares con la tasa de cada pago. Puede incluir cuotas de meses anteriores que se pusieron al día.' },
+    { c:'debe', t:'Quedó debiéndose', n: money(Number(cierre.vencido), 'USD'),
+      q: `${num(cierre.cuotas_vencidas)} cuota(s) vencida(s) sin pagar`,
+      a: 'De las cuotas que vencían este mes, lo que a día de hoy sigue sin pagarse. Es lo que hay que salir a cobrar.' },
+    { c:'', t:'Por revisar', n: money(Number(cierre.por_revisar), 'USD'),
+      q: `${num(cierre.pagos_por_revisar)} pago(s) sin verificar`,
+      a: 'Pagos que los estudiantes reportaron este mes y nadie ha aprobado ni rechazado todavía. Ni entraron ni dejaron de entrar: al verificarlos se moverán a una de las otras cifras.' },
+  ].map(x => `<div class="cuadro ${x.c}">
+      <div class="tiny muted">${esc(x.t)} ${ayuda(x.a)}</div>
+      <div class="n">${x.n}</div><div class="q">${esc(x.q)}</div></div>`).join('');
+  montarAyudas($('#cuadros'));
+
+  pintarCobrado();
+  pintarVencido();
+}
+
+function pintarCobrado(){
+  const filas = cierre.detalle_cobrado || [];
+  const tb = $('#tbCobrado');
+  tb.innerHTML = filas.length ? filas.map(x => `<tr>
+    <td class="tiny muted">${fdatetime(x.fecha)}</td>
+    <td class="wrap">${esc(x.estudiante || '—')}</td>
+    <td class="wrap">${esc(x.programa || '—')}</td>
+    <td>${esc(etiqueta(x.metodo || '—'))}</td>
+    <td class="tiny">${esc(x.referencia || '—')}</td>
+    <td class="num">${money(x.monto, x.moneda || 'USD')}
+      ${x.moneda && x.moneda !== 'USD' && x.tasa ? `<div class="tiny muted">a ${esc(String(x.tasa))} Bs/US$</div>` : ''}</td>
+    <td class="num"><b>${money(x.en_dolares, 'USD')}</b></td></tr>`).join('')
+    : emptyRow(7, 'Ningún pago aprobado en este mes.');
+  ponerTotales('#tbCobrado', ['Totales', '', '', '', '',
+    '', { num:true, html: money(filas.reduce((a,x) => a + Number(x.en_dolares || 0), 0), 'USD') }]);
+}
+
+function pintarVencido(){
+  const filas = cierre.detalle_vencido || [];
+  $('#tbVencido').innerHTML = filas.length ? filas.map(x => `<tr class="vencida">
+    <td class="wrap">${esc(x.estudiante || '—')}</td>
+    <td class="wrap">${esc(x.programa || '—')}</td>
+    <td class="num">${x.cuota}</td>
+    <td>${fdate(x.vence)}</td>
+    <td class="num">${num(x.dias_mora)} día(s)</td>
+    <td class="num"><b>${money(x.debe, x.moneda || 'USD')}</b></td></tr>`).join('')
+    : emptyRow(6, 'Nada venció sin pagarse este mes. Cobranza al día.');
+  ponerTotales('#tbVencido', ['Totales', '', '', '', '',
+    { num:true, html: money(filas.reduce((a,x) => a + Number(x.debe || 0), 0), 'USD') }]);
+}
+
+/** La fila de totales vive en el <tfoot>, para que no se mezcle con los datos. */
+function ponerTotales(sel, celdas){
+  const tabla = $(sel).closest('table');
+  tabla.querySelector('tfoot')?.remove();
+  tabla.insertAdjacentHTML('beforeend', filaTotales(celdas));
+}
+
+$('#btnPrint').onclick = () => window.print();
+
+$('#btnCsv').onclick = () => {
+  if (!cierre) return;
+  const v = $('#mes').value;
+  const filas = [
+    ...(cierre.detalle_cobrado || []).map(x => ({
+      concepto:'cobrado', fecha:String(x.fecha).slice(0,10), estudiante:x.estudiante,
+      programa:x.programa, metodo:x.metodo, referencia:x.referencia,
+      monto:x.monto, moneda:x.moneda, tasa:x.tasa, en_dolares:x.en_dolares, dias_mora:'' })),
+    ...(cierre.detalle_vencido || []).map(x => ({
+      concepto:'vencido', fecha:x.vence, estudiante:x.estudiante,
+      programa:x.programa, metodo:'', referencia:`cuota ${x.cuota}`,
+      monto:x.debe, moneda:x.moneda, tasa:'', en_dolares:x.debe, dias_mora:x.dias_mora })),
+  ];
+  if (!filas.length) { fail('Este mes no tiene ni cobros ni vencidos que exportar.'); return; }
+  download(`cierre_${v}.csv`, toCSV(filas));
+  ok(`${filas.length} fila(s) exportada(s): lo cobrado y lo vencido de ${v}.`);
+};
+</script>
+</body>
+</html>

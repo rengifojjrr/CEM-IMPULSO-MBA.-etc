@@ -30,15 +30,15 @@
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
     <div class="table-wrap">
-      <table><thead><tr><th>Cohorte</th><th>Programa</th><th>Modalidad</th><th>Horario</th>
-        <th>Inicio</th><th>Ocupación</th><th>Profesor</th><th>Estado</th><th></th></tr></thead>
+      <table id="tabla"><thead><tr><th data-ord="nombre">Cohorte</th><th data-ord="_curso">Programa</th><th>Modalidad</th><th>Horario</th>
+        <th data-ord="fecha_inicio">Inicio</th><th class="num" data-ord="_n">Ocupación</th><th>Profesor</th><th data-ord="estado">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table>
     </div>
   </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, montarAyudas } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cohortes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -76,14 +76,16 @@ async function load(){
 
 function render(){
   const q=$('#q').value.trim(), c=$('#fCurso').value, e=$('#fEstado').value;
-  const list = rows.filter(r => match(r,q,['nombre','codigo','_curso']) && (!c||r.course_id===c) && (!e||r.estado===e));
+  const list = ordenarPor(rows.filter(r => match(r,q,['nombre','codigo','_curso']) && (!c||r.course_id===c) && (!e||r.estado===e)), ordenCohortes);
   $('#tb').innerHTML = list.length ? list.map(r => {
     const occ = Math.round(100*r._n/Math.max(r.cupos,1));
     return `<tr>
       <td><b>${esc(r.nombre)}</b><div class="tiny muted">${esc(r.codigo)}</div></td>
-      <td class="wrap">${esc(r._curso)}</td><td>${esc(r.modalidad.replace('_',' '))}</td>
+      <td class="wrap">${esc(r._curso)}</td><td>${esc(etiqueta(r.modalidad))}</td>
       <td class="wrap">${esc(r.horario||'—')}</td><td>${fdate(r.fecha_inicio)}</td>
-      <td style="min-width:120px">${bar(occ)}<span class="tiny muted">${r._n}/${r.cupos} · ${occ}%</span></td>
+      <td style="min-width:120px">${r._n
+        ? `${bar(occ)}<span class="tiny muted">${r._n}/${r.cupos} · ${occ}%</span>`
+        : `<span class="tiny muted">Sin inscritos · ${r.cupos} cupos</span>`}</td>
       <td>${esc(r._prof)}</td><td>${chipEstado(r.estado)}</td>
       <td style="white-space:nowrap">
         <a class="btn ghost sm" href="calendario.html?cohorte=${r.id}" title="Calendario"><span class="material-symbols-outlined">calendar_today</span></a>
@@ -92,7 +94,11 @@ function render(){
       </td></tr>`;
   }).join('') : emptyRow(9, 'Todavía no hay cohortes. Una cohorte es el grupo con el que un programa se dicta.', {texto:'Crear la primera cohorte', id:'vacioCohorte', icono:'group_add'});
   $$('[data-edit]').forEach(b => b.onclick = () => form(rows.find(x=>x.id===b.dataset.edit)));
+  ordenable('#tabla', ordenCohortes, render);
 }
+
+/** item 26 · por qué columna se está ordenando. */
+const ordenCohortes = { campo:null, asc:true };
 ['#q','#fCurso','#fEstado'].forEach(s=>{ const el=$(s); el.oninput=render; el.onchange=render; });
 $('#btnClear').onclick = () => { ['#q','#fCurso','#fEstado'].forEach(s=>$(s).value=''); render(); };
 $('#btnNueva').onclick = () => form(null);
@@ -101,7 +107,11 @@ accionVacio('vacioCohorte', () => form(null));
 
 function form(c){
   const isNew = !c;
+  /* item 22 · eran catorce campos seguidos, sin ningún corte: el nombre pesaba
+     lo mismo que el salón. Ahora van en tres bloques —qué grupo es, cuándo se
+     da, quién lo dicta— y lo que casi nunca se toca queda plegado. */
   const m = modal({ title: isNew?'Nueva cohorte':`Editar: ${c.nombre}`, wide:true, body:`
+    <h3 class="sec">Qué grupo es</h3>
     <div class="row">
       <div class="field" style="flex:2;min-width:220px"><label>Programa *</label><select id="cCurso" required>
         ${cursos.map(x=>`<option value="${x.id}" ${c&&c.course_id===x.id?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></div>
@@ -109,24 +119,32 @@ function form(c){
     </div>
     <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="cMod">
-        ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cTurno">
-        ${turnos.map(t=>`<option value="${esc(t.nombre)}" ${c?.turno===t.nombre?'selected':''}>${esc(t.nombre)}</option>`).join('') || `<option value="${esc(c?.turno||'')}">${esc(c?.turno||'Sin turnos definidos')}</option>`}</select></div>
       <div class="field" style="flex:1;min-width:110px"><label>Cupos</label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
-    </div>
-    <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label>Inicio</label><input type="date" id="cIni" value="${c?.fecha_inicio||''}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Fin</label><input type="date" id="cFin" value="${c?.fecha_fin||''}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Salón</label><input id="cSalon" value="${esc(c?.salon||'')}"></div>
-    </div>
-    <div class="row">
-      <div class="field" style="flex:2;min-width:220px"><label>Horario</label><div id="cHorarioPicker"></div></div>
       <div class="field" style="flex:1;min-width:170px"><label>Estado</label><select id="cEstado">
         ${opciones(['planificada','inscripciones_abiertas','en_curso','finalizada','cancelada'], c?.estado)}</select></div>
     </div>
+
+    <h3 class="sec" style="margin-top:16px">Cuándo se da</h3>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:150px"><label>Inicio</label><input type="date" id="cIni" value="${c?.fecha_inicio||''}"></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Fin</label><input type="date" id="cFin" value="${c?.fecha_fin||''}"></div>
+    </div>
+    <div class="field"><label>Horario</label><div id="cHorarioPicker"></div></div>
+
+    <h3 class="sec" style="margin-top:16px">Quién la dicta</h3>
     <div class="field"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
-      ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>`,
+      ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>
+
+    <details class="filtros-plegables" style="margin-top:14px">
+      <summary><span class="material-symbols-outlined">tune</span> Más opciones</summary>
+      <div class="row">
+        <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="cMod">
+          ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
+        <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cTurno">
+          ${turnos.map(t=>`<option value="${esc(t.nombre)}" ${c?.turno===t.nombre?'selected':''}>${esc(t.nombre)}</option>`).join('') || `<option value="${esc(c?.turno||'')}">${esc(c?.turno||'Sin turnos definidos')}</option>`}</select></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Salón</label><input id="cSalon" value="${esc(c?.salon||'')}" placeholder="Aula 3 o el enlace de la sala"></div>
+      </div>
+    </details>`,
     footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar la cohorte</button>` });
   mejorarSelects(m);
   let horarioValor = { dias: c?.horario_dias || [], horaInicio: c?.horario_hora_inicio || '', horaFin: c?.horario_hora_fin || '' };
@@ -140,7 +158,13 @@ function form(c){
       salon:$('#cSalon',m).value.trim(), horario:horarioResumen(horarioValor), estado:$('#cEstado',m).value,
       horario_dias:horarioValor.dias.length?horarioValor.dias:null, horario_hora_inicio:horarioValor.horaInicio||null, horario_hora_fin:horarioValor.horaFin||null,
     };
-    if (!payload.nombre || !payload.codigo) { m.querySelector('.modal-b').scrollTop=0; return; }
+    if (!payload.nombre || !payload.codigo) {
+      /* item 42 · antes sólo subía el modal, sin decir qué faltaba. */
+      fail('Faltan el nombre y el código de la cohorte: sin ellos nadie la distingue de las demás.');
+      m.querySelector('.modal-b').scrollTop = 0;
+      (!payload.nombre ? $('#cNombre', m) : $('#cCodigo', m)).focus();
+      return;
+    }
     let id = c?.id;
     if (isNew) { const r = await run(sb.from('cem_cohorts').insert(payload).select().single(),'No se pudo crear'); id = r.id; }
     else await run(sb.from('cem_cohorts').update(payload).eq('id',c.id),'No se pudo guardar');

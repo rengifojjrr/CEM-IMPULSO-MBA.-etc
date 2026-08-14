@@ -79,7 +79,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta } from '../assets/app.js?v=2026-08-14';
 const me = await mount({ require:['estudiante','admin','superadmin','coordinador'], area:'estudiante', active:'catalogo.html' });
 const cursoId = qs('curso');
 let curso, cohortes=[], plan=1, descuento=0;
@@ -111,21 +111,37 @@ async function load(){
   renderPlanes(); resumen();
 }
 
+/* item 45 · las tres opciones cambiaban el número final sin decir por qué: no
+   se veía que pagar de una vez descuenta un 10% y que en seis hay un 6% de
+   recargo. Ahora cada tarjeta dice cuánto cuesta al final y cuánto se ahorra o
+   se paga de más frente a pagar en tres, que es el precio de lista. */
 function renderPlanes(){
   const base = Number(curso.precio)||0;
   const opciones = [
-    { n:1, lbl:'Un solo pago', desc:'Ahorra 10%', factor:0.9 },
-    { n:3, lbl:'3 cuotas', desc:'Sin intereses', factor:1 },
-    { n:6, lbl:'6 cuotas', desc:'Cuota más baja', factor:1.06 },
+    { n:1, lbl:'Un solo pago', factor:0.9 },
+    { n:3, lbl:'3 cuotas', factor:1 },
+    { n:6, lbl:'6 cuotas', factor:1.06 },
   ];
   $('#planes').innerHTML = opciones.map(o=>{
     const total = Math.round(base*o.factor*100)/100;
-    return `<div class="plan ${o.n===plan?'on':''}" data-plan="${o.n}" data-factor="${o.factor}">
+    const dif = Math.round((total - base)*100)/100;   // contra el precio de lista
+    const nota = dif < 0
+      ? `<span style="color:var(--ok)">Te ahorras ${money(-dif, curso.moneda)}</span>`
+      : dif > 0
+        ? `<span style="color:var(--error)">Pagas ${money(dif, curso.moneda)} de más por financiarlo</span>`
+        : 'Precio de lista, sin recargo';
+    return `<div class="plan ${o.n===plan?'on':''}" data-plan="${o.n}" data-factor="${o.factor}"
+      role="button" tabindex="0" aria-pressed="${o.n===plan}">
       <div class="row between"><b>${o.lbl}</b>${o.n===plan?'<span class="material-symbols-outlined" style="color:var(--primary)">check_circle</span>':''}</div>
-      <div class="p">${money(total/o.n, curso.moneda)}${o.n>1?'<span class="tiny muted"> /mes</span>':''}</div>
-      <div class="tiny muted">${o.desc} · total ${money(total, curso.moneda)}</div></div>`;
+      <div class="p">${money(total/o.n, curso.moneda)}${o.n>1?'<span class="tiny muted"> cada una</span>':''}</div>
+      <div class="tiny muted">${o.n>1?`${o.n} pagos mensuales · `:''}total ${money(total, curso.moneda)}</div>
+      <div class="tiny" style="margin-top:4px">${nota}</div></div>`;
   }).join('');
-  $$('[data-plan]').forEach(el=>el.onclick=()=>{ plan=Number(el.dataset.plan); renderPlanes(); resumen(); });
+  const elegir = (el) => { plan=Number(el.dataset.plan); renderPlanes(); resumen(); };
+  $$('[data-plan]').forEach(el=>{
+    el.onclick = () => elegir(el);
+    el.onkeydown = (ev) => { if (ev.key==='Enter'||ev.key===' ') { ev.preventDefault(); elegir(el); } };
+  });
 }
 
 function totalPlan(){
@@ -139,7 +155,7 @@ function resumen(){
   const ahorro = plan===1? Math.round(base*0.1*100)/100 : 0;
   $('#resumen').innerHTML = `
     <div class="list-item"><div class="grow"><div class="t">${esc(curso.nombre)}</div>
-      <div class="s">${esc(curso.duracion_texto||curso.horas+' h')} · ${esc(curso.modalidad.replace('_',' '))}</div></div></div>
+      <div class="s">${esc(curso.duracion_texto||curso.horas+' h')} · ${esc(etiqueta(curso.modalidad))}</div></div></div>
     <div class="row between tiny" style="padding:6px 0"><span class="muted">Subtotal</span><span>${money(base, curso.moneda)}</span></div>
     ${ahorro?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Descuento (pago único)</span><span style="color:var(--ok)">-${money(ahorro, curso.moneda)}</span></div>`:''}
     ${descuento?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Cupón</span><span style="color:var(--ok)">-${money(descuento, curso.moneda)}</span></div>`:''}

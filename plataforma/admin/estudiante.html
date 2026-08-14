@@ -27,7 +27,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs,
          modal, ok, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
-         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects } from '../assets/app.js?v=2026-08-14';
+         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -45,7 +45,7 @@ async function load(){
   const eids = ens.map(x=>x.id);
   if (eids.length){
     const [{data:sb1},{data:i1},{data:p1}] = await Promise.all([
-      sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,puntaje_max)').in('enrollment_id',eids).limit(500),
+      sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,puntaje_max,nota_aprobatoria)').in('enrollment_id',eids).limit(500),
       sb.from('cem_installments').select('*').in('enrollment_id',eids).order('numero').limit(500),
       sb.from('cem_payments').select('*').in('enrollment_id',eids).order('fecha',{ascending:false}).limit(500),
     ]);
@@ -127,7 +127,7 @@ function tab(t){
       <thead><tr><th>Evaluación</th><th>Tipo</th><th>Intento</th><th>Puntaje</th><th>Estado</th><th>Entregado</th></tr></thead>
       <tbody>${subs.length? subs.map(s=>`<tr>
         <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td><td>${esc(s.cem_assessments?.tipo||'')}</td>
-        <td>${s.intento}</td><td><b>${s.puntaje!=null?s.puntaje:'—'}</b></td>
+        <td>${s.intento}</td><td>${nota(s.puntaje, s.cem_assessments?.puntaje_max, s.cem_assessments?.nota_aprobatoria)}</td>
         <td>${chipEstado(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td><td class="muted">${fdatetime(s.entregado_en)}</td>
       </tr>`).join('') : emptyRow(6, 'Este estudiante todavía no ha entregado ninguna evaluación.')}</tbody></table></div></div>`;
   }

@@ -41,7 +41,7 @@
   <div class="card"><h2 class="sec">Anuncios</h2><div id="anuncios"></div></div>
 </div>
 <script type="module">
-import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado, chipNota} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 if (p) init();
 
@@ -59,7 +59,7 @@ async function init(){
     eids.length? sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,course_id)').in('enrollment_id',eids).limit(500) : Promise.resolve({data:[]}),
     sb.from('cem_announcements').select('*').eq('estado','enviado').order('enviado_en',{ascending:false}).limit(4),
     sb.from('cem_certificates').select('id').eq('profile_id',p.id).limit(500),
-    cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria')
+    cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria,puntaje_max')
       .in('course_id',cIds).eq('estado','publicado') : Promise.resolve({data:[]}),
   ]);
 
@@ -120,7 +120,7 @@ async function init(){
     if (abierta){ estado = chip('en progreso','warn');
       accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Continuar</a>`;
     } else if (ult?.estado==='calificada'){
-      estado = `<span class="chip ${ult.puntaje>=aprob?'ok':'err'}">${ult.puntaje} pts</span>`;
+      estado = chipNota(ult.puntaje, a.puntaje_max, aprob);
       accion = sinIntentos? '' : `<a class="btn outline sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Reintentar</a>`;
     } else if (ult?.estado==='entregada'){ estado = chip('en revisión','info'); accion = '';
     } else { estado = chip('pendiente','warn');

@@ -49,7 +49,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, money, num, fdate, emptyRow, match, kpi, modal, ok, fail,
+import { sb, mount, $, $$, esc, chip, money, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, fail,
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
          ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado } from '../assets/app.js?v=2026-08-14';
@@ -225,12 +225,15 @@ function render(){
         <td class="${venc?'':'muted'}" data-col="Vence">${fdate(i.fecha_vencimiento)}
           ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
         <td data-col="Estado">${chipEstado(i.estado)}</td>
-        <td data-col="">${editable && i.estado!=='pagada'
+        <td data-col="">
+          <button class="btn ghost sm" data-hist="${i.id}" title="Ver la historia de esta cuota"><span class="material-symbols-outlined">history</span></button>
+          ${editable && i.estado!=='pagada'
           ?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
     }).join('') : emptyRow(8, 'No hay cuotas que coincidan con el filtro.');
     ponerTotales(['', 'Totales', '', {num:true,html:money(suma(rows,i=>i.monto))},
       {num:true,html:money(suma(rows,i=>i.saldo))}, '', '', '']);
     $$('[data-pay]').forEach(b=>b.onclick=()=>pagar(insts.find(i=>i.id===b.dataset.pay)));
+    $$('[data-hist]').forEach(b=>b.onclick=()=>historia(insts.find(i=>i.id===b.dataset.hist)));
     ordenable('#tabla', orden.cuotas, render);
   }
 
@@ -297,6 +300,49 @@ $('#btnExport').onclick=()=>{
   download(`${nombreHoja}_cem.csv`, toCSV(filas));
   ok(`${filas.length} fila(s) exportadas${q||f ? ' — las que deja ver el filtro' : ''}`);
 };
+
+/* ============ item 55 · la historia de una cuota ============
+   Si una cuota se pagó en dos veces se veía el saldo, pero no los dos pagos,
+   ni cuándo, ni quién los aprobó. Para reclamarle a alguien hacía falta eso. */
+async function historia(i){
+  if (!i) return;
+  const e = ens.find(x => x.id === i.enrollment_id);
+  const suyos = pays.filter(x => x.installment_id === i.id)
+    .sort((a,b) => String(a.fecha).localeCompare(String(b.fecha)));
+  const abonado = suyos.filter(x => x.estado === 'confirmado').reduce((a,x) => a + enDolares(x), 0);
+
+  // Quién registró cada pago: en la tabla sólo está el identificador.
+  const quienes = [...new Set(suyos.map(x => x.registrado_por).filter(Boolean))];
+  const nombre = {};
+  if (quienes.length) {
+    const { data } = await sb.from('cem_profiles').select('id,nombre,apellido,email').in('id', quienes);
+    (data||[]).forEach(x => nombre[x.id] = `${x.nombre||''} ${x.apellido||''}`.trim() || x.email);
+  }
+
+  modal({ title:`Cuota ${i.numero} · ${e?.cem_profiles?.nombre||''} ${e?.cem_profiles?.apellido||''}`.trim(), wide:true, body:`
+    <div class="row" style="gap:18px;flex-wrap:wrap;margin-bottom:12px">
+      <div><div class="tiny muted">De</div><div class="t"><b>${money(i.monto, i.moneda||'USD')}</b></div></div>
+      <div><div class="tiny muted">Abonado</div><div class="t"><b>${money(abonado,'USD')}</b>
+        <span class="tiny muted">en ${suyos.filter(x=>x.estado==='confirmado').length} pago(s)</span></div></div>
+      <div><div class="tiny muted">Queda debiendo</div><div class="t">${saldo(i.saldo)}</div></div>
+      <div><div class="tiny muted">Vence</div><div class="t">${fdate(i.fecha_vencimiento)}</div></div>
+      <div><div class="tiny muted">Estado</div><div class="t">${chipEstado(i.estado)}</div></div>
+    </div>
+    ${suyos.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Cuándo</th><th>Cómo</th><th>Referencia</th><th class="num">Cuánto</th><th>Estado</th><th>Quién lo registró</th></tr></thead>
+      <tbody>${suyos.map(x => `<tr>
+        <td class="tiny">${fdatetime(x.fecha)}</td>
+        <td>${esc(etiqueta(x.metodo||'—'))}</td>
+        <td class="tiny">${esc(x.referencia||'—')}</td>
+        <td class="num">${montoPagado(x)}</td>
+        <td>${chip(x.estado==='confirmado'?'Aprobado':x.estado==='rechazado'?'Rechazado':'Por revisar',
+                   x.estado==='confirmado'?'ok':x.estado==='rechazado'?'err':'warn')}</td>
+        <td class="tiny muted">${esc(nombre[x.registrado_por] || (x.conciliado ? 'El propio banco (conciliado)' : 'El estudiante'))}
+          ${x.nota ? `<div class="tiny">${esc(x.nota)}</div>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted tiny">Todavía no hay ningún pago contra esta cuota.</p>'}`,
+    footer:`<button class="btn outline" data-x>Cerrar</button>` });
+}
 
 function pagar(i){
   const saldoCuota = Number(i.saldo || i.monto) || 0;

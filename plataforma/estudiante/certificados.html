@@ -67,13 +67,45 @@ async function load(){
 
   $$('[data-pdf]').forEach(b=>b.onclick=()=>verCertificado((certs||[]).find(c=>c.id===b.dataset.pdf)));
 
+  /* item 58 · antes esto decía «necesitas el 80%» y mostraba una barra. Los
+     requisitos de verdad son tres —no deber nada, aprobar las evaluaciones y
+     llegar al 100%— y el servidor ya los calcula al emitir. Aquí se muestran
+     los del propio estudiante, con lo cumplido marcado, para que sepa qué le
+     falta sin tener que preguntarlo. */
   const enCurso = (ens||[]).filter(e=>!(certs||[]).some(c=>c.enrollment_id===e.id));
-  $('#camino').innerHTML = enCurso.length ? enCurso.map(e=>`
-    <div class="list-item"><div class="grow">
-      <div class="t">${esc(e.cem_courses?.certificado_nombre || e.cem_courses?.nombre || '')}</div>
-      <div class="s">Necesitas completar el 80% del programa · vas en ${pct(e.progreso)}</div>
-      <div style="margin-top:6px">${bar(e.progreso, true)}</div></div>
-      ${Number(e.progreso)>=80?chip('listo para emisión','ok'):chip('en progreso','warn')}</div>`).join('')
+  const requisitos = await Promise.all(enCurso.map(async e => {
+    const { data } = await sb.rpc('cem_mis_requisitos_certificado', { p_enrollment_id: e.id });
+    return data || null;
+  }));
+
+  const punto = (cumplido, texto) => `<div class="row" style="gap:7px;align-items:flex-start;padding:3px 0">
+    <span class="material-symbols-outlined" style="font-size:18px;color:var(--${cumplido?'ok':'outline'})">
+      ${cumplido ? 'check_circle' : 'radio_button_unchecked'}</span>
+    <span class="tiny${cumplido ? ' muted' : ''}">${texto}</span></div>`;
+
+  $('#camino').innerHTML = enCurso.length ? enCurso.map((e, i) => {
+    const r = requisitos[i];
+    const nombre = esc(e.cem_courses?.certificado_nombre || e.cem_courses?.nombre || '');
+    if (!r) return `<div class="list-item"><div class="grow"><div class="t">${nombre}</div>
+      <div class="s">No pudimos consultar los requisitos ahora mismo. Recarga la página en un momento.</div></div></div>`;
+    const sinDeuda = Number(r.deuda) <= 0;
+    const evalOk = Number(r.evaluaciones_aprobadas) >= Number(r.evaluaciones_total);
+    const completo = Number(r.avance) >= 100;
+    return `<div class="list-item"><div class="grow">
+      <div class="t">${nombre}</div>
+      <div style="margin:6px 0">${bar(e.progreso, true)}</div>
+      ${punto(completo, completo
+        ? 'Terminaste todas las lecciones.'
+        : `Te falta terminar el programa: vas en ${pct(r.avance)}.`)}
+      ${punto(evalOk, evalOk
+        ? `Aprobaste las ${r.evaluaciones_total} evaluación(es).`
+        : `Te faltan ${Number(r.evaluaciones_total) - Number(r.evaluaciones_aprobadas)} evaluación(es) de ${r.evaluaciones_total} por aprobar.`)}
+      ${punto(sinDeuda, sinDeuda
+        ? 'No tienes nada pendiente de pago.'
+        : `Te quedan ${r.cuotas_pendientes} cuota(s) por pagar. <a href="pagos.html">Ver mis pagos</a>`)}
+      </div>
+      ${r.listo ? chip('Cumples todo: falta que lo emitan','ok') : chip('Te falta algo','warn')}</div>`;
+  }).join('')
     : '<p class="muted tiny">No tienes programas pendientes de certificación.</p>';
 
   $('#badges').innerHTML = (all||[]).map(b=>{

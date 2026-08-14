@@ -37,7 +37,7 @@
   <div id="cuerpo"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, qs, ok, fail, run, confirmDialog, modal } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, qs, ok, fail, run, confirmDialog, modal, nota, chipNota } from '../assets/app.js?v=2026-08-14';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let assess, preguntas=[], sub, respuestas={}, tLeft=null, tick=null;
 if (me) load();
@@ -66,7 +66,7 @@ async function load(){
       <span class="material-symbols-outlined" style="font-size:44px;color:var(--outline)">block</span>
       <h2>Sin intentos disponibles</h2>
       <p class="muted">Ya usaste los ${a.intentos} intento(s) permitidos para esta evaluación.</p>
-      ${(prev||[]).filter(s=>s.puntaje!=null).map(s=>`<div class="chip ${s.puntaje>=(a.nota_aprobatoria||70)?'ok':'err'}">Intento ${s.intento}: ${s.puntaje} pts</div>`).join(' ')}
+      ${(prev||[]).filter(s=>s.puntaje!=null).map(s=>`<span class="tiny muted">Intento ${s.intento}:</span> ${chipNota(s.puntaje, a.puntaje_max, a.nota_aprobatoria||70)}`).join(' ')}
       <div style="margin-top:16px"><a class="btn" href="panel.html">Volver a mi panel</a></div></div>`;
     return;
   }
@@ -156,7 +156,7 @@ async function entregar(auto){
     <div style="text-align:center;padding:10px">
       <span class="material-symbols-outlined" style="font-size:52px;color:${pendiente?'var(--info)':aprobado?'var(--ok)':'var(--error)'}">
         ${pendiente?'hourglass_top':aprobado?'check_circle':'cancel'}</span>
-      <h2 style="margin:10px 0 4px">${pendiente?'Entrega registrada':`${r.puntaje} puntos`}</h2>
+      <h2 style="margin:10px 0 4px">${pendiente?'Entrega registrada':nota(r.puntaje, assess.puntaje_max, assess.nota_aprobatoria||70)}</h2>
       ${parcial}
       <p class="muted">${pendiente
         ? 'Tu examen tiene preguntas abiertas: un profesor las revisa y te avisamos cuando esté la nota definitiva.'

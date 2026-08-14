@@ -18,6 +18,29 @@ export const initials = (a, b) => ((a || '?')[0] + (b ? b[0] : '')).toUpperCase(
 export const qs = (k) => new URLSearchParams(location.search).get(k);
 export const pct = (n) => `${Math.round(Number(n) || 0)}%`;
 
+/* ============ una nota, con su escala (item 57) ============
+   Un «18» suelto no dice nada: puede ser sobre 20 —notable— o sobre 100
+   —suspenso—. Y sin saber con cuánto se aprueba esa evaluación, tampoco se
+   sabe si el 18 sirve. Van siempre los tres números juntos. */
+export function nota(puntaje, sobre = 100, aprueba = null) {
+  if (puntaje == null || puntaje === '') return '<span class="muted">Sin calificar</span>';
+  const n = Number(puntaje), max = Number(sobre) || 100;
+  const min = aprueba == null ? null : Number(aprueba);
+  const paso = min == null ? null : n >= min;
+  return `<b class="${paso === false ? 'err-text' : ''}">${n} / ${max}</b>` +
+    (min == null ? '' : ` <span class="tiny muted">· aprueba con ${min}</span>`);
+}
+
+/** La misma nota resumida a un chip, para las listas apretadas. */
+export function chipNota(puntaje, sobre = 100, aprueba = null) {
+  if (puntaje == null || puntaje === '') return chip('Sin calificar', 'neutral');
+  const n = Number(puntaje), max = Number(sobre) || 100;
+  const min = aprueba == null ? null : Number(aprueba);
+  const paso = min == null ? null : n >= min;
+  return chip(`${n} / ${max}${min == null ? '' : paso ? ' · aprobado' : ' · reprobado'}`,
+    paso == null ? 'info' : paso ? 'ok' : 'err');
+}
+
 /* ============ cómo se escribe el dinero ============
    Una columna de cifras sólo se puede comparar de un vistazo si están alineadas
    a la derecha y todos los dígitos ocupan lo mismo. Antes cada pantalla lo
@@ -612,6 +635,7 @@ const ADMIN_NAV = [
     ['estudiantes.html', 'person', 'Estudiantes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
     ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
+    ['cierre-mes.html', 'event_available', 'Cierre de mes'],
     ['bancaribe.html', 'account_balance', 'Banco (Bancaribe)'],
   ]},
   { lbl: 'Evaluación', items: [
@@ -689,6 +713,7 @@ const AUDITOR_NAV = [
 const COBRANZA_NAV = [
   { lbl: 'Cobranza', items: [
     ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
+    ['cierre-mes.html', 'event_available', 'Cierre de mes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
     ['estudiantes.html', 'person', 'Estudiantes'],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],

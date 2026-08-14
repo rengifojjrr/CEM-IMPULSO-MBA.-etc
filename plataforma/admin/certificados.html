@@ -113,7 +113,9 @@ $('#btnExport').onclick=()=>download('certificados_cem.csv', toCSV(certs.map(c=>
 async function revisarRequisitos(ids){
   const reparos = [];
   for (const id of ids){
-    const { data } = await sb.rpc('cem_requisitos_certificado', { p_enrollment_id: id });
+    // Se llama la envoltura, no la interna: la interna no comprueba de quién es
+    // la inscripción y por eso ya sólo la alcanza el servidor.
+    const { data } = await sb.rpc('cem_mis_requisitos_certificado', { p_enrollment_id: id });
     if (data && !data.listo) reparos.push({ id, lista: data.reparos || [] });
   }
   return reparos;
