@@ -50,10 +50,11 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
          toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY,
-         selectorColumnas, montarAyudas } from '../assets/app.js?v=2026-08-14';
+         selectorColumnas, montarAyudas, accionVacio } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
+accionVacio('irNuevo', () => location.href = 'inscripciones.html');
 
 async function load(){
   const [{data:est},{data:ens},{data:ins},{data:cohs}] = await Promise.all([
@@ -109,7 +110,6 @@ function render(){
     <td><span class="material-symbols-outlined">chevron_right</span></td></tr>`).join('')
     : emptyRow(8, rows.length ? 'Ningún estudiante coincide con lo que buscaste.' : 'Todavía no hay estudiantes.',
         rows.length ? null : {texto:'Inscribir al primero', id:'irNuevo', icono:'person_add'});
-  const irNuevo = $('#irNuevo'); if (irNuevo) irNuevo.onclick = () => location.href = 'inscripciones.html';
 }
 ['#q','#fCoh','#fEst'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{['#q','#fCoh','#fEst'].forEach(s=>$(s).value=''); render();};

@@ -112,10 +112,10 @@ function render(){
         <div class="field" style="margin:0;width:92px"><label class="tiny">Puntaje</label>
           <input type="number" step="0.5" data-pt="${i}" value="${x.puntaje}"></div>
         <div class="stack" style="gap:2px">
-          <button class="btn ghost sm" data-up="${i}" ${i===0?'disabled':''}><span class="material-symbols-outlined">arrow_upward</span></button>
-          <button class="btn ghost sm" data-down="${i}" ${i===sel.length-1?'disabled':''}><span class="material-symbols-outlined">arrow_downward</span></button>
+          <button class="btn ghost sm" data-up="${i}" title="Subir la pregunta" ${i===0?'disabled':''}><span class="material-symbols-outlined">arrow_upward</span></button>
+          <button class="btn ghost sm" data-down="${i}" title="Bajar la pregunta" ${i===sel.length-1?'disabled':''}><span class="material-symbols-outlined">arrow_downward</span></button>
         </div>
-        <button class="btn ghost sm" data-rm="${i}" style="color:var(--error)"><span class="material-symbols-outlined">close</span></button>
+        <button class="btn ghost sm" data-rm="${i}" style="color:var(--error)" title="Quitar la pregunta de la evaluación"><span class="material-symbols-outlined">close</span></button>
       </div></div>`).join('')
     : '<p class="muted tiny">Todavía no has agregado preguntas. Usa «Agregar del banco».</p>';
 

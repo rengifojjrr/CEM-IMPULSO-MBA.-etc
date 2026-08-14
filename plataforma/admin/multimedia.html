@@ -40,7 +40,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit,
          confirmDialog, abrirSubidaVideo, campoArchivo, subirDocumentoLeccion, opciones, etiqueta,
-         chipEstado, ayuda, montarAyudas, mejorarSelects } from '../assets/app.js?v=2026-08-14';
+         chipEstado, ayuda, montarAyudas, mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'multimedia.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cursos=[], mods=[], lecciones=[], vista='grid';
@@ -84,8 +84,8 @@ function render(){
         <div class="tiny muted">${esc(ubicacion(m))} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div>
         <div class="row" style="margin-top:10px">
           ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
-          ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar / mover"><span class="material-symbols-outlined">edit</span></button>
-          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>`:''}
+          ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar el recurso" title="Editar / mover"><span class="material-symbols-outlined">edit</span></button>
+          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso"><span class="material-symbols-outlined">delete</span></button>`:''}
         </div></div>`).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">Sin archivos.</p></div>'}</div>`;
   } else {
     $('#cont').innerHTML = `<div class="card"><div class="table-wrap"><table>
@@ -99,9 +99,9 @@ function render(){
         <td class="muted">${fdate(m.created_at)}</td>
         <td style="white-space:nowrap">
           ${m.url?`<a class="btn ghost sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
-          ${puede?`<button class="btn ghost sm" data-e="${m.id}"><span class="material-symbols-outlined">edit</span></button>
-          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>`:''}
-        </td></tr>`).join('') : emptyRow(7)}</tbody></table></div></div>`;
+          ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar el recurso"><span class="material-symbols-outlined">edit</span></button>
+          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso"><span class="material-symbols-outlined">delete</span></button>`:''}
+        </td></tr>`).join('') : emptyRow(7, 'La biblioteca está vacía. Aquí van los materiales que se reparten entre programas.', {texto:'Subir el primer recurso', id:'vacioMedia', icono:'upload_file'})}</tbody></table></div></div>`;
   }
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(r=>r.id===b.dataset.e)));
   $$('[data-d]').forEach(b=>b.onclick=async()=>{
@@ -114,6 +114,7 @@ function render(){
 $('#vGrid').onclick=()=>{vista='grid';render();};
 $('#vList').onclick=()=>{vista='list';render();};
 $('#btnNuevo').onclick=()=>form(null);
+accionVacio('vacioMedia', () => form(null));
 
 function form(m){
   const isNew=!m;

@@ -55,10 +55,11 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, kpi, chip, bar, money, num, fdate, emptyRow, pct, chipEstado,
-         kpisConMas } from '../assets/app.js?v=2026-08-14';
+         kpisConMas, accionVacio } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'index.html', area:'admin' });
 if (p) init();
+accionVacio('irInscribir', () => location.href = 'inscripciones.html');
 
 async function init(){
   const { data: m } = await sb.rpc('cem_admin_metrics');
@@ -122,7 +123,6 @@ async function init(){
       <td class="muted" data-col="Fecha">${fdate(e.fecha_inscripcion)}</td></tr>`).join('')
     : emptyRow(5, 'Todavía no hay inscripciones.', {texto:'Inscribir a alguien', id:'irInscribir', icono:'person_add'});
   $$('#tbInscripciones tr[data-ir]').forEach(tr => tr.onclick = () => location.href = tr.dataset.ir);
-  const irIns = $('#irInscribir'); if (irIns) irIns.onclick = () => location.href = 'inscripciones.html';
 
   const { data: cohs } = await sb.from('cem_cohorts')
     .select('id,nombre,codigo,cupos,estado,fecha_inicio,cem_courses(nombre)')

@@ -72,7 +72,7 @@ async function load(){
     <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(e.cem_courses?.certificado_nombre||e.cem_courses?.nombre||'')}</td>
     <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
-    <td>${chipEstado(e.estado)}</td></tr>`).join('') : emptyRow(5,'No hay estudiantes pendientes de certificación.');
+    <td>${chipEstado(e.estado)}</td></tr>`).join('') : emptyRow(5, 'Nadie cumple todavía los requisitos para certificarse. Aparecen aquí al llegar al 80% y aprobar sus evaluaciones.');
   $('#chkAll').onchange = () => $$('.chkE').forEach(c=>{ if(!c.disabled) c.checked=$('#chkAll').checked; });
   render();
 }
@@ -92,7 +92,7 @@ function render(){
         <span class="material-symbols-outlined">verified</span></a>
       ${puede && c.estado==='emitido'?`<button class="btn ghost sm" data-rev="${c.id}" style="color:var(--error)" title="Revocar">
         <span class="material-symbols-outlined">block</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(7,'Sin certificados emitidos.');
+    </td></tr>`).join('') : emptyRow(7, 'Todavía no se ha emitido ningún certificado.');
   $$('[data-ver]').forEach(b=>b.onclick=()=>ver(certs.find(c=>c.id===b.dataset.ver)));
   $$('[data-rev]').forEach(b=>b.onclick=async()=>{
     if (!await confirmDialog('¿Revocar este certificado? Dejará de validar en la verificación pública.')) return;

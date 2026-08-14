@@ -118,7 +118,7 @@ async function load(){
     return `<tr><td class="wrap">${esc(c.titulo)}</td><td>${fdate(c.fecha)}</td>
       <td>${esc(c.cem_cohorts?.nombre||'')}</td>
       <td style="min-width:120px">${bar(r)}<span class="tiny muted">${s.p}/${s.t} · ${r}%</span></td>
-      <td><button class="btn ghost sm" data-asis="${c.id}"><span class="material-symbols-outlined">how_to_reg</span></button></td></tr>`;
+      <td><button class="btn ghost sm" data-asis="${c.id}" title="Pasar la asistencia"><span class="material-symbols-outlined">how_to_reg</span></button></td></tr>`;
   }).join('') : emptyRow(5,'Aún no has dictado sesiones.');
   $$('[data-asis]').forEach(b=>b.onclick=()=>pasarAsistencia(b.dataset.asis, ens||[]));
 }

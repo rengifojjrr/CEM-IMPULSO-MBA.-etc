@@ -63,13 +63,14 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toCSV, download, ok, fail,
          modal, confirmDialog, run, audit, mejorarSelects, subirImagenCurso, campoArchivo, opciones,
-         etiqueta, chipEstado, ayuda, montarAyudas, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-14';
+         etiqueta, chipEstado, ayuda, montarAyudas, ordenable, ordenarPor, accionVacio } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cursos.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const METODOS_PAGO = ['Transferencia bancaria','Tarjeta de crédito/débito','Zelle','PayPal','Pago móvil','Efectivo'];
 let rows = [], categorias = [];
 if (p) { load(); sb.from('cem_categorias').select('nombre').eq('activo',true).order('orden').then(({data})=>categorias=data||[]); }
+accionVacio('vacioNuevo', () => location.href = 'curso-nuevo.html');
 
 async function load(){
   const { data } = await sb.from('cem_courses').select('*').order('created_at',{ascending:false});
@@ -101,8 +102,6 @@ function render(){
     </td></tr>`).join('')
     : emptyRow(6, q||t||m||n||e ? 'Ningún programa coincide con lo que buscas.' : 'Todavía no hay programas.',
                editable && !(q||t||m||n||e) ? {texto:'Crear el primero', id:'vacioNuevo', icono:'add'} : null);
-  const vn = $('#vacioNuevo');
-  if (vn) vn.onclick = () => { location.href = 'curso-nuevo.html'; };
   $$('[data-edit]').forEach(b => b.onclick = () => edit(rows.find(x => x.id === b.dataset.edit)));
 
   // Cuántos filtros hay puestos, para saberlo sin desplegarlos.

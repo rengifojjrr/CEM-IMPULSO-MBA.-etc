@@ -67,10 +67,10 @@ function render(){
       <td class="wrap" style="max-width:280px">${esc((r.motivo||'').slice(0,140))}${(r.motivo||'').length>140?'…':''}</td>
       <td>${chipEstado(r.estado)}</td><td class="muted">${fdate(r.created_at)}</td>
       <td style="white-space:nowrap">
-        <button class="btn ghost sm" data-v="${r.id}"><span class="material-symbols-outlined">visibility</span></button>
+        <button class="btn ghost sm" data-v="${r.id}" title="Ver la apelación completa"><span class="material-symbols-outlined">visibility</span></button>
         ${puede && !['aceptada','rechazada'].includes(r.estado)?`<button class="btn outline sm" data-r="${r.id}">Resolver</button>`:''}
       </td></tr>`;
-  }).join('') : emptyRow(7,'No hay apelaciones registradas.');
+  }).join('') : emptyRow(7, 'Nadie ha apelado una nota. Es buena señal.');
   $$('[data-v]').forEach(b=>b.onclick=()=>ver(rows.find(r=>r.id===b.dataset.v)));
   $$('[data-r]').forEach(b=>b.onclick=()=>resolver(rows.find(r=>r.id===b.dataset.r)));
 }

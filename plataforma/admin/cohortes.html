@@ -38,7 +38,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cohortes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -88,14 +88,16 @@ function render(){
       <td style="white-space:nowrap">
         <a class="btn ghost sm" href="calendario.html?cohorte=${r.id}" title="Calendario"><span class="material-symbols-outlined">calendar_today</span></a>
         <a class="btn ghost sm" href="inscripciones.html?cohorte=${r.id}" title="Inscritos"><span class="material-symbols-outlined">group</span></a>
-        ${editable?`<button class="btn ghost sm" data-edit="${r.id}"><span class="material-symbols-outlined">edit</span></button>`:''}
+        ${editable?`<button class="btn ghost sm" data-edit="${r.id}" title="Editar la cohorte"><span class="material-symbols-outlined">edit</span></button>`:''}
       </td></tr>`;
-  }).join('') : emptyRow(9);
+  }).join('') : emptyRow(9, 'Todavía no hay cohortes. Una cohorte es el grupo con el que un programa se dicta.', {texto:'Crear la primera cohorte', id:'vacioCohorte', icono:'group_add'});
   $$('[data-edit]').forEach(b => b.onclick = () => form(rows.find(x=>x.id===b.dataset.edit)));
 }
 ['#q','#fCurso','#fEstado'].forEach(s=>{ const el=$(s); el.oninput=render; el.onchange=render; });
 $('#btnClear').onclick = () => { ['#q','#fCurso','#fEstado'].forEach(s=>$(s).value=''); render(); };
 $('#btnNueva').onclick = () => form(null);
+/* item 19 · el vacío ofrece la acción, no sólo la noticia de que está vacío. */
+accionVacio('vacioCohorte', () => form(null));
 
 function form(c){
   const isNew = !c;

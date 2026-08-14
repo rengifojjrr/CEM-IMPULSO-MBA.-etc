@@ -76,7 +76,7 @@ function hero(){
       </div></div>
     <div class="row">
       ${editable?`<button class="btn outline" id="btnMatricular"><span class="material-symbols-outlined">add_circle</span> Matricular</button>
-      <button class="btn ghost" id="btnToggle"><span class="material-symbols-outlined">${stu.activo?'block':'check_circle'}</span></button>`:''}
+      <button class="btn ghost" id="btnToggle" title="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"><span class="material-symbols-outlined">${stu.activo?'block':'check_circle'}</span></button>`:''}
     </div></div>`;
   if (editable){
     $('#btnToggle').onclick = async () => {
@@ -112,9 +112,9 @@ function tab(t){
         <td>${esc(e.cem_cohorts?.nombre||'—')}</td>
         <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
         <td>${chipEstado(e.estado)}</td><td>${money(e.precio_final)}</td><td class="muted">${fdate(e.fecha_inscripcion)}</td>
-        <td>${editable?`<button class="btn ghost sm" data-est="${e.id}"><span class="material-symbols-outlined">edit</span></button>
+        <td>${editable?`<button class="btn ghost sm" data-est="${e.id}" title="Cambiar el estado de la inscripción"><span class="material-symbols-outlined">edit</span></button>
           ${Number(e.progreso)>=80?`<button class="btn ghost sm" data-cert="${e.id}" title="Emitir certificado"><span class="material-symbols-outlined">workspace_premium</span></button>`:''}`:''}</td>
-      </tr>`).join('') : emptyRow(7)}</tbody></table></div></div>`;
+      </tr>`).join('') : emptyRow(7, 'Este estudiante no está inscrito en ningún programa.')}</tbody></table></div></div>`;
     $$('[data-est]').forEach(b=>b.onclick=()=>cambiarEstado(ens.find(x=>x.id===b.dataset.est)));
     $$('[data-cert]').forEach(b=>b.onclick=async()=>{
       if(!await confirmDialog('¿Emitir certificado para esta inscripción?')) return;
@@ -129,7 +129,7 @@ function tab(t){
         <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td><td>${esc(s.cem_assessments?.tipo||'')}</td>
         <td>${s.intento}</td><td><b>${s.puntaje!=null?s.puntaje:'—'}</b></td>
         <td>${chipEstado(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td><td class="muted">${fdatetime(s.entregado_en)}</td>
-      </tr>`).join('') : emptyRow(6)}</tbody></table></div></div>`;
+      </tr>`).join('') : emptyRow(6, 'Este estudiante todavía no ha entregado ninguna evaluación.')}</tbody></table></div></div>`;
   }
   if (t==='certificados'){
     P.innerHTML = `<div class="card"><div class="table-wrap"><table>
@@ -139,7 +139,7 @@ function tab(t){
         <td class="wrap">${esc(c.cem_courses?.nombre||'')}</td><td class="muted">${fdate(c.emitido_en)}</td>
         <td>${chipEstado(c.estado)}</td>
         <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"><span class="material-symbols-outlined">verified</span></a></td>
-      </tr>`).join('') : emptyRow(6,'Sin certificados emitidos.')}</tbody></table></div></div>`;
+      </tr>`).join('') : emptyRow(6, 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>`;
   }
   if (t==='pagos'){
     const saldo = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
@@ -153,12 +153,12 @@ function tab(t){
         <td>${money(i.monto)}</td><td class="muted">${fdate(i.fecha_vencimiento)}</td>
         <td>${money(i.saldo)}</td><td>${chipEstado(i.estado)}</td>
         <td>${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
-      }).join('') : emptyRow(7)}</tbody></table></div></div>
+      }).join('') : emptyRow(7, 'Este estudiante no tiene cuotas: su inscripción se pagó de una vez o todavía no tiene plan.')}</tbody></table></div></div>
       <div class="card"><h2 class="sec">Pagos registrados</h2><div class="table-wrap"><table>
       <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Referencia</th><th>Conciliado</th></tr></thead>
       <tbody>${pays.length? pays.map(x=>`<tr><td class="muted">${fdate(x.fecha)}</td><td><b>${money(x.monto)}</b></td>
         <td>${esc(x.metodo||'—')}</td><td>${esc(x.referencia||'—')}</td>
-        <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('') : emptyRow(5)}</tbody></table></div></div>`;
+        <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('') : emptyRow(5, 'Todavía no ha hecho ningún pago.')}</tbody></table></div></div>`;
     $$('[data-pay]').forEach(b=>b.onclick=()=>registrarPago(insts.find(i=>i.id===b.dataset.pay)));
   }
 }

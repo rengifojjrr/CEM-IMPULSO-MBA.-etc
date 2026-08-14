@@ -647,7 +647,7 @@ function renderTbl(){
       <button class="btn ghost sm" data-l="${t.id}" title="Abrir"><span class="material-symbols-outlined">edit</span></button>
       <button class="btn ghost sm" data-dup="${t.id}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
       <button class="btn ghost sm" data-del="${t.id}" style="color:var(--error)" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
-    </td></tr>`).join('') : emptyRow(6,'Sin plantillas.');
+    </td></tr>`).join('') : emptyRow(6, 'Todavía no has guardado ningún diseño de certificado.');
   $$('[data-l]').forEach(b=>b.onclick=()=>{ $('#selTpl').value=b.dataset.l;
     actual=tpls.find(t=>t.id===b.dataset.l); cargarPlantilla(); });
   $$('[data-dup]').forEach(b=>b.onclick=()=>duplicar(tpls.find(t=>t.id===b.dataset.dup)));

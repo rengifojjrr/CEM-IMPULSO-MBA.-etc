@@ -29,7 +29,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, fail, run, audit, initials } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, fail, run, audit, initials, accionVacio } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'profesores.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let rows=[], cohortes=[];
@@ -74,7 +74,7 @@ function render(){
     <td style="white-space:nowrap">
       ${editable?`<button class="btn ghost sm" data-asig="${r.id}" title="Asignar cohortes"><span class="material-symbols-outlined">assignment_ind</span></button>
       <button class="btn ghost sm" data-tog="${r.id}" title="Activar/desactivar"><span class="material-symbols-outlined">${r.activo?'block':'check_circle'}</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(9);
+    </td></tr>`).join('') : emptyRow(9, 'Todavía no hay profesores. Se dan de alta a partir de una cuenta ya registrada.', {texto:'Dar de alta un profesor', id:'vacioProfe', icono:'person_add'});
   $$('[data-asig]').forEach(b=>b.onclick=()=>asignar(rows.find(x=>x.id===b.dataset.asig)));
   $$('[data-tog]').forEach(b=>b.onclick=async()=>{
     const t = rows.find(x=>x.id===b.dataset.tog);
@@ -103,6 +103,7 @@ async function asignar(t){
   };
 }
 
+accionVacio('vacioProfe', () => $('#btnNuevo').click());
 $('#btnNuevo').onclick = () => {
   const m = modal({ title:'Invitar profesor', body:`
     <p class="tiny muted" style="margin-top:0">El profesor debe registrarse primero en la plataforma; aquí le asignas el rol docente por su correo.</p>

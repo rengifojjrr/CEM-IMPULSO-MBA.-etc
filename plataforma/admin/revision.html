@@ -68,7 +68,7 @@ function render(){
       <button class="btn ghost sm" data-ver="${r.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
       ${puede && r.estado!=='aprobado' ? `<button class="btn ghost sm" data-ap="${r.id}" title="Aprobar y publicar" style="color:var(--ok)"><span class="material-symbols-outlined">check_circle</span></button>
       <button class="btn ghost sm" data-dev="${r.id}" title="Devolver" style="color:var(--warn)"><span class="material-symbols-outlined">assignment_return</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(8,'No hay contenidos en la bandeja.');
+    </td></tr>`).join('') : emptyRow(8, 'La bandeja está vacía: no hay contenido esperando revisión.');
 
   $$('[data-ver]').forEach(b=>b.onclick=()=>ver(rows.find(r=>r.id===b.dataset.ver)));
   $$('[data-ap]').forEach(b=>b.onclick=()=>resolver(rows.find(r=>r.id===b.dataset.ap), true));

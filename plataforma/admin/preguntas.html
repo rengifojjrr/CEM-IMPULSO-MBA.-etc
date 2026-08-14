@@ -35,7 +35,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, opciones, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, opciones, chipEstado, accionVacio } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'preguntas.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cursos=[];
@@ -72,11 +72,11 @@ function render(){
       <td>${chipEstado(r.dificultad)}</td><td>${num(r.usos)}</td>
       <td>${ac!=null?`<span class="chip ${ac>=70?'ok':ac>=40?'warn':'err'}">${ac}%</span>`:'—'}</td>
       <td style="white-space:nowrap">
-        ${puede?`<button class="btn ghost sm" data-e="${r.id}"><span class="material-symbols-outlined">edit</span></button>
+        ${puede?`<button class="btn ghost sm" data-e="${r.id}" title="Editar la pregunta"><span class="material-symbols-outlined">edit</span></button>
         <button class="btn ghost sm" data-dup="${r.id}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
-        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>`:''}
+        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)" title="Borrar la pregunta"><span class="material-symbols-outlined">delete</span></button>`:''}
       </td></tr>`;
-  }).join('') : emptyRow(7);
+  }).join('') : emptyRow(7, 'El banco de preguntas está vacío. Las preguntas se reutilizan entre evaluaciones.', {texto:'Crear la primera pregunta', id:'vacioPreg', icono:'help_center'});
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(r=>r.id===b.dataset.e)));
   $$('[data-dup]').forEach(b=>b.onclick=()=>{ const r=rows.find(x=>x.id===b.dataset.dup);
     form({...r, id:null, enunciado:r.enunciado+' (copia)', usos:0, aciertos:0}); });
@@ -89,6 +89,7 @@ function render(){
 ['#q','#fCurso','#fTipo','#fDif'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{['#q','#fCurso','#fTipo','#fDif'].forEach(s=>$(s).value=''); render();};
 $('#btnNueva').onclick=()=>form(null);
+accionVacio('vacioPreg', () => form(null));
 
 function form(q){
   const isNew=!q?.id;

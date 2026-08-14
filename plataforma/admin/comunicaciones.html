@@ -36,7 +36,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, opciones, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, opciones, chipEstado, accionVacio } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'comunicaciones.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cohortes=[], cursos=[], perfiles={}, filtro='';
@@ -75,13 +75,13 @@ function render(){
       <td class="muted">${r.enviado_en? fdatetime(r.enviado_en) : r.programado_para? fdatetime(r.programado_para) : fdate(r.created_at)}</td>
       <td>${esc(perfiles[r.autor_id]||'—')}</td>
       <td style="white-space:nowrap">
-        <button class="btn ghost sm" data-v="${r.id}"><span class="material-symbols-outlined">visibility</span></button>
-        ${puede?`<button class="btn ghost sm" data-e="${r.id}"><span class="material-symbols-outlined">edit</span></button>
+        <button class="btn ghost sm" data-v="${r.id}" title="Ver el mensaje"><span class="material-symbols-outlined">visibility</span></button>
+        ${puede?`<button class="btn ghost sm" data-e="${r.id}" title="Editar el mensaje"><span class="material-symbols-outlined">edit</span></button>
         ${r.estado!=='enviado'?`<button class="btn ghost sm" data-send="${r.id}" style="color:var(--ok)" title="Enviar ahora">
           <span class="material-symbols-outlined">send</span></button>`:''}
-        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>`:''}
+        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)" title="Borrar el mensaje"><span class="material-symbols-outlined">delete</span></button>`:''}
       </td></tr>`;
-  }).join('') : emptyRow(7,'No hay anuncios.');
+  }).join('') : emptyRow(7, 'Todavía no has publicado ningún anuncio.', {texto:'Escribir el primer anuncio', id:'vacioAnuncio', icono:'campaign'});
 
   $$('[data-v]').forEach(b=>b.onclick=()=>{ const r=rows.find(x=>x.id===b.dataset.v);
     modal({ title:r.titulo, body:`<div class="row" style="gap:8px;margin-bottom:12px">${chipEstado(r.estado)}${chip(r.canal,'neutral')}
@@ -101,6 +101,7 @@ function render(){
 }
 ['#q','#fCanal'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnNuevo').onclick=()=>form(null);
+accionVacio('vacioAnuncio', () => form(null));
 
 function form(r){
   const isNew=!r;

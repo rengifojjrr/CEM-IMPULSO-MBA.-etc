@@ -73,7 +73,7 @@ async function load(){
       ${puede?`<div class="row" style="margin-top:12px">
         <button class="btn outline sm" data-e="${b.id}"><span class="material-symbols-outlined">edit</span> Editar</button>
         <button class="btn ghost sm" data-t="${b.id}">${b.activo?'Desactivar':'Activar'}</button>
-        <button class="btn ghost sm" data-d="${b.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>
+        <button class="btn ghost sm" data-d="${b.id}" style="color:var(--error)" title="Borrar la insignia"><span class="material-symbols-outlined">delete</span></button>
       </div>`:''}
     </div>`).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">Sin insignias configuradas.</p></div>';
 
@@ -97,7 +97,7 @@ async function load(){
     <td class="wrap">${esc(a.cem_badges?.competencia||'—')}</td>
     <td class="muted">${fdate(a.otorgado_en)}</td>
     <td>${puede?`<button class="btn ghost sm" data-rev="${a.id}" style="color:var(--error)" title="Revocar">
-      <span class="material-symbols-outlined">block</span></button>`:''}</td></tr>`).join('') : emptyRow(5,'Sin otorgamientos.');
+      <span class="material-symbols-outlined">block</span></button>`:''}</td></tr>`).join('') : emptyRow(5, 'Todavía no se le ha dado ninguna insignia a nadie.');
   $$('[data-rev]').forEach(b=>b.onclick=async()=>{
     if (!await confirmDialog('¿Revocar esta insignia al estudiante?')) return;
     await run(sb.from('cem_badge_awards').delete().eq('id',b.dataset.rev),'No se pudo revocar');

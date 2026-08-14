@@ -454,3 +454,17 @@ th.ordenable:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;
 /* ---- acciones sobre varias filas (item 25) ------------------------------ */
 td.sel,th.sel{width:34px;text-align:center;}
 tr.marcada{background:color-mix(in srgb, var(--primary) 7%, transparent);}
+
+/* ---- el buscador de arriba, entero en el teléfono (item 46) -------------- */
+/* Compartía el ancho con el logo y la campana y se quedaba en «Busc». Al
+   tocarlo se abre sobre toda la barra; la equis lo devuelve a su sitio. */
+.gsearch-cerrar{display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  background:none;border:none;width:32px;height:32px;border-radius:50%;
+  align-items:center;justify-content:center;color:var(--on-surface-variant);}
+@media (max-width:720px){
+  .topbar .search.buscando{position:fixed;inset:0 0 auto 0;height:60px;max-width:none;z-index:60;
+    background:var(--surface-lowest);display:flex;align-items:center;padding:0 12px;
+    border-bottom:1px solid var(--outline-variant);}
+  .topbar .search.buscando input{padding-right:40px;}
+  .topbar .search.buscando .gsearch-cerrar{display:inline-flex;right:16px;}
+}

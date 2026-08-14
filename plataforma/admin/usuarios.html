@@ -74,7 +74,7 @@ function render(){
       ${puede?`<button class="btn ghost sm" data-e="${u.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
       <button class="btn ghost sm" data-t="${u.id}" title="${u.activo?'Desactivar':'Activar'}">
         <span class="material-symbols-outlined">${u.activo?'block':'check_circle'}</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(8);
+    </td></tr>`).join('') : emptyRow(8, 'Ninguna cuenta coincide con lo que buscaste.');
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(x=>x.id===b.dataset.e)));
   $$('[data-t]').forEach(b=>b.onclick=async()=>{
     const u=rows.find(x=>x.id===b.dataset.t);

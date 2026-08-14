@@ -155,7 +155,7 @@ function render(){
   $('#tb').innerHTML = filas.length? filas.map(f=>`<tr>
     <td class="wrap"><b>${esc(f.programa)}</b></td><td>${num(f.estudiantes)}</td><td>${f.progreso}%</td>
     <td>${money(f.ingresos)}</td><td>${f.por_cobrar?`<span class="chip warn">${money(f.por_cobrar)}</span>`:'—'}</td>
-    <td>${num(f.certificados)}</td><td>${f.nota_media??'—'}</td></tr>`).join('') : emptyRow(7);
+    <td>${num(f.certificados)}</td><td>${f.nota_media??'—'}</td></tr>`).join('') : emptyRow(7, 'No hay datos para el periodo elegido. Prueba con un rango más amplio.');
 
   window.__filas = filas;
 }

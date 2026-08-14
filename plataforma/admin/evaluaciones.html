@@ -40,8 +40,9 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
+accionVacio('vacioEval', () => location.href = 'evaluacion-nueva.html');
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[];
 if (p) load();
@@ -84,7 +85,7 @@ function render(){
       <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>
       ${puede?`<button class="btn ghost sm" data-pub="${r.id}" title="${r.estado==='publicado'?'Despublicar':'Publicar'}">
         <span class="material-symbols-outlined">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(10);
+    </td></tr>`).join('') : emptyRow(10, 'Todavía no hay evaluaciones.', {texto:'Crear la primera evaluación', id:'vacioEval', icono:'quiz'});
   $$('[data-pub]').forEach(b=>b.onclick=async()=>{
     const r=rows.find(x=>x.id===b.dataset.pub);
     const nuevo = r.estado==='publicado'?'borrador':'publicado';

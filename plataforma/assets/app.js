@@ -738,7 +738,73 @@ export async function mount(opts = {}) {
   // Los «?» de ayuda y las cifras de dinero funcionan igual en todas las
   // pantallas: se conectan aquí y no hay que acordarse en cada una.
   montarAyudas(document);
+  tablasLegiblesEnElTelefono();
+  buscadorDePantallaCompleta();
   return p;
+}
+
+/* ============ que las tablas se lean en el teléfono (items 59 y 47) ============
+   En un teléfono de 390 puntos, una tabla de diez columnas se ve «CURSO · TIPO
+   · M…» y el resto se alcanza arrastrando. La regla de CSS que apila cada fila
+   como tarjeta necesita saber de qué columna es cada celda, y eso está en el
+   encabezado. En vez de escribir `data-col` a mano en las treinta tablas de la
+   plataforma —donde siempre se olvida una y donde cada tabla que se repinta lo
+   pierde—, se copia del `<thead>` cada vez que el cuerpo cambia.
+
+   De paso hereda la alineación: si el encabezado es una columna de dinero
+   (`th.num`), sus celdas también, así las cifras quedan a la derecha y con
+   ancho fijo sin repetirlo fila por fila. */
+function tablasLegiblesEnElTelefono(raiz = document) {
+  $$('table', raiz).forEach((tabla) => {
+    const ths = $$('thead th', tabla);
+    // Una tabla de dos columnas ya se lee de frente; apilarla sólo estorba.
+    if (ths.length < 4) return;
+    tabla.classList.add('tarjetas');
+
+    const etiquetas = ths.map((th) => th.textContent.trim());
+    const numericas = ths.map((th) => th.classList.contains('num'));
+    const sellar = () => $$('tbody tr', tabla).forEach((tr) => {
+      // Las filas de «no hay nada» ocupan toda la tabla: no son datos.
+      if (tr.querySelector('td[colspan]')) return;
+      [...tr.children].forEach((td, i) => {
+        if (etiquetas[i] && !td.dataset.col) td.dataset.col = etiquetas[i];
+        if (numericas[i]) td.classList.add('num');
+      });
+    });
+    sellar();
+    const cuerpo = tabla.tBodies[0];
+    if (cuerpo) new MutationObserver(sellar).observe(cuerpo, { childList: true, subtree: true });
+  });
+}
+
+/* ============ el buscador de arriba, entero (item 46) ============
+   En el teléfono la barra superior repartía el ancho entre logo, buscador y
+   campana, y el buscador se quedaba en «Busc». Al tocarlo ahora se abre sobre
+   toda la pantalla; al salir, vuelve a su sitio. */
+function buscadorDePantallaCompleta() {
+  const caja = $('#cemGlobalSearch');
+  if (!caja) return;
+  const envoltura = caja.closest('.search') || caja.parentElement;
+  const abrir = () => {
+    if (!matchMedia('(max-width: 720px)').matches) return;
+    document.body.classList.add('buscando');
+    envoltura.classList.add('buscando');
+    if (!$('#cemBuscarCerrar')) {
+      const x = document.createElement('button');
+      x.id = 'cemBuscarCerrar'; x.type = 'button'; x.className = 'gsearch-cerrar';
+      x.setAttribute('aria-label', 'Cerrar la búsqueda');
+      x.innerHTML = '<span class="material-symbols-outlined">close</span>';
+      x.onclick = cerrar;
+      envoltura.appendChild(x);
+    }
+  };
+  const cerrar = () => {
+    document.body.classList.remove('buscando');
+    envoltura.classList.remove('buscando');
+    caja.blur();
+  };
+  caja.addEventListener('focus', abrir);
+  caja.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
 }
 
 /**
@@ -1003,11 +1069,24 @@ export function chip(txt, kind) {
  * @param {{texto:string, id:string, icono?:string}} [accion]
  */
 export function emptyRow(cols, msg = 'Sin resultados.', accion = null) {
-  const boton = accion ? `<button class="btn sm" id="${esc(accion.id)}" style="margin-top:10px">
+  const boton = accion ? `<button class="btn sm" id="${esc(accion.id)}" data-vacio="${esc(accion.id)}" style="margin-top:10px">
       <span class="material-symbols-outlined">${esc(accion.icono || 'add')}</span>
       ${esc(accion.texto)}</button>` : '';
   return `<tr><td colspan="${cols}"><div class="empty">${esc(msg)}${boton}</div></td></tr>`;
 }
+
+/* El botón del estado vacío nace y muere con cada repintado de la tabla, así
+   que engancharlo una vez por su id no sirve: al filtrar y volver, el clic ya
+   no hace nada. Se registra la acción por nombre y un único oyente del
+   documento la reparte. */
+const ACCIONES_VACIAS = new Map();
+export function accionVacio(id, hacer) { ACCIONES_VACIAS.set(id, hacer); }
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-vacio]');
+  if (!b) return;
+  const hacer = ACCIONES_VACIAS.get(b.dataset.vacio);
+  if (hacer) { ev.preventDefault(); hacer(); }
+});
 
 /* ============ elegir qué columnas se ven (item 24) ============
    Contabilidad quiere saldo y documento; coordinación quiere progreso y último

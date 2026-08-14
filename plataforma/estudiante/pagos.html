@@ -162,7 +162,7 @@ function renderPagos(){
         ? `<button class="btn ghost sm" data-recibo="${x.id}" title="Descargar recibo">
              <span class="material-symbols-outlined">description</span></button>`
         : '<span class="tiny muted">—</span>'}</td>
-  </tr>`).join('') : emptyRow(6);
+  </tr>`).join('') : emptyRow(6, 'Todavía no has registrado ningún pago.');
 
   $$('[data-recibo]').forEach(b => b.onclick = () => descargarRecibo(b.dataset.recibo));
 

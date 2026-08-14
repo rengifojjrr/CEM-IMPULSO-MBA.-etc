@@ -39,9 +39,9 @@
   <div class="card">
     <div class="row between" style="margin-bottom:12px">
       <div class="row">
-        <button class="icon-btn" id="prev"><span class="material-symbols-outlined">chevron_left</span></button>
+        <button class="icon-btn" id="prev" title="Mes anterior"><span class="material-symbols-outlined">chevron_left</span></button>
         <h2 class="sec" id="mesLbl" style="margin:0;min-width:170px;text-align:center"></h2>
-        <button class="icon-btn" id="next"><span class="material-symbols-outlined">chevron_right</span></button>
+        <button class="icon-btn" id="next" title="Mes siguiente"><span class="material-symbols-outlined">chevron_right</span></button>
       </div>
       <div class="field" style="margin:0;min-width:220px"><select id="fCohorte"><option value="">Todas las cohortes</option></select></div>
     </div>
@@ -59,7 +59,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, qs, confirmDialog,
          campoArchivo, subirDocumentoLeccion, opciones, etiqueta, chipEstado, ayuda, montarAyudas,
-         mejorarSelects } from '../assets/app.js?v=2026-08-14';
+         mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'calendario.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -122,8 +122,8 @@ function render(){
     <td>${chipEstado(c.estado)}</td>
     <td style="white-space:nowrap">
       ${c.url_sesion?`<a class="btn ghost sm" href="${esc(c.url_sesion)}" target="_blank" title="Abrir sesión"><span class="material-symbols-outlined">videocam</span></a>`:''}
-      ${editable?`<button class="btn ghost sm" data-edit="${c.id}"><span class="material-symbols-outlined">edit</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(9,'No hay sesiones programadas este mes.');
+      ${editable?`<button class="btn ghost sm" data-edit="${c.id}" title="Editar la clase"><span class="material-symbols-outlined">edit</span></button>`:''}
+    </td></tr>`).join('') : emptyRow(9, 'No hay clases programadas este mes.', {texto:'Programar una clase', id:'vacioClase', icono:'event'});
   $$('[data-edit]').forEach(b => b.onclick = () => form(clases.find(c=>c.id===b.dataset.edit)));
 }
 
@@ -132,6 +132,7 @@ $('#next').onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth()+1,
 $('#btnHoy').onclick = () => { cur = new Date(); fetchMonth(); };
 $('#fCohorte').onchange = fetchMonth;
 $('#btnNueva').onclick = () => form(null);
+accionVacio('vacioClase', () => form(null));
 
 function form(c, fecha){
   const isNew = !c;

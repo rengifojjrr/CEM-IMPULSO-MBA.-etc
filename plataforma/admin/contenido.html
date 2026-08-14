@@ -35,7 +35,7 @@
   <div class="builder">
     <div class="card">
       <div class="row between"><h2 class="sec">Estructura del curso</h2>
-        <button class="btn outline sm" id="btnMod"><span class="material-symbols-outlined">create_new_folder</span></button></div>
+        <button class="btn outline sm" id="btnMod" title="Agregar un módulo"><span class="material-symbols-outlined">create_new_folder</span></button></div>
       <div id="arbol"></div>
     </div>
     <div id="editor"></div>
@@ -139,7 +139,7 @@ function renderEditor(){
           <div class="row" style="gap:8px;align-items:center"><span class="material-symbols-outlined">${ICO_DOC(d.tipo)}</span>
             <a href="${esc(d.url)}" target="_blank">${esc(d.nombre)}</a>
             <span class="tiny muted">${(Number(d.tamano_bytes||0)/1048576).toFixed(1)} MB</span></div>
-          <button type="button" class="btn ghost sm" data-deldoc="${d.id}"><span class="material-symbols-outlined">delete</span></button>
+          <button type="button" class="btn ghost sm" data-deldoc="${d.id}" title="Quitar el documento"><span class="material-symbols-outlined">delete</span></button>
         </div>`).join('') : '<p class="muted tiny">Sin documentos adjuntos.</p>'}</div>
       <button type="button" class="btn outline sm" id="btnSubirDoc"><span class="material-symbols-outlined">upload_file</span> Subir documento</button>
       <input type="file" id="lDocArchivo" class="hidden"></div>

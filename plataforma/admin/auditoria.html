@@ -81,7 +81,7 @@ function render(){
     <td><b>${esc(String(r.accion).replace(/_/g,' '))}</b></td>
     <td>${esc(r.entidad||'—')}</td>
     <td>${chip(r.riesgo, r.riesgo==='alto'?'err':r.riesgo==='medio'?'warn':'neutral')}</td>
-    <td>${Object.keys(r.detalle||{}).length? `<button class="btn ghost sm" data-v='${esc(JSON.stringify(r.detalle))}'>
+    <td>${Object.keys(r.detalle||{}).length? `<button class="btn ghost sm" data-v='${esc(JSON.stringify(r.detalle))}' title="Ver el detalle del evento">
       <span class="material-symbols-outlined">data_object</span></button>` : '<span class="muted tiny">—</span>'}</td>
     </tr>`).join('') : emptyRow(6,'No hay eventos que coincidan con los filtros.');
   $$('[data-v]').forEach(b=>b.onclick=()=>modal({ title:'Detalle del evento',

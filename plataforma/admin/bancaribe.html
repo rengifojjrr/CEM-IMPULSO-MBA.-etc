@@ -32,7 +32,7 @@
 
   <div class="card hidden" id="cardDiag">
     <div class="row between"><h2 class="sec">Diagnóstico de la conexión</h2>
-      <button class="btn ghost sm" id="btnCerrarDiag"><span class="material-symbols-outlined">close</span></button></div>
+      <button class="btn ghost sm" id="btnCerrarDiag" title="Cerrar el diagnóstico"><span class="material-symbols-outlined">close</span></button></div>
     <p class="tiny muted">Separa dos cosas distintas: si <b>nuestras credenciales autentican</b> contra el API Manager,
       y si <b>cada API está habilitada</b> para nuestra aplicación. Útil para llevar evidencia concreta a la
       sesión técnica con el banco.</p>
@@ -227,7 +227,7 @@ $('#btnDiag').onclick = async () => {
     $('#diag').innerHTML = `${tok}
       <div class="table-wrap" style="margin-top:12px"><table>
         <thead><tr><th>Servicio</th><th>Resultado</th><th>Mensaje del banco</th></tr></thead>
-        <tbody>${filas || emptyRow(3)}</tbody></table></div>
+        <tbody>${filas || emptyRow(3, 'El banco todavía no ha enviado ninguna notificación.')}</tbody></table></div>
       ${noSuscritos ? `<div class="chip warn" style="margin-top:12px">
         ${noSuscritos} servicio(s) responden 900908: el token es válido pero nuestra aplicación
         no aparece suscrita a esas APIs en el API Manager. Es una habilitación que hace Bancaribe de su lado.</div>` : ''}`;
@@ -310,7 +310,7 @@ function renderNotifs(){
     <td style="white-space:nowrap">
       <button class="btn ghost sm" data-ver="${n.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
       ${puedeOperar && n.estado==='pendiente' ? `<button class="btn ghost sm" data-desc="${n.id}" title="Descartar"><span class="material-symbols-outlined">block</span></button>` : ''}
-    </td></tr>`).join('') : emptyRow(7);
+    </td></tr>`).join('') : emptyRow(7, 'Sin operaciones en el periodo consultado.');
 
   $$('[data-ver]').forEach(b=>b.onclick=()=>verDetalle(notifs.find(n=>n.id===b.dataset.ver)));
   $$('[data-desc]').forEach(b=>b.onclick=async()=>{
