@@ -44,7 +44,9 @@ export function modal({ title, body, footer, wide = false }) {
   $('.modal-b', bg).innerHTML = body || '';
   if (footer) $('.modal-f', bg).innerHTML = footer;
   bg.close = () => bg.remove();
-  $('[data-x]', bg).onclick = bg.close;
+  // Se conectan TODOS los [data-x], no sólo el primero: además de la X de la
+  // cabecera, el pie suele traer un botón "Cancelar" con la misma marca.
+  $$('[data-x]', bg).forEach(b => { b.onclick = bg.close; });
   bg.onclick = (e) => { if (e.target === bg) bg.close(); };
   document.body.appendChild(bg);
   return bg;
@@ -228,6 +230,7 @@ const ADMIN_NAV = [
   { lbl: 'Estudiantes', items: [
     ['estudiantes.html', 'person', 'Estudiantes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
+    ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
     ['bancaribe.html', 'account_balance', 'Banco (Bancaribe)'],
   ]},
   { lbl: 'Evaluación', items: [
@@ -255,6 +258,7 @@ const ADMIN_NAV = [
 const STUDENT_NAV = [
   ['panel.html', 'space_dashboard', 'Mi panel'],
   ['catalogo.html', 'menu_book', 'Catálogo'],
+  ['pagos.html', 'payments', 'Mis pagos'],
   ['biblioteca.html', 'local_library', 'Biblioteca'],
   ['certificados.html', 'workspace_premium', 'Certificados'],
 ];
@@ -526,6 +530,38 @@ export async function subirDocumentoLeccion(file){
   const tipo = /pdf/.test(file.type) ? 'pdf' : /sheet|excel|csv/.test(file.type) ? 'excel'
     : /image\//.test(file.type) ? 'imagen' : /video\//.test(file.type) ? 'video' : 'enlace';
   return { url: data.publicUrl, tamanoBytes: file.size, tipo, nombre: file.name };
+}
+
+/* ============ comprobantes de pago ============
+   A diferencia del material de los cursos, un comprobante de pago es un dato
+   financiero de una persona concreta: vive en un bucket privado. Por eso se
+   guarda la RUTA del archivo (no una URL pública) y para verlo se pide una
+   URL firmada que caduca. La carpeta tiene que llamarse igual que el uid de
+   quien sube: es lo que exige la política del bucket. */
+export async function subirComprobante(file){
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user) throw new Error('Tu sesión expiró. Vuelve a entrar para subir el comprobante.');
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const ruta = `${user.id}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('cem-comprobantes')
+    .upload(ruta, file, { contentType: file.type || 'application/octet-stream' });
+  if (error) throw new Error(error.message || 'No se pudo subir el comprobante.');
+  return ruta;
+}
+
+/** URL temporal para ver un comprobante guardado (una hora de vigencia). */
+export async function urlComprobante(ruta){
+  if(!ruta) return null;
+  const { data, error } = await sb.storage.from('cem-comprobantes').createSignedUrl(ruta, 3600);
+  return error ? null : data.signedUrl;
+}
+
+/** Tasa del día vigente (la del BCV si el banco respondió, o la cargada a mano). */
+export async function tasaVigente(){
+  const { data, error } = await sb.rpc('cem_tasa_vigente');
+  if (error) return null;
+  const t = Array.isArray(data) ? data[0] : data;
+  return t && t.valor ? t : null;
 }
 
 /* ============ picker de días de la semana + horario (cohortes) ============ */

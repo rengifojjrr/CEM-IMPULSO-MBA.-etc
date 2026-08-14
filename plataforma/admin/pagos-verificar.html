@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Verificar pagos</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .tasa-box{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
+  .tasa-actual{font-size:26px;font-weight:750;letter-spacing:-.02em;color:var(--primary);line-height:1.1;}
+  .comprobante-img{max-width:100%;max-height:60vh;border-radius:8px;border:1px solid var(--outline-variant);display:block;}
+  td.ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Verificar pagos</h1>
+      <p>Pagos que los estudiantes reportaron y esperan revisión. Aprobar abona la cuota; rechazar no toca el saldo.</p></div>
+    <div class="actions">
+      <a class="btn outline" href="bancaribe.html"><span class="material-symbols-outlined">account_balance</span> Panel del banco</a>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2 class="sec">Tasa del día</h2>
+    <p class="tiny muted">Con esta tasa la plataforma convierte los pagos en bolívares a las cuotas en dólares.
+      Cuando Bancaribe habilite el servicio de Tasa BCV se actualizará sola; mientras tanto, cárgala aquí.</p>
+    <div class="tasa-box">
+      <div>
+        <div class="s tiny muted">Vigente ahora</div>
+        <div class="tasa-actual" id="tasaActual">—</div>
+        <div class="tiny muted" id="tasaOrigen"></div>
+      </div>
+      <div class="field" style="margin:0"><label>Nueva tasa (Bs por dólar)</label>
+        <input type="number" step="0.01" min="0.01" id="inpTasa" placeholder="Ej: 40,50"></div>
+      <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar tasa</button>
+    </div>
+    <div id="msgTasa"></div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Pagos reportados</h2>
+      <div class="field" style="margin:0"><select id="fEstado">
+        <option value="reportado">Por revisar</option>
+        <option value="confirmado">Aprobados</option>
+        <option value="rechazado">Rechazados</option>
+        <option value="">Todos</option>
+      </select></div></div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Reportado</th><th>Estudiante</th><th>Referencia</th><th>Monto</th><th>Cuota</th><th>Estado</th><th></th>
+      </tr></thead><tbody id="tb"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, fail, modal,
+         confirmDialog, urlComprobante, tasaVigente, mejorarSelects } from '../assets/app.js';
+
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
+const puedeOperar = p && ['coordinador','admin','superadmin'].includes(p.rol);
+let pagos = [], tasa = null;
+
+if (p) cargar();
+
+async function cargar(){
+  tasa = await tasaVigente();
+  $('#tasaActual').textContent = tasa ? `${tasa.valor} Bs / USD` : 'sin cargar';
+  $('#tasaOrigen').textContent = tasa
+    ? `${tasa.id_tasa === 'MANUAL' ? 'Cargada a mano' : 'Traída del BCV'} · ${tasa.fecha}`
+    : 'Nadie ha cargado la tasa todavía.';
+
+  // cem_enrollments apunta dos veces a cem_profiles (el estudiante y el
+  // vendedor), así que hay que nombrar la clave foránea o PostgREST no sabe
+  // por cuál de las dos entrar.
+  const { data } = await sb.from('cem_payments')
+    .select('*, cem_installments(numero, monto, saldo, moneda, estado), cem_enrollments(profile_id, cem_profiles!cem_enrollments_profile_id_fkey(nombre, apellido, email, documento), cem_courses(nombre))')
+    .order('fecha', { ascending: false }).limit(300);
+  pagos = data || [];
+  renderKpis(); render();
+}
+
+function nombreDe(x){
+  const pr = x.cem_enrollments?.cem_profiles;
+  return pr ? [pr.nombre, pr.apellido].filter(Boolean).join(' ') || pr.email : '—';
+}
+
+function renderKpis(){
+  const porRevisar = pagos.filter(x => x.estado === 'reportado');
+  const montoPorRevisar = porRevisar.reduce((a, x) => a + Number(x.monto_base ?? x.monto ?? 0), 0);
+  const hoy = new Date().toISOString().slice(0,10);
+  const aprobadosHoy = pagos.filter(x => x.estado === 'confirmado' && String(x.fecha).slice(0,10) === hoy);
+  $('#kpis').innerHTML = [
+    kpi('Por revisar', num(porRevisar.length), 'pending_actions', 'esperan tu verificación'),
+    kpi('Monto por revisar', money(montoPorRevisar, 'USD'), 'payments', 'equivalente en dólares'),
+    kpi('Aprobados hoy', num(aprobadosHoy.length), 'task_alt', 'ya abonados a su cuota'),
+  ].join('');
+}
+
+function render(){
+  const f = $('#fEstado').value;
+  const lista = pagos.filter(x => !f || x.estado === f);
+  $('#tb').innerHTML = lista.length ? lista.map(x => {
+    const c = x.cem_installments;
+    return `<tr>
+      <td class="tiny muted">${fdatetime(x.fecha)}</td>
+      <td class="wrap"><b>${esc(nombreDe(x))}</b>
+        <div class="tiny muted">${esc(x.cem_enrollments?.cem_courses?.nombre || '')}</div></td>
+      <td class="ref">${esc(x.referencia || '—')}<div class="tiny muted">${esc(x.metodo || '')}</div></td>
+      <td><b>${money(x.monto, x.moneda)}</b>
+        ${x.moneda !== 'USD' && x.monto_base ? `<div class="tiny muted">= ${money(x.monto_base, 'USD')} @ ${esc(String(x.tasa))}</div>` : ''}</td>
+      <td>${c ? `#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || 'USD')}
+             <div class="tiny muted">${c.estado === 'pagada' ? 'pagada'
+               : `debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')}`}</div>` : '<span class="tiny muted">suelto</span>'}</td>
+      <td>${chip(
+          x.estado === 'confirmado' ? 'aprobado' : x.estado === 'rechazado' ? 'rechazado'
+            : x.estado === 'reportado' ? 'por revisar' : x.estado,
+          x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}
+        ${x.conciliado && x.nota && /autom/i.test(x.nota) ? chip('automático','neutral') : ''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn ghost sm" data-ver="${x.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
+        ${puedeOperar && x.estado === 'reportado' ? `
+          <button class="btn ghost sm" data-ok="${x.id}" title="Aprobar y abonar a la cuota"><span class="material-symbols-outlined">check_circle</span></button>
+          <button class="btn ghost sm" data-no="${x.id}" title="Rechazar"><span class="material-symbols-outlined">cancel</span></button>` : ''}
+      </td></tr>`;
+  }).join('') : emptyRow(7);
+
+  $$('[data-ver]').forEach(b => b.onclick = () => verDetalle(pagos.find(x => x.id === b.dataset.ver)));
+  $$('[data-ok]').forEach(b => b.onclick = () => aprobar(pagos.find(x => x.id === b.dataset.ok)));
+  $$('[data-no]').forEach(b => b.onclick = () => rechazar(pagos.find(x => x.id === b.dataset.no)));
+}
+$('#fEstado').onchange = render;
+
+async function verDetalle(x){
+  if(!x) return;
+  const c = x.cem_installments;
+  const pr = x.cem_enrollments?.cem_profiles;
+  const m = modal({ title:`Pago ${x.referencia || ''}`, wide:true, body:`
+    <div class="row" style="gap:18px;flex-wrap:wrap">
+      <div><div class="tiny muted">Estudiante</div><div class="t"><b>${esc(nombreDe(x))}</b></div>
+        <div class="tiny muted">${esc(pr?.documento || '')} ${esc(pr?.email || '')}</div></div>
+      <div><div class="tiny muted">Monto</div><div class="t"><b>${money(x.monto, x.moneda)}</b>
+        ${x.moneda !== 'USD' && x.monto_base ? `<br><span class="tiny muted">= ${money(x.monto_base,'USD')} a la tasa ${esc(String(x.tasa))}</span>` : ''}</div></div>
+      <div><div class="tiny muted">Método</div><div class="t">${esc(x.metodo || '—')}</div></div>
+      <div><div class="tiny muted">Fecha del pago</div><div class="t">${fdatetime(x.fecha)}</div></div>
+    </div>
+    ${c ? `<div class="field" style="margin-top:12px"><label>Cuota</label>
+      <div>#${esc(String(c.numero ?? ''))} — debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')} de ${money(c.monto, c.moneda || 'USD')} (${esc(c.estado||'')})</div></div>` : ''}
+    ${x.nota ? `<div class="field"><label>Nota</label><div class="tiny">${esc(x.nota)}</div></div>` : ''}
+    <div class="field"><label>Comprobante</label><div id="dComp"><span class="tiny muted">Cargando…</span></div></div>`,
+    footer: puedeOperar && x.estado === 'reportado'
+      ? `<button class="btn outline" data-x>Cerrar</button>
+         <button class="btn danger" id="dNo">Rechazar</button>
+         <button class="btn" id="dOk">Aprobar y abonar</button>`
+      : `<button class="btn outline" data-x>Cerrar</button>` });
+
+  const cont = $('#dComp', m);
+  if(x.comprobante_url){
+    const url = await urlComprobante(x.comprobante_url);
+    cont.innerHTML = url
+      ? (/\.pdf$/i.test(x.comprobante_url)
+          ? `<a class="btn outline sm" href="${url}" target="_blank">Abrir el PDF del comprobante</a>`
+          : `<a href="${url}" target="_blank"><img class="comprobante-img" src="${url}" alt="Comprobante"></a>`)
+      : '<span class="tiny muted">No se pudo cargar el comprobante.</span>';
+  } else {
+    cont.innerHTML = '<span class="tiny muted">El estudiante no adjuntó comprobante.</span>';
+  }
+  if($('#dOk', m)) $('#dOk', m).onclick = () => { m.close(); aprobar(x); };
+  if($('#dNo', m)) $('#dNo', m).onclick = () => { m.close(); rechazar(x); };
+}
+
+async function aprobar(x){
+  if(!x) return;
+  const c = x.cem_installments;
+  const aplica = Number(x.monto_base ?? x.monto ?? 0);
+  const saldo = Number(c?.saldo ?? c?.monto ?? 0);
+  // El texto va dentro de un <p>, así que se escribe corrido: los saltos de
+  // línea no se verían.
+  const aviso = c
+    ? `Se abonarán ${money(aplica, c.moneda || 'USD')} a la cuota #${c.numero}, que debe ${money(saldo, c.moneda || 'USD')}. ` +
+      (aplica >= saldo - 0.01 ? 'La cuota quedará pagada.' : `Quedará un saldo de ${money(saldo - aplica, c.moneda || 'USD')}.`)
+    : 'Se marcará el pago como aprobado.';
+  if(!await confirmDialog(`${aviso} ¿Confirmas que verificaste este pago contra el banco?`)) return;
+  const { error } = await sb.rpc('cem_aprobar_pago', { p_payment_id: x.id });
+  if(error){ fail(error.message); return; }
+  ok('Pago aprobado y abonado a la cuota.');
+  cargar();
+}
+
+async function rechazar(x){
+  if(!x) return;
+  const m = modal({ title:'Rechazar el pago', body:`
+    <p class="tiny muted">El estudiante verá este motivo en su panel, así que explícalo claro
+      para que pueda corregirlo. La cuota no se toca.</p>
+    <div class="field"><label>Motivo del rechazo</label>
+      <textarea id="rMotivo" rows="3" placeholder="Por ejemplo: esa referencia no aparece en el estado de cuenta del banco."></textarea></div>
+    <div id="rMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn danger" id="rGo">Rechazar pago</button>` });
+  $('#rGo', m).onclick = async () => {
+    const motivo = $('#rMotivo', m).value.trim();
+    if(!motivo){ $('#rMsg', m).innerHTML = '<div class="chip err">Escribe el motivo.</div>'; return; }
+    const { error } = await sb.rpc('cem_rechazar_pago', { p_payment_id: x.id, p_motivo: motivo });
+    if(error){ $('#rMsg', m).innerHTML = `<div class="chip err">${esc(error.message)}</div>`; return; }
+    m.close(); ok('Pago rechazado. El estudiante verá el motivo.'); cargar();
+  };
+}
+
+$('#btnTasa').onclick = async () => {
+  const v = Number($('#inpTasa').value || 0);
+  if(v <= 0){ $('#msgTasa').innerHTML = '<div class="chip err">Escribe una tasa mayor que cero.</div>'; return; }
+  const { error } = await sb.rpc('cem_guardar_tasa_manual', { p_valor: v });
+  if(error){ $('#msgTasa').innerHTML = `<div class="chip err">${esc(error.message)}</div>`; return; }
+  $('#inpTasa').value = '';
+  $('#msgTasa').innerHTML = '<div class="chip ok">Tasa guardada ✓</div>';
+  setTimeout(() => { $('#msgTasa').innerHTML = ''; }, 6000);
+  cargar();
+};
+
+mejorarSelects();
+</script>
+</body>
+</html>

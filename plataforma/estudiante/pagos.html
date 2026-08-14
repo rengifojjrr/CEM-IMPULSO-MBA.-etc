@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mis pagos</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .cuota{border:1px solid var(--outline-variant);border-radius:12px;padding:14px 16px;background:var(--surface);
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cuota.vencida{border-left:4px solid var(--error);}
+  .cuota.pagada{opacity:.72;}
+  .cuota-monto{font-size:22px;font-weight:700;letter-spacing:-.02em;}
+  .cuota-eq{font-size:12.5px;color:var(--on-surface-variant);}
+  .datos-pago{background:var(--surface-container);border:1px solid var(--outline-variant);border-radius:12px;
+    padding:14px 16px;margin-bottom:16px;}
+  .datos-pago dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0;font-size:14px;}
+  .datos-pago dt{color:var(--on-surface-variant);}
+  .datos-pago dd{margin:0;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Mis pagos</h1>
+      <p>Consulta lo que debes, reporta un pago que ya hiciste y sigue en qué va su verificación.</p></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2 class="sec">Dónde pagar</h2>
+    <p class="tiny muted">Haz el pago a esta cuenta y después repórtalo abajo con su número de referencia,
+      para que podamos verificarlo y abonarlo a tu cuota.</p>
+    <div class="datos-pago">
+      <dl>
+        <dt>Banco</dt><dd>Bancaribe</dd>
+        <dt>Titular</dt><dd>Centro Educativo Multigeneracional</dd>
+        <dt>RIF</dt><dd>J-50786761-7</dd>
+        <dt>Cuenta corriente</dt><dd>0114-0190-2319-0003-4284</dd>
+      </dl>
+    </div>
+    <div id="avisoTasa"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Mis cuotas</h2>
+    <div id="cuotas"><p class="muted">Cargando…</p></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Pagos que he reportado</h2>
+    <div class="table-wrap">
+      <table><thead><tr><th>Fecha</th><th>Referencia</th><th>Monto</th><th>Estado</th><th>Comprobante</th></tr></thead>
+      <tbody id="tbPagos"></tbody></table>
+    </div>
+    <div id="notaRechazo"></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, modal,
+         subirComprobante, urlComprobante, tasaVigente, mejorarSelects } from '../assets/app.js';
+
+const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
+let cuotas = [], pagos = [], tasa = null;
+
+if (p) cargar();
+
+async function cargar(){
+  tasa = await tasaVigente();
+  renderAvisoTasa();
+
+  // RLS ya limita esto a las inscripciones propias: no hace falta filtrar por perfil aquí.
+  const { data: cs } = await sb.from('cem_installments')
+    .select('*, cem_enrollments!inner(id, profile_id, cem_courses(nombre))')
+    .order('fecha_vencimiento', { ascending: true });
+  cuotas = cs || [];
+
+  const { data: ps } = await sb.from('cem_payments').select('*').order('fecha', { ascending: false });
+  pagos = ps || [];
+
+  renderKpis(); renderCuotas(); renderPagos();
+}
+
+function renderAvisoTasa(){
+  $('#avisoTasa').innerHTML = tasa
+    ? `<p class="tiny muted">Tasa del día: <b>${esc(String(tasa.valor))} Bs por dólar</b>
+       (${esc(String(tasa.fecha))}). Si pagas en bolívares, el sistema hace la conversión con esta tasa.</p>`
+    : `<div class="chip warn">Todavía no hay una tasa del día cargada. Si tu cuota está en dólares y quieres
+       pagar en bolívares, escríbenos antes para confirmarte el monto exacto.</div>`;
+}
+
+function renderKpis(){
+  const pend = cuotas.filter(c => c.estado !== 'pagada' && c.estado !== 'anulada');
+  const deuda = pend.reduce((a, c) => a + Number(c.saldo ?? c.monto ?? 0), 0);
+  const vencidas = pend.filter(c => c.fecha_vencimiento && new Date(c.fecha_vencimiento) < new Date());
+  const enRevision = pagos.filter(x => x.estado === 'reportado').length;
+  const moneda = pend[0]?.moneda || 'USD';
+  $('#kpis').innerHTML = [
+    kpi('Por pagar', money(deuda, moneda), 'account_balance_wallet', `${pend.length} cuota(s) pendiente(s)`),
+    kpi('Vencidas', num(vencidas.length), 'event_busy', vencidas.length ? 'ponte al día cuanto antes' : 'ninguna vencida'),
+    kpi('En revisión', num(enRevision), 'hourglass_top', 'pagos que estamos verificando'),
+  ].join('');
+}
+
+function renderCuotas(){
+  const lista = cuotas.filter(c => c.estado !== 'anulada');
+  if(!lista.length){ $('#cuotas').innerHTML = '<p class="muted tiny">Todavía no tienes cuotas asignadas.</p>'; return; }
+  $('#cuotas').innerHTML = lista.map(c => {
+    const saldo = Number(c.saldo ?? c.monto ?? 0);
+    const pagada = c.estado === 'pagada';
+    const vencida = !pagada && c.fecha_vencimiento && new Date(c.fecha_vencimiento) < new Date();
+    const enRevision = pagos.some(x => x.installment_id === c.id && x.estado === 'reportado');
+    // En una cuota saldada el saldo es cero: mostrar "0,00" como cifra
+    // principal confundiría, así que ahí se enseña lo que costó.
+    const destacado = pagada ? Number(c.monto ?? 0) : saldo;
+    const eqBs = (!pagada && tasa && (c.moneda || 'USD') !== 'VES')
+      ? `<div class="cuota-eq">≈ ${money(destacado * Number(tasa.valor), 'VES')} a la tasa de hoy</div>` : '';
+    const parcial = !pagada && Number(c.monto ?? 0) > saldo
+      ? `<div class="cuota-eq">Ya abonaste ${money(Number(c.monto) - saldo, c.moneda || 'USD')} de ${money(c.monto, c.moneda || 'USD')}</div>` : '';
+    return `<div class="cuota ${pagada ? 'pagada' : ''} ${vencida ? 'vencida' : ''}">
+      <div>
+        <div class="s">${esc(c.cem_enrollments?.cem_courses?.nombre || 'Inscripción')} · cuota ${esc(String(c.numero ?? ''))}</div>
+        <div class="cuota-monto">${money(destacado, c.moneda || 'USD')}</div>
+        ${pagada ? '<div class="cuota-eq">Sin saldo pendiente</div>' : eqBs + parcial}
+        <div class="tiny muted">Vence el ${fdate(c.fecha_vencimiento)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        ${chip(pagada ? 'pagada' : vencida ? 'vencida' : c.estado,
+               pagada ? 'ok' : vencida ? 'err' : c.estado === 'parcial' ? 'warn' : 'neutral')}
+        ${enRevision ? chip('tienes un pago en revisión', 'warn') : ''}
+        ${pagada ? '' : `<button class="btn" data-reportar="${c.id}">
+          <span class="material-symbols-outlined">receipt_long</span> Reportar pago</button>`}
+      </div>
+    </div>`;
+  }).join('');
+  $$('[data-reportar]').forEach(b => b.onclick = () => abrirReporte(cuotas.find(c => c.id === b.dataset.reportar)));
+}
+
+function renderPagos(){
+  $('#tbPagos').innerHTML = pagos.length ? pagos.map(x => `<tr>
+    <td class="tiny muted">${fdate(x.fecha)}</td>
+    <td><b>${esc(x.referencia || '—')}</b><div class="tiny muted">${esc(x.metodo || '')}</div></td>
+    <td>${money(x.monto, x.moneda)}${x.moneda !== 'USD' && x.monto_base
+        ? `<div class="tiny muted">= ${money(x.monto_base, 'USD')}</div>` : ''}</td>
+    <td>${chip(
+        x.estado === 'confirmado' ? 'aprobado' : x.estado === 'rechazado' ? 'rechazado' : 'en revisión',
+        x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}</td>
+    <td>${x.comprobante_url ? `<button class="btn ghost sm" data-ver="${esc(x.comprobante_url)}">ver</button>` : '<span class="tiny muted">—</span>'}</td>
+  </tr>`).join('') : emptyRow(5);
+
+  $$('[data-ver]').forEach(b => b.onclick = async () => {
+    const url = await urlComprobante(b.dataset.ver);
+    if(url) window.open(url, '_blank'); else fail('No se pudo abrir el comprobante.');
+  });
+
+  const rechazados = pagos.filter(x => x.estado === 'rechazado' && x.nota);
+  $('#notaRechazo').innerHTML = rechazados.length
+    ? rechazados.map(x => `<div class="chip err" style="margin-top:8px;display:block;">
+        Pago ${esc(x.referencia)}: ${esc(x.nota)}</div>`).join('')
+    : '';
+}
+
+function abrirReporte(c){
+  if(!c) return;
+  const saldo = Number(c.saldo ?? c.monto ?? 0);
+  const monedaCuota = c.moneda || 'USD';
+  const m = modal({ title:`Reportar un pago — cuota ${c.numero ?? ''}`, body:`
+    <p class="tiny muted">Debes <b>${money(saldo, monedaCuota)}</b>${tasa && monedaCuota !== 'VES'
+      ? ` (≈ ${money(saldo * Number(tasa.valor), 'VES')} a la tasa de hoy)` : ''}.
+      Puedes abonar una parte: se descuenta de tu saldo.</p>
+    <div class="field"><label>¿En qué moneda pagaste?</label>
+      <select id="rMoneda">
+        <option value="VES">Bolívares (Bs)</option>
+        <option value="USD" ${monedaCuota === 'USD' ? 'selected' : ''}>Dólares (USD)</option>
+      </select></div>
+    <div class="field"><label>Monto que pagaste</label>
+      <input type="number" step="0.01" min="0.01" id="rMonto" placeholder="0,00"></div>
+    <div id="rEquivalente" class="tiny muted"></div>
+    <div class="field"><label>Número de referencia</label>
+      <input id="rRef" placeholder="Los últimos dígitos que te dio el banco" maxlength="40"></div>
+    <div class="field"><label>¿Cómo pagaste?</label>
+      <select id="rMetodo">
+        <option>Pago móvil</option><option>Transferencia bancaria</option>
+        <option>Depósito</option><option>Zelle</option><option>Efectivo</option><option>Otro</option>
+      </select></div>
+    <div class="field"><label>Fecha del pago</label>
+      <input type="date" id="rFecha" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Comprobante (captura o PDF) — opcional pero ayuda mucho</label>
+      <input type="file" id="rArchivo" accept="image/png,image/jpeg,image/webp,application/pdf"></div>
+    <div class="field"><label>¿Algo que debamos saber? (opcional)</label>
+      <input id="rNota" placeholder="Por ejemplo: pagué desde la cuenta de mi mamá" maxlength="200"></div>
+    <div id="rMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="rEnviar">Reportar pago</button>` });
+
+  const calcEq = () => {
+    const v = Number($('#rMonto').value || 0);
+    const mon = $('#rMoneda').value;
+    $('#rEquivalente').textContent = (v > 0 && tasa && mon !== monedaCuota)
+      ? (mon === 'VES' ? `Equivale a ${money(v / Number(tasa.valor), monedaCuota)} a la tasa de hoy.`
+                       : `Equivale a ${money(v * Number(tasa.valor), 'VES')} a la tasa de hoy.`)
+      : '';
+  };
+  $('#rMonto').oninput = calcEq; $('#rMoneda').onchange = calcEq;
+  mejorarSelects();
+
+  $('#rEnviar').onclick = async () => {
+    const btn = $('#rEnviar');
+    const monto = Number($('#rMonto').value || 0);
+    const ref = $('#rRef').value.trim();
+    if(monto <= 0){ $('#rMsg').innerHTML = '<div class="chip err">Escribe cuánto pagaste.</div>'; return; }
+    if(!ref){ $('#rMsg').innerHTML = '<div class="chip err">Falta el número de referencia del banco.</div>'; return; }
+    btn.disabled = true;
+    $('#rMsg').innerHTML = '<p class="tiny muted">Enviando…</p>';
+    try{
+      let comprobante = null;
+      const file = $('#rArchivo').files[0];
+      if(file){
+        if(file.size > 5 * 1024 * 1024) throw new Error('El comprobante pesa más de 5 MB. Sube una imagen más liviana.');
+        comprobante = await subirComprobante(file);
+      }
+      const fechaISO = $('#rFecha').value ? new Date($('#rFecha').value + 'T12:00:00').toISOString() : new Date().toISOString();
+      const { error } = await sb.rpc('cem_reportar_pago', {
+        p_installment_id: c.id,
+        p_monto: monto,
+        p_moneda: $('#rMoneda').value,
+        p_referencia: ref,
+        p_metodo: $('#rMetodo').value,
+        p_fecha: fechaISO,
+        p_comprobante_url: comprobante,
+        p_nota: $('#rNota').value.trim() || null,
+      });
+      if(error) throw new Error(error.message);
+      m.close();
+      ok('Pago reportado. Lo verificamos y te avisamos.');
+      cargar();
+    }catch(e){
+      btn.disabled = false;
+      $('#rMsg').innerHTML = `<div class="chip err">${esc(e.message)}</div>`;
+    }
+  };
+}
+</script>
+</body>
+</html>
