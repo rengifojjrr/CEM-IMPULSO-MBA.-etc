@@ -29,6 +29,10 @@
   <div class="page-head">
     <div><h1>Mis pagos</h1>
       <p>Consulta lo que debes, reporta un pago que ya hiciste y sigue en qué va su verificación.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnEstadoCuenta">
+        <span class="material-symbols-outlined">receipt_long</span> Estado de cuenta</button>
+    </div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -56,7 +60,7 @@
   <div class="card">
     <h2 class="sec">Pagos que he reportado</h2>
     <div class="table-wrap">
-      <table><thead><tr><th>Fecha</th><th>Referencia</th><th>Monto</th><th>Estado</th><th>Comprobante</th></tr></thead>
+      <table><thead><tr><th>Fecha</th><th>Referencia</th><th>Monto</th><th>Estado</th><th>Comprobante</th><th>Recibo</th></tr></thead>
       <tbody id="tbPagos"></tbody></table>
     </div>
     <div id="notaRechazo"></div>
@@ -65,7 +69,8 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, modal,
-         subirComprobante, urlComprobante, tasaVigente, mejorarSelects } from '../assets/app.js';
+         subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
+         imprimirDocumento, mensajeError } from '../assets/app.js';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
@@ -153,7 +158,13 @@ function renderPagos(){
         x.estado === 'confirmado' ? 'aprobado' : x.estado === 'rechazado' ? 'rechazado' : 'en revisión',
         x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}</td>
     <td>${x.comprobante_url ? `<button class="btn ghost sm" data-ver="${esc(x.comprobante_url)}">ver</button>` : '<span class="tiny muted">—</span>'}</td>
-  </tr>`).join('') : emptyRow(5);
+    <td>${['confirmado','registrado'].includes(x.estado)
+        ? `<button class="btn ghost sm" data-recibo="${x.id}" title="Descargar recibo">
+             <span class="material-symbols-outlined">description</span></button>`
+        : '<span class="tiny muted">—</span>'}</td>
+  </tr>`).join('') : emptyRow(6);
+
+  $$('[data-recibo]').forEach(b => b.onclick = () => descargarRecibo(b.dataset.recibo));
 
   $$('[data-ver]').forEach(b => b.onclick = async () => {
     const url = await urlComprobante(b.dataset.ver);
@@ -246,6 +257,127 @@ function abrirReporte(c){
       $('#rMsg').innerHTML = `<div class="chip err">${esc(e.message)}</div>`;
     }
   };
+}
+
+/* ============ estado de cuenta y recibo ============
+   "¿Cuánto debo y qué he pagado?" era una pregunta que había que responder a
+   mano leyendo dos tablas; y del pago aprobado el estudiante no se llevaba
+   nada que sirviera de constancia. */
+
+$('#btnEstadoCuenta').onclick = async () => {
+  const inscripciones = [...new Map(cuotas.map(c => [c.enrollment_id, {
+    enrollment_id: c.enrollment_id,
+    curso: c.cem_enrollments?.cem_courses?.nombre || 'Programa',
+  }])).values()];
+  if (!inscripciones.length) { fail('Todavía no tienes inscripciones con plan de pago.'); return; }
+
+  const elegir = (enrollmentId) => imprimirEstadoDeCuenta(enrollmentId);
+  if (inscripciones.length === 1) { elegir(inscripciones[0].enrollment_id); return; }
+
+  const m = modal({ title:'¿De qué programa?', body:`
+    <div class="field"><label>Programa</label><select id="ecEnr">
+      ${inscripciones.map(c => `<option value="${c.enrollment_id}">${esc(c.curso)}</option>`).join('')}
+    </select></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Ver estado de cuenta</button>` });
+  $('[data-s]', m).onclick = () => { const v = $('#ecEnr', m).value; m.close(); elegir(v); };
+};
+
+async function imprimirEstadoDeCuenta(enrollmentId){
+  const { data, error } = await sb.rpc('cem_estado_de_cuenta', { p_enrollment_id: enrollmentId });
+  if (error) { fail(mensajeError(error)); return; }
+  const d = data;
+  const mon = d.totales.moneda;
+  const n = (v) => money(v, mon);
+
+  imprimirDocumento(`Estado de cuenta · ${d.estudiante.nombre}`, `
+    <div class="cab">
+      <div><div class="marca">CEM INTERNATIONAL</div>
+        <h1>Estado de cuenta</h1></div>
+      <div class="meta">Emitido el ${esc(d.emitido_en)}<br>
+        ${esc(d.estudiante.nombre)}<br>
+        ${d.estudiante.documento ? esc(d.estudiante.documento) + '<br>' : ''}
+        ${esc(d.estudiante.email)}</div>
+    </div>
+
+    <h2>Programa</h2>
+    <div><b>${esc(d.programa.nombre)}</b>
+      <div style="font-size:12px;color:#7A756B">
+        ${esc(d.programa.codigo || '')} · inscrito desde el ${esc(d.programa.desde)} ·
+        situación: ${esc(d.programa.estado_inscripcion)}</div></div>
+
+    <h2>Cuotas</h2>
+    <table><thead><tr><th>#</th><th>Vence</th><th class="num">Monto</th>
+      <th class="num">Pendiente</th><th>Situación</th></tr></thead><tbody>
+      ${d.cuotas.map(c => `<tr><td>${c.numero}</td><td>${esc(c.vence)}</td>
+        <td class="num">${n(c.monto)}</td><td class="num">${Number(c.saldo) > 0 ? n(c.saldo) : '—'}</td>
+        <td><span class="sello ${c.estado === 'pagada' ? 'ok' : 'pend'}">${esc(c.estado)}</span></td></tr>`).join('')}
+    </tbody></table>
+
+    <h2>Pagos recibidos</h2>
+    ${d.pagos.length ? `<table><thead><tr><th>Fecha</th><th>Referencia</th><th>Forma</th>
+      <th class="num">Monto</th></tr></thead><tbody>
+      ${d.pagos.map(x => `<tr><td>${esc(x.fecha)}</td><td>${esc(x.referencia || '—')}</td>
+        <td>${esc(x.metodo || '—')}</td>
+        <td class="num">${money(x.monto, x.moneda)}${x.moneda !== 'USD' && x.monto_base
+          ? `<div style="font-size:11px;color:#7A756B">= ${money(x.monto_base, 'USD')}</div>` : ''}</td></tr>`).join('')}
+      </tbody></table>` : '<p style="color:#7A756B">Todavía no hay pagos registrados.</p>'}
+
+    <h2>Resumen</h2>
+    <div class="tot"><span>Precio de lista</span><span>${n(d.totales.precio_lista)}</span></div>
+    ${Number(d.totales.descuento) > 0
+      ? `<div class="tot"><span>Descuento aplicado</span><span>− ${n(d.totales.descuento)}</span></div>` : ''}
+    <div class="tot"><span>Total del programa</span><span>${n(d.totales.precio_final)}</span></div>
+    <div class="tot"><span>Pagado</span><span>− ${n(d.totales.pagado)}</span></div>
+    <div class="tot fuerte"><span>Saldo pendiente</span><span>${n(d.totales.saldo)}</span></div>
+
+    <div class="pie">
+      Documento informativo generado por la plataforma de CEM International.
+      Refleja la situación al momento de emitirlo; si algo no coincide con tus
+      comprobantes, escríbenos desde tu panel antes de hacer un pago nuevo.
+    </div>`);
+}
+
+async function descargarRecibo(paymentId){
+  const { data, error } = await sb.rpc('cem_recibo_pago', { p_payment_id: paymentId });
+  if (error) { fail(mensajeError(error)); return; }
+  const r = data;
+
+  imprimirDocumento(`Recibo ${r.numero}`, `
+    <div class="cab">
+      <div><div class="marca">CEM INTERNATIONAL</div>
+        <h1>Recibo de pago</h1></div>
+      <div class="meta"><b>${esc(r.numero)}</b><br>Emitido el ${esc(r.emitido_en)}</div>
+    </div>
+
+    <h2>Recibimos de</h2>
+    <div><b>${esc(r.estudiante)}</b>
+      <div style="font-size:12px;color:#7A756B">
+        ${r.documento ? esc(r.documento) + ' · ' : ''}${esc(r.email)}</div></div>
+
+    <h2>Concepto</h2>
+    <table><tbody>
+      <tr><td>Programa</td><td class="num">${esc(r.programa)}</td></tr>
+      ${r.cuota ? `<tr><td>Cuota</td><td class="num">N.º ${r.cuota}</td></tr>` : ''}
+      <tr><td>Fecha del pago</td><td class="num">${esc(r.fecha)}</td></tr>
+      <tr><td>Forma de pago</td><td class="num">${esc(r.metodo || '—')}</td></tr>
+      <tr><td>Referencia</td><td class="num">${esc(r.referencia || '—')}</td></tr>
+      ${r.moneda !== 'USD' && r.tasa
+        ? `<tr><td>Tasa aplicada</td><td class="num">${num(r.tasa)} Bs/US$</td></tr>` : ''}
+    </tbody></table>
+
+    <div class="tot fuerte" style="margin-top:14px">
+      <span>Monto recibido</span>
+      <span>${money(r.monto, r.moneda)}</span></div>
+    ${r.moneda !== 'USD' && r.monto_base
+      ? `<div class="tot" style="color:#7A756B"><span>Equivalente</span>
+           <span>${money(r.monto_base, 'USD')}</span></div>` : ''}
+
+    <div class="pie">
+      Comprobante emitido automáticamente por la plataforma de CEM International.
+      Su validez está sujeta a la confirmación bancaria de la operación referida.
+      Conserva este documento junto con tu comprobante de transferencia.
+    </div>`);
 }
 </script>
 </body>

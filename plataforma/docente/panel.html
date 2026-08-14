@@ -41,7 +41,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError } from '../assets/app.js';
 const me = await mount({ require:['profesor'], active:'panel.html', area:'docente' });
 let cohortes=[], clases=[], subsPend=[];
 if (me) load();
@@ -134,14 +134,42 @@ function calificar(s, ens){
     <div class="row" style="margin-top:12px">
       <div class="field" style="flex:1;min-width:130px"><label>Puntaje (0–100) *</label>
         <input type="number" id="gP" min="0" max="100" value="${s.puntaje??''}"></div></div>
-    <div class="field"><label>Retroalimentación</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar calificación</button>` });
-  $('[data-x]',m).onclick=m.close;
+    <div class="field"><label>Retroalimentación</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>
+    <div id="gMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn outline" data-reabrir style="color:var(--error)">Devolver para corregir</button>
+            <button class="btn" data-s>Guardar calificación</button>` });
   $('[data-s]',m).onclick=async()=>{
     const p=Number($('#gP',m).value);
     if (isNaN(p)) return;
     await run(sb.rpc('cem_grade_submission',{ p_submission_id:s.id, p_puntaje:p, p_feedback:$('#gF',m).value.trim()||null }),'No se pudo calificar');
     m.close(); ok('Calificación registrada'); load();
+  };
+  /* Si alguien entrega por error o se le corta la conexión a la mitad, antes
+     había que tocar la base a mano. Ahora se devuelve con motivo, el
+     estudiante recibe el aviso y queda asentado quién lo hizo. */
+  $('[data-reabrir]',m).onclick=()=>{ m.close(); reabrir(s); };
+}
+
+function reabrir(s){
+  const m = modal({ title:'Devolver la entrega para corregir', body:`
+    <p>La entrega vuelve a estar abierta y el estudiante puede enviarla de nuevo.
+       El puntaje que tenga ahora se borra.</p>
+    <div class="field"><label>¿Por qué la devuelves? *</label>
+      <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto."></textarea>
+      <span class="tiny muted">El estudiante lo va a leer en su aviso.</span></div>
+    <div id="rMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Devolver</button>` });
+  $('[data-s]',m).onclick=async()=>{
+    const motivo = $('#rMotivo',m).value.trim();
+    if (motivo.length < 10) {
+      $('#rMsg',m).innerHTML = '<div class="chip err" style="margin-top:8px">Escribe el motivo con una frase completa.</div>';
+      return;
+    }
+    const { error } = await sb.rpc('cem_reabrir_entrega',{ p_submission_id:s.id, p_motivo:motivo });
+    if (error) { $('#rMsg',m).innerHTML = `<div class="chip err" style="margin-top:8px">${esc(mensajeError(error))}</div>`; return; }
+    m.close(); ok('Entrega devuelta. El estudiante ya recibió el aviso.'); load();
   };
 }
 

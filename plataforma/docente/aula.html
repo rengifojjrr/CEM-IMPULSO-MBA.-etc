@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Docente · Mi aula</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Mi aula</h1>
+      <p>Crea evaluaciones y sube material de los programas que dictas.</p></div>
+    <div class="actions">
+      <select id="selCurso" style="min-width:240px"></select>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="active" data-t="evals">Evaluaciones</button>
+    <button data-t="material">Material de clase</button>
+  </div>
+
+  <!-- Evaluaciones -->
+  <div id="panelEvals">
+    <div class="card">
+      <div class="row between">
+        <h2 class="sec">Evaluaciones del programa</h2>
+        <button class="btn sm" id="btnNuevaEval">
+          <span class="material-symbols-outlined">add</span> Nueva evaluación</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nombre</th><th>Tipo</th><th>Puntaje</th><th>Aprueba con</th>
+          <th>Ventana</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbEvals"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Material -->
+  <div id="panelMaterial" hidden>
+    <div class="card">
+      <h2 class="sec">Módulos y lecciones</h2>
+      <p class="tiny muted" style="margin-top:-6px">
+        Los módulos los define la coordinación; tú llenas cada uno con las clases y el material.</p>
+      <div id="modulos"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, modal, ok, fail, run,
+         mensajeError, confirmDialog, abrirSubidaVideo, subirDocumentoLeccion,
+         YoutubeNoConectadoError } from '../assets/app.js';
+
+const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
+                        active:'aula.html', area:'docente' });
+let cursos = [], evals = [], modulos = [], tab = 'evals';
+if (me) inicio();
+
+async function inicio(){
+  const { data: tas } = await sb.from('cem_teacher_assignments')
+    .select('course_id,cohort_id,cem_cohorts(course_id)').eq('teacher_id', me.id);
+
+  const ids = [...new Set((tas || [])
+    .flatMap(t => [t.course_id, t.cem_cohorts?.course_id])
+    .filter(Boolean))];
+
+  if (ids.length) {
+    const { data } = await sb.from('cem_courses').select('id,nombre').in('id', ids).order('nombre');
+    cursos = data || [];
+  } else if (me.rol !== 'profesor') {
+    const { data } = await sb.from('cem_courses').select('id,nombre').order('nombre');
+    cursos = data || [];
+  }
+
+  if (!cursos.length) {
+    $('#selCurso').innerHTML = '<option value="">Sin programas asignados</option>';
+    $('#tbEvals').innerHTML = emptyRow(7, 'Todavía no tienes programas asignados.');
+    $('#btnNuevaEval').disabled = true;
+    return;
+  }
+
+  $('#selCurso').innerHTML = cursos.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  $('#selCurso').onchange = cargar;
+  cargar();
+}
+
+$$('#tabs button').forEach(b => b.onclick = () => {
+  $$('#tabs button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  tab = b.dataset.t;
+  $('#panelEvals').hidden = tab !== 'evals';
+  $('#panelMaterial').hidden = tab !== 'material';
+});
+
+async function cargar(){
+  const cursoId = $('#selCurso').value;
+  const [{ data: ev }, { data: mods }] = await Promise.all([
+    sb.from('cem_assessments').select('*').eq('course_id', cursoId).order('created_at'),
+    sb.from('cem_modules').select('id,titulo,orden,cem_lessons(id,titulo,tipo,duracion_min,orden,url)')
+      .eq('course_id', cursoId).order('orden'),
+  ]);
+  evals = ev || [];
+  modulos = mods || [];
+  pintarEvals();
+  pintarMaterial();
+}
+
+/* ---------------- Evaluaciones ---------------- */
+
+function ventanaDe(e){
+  if (!e.abre_en && !e.cierra_en) return '<span class="muted">siempre abierta</span>';
+  return `${e.abre_en ? fdate(e.abre_en) : '—'} → ${e.cierra_en ? fdate(e.cierra_en) : '—'}`;
+}
+
+function pintarEvals(){
+  $('#tbEvals').innerHTML = evals.length ? evals.map(e => `<tr>
+    <td class="wrap"><b>${esc(e.nombre)}</b>
+      ${e.descripcion ? `<div class="tiny muted">${esc(e.descripcion)}</div>` : ''}</td>
+    <td>${esc(e.tipo)}</td>
+    <td>${num(e.puntaje_max)}</td>
+    <td>${num(e.nota_aprobatoria)}</td>
+    <td class="tiny">${ventanaDe(e)}</td>
+    <td>${chip(e.estado)}${e.barajar ? ' ' + chip('barajada','info') : ''}</td>
+    <td style="white-space:nowrap">
+      <button class="btn ghost sm" data-ed="${e.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
+      <a class="btn ghost sm" href="../admin/preguntas.html?assessment=${e.id}" title="Preguntas">
+        <span class="material-symbols-outlined">help_center</span></a>
+      ${e.estado === 'publicado'
+        ? `<button class="btn ghost sm" data-desp="${e.id}" title="Volver a borrador"><span class="material-symbols-outlined">visibility_off</span></button>`
+        : `<button class="btn ghost sm" data-pub="${e.id}" title="Publicar"><span class="material-symbols-outlined">publish</span></button>`}
+    </td></tr>`).join('') : emptyRow(7, 'Este programa todavía no tiene evaluaciones.');
+
+  $$('[data-ed]').forEach(b => b.onclick = () => editarEval(evals.find(e => e.id === b.dataset.ed)));
+  $$('[data-pub]').forEach(b => b.onclick = () => cambiarEstado(b.dataset.pub, 'publicado'));
+  $$('[data-desp]').forEach(b => b.onclick = () => cambiarEstado(b.dataset.desp, 'borrador'));
+}
+
+async function cambiarEstado(id, estado){
+  const e = evals.find(x => x.id === id);
+  if (estado === 'publicado') {
+    const { count } = await sb.from('cem_assessment_questions')
+      .select('id', { count:'exact', head:true }).eq('assessment_id', id);
+    if (!count && e.tipo !== 'ensayo') {
+      fail('Esta evaluación no tiene preguntas todavía. Agrégalas antes de publicarla.');
+      return;
+    }
+    if (!await confirmDialog(
+      `Al publicar "${e.nombre}" pasa a contar para el avance de tus alumnos y ellos pueden presentarla dentro de su ventana. ¿Publicamos?`)) return;
+  } else if (!await confirmDialog(
+      `Al volverla a borrador deja de contar para el avance y nadie más puede presentarla. Las entregas ya hechas se conservan. ¿Seguimos?`)) return;
+
+  await run(sb.from('cem_assessments').update({ estado }).eq('id', id), 'No se pudo cambiar el estado');
+  ok(estado === 'publicado' ? 'Evaluación publicada.' : 'Evaluación en borrador.');
+  cargar();
+}
+
+function editarEval(e){
+  const nueva = !e;
+  const v = e || { nombre:'', descripcion:'', tipo:'quiz', puntaje_max:100, nota_aprobatoria:60,
+                   tiempo_min:null, intentos:1, barajar:false, estado:'borrador' };
+  const soloFecha = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
+
+  const m = modal({ title: nueva ? 'Nueva evaluación' : 'Editar evaluación', wide:true, body:`
+    <div class="field"><label>Nombre *</label><input id="aNombre" value="${esc(v.nombre)}"></div>
+    <div class="field"><label>Instrucciones para el estudiante</label>
+      <textarea id="aDesc" rows="2">${esc(v.descripcion || '')}</textarea></div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:130px"><label>Tipo</label>
+        <select id="aTipo">${['quiz','examen','practica','ensayo'].map(t =>
+          `<option ${v.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Puntaje máximo</label>
+        <input type="number" id="aMax" value="${v.puntaje_max ?? 100}" min="1"></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Aprueba con</label>
+        <input type="number" id="aNota" value="${v.nota_aprobatoria ?? 60}" min="0"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:120px"><label>Minutos (opcional)</label>
+        <input type="number" id="aTiempo" value="${v.tiempo_min ?? ''}" min="1" placeholder="sin límite"></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Intentos</label>
+        <input type="number" id="aIntentos" value="${v.intentos ?? 1}" min="1" max="10"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:150px"><label>Abre el</label>
+        <input type="date" id="aAbre" value="${soloFecha(v.abre_en)}"></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Cierra el</label>
+        <input type="date" id="aCierra" value="${soloFecha(v.cierra_en)}"></div>
+    </div>
+    <label class="row" style="gap:8px;align-items:center;margin-bottom:10px">
+      <input type="checkbox" id="aBarajar" ${v.barajar ? 'checked' : ''}>
+      <span>Barajar las preguntas y las opciones
+        <span class="tiny muted">— cada estudiante las recibe en distinto orden</span></span></label>
+    <div id="aMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>${nueva ? 'Crear' : 'Guardar'}</button>` });
+
+  $('[data-s]', m).onclick = async () => {
+    const nombre = $('#aNombre', m).value.trim();
+    if (!nombre) { $('#aMsg', m).innerHTML = '<div class="chip err">Ponle un nombre.</div>'; return; }
+    const abre = $('#aAbre', m).value, cierra = $('#aCierra', m).value;
+    if (abre && cierra && cierra < abre) {
+      $('#aMsg', m).innerHTML = '<div class="chip err">La fecha de cierre es anterior a la de apertura.</div>';
+      return;
+    }
+    const nota = Number($('#aNota', m).value), max = Number($('#aMax', m).value);
+    if (nota > max) {
+      $('#aMsg', m).innerHTML = '<div class="chip err">La nota para aprobar no puede superar el puntaje máximo.</div>';
+      return;
+    }
+
+    const fila = {
+      course_id: $('#selCurso').value,
+      nombre, descripcion: $('#aDesc', m).value.trim() || null,
+      tipo: $('#aTipo', m).value, puntaje_max: max, nota_aprobatoria: nota,
+      tiempo_min: Number($('#aTiempo', m).value) || null,
+      intentos: Number($('#aIntentos', m).value) || 1,
+      barajar: $('#aBarajar', m).checked,
+      // Se cierra a las 23:59 del día elegido: nadie entiende "cierra el 20"
+      // como "a las 00:00 del 20".
+      abre_en: abre ? `${abre}T00:00:00` : null,
+      cierra_en: cierra ? `${cierra}T23:59:59` : null,
+    };
+
+    const { error } = nueva
+      ? await sb.from('cem_assessments').insert({ ...fila, estado:'borrador' })
+      : await sb.from('cem_assessments').update(fila).eq('id', e.id);
+    if (error) { $('#aMsg', m).innerHTML = `<div class="chip err">${esc(mensajeError(error))}</div>`; return; }
+
+    m.close();
+    ok(nueva ? 'Evaluación creada como borrador.' : 'Evaluación guardada.');
+    cargar();
+  };
+}
+
+$('#btnNuevaEval').onclick = () => editarEval(null);
+
+/* ---------------- Material ---------------- */
+
+const ICONO = { video:'play_circle', pdf:'picture_as_pdf', texto:'article',
+                enlace:'link', quiz:'quiz', tarea:'assignment', en_vivo:'co_present' };
+
+function pintarMaterial(){
+  $('#modulos').innerHTML = modulos.length ? modulos.map(mo => {
+    const lecciones = (mo.cem_lessons || []).sort((a, b) => (a.orden || 0) - (b.orden || 0));
+    return `<div class="list-item" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div class="row between">
+        <div><b>${esc(mo.titulo)}</b>
+          <span class="tiny muted"> · ${lecciones.length} lección(es)</span></div>
+        <button class="btn outline sm" data-add="${mo.id}">
+          <span class="material-symbols-outlined">add</span> Agregar</button>
+      </div>
+      ${lecciones.length ? lecciones.map(l => `<div class="row" style="gap:8px;padding-left:6px">
+        <span class="material-symbols-outlined" style="color:var(--muted,#7A756B)">${ICONO[l.tipo] || 'article'}</span>
+        <span class="grow">${esc(l.titulo)}</span>
+        ${l.duracion_min ? `<span class="tiny muted">${l.duracion_min} min</span>` : ''}
+        <button class="btn ghost sm" data-del="${l.id}" title="Quitar">
+          <span class="material-symbols-outlined">delete</span></button>
+      </div>`).join('') : '<p class="tiny muted" style="padding-left:6px">Todavía sin contenido.</p>'}
+    </div>`;
+  }).join('') : '<div class="empty">Este programa no tiene módulos. Pídele a coordinación que los cree.</div>';
+
+  $$('[data-add]').forEach(b => b.onclick = () => agregarLeccion(b.dataset.add));
+  $$('[data-del]').forEach(b => b.onclick = async () => {
+    if (!await confirmDialog('¿Quitar esta lección? El material deja de verse para los estudiantes.')) return;
+    await run(sb.from('cem_lessons').delete().eq('id', b.dataset.del), 'No se pudo quitar');
+    ok('Lección quitada.'); cargar();
+  });
+}
+
+function agregarLeccion(moduleId){
+  const mo = modulos.find(x => x.id === moduleId);
+  const siguiente = (mo?.cem_lessons?.length || 0) + 1;
+
+  const m = modal({ title:`Agregar a "${mo?.titulo || ''}"`, body:`
+    <div class="field"><label>Título *</label><input id="lTitulo"></div>
+    <div class="row">
+      <div class="field" style="flex:1;min-width:130px"><label>Tipo</label>
+        <select id="lTipo">
+          <option value="video">Video</option><option value="pdf">Documento</option>
+          <option value="texto">Texto</option><option value="enlace">Enlace</option>
+          <option value="en_vivo">Sesión en vivo</option></select></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Duración (min)</label>
+        <input type="number" id="lDur" min="1" placeholder="opcional"></div>
+    </div>
+    <div class="field" id="campoUrl"><label>Enlace</label>
+      <input id="lUrl" placeholder="https://…"></div>
+    <div class="row" style="gap:8px;margin-bottom:10px">
+      <button class="btn outline sm" id="lVideo" type="button">
+        <span class="material-symbols-outlined">movie</span> Subir un video</button>
+      <button class="btn outline sm" id="lDoc" type="button">
+        <span class="material-symbols-outlined">upload_file</span> Subir un documento</button>
+      <input type="file" id="lArchivo" hidden>
+    </div>
+    <div class="field"><label>Contenido o notas</label>
+      <textarea id="lCuerpo" rows="3" placeholder="Opcional: lo que quieras que lean antes o después."></textarea></div>
+    <div id="lMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Agregar</button>` });
+
+  const aviso = (t, k='err') => $('#lMsg', m).innerHTML = `<div class="chip ${k}" style="margin-top:8px">${esc(t)}</div>`;
+
+  $('#lVideo', m).onclick = async () => {
+    try {
+      const r = await abrirSubidaVideo({ tituloDefault: $('#lTitulo', m).value.trim() });
+      if (!r) return;
+      $('#lUrl', m).value = r.embedUrl;
+      $('#lTipo', m).value = 'video';
+      aviso('Video subido y enlazado.', 'ok');
+    } catch (err) {
+      aviso(err instanceof YoutubeNoConectadoError ? err.message : mensajeError(err));
+    }
+  };
+
+  $('#lDoc', m).onclick = () => $('#lArchivo', m).click();
+  $('#lArchivo', m).onchange = async (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    aviso('Subiendo…', 'info');
+    try {
+      const d = await subirDocumentoLeccion(file);
+      $('#lUrl', m).value = d.url;
+      $('#lTipo', m).value = d.tipo === 'pdf' ? 'pdf' : 'enlace';
+      if (!$('#lTitulo', m).value.trim()) $('#lTitulo', m).value = d.nombre.replace(/\.[^.]+$/, '');
+      aviso('Documento subido.', 'ok');
+    } catch (err) { aviso(mensajeError(err)); }
+  };
+
+  $('[data-s]', m).onclick = async () => {
+    const titulo = $('#lTitulo', m).value.trim();
+    if (!titulo) { aviso('Ponle un título.'); return; }
+    const tipo = $('#lTipo', m).value;
+    const url = $('#lUrl', m).value.trim();
+    const cuerpo = $('#lCuerpo', m).value.trim();
+    if (tipo !== 'texto' && !url) { aviso('Falta el enlace o el archivo.'); return; }
+    if (tipo === 'texto' && !cuerpo) { aviso('Escribe el contenido de la lección.'); return; }
+
+    const { error } = await sb.from('cem_lessons').insert({
+      module_id: moduleId, titulo, tipo, url: url || null,
+      contenido: cuerpo || null,
+      duracion_min: Number($('#lDur', m).value) || null,
+      orden: siguiente,
+      // El docente sube material para que se vea: no tiene sentido dejarlo en
+      // borrador esperando que alguien más lo publique.
+      estado: 'publicado',
+    });
+    if (error) { aviso(mensajeError(error)); return; }
+    m.close(); ok('Material agregado.'); cargar();
+  };
+}
+</script>
+</body>
+</html>

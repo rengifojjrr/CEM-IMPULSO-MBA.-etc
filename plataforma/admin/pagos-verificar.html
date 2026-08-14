@@ -23,6 +23,8 @@
     <div><h1>Verificar pagos</h1>
       <p>Pagos que los estudiantes reportaron y esperan revisión. Aprobar abona la cuota; rechazar no toca el saldo.</p></div>
     <div class="actions">
+      <button class="btn outline" id="btnCartera">
+        <span class="material-symbols-outlined">table_view</span> Exportar cartera</button>
       <a class="btn outline" href="bancaribe.html"><span class="material-symbols-outlined">account_balance</span> Panel del banco</a>
     </div>
   </div>
@@ -64,7 +66,8 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, fail, modal,
-         confirmDialog, urlComprobante, tasaVigente, mejorarSelects } from '../assets/app.js';
+         confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa,
+         toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -156,7 +159,13 @@ async function verDetalle(x){
     ${c ? `<div class="field" style="margin-top:12px"><label>Cuota</label>
       <div>#${esc(String(c.numero ?? ''))} — debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')} de ${money(c.monto, c.moneda || 'USD')} (${esc(c.estado||'')})</div></div>` : ''}
     ${x.nota ? `<div class="field"><label>Nota</label><div class="tiny">${esc(x.nota)}</div></div>` : ''}
-    <div class="field"><label>Comprobante</label><div id="dComp"><span class="tiny muted">Cargando…</span></div></div>`,
+    <div class="field"><label>Comprobante</label><div id="dComp"><span class="tiny muted">Cargando…</span></div></div>
+    <div class="field"><label>Verificación contra el banco</label>
+      <div id="dBanco"><button class="btn outline sm" id="dVerificar">
+        <span class="material-symbols-outlined">travel_explore</span>
+        Buscar esta referencia en Bancaribe</button>
+        <div class="tiny muted" style="margin-top:5px">Consulta la operación por referencia y monto,
+          sin salir de esta pantalla.</div></div></div>`,
     footer: puedeOperar && x.estado === 'reportado'
       ? `<button class="btn outline" data-x>Cerrar</button>
          <button class="btn danger" id="dNo">Rechazar</button>
@@ -176,7 +185,61 @@ async function verDetalle(x){
   }
   if($('#dOk', m)) $('#dOk', m).onclick = () => { m.close(); aprobar(x); };
   if($('#dNo', m)) $('#dNo', m).onclick = () => { m.close(); rechazar(x); };
+
+  /* Item 14: la consulta contra el banco existía sólo en el panel de
+     Bancaribe, así que había que saltar de pantalla copiando la referencia a
+     mano. Acá va precargada con los datos del pago que se está mirando. */
+  $('#dVerificar', m).onclick = async () => {
+    const caja = $('#dBanco', m);
+    caja.innerHTML = '<span class="tiny muted">Consultando al banco…</span>';
+    try {
+      const { data:{ session } } = await sb.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-bancaribe`, {
+        method:'POST',
+        headers:{ Authorization:`Bearer ${session?.access_token}`, apikey:SUPABASE_KEY,
+                  'Content-Type':'application/json' },
+        body: JSON.stringify({ servicio:'operaciones', referencia: x.referencia,
+                               monto: x.monto, fecha: x.fecha }),
+      });
+      const r = await res.json();
+      if (!res.ok || r.error) {
+        caja.innerHTML = `<div class="chip warn" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
+          No se pudo consultar: ${esc(r.error || ('el banco respondió ' + res.status))}.
+          ${/900908|subscription/i.test(JSON.stringify(r))
+            ? 'Bancaribe todavía no habilitó la suscripción a este servicio para nuestra aplicación.'
+            : ''}
+          Verifica el comprobante a mano por ahora.</div>`;
+        return;
+      }
+      const ops = r.operaciones || r.data || [];
+      caja.innerHTML = ops.length
+        ? `<div class="chip ok" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
+             El banco confirma ${ops.length} operación(es) con esa referencia.</div>
+           <pre class="tiny" style="max-height:150px;overflow:auto;margin-top:8px">${esc(JSON.stringify(ops, null, 2))}</pre>`
+        : `<div class="chip warn" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
+             El banco no encontró ninguna operación con esa referencia. Puede que
+             todavía no esté procesada, o que la referencia esté mal escrita.</div>`;
+    } catch (e) {
+      caja.innerHTML = `<div class="chip err">${esc(mensajeError(e, 'No se pudo hablar con el banco.'))}</div>`;
+    }
+  };
 }
+
+/* ============ item 18: la cartera por cobrar, para conciliar ============
+   Para cuadrar con contabilidad había que copiar de la pantalla. */
+$('#btnCartera').onclick = async () => {
+  const { data, error } = await sb.rpc('cem_cartera_por_cobrar');
+  if (error) { fail(mensajeError(error)); return; }
+  if (!data?.length) { ok('No hay cuotas pendientes: la cartera está en cero.'); return; }
+  const hoy = new Date().toISOString().slice(0, 10);
+  download(`cartera_por_cobrar_${hoy}.csv`, toCSV(data.map(r => ({
+    estudiante: r.estudiante, email: r.email, documento: r.documento,
+    programa: r.programa, cohorte: r.cohorte || '',
+    cuota: r.cuota, monto: r.monto, saldo: r.saldo, moneda: r.moneda,
+    vence: r.vence, estado: r.estado, dias_mora: r.dias_mora,
+  }))));
+  ok(`${data.length} cuota(s) exportada(s).`);
+};
 
 async function aprobar(x){
   if(!x) return;
@@ -221,6 +284,7 @@ $('#btnTasa').onclick = async () => {
   const { error } = await sb.rpc('cem_guardar_tasa_manual', { p_valor: v });
   if(error){ $('#msgTasa').innerHTML = `<div class="chip err">${esc(error.message)}</div>`; return; }
   $('#inpTasa').value = '';
+  olvidarTasa();  // para que el resto de pantallas tome la nueva y no la de la caché
   $('#msgTasa').innerHTML = '<div class="chip ok">Tasa guardada ✓</div>';
   setTimeout(() => { $('#msgTasa').innerHTML = ''; }, 6000);
   cargar();

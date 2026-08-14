@@ -38,7 +38,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, run, qs, audit } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, run, qs, audit, modal, mensajeError } from '../assets/app.js';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'calificar.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let subs=[], filtro='pend', sel=null;
@@ -120,7 +120,9 @@ function detalle(){
       <div class="field"><label>Retroalimentación para el estudiante</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>
       <div class="row"><button class="btn" id="btnG"><span class="material-symbols-outlined">save</span>
         ${s.estado==='calificada'?'Actualizar calificación':'Guardar calificación'}</button>
-        <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined">arrow_forward</span></button></div>
+        <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
+        <button class="btn ghost" id="btnReabrir" style="color:var(--error)">
+          <span class="material-symbols-outlined">undo</span> Devolver para corregir</button></div>
     </div>` : (s.feedback? `<div class="card" style="margin-top:14px"><b class="tiny">Retroalimentación</b>
         <p class="tiny" style="margin:6px 0 0">${esc(s.feedback)}</p></div>` : '')}
   </div>`;
@@ -153,6 +155,31 @@ function detalle(){
       return true;
     };
     $('#btnG').onclick = async () => { if (await guardar()){ ok('Calificación guardada'); await fetchSubs(); } };
+
+    /* Devolver una entrega para que la corrijan. Antes esto sólo se podía
+       hacer tocando la base a mano, así que en la práctica no se hacía.
+       No tiene sentido ofrecerlo sobre algo que todavía no se entregó. */
+    $('#btnReabrir').hidden = !s.entregado_en;
+    $('#btnReabrir').onclick = () => {
+      const m = modal({ title:'Devolver la entrega para corregir', body:`
+        <p>Vuelve a quedar abierta y el estudiante puede enviarla de nuevo.
+           El puntaje actual se borra y él recibe un aviso con tu motivo.</p>
+        <div class="field"><label>¿Por qué la devuelves? *</label>
+          <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto."></textarea></div>
+        <div id="rMsg"></div>`,
+        footer:`<button class="btn outline" data-x>Cancelar</button>
+                <button class="btn" data-s>Devolver</button>` });
+      $('[data-s]',m).onclick = async () => {
+        const motivo = $('#rMotivo',m).value.trim();
+        if (motivo.length < 10) {
+          $('#rMsg',m).innerHTML = '<div class="chip err" style="margin-top:8px">Escribe el motivo con una frase completa.</div>';
+          return;
+        }
+        const { error } = await sb.rpc('cem_reabrir_entrega',{ p_submission_id:s.id, p_motivo:motivo });
+        if (error) { $('#rMsg',m).innerHTML = `<div class="chip err" style="margin-top:8px">${esc(mensajeError(error))}</div>`; return; }
+        m.close(); ok('Entrega devuelta. El estudiante ya recibió el aviso.'); await fetchSubs();
+      };
+    };
     $('#btnSig').onclick = async () => {
       if (!await guardar()) return;
       const pend = subs.filter(x=>x.estado==='entregada' && x.id!==s.id);

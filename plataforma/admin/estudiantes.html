@@ -17,6 +17,7 @@
     <div><h1>Administración de estudiantes</h1><p>Gestione perfiles, rendimiento y estado académico.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar datos</button>
+      <button class="btn outline" id="btnImportar"><span class="material-symbols-outlined">upload_file</span> Importar desde Excel</button>
       <a class="btn" href="inscripciones.html"><span class="material-symbols-outlined">person_add</span> Nueva inscripción</a>
     </div>
   </div>
@@ -35,8 +36,10 @@
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials, toCSV, download } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
+         toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
@@ -88,6 +91,189 @@ $('#btnClear').onclick=()=>{['#q','#fCoh','#fEst'].forEach(s=>$(s).value=''); re
 $('#btnExport').onclick=()=>download('estudiantes_cem.csv', toCSV(rows.map(r=>({
   nombre:r.nombre, apellido:r.apellido, email:r.email, pais:r.pais, documento:r.documento,
   cursos:r._n, progreso:Math.round(r._prog), saldo:r._saldo, estado:r._estado }))));
+
+/* ============ importar una cohorte entera desde Excel ============
+   Cargar treinta personas de a una es media mañana. La plataforma ya sabía
+   leer Excel para los certificados; acá se conecta esa pieza a la creación de
+   cuentas, inscripciones y cuotas.
+
+   El archivo se lee en el navegador y sólo viajan las filas ya limpias: el
+   .xlsx nunca sale del computador de quien lo sube. */
+
+const COLUMNAS = {
+  nombre: ['nombre', 'nombres', 'first name', 'firstname'],
+  apellido: ['apellido', 'apellidos', 'last name', 'lastname'],
+  email: ['email', 'correo', 'correo electronico', 'e-mail', 'mail'],
+  documento: ['documento', 'cedula', 'cédula', 'dni', 'pasaporte', 'identificacion', 'identificación'],
+  documento_tipo: ['tipo de documento', 'documento tipo', 'tipo documento'],
+  telefono: ['telefono', 'teléfono', 'celular', 'movil', 'móvil', 'phone'],
+  pais: ['pais', 'país', 'country'],
+  ciudad: ['ciudad', 'city'],
+};
+
+/** Quita tildes y mayúsculas para que "Teléfono" y "telefono" sean lo mismo. */
+const llave = (s) => String(s || '').trim().toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function mapearFila(cruda){
+  const salida = {};
+  for (const [campo, alias] of Object.entries(COLUMNAS)) {
+    // Los alias también se normalizan: "Cédula" en la planilla y "cedula" en
+    // la lista tienen que encontrarse, y quien escribe la lista no debería
+    // tener que acordarse de omitir las tildes.
+    const aceptados = alias.map(llave);
+    for (const [col, valor] of Object.entries(cruda)) {
+      if (aceptados.includes(llave(col))) { salida[campo] = String(valor ?? '').trim(); break; }
+    }
+  }
+  return salida;
+}
+
+function plantillaEnBlanco(){
+  const wb = XLSX.utils.book_new();
+  const hoja = XLSX.utils.aoa_to_sheet([
+    ['Nombre', 'Apellido', 'Email', 'Documento', 'Tipo de documento', 'Teléfono', 'País', 'Ciudad'],
+    ['Ana', 'Pérez', 'ana.perez@ejemplo.com', 'V-12345678', 'Cédula', '+58 412 1234567', 'Venezuela', 'Caracas'],
+  ]);
+  hoja['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, hoja, 'Estudiantes');
+  XLSX.writeFile(wb, 'plantilla_estudiantes_cem.xlsx');
+}
+
+$('#btnImportar').onclick = async () => {
+  if (!['coordinador','admin','superadmin'].includes(p.rol)) {
+    fail('Tu rol no puede importar estudiantes.'); return;
+  }
+  const [{ data: cursos }, { data: cohortes }] = await Promise.all([
+    sb.from('cem_courses').select('id,nombre,precio,moneda,cuotas_habilitadas')
+      .eq('estado','publicado').order('nombre'),
+    sb.from('cem_cohorts').select('id,nombre,course_id').order('nombre'),
+  ]);
+
+  const m = modal({ title:'Importar estudiantes desde Excel', wide:true, body:`
+    <ol class="tiny muted" style="margin:0 0 14px;padding-left:18px;line-height:1.7">
+      <li>Descarga la plantilla, complétala y vuelve a subirla.</li>
+      <li>Elige el programa: a todos se les crea la inscripción y el plan de cuotas.</li>
+      <li>Primero se revisa sin escribir nada; sólo confirmas al final.</li>
+    </ol>
+    <button class="btn outline sm" id="impPlantilla" style="margin-bottom:14px">
+      <span class="material-symbols-outlined">download</span> Descargar plantilla en blanco</button>
+
+    <div class="row">
+      <div class="field" style="flex:2;min-width:220px"><label>Programa *</label>
+        <select id="impCurso">${(cursos||[]).map(c =>
+          `<option value="${c.id}">${esc(c.nombre)} — ${money(c.precio, c.moneda||'USD')}</option>`).join('')
+          || '<option value="">No hay programas publicados</option>'}</select></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Cohorte</label>
+        <select id="impCohorte"><option value="">Sin cohorte</option></select></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Cuotas</label>
+        <select id="impCuotas"><option value="1">1 (contado)</option><option value="3">3</option><option value="6">6</option></select></div>
+    </div>
+    <div class="field"><label>Archivo (.xlsx) *</label>
+      <input type="file" id="impArchivo" accept=".xlsx,.xls"></div>
+    <div id="impPrevia"></div>
+    <div id="impMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="impIr" disabled>Revisar planilla</button>` });
+
+  $('#impPlantilla', m).onclick = plantillaEnBlanco;
+
+  const cohortesDe = () => {
+    const cid = $('#impCurso', m).value;
+    const propias = (cohortes||[]).filter(c => c.course_id === cid);
+    $('#impCohorte', m).innerHTML = '<option value="">Sin cohorte</option>' +
+      propias.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  };
+  $('#impCurso', m).onchange = cohortesDe;
+  cohortesDe();
+
+  let filas = [];
+  let revisado = false;
+
+  $('#impArchivo', m).onchange = async (ev) => {
+    const file = ev.target.files[0];
+    revisado = false;
+    $('#impIr', m).textContent = 'Revisar planilla';
+    if (!file) { filas = []; $('#impIr', m).disabled = true; $('#impPrevia', m).innerHTML = ''; return; }
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type:'array' });
+      const crudas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'' });
+      filas = crudas.map(mapearFila).filter(f => Object.values(f).some(v => v));
+    } catch {
+      filas = [];
+      $('#impPrevia', m).innerHTML = '<div class="chip err" style="margin-top:10px">No pudimos leer ese archivo. ¿Es un .xlsx?</div>';
+      return;
+    }
+    if (!filas.length) {
+      $('#impPrevia', m).innerHTML = '<div class="chip err" style="margin-top:10px">La planilla no trae filas con datos.</div>';
+      $('#impIr', m).disabled = true;
+      return;
+    }
+    const sinCorreo = filas.filter(f => !f.email).length;
+    $('#impPrevia', m).innerHTML = `
+      <div class="chip ${sinCorreo ? 'warn' : 'ok'}" style="margin:10px 0">
+        ${filas.length} fila(s) leída(s)${sinCorreo ? ` · ${sinCorreo} sin correo` : ''}</div>
+      <div class="table-wrap" style="max-height:220px"><table>
+        <thead><tr><th>Nombre</th><th>Apellido</th><th>Correo</th><th>Documento</th></tr></thead>
+        <tbody>${filas.slice(0, 6).map(f => `<tr>
+          <td>${esc(f.nombre||'')}</td><td>${esc(f.apellido||'')}</td>
+          <td>${esc(f.email||'')}</td><td>${esc(f.documento||'')}</td></tr>`).join('')}
+          ${filas.length > 6 ? `<tr><td colspan="4" class="tiny muted">…y ${filas.length - 6} más</td></tr>` : ''}
+        </tbody></table></div>`;
+    $('#impIr', m).disabled = false;
+  };
+
+  async function llamar(simular){
+    const { data:{ session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-importar-estudiantes`, {
+      method:'POST',
+      headers:{ Authorization:`Bearer ${session?.access_token}`, apikey:SUPABASE_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        filas, simular,
+        course_id: $('#impCurso', m).value,
+        cohort_id: $('#impCohorte', m).value || null,
+        cuotas: Number($('#impCuotas', m).value),
+      }),
+    });
+    return res.json();
+  }
+
+  function pintarResultados(r){
+    const malas = r.resultados.filter(x => x.estado === 'error' || x.estado === 'omitida');
+    $('#impMsg', m).innerHTML = `
+      <div class="chip ${r.resumen.errores ? 'warn' : 'ok'}" style="margin:12px 0">
+        ${r.simulacion
+          ? `${r.resumen.listas} lista(s) para importar · ${r.resumen.errores} con problemas`
+          : `${r.resumen.creadas} inscrita(s) · ${r.resumen.omitidas} omitida(s) · ${r.resumen.errores} con error`}
+      </div>
+      ${malas.length ? `<div class="table-wrap" style="max-height:200px"><table>
+        <thead><tr><th>Fila</th><th>Correo</th><th>Qué pasó</th></tr></thead>
+        <tbody>${malas.map(x => `<tr>
+          <td>${x.fila}</td><td>${esc(x.email)}</td>
+          <td class="wrap ${x.estado === 'error' ? '' : 'muted'}">${esc(x.detalle)}</td></tr>`).join('')}
+        </tbody></table></div>` : ''}`;
+  }
+
+  $('#impIr', m).onclick = async () => {
+    const btn = $('#impIr', m);
+    btn.disabled = true;
+    btn.textContent = revisado ? 'Importando…' : 'Revisando…';
+    const r = await llamar(!revisado);
+    if (r.error) { $('#impMsg', m).innerHTML = `<div class="chip err" style="margin-top:10px">${esc(r.error)}</div>`;
+      btn.disabled = false; btn.textContent = revisado ? 'Importar de verdad' : 'Revisar planilla'; return; }
+
+    pintarResultados(r);
+    if (!revisado) {
+      revisado = true;
+      btn.disabled = r.resumen.listas === 0;
+      btn.textContent = `Importar ${r.resumen.listas} estudiante(s)`;
+    } else {
+      btn.textContent = 'Listo';
+      ok(`${r.resumen.creadas} estudiante(s) importado(s).`);
+      setTimeout(() => { m.close(); load(); }, 1800);
+    }
+  };
+};
 </script>
 </body>
 </html>

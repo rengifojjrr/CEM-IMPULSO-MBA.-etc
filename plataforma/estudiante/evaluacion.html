@@ -139,13 +139,27 @@ async function entregar(auto){
   const res = await run(sb.rpc('cem_submit_assessment',{ p_submission_id:sub.id, p_respuestas:respuestas }),'No se pudo entregar');
   const r = Array.isArray(res)? res[0] : res;
   const aprobado = r?.puntaje!=null && r.puntaje >= (assess.nota_aprobatoria||70);
+  const pendiente = r?.puntaje == null;
+
+  /* Antes, con preguntas abiertas el estudiante sólo veía "entregada" y se
+     quedaba sin saber cuánto llevaba ganado ni por qué no había nota. Ahora
+     se le muestra lo que la máquina ya resolvió y cuánto pesa esa parte. */
+  const parcial = pendiente && r?.puntaje_objetivo != null ? `
+    <div class="card" style="margin:12px 0;background:var(--surface-container)">
+      <div class="tiny muted">De la parte de selección, que se corrige sola</div>
+      <div style="font-size:26px;font-weight:700;margin:2px 0">${r.puntaje_objetivo} / 100</div>
+      <div class="tiny muted">Esa parte vale el ${r.peso_objetivo}% de la evaluación.
+        El resto son preguntas abiertas que lee un profesor.</div>
+    </div>` : '';
+
   const m = modal({ title:'Examen entregado', body:`
     <div style="text-align:center;padding:10px">
-      <span class="material-symbols-outlined" style="font-size:52px;color:${r?.puntaje==null?'var(--info)':aprobado?'var(--ok)':'var(--error)'}">
-        ${r?.puntaje==null?'hourglass_top':aprobado?'check_circle':'cancel'}</span>
-      <h2 style="margin:10px 0 4px">${r?.puntaje==null?'Entrega registrada':`${r.puntaje} puntos`}</h2>
-      <p class="muted">${r?.puntaje==null
-        ? 'Tu examen contiene preguntas abiertas; un profesor lo calificará y verás el resultado en tu panel.'
+      <span class="material-symbols-outlined" style="font-size:52px;color:${pendiente?'var(--info)':aprobado?'var(--ok)':'var(--error)'}">
+        ${pendiente?'hourglass_top':aprobado?'check_circle':'cancel'}</span>
+      <h2 style="margin:10px 0 4px">${pendiente?'Entrega registrada':`${r.puntaje} puntos`}</h2>
+      ${parcial}
+      <p class="muted">${pendiente
+        ? 'Tu examen tiene preguntas abiertas: un profesor las revisa y te avisamos cuando esté la nota definitiva.'
         : aprobado?'¡Felicitaciones, aprobaste la evaluación!':`No alcanzaste la nota mínima (${assess.nota_aprobatoria}).`}</p>
     </div>`,
     footer:`<a class="btn" href="panel.html">Volver a mi panel</a>` });

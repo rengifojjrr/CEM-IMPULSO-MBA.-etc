@@ -44,7 +44,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError } from '../assets/app.js';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let certs=[], elegibles=[], tpls=[];
@@ -106,19 +106,87 @@ $('#btnExport').onclick=()=>download('certificados_cem.csv', toCSV(certs.map(c=>
   email:c.cem_profiles?.email, titulo:c.titulo, programa:c.cem_courses?.nombre,
   emitido:c.emitido_en, estado:c.estado }))));
 
+/* Emitir un certificado a quien todavía debe cuotas o no aprobó las
+   evaluaciones deja a la institución respaldando algo que no ocurrió. La
+   plataforma no lo impide del todo — a veces hay razones — pero obliga a
+   verlo y a dejar dicho por qué. */
+async function revisarRequisitos(ids){
+  const reparos = [];
+  for (const id of ids){
+    const { data } = await sb.rpc('cem_requisitos_certificado', { p_enrollment_id: id });
+    if (data && !data.listo) reparos.push({ id, lista: data.reparos || [] });
+  }
+  return reparos;
+}
+
+function nombreDeInscripcion(id){
+  // La lista viene de "elegibles" cuando se emite en lote y de las
+  // inscripciones completas cuando se emite a mano.
+  const e = elegibles.find(x => x.id === id) || (window.__inscripciones || []).find(x => x.id === id);
+  const n = e ? `${e.cem_profiles?.nombre || ''} ${e.cem_profiles?.apellido || ''}`.trim() : '';
+  return n || 'esa inscripción';
+}
+
+/** Devuelve el motivo escrito, o null si se cancela. */
+function pedirExcepcion(reparos){
+  return new Promise(res => {
+    const m = modal({ title: 'Todavía no cumplen los requisitos', wide: true, body: `
+      <p>Estos casos no reúnen las condiciones para recibir un certificado:</p>
+      <div class="list" style="margin:12px 0">
+        ${reparos.map(r => `<div class="li">
+          <b>${esc(nombreDeInscripcion(r.id))}</b>
+          <ul style="margin:6px 0 0;padding-left:18px">
+            ${r.lista.map(x => `<li class="tiny">${esc(x)}</li>`).join('')}
+          </ul></div>`).join('')}
+      </div>
+      <div class="field"><label>Motivo de la excepción *</label>
+        <textarea id="exMotivo" rows="3" placeholder="Ej.: convenio institucional aprobado por el consejo académico el 12/08."></textarea></div>
+      <p class="tiny muted">Queda asentado en la auditoría con tu nombre y la fecha.</p>`,
+      footer: `<button class="btn outline" data-x>Cancelar</button>
+               <button class="btn" data-si>Emitir como excepción</button>` });
+    $('[data-x]', m).onclick = () => { m.close(); res(null); };
+    $('[data-si]', m).onclick = () => {
+      const motivo = $('#exMotivo', m).value.trim();
+      if (motivo.length < 10) { fail('Escribe el motivo: al menos una frase que explique la excepción.'); return; }
+      m.close(); res(motivo);
+    };
+  });
+}
+
+async function emitirLote(ids, tpl, tipo = 'certificado'){
+  const reparos = await revisarRequisitos(ids);
+  let motivo = null;
+  if (reparos.length){
+    motivo = await pedirExcepcion(reparos);
+    if (motivo === null) return false;
+  }
+  let emitidos = 0;
+  for (const id of ids){
+    const conReparo = reparos.some(r => r.id === id);
+    const { error } = await sb.rpc('cem_issue_certificate', {
+      p_enrollment_id: id, p_template_id: tpl, p_tipo: tipo,
+      p_forzar: conReparo, p_motivo_excepcion: conReparo ? motivo : null,
+    });
+    if (error) { fail(`${nombreDeInscripcion(id)}: ${mensajeError(error)}`); continue; }
+    emitidos++;
+  }
+  if (emitidos) ok(`${emitidos} certificado(s) emitido(s)${motivo ? ', con excepción asentada' : ''}`);
+  return emitidos > 0;
+}
+
 $('#btnLote').onclick = async () => {
   if (!puede) { fail('No tienes permiso para emitir certificados.'); return; }
   const ids = $$('.chkE').filter(c=>c.checked).map(c=>c.value);
   if (!ids.length) { fail('Selecciona al menos un estudiante.'); return; }
   if (!await confirmDialog(`¿Emitir ${ids.length} certificado(s)?`)) return;
   const tpl = tpls[0]?.id || null;
-  for (const id of ids) await sb.rpc('cem_issue_certificate',{ p_enrollment_id:id, p_template_id:tpl });
-  ok(`${ids.length} certificado(s) emitido(s)`); load();
+  if (await emitirLote(ids, tpl)) load();
 };
 
 $('#btnEmitir').onclick = async () => {
   const { data: ens } = await sb.from('cem_enrollments')
     .select('id,progreso,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)').order('fecha_inscripcion',{ascending:false});
+  window.__inscripciones = ens || [];
   const m = modal({ title:'Emitir certificado manualmente', body:`
     <div class="field"><label>Inscripción *</label><select id="eE">
       ${(ens||[]).map(e=>`<option value="${e.id}">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))} — ${esc(e.cem_courses?.nombre||'')} (${Math.round(e.progreso)}%)</option>`).join('')}</select></div>
@@ -130,9 +198,11 @@ $('#btnEmitir').onclick = async () => {
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Emitir</button>` });
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{
-    await run(sb.rpc('cem_issue_certificate',{ p_enrollment_id:$('#eE',m).value,
-      p_template_id:$('#eT',m).value||null, p_tipo:$('#eTipo',m).value }),'No se pudo emitir');
-    m.close(); ok('Certificado emitido'); load();
+    const id = $('#eE',m).value;
+    const tipo = $('#eTipo',m).value;
+    const tpl = $('#eT',m).value || null;
+    m.close();
+    if (await emitirLote([id], tpl, tipo)) load();
   };
 };
 

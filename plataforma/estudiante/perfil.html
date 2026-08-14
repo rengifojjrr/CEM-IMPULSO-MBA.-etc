@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mi perfil</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Mi perfil</h1>
+      <p>Tus datos personales. Lo que escribas acá es lo que aparece en tus certificados.</p></div>
+  </div>
+
+  <div class="card" id="avisoCert" hidden>
+    <div class="row" style="gap:10px;align-items:flex-start">
+      <span class="material-symbols-outlined" style="color:var(--gold,#C9A227)">workspace_premium</span>
+      <div>
+        <b>Ya tienes certificados emitidos.</b>
+        <p class="tiny muted" style="margin:4px 0 0">
+          Por eso el cambio de nombre o de documento lo revisa el equipo antes de aplicarse:
+          esos datos ya están impresos en un documento firmado. El resto lo cambias tú directamente.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Datos personales</h2>
+    <form id="fPerfil">
+      <div class="row">
+        <div class="field" style="flex:1;min-width:160px"><label>Nombre</label>
+          <input id="nombre" required></div>
+        <div class="field" style="flex:1;min-width:160px"><label>Apellido</label>
+          <input id="apellido" required></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1;min-width:150px"><label>Tipo de documento</label>
+          <select id="docTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Número de documento</label>
+          <input id="documento"></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1;min-width:150px"><label>Teléfono</label>
+          <input id="telefono" type="tel"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>País</label>
+          <input id="pais"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Ciudad</label>
+          <input id="ciudad"></div>
+      </div>
+      <div class="field"><label>Correo</label>
+        <input id="email" disabled>
+        <span class="tiny muted">El correo es tu forma de entrar. Para cambiarlo, escríbenos por soporte.</span></div>
+      <div class="field" id="campoMotivo" hidden><label>¿Por qué hay que corregirlo?</label>
+        <textarea id="motivo" rows="2" placeholder="Ej.: mi cédula está escrita con un dígito de más."></textarea></div>
+      <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar cambios</button>
+      <div id="msgPerfil"></div>
+    </form>
+  </div>
+
+  <div class="card" id="cardSolPerfil" hidden>
+    <h2 class="sec">Cambios que pediste</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Pedido</th><th>Qué cambia</th><th>Estado</th><th>Respuesta</th></tr></thead>
+      <tbody id="tbSolPerfil"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Mis inscripciones</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Si necesitas parar un tiempo o dejar un programa, pídelo acá y el equipo lo resuelve.</p>
+    <div id="inscripciones"></div>
+  </div>
+
+  <div class="card" id="cardSolInsc" hidden>
+    <h2 class="sec">Solicitudes sobre mis inscripciones</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Pedido</th><th>Tipo</th><th>Motivo</th><th>Estado</th><th>Respuesta</th></tr></thead>
+      <tbody id="tbSolInsc"></tbody></table></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, emptyRow, modal, ok, fail, run,
+         mensajeError, confirmDialog } from '../assets/app.js';
+
+const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
+let tieneCertificados = false;
+let originales = {};
+
+if (p) cargar();
+
+async function cargar(){
+  const [{ data: perfil }, { count: certs }, { data: ens }, { data: solP }, { data: solI }] = await Promise.all([
+    sb.from('cem_profiles').select('*').eq('id', p.id).single(),
+    sb.from('cem_certificates').select('id', { count:'exact', head:true }).eq('profile_id', p.id),
+    sb.from('cem_enrollments')
+      .select('id,estado,progreso,fecha_inscripcion,cem_courses(nombre)')
+      .eq('profile_id', p.id).order('fecha_inscripcion', { ascending:false }),
+    sb.from('cem_solicitudes_perfil').select('*').order('created_at', { ascending:false }),
+    sb.from('cem_solicitudes_inscripcion')
+      .select('*,cem_enrollments(cem_courses(nombre))').order('created_at', { ascending:false }),
+  ]);
+
+  tieneCertificados = (certs || 0) > 0;
+  $('#avisoCert').hidden = !tieneCertificados;
+
+  originales = {
+    nombre: perfil?.nombre || '', apellido: perfil?.apellido || '',
+    documento: perfil?.documento || '', documento_tipo: perfil?.documento_tipo || 'Cédula',
+  };
+  $('#nombre').value = originales.nombre;
+  $('#apellido').value = originales.apellido;
+  $('#documento').value = originales.documento;
+  $('#docTipo').value = originales.documento_tipo;
+  $('#telefono').value = perfil?.telefono || '';
+  $('#pais').value = perfil?.pais || '';
+  $('#ciudad').value = perfil?.ciudad || '';
+  $('#email').value = perfil?.email || '';
+
+  pintarSolicitudesPerfil(solP || []);
+  pintarInscripciones(ens || []);
+  pintarSolicitudesInscripcion(solI || []);
+  vigilarCamposSensibles();
+}
+
+/* El campo de motivo sólo aparece cuando de verdad hace falta: si la persona
+   ya tiene certificados y está tocando su nombre o su documento. */
+function vigilarCamposSensibles(){
+  const revisar = () => {
+    const cambio = tieneCertificados && (
+      $('#nombre').value.trim() !== originales.nombre ||
+      $('#apellido').value.trim() !== originales.apellido ||
+      $('#documento').value.trim() !== originales.documento ||
+      $('#docTipo').value !== originales.documento_tipo);
+    $('#campoMotivo').hidden = !cambio;
+  };
+  ['#nombre','#apellido','#documento'].forEach(s => $(s).oninput = revisar);
+  $('#docTipo').onchange = revisar;
+  revisar();
+}
+
+$('#fPerfil').onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = $('#msgPerfil');
+  msg.innerHTML = '';
+  const { data, error } = await sb.rpc('cem_actualizar_mi_perfil', { p_datos: {
+    nombre: $('#nombre').value.trim(), apellido: $('#apellido').value.trim(),
+    documento: $('#documento').value.trim(), documento_tipo: $('#docTipo').value,
+    telefono: $('#telefono').value.trim(), pais: $('#pais').value.trim(),
+    ciudad: $('#ciudad').value.trim(), motivo: $('#motivo').value.trim(),
+  }});
+  if (error) { msg.innerHTML = `<div class="chip err" style="margin-top:10px">${esc(mensajeError(error))}</div>`; return; }
+  if (data?.requiere_aprobacion) {
+    msg.innerHTML = `<div class="chip warn" style="margin-top:10px">${esc(data.aviso)}</div>`;
+  } else {
+    ok('Datos guardados.');
+  }
+  $('#motivo').value = '';
+  cargar();
+};
+
+function pintarSolicitudesPerfil(lista){
+  $('#cardSolPerfil').hidden = lista.length === 0;
+  if (!lista.length) return;
+  $('#tbSolPerfil').innerHTML = lista.map(s => `<tr>
+    <td class="muted">${fdate(s.created_at)}</td>
+    <td class="wrap">${esc(Object.entries(s.campos || {})
+        .map(([k, v]) => `${k.replace('documento_tipo','tipo de documento')}: ${v}`).join(', '))}</td>
+    <td>${chip(s.estado === 'pendiente' ? 'en revisión' : s.estado)}</td>
+    <td class="wrap muted">${esc(s.resolucion || '—')}</td></tr>`).join('');
+}
+
+function pintarInscripciones(lista){
+  $('#inscripciones').innerHTML = lista.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Programa</th><th>Avance</th><th>Estado</th><th>Desde</th><th></th></tr></thead>
+    <tbody>${lista.map(e => `<tr>
+      <td class="wrap">${esc(e.cem_courses?.nombre || '—')}</td>
+      <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
+      <td>${chip(e.estado)}</td>
+      <td class="muted">${fdate(e.fecha_inscripcion)}</td>
+      <td style="white-space:nowrap">${botonesDe(e)}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="empty">Todavía no tienes inscripciones.</div>';
+
+  $$('[data-sol]').forEach(b => b.onclick = () => pedirCambio(b.dataset.sol, b.dataset.tipo));
+}
+
+function botonesDe(e){
+  if (e.estado === 'activa' || e.estado === 'pendiente') {
+    return `<button class="btn ghost sm" data-sol="${e.id}" data-tipo="congelamiento">Congelar</button>
+            <button class="btn ghost sm" data-sol="${e.id}" data-tipo="retiro" style="color:var(--error)">Retirarme</button>`;
+  }
+  if (e.estado === 'congelada') {
+    return `<button class="btn ghost sm" data-sol="${e.id}" data-tipo="reactivacion">Reactivar</button>`;
+  }
+  return '<span class="tiny muted">—</span>';
+}
+
+const EXPLICACION = {
+  congelamiento: 'Tu inscripción queda en pausa y las cuotas que todavía no vencieron se congelan. Lo que ya venció se sigue debiendo.',
+  retiro: 'Dejas el programa. Las cuotas pendientes se anulan, pero lo ya pagado no se devuelve automáticamente: eso se conversa aparte.',
+  reactivacion: 'Vuelves a cursar y las cuotas congeladas se reactivan desde donde quedaron.',
+};
+
+function pedirCambio(enrollmentId, tipo){
+  const m = modal({ title: `Pedir ${tipo === 'reactivacion' ? 'reactivación' : tipo}`, body: `
+    <p>${esc(EXPLICACION[tipo])}</p>
+    <div class="field"><label>Cuéntanos el motivo *</label>
+      <textarea id="solMotivo" rows="3" placeholder="Lo lee quien resuelve tu solicitud."></textarea></div>
+    ${tipo === 'congelamiento' ? `<div class="field"><label>¿Hasta cuándo, más o menos?</label>
+      <input type="date" id="solHasta"></div>` : ''}
+    <div id="solMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" data-s>Enviar solicitud</button>` });
+  $('[data-s]', m).onclick = async () => {
+    const motivo = $('#solMotivo', m).value.trim();
+    if (motivo.length < 10) {
+      $('#solMsg', m).innerHTML = '<div class="chip err" style="margin-top:8px">Escribe el motivo con una frase completa.</div>';
+      return;
+    }
+    const { error } = await sb.rpc('cem_solicitar_cambio_inscripcion', {
+      p_enrollment_id: enrollmentId, p_tipo: tipo, p_motivo: motivo,
+      p_hasta: $('#solHasta', m)?.value || null,
+    });
+    if (error) {
+      $('#solMsg', m).innerHTML = `<div class="chip err" style="margin-top:8px">${esc(mensajeError(error))}</div>`;
+      return;
+    }
+    m.close();
+    ok('Solicitud enviada. Te avisamos cuando la resuelvan.');
+    cargar();
+  };
+}
+
+function pintarSolicitudesInscripcion(lista){
+  $('#cardSolInsc').hidden = lista.length === 0;
+  if (!lista.length) return;
+  $('#tbSolInsc').innerHTML = lista.map(s => `<tr>
+    <td class="muted">${fdate(s.created_at)}</td>
+    <td>${esc(s.tipo)}</td>
+    <td class="wrap">${esc(s.motivo)}</td>
+    <td>${chip(s.estado === 'pendiente' ? 'en revisión' : s.estado)}</td>
+    <td class="wrap muted">${esc(s.resolucion || '—')}</td></tr>`).join('');
+}
+</script>
+</body>
+</html>

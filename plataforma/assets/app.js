@@ -415,9 +415,13 @@ const STUDENT_NAV = [
   ['pagos.html', 'payments', 'Mis pagos'],
   ['biblioteca.html', 'local_library', 'Biblioteca'],
   ['certificados.html', 'workspace_premium', 'Certificados'],
+  ['perfil.html', 'account_circle', 'Mi perfil'],
 ];
 const TEACHER_NAV = [
   ['panel.html', 'space_dashboard', 'Mi panel'],
+  ['aula.html', 'menu_book', 'Mi aula'],
+  ['grupo.html', 'insights', 'Cómo va mi grupo'],
+  ['asistencia.html', 'how_to_reg', 'Asistencia'],
 ];
 
 /* Barra inferior del teléfono: el menú institucional tiene 23 entradas y no cabe.
@@ -822,6 +826,46 @@ export function controlesPaginacion({ mostrando, total, hayMas, id = 'cemMas' })
   return `<div class="center" style="padding:12px">
     <div class="tiny muted" style="margin-bottom:6px">Mostrando ${num(mostrando)}${total != null ? ' de ' + num(total) : ''}</div>
     <button class="btn outline sm" id="${id}">Cargar más</button></div>`;
+}
+
+/* ============ documentos imprimibles ============
+   Estado de cuenta y recibo se piden en la ventanilla y en el banco: hay que
+   poder darlos en papel o en PDF. En vez de generar un PDF con una librería
+   pesada, se abre una ventana con el documento maquetado y se manda a
+   imprimir — el propio navegador ofrece "Guardar como PDF" y el resultado se
+   ve igual en cualquier equipo. */
+export function imprimirDocumento(titulo, cuerpoHtml){
+  const w = window.open('', '_blank', 'width=820,height=900');
+  if (!w) { fail('El navegador bloqueó la ventana. Permite las ventanas emergentes de este sitio.'); return; }
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8">
+    <title>${esc(titulo)}</title>
+    <style>
+      *{box-sizing:border-box} body{margin:0;padding:34px 30px;background:#fff;color:#22201C;
+        font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55}
+      .doc{max-width:720px;margin:0 auto}
+      .cab{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;
+        border-bottom:2px solid #C9A227;padding-bottom:14px;margin-bottom:20px}
+      .marca{font-weight:700;letter-spacing:.06em;color:#8A6D1F;font-size:13px}
+      h1{font-size:19px;margin:6px 0 0}
+      .meta{text-align:right;font-size:12px;color:#7A756B;line-height:1.6}
+      h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:#7A756B;
+        margin:22px 0 8px;font-weight:600}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+        color:#7A756B;border-bottom:1px solid #E6E1D6;padding:6px 8px}
+      td{padding:7px 8px;border-bottom:1px solid #F1EEE6}
+      td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+      .tot{display:flex;justify-content:space-between;padding:7px 8px}
+      .tot.fuerte{border-top:2px solid #22201C;font-weight:700;font-size:15px;margin-top:4px}
+      .pie{margin-top:30px;padding-top:12px;border-top:1px solid #E6E1D6;
+        font-size:11px;color:#7A756B;line-height:1.6}
+      .sello{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+      .sello.ok{background:#E7F3EC;color:#1E5A4C} .sello.pend{background:#FDF3E0;color:#7A6215}
+      @media print{body{padding:0} .noimp{display:none}}
+    </style></head><body><div class="doc">${cuerpoHtml}</div>
+    <script>window.onload=()=>{setTimeout(()=>window.print(),350)}<\/script>
+    </body></html>`);
+  w.document.close();
 }
 
 /* ============ picker de días de la semana + horario (cohortes) ============ */

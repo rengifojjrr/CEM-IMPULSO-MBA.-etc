@@ -22,6 +22,17 @@
   <h2 class="sec" style="margin-top:20px">Cursos activos</h2>
   <div class="grid g2" id="cursos"></div>
 
+  <!-- "Así voy": antes se veían los cursos y las evaluaciones sueltas, pero
+       en ninguna parte el promedio ni qué faltaba por presentar. -->
+  <div class="card">
+    <div class="row between"><h2 class="sec">Cómo voy</h2>
+      <span class="tiny muted">promedio, entregas y lo que falta</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Programa</th><th>Avance</th><th>Promedio</th>
+        <th>Evaluaciones</th><th>Lo próximo</th></tr></thead>
+      <tbody id="tbDesempeno"></tbody></table></div>
+  </div>
+
   <div class="grid g2" style="margin-top:16px">
     <div class="card"><h2 class="sec">Mis evaluaciones</h2><div id="entregas"></div></div>
     <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
@@ -30,7 +41,7 @@
   <div class="card"><h2 class="sec">Anuncios</h2><div id="anuncios"></div></div>
 </div>
 <script type="module">
-import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num } from '../assets/app.js';
+import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow } from '../assets/app.js';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 if (p) init();
 
@@ -135,6 +146,36 @@ async function init(){
       <span class="tiny muted">${fdate(a.enviado_en)}</span></div>`).join('')
     : '<p class="muted tiny">Sin anuncios recientes.</p>';
 }
+
+/* ============ cómo voy (item 06) ============
+   Una fila por programa con lo que de verdad se pregunta un estudiante:
+   cuánto llevo, qué promedio tengo, qué me falta y qué viene ahora. */
+(async () => {
+  const { data } = await sb.rpc('cem_mi_desempeno');
+  const filas = data || [];
+  $('#tbDesempeno').innerHTML = filas.length ? filas.map(f => {
+    const aprueba = f.nota_minima ?? 60;
+    const flojo = f.promedio != null && Number(f.promedio) < Number(aprueba);
+    return `<tr>
+      <td class="wrap"><b>${esc(f.curso)}</b>
+        ${f.estado !== 'activa' ? `<div>${chip(f.estado)}</div>` : ''}</td>
+      <td style="min-width:110px">${bar(f.progreso)}<span class="tiny muted">${pct(f.progreso)}</span></td>
+      <td>${f.promedio == null
+          ? '<span class="tiny muted">sin notas aún</span>'
+          : `<b style="color:${flojo ? 'var(--error)' : 'inherit'}">${f.promedio}</b>
+             <div class="tiny muted">aprueba con ${aprueba}</div>`}</td>
+      <td class="tiny">
+        ${num(f.evaluaciones_aprobadas)} aprobada(s) de ${num(f.evaluaciones_total)}
+        ${Number(f.pendientes_de_revision) > 0
+          ? `<div style="color:var(--warn,#7A6215)">${f.pendientes_de_revision} esperando corrección</div>` : ''}
+        ${Number(f.evaluaciones_total) > Number(f.evaluaciones_entregadas)
+          ? `<div class="muted">${Number(f.evaluaciones_total) - Number(f.evaluaciones_entregadas)} sin presentar</div>` : ''}
+      </td>
+      <td class="wrap tiny">${f.proxima_evaluacion
+          ? `${esc(f.proxima_evaluacion)}${f.proxima_fecha ? `<div class="muted">cierra el ${fdate(f.proxima_fecha)}</div>` : ''}`
+          : '<span class="muted">nada pendiente</span>'}</td></tr>`;
+  }).join('') : emptyRow(5, 'Todavía no tienes programas activos.');
+})();
 </script>
 </body>
 </html>
