@@ -32,13 +32,13 @@
         <option value="1">Activo</option><option value="0">Inactivo</option></select></div>
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Usuario</th><th>Correo</th><th>Rol <button type="button" class="ayuda-btn" data-ayuda="El rol decide qué pantallas ve la persona y qué puede tocar. Se cambia desde la fila; el detalle de cada rol está en Permisos.">?</button></th><th>Documento</th><th>País</th><th>Registro</th><th>Estado</th><th></th></tr></thead>
+    <div class="table-wrap"><table id="tabla">
+      <thead><tr><th data-ord="nombre">Usuario</th><th data-ord="email">Correo</th><th>Rol <button type="button" class="ayuda-btn" data-ayuda="El rol decide qué pantallas ve la persona y qué puede tocar. Se cambia desde la fila; el detalle de cada rol está en Permisos.">?</button></th><th>Documento</th><th data-ord="pais">País</th><th data-ord="created_at">Registro</th><th data-ord="activo">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog, opciones} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog, opciones, ordenable, ordenarPor, etiqueta, QUE_HACE_EL_ROL } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['admin','superadmin','auditor'], active:'usuarios.html', area:'admin' });
 const puede = p && ['admin','superadmin'].includes(p.rol);
 let rows=[];
@@ -57,15 +57,19 @@ async function load(){
   render();
 }
 
+/** item 26 · por qué columna se ordena la lista de cuentas. */
+const ordenUsuarios = { campo:null, asc:true };
+
 function render(){
   const q=$('#q').value.trim(), r=$('#fRol').value, e=$('#fEstado').value;
-  const list = rows.filter(x=>match(x,q,['nombre','apellido','email','documento'])
-    && (!r||x.rol===r) && (e===''||String(x.activo?1:0)===e));
+  const list = ordenarPor(rows.filter(x=>match(x,q,['nombre','apellido','email','documento'])
+    && (!r||x.rol===r) && (e===''||String(x.activo?1:0)===e)), ordenUsuarios);
   $('#tb').innerHTML = list.length ? list.map(u=>`<tr>
     <td><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(u.nombre,u.apellido)}</span>
       <b>${esc(u.nombre)} ${esc(u.apellido||'')}</b></div></td>
     <td>${esc(u.email)}</td>
-    <td>${chip(u.rol, u.rol==='superadmin'?'err':u.rol==='admin'?'info':u.rol==='profesor'?'teal':'neutral')}</td>
+    <td><span class="chip ${u.rol==='superadmin'?'err':u.rol==='admin'?'info':u.rol==='profesor'?'teal':'neutral'}"
+      title="${esc(QUE_HACE_EL_ROL[u.rol]||'')}">${esc(etiqueta(u.rol))}</span></td>
     <td>${esc(u.documento? (u.documento_tipo||'')+' '+u.documento : '—')}</td>
     <td>${esc(u.pais||'—')}</td><td class="muted">${fdate(u.created_at)}</td>
     <td>${u.activo?chip('activo','ok'):chip('inactivo','err')}</td>
@@ -75,6 +79,7 @@ function render(){
       <button class="btn ghost sm" data-t="${u.id}" title="${u.activo?'Desactivar':'Activar'}">
         <span class="material-symbols-outlined">${u.activo?'block':'check_circle'}</span></button>`:''}
     </td></tr>`).join('') : emptyRow(8, 'Ninguna cuenta coincide con lo que buscaste.');
+  ordenable('#tabla', ordenUsuarios, render);
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(x=>x.id===b.dataset.e)));
   $$('[data-t]').forEach(b=>b.onclick=async()=>{
     const u=rows.find(x=>x.id===b.dataset.t);

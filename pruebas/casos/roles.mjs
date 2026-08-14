@@ -94,8 +94,12 @@ export default async function correr(navegador) {
       'Un administrador no puede quitarse a sí mismo el rol');
   });
 
+  /* Los roles se muestran con su nombre en castellano, no con el valor que
+     guarda la base, así que la comprobación mira lo que lee una persona. */
   const roles = await Ad.locator('#roles').textContent();
-  a.comprobar(/cobranza/.test(roles), 'La matriz de permisos incluye el rol de cobranza');
+  a.comprobar(/cobranza/i.test(roles), 'La matriz de permisos incluye el rol de cobranza');
+  a.comprobar(!/_/.test(roles),
+    'Y ningún rol se muestra con guion bajo, como lo guarda la base');
 
   /* ============ la radiografía de la base, sólo para quien debe ============ */
   await Ad.goto(`${BASE}/plataforma/admin/seguridad.html`, { waitUntil: 'domcontentloaded' });

@@ -468,3 +468,7 @@ tr.marcada{background:color-mix(in srgb, var(--primary) 7%, transparent);}
   .topbar .search.buscando input{padding-right:40px;}
   .topbar .search.buscando .gsearch-cerrar{display:inline-flex;right:16px;}
 }
+
+/* `.field` fija su propio display, así que gana al display:none que el
+   navegador da a [hidden] y el campo escondido se seguía viendo. */
+[hidden]{display:none !important;}

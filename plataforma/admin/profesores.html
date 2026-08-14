@@ -23,13 +23,13 @@
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Nombre o correo…"></div>
       <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option><option value="1">Activo</option><option value="0">Inactivo</option></select></div>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Profesor</th><th>Correo</th><th>País</th><th>Cohortes</th><th>Alumnos</th><th>Clases dictadas</th><th>Por calificar</th><th>Estado</th><th></th></tr></thead>
+    <div class="table-wrap"><table id="tabla">
+      <thead><tr><th data-ord="nombre">Profesor</th><th data-ord="email">Correo</th><th data-ord="pais">País</th><th class="num" data-ord="_coh">Cohortes</th><th class="num" data-ord="_alumnos">Alumnos</th><th class="num" data-ord="_dict">Clases dictadas</th><th class="num" data-ord="_cal">Por calificar</th><th data-ord="activo">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, initials, accionVacio } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, initials, accionVacio, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'profesores.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let rows=[], cohortes=[];
@@ -62,19 +62,23 @@ async function load(){
   ].join('');
   render();
 }
+/** item 26 · por qué columna se ordena el claustro. */
+const ordenProfes = { campo:null, asc:true };
+
 function render(){
   const q=$('#q').value.trim(), e=$('#fEstado').value;
-  const list = rows.filter(r=>match(r,q,['nombre','apellido','email']) && (e===''||String(r.activo?1:0)===e));
+  const list = ordenarPor(rows.filter(r=>match(r,q,['nombre','apellido','email']) && (e===''||String(r.activo?1:0)===e)), ordenProfes);
   $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
     <td><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(r.nombre,r.apellido)}</span>
       <b>${esc(r.nombre)} ${esc(r.apellido||'')}</b></div></td>
-    <td>${esc(r.email)}</td><td>${esc(r.pais||'—')}</td><td>${num(r._coh)}</td><td>${num(r._alumnos)}</td>
-    <td>${num(r._dict)}</td><td>${r._cal>0?`<span class="chip warn">${r._cal}</span>`:'<span class="chip ok">0</span>'}</td>
+    <td>${esc(r.email)}</td><td>${esc(r.pais||'—')}</td><td class="num">${num(r._coh)}</td><td class="num">${num(r._alumnos)}</td>
+    <td class="num">${num(r._dict)}</td><td class="num">${r._cal>0?`<span class="chip warn">${r._cal}</span>`:'<span class="chip ok">0</span>'}</td>
     <td>${r.activo?chip('activo','ok'):chip('inactivo','err')}</td>
     <td style="white-space:nowrap">
       ${editable?`<button class="btn ghost sm" data-asig="${r.id}" title="Asignar cohortes"><span class="material-symbols-outlined">assignment_ind</span></button>
       <button class="btn ghost sm" data-tog="${r.id}" title="Activar/desactivar"><span class="material-symbols-outlined">${r.activo?'block':'check_circle'}</span></button>`:''}
     </td></tr>`).join('') : emptyRow(9, 'Todavía no hay profesores. Se dan de alta a partir de una cuenta ya registrada.', {texto:'Dar de alta un profesor', id:'vacioProfe', icono:'person_add'});
+  ordenable('#tabla', ordenProfes, render);
   $$('[data-asig]').forEach(b=>b.onclick=()=>asignar(rows.find(x=>x.id===b.dataset.asig)));
   $$('[data-tog]').forEach(b=>b.onclick=async()=>{
     const t = rows.find(x=>x.id===b.dataset.tog);

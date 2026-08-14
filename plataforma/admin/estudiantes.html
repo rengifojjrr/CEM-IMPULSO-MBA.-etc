@@ -42,7 +42,9 @@
       </div>
     </details>
     <div class="table-wrap"><table class="tarjetas" id="tabla">
-      <thead><tr><th>Estudiante</th><th>País</th><th class="num">Cursos</th><th>Progreso</th><th class="num">Saldo</th><th>Último acceso</th><th>Situación</th><th></th></tr></thead>
+      <thead><tr><th data-ord="nombre">Estudiante</th><th data-ord="pais">País</th><th class="num" data-ord="_n">Cursos</th>
+        <th data-ord="_prog">Progreso</th><th class="num" data-ord="_saldo">Saldo</th>
+        <th data-ord="_acceso">Último acceso</th><th data-ord="_estado">Situación</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
@@ -50,7 +52,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
          toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY,
-         selectorColumnas, montarAyudas, accionVacio } from '../assets/app.js?v=2026-08-14';
+         selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
@@ -89,11 +91,15 @@ async function load(){
   montarAyudas($('#kpis'));
   render();
 }
+/** item 26 · por qué columna se está ordenando. Para saber quién debe más ya
+    no hace falta exportar a Excel. */
+const ordenEstudiantes = { campo:null, asc:true };
+
 /** Lo que se ve ahora mismo: lo comparten la tabla y la exportación. */
 function visibles(){
   const q=$('#q').value.trim(), c=$('#fCoh').value, e=$('#fEst').value;
-  return rows.filter(r=>match(r,q,['nombre','apellido','email','documento'])
-    && (!c||r._cohs.includes(c)) && (!e||r._estado===e));
+  return ordenarPor(rows.filter(r=>match(r,q,['nombre','apellido','email','documento'])
+    && (!c||r._cohs.includes(c)) && (!e||r._estado===e)), ordenEstudiantes);
 }
 function render(){
   const list = visibles();
@@ -112,6 +118,7 @@ function render(){
     <td><span class="material-symbols-outlined">chevron_right</span></td></tr>`).join('')
     : emptyRow(8, rows.length ? 'Ningún estudiante coincide con lo que buscaste.' : 'Todavía no hay estudiantes.',
         rows.length ? null : {texto:'Inscribir al primero', id:'irNuevo', icono:'person_add'});
+  ordenable('#tabla', ordenEstudiantes, render);
 }
 ['#q','#fCoh','#fEst'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{['#q','#fCoh','#fEst'].forEach(s=>$(s).value=''); render();};

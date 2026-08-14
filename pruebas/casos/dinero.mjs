@@ -144,6 +144,43 @@ export default async function correr(navegador) {
   const archivo = await descarga;
   a.comprobar(!!archivo, 'La cartera por cobrar se exporta a CSV');
 
+  /* ============ el cierre de mes (item 52) ============
+     Antes había que armarlo juntando tres pantallas y un Excel. Se comprueba
+     que las cuatro cifras salen y que cada una explica qué cuenta. */
+  await A.goto(`${BASE}/plataforma/admin/cierre-mes.html`, { waitUntil: 'domcontentloaded' });
+  await A.waitForSelector('#cuadros', { timeout: 25000 });
+  await A.waitForFunction(() => (document.querySelector('#cuadros')?.children.length || 0) >= 4,
+    null, { timeout: 25000 });
+
+  const cierre = await A.locator('#cuadros').textContent();
+  a.comprobar(/Se facturó/.test(cierre) && /Entró/.test(cierre)
+           && /Quedó debiéndose/.test(cierre) && /Por revisar/.test(cierre),
+    'El cierre de mes trae las cuatro cifras: facturado, cobrado, vencido y por revisar');
+  a.comprobar(await A.locator('#cuadros .ayuda-btn').count() === 4,
+    'Y cada una explica qué está contando');
+
+  // El mes que se ofrece al entrar es el que acaba de cerrar, no el que corre.
+  const mesElegido = await A.locator('#mes').inputValue();
+  const anterior = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+  a.comprobar(mesElegido === `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, '0')}`,
+    'Y arranca en el mes que acaba de terminar, que es el que se cierra');
+
+  /* ============ la historia de una cuota (item 55) ============ */
+  await A.goto(`${BASE}/plataforma/admin/inscripciones.html`, { waitUntil: 'domcontentloaded' });
+  await A.waitForSelector('#tabs', { timeout: 25000 });
+  await A.locator('#tabs button[data-t="cuotas"]').click();
+  await A.waitForTimeout(2500);
+  const conHistoria = await A.locator('[data-hist]').count();
+  a.comprobar(conHistoria >= 1, 'Cada cuota ofrece ver su historia');
+  if (conHistoria) {
+    await A.locator('[data-hist]').first().click();
+    await A.waitForSelector('.modal', { timeout: 10000 });
+    const historia = await A.locator('.modal').textContent();
+    a.comprobar(/Abonado/.test(historia) && /Queda debiendo/.test(historia),
+      'Y dice cuánto se abonó, en cuántos pagos y cuánto queda debiendo');
+    await A.keyboard.press('Escape');
+  }
+
   a.comprobar(A.errores.length === 0,
     `La bandeja de pagos no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);
   a.comprobar(E.errores.length === 0,

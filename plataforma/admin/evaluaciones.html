@@ -25,22 +25,31 @@
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar por nombre <button type="button" class="ayuda-btn" data-ayuda="Busca por el nombre de la evaluación o el del programa al que pertenece.">?</button></label><input type="search" id="q"></div>
-      <div class="field"><label>Curso</label><select id="fCurso"><option value="">Todos</option></select></div>
-      <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
-        <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
-        <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
-      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
-        <option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="archivado">Archivado</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Evaluación</th><th>Curso</th><th>Tipo</th><th>Preguntas</th><th>Intentos</th><th>Tiempo</th>
-        <th>Entregas</th><th>Promedio</th><th>Estado</th><th></th></tr></thead>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por programa, tipo o estado
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Programa</label><select id="fCurso"><option value="">Todos</option></select></div>
+        <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
+          <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
+          <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
+        <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
+          <option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="archivado">Archivado</option></select></div>
+      </div>
+    </details>
+    <div class="table-wrap"><table id="tabla">
+      <!-- De diez columnas a seis. Intentos, tiempo y tipo casi nunca deciden
+           qué vas a hacer con una evaluación: viven en su ficha. -->
+      <thead><tr><th data-ord="nombre">Evaluación</th><th data-ord="_curso">Programa</th>
+        <th class="num" data-ord="_nq">Preguntas</th><th class="num" data-ord="_subs">Entregas</th>
+        <th class="num" data-ord="_avg">Promedio</th><th data-ord="estado">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
 accionVacio('vacioEval', () => location.href = 'evaluacion-nueva.html');
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
@@ -71,21 +80,29 @@ async function load(){
   render();
 }
 
+/** item 26 · por qué columna se ordena la lista de evaluaciones. */
+const ordenEvals = { campo:null, asc:true };
+
 function render(){
   const q=$('#q').value.trim(), c=$('#fCurso').value, t=$('#fTipo').value, e=$('#fEstado').value;
-  const list = rows.filter(r=>match(r,q,['nombre','cem_courses.nombre'])
-    && (!c||r.course_id===c) && (!t||r.tipo===t) && (!e||r.estado===e));
+  const list = ordenarPor(rows.filter(r=>match(r,q,['nombre','cem_courses.nombre'])
+    && (!c||r.course_id===c) && (!t||r.tipo===t) && (!e||r.estado===e))
+    .map(r=>({ ...r, _curso: r.cem_courses?.nombre||'' })), ordenEvals);
+  const puestos = [c,t,e].filter(Boolean).length;
+  $('#nFiltros').hidden = !puestos; $('#nFiltros').textContent = puestos;
   $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
-    <td class="wrap"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}</td>
-    <td class="wrap">${esc(r.cem_courses?.nombre||'')}</td><td>${chip(r.tipo,'neutral')}</td>
-    <td>${num(r._nq)}</td><td>${r.intentos||1}</td><td>${r.tiempo_min?r.tiempo_min+' min':'sin límite'}</td>
-    <td>${num(r._subs)}</td><td>${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chipEstado(r.estado)}</td>
+    <td class="wrap"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}
+      <div class="tiny muted">${esc(etiqueta(r.tipo))} · ${r.intentos||1} intento(s) · ${r.tiempo_min?r.tiempo_min+' min':'sin límite de tiempo'}</div></td>
+    <td class="wrap">${esc(r._curso)}</td>
+    <td class="num">${num(r._nq)}</td>
+    <td class="num">${num(r._subs)}</td><td class="num">${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chipEstado(r.estado)}</td>
     <td style="white-space:nowrap">
       <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar"><span class="material-symbols-outlined">edit</span></a>
       <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>
       ${puede?`<button class="btn ghost sm" data-pub="${r.id}" title="${r.estado==='publicado'?'Despublicar':'Publicar'}">
         <span class="material-symbols-outlined">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(10, 'Todavía no hay evaluaciones.', {texto:'Crear la primera evaluación', id:'vacioEval', icono:'quiz'});
+    </td></tr>`).join('') : emptyRow(7, 'Todavía no hay evaluaciones.', {texto:'Crear la primera evaluación', id:'vacioEval', icono:'quiz'});
+  ordenable('#tabla', ordenEvals, render);
   $$('[data-pub]').forEach(b=>b.onclick=async()=>{
     const r=rows.find(x=>x.id===b.dataset.pub);
     const nuevo = r.estado==='publicado'?'borrador':'publicado';
