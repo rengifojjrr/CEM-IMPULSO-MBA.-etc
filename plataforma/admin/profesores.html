@@ -14,7 +14,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Gestión de profesores</h1><p>Administra el claustro docente, asigna cursos y supervisa cohortes activas.</p></div>
+    <div><h1>Gestión de profesores</h1><p>Quién dicta qué, con cuántos alumnos y cuánto tiene por calificar. Los profesores se dan de alta desde una cuenta ya registrada.</p></div>
     <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">person_add</span> Invitar profesor</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -29,7 +29,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, fail, run, audit, initials, accionVacio } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, initials, accionVacio } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'profesores.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let rows=[], cohortes=[];
@@ -79,7 +79,14 @@ function render(){
   $$('[data-tog]').forEach(b=>b.onclick=async()=>{
     const t = rows.find(x=>x.id===b.dataset.tog);
     await run(sb.from('cem_profiles').update({activo:!t.activo}).eq('id',t.id),'No se pudo actualizar');
-    await audit('profesor_estado','cem_profiles',t.id,'medio',{activo:!t.activo}); ok('Actualizado'); load();
+    await audit('profesor_estado','cem_profiles',t.id,'medio',{activo:!t.activo});
+    const quien = `${t.nombre} ${t.apellido||''}`.trim();
+    okDeshacer(t.activo ? `${quien} ya no puede entrar.` : `${quien} vuelve a tener acceso.`, async () => {
+      await run(sb.from('cem_profiles').update({activo:t.activo}).eq('id',t.id),'No se pudo deshacer');
+      await audit('profesor_estado','cem_profiles',t.id,'medio',{activo:t.activo, deshecho:true});
+      load();
+    });
+    load();
   });
 }
 ['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});

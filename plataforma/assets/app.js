@@ -802,6 +802,53 @@ function tablasLegiblesEnElTelefono(raiz = document) {
   });
 }
 
+/* ============ un solo buscador por pantalla (item 27) ============
+   Había dos cajas de búsqueda a la vez —la de la barra de arriba y la de cada
+   tabla— con reglas distintas: una te mandaba a otra pantalla y la otra
+   filtraba lo que estabas mirando. Ahora, cuando la pantalla tiene su propio
+   buscador, la de arriba filtra ése y el de la tabla se retira; cuando no lo
+   tiene, la de arriba sigue llevándote a buscar donde corresponda. */
+function unSoloBuscador(area) {
+  const global = $('#cemGlobalSearch');
+  if (!global) return;
+
+  // Sólo cuenta como «buscador de la pantalla» el de la franja de filtros.
+  const local = $('#page .filters input#q');
+  if (!local) {
+    global.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && global.value.trim()) {
+        const dest = area === 'admin' ? 'estudiantes.html' : 'catalogo.html';
+        location.href = `${dest}?q=${encodeURIComponent(global.value.trim())}`;
+      }
+    });
+    return;
+  }
+
+  // El de la tabla sabía mejor qué se puede buscar: ese texto sube arriba.
+  if (local.placeholder) global.placeholder = local.placeholder;
+  global.setAttribute('aria-label', 'Buscar en esta pantalla');
+  /* Varias pantallas rellenan su buscador con el ?q= de la dirección dentro de
+     su carga, que corre después de esto. Se lee la dirección aquí para que la
+     caja que se ve arranque con lo mismo que está filtrando la tabla. */
+  const desdeLaUrl = new URLSearchParams(location.search).get('q');
+  global.value = local.value || desdeLaUrl || '';
+
+  const campo = local.closest('.field') || local;
+  campo.hidden = true;
+
+  const propagar = () => {
+    local.value = global.value;
+    local.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  global.addEventListener('input', propagar);
+  // Enter no debe recargar ni navegar: ya está filtrando mientras se escribe.
+  global.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+
+  // «Limpiar» borra el de la tabla; que borre también el que se ve.
+  const limpiar = $('#page #btnClear');
+  if (limpiar) limpiar.addEventListener('click', () => { global.value = ''; }, true);
+}
+
 /* ============ el buscador de arriba, entero (item 46) ============
    En el teléfono la barra superior repartía el ancho entre logo, buscador y
    campana, y el buscador se quedaba en «Busc». Al tocarlo ahora se abre sobre
@@ -956,13 +1003,7 @@ function renderShell(p, area, active) {
     sc.onclick = () => { sidebar.classList.remove('open'); sc.remove(); };
     document.body.appendChild(sc);
   };
-  const gs = $('#cemGlobalSearch');
-  if (gs) gs.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && gs.value.trim()) {
-      const dest = area === 'admin' ? 'estudiantes.html' : 'catalogo.html';
-      location.href = `${dest}?q=${encodeURIComponent(gs.value.trim())}`;
-    }
-  });
+  unSoloBuscador(area);
 
   montarCampana();
 }

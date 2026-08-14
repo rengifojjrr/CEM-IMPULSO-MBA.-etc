@@ -14,7 +14,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Gestión de cohortes</h1><p>Administra los grupos de estudio, asignaciones y estado de inscripción.</p></div>
+    <div><h1>Gestión de cohortes</h1><p>Una cohorte es el grupo con el que se dicta un programa: cuándo empieza, cuántos cupos tiene y quién lo dicta.</p></div>
     <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Nueva cohorte</button></div>
   </div>
 
@@ -119,7 +119,7 @@ function form(c){
     </div>
     <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:110px"><label>Cupos</label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
+      <div class="field" style="flex:1;min-width:110px"><label>Cupos <button type="button" class="ayuda-btn" data-ayuda="Cuánta gente cabe. No impide inscribir de más: sirve para ver la ocupación y saber cuándo cerrar el grupo.">?</button></label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
       <div class="field" style="flex:1;min-width:170px"><label>Estado</label><select id="cEstado">
         ${opciones(['planificada','inscripciones_abiertas','en_curso','finalizada','cancelada'], c?.estado)}</select></div>
     </div>

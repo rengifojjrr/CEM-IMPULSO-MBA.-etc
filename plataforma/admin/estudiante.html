@@ -14,6 +14,8 @@
 <body>
 <div id="page" class="hidden">
   <div id="migas"></div>
+  <p class="tiny muted" style="margin:0 0 10px">Todo lo de esta persona en un sitio: en qué está inscrita,
+    cómo va, qué debe y qué certificados tiene. Desde aquí se le matricula en otro programa y se le registran pagos.</p>
   <div class="card" id="hero"></div>
   <div class="tabs" id="tabs">
     <button class="active" data-t="resumen">Resumen</button>
@@ -26,8 +28,8 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs,
-         modal, ok, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
-         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota } from '../assets/app.js?v=2026-08-14';
+         modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
+         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, saldo as saldoCelda } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -67,7 +69,10 @@ function hero(){
     <span class="avatar lg">${initials(stu.nombre,stu.apellido)}</span>
     <div class="grow" style="flex:1;min-width:220px">
       <h1 style="margin:0 0 4px;font-size:21px">${esc(stu.nombre)} ${esc(stu.apellido||'')}</h1>
-      <div class="tiny muted">${esc(stu.email)} · ${esc(stu.pais||'—')} ${stu.documento?'· '+esc(stu.documento_tipo||'Doc')+' '+esc(stu.documento):''}</div>
+      <!-- item 23 · el correo salía repetido y sin servir para nada. Aquí, que
+           es donde se usa para escribirle, se deja pulsable. -->
+      <div class="tiny muted"><a href="mailto:${esc(stu.email)}">${esc(stu.email)}</a>
+        · ${esc(stu.pais||'—')} ${stu.documento?'· '+esc(stu.documento_tipo||'Doc')+' '+esc(stu.documento):''}</div>
       <div class="row" style="margin-top:8px">
         ${stu.activo?chip('activo','ok'):chip('inactivo','err')}
         <span class="chip info">${ens.length} inscripción(es)</span>
@@ -81,7 +86,15 @@ function hero(){
   if (editable){
     $('#btnToggle').onclick = async () => {
       await run(sb.from('cem_profiles').update({activo:!stu.activo}).eq('id',id),'No se pudo actualizar');
-      await audit('estudiante_estado','cem_profiles',id,'medio',{activo:!stu.activo}); ok('Actualizado'); load();
+      await audit('estudiante_estado','cem_profiles',id,'medio',{activo:!stu.activo});
+      const antes = stu.activo;
+      const quien = `${stu.nombre} ${stu.apellido||''}`.trim();
+      okDeshacer(antes ? `${quien} ya no puede entrar a la plataforma.` : `${quien} vuelve a tener acceso.`, async () => {
+        await run(sb.from('cem_profiles').update({activo:antes}).eq('id',id),'No se pudo deshacer');
+        await audit('estudiante_estado','cem_profiles',id,'medio',{activo:antes, deshecho:true});
+        load();
+      });
+      load();
     };
     $('#btnMatricular').onclick = matricular;
   }
@@ -110,7 +123,9 @@ function tab(t){
       <tbody>${ens.length? ens.map(e=>`<tr>
         <td class="wrap"><b>${esc(e.cem_courses?.nombre||'')}</b><div class="tiny muted">${esc(e.cem_courses?.tipo||'')}</div></td>
         <td>${esc(e.cem_cohorts?.nombre||'—')}</td>
-        <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
+        <td style="min-width:110px">${Number(e.progreso) > 0
+          ? `${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span>`
+          : '<span class="tiny muted">Todavía sin empezar</span>'}</td>
         <td>${chipEstado(e.estado)}</td><td>${money(e.precio_final)}</td><td class="muted">${fdate(e.fecha_inscripcion)}</td>
         <td>${editable?`<button class="btn ghost sm" data-est="${e.id}" title="Cambiar el estado de la inscripción"><span class="material-symbols-outlined">edit</span></button>
           ${Number(e.progreso)>=80?`<button class="btn ghost sm" data-cert="${e.id}" title="Emitir certificado"><span class="material-symbols-outlined">workspace_premium</span></button>`:''}`:''}</td>
@@ -146,19 +161,32 @@ function tab(t){
     P.innerHTML = `<div class="card"><div class="row between"><h2 class="sec">Plan de cuotas</h2>
       <span class="chip ${saldo>0?'warn':'ok'}">Saldo: ${money(saldo)}</span></div>
       <div class="table-wrap"><table>
-      <thead><tr><th>#</th><th>Programa</th><th>Monto</th><th>Vence</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th class="num">#</th><th>Programa</th><th class="num">Monto</th><th>Vence</th><th class="num">Saldo</th><th>Estado</th><th></th></tr></thead>
       <tbody>${insts.length? insts.map(i=>{
         const e = ens.find(x=>x.id===i.enrollment_id);
-        return `<tr><td>${i.numero}</td><td class="wrap">${esc(e?.cem_courses?.nombre||'')}</td>
-        <td>${money(i.monto)}</td><td class="muted">${fdate(i.fecha_vencimiento)}</td>
-        <td>${money(i.saldo)}</td><td>${chipEstado(i.estado)}</td>
+        const hoy = new Date().toISOString().slice(0,10);
+        const venc = i.estado!=='pagada' && i.fecha_vencimiento < hoy;
+        const mora = venc ? Math.round((new Date(hoy) - new Date(i.fecha_vencimiento))/86400000) : 0;
+        return `<tr class="${venc?'vencida':''}"><td class="num">${i.numero}</td><td class="wrap">${esc(e?.cem_courses?.nombre||'')}</td>
+        <td class="num">${money(i.monto, i.moneda||'USD')}</td>
+        <td class="${venc?'':'muted'}">${fdate(i.fecha_vencimiento)}
+          ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
+        <td class="num">${saldoCelda(i.saldo)}</td><td>${chipEstado(i.estado)}</td>
         <td>${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
-      }).join('') : emptyRow(7, 'Este estudiante no tiene cuotas: su inscripción se pagó de una vez o todavía no tiene plan.')}</tbody></table></div></div>
+      }).join('') : emptyRow(7, 'Este estudiante no tiene cuotas: su inscripción se pagó de una vez o todavía no tiene plan.')}</tbody>
+      ${insts.length ? filaTotales(['', 'Totales',
+        {num:true, html: money(insts.reduce((a,i)=>a+Number(i.monto||0),0))}, '',
+        {num:true, html: money(insts.reduce((a,i)=>a+Number(i.saldo||0),0))}, '', '']) : ''}
+      </table></div></div>
       <div class="card"><h2 class="sec">Pagos registrados</h2><div class="table-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Referencia</th><th>Conciliado</th></tr></thead>
-      <tbody>${pays.length? pays.map(x=>`<tr><td class="muted">${fdate(x.fecha)}</td><td><b>${money(x.monto)}</b></td>
-        <td>${esc(x.metodo||'—')}</td><td>${esc(x.referencia||'—')}</td>
-        <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('') : emptyRow(5, 'Todavía no ha hecho ningún pago.')}</tbody></table></div></div>`;
+      <thead><tr><th>Fecha</th><th class="num">Monto</th><th>Método</th><th>Referencia</th><th>Conciliado</th></tr></thead>
+      <tbody>${pays.length? pays.map(x=>`<tr><td class="muted">${fdate(x.fecha)}</td><td class="num"><b>${montoPagado(x)}</b></td>
+        <td>${esc(etiqueta(x.metodo||'—'))}</td><td>${esc(x.referencia||'—')}</td>
+        <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('') : emptyRow(5, 'Todavía no ha hecho ningún pago.')}</tbody>
+      ${pays.length ? filaTotales([`Aprobado (${pays.filter(x=>x.estado==='confirmado').length} de ${pays.length} pagos)`,
+        {num:true, html: money(pays.filter(x=>x.estado==='confirmado').reduce((a,x)=>a+enDolares(x),0), 'USD')},
+        '', '', '']) : ''}
+      </table></div></div>`;
     $$('[data-pay]').forEach(b=>b.onclick=()=>registrarPago(insts.find(i=>i.id===b.dataset.pay)));
   }
 }

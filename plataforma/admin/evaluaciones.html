@@ -14,7 +14,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Gestión de evaluaciones</h1><p>Administra exámenes, pruebas y bancos de preguntas.</p></div>
+    <div><h1>Gestión de evaluaciones</h1><p>Los exámenes y tareas de cada programa: cuántos intentos permiten, con cuánto se aprueba y quién ya los rindió.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
       <a class="btn outline" href="preguntas.html"><span class="material-symbols-outlined">help_center</span> Banco de preguntas</a>
@@ -24,7 +24,7 @@
   <div class="kpis" id="kpis"></div>
   <div class="card">
     <div class="filters">
-      <div class="field grow"><label>Buscar por nombre</label><input type="search" id="q"></div>
+      <div class="field grow"><label>Buscar por nombre <button type="button" class="ayuda-btn" data-ayuda="Busca por el nombre de la evaluación o el del programa al que pertenece.">?</button></label><input type="search" id="q"></div>
       <div class="field"><label>Curso</label><select id="fCurso"><option value="">Todos</option></select></div>
       <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
         <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>

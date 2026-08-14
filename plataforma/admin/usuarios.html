@@ -14,7 +14,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Gestión de usuarios y roles</h1><p>Administra los accesos internos y asigna roles del sistema.</p></div>
+    <div><h1>Gestión de usuarios y roles</h1><p>Todas las cuentas de la plataforma y qué rol tiene cada una. El rol decide qué pantallas ve esa persona.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
       <a class="btn outline" href="permisos.html"><span class="material-symbols-outlined">admin_panel_settings</span> Matriz de permisos</a>
@@ -33,7 +33,7 @@
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Documento</th><th>País</th><th>Registro</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Usuario</th><th>Correo</th><th>Rol <button type="button" class="ayuda-btn" data-ayuda="El rol decide qué pantallas ve la persona y qué puede tocar. Se cambia desde la fila; el detalle de cada rol está en Permisos.">?</button></th><th>Documento</th><th>País</th><th>Registro</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>

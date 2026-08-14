@@ -14,7 +14,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Administración de estudiantes</h1><p>Gestione perfiles, rendimiento y estado académico.</p></div>
+    <div><h1>Administración de estudiantes</h1><p>Todos los estudiantes: cómo van, qué deben y cuándo entraron por última vez. Pulsa una fila para ver su ficha completa.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar datos</button>
       <button class="btn outline" id="btnImportar"><span class="material-symbols-outlined">upload_file</span> Importar desde Excel</button>
@@ -103,7 +103,9 @@ function render(){
     <td data-col="Estudiante"><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(r.nombre,r.apellido)}</span>
       <div><b>${esc(r.nombre)} ${esc(r.apellido||'')}</b><div class="tiny muted">${esc(r.email)}</div></div></div></td>
     <td data-col="País">${esc(r.pais||'—')}</td><td class="num" data-col="Cursos">${num(r._n)}</td>
-    <td style="min-width:110px" data-col="Progreso">${bar(r._prog)}<span class="tiny muted">${pct(r._prog)}</span></td>
+    <td style="min-width:110px" data-col="Progreso">${r._n
+      ? `${bar(r._prog)}<span class="tiny muted">${pct(r._prog)}</span>`
+      : '<span class="tiny muted">Sin inscripción</span>'}</td>
     <td class="num" data-col="Saldo">${r._saldo>0?`<span class="chip warn">${money(r._saldo)}</span>`:'<span class="chip ok">Al día</span>'}</td>
     <td class="muted" data-col="Último acceso">${r._acceso?fdate(r._acceso):'—'}</td>
     <td data-col="Situación">${r._estado==='excelente'?chip('Va muy bien','ok'):r._estado==='riesgo'?chip('En riesgo','err'):r._estado==='inactivo'?chip('Sin entrar','neutral'):chip('Activo','info')}</td>

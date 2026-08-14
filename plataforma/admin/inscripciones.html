@@ -394,7 +394,11 @@ function pagar(i){
       p_metodo:$('#pMetodo',m).value, p_referencia:$('#pRef',m).value.trim()||null,
       p_comprobante:comprobante.valor()||null }),'No se pudo registrar');
     m.close();
-    ok(`Pago de ${money(v, i.moneda||'USD')} registrado en la cuota ${i.numero}`);
+    /* item 39 · el aviso dice a quién y por cuánto, no sólo «guardado»: si se
+       registró en la fila equivocada, esto es lo que lo delata. */
+    const e = ens.find(x => x.id === i.enrollment_id);
+    const quien = `${e?.cem_profiles?.nombre||''} ${e?.cem_profiles?.apellido||''}`.trim();
+    ok(`Pago de ${money(v, i.moneda||'USD')} registrado a ${quien || 'el estudiante'} en la cuota ${i.numero}.`);
     load();
   };
 }

@@ -21,9 +21,11 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Banco (Bancaribe)</h1>
-      <p>Conexión con el API Manager de Bancaribe: tasa BCV, saldo, verificación de pagos y conciliación automática.</p></div>
+      <p>Si el banco nos está respondiendo, la tasa del día, el saldo de la cuenta y los
+         pagos que el propio banco nos avisa. Cuando todo esto funciona, los pagos en
+         bolívares se verifican solos.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnDiag"><span class="material-symbols-outlined">stethoscope</span> Diagnóstico</button>
+      <button class="btn outline" id="btnDiag"><span class="material-symbols-outlined">stethoscope</span> Revisar la conexión</button>
       <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined">refresh</span> Refrescar</button>
     </div>
   </div>
@@ -45,18 +47,29 @@
       <div id="estado"><p class="muted">Cargando…</p></div>
     </div>
 
+    <!-- item 35 · esto hablaba de endpoint, webhook y ApiKey en una pantalla a la
+         que entra quien administra el instituto, no quien programa. Lo técnico
+         sigue estando —al banco hay que dárselo— pero plegado y explicado. -->
     <div class="card">
-      <h2 class="sec">Datos que necesita el banco</h2>
-      <p class="tiny muted">Para activar el servicio de <b>Notificación de Pagos</b>, Bancaribe necesita
-        que le entreguemos el endpoint y su ApiKey. Estos son los valores actuales:</p>
-      <div class="field"><label>Endpoint REST (nuestro)</label><div class="dato-tec" id="webhookUrl">—</div></div>
-      <div class="field"><label>ApiKey (haz clic para revelar)</label>
-        <div class="dato-tec oculto-secreto" id="webhookKey" title="Clic para mostrar/ocultar">—</div></div>
-      <div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar ambos</button>
-        <button class="btn outline sm" id="btnRotar" style="color:var(--error)">
-          <span class="material-symbols-outlined">key</span> Rotar la clave</button>
-      </div>
+      <h2 class="sec">Datos para entregarle al banco</h2>
+      <p class="tiny muted">Bancaribe avisa cada pago que entra a nuestra cuenta, y para eso
+        necesita dos datos nuestros: una dirección a la que escribirnos y una clave para que
+        sepamos que quien escribe es el banco de verdad. Se los pasas una vez, en la sesión
+        técnica, y con eso queda.</p>
+      <details class="filtros-plegables">
+        <summary><span class="material-symbols-outlined">code</span> Ver los dos datos técnicos</summary>
+        <div class="field"><label>La dirección a la que el banco nos escribe</label>
+          <div class="dato-tec" id="webhookUrl">—</div></div>
+        <div class="field"><label>La clave con la que se identifica <span class="tiny muted">(pulsa para verla)</span></label>
+          <div class="dato-tec oculto-secreto" id="webhookKey" title="Pulsa para mostrar u ocultar la clave">—</div></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar los dos</button>
+          <button class="btn outline sm" id="btnRotar" style="color:var(--error)">
+            <span class="material-symbols-outlined">key</span> Cambiar la clave</button>
+        </div>
+        <p class="tiny muted" style="margin-top:8px">Cambia la clave sólo si crees que alguien
+          más la vio: hay que volver a dársela al banco o dejará de avisarnos.</p>
+      </details>
       <div id="estadoRotacion"></div>
     </div>
   </div>
@@ -149,8 +162,10 @@ function renderEstado(){
 
 $('#webhookKey').onclick = () => $('#webhookKey').classList.toggle('ver');
 $('#btnCopiar').onclick = async () => {
-  await navigator.clipboard.writeText(`Endpoint: ${estado?.webhook_url||''}\nApiKey: ${estado?.webhook_api_key||''}`);
-  ok('Copiado al portapapeles');
+  await navigator.clipboard.writeText(
+    `Dirección a la que el banco nos escribe (endpoint): ${estado?.webhook_url||''}\n` +
+    `Clave con la que se identifica (ApiKey): ${estado?.webhook_api_key||''}`);
+  ok('Los dos datos quedaron copiados. Pégalos donde el banco los pida.');
 };
 
 /* ============ rotar la clave del webhook ============
@@ -162,10 +177,11 @@ const GRACIA_HORAS = 48;
 
 $('#btnRotar').onclick = async () => {
   if (p.rol !== 'admin' && p.rol !== 'superadmin') {
-    fail('Sólo un administrador puede rotar la clave del webhook.'); return;
+    fail('Sólo un administrador puede cambiar esta clave. Pídeselo a quien lleve la plataforma.'); return;
   }
-  const m = modal({ title:'Rotar la clave del webhook', body:`
-    <p>Se genera una clave nueva y hay que entregársela a Bancaribe.</p>
+  const m = modal({ title:'Cambiar la clave que usa el banco', body:`
+    <p>Se genera una clave nueva y hay que entregársela a Bancaribe: hasta que la
+       tengan, los avisos de pago seguirán llegando con la anterior.</p>
     <p>Durante <b>${GRACIA_HORAS} horas</b> la clave actual <b>sigue funcionando</b>,
        para que las notificaciones no se corten mientras el banco la actualiza.
        Pasado ese plazo, sólo sirve la nueva.</p>
@@ -184,7 +200,7 @@ $('#btnRotar').onclick = async () => {
       return;
     }
     m.close();
-    ok('Clave rotada. Entrégale la nueva al banco.');
+    ok('Clave nueva lista. Entrégasela al banco antes de que venza el plazo.');
     await cargar();
     // Se muestra revelada una sola vez: es el momento en que hay que copiarla.
     $('#webhookKey').classList.add('ver');

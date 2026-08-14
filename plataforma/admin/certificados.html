@@ -15,7 +15,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Administración de credenciales</h1><p>Gestione certificados institucionales e insignias de logros académicos.</p></div>
+    <div><h1>Administración de credenciales</h1><p>Quién ya cumple los requisitos para certificarse y qué certificados se han emitido. Desde aquí se emiten, de uno en uno o por cohorte.</p></div>
     <div class="actions">
       <a class="btn outline" href="certificado-editor.html"><span class="material-symbols-outlined">design_services</span> Plantillas</a>
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
@@ -25,7 +25,7 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="card">
-    <div class="row between"><h2 class="sec">Listos para certificar (≥80% de avance)</h2>
+    <div class="row between"><h2 class="sec">Listos para certificar <button type="button" class="ayuda-btn" data-ayuda="Aparecen aquí al pasar el 80% de avance, pero para emitir hacen falta las tres cosas: terminar, aprobar las evaluaciones y no deber cuotas. Si falta alguna, la plataforma avisa antes de emitir.">?</button></h2>
       <button class="btn outline sm" id="btnLote" ><span class="material-symbols-outlined">workspace_premium</span> Emitir en lote</button></div>
     <div class="table-wrap"><table>
       <thead><tr><th><input type="checkbox" id="chkAll"></th><th>Estudiante</th><th>Programa</th><th>Avance</th><th>Estado</th></tr></thead>

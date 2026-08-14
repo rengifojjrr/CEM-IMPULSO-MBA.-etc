@@ -60,7 +60,7 @@
   <div class="card">
     <h2 class="sec">Pagos que he reportado</h2>
     <div class="table-wrap">
-      <table><thead><tr><th>Fecha</th><th>Referencia</th><th>Monto</th><th>Estado</th><th>Comprobante</th><th>Recibo</th></tr></thead>
+      <table id="tablaPagos"><thead><tr><th>Fecha</th><th>Referencia</th><th class="num">Monto</th><th>Estado</th><th>Comprobante</th><th>Recibo</th></tr></thead>
       <tbody id="tbPagos"></tbody></table>
     </div>
     <div id="notaRechazo"></div>
@@ -70,7 +70,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, modal,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
-         imprimirDocumento, mensajeError } from '../assets/app.js?v=2026-08-14';
+         imprimirDocumento, mensajeError, filaTotales } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
@@ -152,7 +152,7 @@ function renderPagos(){
   $('#tbPagos').innerHTML = pagos.length ? pagos.map(x => `<tr>
     <td class="tiny muted">${fdate(x.fecha)}</td>
     <td><b>${esc(x.referencia || '—')}</b><div class="tiny muted">${esc(x.metodo || '')}</div></td>
-    <td>${money(x.monto, x.moneda)}${x.moneda !== 'USD' && x.monto_base
+    <td class="num">${money(x.monto, x.moneda)}${x.moneda !== 'USD' && x.monto_base
         ? `<div class="tiny muted">= ${money(x.monto_base, 'USD')}</div>` : ''}</td>
     <td>${chip(
         x.estado === 'confirmado' ? 'aprobado' : x.estado === 'rechazado' ? 'rechazado' : 'en revisión',
@@ -163,6 +163,18 @@ function renderPagos(){
              <span class="material-symbols-outlined">description</span></button>`
         : '<span class="tiny muted">—</span>'}</td>
   </tr>`).join('') : emptyRow(6, 'Todavía no has registrado ningún pago.');
+
+  /* item 49 · para saber cuánto llevas pagado había que sumar a mano. Sólo
+     cuentan los aprobados: los que están en revisión todavía no bajan nada. */
+  const tabla = $('#tablaPagos');
+  tabla.querySelector('tfoot')?.remove();
+  if (pagos.length) {
+    const aprobados = pagos.filter(x => x.estado === 'confirmado');
+    const total = aprobados.reduce((a, x) => a + Number(x.monto_base ?? x.monto ?? 0), 0);
+    tabla.insertAdjacentHTML('beforeend', filaTotales([
+      `Aprobado hasta ahora (${aprobados.length} de ${pagos.length} pagos)`, '',
+      { num:true, html: money(total, 'USD') }, '', '', '']));
+  }
 
   $$('[data-recibo]').forEach(b => b.onclick = () => descargarRecibo(b.dataset.recibo));
 
