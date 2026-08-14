@@ -292,6 +292,7 @@ export const CONTROLES_GENERADOR = String.raw`  <div id="appContent">
       </div>
       <div id="carpetasSeleccionBar" class="row" style="display:none;align-items:center;background:#fdecec;
         border:1px solid #f3b4b4;border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
+      <div id="carpetasMsg" class="hint" style="min-height:18px;margin-bottom:4px;"></div>
       <div class="carpetas-board" id="carpetasBoard"></div>
 
       <div class="row" style="background:#fff8ec;border:1px solid var(--gold);border-radius:8px;padding:10px 12px;align-items:center;">
@@ -843,6 +844,12 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
                  config: normalizarConfig((row && row.config && row.config.background) ? row.config : defaultConfig()) };
       }));
     }
+    /* Las carpetas creadas a mano y todavía vacías. Se piden aparte porque no
+       cuelgan de ninguna plantilla; si algo falla al leerlas se sigue adelante
+       sin ellas, que es peor pero no impide trabajar. */
+    const { data: vacias } = await supabase.rpc('list_cert_carpetas');
+    carpetasVacias = new Set((vacias || []).map(normalizarRutaCarpeta).filter(Boolean));
+
     currentIdx = 0;
     config = templatesFull[currentIdx].config;
     matrixTemplateSelection = new Set(templatesFull.map((_, i) => i));
@@ -948,30 +955,91 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
    */
   function moverAPosicionEnCarpeta(idx, carpetaDestino, posInsercion){
     const carpeta = (carpetaDestino || '').trim();
+    // La carpeta de la que sale: sus hermanas también cambian de orden al
+    // quedarse sin ella, así que hay que guardarlas igual.
+    const carpetaOrigen = (templatesFull[idx].config.carpeta || '').trim();
+    const tocadas = new Set([idx]);
+    (agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpetaOrigen)?.items || [])
+      .forEach(x => tocadas.add(x.i));
+
     templatesFull[idx].config.carpeta = carpeta;
     const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta)?.items || [];
     const sinElMovido = grupo.filter(x => x.i !== idx);
     const pos = Math.max(0, Math.min(posInsercion, sinElMovido.length));
     sinElMovido.splice(pos, 0, { t: templatesFull[idx], i: idx });
-    sinElMovido.forEach((x, k) => { x.t.config.orden = k; });
+    sinElMovido.forEach((x, k) => { x.t.config.orden = k; tocadas.add(x.i); });
+
+    return [...tocadas];   // a quién hay que guardar
   }
 
   /** Mueve la plantilla `idx` un lugar antes (dir=-1) o después (dir=+1) dentro de su propia carpeta. */
   function moverEnCarpeta(idx, dir){
     const carpeta = (templatesFull[idx].config.carpeta || '').trim();
-    if(!carpeta) return;
+    if(!carpeta) return null;
     const grupo = agruparPorCarpeta(templatesFull).find(g => g.carpeta === carpeta)?.items;
-    if(!grupo) return;
+    if(!grupo) return null;
     const pos = grupo.findIndex(x => x.i === idx);
     const destino = pos + dir;
-    if(pos < 0 || destino < 0 || destino >= grupo.length) return;
-    moverAPosicionEnCarpeta(idx, carpeta, destino);
+    if(pos < 0 || destino < 0 || destino >= grupo.length) return null;
+    return moverAPosicionEnCarpeta(idx, carpeta, destino);
   }
 
-  // Carpetas creadas a mano pero todavía sin ninguna plantilla adentro: sólo
-  // existen en esta pestaña (una carpeta es sólo una etiqueta de texto, no una
-  // fila en la base de datos), para poder arrastrarles la primera plantilla.
+  /* Carpetas creadas a mano y todavía sin ninguna plantilla dentro.
+     Una carpeta con plantillas se deduce del campo "carpeta" de cada una; una
+     vacía no tendría dónde existir, así que se guarda su ruta aparte. Antes
+     vivía sólo en la memoria de la pestaña: al recargar, la carpeta recién
+     creada desaparecía. */
   let carpetasVacias = new Set();
+
+  /* ═══════════ guardar lo que se mueve entre carpetas ═══════════
+     Arrastrar una plantilla a otra carpeta, renombrar una carpeta o eliminarla
+     cambiaban `templatesFull` en memoria y no llegaban a tocar el servidor. Al
+     recargar, todo volvía a como estaba: la plantilla a su carpeta vieja y la
+     carpeta nueva, borrada. */
+
+  /** Avisa arriba del tablero mientras se guarda, y cuando termina. */
+  function avisoCarpetas(texto, error){
+    const el = document.getElementById('carpetasMsg');
+    if(!el) return;
+    el.textContent = texto;
+    el.className = 'hint' + (error ? ' msg err' : '');
+  }
+
+  /**
+   * Guarda en el servidor las plantillas indicadas (por índice) y la lista de
+   * carpetas vacías. Se llama después de cada cambio de carpetas para que lo
+   * que se ve sea lo que quedó guardado.
+   */
+  async function guardarCambioDeCarpetas(indices, queSeHizo){
+    const aGuardar = [...new Set(indices)].filter(i => templatesFull[i]);
+    avisoCarpetas(`Guardando ${queSeHizo}…`);
+    const fallos = [];
+
+    for(const i of aGuardar){
+      const t = templatesFull[i];
+      const { data, error } = await supabase.rpc('save_cert_template',
+        { p_id: t.id, p_nombre: t.nombre, p_config: t.config });
+      if(error) fallos.push(`${t.nombre}: ${error.message}`);
+      else if(data && data.id) t.id = data.id;
+    }
+
+    // Las carpetas que ya tienen plantillas no hace falta guardarlas aparte:
+    // se deducen. Sólo se manda la lista de las que quedaron vacías.
+    const conPlantillas = new Set(templatesFull
+      .map(t => normalizarRutaCarpeta(t.config.carpeta)).filter(Boolean));
+    const vaciasDeVerdad = [...carpetasVacias]
+      .filter(c => c && ![...conPlantillas].some(p => p === c || p.startsWith(c + '/')));
+    const { error: eC } = await supabase.rpc('save_cert_carpetas', { p_rutas: vaciasDeVerdad });
+    if(eC) fallos.push('carpetas vacías: ' + eC.message);
+
+    if(fallos.length){
+      avisoCarpetas('No se pudo guardar: ' + fallos.join(' · '), true);
+      return false;
+    }
+    avisoCarpetas('Guardado ✓');
+    setTimeout(() => avisoCarpetas(''), 2500);
+    return true;
+  }
   // Carpetas plegadas: por defecto todas abiertas; se recuerda cuáles se cerraron.
   let carpetasColapsadas = new Set();
   // Plantillas marcadas con la casilla de cada ficha, para borrarlas todas juntas.
@@ -1150,6 +1218,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       carpetasVacias.add(`${padre}/${limpio}`);
       carpetasColapsadas.delete(padre);   // para que se vea de una vez la subcarpeta recién creada
       renderCarpetasBoard();
+      guardarCambioDeCarpetas([], `la subcarpeta "${limpio}"`);
     }));
     wrap.querySelectorAll('[data-carpeta-renombrar]').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation();   // que no dispare también el plegado de la cabecera
@@ -1159,10 +1228,17 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const limpio = normalizarRutaCarpeta(nuevo);
       if(!limpio || limpio === actual) return;
       if(carpetasExistentes().includes(limpio) && !confirm(`Ya existe una carpeta "${limpio}". ¿Fusionar "${actual}" con ella (junto con sus subcarpetas, si tiene)?`)) return;
-      templatesFull.forEach(t => { t.config.carpeta = trasladarRuta(normalizarRutaCarpeta(t.config.carpeta), actual, limpio); });
+      // Sólo se guardan las que de verdad cambian de ruta, no las 27.
+      const tocadas = [];
+      templatesFull.forEach((t, i) => {
+        const antes = normalizarRutaCarpeta(t.config.carpeta);
+        const despues = trasladarRuta(antes, actual, limpio);
+        if(antes !== despues){ t.config.carpeta = despues; tocadas.push(i); }
+      });
       carpetasVacias = new Set([...carpetasVacias].map(c => trasladarRuta(c, actual, limpio)).filter(Boolean));
       carpetasColapsadas = new Set([...carpetasColapsadas].map(c => trasladarRuta(c, actual, limpio)));
-      renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+      renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+      guardarCambioDeCarpetas(tocadas, `el nuevo nombre de "${limpio}"`);
     }));
     wrap.querySelectorAll('[data-carpeta-eliminar]').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -1178,10 +1254,16 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
           ? `¿Eliminar la carpeta vacía "${nombre}"? Sus subcarpetas suben un nivel.`
           : `¿Eliminar la carpeta vacía "${nombre}"?`;
       if(!confirm(aviso)) return;
-      templatesFull.forEach(t => { t.config.carpeta = trasladarRuta(normalizarRutaCarpeta(t.config.carpeta), nombre, ''); });
+      const tocadas = [];
+      templatesFull.forEach((t, i) => {
+        const antes = normalizarRutaCarpeta(t.config.carpeta);
+        const despues = trasladarRuta(antes, nombre, '');
+        if(antes !== despues){ t.config.carpeta = despues; tocadas.push(i); }
+      });
       carpetasVacias = new Set([...carpetasVacias].map(c => trasladarRuta(c, nombre, '')).filter(Boolean));
       carpetasColapsadas = new Set([...carpetasColapsadas].map(c => trasladarRuta(c, nombre, '')).filter(Boolean));
-      renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+      renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+      guardarCambioDeCarpetas(tocadas, `la eliminación de "${nombre}"`);
     }));
 
     wrap.querySelectorAll('[data-plantilla-chip]').forEach(chip => {
@@ -1211,9 +1293,10 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
         const posChip = otrasChips.indexOf(chip);
         const r = chip.getBoundingClientRect();
         const posInsercion = (e.clientX - r.left) > r.width / 2 ? posChip + 1 : posChip;
-        moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, posInsercion);
+        const tocadas = moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, posInsercion);
         carpetasVacias.delete(body.dataset.carpetaDrop);
         renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+        guardarCambioDeCarpetas(tocadas, 'el cambio de carpeta');
       });
     });
     wrap.querySelectorAll('.carpeta-card-body').forEach(body => {
@@ -1230,9 +1313,10 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
           return;
         }
         const idxArrastrado = Number(e.dataTransfer.getData('text/plain'));
-        moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, Infinity);
+        const tocadas = moverAPosicionEnCarpeta(idxArrastrado, body.dataset.carpetaDrop, Infinity);
         carpetasVacias.delete(body.dataset.carpetaDrop);
         renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+        guardarCambioDeCarpetas(tocadas, 'el cambio de carpeta');
       });
     });
   }
@@ -1244,6 +1328,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     carpetasVacias.add(nombre);
     inp.value = '';
     renderCarpetasBoard();
+    guardarCambioDeCarpetas([], `la carpeta "${nombre}"`);
   });
 
   function renderTemplateSelector(){
@@ -1281,16 +1366,20 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   }
 
   document.getElementById('btnSubirCarpeta').addEventListener('click', () => {
-    moverEnCarpeta(currentIdx, -1);
+    const tocadas = moverEnCarpeta(currentIdx, -1);
+    renderCarpetasBoard();
     renderTemplateSelector();
     renderMatrixTplSelector();
     renderMatrix();
+    if(tocadas) guardarCambioDeCarpetas(tocadas, 'el nuevo orden');
   });
   document.getElementById('btnBajarCarpeta').addEventListener('click', () => {
-    moverEnCarpeta(currentIdx, 1);
+    const tocadas = moverEnCarpeta(currentIdx, 1);
+    renderCarpetasBoard();
     renderTemplateSelector();
     renderMatrixTplSelector();
     renderMatrix();
+    if(tocadas) guardarCambioDeCarpetas(tocadas, 'el nuevo orden');
   });
 
   document.getElementById('selPlantilla').addEventListener('change', e => {

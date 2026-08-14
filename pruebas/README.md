@@ -52,7 +52,7 @@ las pruebas que necesitan sembrar algo se saltan ese paso y lo dicen.
 | `casos/docente.mjs` | aula, asistencia y resumen del grupo |
 | `casos/certificados.mjs` | el generador compartido y la generación de un lote |
 
-Hoy son **114 comprobaciones** repartidas en esos seis archivos, y las 114
+Hoy son **118 comprobaciones** repartidas en esos seis archivos, y las 118
 pasan. Ese número es la referencia: si baja, algo se dejó de comprobar.
 
 ## Cuando una prueba falla

@@ -268,6 +268,49 @@ export default async function correr(navegador) {
   a.comprobar(numerados > 0 || /\b01[_ ]/.test(await P.locator('#appContent').textContent()),
     'Los archivos conservan su numeración de orden dentro de cada estudiante');
 
+  /* ============ 3b) las carpetas sobreviven a recargar ============ */
+  /* Crear una carpeta y arrastrarle una plantilla sólo cambiaba la memoria de
+     la pestaña: al recargar, la plantilla volvía a su carpeta vieja y la
+     carpeta nueva desaparecía, como si nunca se hubiera creado. */
+  const CARPETA = 'PRUEBA-CARPETA-' + Date.now().toString().slice(-6);
+
+  const abrirGenerador = async () => {
+    await P.goto(`${BASE}/certificados/generar.html`, { waitUntil: 'domcontentloaded' });
+    await P.waitForFunction(() => document.querySelectorAll('.plantilla-chip').length > 0,
+      null, { timeout: 30000 });
+    await P.waitForTimeout(2500);
+  };
+
+  await abrirGenerador();
+  await P.fill('#nuevaCarpetaNombre', CARPETA);
+  await P.click('#btnNuevaCarpeta');
+  await P.waitForTimeout(2500);
+  a.comprobar((await P.locator('#carpetasBoard').textContent()).includes(CARPETA),
+    'Una carpeta nueva aparece en el tablero');
+
+  await P.locator('.plantilla-chip').first().dragTo(P.locator(`[data-carpeta-drop="${CARPETA}"]`));
+  await P.waitForTimeout(3500);
+
+  await abrirGenerador();   // ← aquí es donde se perdía todo
+  a.comprobar((await P.locator('#carpetasBoard').textContent()).includes(CARPETA),
+    'Después de recargar, la carpeta creada sigue estando');
+  const dentro = await P.locator(`[data-carpeta-drop="${CARPETA}"] .plantilla-chip`).count();
+  a.comprobar(dentro === 1,
+    `Y la plantilla que se arrastró sigue dentro (${dentro})`);
+
+  // Se deja como estaba: la plantilla vuelve a "Sin carpeta" y se borra la carpeta.
+  P.once('dialog', (d) => d.accept());
+  if (dentro) {
+    await P.locator(`[data-carpeta-drop="${CARPETA}"] .plantilla-chip`).first()
+      .dragTo(P.locator('[data-carpeta-drop=""]').first());
+    await P.waitForTimeout(3000);
+  }
+  const aBorrar = P.locator(`[data-carpeta-eliminar="${CARPETA}"]`);
+  if (await aBorrar.count()) { await aBorrar.click(); await P.waitForTimeout(2500); }
+  await abrirGenerador();
+  a.comprobar(!(await P.locator('#carpetasBoard').textContent()).includes(CARPETA),
+    'Y eliminarla también se guarda: tras recargar ya no está');
+
   /* ============ 4) la verificación pública ============ */
   const V = await nuevaPestana(navegador);
   await V.goto(`${BASE}/certificados/verificar.html`, { waitUntil: 'domcontentloaded' });
@@ -279,7 +322,13 @@ export default async function correr(navegador) {
   // diploma falsificado. Se comprueba contra la base, no contra el QR.
   await V.goto(`${BASE}/certificados/verificar.html?c=00000000-0000-0000-0000-000000000000`,
     { waitUntil: 'domcontentloaded' });
-  await V.waitForTimeout(4000);
+  // Se espera a que la tarjeta deje de estar "comprobando", no un número fijo de
+  // segundos: con la red lenta, cuatro segundos no siempre alcanzaban y la
+  // prueba fallaba sin que nada estuviera roto.
+  await V.waitForFunction(
+    () => /no (se )?(encontr|existe)|válid|caduc|Falta/i.test(
+      document.querySelector('#card')?.textContent || ''),
+    null, { timeout: 30000 }).catch(() => {});
   const respuesta = await V.locator('#card').textContent();
   a.comprobar(/no (se )?(encontr|existe)/i.test(respuesta),
     'Un código inventado no verifica nada');
