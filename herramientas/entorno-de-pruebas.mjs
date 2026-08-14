@@ -122,8 +122,11 @@ async function asegurarCuenta(email, nombre, apellido, rol) {
     nueva = true;
   }
 
-  /* El perfil lo crea un disparador al nacer la cuenta, pero con el rol por
-     omisión: hay que fijarlo. `upsert` por si el disparador no llegó a correr. */
+  /* El perfil se escribe aquí a mano. El disparador `cem_handle_new_user` sólo
+     actúa cuando el alta viene del autorregistro (trae la marca `cem_signup`),
+     que no es el caso: estas cuentas se crean por la API de administración. Y
+     aunque actuara, pondría el rol de estudiante. Se usa `upsert` para que
+     correrlo dos veces no falle. */
   await rest('cem_profiles?on_conflict=id', {
     method: 'POST',
     headers: { Prefer: 'resolution=merge-duplicates' },
