@@ -24,6 +24,7 @@
       <div id="loginMsg"></div>
     </form>
     <div style="margin-top:14px;text-align:center">
+      <button class="btn ghost sm" id="toOlvide">Olvidé mi contraseña</button>
       <button class="btn ghost sm" id="toReg">¿No tienes cuenta? Regístrate</button>
       <a class="btn ghost sm" href="estudiante/catalogo.html">Ver catálogo público</a>
     </div>
@@ -66,22 +67,95 @@
       <button class="btn ghost sm" id="toLogin">Volver a iniciar sesión</button>
     </div>
   </div>
+
+  <!-- Recuperar la contraseña. Antes no existía: quien la olvidaba dependía de
+       que un administrador se la cambiara a mano. -->
+  <div class="auth-card hidden" id="cardOlvide">
+    <div class="brand-badge"><span class="material-symbols-outlined">lock_reset</span></div>
+    <h1>Recuperar contraseña</h1>
+    <div class="sub">Te enviamos un enlace al correo con el que entras. Sirve una sola vez y caduca en una hora.</div>
+    <form id="formOlvide">
+      <div class="field"><label for="oEmail">Tu correo</label>
+        <input type="email" id="oEmail" required autocomplete="username"></div>
+      <button class="btn block" type="submit">Enviarme el enlace
+        <span class="material-symbols-outlined">outgoing_mail</span></button>
+      <div id="olvideMsg"></div>
+    </form>
+    <div style="margin-top:12px;text-align:center">
+      <button class="btn ghost sm" id="toLogin2">Volver a iniciar sesión</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
-import { sb, $, esc, ok, fail, profile, homeForRoot, qs } from './assets/app.js';
+import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError } from './assets/app.js';
 
-const loginMsg = $('#loginMsg'), regMsg = $('#regMsg');
+const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
+
+/* A dónde iba la persona antes de que la mandáramos a entrar. Se acepta sólo
+   una ruta relativa dentro de la plataforma: si alguien manipula el enlace
+   con una dirección externa, se ignora y va a su panel de siempre. */
+function destinoSeguro() {
+  const n = qs('next');
+  if (!n) return null;
+  if (/^[a-z]+:|^\/\/|\.\./i.test(n)) return null;
+  return /^(admin|estudiante|docente)\/[\w.-]+\.html/.test(n) ? n : null;
+}
 
 // Si ya hay sesión activa, ir directo al panel del rol
 (async () => {
   const p = await profile();
-  if (p) location.replace(homeForRoot(p.rol));
+  if (p) location.replace(destinoSeguro() || homeForRoot(p.rol));
 })();
 
-if (qs('registro')) { $('#cardLogin').classList.add('hidden'); $('#cardReg').classList.remove('hidden'); }
-$('#toReg').onclick = () => { $('#cardLogin').classList.add('hidden'); $('#cardReg').classList.remove('hidden'); };
-$('#toLogin').onclick = () => { $('#cardReg').classList.add('hidden'); $('#cardLogin').classList.remove('hidden'); };
+// Cuando llega rebotado por vencimiento, se dice por qué en vez de dejarlo adivinando.
+if (qs('motivo') === 'vencida') {
+  loginMsg.innerHTML = '<div class="chip warn" style="margin-top:10px">Tu sesión venció por inactividad. Vuelve a entrar y seguimos donde ibas.</div>';
+}
+
+const tarjetas = ['cardLogin', 'cardReg', 'cardOlvide'];
+const mostrar = (cual) => tarjetas.forEach(t =>
+  $('#' + t).classList.toggle('hidden', t !== cual));
+
+if (qs('registro')) mostrar('cardReg');
+$('#toReg').onclick = () => mostrar('cardReg');
+$('#toLogin').onclick = () => mostrar('cardLogin');
+$('#toLogin2').onclick = () => mostrar('cardLogin');
+$('#toOlvide').onclick = () => {
+  $('#oEmail').value = $('#email').value.trim();  // si ya escribió el correo, no lo repite
+  mostrar('cardOlvide');
+};
+
+/* La respuesta es siempre la misma, haya cuenta o no: si dijéramos "ese correo
+   no existe" estaríamos regalando qué direcciones están registradas. La única
+   excepción es cuando el problema es la dirección en sí (mal escrita o de un
+   dominio que no puede recibir correo): eso no dice nada de ninguna cuenta y
+   callarlo dejaría a la persona esperando un mensaje que nunca va a llegar. */
+$('#formOlvide').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = $('#formOlvide button[type=submit]');
+  const correo = $('#oEmail').value.trim();
+  olvideMsg.innerHTML = '';
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) {
+    olvideMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Revisa la dirección: no parece un correo válido.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  const destino = location.href.replace(/[^/?#]*(\?.*)?(#.*)?$/, '') + 'nueva-clave.html';
+  const { error } = await sb.auth.resetPasswordForEmail(correo, { redirectTo: destino });
+  btn.disabled = false;
+
+  if (error && /invalid|not valid/i.test(error.message) && /email/i.test(error.message)) {
+    olvideMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Esa dirección no puede recibir correo. Revísala o escríbenos por otro medio.</div>';
+    return;
+  }
+  // Cualquier otro tropiezo (límite de envíos, caída momentánea) se responde
+  // igual que el caso bueno: no hay forma de sondear quién tiene cuenta.
+  olvideMsg.innerHTML = `<div class="chip ok" style="margin-top:10px">
+    Si <b>${esc(correo)}</b> tiene una cuenta, ya salió el enlace. Revisa también la carpeta de correo no deseado.</div>`;
+};
 
 document.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => {
   $('#email').value = b.dataset.demo; $('#pass').value = 'CemDemo2026!';
@@ -102,7 +176,7 @@ $('#formLogin').onsubmit = async (e) => {
   })();
   if (!p) { loginMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Tu usuario no tiene perfil asignado.</div>'; await sb.auth.signOut(); return; }
   if (!p.activo) { loginMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Cuenta desactivada.</div>'; await sb.auth.signOut(); return; }
-  location.href = homeForRoot(p.rol);
+  location.href = destinoSeguro() || homeForRoot(p.rol);
 };
 
 $('#formReg').onsubmit = async (e) => {

@@ -61,10 +61,70 @@ export function confirmDialog(msg, title = 'Confirmar') {
   });
 }
 
+/* ============ vocabulario y mensajes en un solo lugar ============
+ * Antes cada pantalla escribía sus propios textos: cambiar cómo se llama algo
+ * obligaba a buscarlo por los 44 archivos y siempre quedaba alguno viejo.
+ * Los términos del negocio y los mensajes de error viven acá. */
+export const TXT = {
+  cuota: 'cuota', cuotas: 'cuotas',
+  inscripcion: 'inscripción', inscripciones: 'inscripciones',
+  cohorte: 'cohorte', cohortes: 'cohortes',
+  evaluacion: 'evaluación', evaluaciones: 'evaluaciones',
+  entrega: 'entrega', constancia: 'constancia de estudios',
+  sinPermiso: 'No tienes permiso para hacer esto.',
+  sesionVencida: 'Tu sesión venció. Vuelve a entrar para continuar.',
+  sinConexion: 'No hay conexión con el servidor. Revisa tu internet e inténtalo otra vez.',
+  guardado: 'Guardado.',
+  errorGenerico: 'No se pudo completar la operación.',
+};
+
+/* ============ traducción de errores (uno solo para toda la plataforma) ============
+ * La base responde en inglés y con códigos: "duplicate key value violates
+ * unique constraint" no le dice nada a quien está del otro lado. Acá se
+ * traduce lo conocido y se deja pasar tal cual lo que ya viene en castellano
+ * (nuestras funciones del servidor lanzan mensajes escritos para leerse). */
+const ERRORES_CONOCIDOS = {
+  '23505': 'Ya existe un registro con esos mismos datos.',
+  '23503': 'No se puede: hay información relacionada que depende de esto.',
+  '23514': 'Alguno de los datos no cumple con lo permitido.',
+  '23502': 'Falta completar un dato obligatorio.',
+  '22P02': 'Alguno de los datos tiene un formato que no se entiende.',
+  '42501': TXT.sinPermiso,
+  '42P01': 'Esa parte del sistema todavía no está disponible.',
+  'PGRST301': TXT.sesionVencida,
+  'PGRST116': 'No se encontró lo que buscabas.',
+  'PGRST201': 'La consulta es ambigua; avísale al equipo técnico.',
+};
+
+/** Convierte cualquier error (de Supabase, de red o propio) en una frase legible. */
+export function mensajeError(e, porDefecto = TXT.errorGenerico) {
+  if (!e) return porDefecto;
+  if (typeof e === 'string') return e;
+  const code = e.code || e.status;
+  // Las políticas de acceso responden con "row-level security" o 401/403.
+  if (/row-level security|violates row-level/i.test(e.message || '')) return TXT.sinPermiso;
+  if (code === 401 || code === 403) return TXT.sinPermiso;
+  if (/Failed to fetch|NetworkError|load failed/i.test(e.message || '')) return TXT.sinConexion;
+  if (/JWT expired|invalid claim|token is expired/i.test(e.message || '')) return TXT.sesionVencida;
+  if (ERRORES_CONOCIDOS[code]) return ERRORES_CONOCIDOS[code];
+  // P0001 es un `raise exception` nuestro: el mensaje ya está redactado.
+  if (code === 'P0001' || code === 'P0002') return e.message || porDefecto;
+  const m = e.message || e.error_description || '';
+  // Si sigue viniendo en inglés técnico, no se lo mostramos crudo a nadie.
+  if (!m || /^[\x00-\x7F]*$/.test(m) && /constraint|relation|column|syntax|operator|function .* does not exist/i.test(m)) {
+    return porDefecto;
+  }
+  return m;
+}
+
 /** Envuelve una llamada a Supabase mostrando el error si falla. */
-export async function run(promise, errMsg = 'No se pudo completar la operación') {
+export async function run(promise, errMsg = TXT.errorGenerico) {
   const { data, error } = await promise;
-  if (error) { fail(`${errMsg}: ${error.message}`); throw error; }
+  if (error) {
+    if (esErrorDeSesion(error)) { sesionVencida(); throw error; }
+    fail(mensajeError(error, errMsg));
+    throw error;
+  }
   return data;
 }
 
@@ -204,7 +264,101 @@ export async function profile() {
   _profile = (row && row.id) ? row : null;
   return _profile;
 }
-export async function logout() { await sb.auth.signOut(); location.href = base() + 'index.html'; }
+let _saliendoAProposito = false;
+export async function logout() {
+  _saliendoAProposito = true;
+  await sb.auth.signOut();
+  location.href = base() + 'index.html';
+}
+
+/* ============ sesión vencida ============
+ * Cuando el token caduca, las consultas empiezan a devolver vacío y la
+ * pantalla parece "sin datos" en vez de pedir entrar de nuevo — peor todavía
+ * si pasa mientras alguien llena un formulario largo. Acá se detecta el
+ * vencimiento (por evento de la librería o por el código del error) y se
+ * avisa una sola vez, guardando a dónde iba para volver ahí después. */
+export function esErrorDeSesion(e) {
+  if (!e) return false;
+  const code = e.code || e.status;
+  return code === 'PGRST301' || code === 401
+    || /JWT expired|token is expired|invalid claim/i.test(e.message || '');
+}
+
+let _avisoVencimiento = null;
+export function sesionVencida() {
+  if (_saliendoAProposito || _avisoVencimiento) return;
+  if (document.body.classList.contains('cem-publico')) return;
+  const destino = base() + 'index.html?next=' + encodeURIComponent(rutaRelativaActual())
+    + '&motivo=vencida';
+  _avisoVencimiento = modal({
+    title: 'Tu sesión venció',
+    body: `<p>Por seguridad, la sesión se cierra después de un rato sin actividad.
+      Vuelve a entrar y te llevamos de nuevo a esta misma pantalla.</p>
+      <p class="tiny muted">Si tenías algo escrito sin guardar, cópialo antes de continuar.</p>`,
+    footer: `<button class="btn block" data-entrar>Volver a entrar</button>`,
+  });
+  $('[data-entrar]', _avisoVencimiento).onclick = () => { location.href = destino; };
+}
+
+function rutaRelativaActual() {
+  const partes = location.pathname.split('/').filter(Boolean);
+  const i = partes.indexOf('plataforma');
+  const cola = i >= 0 ? partes.slice(i + 1) : partes.slice(-2);
+  return cola.join('/') + location.search;
+}
+
+/* ============ enterarse de que algo se rompió ============
+ * Si a un estudiante le explota una pantalla, nadie se entera salvo que lo
+ * cuente. Los errores no controlados quedan asentados en la auditoría con la
+ * pantalla y la línea, para poder revisarlos después sin depender del reporte
+ * de nadie. Se limita a unos pocos por carga para no llenar la tabla si algo
+ * falla dentro de un bucle. */
+let _erroresVigilados = false;
+let _erroresReportados = 0;
+const TOPE_ERRORES_POR_CARGA = 3;
+
+async function reportarError(origen, mensaje, extra = {}) {
+  if (_erroresReportados >= TOPE_ERRORES_POR_CARGA) return;
+  _erroresReportados++;
+  try {
+    const p = await profile();
+    if (!p) return; // sin sesión no hay a quién atribuirlo ni permiso para escribir
+    await sb.from('cem_audit_events').insert({
+      actor_id: p.id, actor_email: p.email,
+      accion: 'error_navegador', entidad: 'ui', riesgo: 'medio',
+      detalle: {
+        origen,
+        mensaje: String(mensaje || '').slice(0, 500),
+        pantalla: location.pathname.split('/').slice(-2).join('/'),
+        navegador: navigator.userAgent.slice(0, 160),
+        ...extra,
+      },
+    });
+  } catch { /* si ni siquiera se puede avisar, no vale la pena insistir */ }
+}
+
+function vigilarErrores() {
+  if (_erroresVigilados) return;
+  _erroresVigilados = true;
+  window.addEventListener('error', (e) => {
+    if (!e.message) return;
+    reportarError('error', e.message, { archivo: (e.filename || '').split('/').pop(), linea: e.lineno });
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e.reason;
+    if (esErrorDeSesion(r)) { sesionVencida(); return; }
+    reportarError('promesa', r?.message || r);
+  });
+}
+
+/** Escucha los cambios de sesión de la librería. Lo llama mount() una vez. */
+function vigilarSesion() {
+  sb.auth.onAuthStateChange((evento, sesion) => {
+    if (evento === 'SIGNED_OUT' && !sesion) sesionVencida();
+    if (evento === 'TOKEN_REFRESHED' && !sesion) sesionVencida();
+    if (evento === 'USER_UPDATED') _profile = null;
+  });
+}
 
 /** Ruta base de la plataforma según la profundidad de la página actual. */
 export function base() {
@@ -284,10 +438,12 @@ const ROLES_STAFF = ['coordinador', 'admin', 'superadmin'];
  * @param {{require?:string[], active?:string, title?:string, area?:'admin'|'estudiante'|'docente', pub?:boolean}} opts
  */
 export async function mount(opts = {}) {
+  vigilarSesion();
+  vigilarErrores();
   const p = await profile();
   const area = opts.area || 'admin';
 
-  if (opts.pub) { renderPublicHeader(p); return p; }
+  if (opts.pub) { document.body.classList.add('cem-publico'); renderPublicHeader(p); return p; }
 
   if (!p) { location.href = base() + 'index.html?next=' + encodeURIComponent(location.pathname.split('/').slice(-2).join('/')); return null; }
   if (!p.activo) { document.body.innerHTML = '<div class="auth-wrap"><div class="auth-card"><h1>Cuenta desactivada</h1><p class="sub">Contacta al administrador.</p></div></div>'; return null; }
@@ -347,8 +503,11 @@ function renderShell(p, area, active) {
         <div class="search"><span class="material-symbols-outlined">search</span>
           <input type="search" id="cemGlobalSearch" placeholder="Buscar estudiantes, cursos, cohortes…"></div>
         <div class="spacer"></div>
-        <button class="icon-btn" title="Notificaciones"><span class="material-symbols-outlined">notifications</span></button>
-        <div class="avatar" title="${esc(p.email)}">${initials(p.nombre, p.apellido)}</div>
+        <button class="icon-btn campana" id="cemCampana" title="Avisos">
+          <span class="material-symbols-outlined">notifications</span>
+          <i class="punto" id="cemCampanaPunto" hidden></i></button>
+        <a class="avatar" href="${area === 'estudiante' ? 'perfil.html' : '#'}"
+           title="${esc(p.email)}">${initials(p.nombre, p.apellido)}</a>
       </header>
       <main class="content" id="cemContent"></main>
     </div>
@@ -378,6 +537,57 @@ function renderShell(p, area, active) {
       location.href = `${dest}?q=${encodeURIComponent(gs.value.trim())}`;
     }
   });
+
+  montarCampana();
+}
+
+/* ============ campana de avisos ============
+ * El botón de la barra superior era decorativo. Ahora trae los avisos de la
+ * persona: pago aprobado o rechazado, cuota por vencer, certificado emitido,
+ * respuesta de soporte, apelación resuelta, insignia ganada. */
+async function montarCampana() {
+  const btn = $('#cemCampana');
+  const punto = $('#cemCampanaPunto');
+  if (!btn) return;
+
+  let avisos = [];
+  async function refrescar() {
+    const { data, error } = await sb.rpc('cem_mis_notificaciones', { p_limite: 20 });
+    if (error) return;
+    avisos = data || [];
+    const sinLeer = Number(avisos[0]?.sin_leer || 0);
+    punto.hidden = sinLeer === 0;
+    btn.title = sinLeer ? `${sinLeer} aviso${sinLeer > 1 ? 's' : ''} sin leer` : 'Avisos';
+  }
+
+  btn.onclick = async () => {
+    await refrescar();
+    const dlg = modal({
+      title: 'Avisos',
+      body: avisos.length
+        ? `<div class="avisos">${avisos.map(a => `
+            <${a.url ? 'a' : 'div'} class="aviso ${a.leida_en ? '' : 'nuevo'}"
+              ${a.url ? `href="${base()}${esc(a.url)}"` : ''}>
+              <b>${esc(a.titulo)}</b>
+              ${a.cuerpo ? `<span>${esc(a.cuerpo)}</span>` : ''}
+              <em>${fdatetime(a.created_at)}</em>
+            </${a.url ? 'a' : 'div'}>`).join('')}</div>`
+        : '<div class="empty">No tienes avisos por ahora.</div>',
+      footer: avisos.some(a => !a.leida_en)
+        ? '<button class="btn outline" data-x>Cerrar</button><button class="btn" data-leidas>Marcar todo como leído</button>'
+        : '<button class="btn outline block" data-x>Cerrar</button>',
+    });
+    const bl = $('[data-leidas]', dlg);
+    if (bl) bl.onclick = async () => {
+      await sb.rpc('cem_marcar_notificaciones_leidas');
+      dlg.close();
+      refrescar();
+    };
+  };
+
+  refrescar();
+  // Cada dos minutos alcanza: son avisos, no un chat.
+  setInterval(refrescar, 120000);
 }
 
 function renderPublicHeader(p) {
@@ -556,12 +766,62 @@ export async function urlComprobante(ruta){
   return error ? null : data.signedUrl;
 }
 
+/* ============ tasa del día ============
+   Cambia una vez al día pero cada pantalla la volvía a pedir. Se guarda en la
+   pestaña con vencimiento corto: dentro de la misma sesión de trabajo se
+   consulta una sola vez, y el panel que la modifica llama a olvidarTasa(). */
+const CLAVE_TASA = 'cem:tasa';
+const VIDA_TASA_MS = 10 * 60 * 1000;
+
 /** Tasa del día vigente (la del BCV si el banco respondió, o la cargada a mano). */
-export async function tasaVigente(){
+export async function tasaVigente({ forzar = false } = {}){
+  if (!forzar) {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(CLAVE_TASA) || 'null');
+      if (c && Date.now() - c.en < VIDA_TASA_MS) return c.tasa;
+    } catch { /* si el guardado está corrupto, se pide de nuevo */ }
+  }
   const { data, error } = await sb.rpc('cem_tasa_vigente');
   if (error) return null;
   const t = Array.isArray(data) ? data[0] : data;
-  return t && t.valor ? t : null;
+  const tasa = t && t.valor ? t : null;
+  try { sessionStorage.setItem(CLAVE_TASA, JSON.stringify({ en: Date.now(), tasa })); } catch {}
+  return tasa;
+}
+
+/** Borra la tasa guardada. Llamar después de cargar una tasa nueva a mano. */
+export function olvidarTasa(){ try { sessionStorage.removeItem(CLAVE_TASA); } catch {} }
+
+/* ============ listas largas ============
+   Ninguna pantalla paginaba: traían la tabla entera y la dibujaban completa.
+   Este ayudante encapsula el rango de PostgREST y el conteo exacto, para que
+   una lista se pida de a tramos con el mismo par de líneas en todas partes. */
+export const TAM_PAGINA = 50;
+
+/**
+ * Aplica paginación a una consulta ya armada.
+ * @example const { filas, total, hayMas } = await paginar(
+ *   sb.from('cem_profiles').select('id,nombre', { count: 'exact' }), pagina);
+ */
+export async function paginar(consulta, pagina = 0, tam = TAM_PAGINA){
+  const desde = pagina * tam;
+  const { data, error, count } = await consulta.range(desde, desde + tam - 1);
+  if (error) {
+    if (esErrorDeSesion(error)) sesionVencida();
+    throw error;
+  }
+  const filas = data || [];
+  return { filas, total: count ?? null, hayMas: count == null ? filas.length === tam : desde + filas.length < count };
+}
+
+/** Barra de "mostrando X de Y" + botón de cargar más. */
+export function controlesPaginacion({ mostrando, total, hayMas, id = 'cemMas' }){
+  if (!hayMas && (total == null || mostrando >= total)) {
+    return total != null && total > 0 ? `<div class="tiny muted center" style="padding:10px">${num(total)} en total</div>` : '';
+  }
+  return `<div class="center" style="padding:12px">
+    <div class="tiny muted" style="margin-bottom:6px">Mostrando ${num(mostrando)}${total != null ? ' de ' + num(total) : ''}</div>
+    <button class="btn outline sm" id="${id}">Cargar más</button></div>`;
 }
 
 /* ============ picker de días de la semana + horario (cohortes) ============ */
