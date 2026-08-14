@@ -41,7 +41,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdatetime, kpi, match, initials, modal, ok, run, audit } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, fdatetime, kpi, match, initials, modal, ok, run, audit, opciones, chipEstado} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'soporte.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let tickets=[], sel=null, fEstado='', staff=[];
@@ -75,7 +75,7 @@ function render(){
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px">${esc(t.asunto)}</div>
         <div class="tiny muted">${esc(t.codigo||'')} · ${esc((t.cem_profiles?.nombre||'')+' '+(t.cem_profiles?.apellido||''))}</div>
-        <div class="row" style="gap:5px;margin-top:4px">${chip(t.estado)}${chip(t.prioridad)}</div>
+        <div class="row" style="gap:5px;margin-top:4px">${chipEstado(t.estado)}${chipEstado(t.prioridad)}</div>
       </div></div>`).join('') : '<p class="muted tiny">Sin tickets.</p>';
   $$('[data-t]').forEach(el=>el.onclick=()=>{ sel=tickets.find(t=>t.id===el.dataset.t); render(); });
   detalle();
@@ -95,13 +95,13 @@ async function detalle(){
       <div><h2 class="sec" style="margin:0 0 3px">${esc(t.asunto)}</h2>
         <div class="tiny muted">${esc(t.codigo||'')} · ${esc((t.cem_profiles?.nombre||'')+' '+(t.cem_profiles?.apellido||''))}
           · ${esc(t.cem_profiles?.email||'')}</div></div>
-      <div class="row">${chip(t.estado)}${chip(t.prioridad)}${chip(t.categoria,'neutral')}</div>
+      <div class="row">${chipEstado(t.estado)}${chipEstado(t.prioridad)}${chip(t.categoria,'neutral')}</div>
     </div>
     ${puede? `<div class="row" style="margin-top:12px">
       <div class="field" style="margin:0;flex:1;min-width:140px"><label class="tiny">Estado</label><select id="sEstado">
-        ${['abierto','en_proceso','esperando','resuelto','cerrado'].map(v=>`<option ${t.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['abierto','en_proceso','esperando','resuelto','cerrado'], t.estado)}</select></div>
       <div class="field" style="margin:0;flex:1;min-width:140px"><label class="tiny">Prioridad</label><select id="sPrio">
-        ${['baja','media','alta','urgente'].map(v=>`<option ${t.prioridad===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['baja','media','alta','urgente'], t.prioridad)}</select></div>
       <div class="field" style="margin:0;flex:1;min-width:160px"><label class="tiny">Asignado a</label><select id="sAsig">
         <option value="">Sin asignar</option>
         ${staff.map(s=>`<option value="${s.id}" ${t.asignado_a===s.id?'selected':''}>${esc(s.nombre)} ${esc(s.apellido||'')}</option>`).join('')}</select></div>
@@ -152,7 +152,7 @@ $('#btnNuevo').onclick = async () => {
     <div class="field"><label>Asunto *</label><input id="nA"></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:140px"><label>Categoría</label><select id="nC">
-        ${['acceso','contenido','pagos','certificados','general'].map(v=>`<option>${v}</option>`).join('')}</select></div>
+        ${opciones(['acceso','contenido','pagos','certificados','general'])}</select></div>
       <div class="field" style="flex:1;min-width:140px"><label>Prioridad</label><select id="nP">
         ${['baja','media','alta','urgente'].map(v=>`<option ${v==='media'?'selected':''}>${v}</option>`).join('')}</select></div>
     </div>

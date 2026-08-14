@@ -104,7 +104,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY, chipEstado} from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['admin','superadmin'], active:'bancaribe.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -330,7 +330,7 @@ function verDetalle(n){
       <div><div class="s tiny muted">Monto</div><div class="t"><b>${esc(String(n.amount??'—'))}</b> ${esc(n.currency_code||'')}</div></div>
       <div><div class="s tiny muted">Fecha del banco</div><div class="t">${esc(n.fecha_banco||'—')} ${esc(n.hora_banco||'')}</div></div>
       <div><div class="s tiny muted">Tipo</div><div class="t">${esc(n.payment_type||'—')}</div></div>
-      <div><div class="s tiny muted">Estado</div><div class="t">${chip(n.estado)}</div></div>
+      <div><div class="s tiny muted">Estado</div><div class="t">${chipEstado(n.estado)}</div></div>
     </div>
     <div class="field" style="margin-top:14px"><label>Cuenta ordenante / beneficiaria</label>
       <div class="dato-tec">${esc(n.debtor_account||'—')} → ${esc(n.creditor_account||'—')}</div></div>

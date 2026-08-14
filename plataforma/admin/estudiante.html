@@ -105,7 +105,7 @@ function tab(t){
         <td class="wrap"><b>${esc(e.cem_courses?.nombre||'')}</b><div class="tiny muted">${esc(e.cem_courses?.tipo||'')}</div></td>
         <td>${esc(e.cem_cohorts?.nombre||'—')}</td>
         <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
-        <td>${chip(e.estado)}</td><td>${money(e.precio_final)}</td><td class="muted">${fdate(e.fecha_inscripcion)}</td>
+        <td>${chipEstado(e.estado)}</td><td>${money(e.precio_final)}</td><td class="muted">${fdate(e.fecha_inscripcion)}</td>
         <td>${editable?`<button class="btn ghost sm" data-est="${e.id}"><span class="material-symbols-outlined">edit</span></button>
           ${Number(e.progreso)>=80?`<button class="btn ghost sm" data-cert="${e.id}" title="Emitir certificado"><span class="material-symbols-outlined">workspace_premium</span></button>`:''}`:''}</td>
       </tr>`).join('') : emptyRow(7)}</tbody></table></div></div>`;
@@ -122,7 +122,7 @@ function tab(t){
       <tbody>${subs.length? subs.map(s=>`<tr>
         <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td><td>${esc(s.cem_assessments?.tipo||'')}</td>
         <td>${s.intento}</td><td><b>${s.puntaje!=null?s.puntaje:'—'}</b></td>
-        <td>${chip(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td><td class="muted">${fdatetime(s.entregado_en)}</td>
+        <td>${chipEstado(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td><td class="muted">${fdatetime(s.entregado_en)}</td>
       </tr>`).join('') : emptyRow(6)}</tbody></table></div></div>`;
   }
   if (t==='certificados'){
@@ -131,7 +131,7 @@ function tab(t){
       <tbody>${certs.length? certs.map(c=>`<tr>
         <td><code>${esc(c.codigo)}</code></td><td class="wrap">${esc(c.titulo)}</td>
         <td class="wrap">${esc(c.cem_courses?.nombre||'')}</td><td class="muted">${fdate(c.emitido_en)}</td>
-        <td>${chip(c.estado)}</td>
+        <td>${chipEstado(c.estado)}</td>
         <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"><span class="material-symbols-outlined">verified</span></a></td>
       </tr>`).join('') : emptyRow(6,'Sin certificados emitidos.')}</tbody></table></div></div>`;
   }
@@ -145,7 +145,7 @@ function tab(t){
         const e = ens.find(x=>x.id===i.enrollment_id);
         return `<tr><td>${i.numero}</td><td class="wrap">${esc(e?.cem_courses?.nombre||'')}</td>
         <td>${money(i.monto)}</td><td class="muted">${fdate(i.fecha_vencimiento)}</td>
-        <td>${money(i.saldo)}</td><td>${chip(i.estado)}</td>
+        <td>${money(i.saldo)}</td><td>${chipEstado(i.estado)}</td>
         <td>${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
       }).join('') : emptyRow(7)}</tbody></table></div></div>
       <div class="card"><h2 class="sec">Pagos registrados</h2><div class="table-wrap"><table>
@@ -160,7 +160,7 @@ function tab(t){
 function cambiarEstado(e){
   const m = modal({ title:'Estado de la inscripción', body:`
     <div class="field"><label>Estado</label><select id="nEstado">
-      ${['pendiente','activa','suspendida','congelada','finalizada','cancelada'].map(v=>`<option ${e.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>`,
+      ${opciones(['pendiente','activa','suspendida','congelada','finalizada','cancelada'], e.estado)}</select></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{

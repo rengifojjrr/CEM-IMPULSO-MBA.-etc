@@ -36,7 +36,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, opciones, chipEstado} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'comunicaciones.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cohortes=[], cursos=[], perfiles={}, filtro='';
@@ -71,7 +71,7 @@ function render(){
     return `<tr>
       <td class="wrap" style="max-width:340px"><b>${esc(r.titulo)}</b>
         <div class="tiny muted">${esc((r.cuerpo||'').slice(0,110))}${(r.cuerpo||'').length>110?'…':''}</div></td>
-      <td class="wrap">${esc(dest)}</td><td>${chip(r.canal,'neutral')}</td><td>${chip(r.estado)}</td>
+      <td class="wrap">${esc(dest)}</td><td>${chip(r.canal,'neutral')}</td><td>${chipEstado(r.estado)}</td>
       <td class="muted">${r.enviado_en? fdatetime(r.enviado_en) : r.programado_para? fdatetime(r.programado_para) : fdate(r.created_at)}</td>
       <td>${esc(perfiles[r.autor_id]||'—')}</td>
       <td style="white-space:nowrap">
@@ -84,7 +84,7 @@ function render(){
   }).join('') : emptyRow(7,'No hay anuncios.');
 
   $$('[data-v]').forEach(b=>b.onclick=()=>{ const r=rows.find(x=>x.id===b.dataset.v);
-    modal({ title:r.titulo, body:`<div class="row" style="gap:8px;margin-bottom:12px">${chip(r.estado)}${chip(r.canal,'neutral')}
+    modal({ title:r.titulo, body:`<div class="row" style="gap:8px;margin-bottom:12px">${chipEstado(r.estado)}${chip(r.canal,'neutral')}
       <span class="chip neutral">${esc(r.audiencia||'todos')}</span></div>
       <p style="white-space:pre-wrap">${esc(r.cuerpo||'')}</p>` }); });
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(x=>x.id===b.dataset.e)));
@@ -109,9 +109,9 @@ function form(r){
     <div class="field"><label>Mensaje</label><textarea id="aB" style="min-height:120px">${esc(r?.cuerpo||'')}</textarea></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:150px"><label>Audiencia</label><select id="aA">
-        ${['todos','estudiantes','profesores','administrativos'].map(v=>`<option ${r?.audiencia===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['todos','estudiantes','profesores','administrativos'], r?.audiencia)}</select></div>
       <div class="field" style="flex:1;min-width:150px"><label>Canal</label><select id="aC">
-        ${['plataforma','email','ambos'].map(v=>`<option ${r?.canal===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['plataforma','email','ambos'], r?.canal)}</select></div>
     </div>
     <div class="row">
       <div class="field" style="flex:1;min-width:180px"><label>Cohorte específica (opcional)</label><select id="aCoh">

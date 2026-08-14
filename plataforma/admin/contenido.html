@@ -107,7 +107,7 @@ function renderEditor(){
   const l = sel;
   $('#editor').innerHTML = `<div class="card">
     <div class="row between"><h2 class="sec">Editor: ${esc(l.titulo)}</h2>
-      <div class="row">${chip(l.estado)}
+      <div class="row">${chipEstado(l.estado)}
         <button class="btn outline sm" id="btnPrev"><span class="material-symbols-outlined">visibility</span> Vista previa</button>
         <button class="btn sm" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar</button></div></div>
     <div class="field"><label>Título de la lección</label><input id="lT" value="${esc(l.titulo)}"></div>

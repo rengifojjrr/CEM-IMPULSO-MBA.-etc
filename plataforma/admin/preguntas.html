@@ -35,7 +35,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, opciones, chipEstado} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'preguntas.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cursos=[];
@@ -69,7 +69,7 @@ function render(){
         ${(r.opciones||[]).length?`<div class="tiny muted">${(r.opciones||[]).length} opciones · correcta: ${esc(String(r.respuesta_correcta??'—').replace(/"/g,''))}</div>`:''}</td>
       <td>${chip(r.tipo.replace('_','/'),'neutral')}</td>
       <td class="wrap">${esc(r.cem_courses?.nombre||'—')}</td>
-      <td>${chip(r.dificultad)}</td><td>${num(r.usos)}</td>
+      <td>${chipEstado(r.dificultad)}</td><td>${num(r.usos)}</td>
       <td>${ac!=null?`<span class="chip ${ac>=70?'ok':ac>=40?'warn':'err'}">${ac}%</span>`:'—'}</td>
       <td style="white-space:nowrap">
         ${puede?`<button class="btn ghost sm" data-e="${r.id}"><span class="material-symbols-outlined">edit</span></button>
@@ -102,7 +102,7 @@ function form(q){
       <div class="field" style="flex:1;min-width:160px"><label>Tipo *</label><select id="qT">
         ${['multiple','verdadero_falso','corta','ensayo'].map(v=>`<option value="${v}" ${q?.tipo===v?'selected':''}>${v.replace('_','/')}</option>`).join('')}</select></div>
       <div class="field" style="flex:1;min-width:130px"><label>Dificultad</label><select id="qD">
-        ${['baja','media','alta'].map(v=>`<option ${q?.dificultad===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['baja','media','alta'], q?.dificultad)}</select></div>
     </div>
     <div id="opcWrap"></div>
     <div class="field"><label>Explicación de la respuesta</label><textarea id="qX" style="min-height:60px">${esc(q?.explicacion||'')}</textarea></div>`,

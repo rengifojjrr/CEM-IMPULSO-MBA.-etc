@@ -41,7 +41,7 @@
   <div class="card"><h2 class="sec">Anuncios</h2><div id="anuncios"></div></div>
 </div>
 <script type="module">
-import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 if (p) init();
 
@@ -92,7 +92,7 @@ async function init(){
           <span class="chip teal">${esc(e.cem_courses?.modalidad?.replace('_',' ')||'')}</span>
           <h3 style="margin:8px 0 4px;font-size:16px">${esc(e.cem_courses?.nombre||'')}</h3>
           <div class="tiny muted">${esc(e.cem_cohorts?.nombre||'Sin cohorte')}</div>
-        </div>${chip(e.estado)}
+        </div>${chipEstado(e.estado)}
       </div>
       <div style="margin-top:12px">
         <div class="row between tiny muted"><span>Progreso general</span><b>${pct(e.progreso)}</b></div>
@@ -137,7 +137,7 @@ async function init(){
     return `<div class="list-item"><div class="grow">
       <div class="t">Cuota ${i.numero} · ${money(i.monto)}</div>
       <div class="s">Vence ${fdate(i.fecha_vencimiento)}</div></div>
-      ${venc?chip('vencida','err'):chip(i.estado)}</div>`;
+      ${venc?chip('vencida','err'):chipEstado(i.estado)}</div>`;
   }).join('') : '<p class="muted tiny">Sin cuotas registradas.</p>';
 
   $('#anuncios').innerHTML = (anuncios||[]).length ? anuncios.map(a=>`
@@ -158,7 +158,7 @@ async function init(){
     const flojo = f.promedio != null && Number(f.promedio) < Number(aprueba);
     return `<tr>
       <td class="wrap"><b>${esc(f.curso)}</b>
-        ${f.estado !== 'activa' ? `<div>${chip(f.estado)}</div>` : ''}</td>
+        ${f.estado !== 'activa' ? `<div>${chipEstado(f.estado)}</div>` : ''}</td>
       <td style="min-width:110px">${bar(f.progreso)}<span class="tiny muted">${pct(f.progreso)}</span></td>
       <td>${f.promedio == null
           ? '<span class="tiny muted">sin notas aún</span>'

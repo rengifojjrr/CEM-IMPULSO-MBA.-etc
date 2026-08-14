@@ -119,7 +119,7 @@ function render(){
     <td class="wrap">${esc(c.cem_cohorts?.nombre||'')}<div class="tiny muted">${esc(c.cem_cohorts?.cem_courses?.nombre||'')}</div></td>
     <td>${esc(c.modalidad.replace('_',' '))}</td><td>${esc(c.salon||'—')}</td>
     <td>${esc(profes.find(x=>x.id===c.teacher_id)?.nombre||'—')}</td>
-    <td>${chip(c.estado)}</td>
+    <td>${chipEstado(c.estado)}</td>
     <td style="white-space:nowrap">
       ${c.url_sesion?`<a class="btn ghost sm" href="${esc(c.url_sesion)}" target="_blank" title="Abrir sesión"><span class="material-symbols-outlined">videocam</span></a>`:''}
       ${editable?`<button class="btn ghost sm" data-edit="${c.id}"><span class="material-symbols-outlined">edit</span></button>`:''}

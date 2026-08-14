@@ -41,7 +41,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-14';
 const me = await mount({ require:['profesor'], active:'panel.html', area:'docente' });
 let cohortes=[], clases=[], subsPend=[];
 if (me) load();
@@ -92,7 +92,7 @@ async function load(){
         <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
-      ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chip(c.estado)}
+      ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chipEstado(c.estado)}
     </div>`).join('') : '<p class="muted tiny">Sin sesiones próximas.</p>';
 
   $('#nPend').textContent = `${subsPend.length} pendientes`;
@@ -103,7 +103,7 @@ async function load(){
       <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td>
       <td class="wrap">${esc(s.cem_assessments?.cem_courses?.nombre||'')}</td>
       <td class="muted">${fdatetime(s.entregado_en)}</td>
-      <td>${chip(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td>
+      <td>${chipEstado(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td>
       <td><button class="btn outline sm" data-cal="${s.id}">Calificar</button></td></tr>`;
   }).join('') : emptyRow(6,'No tienes entregas pendientes.');
   $$('[data-cal]').forEach(b=>b.onclick=()=>calificar(subsPend.find(s=>s.id===b.dataset.cal), ens||[]));

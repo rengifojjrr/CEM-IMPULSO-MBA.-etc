@@ -39,7 +39,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, money, fdate, qs, profile } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, money, fdate, qs, profile, chipEstado} from '../assets/app.js?v=2026-08-14';
 const me = await mount({ pub:true });
 const id = qs('id');
 let curso, mods=[], cohortes=[], profe=null, miInscripcion=null;
@@ -96,7 +96,7 @@ function render(){
     ${cohortes.length? cohortes.map(c=>`<div class="list-item"><div class="grow">
         <div class="t">${esc(c.nombre)}</div>
         <div class="s">${c.fecha_inicio?'Inicia '+fdate(c.fecha_inicio):'Fecha por definir'} · ${esc(c.horario||'')}</div></div>
-      ${chip(c.estado)}</div>`).join('') : '<p class="muted tiny">Próximamente nuevas cohortes.</p>'}`;
+      ${chipEstado(c.estado)}</div>`).join('') : '<p class="muted tiny">Próximamente nuevas cohortes.</p>'}`;
 }
 
 $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });

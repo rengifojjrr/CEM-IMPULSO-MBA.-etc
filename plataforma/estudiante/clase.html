@@ -53,7 +53,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado} from '../assets/app.js?v=2026-08-14';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
 if (me) load();
@@ -202,7 +202,7 @@ function tab(t){
         <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${(c.hora_inicio||'').slice(0,5)}–${(c.hora_fin||'').slice(0,5)} · ${esc(c.modalidad.replace('_',' '))}</div></div>
-      ${chip(c.estado)}
+      ${chipEstado(c.estado)}
       ${c.estado!=='dictada'&&c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Unirme</a>`:''}
       ${c.grabacion_url?`<a class="btn outline sm" href="${esc(c.grabacion_url)}" target="_blank">Grabación</a>`:''}
       </div>`).join('') : '<p class="muted tiny">Sin sesiones programadas.</p>';

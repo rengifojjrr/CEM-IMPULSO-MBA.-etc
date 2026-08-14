@@ -400,7 +400,10 @@ th.ordenable:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;
 .filtros-plegables summary:hover{border-color:var(--primary);color:var(--on-surface);}
 .filtros-plegables .cuantos{background:var(--primary);color:var(--on-primary);border-radius:10px;
   padding:0 7px;font-size:11px;}
-.filtros-plegables[open] .campos{margin-top:12px;}
+.filtros-plegables{flex:none;}
+.filtros-plegables[open]{flex-basis:100%;}
+.filtros-plegables[open] .campos{margin-top:12px;padding-top:12px;
+  border-top:1px solid var(--outline-variant);}
 
 /* ---------- barra de acciones sobre varias filas ---------- */
 .barra-seleccion{display:flex;align-items:center;gap:10px;flex-wrap:wrap;

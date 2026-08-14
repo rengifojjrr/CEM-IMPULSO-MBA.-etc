@@ -44,7 +44,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let certs=[], elegibles=[], tpls=[];
@@ -72,7 +72,7 @@ async function load(){
     <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(e.cem_courses?.certificado_nombre||e.cem_courses?.nombre||'')}</td>
     <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
-    <td>${chip(e.estado)}</td></tr>`).join('') : emptyRow(5,'No hay estudiantes pendientes de certificación.');
+    <td>${chipEstado(e.estado)}</td></tr>`).join('') : emptyRow(5,'No hay estudiantes pendientes de certificación.');
   $('#chkAll').onchange = () => $$('.chkE').forEach(c=>{ if(!c.disabled) c.checked=$('#chkAll').checked; });
   render();
 }
@@ -85,7 +85,7 @@ function render(){
     <td><code>${esc(c.codigo)}</code></td>
     <td class="wrap">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(c.titulo)}</td><td class="wrap">${esc(c.cem_courses?.nombre||'—')}</td>
-    <td class="muted">${fdate(c.emitido_en)}</td><td>${chip(c.estado)}</td>
+    <td class="muted">${fdate(c.emitido_en)}</td><td>${chipEstado(c.estado)}</td>
     <td style="white-space:nowrap">
       <button class="btn ghost sm" data-ver="${c.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
       <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank" title="Verificación pública">

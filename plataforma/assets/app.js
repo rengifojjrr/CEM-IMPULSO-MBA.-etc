@@ -727,7 +727,8 @@ export async function mount(opts = {}) {
   if (opts.require && !opts.require.includes(p.rol)) {
     document.body.innerHTML = `<div class="auth-wrap"><div class="auth-card">
       <div class="brand-badge"><span class="material-symbols-outlined">lock</span></div>
-      <h1>Sin acceso</h1><p class="sub">Tu rol (<b>${esc(p.rol)}</b>) no tiene permiso para esta página.</p>
+      <h1>Sin acceso</h1><p class="sub">Como <b>${esc(etiqueta(p.rol))}</b> no puedes entrar a esta pantalla.
+        ${esc(QUE_HACE_EL_ROL[p.rol] || '')}</p>
       <a class="btn block" href="${homeFor(p.rol)}">Ir a mi inicio</a></div></div>`;
     return DETENER_LA_PAGINA;
   }
@@ -814,7 +815,7 @@ function renderShell(p, area, active) {
       </div>
       ${sideHtml}
       <div class="foot">
-        <div class="who"><b>${esc(p.nombre)} ${esc(p.apellido || '')}</b>${esc(p.rol)}</div>
+        <div class="who"><b>${esc(p.nombre)} ${esc(p.apellido || '')}</b>${esc(etiqueta(p.rol))}</div>
         <button class="btn outline sm block" id="cemLogout">
           <span class="material-symbols-outlined">logout</span> Cerrar sesión</button>
       </div>

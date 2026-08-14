@@ -55,7 +55,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, confirmDialog, abrirSubidaVideo, subirDocumentoLeccion,
-         YoutubeNoConectadoError } from '../assets/app.js?v=2026-08-14';
+         YoutubeNoConectadoError, chipEstado} from '../assets/app.js?v=2026-08-14';
 
 const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
                         active:'aula.html', area:'docente' });
@@ -126,7 +126,7 @@ function pintarEvals(){
     <td>${num(e.puntaje_max)}</td>
     <td>${num(e.nota_aprobatoria)}</td>
     <td class="tiny">${ventanaDe(e)}</td>
-    <td>${chip(e.estado)}${e.barajar ? ' ' + chip('barajada','info') : ''}</td>
+    <td>${chipEstado(e.estado)}${e.barajar ? ' ' + chip('barajada','info') : ''}</td>
     <td style="white-space:nowrap">
       <button class="btn ghost sm" data-ed="${e.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
       <a class="btn ghost sm" href="../admin/preguntas.html?assessment=${e.id}" title="Preguntas">

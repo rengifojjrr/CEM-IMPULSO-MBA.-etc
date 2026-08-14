@@ -38,7 +38,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado} from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cohortes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -84,7 +84,7 @@ function render(){
       <td class="wrap">${esc(r._curso)}</td><td>${esc(r.modalidad.replace('_',' '))}</td>
       <td class="wrap">${esc(r.horario||'—')}</td><td>${fdate(r.fecha_inicio)}</td>
       <td style="min-width:120px">${bar(occ)}<span class="tiny muted">${r._n}/${r.cupos} · ${occ}%</span></td>
-      <td>${esc(r._prof)}</td><td>${chip(r.estado)}</td>
+      <td>${esc(r._prof)}</td><td>${chipEstado(r.estado)}</td>
       <td style="white-space:nowrap">
         <a class="btn ghost sm" href="calendario.html?cohorte=${r.id}" title="Calendario"><span class="material-symbols-outlined">calendar_today</span></a>
         <a class="btn ghost sm" href="inscripciones.html?cohorte=${r.id}" title="Inscritos"><span class="material-symbols-outlined">group</span></a>
@@ -108,7 +108,7 @@ function form(c){
     <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera"></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="cMod">
-        ${['online','en_vivo','presencial','hibrido'].map(v=>`<option ${c?.modalidad===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
       <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cTurno">
         ${turnos.map(t=>`<option value="${esc(t.nombre)}" ${c?.turno===t.nombre?'selected':''}>${esc(t.nombre)}</option>`).join('') || `<option value="${esc(c?.turno||'')}">${esc(c?.turno||'Sin turnos definidos')}</option>`}</select></div>
       <div class="field" style="flex:1;min-width:110px"><label>Cupos</label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
@@ -121,7 +121,7 @@ function form(c){
     <div class="row">
       <div class="field" style="flex:2;min-width:220px"><label>Horario</label><div id="cHorarioPicker"></div></div>
       <div class="field" style="flex:1;min-width:170px"><label>Estado</label><select id="cEstado">
-        ${['planificada','inscripciones_abiertas','en_curso','finalizada','cancelada'].map(v=>`<option ${c?.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['planificada','inscripciones_abiertas','en_curso','finalizada','cancelada'], c?.estado)}</select></div>
     </div>
     <div class="field"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
       ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>`,

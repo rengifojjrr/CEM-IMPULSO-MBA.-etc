@@ -54,7 +54,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, esc, kpi, chip, bar, money, num, fdate, emptyRow, pct } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, esc, kpi, chip, bar, money, num, fdate, emptyRow, pct, chipEstado} from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'index.html', area:'admin' });
 if (p) init();
@@ -94,7 +94,7 @@ async function init(){
       </div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${esc(c.cem_cohorts?.cem_courses?.nombre||'')} · ${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
-      ${chip(c.estado)}
+      ${chipEstado(c.estado)}
     </div>`).join('') || '<p class="muted tiny">No hay clases próximas.</p>';
 
   const { data: ins } = await sb.from('cem_enrollments')
@@ -103,7 +103,7 @@ async function init(){
   $('#tbInscripciones').innerHTML = ins?.length ? ins.map(e => `<tr class="clickable" onclick="location.href='estudiante.html?id=${e.cem_profiles ? '' : ''}'">
       <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
       <td class="wrap">${esc(e.cem_courses?.nombre||'')}</td>
-      <td>${chip(e.estado)}</td><td>${money(e.precio_final)}</td>
+      <td>${chipEstado(e.estado)}</td><td>${money(e.precio_final)}</td>
       <td class="muted">${fdate(e.fecha_inscripcion)}</td></tr>`).join('') : emptyRow(5);
 
   const { data: cohs } = await sb.from('cem_cohorts')
@@ -116,7 +116,7 @@ async function init(){
     return `<div class="list-item"><div class="grow">
       <div class="t">${esc(c.nombre)}</div>
       <div class="s">${esc(c.cem_courses?.nombre||'')} · ${n}/${c.cupos} inscritos</div>
-      <div style="margin-top:6px">${bar(occ)}</div></div>${chip(c.estado)}</div>`;
+      <div style="margin-top:6px">${bar(occ)}</div></div>${chipEstado(c.estado)}</div>`;
   }).join('') || '<p class="muted tiny">Sin cohortes activas.</p>';
 }
 </script>

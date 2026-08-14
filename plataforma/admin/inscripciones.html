@@ -99,7 +99,7 @@ function renderSolicitudes(){
   $('#tbSol').innerHTML = sols.map(s => `<tr>
     <td class="wrap">${esc((s.cem_profiles?.nombre||'')+' '+(s.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(s.cem_enrollments?.cem_courses?.nombre || '—')}</td>
-    <td>${chip(s.tipo)}${s.hasta ? `<div class="tiny muted">hasta ${fdate(s.hasta)}</div>` : ''}</td>
+    <td>${chipEstado(s.tipo)}${s.hasta ? `<div class="tiny muted">hasta ${fdate(s.hasta)}</div>` : ''}</td>
     <td class="wrap">${esc(s.motivo)}</td>
     <td class="muted">${fdate(s.created_at)}</td>
     <td style="white-space:nowrap">${editable ? `

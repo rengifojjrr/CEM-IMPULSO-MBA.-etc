@@ -87,7 +87,7 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, emptyRow, modal, ok, fail, run,
-         mensajeError, confirmDialog } from '../assets/app.js?v=2026-08-14';
+         mensajeError, confirmDialog, chipEstado} from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
 let tieneCertificados = false;
@@ -182,7 +182,7 @@ function pintarInscripciones(lista){
     <tbody>${lista.map(e => `<tr>
       <td class="wrap">${esc(e.cem_courses?.nombre || '—')}</td>
       <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
-      <td>${chip(e.estado)}</td>
+      <td>${chipEstado(e.estado)}</td>
       <td class="muted">${fdate(e.fecha_inscripcion)}</td>
       <td style="white-space:nowrap">${botonesDe(e)}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="empty">Todavía no tienes inscripciones.</div>';

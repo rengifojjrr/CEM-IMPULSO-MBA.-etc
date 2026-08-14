@@ -38,7 +38,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, run, qs, audit, modal, mensajeError } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, run, qs, audit, modal, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'calificar.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let subs=[], filtro='pend', sel=null;
@@ -99,7 +99,7 @@ function detalle(){
     <div class="row between">
       <div><h2 class="sec" style="margin:0 0 3px">${esc((pr?.nombre||'')+' '+(pr?.apellido||''))}</h2>
         <div class="tiny muted">${esc(pr?.email||'')} · ${esc(a?.nombre||'')} · intento ${s.intento}</div></div>
-      <div class="row">${chip(s.estado)}${s.tarde?chip('entrega tardía','err'):''}</div>
+      <div class="row">${chipEstado(s.estado)}${s.tarde?chip('entrega tardía','err'):''}</div>
     </div>
     <div class="tiny muted" style="margin-top:8px">${esc(a?.cem_courses?.nombre||'')} · entregado ${fdatetime(s.entregado_en)}</div>
 

@@ -40,7 +40,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog, chipEstado} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[];
@@ -78,7 +78,7 @@ function render(){
     <td class="wrap"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}</td>
     <td class="wrap">${esc(r.cem_courses?.nombre||'')}</td><td>${chip(r.tipo,'neutral')}</td>
     <td>${num(r._nq)}</td><td>${r.intentos||1}</td><td>${r.tiempo_min?r.tiempo_min+' min':'sin límite'}</td>
-    <td>${num(r._subs)}</td><td>${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chip(r.estado)}</td>
+    <td>${num(r._subs)}</td><td>${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chipEstado(r.estado)}</td>
     <td style="white-space:nowrap">
       <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar"><span class="material-symbols-outlined">edit</span></a>
       <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>

@@ -93,7 +93,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'],
                         active:'seguridad.html', area:'admin' });
@@ -241,7 +241,7 @@ async function pintarPersonal(){
     return `<tr>
       <td><b>${esc(g.nombre)} ${esc(g.apellido || '')}</b>
         <div class="tiny muted">${esc(g.email)}</div></td>
-      <td>${chip(g.rol)}</td>
+      <td>${chipEstado(g.rol)}</td>
       <td>${activo ? chip('activo','ok')
             : necesario ? chip('falta ponerlo','err')
             : chip('sin activar','neutral')}</td></tr>`;

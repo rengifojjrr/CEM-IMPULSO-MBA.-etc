@@ -38,7 +38,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog, opciones} from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['admin','superadmin','auditor'], active:'usuarios.html', area:'admin' });
 const puede = p && ['admin','superadmin'].includes(p.rol);
 let rows=[];
@@ -100,7 +100,7 @@ function form(u){
     <div class="field"><label>Correo</label><input value="${esc(u.email)}" disabled></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:160px"><label>Rol *</label><select id="uR">
-        ${['estudiante','profesor','coordinador','admin','auditor','superadmin'].map(v=>`<option ${u.rol===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['estudiante','profesor','coordinador','admin','auditor','superadmin'], u.rol)}</select></div>
       <div class="field" style="flex:1;min-width:140px"><label>Teléfono</label><input id="uT" value="${esc(u.telefono||'')}"></div>
     </div>
     <div class="row">
