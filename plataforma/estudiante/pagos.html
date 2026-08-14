@@ -53,12 +53,12 @@
   </div>
 
   <div class="card">
-    <h2 class="sec">Mis cuotas</h2>
+    <h2 class="sec">Mis cuotas <button type="button" class="ayuda-btn" data-ayuda="Cada cuota tiene su fecha límite. Al pagar, repórtalo aquí con su referencia: hasta que alguien lo verifique, la cuota sigue apareciendo como pendiente.">?</button></h2>
     <div id="cuotas"><p class="muted">Cargando…</p></div>
   </div>
 
   <div class="card">
-    <h2 class="sec">Pagos que he reportado</h2>
+    <h2 class="sec">Pagos que he reportado <button type="button" class="ayuda-btn" data-ayuda="«En revisión» quiere decir que llegó y está esperando que lo comprueben contra el banco. Si sale rechazado, el motivo aparece debajo y puedes volver a reportarlo corregido.">?</button></h2>
     <div class="table-wrap">
       <table id="tablaPagos"><thead><tr><th>Fecha</th><th>Referencia</th><th class="num">Monto</th><th>Estado</th><th>Comprobante</th><th>Recibo</th></tr></thead>
       <tbody id="tbPagos"></tbody></table>
@@ -378,7 +378,7 @@ async function descargarRecibo(paymentId){
         ? `<tr><td>Tasa aplicada</td><td class="num">${num(r.tasa)} Bs/US$</td></tr>` : ''}
     </tbody></table>
 
-    <div class="tot fuerte" style="margin-top:14px">
+    <div class="tot fuerte sep">
       <span>Monto recibido</span>
       <span>${money(r.monto, r.moneda)}</span></div>
     ${r.moneda !== 'USD' && r.monto_base

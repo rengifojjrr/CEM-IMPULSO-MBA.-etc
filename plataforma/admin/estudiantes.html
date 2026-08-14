@@ -209,13 +209,13 @@ $('#btnImportar').onclick = async () => {
       <span class="material-symbols-outlined">download</span> Descargar plantilla en blanco</button>
 
     <div class="row">
-      <div class="field" style="flex:2;min-width:220px"><label>Programa *</label>
+      <div class="field largo"><label>Programa *</label>
         <select id="impCurso" required>${(cursos||[]).map(c =>
           `<option value="${c.id}">${esc(c.nombre)} — ${money(c.precio, c.moneda||'USD')}</option>`).join('')
           || '<option value="">No hay programas publicados</option>'}</select></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Cohorte</label>
+      <div class="field medio"><label>Cohorte</label>
         <select id="impCohorte"><option value="">Sin cohorte</option></select></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Cuotas</label>
+      <div class="field corto"><label>Cuotas</label>
         <select id="impCuotas"><option value="1">1 (contado)</option><option value="3">3</option><option value="6">6</option></select></div>
     </div>
     <div class="field"><label>Archivo (.xlsx) *</label>
@@ -250,11 +250,11 @@ $('#btnImportar').onclick = async () => {
       filas = crudas.map(mapearFila).filter(f => Object.values(f).some(v => v));
     } catch {
       filas = [];
-      $('#impPrevia', m).innerHTML = '<div class="chip err" style="margin-top:10px">No pudimos leer ese archivo. ¿Es un .xlsx?</div>';
+      $('#impPrevia', m).innerHTML = '<div class="chip err sep">No pudimos leer ese archivo. ¿Es un .xlsx?</div>';
       return;
     }
     if (!filas.length) {
-      $('#impPrevia', m).innerHTML = '<div class="chip err" style="margin-top:10px">La planilla no trae filas con datos.</div>';
+      $('#impPrevia', m).innerHTML = '<div class="chip err sep">La planilla no trae filas con datos.</div>';
       $('#impIr', m).disabled = true;
       return;
     }
@@ -308,7 +308,7 @@ $('#btnImportar').onclick = async () => {
     btn.disabled = true;
     btn.textContent = revisado ? 'Importando…' : 'Revisando…';
     const r = await llamar(!revisado);
-    if (r.error) { $('#impMsg', m).innerHTML = `<div class="chip err" style="margin-top:10px">${esc(r.error)}</div>`;
+    if (r.error) { $('#impMsg', m).innerHTML = `<div class="chip err sep">${esc(r.error)}</div>`;
       btn.disabled = false; btn.textContent = revisado ? 'Importar de verdad' : 'Revisar planilla'; return; }
 
     pintarResultados(r);

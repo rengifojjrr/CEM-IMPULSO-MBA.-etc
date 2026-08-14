@@ -102,7 +102,7 @@
       <details class="sec-fold" open>
         <summary><span class="material-symbols-outlined">crop_free</span> Márgenes y estilo</summary>
         <div class="cuerpo">
-          <label class="tiny" style="font-weight:600">Márgenes (mm)</label>
+          <label class="tiny negrita">Márgenes (mm)</label>
           <div class="g4" style="margin:6px 0 12px">
             <div class="field mini"><label>Sup.</label><input type="number" id="mT" min="0" max="60"></div>
             <div class="field mini"><label>Der.</label><input type="number" id="mR" min="0" max="60"></div>
@@ -209,7 +209,7 @@
     <div>
       <div class="card">
         <div class="row between" style="margin-bottom:10px">
-          <h2 class="sec" style="margin:0">Vista previa</h2>
+          <h2 class="sec sin-margen">Vista previa</h2>
           <div class="row">
             <span class="tiny muted">Arrastra los elementos para colocarlos</span>
             <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir prueba</button>
@@ -227,7 +227,7 @@
 
       <div class="card">
         <div class="row between" style="margin-bottom:4px">
-          <h2 class="sec" style="margin:0">Certificados emitidos</h2>
+          <h2 class="sec sin-margen">Certificados emitidos</h2>
           <span class="tiny muted">Corrige uno si salió con datos equivocados</span>
         </div>
         <div class="table-wrap"><table>
@@ -476,11 +476,11 @@ function renderListaImg(){
   $('#listaImg').innerHTML = imagenes.length ? imagenes.map(im=>`
     <div class="lista-item ${sel?.tipo==='img'&&sel.id===im.id?'sel':''}" data-selimg="${im.id}">
       <img loading="lazy" decoding="async" class="mini-img" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.3">
-      <div class="grow" style="flex:1;min-width:0">
+      <div class="grow crece">
         <div class="tiny" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(im.nombre||'Imagen')}</div>
         <div class="tiny muted">${im.w}% · ${Math.round(im.op*100)}%</div>
       </div>
-    </div>`).join('') : '<p class="tiny muted" style="margin:0">Todavía no hay imágenes.</p>';
+    </div>`).join('') : '<p class="tiny muted sin-margen">Todavía no hay imágenes.</p>';
   $$('[data-selimg]').forEach(el=>el.onclick=()=>{ sel={tipo:'img',id:el.dataset.selimg}; dibujar(); });
 }
 
@@ -490,14 +490,14 @@ function renderListaBlk(){
       <span class="material-symbols-outlined" style="font-size:18px;color:var(--on-surface-variant)">
         ${b.visible?'visibility':'visibility_off'}</span>
       <div style="flex:1;min-width:0">
-        <div class="tiny" style="font-weight:600">${esc(b.etiqueta)}</div>
+        <div class="tiny negrita">${esc(b.etiqueta)}</div>
         <div class="tiny muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.texto.slice(0,42))}</div>
       </div>
     </div>`).join('');
   const qrFila = `<div class="lista-item ${sel?.tipo==='qr'?'sel':''}" data-selqr="1">
       <span class="material-symbols-outlined" style="font-size:18px;color:var(--on-surface-variant)">
         ${qrCfg.on?'qr_code_2':'visibility_off'}</span>
-      <div style="flex:1;min-width:0"><div class="tiny" style="font-weight:600">Código QR de verificación</div>
+      <div style="flex:1;min-width:0"><div class="tiny negrita">Código QR de verificación</div>
         <div class="tiny muted">${qrCfg.on?`${qrCfg.w}% · ${Math.round(qrCfg.op*100)}%`:'oculto'}</div></div>
     </div>`;
   $('#listaBlk').innerHTML = filas + qrFila;

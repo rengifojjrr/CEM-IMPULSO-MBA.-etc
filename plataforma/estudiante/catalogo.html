@@ -16,7 +16,7 @@
   <div class="pub-main">
     <div style="text-align:center;margin-bottom:26px">
       <h1 style="font-size:30px;margin:0 0 8px">¿Qué quieres aprender hoy?</h1>
-      <p class="muted" style="margin:0">Programas internacionales con certificación oficial de CEM.</p>
+      <p class="muted sin-margen">Programas internacionales con certificación oficial de CEM.</p>
       <div style="max-width:520px;margin:18px auto 0;position:relative">
         <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--on-surface-variant)">search</span>
         <input type="search" id="q" placeholder="Buscar por nombre, categoría o tema…" style="padding-left:40px;border-radius:24px">
@@ -80,7 +80,7 @@ function render(){
         </div>
         <h3>${esc(c.nombre)}</h3>
         <p class="tiny muted" style="margin:0;flex:1">${esc(c.descripcion_corta||'')}</p>
-        <div class="row between" style="margin-top:6px">
+        <div class="row between sep-poco">
           <span class="chip neutral">${esc(c.nivel)}</span>
           <span class="price">${money(c.precio, c.moneda)}</span>
         </div>

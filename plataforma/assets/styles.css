@@ -472,3 +472,31 @@ tr.marcada{background:color-mix(in srgb, var(--primary) 7%, transparent);}
 /* `.field` fija su propio display, así que gana al display:none que el
    navegador da a [hidden] y el campo escondido se seguía viendo. */
 [hidden]{display:none !important;}
+
+/* ═══════════ item 18 · las decisiones sueltas, en un solo sitio ═══════════
+   Había 660 `style="…"` repartidos por las pantallas. Cada uno es una decisión
+   tomada aparte: por eso dos tarjetas parecidas no se veían igual, y arreglar
+   el espaciado en un sitio no lo arreglaba en el resto. Estas clases cubren
+   los casos que más se repetían. */
+
+/* Anchos de campo dentro de una fila. Antes iban como flex:1;min-width:NNNpx
+   repetidos ciento y pico de veces, con diez anchos distintos que no
+   respondían a nada. Aquí son tres tamaños con nombre. */
+.field.corto{flex:1;min-width:110px;}
+.field.medio{flex:1;min-width:150px;}
+.field.largo{flex:2;min-width:220px;}
+
+/* Separación vertical: eran seis márgenes distintos donde bastan tres. */
+.sep-poco{margin-top:6px;}
+.sep{margin-top:12px;}
+.sep-mucho{margin-top:18px;}
+.sin-margen{margin:0;}
+
+/* Color de estado en un texto suelto. */
+.ok-text{color:var(--ok);}
+.aviso-text{color:var(--warn, var(--error));}
+
+/* Una celda o un botón que no debe partirse en dos líneas. */
+.nowrap{white-space:nowrap;}
+.negrita{font-weight:600;}
+.crece{flex:1;min-width:0;}

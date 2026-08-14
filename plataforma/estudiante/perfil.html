@@ -14,7 +14,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Mi perfil</h1>
+    <div><h1>Mi perfil <button type="button" class="ayuda-btn" data-ayuda="Tu nombre y tu documento salen impresos en los certificados tal como los escribas aquí. Si ya tienes alguno emitido, cambiarlos pasa antes por aprobación.">?</button></h1>
       <p>Tus datos personales. Lo que escribas acá es lo que aparece en tus certificados.</p></div>
   </div>
 
@@ -34,23 +34,23 @@
     <h2 class="sec">Datos personales</h2>
     <form id="fPerfil">
       <div class="row">
-        <div class="field" style="flex:1;min-width:160px"><label>Nombre</label>
+        <div class="field medio"><label>Nombre</label>
           <input id="nombre" required></div>
-        <div class="field" style="flex:1;min-width:160px"><label>Apellido</label>
+        <div class="field medio"><label>Apellido</label>
           <input id="apellido" required></div>
       </div>
       <div class="row">
-        <div class="field" style="flex:1;min-width:150px"><label>Tipo de documento</label>
+        <div class="field medio"><label>Tipo de documento</label>
           <select id="docTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
-        <div class="field" style="flex:1;min-width:150px"><label>Número de documento</label>
+        <div class="field medio"><label>Número de documento</label>
           <input id="documento"></div>
       </div>
       <div class="row">
-        <div class="field" style="flex:1;min-width:150px"><label>Teléfono</label>
+        <div class="field medio"><label>Teléfono</label>
           <input id="telefono" type="tel" placeholder="+58 412 1234567"></div>
-        <div class="field" style="flex:1;min-width:150px"><label>País</label>
+        <div class="field medio"><label>País</label>
           <input id="pais"></div>
-        <div class="field" style="flex:1;min-width:150px"><label>Ciudad</label>
+        <div class="field medio"><label>Ciudad</label>
           <input id="ciudad"></div>
       </div>
       <div class="field"><label>Correo</label>
@@ -155,9 +155,9 @@ $('#fPerfil').onsubmit = async (e) => {
     telefono: $('#telefono').value.trim(), pais: $('#pais').value.trim(),
     ciudad: $('#ciudad').value.trim(), motivo: $('#motivo').value.trim(),
   }});
-  if (error) { msg.innerHTML = `<div class="chip err" style="margin-top:10px">${esc(mensajeError(error))}</div>`; return; }
+  if (error) { msg.innerHTML = `<div class="chip err sep">${esc(mensajeError(error))}</div>`; return; }
   if (data?.requiere_aprobacion) {
-    msg.innerHTML = `<div class="chip warn" style="margin-top:10px">${esc(data.aviso)}</div>`;
+    msg.innerHTML = `<div class="chip warn sep">${esc(data.aviso)}</div>`;
   } else {
     ok('Datos guardados.');
   }
@@ -220,7 +220,7 @@ function pedirCambio(enrollmentId, tipo){
   $('[data-s]', m).onclick = async () => {
     const motivo = $('#solMotivo', m).value.trim();
     if (motivo.length < 10) {
-      $('#solMsg', m).innerHTML = '<div class="chip err" style="margin-top:8px">Escribe el motivo con una frase completa.</div>';
+      $('#solMsg', m).innerHTML = '<div class="chip err sep-poco">Escribe el motivo con una frase completa.</div>';
       return;
     }
     const { error } = await sb.rpc('cem_solicitar_cambio_inscripcion', {
@@ -228,7 +228,7 @@ function pedirCambio(enrollmentId, tipo){
       p_hasta: $('#solHasta', m)?.value || null,
     });
     if (error) {
-      $('#solMsg', m).innerHTML = `<div class="chip err" style="margin-top:8px">${esc(mensajeError(error))}</div>`;
+      $('#solMsg', m).innerHTML = `<div class="chip err sep-poco">${esc(mensajeError(error))}</div>`;
       return;
     }
     m.close();

@@ -27,17 +27,17 @@
     <div class="field"><label>Nombre de la evaluación *</label><input id="nombre" placeholder="Examen final del módulo 3" required></div>
     <div class="row">
       <div class="field" style="flex:2;min-width:200px"><label>Curso vinculado *</label><select id="curso" required></select></div>
-      <div class="field" style="flex:1;min-width:160px"><label>Módulo</label><select id="modulo"></select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Tipo</label><select id="tipo">
+      <div class="field medio"><label>Módulo</label><select id="modulo"></select></div>
+      <div class="field medio"><label>Tipo</label><select id="tipo">
         <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
         <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
     </div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:120px"><label>Puntaje máx.</label><input type="number" id="pmax" value="100"></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Tiempo (min)</label><input type="number" id="tiempo" value="45" placeholder="vacío = sin límite"></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Intentos</label><select id="intentos">
+      <div class="field corto"><label>Puntaje máx.</label><input type="number" id="pmax" value="100"></div>
+      <div class="field corto"><label>Tiempo (min)</label><input type="number" id="tiempo" value="45" placeholder="vacío = sin límite"></div>
+      <div class="field corto"><label>Intentos</label><select id="intentos">
         <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="99">Ilimitados</option></select></div>
-      <div class="field" style="flex:1;min-width:140px"><label>Nota aprobatoria</label><input type="number" id="napr" value="70"></div>
+      <div class="field medio"><label>Nota aprobatoria</label><input type="number" id="napr" value="70"></div>
     </div>
     <div class="field"><label>Descripción / instrucciones</label><textarea id="desc" style="min-height:70px"></textarea></div>
     <label class="check"><input type="checkbox" id="barajar"> Barajar preguntas aleatoriamente</label>
@@ -154,7 +154,7 @@ $('#btnPrev').onclick = () => {
       <div style="margin-top:8px">${(x.question.opciones||[]).map(o=>`
         <div style="padding:8px 11px;border:1px solid var(--outline-variant);border-radius:9px;margin-top:6px">${esc(o)}</div>`).join('')
         || '<textarea placeholder="Respuesta abierta" disabled></textarea>'}</div>
-      <div class="tiny muted" style="margin-top:6px">${x.puntaje} pts</div></div>`).join('') || '<p class="muted">Sin preguntas.</p>'}` });
+      <div class="tiny muted sep-poco">${x.puntaje} pts</div></div>`).join('') || '<p class="muted">Sin preguntas.</p>'}` });
 };
 
 async function guardar(estado){

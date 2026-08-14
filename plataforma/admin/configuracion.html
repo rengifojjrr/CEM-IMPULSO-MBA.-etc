@@ -14,7 +14,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Configuración académica</h1><p>Lo que vale para toda la plataforma: cómo se califica, cómo se llaman las cosas y qué se ve en el catálogo público.</p></div>
+    <div><h1>Configuración académica <button type="button" class="ayuda-btn" data-ayuda="Lo que se cambie aquí vale para toda la plataforma y de inmediato: la escala de calificación, las listas de categorías y turnos, y lo que se ve en el catálogo público.">?</button></h1><p>Lo que vale para toda la plataforma: cómo se califica, cómo se llaman las cosas y qué se ve en el catálogo público.</p></div>
     <div class="actions"><button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar cambios</button></div>
   </div>
 
@@ -23,9 +23,9 @@
       <h2 class="sec">Identidad institucional</h2>
       <div class="field"><label>Nombre de la institución</label><input id="insNombre"></div>
       <div class="row">
-        <div class="field" style="flex:1;min-width:120px"><label>Siglas</label><input id="insSiglas"></div>
-        <div class="field" style="flex:1;min-width:140px"><label>País</label><input id="insPais"></div>
-        <div class="field" style="flex:1;min-width:120px"><label>Moneda base</label>
+        <div class="field corto"><label>Siglas</label><input id="insSiglas"></div>
+        <div class="field medio"><label>País</label><input id="insPais"></div>
+        <div class="field corto"><label>Moneda base</label>
           <select id="insMoneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
       </div>
     </div>
@@ -33,9 +33,9 @@
     <div class="card">
       <h2 class="sec">Escala de calificación</h2>
       <div class="row">
-        <div class="field" style="flex:1;min-width:110px"><label>Nota mínima</label><input type="number" id="esMin"></div>
-        <div class="field" style="flex:1;min-width:110px"><label>Nota máxima</label><input type="number" id="esMax"></div>
-        <div class="field" style="flex:1;min-width:130px"><label>Nota aprobatoria</label><input type="number" id="esApr"></div>
+        <div class="field corto"><label>Nota mínima</label><input type="number" id="esMin"></div>
+        <div class="field corto"><label>Nota máxima</label><input type="number" id="esMax"></div>
+        <div class="field medio"><label>Nota aprobatoria</label><input type="number" id="esApr"></div>
       </div>
       <p class="tiny muted">Esta escala se aplica al calificar entregas y al emitir certificados.</p>
     </div>
@@ -44,8 +44,8 @@
       <h2 class="sec">Periodo académico activo</h2>
       <div class="field"><label>Nombre del periodo</label><input id="perNombre"></div>
       <div class="row">
-        <div class="field" style="flex:1;min-width:150px"><label>Inicio</label><input type="date" id="perIni"></div>
-        <div class="field" style="flex:1;min-width:150px"><label>Fin</label><input type="date" id="perFin"></div>
+        <div class="field medio"><label>Inicio</label><input type="date" id="perIni"></div>
+        <div class="field medio"><label>Fin</label><input type="date" id="perFin"></div>
       </div>
     </div>
 

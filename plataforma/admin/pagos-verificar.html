@@ -41,7 +41,7 @@
         <div class="tasa-actual" id="tasaActual">—</div>
         <div class="tiny muted" id="tasaOrigen"></div>
       </div>
-      <div class="field" style="margin:0"><label>Nueva tasa (Bs por dólar)
+      <div class="field sin-margen"><label>Nueva tasa (Bs por dólar)
         <button type="button" class="ayuda-btn" data-ayuda="Cuántos bolívares vale un dólar hoy. Sólo afecta a los pagos que se registren de aquí en adelante: los ya aprobados guardan la tasa con la que se convirtieron.">?</button></label>
         <input type="number" step="0.01" min="0.01" id="inpTasa" placeholder="Ej: 40,50"></div>
       <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar la tasa del día</button>
@@ -51,7 +51,7 @@
 
   <div class="card">
     <div class="row between"><h2 class="sec">Pagos reportados</h2>
-      <div class="field" style="margin:0"><select id="fEstado">
+      <div class="field sin-margen"><select id="fEstado">
         <option value="reportado">Por revisar</option>
         <option value="confirmado">Aprobados</option>
         <option value="rechazado">Rechazados</option>
@@ -217,7 +217,7 @@ async function verDetalle(x){
       <div><div class="tiny muted">Método</div><div class="t">${esc(x.metodo || '—')}</div></div>
       <div><div class="tiny muted">Fecha del pago</div><div class="t">${fdatetime(x.fecha)}</div></div>
     </div>
-    ${c ? `<div class="field" style="margin-top:12px"><label>Cuota</label>
+    ${c ? `<div class="field sep"><label>Cuota</label>
       <div>#${esc(String(c.numero ?? ''))} — debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')} de ${money(c.monto, c.moneda || 'USD')} (${esc(c.estado||'')})</div></div>` : ''}
     ${x.nota ? `<div class="field"><label>Nota</label><div class="tiny">${esc(x.nota)}</div></div>` : ''}
     <div class="field"><label>Comprobante</label><div id="dComp"><span class="tiny muted">Cargando…</span></div></div>

@@ -215,16 +215,16 @@ function ver(c){
     <div id="lienzo" style="border:8px double var(--tertiary-container);padding:30px;text-align:center;background:#fff">
       <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
       <h2 style="margin:12px 0 6px;color:var(--primary)">${esc(c.tipo==='diploma'?'Diploma':'Certificado')} de finalización</h2>
-      <p class="tiny muted" style="margin:0">Se otorga a</p>
+      <p class="tiny muted sin-margen">Se otorga a</p>
       <div style="font-size:25px;font-weight:700;margin:10px 0">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</div>
-      <p class="tiny muted" style="margin:0">por haber completado</p>
+      <p class="tiny muted sin-margen">por haber completado</p>
       <div style="font-size:16px;font-weight:600;margin:8px 0">${esc(c.titulo)}</div>
       <div class="row" style="justify-content:center;gap:24px;margin-top:20px;align-items:flex-end">
         <div>${qr.createImgTag(3,4)}<div class="tiny muted">Verificación</div></div>
         <div style="text-align:center"><div style="border-top:1px solid var(--outline);padding-top:6px;min-width:180px">
           ${esc(tpls.find(t=>t.id===c.template_id)?.firma_nombre||'Dirección Académica')}</div></div>
       </div>
-      <div class="tiny muted" style="margin-top:14px">Código: ${esc(c.codigo)} · ${fdate(c.emitido_en)}</div>
+      <div class="tiny muted sep">Código: ${esc(c.codigo)} · ${fdate(c.emitido_en)}</div>
     </div>`,
     footer:`<button class="btn outline" data-x2>Cerrar</button><button class="btn" data-pr">
       <span class="material-symbols-outlined">print</span> Imprimir / PDF</button>` });

@@ -67,7 +67,7 @@
           <button class="btn outline sm" id="btnRotar" style="color:var(--error)">
             <span class="material-symbols-outlined">key</span> Cambiar la clave</button>
         </div>
-        <p class="tiny muted" style="margin-top:8px">Cambia la clave sólo si crees que alguien
+        <p class="tiny muted sep-poco">Cambia la clave sólo si crees que alguien
           más la vio: hay que volver a dársela al banco o dejará de avisarnos.</p>
       </details>
       <div id="estadoRotacion"></div>
@@ -106,7 +106,7 @@
 
   <div class="card">
     <div class="row between"><h2 class="sec">Pagos notificados por el banco</h2>
-      <div class="field" style="margin:0"><select id="fEstado">
+      <div class="field sin-margen"><select id="fEstado">
         <option value="">Todos</option><option value="pendiente">Pendientes</option>
         <option value="conciliada">Conciliadas</option><option value="descartada">Descartadas</option></select></div></div>
     <div class="table-wrap">
@@ -195,7 +195,7 @@ $('#btnRotar').onclick = async () => {
     $('[data-s]', m).disabled = true;
     const { data: nueva, error } = await sb.rpc('cem_rotar_clave_webhook', { p_gracia_horas: GRACIA_HORAS });
     if (error) {
-      $('#rotMsg', m).innerHTML = `<div class="chip err" style="margin-top:10px">${esc(error.message)}</div>`;
+      $('#rotMsg', m).innerHTML = `<div class="chip err sep">${esc(error.message)}</div>`;
       $('[data-s]', m).disabled = false;
       return;
     }
@@ -241,10 +241,10 @@ $('#btnDiag').onclick = async () => {
 
     const noSuscritos = (r.servicios||[]).filter(s=>s.codigo==='900908').length;
     $('#diag').innerHTML = `${tok}
-      <div class="table-wrap" style="margin-top:12px"><table>
+      <div class="table-wrap sep"><table>
         <thead><tr><th>Servicio</th><th>Resultado</th><th>Mensaje del banco</th></tr></thead>
         <tbody>${filas || emptyRow(3, 'El banco todavía no ha enviado ninguna notificación.')}</tbody></table></div>
-      ${noSuscritos ? `<div class="chip warn" style="margin-top:12px">
+      ${noSuscritos ? `<div class="chip warn sep">
         ${noSuscritos} servicio(s) responden 900908: el token es válido pero nuestra aplicación
         no aparece suscrita a esas APIs en el API Manager. Es una habilitación que hace Bancaribe de su lado.</div>` : ''}`;
   } catch(e){ $('#diag').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
@@ -292,10 +292,10 @@ $('#btnVerificar').onclick = async () => {
     const d = r.datos;
     $('#resVerificar').innerHTML = `<div style="margin-top:12px">
       ${d?.success === true ? chip('El banco confirma la operación','ok') : chip('El banco no confirmó la operación','warn')}
-      ${d?.descripción||d?.descripcion ? `<div class="tiny muted" style="margin-top:6px">${esc(String(d.descripción||d.descripcion))}</div>`:''}
+      ${d?.descripción||d?.descripcion ? `<div class="tiny muted sep-poco">${esc(String(d.descripción||d.descripcion))}</div>`:''}
       <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta completa</summary>
       <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,2000)}</pre></details></div>`;
-  } catch(e){ $('#resVerificar').innerHTML = `<div class="chip err" style="margin-top:12px">${esc(e.message)}</div>`; }
+  } catch(e){ $('#resVerificar').innerHTML = `<div class="chip err sep">${esc(e.message)}</div>`; }
 };
 
 async function cargarNotifs(){
@@ -348,7 +348,7 @@ function verDetalle(n){
       <div><div class="s tiny muted">Tipo</div><div class="t">${esc(n.payment_type||'—')}</div></div>
       <div><div class="s tiny muted">Estado</div><div class="t">${chipEstado(n.estado)}</div></div>
     </div>
-    <div class="field" style="margin-top:14px"><label>Cuenta ordenante / beneficiaria</label>
+    <div class="field sep"><label>Cuenta ordenante / beneficiaria</label>
       <div class="dato-tec">${esc(n.debtor_account||'—')} → ${esc(n.creditor_account||'—')}</div></div>
     ${n.nota?`<div class="field"><label>Nota</label><div class="tiny">${esc(n.nota)}</div></div>`:''}
     <details><summary class="tiny muted">Ver el JSON exacto que envió el banco</summary>

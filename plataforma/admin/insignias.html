@@ -58,7 +58,7 @@ async function load(){
   ].join('');
 
   $('#lista').innerHTML = badges.length ? badges.map(b=>`
-    <div class="card" style="margin:0">
+    <div class="card sin-margen">
       <div class="row between" style="align-items:flex-start">
         <div class="bg-ico" style="background:${esc(b.color||'#c9a227')}22;color:${esc(b.color||'#c9a227')}">
           <span class="material-symbols-outlined">${esc(b.icono||'military_tech')}</span></div>
@@ -68,9 +68,9 @@ async function load(){
       <h3 style="margin:10px 0 3px;font-size:15px">${esc(b.nombre)}</h3>
       <div class="tiny muted">${esc(b.nivel||'')}</div>
       <p class="tiny muted" style="margin:8px 0 0">${esc(b.descripcion||'')}</p>
-      ${b.competencia?`<div class="tiny" style="margin-top:8px"><b>Competencia:</b> ${esc(b.competencia)}</div>`:''}
+      ${b.competencia?`<div class="tiny sep-poco"><b>Competencia:</b> ${esc(b.competencia)}</div>`:''}
       ${b.criterio?`<div class="tiny muted" style="margin-top:4px"><b>Criterio:</b> ${esc(b.criterio)}</div>`:''}
-      ${puede?`<div class="row" style="margin-top:12px">
+      ${puede?`<div class="row sep">
         <button class="btn outline sm" data-e="${b.id}"><span class="material-symbols-outlined">edit</span> Editar</button>
         <button class="btn ghost sm" data-t="${b.id}">${b.activo?'Desactivar':'Activar'}</button>
         <button class="btn ghost sm" data-d="${b.id}" style="color:var(--error)" title="Borrar la insignia"><span class="material-symbols-outlined">delete</span></button>
@@ -114,12 +114,12 @@ function form(b){
     <div class="row">
       <div class="field" style="flex:2;min-width:200px"><label>Competencia principal</label>
         <input id="bC" value="${esc(b?.competencia||'')}" placeholder="Modelado predictivo"></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Nivel</label>
+      <div class="field medio"><label>Nivel</label>
         <input id="bL" value="${esc(b?.nivel||'')}" placeholder="Nivel II"></div>
     </div>
     <div class="field"><label>Criterio de obtención</label><input id="bK" value="${esc(b?.criterio||'')}" placeholder="Aprobar el examen final con 90 o más"></div>
     <div class="field"><label>Icono</label><div class="row" id="icos">
-      ${ICONOS.map(i=>`<button type="button" class="chip chip-btn ${((b?.icono)||'military_tech')===i?'on':''}" data-i="${i}">
+      ${ICONOS.map(i=>`<button type="button" title="${i.replace(/_/g,' ')}" class="chip chip-btn ${((b?.icono)||'military_tech')===i?'on':''}" data-i="${i}">
         <span class="material-symbols-outlined">${i}</span></button>`).join('')}</div></div>
     <div class="field"><label>Color</label><input type="color" id="bColor" value="${esc(b?.color||'#c9a227')}" style="height:42px"></div>
     <label class="check"><input type="checkbox" id="bA" ${b? (b.activo?'checked':'') : 'checked'}> Insignia activa</label>`,

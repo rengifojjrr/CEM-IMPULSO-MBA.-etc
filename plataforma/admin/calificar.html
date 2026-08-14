@@ -21,7 +21,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Calificar entregas</h1><p id="sub">Revisa y califica las entregas de los estudiantes.</p></div>
+    <div><h1>Calificar entregas <button type="button" class="ayuda-btn" data-ayuda="Las de opción múltiple se corrigen solas; aquí llegan las que hay que leer. Al poner la nota, el estudiante la ve al instante y su avance se recalcula.">?</button></h1><p id="sub">Revisa y califica las entregas de los estudiantes.</p></div>
     <div class="actions">
       <div class="field" style="margin:0;min-width:220px"><select id="fAssess"><option value="">Todas las evaluaciones</option></select></div>
     </div>
@@ -101,20 +101,20 @@ function detalle(){
         <div class="tiny muted">${esc(pr?.email||'')} · ${esc(a?.nombre||'')} · intento ${s.intento}</div></div>
       <div class="row">${chipEstado(s.estado)}${s.tarde?chip('entrega tardía','err'):''}</div>
     </div>
-    <div class="tiny muted" style="margin-top:8px">${esc(a?.cem_courses?.nombre||'')} · entregado ${fdatetime(s.entregado_en)}</div>
+    <div class="tiny muted sep-poco">${esc(a?.cem_courses?.nombre||'')} · entregado ${fdatetime(s.entregado_en)}</div>
 
     ${Object.keys(resp).length? `<div class="card" style="background:var(--surface-container);box-shadow:none;margin-top:14px">
       <b class="tiny">Respuestas del estudiante</b>
       <div id="respWrap" style="margin-top:8px"></div></div>`
-      : '<p class="muted tiny" style="margin-top:14px">Esta entrega no tiene respuestas registradas (posible entrega de archivo).</p>'}
+      : '<p class="muted tiny sep">Esta entrega no tiene respuestas registradas (posible entrega de archivo).</p>'}
     ${s.archivo_url? `<a class="btn outline sm" href="${esc(s.archivo_url)}" target="_blank" style="margin-top:10px">
       <span class="material-symbols-outlined">attach_file</span> Ver archivo entregado</a>`:''}
 
     ${puede? `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--outline-variant)">
       <div class="row">
-        <div class="field" style="flex:1;min-width:150px"><label>Puntaje (máx. ${a?.puntaje_max||100}) *</label>
+        <div class="field medio"><label>Puntaje (máx. ${a?.puntaje_max||100}) *</label>
           <input type="number" id="gP" min="0" max="${a?.puntaje_max||100}" value="${s.puntaje??''}" required></div>
-        <div class="field" style="flex:1;min-width:150px"><label>Referencia</label>
+        <div class="field medio"><label>Referencia</label>
           <div class="tiny muted" style="padding-top:8px">Nota aprobatoria: <b>${a?.nota_aprobatoria||70}</b></div></div>
       </div>
       <div class="field"><label>Retroalimentación para el estudiante</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>
@@ -123,7 +123,7 @@ function detalle(){
         <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
         <button class="btn ghost" id="btnReabrir" style="color:var(--error)">
           <span class="material-symbols-outlined">undo</span> Devolver para corregir</button></div>
-    </div>` : (s.feedback? `<div class="card" style="margin-top:14px"><b class="tiny">Retroalimentación</b>
+    </div>` : (s.feedback? `<div class="card sep"><b class="tiny">Retroalimentación</b>
         <p class="tiny" style="margin:6px 0 0">${esc(s.feedback)}</p></div>` : '')}
   </div>`;
 
@@ -137,7 +137,7 @@ function detalle(){
         const objetiva = ['multiple','verdadero_falso'].includes(q.tipo);
         const correcta = objetiva && String(dada)===String(q.respuesta_correcta).replace(/^"|"$/g,'');
         return `<div style="padding:8px 0;border-bottom:1px solid var(--outline-variant)">
-          <div class="tiny" style="font-weight:600">${i+1}. ${esc(q.enunciado)}</div>
+          <div class="tiny negrita">${i+1}. ${esc(q.enunciado)}</div>
           <div class="tiny" style="margin-top:3px">Respuesta: <b>${esc(String(dada??'— sin responder'))}</b>
             ${objetiva? (correcta? '<span class="chip ok">correcta</span>'
               : `<span class="chip err">incorrecta</span> <span class="muted">esperada: ${esc(String(q.respuesta_correcta).replace(/^"|"$/g,''))}</span>`) : '<span class="chip info">abierta</span>'}</div>
@@ -172,11 +172,11 @@ function detalle(){
       $('[data-s]',m).onclick = async () => {
         const motivo = $('#rMotivo',m).value.trim();
         if (motivo.length < 10) {
-          $('#rMsg',m).innerHTML = '<div class="chip err" style="margin-top:8px">Escribe el motivo con una frase completa.</div>';
+          $('#rMsg',m).innerHTML = '<div class="chip err sep-poco">Escribe el motivo con una frase completa.</div>';
           return;
         }
         const { error } = await sb.rpc('cem_reabrir_entrega',{ p_submission_id:s.id, p_motivo:motivo });
-        if (error) { $('#rMsg',m).innerHTML = `<div class="chip err" style="margin-top:8px">${esc(mensajeError(error))}</div>`; return; }
+        if (error) { $('#rMsg',m).innerHTML = `<div class="chip err sep-poco">${esc(mensajeError(error))}</div>`; return; }
         m.close(); ok('Entrega devuelta. El estudiante ya recibió el aviso.'); await fetchSubs();
       };
     };

@@ -120,11 +120,11 @@ function renderEditor(){
         <button class="btn sm" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar</button></div></div>
     <div class="field"><label>Título de la lección</label><input id="lT" value="${esc(l.titulo)}"></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="lTipo">
+      <div class="field medio"><label>Tipo</label><select id="lTipo">
         ${opciones(['video','pdf','texto','enlace','quiz','tarea','en_vivo'], l.tipo)}</select></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Duración (min)</label><input type="number" id="lDur" value="${l.duracion_min||0}"></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Orden</label><input type="number" id="lOrd" value="${l.orden||0}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Estado</label><select id="lEstado">
+      <div class="field corto"><label>Duración (min)</label><input type="number" id="lDur" value="${l.duracion_min||0}"></div>
+      <div class="field corto"><label>Orden</label><input type="number" id="lOrd" value="${l.orden||0}"></div>
+      <div class="field medio"><label>Estado</label><select id="lEstado">
         ${opciones(['borrador','en_revision','publicado','archivado'], l.estado)}</select></div>
     </div>
     <div class="field"><label>Descripción breve</label><input id="lDesc" value="${esc(l.descripcion||'')}"></div>
@@ -254,12 +254,12 @@ function nuevaLeccion(moduleId){
   const dlg = modal({ title:`Nueva lección en ${mod.titulo}`, body:`
     <div class="field"><label>Título *</label><input id="nT" placeholder="1.1 Introducción" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="nTipo">
+      <div class="field medio"><label>Tipo</label><select id="nTipo">
         ${opciones(['video','pdf','texto','enlace','quiz','tarea','en_vivo'])}</select></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Duración (min)</label><input type="number" id="nDur" value="20"></div>
+      <div class="field corto"><label>Duración (min)</label><input type="number" id="nDur" value="20"></div>
     </div>
     <div class="field"><label>Material de la lección</label>${recurso.html}
-      <p class="tiny muted" style="margin-top:6px">También puedes crearla vacía y subir el material después.</p></div>`,
+      <p class="tiny muted sep-poco">También puedes crearla vacía y subir el material después.</p></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Crear</button>` });
   recurso.conectar(dlg);
   mejorarSelects(dlg);

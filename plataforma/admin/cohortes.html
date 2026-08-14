@@ -113,36 +113,36 @@ function form(c){
   const m = modal({ title: isNew?'Nueva cohorte':`Editar: ${c.nombre}`, wide:true, body:`
     <h3 class="sec">Qué grupo es</h3>
     <div class="row">
-      <div class="field" style="flex:2;min-width:220px"><label>Programa *</label><select id="cCurso" required>
+      <div class="field largo"><label>Programa *</label><select id="cCurso" required>
         ${cursos.map(x=>`<option value="${x.id}" ${c&&c.course_id===x.id?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Código *</label><input id="cCodigo" value="${esc(c?.codigo||'')}" required placeholder="CEM-DIP-009"></div>
+      <div class="field medio"><label>Código *</label><input id="cCodigo" value="${esc(c?.codigo||'')}" required placeholder="CEM-DIP-009"></div>
     </div>
     <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:110px"><label>Cupos <button type="button" class="ayuda-btn" data-ayuda="Cuánta gente cabe. No impide inscribir de más: sirve para ver la ocupación y saber cuándo cerrar el grupo.">?</button></label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
+      <div class="field corto"><label>Cupos <button type="button" class="ayuda-btn" data-ayuda="Cuánta gente cabe. No impide inscribir de más: sirve para ver la ocupación y saber cuándo cerrar el grupo.">?</button></label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
       <div class="field" style="flex:1;min-width:170px"><label>Estado</label><select id="cEstado">
         ${opciones(['planificada','inscripciones_abiertas','en_curso','finalizada','cancelada'], c?.estado)}</select></div>
     </div>
 
-    <h3 class="sec" style="margin-top:16px">Cuándo se da</h3>
+    <h3 class="sec sep-mucho">Cuándo se da</h3>
     <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label>Inicio</label><input type="date" id="cIni" value="${c?.fecha_inicio||''}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Fin</label><input type="date" id="cFin" value="${c?.fecha_fin||''}"></div>
+      <div class="field medio"><label>Inicio</label><input type="date" id="cIni" value="${c?.fecha_inicio||''}"></div>
+      <div class="field medio"><label>Fin</label><input type="date" id="cFin" value="${c?.fecha_fin||''}"></div>
     </div>
     <div class="field"><label>Horario</label><div id="cHorarioPicker"></div></div>
 
-    <h3 class="sec" style="margin-top:16px">Quién la dicta</h3>
+    <h3 class="sec sep-mucho">Quién la dicta</h3>
     <div class="field"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
       ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>
 
-    <details class="filtros-plegables" style="margin-top:14px">
+    <details class="filtros-plegables sep">
       <summary><span class="material-symbols-outlined">tune</span> Más opciones</summary>
       <div class="row">
-        <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="cMod">
+        <div class="field medio"><label>Modalidad</label><select id="cMod">
           ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
-        <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cTurno">
+        <div class="field medio"><label>Turno</label><select id="cTurno">
           ${turnos.map(t=>`<option value="${esc(t.nombre)}" ${c?.turno===t.nombre?'selected':''}>${esc(t.nombre)}</option>`).join('') || `<option value="${esc(c?.turno||'')}">${esc(c?.turno||'Sin turnos definidos')}</option>`}</select></div>
-        <div class="field" style="flex:1;min-width:150px"><label>Salón</label><input id="cSalon" value="${esc(c?.salon||'')}" placeholder="Aula 3 o el enlace de la sala"></div>
+        <div class="field medio"><label>Salón</label><input id="cSalon" value="${esc(c?.salon||'')}" placeholder="Aula 3 o el enlace de la sala"></div>
       </div>
     </details>`,
     footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar la cohorte</button>` });

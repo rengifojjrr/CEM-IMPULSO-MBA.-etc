@@ -149,15 +149,15 @@ function form(c, fecha){
       ${cohortes.map(x=>`<option value="${x.id}" ${c&&c.cohort_id===x.id?'selected':''}>${esc(x.nombre)} — ${esc(x.cem_courses?.nombre||'')}</option>`).join('')}</select></div>
     <div class="field"><label>Título *</label><input id="sTit" value="${esc(c?.titulo||'')}" placeholder="Sesión 1: Marco conceptual" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Fecha *</label><input type="date" id="sFecha" value="${c?.fecha||fecha||''}" required></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Inicio</label><input type="time" id="sIni" value="${(c?.hora_inicio||'18:30').slice(0,5)}"></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Fin</label><input type="time" id="sFin" value="${(c?.hora_fin||'20:30').slice(0,5)}"></div>
+      <div class="field medio"><label>Fecha *</label><input type="date" id="sFecha" value="${c?.fecha||fecha||''}" required></div>
+      <div class="field corto"><label>Inicio</label><input type="time" id="sIni" value="${(c?.hora_inicio||'18:30').slice(0,5)}"></div>
+      <div class="field corto"><label>Fin</label><input type="time" id="sFin" value="${(c?.hora_fin||'20:30').slice(0,5)}"></div>
     </div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="sMod">
+      <div class="field medio"><label>Modalidad</label><select id="sMod">
         ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Salón</label><input id="sSalon" value="${esc(c?.salon||'')}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Estado</label><select id="sEstado">
+      <div class="field medio"><label>Salón</label><input id="sSalon" value="${esc(c?.salon||'')}"></div>
+      <div class="field medio"><label>Estado</label><select id="sEstado">
         ${opciones(['programada','dictada','cancelada','reprogramada'], c?.estado)}</select></div>
     </div>
     <div class="field"><label>Profesor</label><select id="sProf"><option value="">Sin asignar</option>

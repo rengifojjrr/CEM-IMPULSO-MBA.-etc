@@ -101,7 +101,7 @@ function render({ cargando, mensaje, errorFlujo }){
             <div><div style="font-weight:600">Conectado${estado.channel_title ? ': ' + esc(estado.channel_title) : ''}</div>
               <div class="tiny muted">${estado.conectado_por ? 'Conectado por ' + esc(estado.conectado_por) : ''}${estado.conectado_en ? ' · ' + new Date(estado.conectado_en).toLocaleString('es-ES') : ''}</div></div>
           </div>
-          <p class="tiny muted" style="margin-top:12px">Si las subidas empiezan a fallar con un error de autorización, es probable que el acceso haya expirado (pasa cada 7 días mientras la app de Google esté en modo "prueba"). Sólo hace falta reconectar de nuevo, abajo.</p>
+          <p class="tiny muted sep">Si las subidas empiezan a fallar con un error de autorización, es probable que el acceso haya expirado (pasa cada 7 días mientras la app de Google esté en modo "prueba"). Sólo hace falta reconectar de nuevo, abajo.</p>
         ` : `<p class="muted">Todavía no hay ningún canal de YouTube conectado.</p>`}
       </div>
       <div class="card">

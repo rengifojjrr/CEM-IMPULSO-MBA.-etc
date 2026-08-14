@@ -52,7 +52,7 @@ function render(){
     // bloqueo por avance: si el recurso exige un módulo, se libera al superar 50% del curso
     const bloqueado = !!m.requiere_modulo && (progresoPorCurso[m.course_id]||0) < 50;
     const icon = m.tipo==='pdf'?'picture_as_pdf':m.tipo==='excel'?'table_chart':m.tipo==='video'?'play_circle':'link';
-    return `<div class="card" style="margin:0">
+    return `<div class="card sin-margen">
       <div class="row" style="gap:12px;align-items:flex-start">
         <span class="material-symbols-outlined" style="font-size:30px;color:var(--primary)">${icon}</span>
         <div style="flex:1;min-width:0">
@@ -60,7 +60,7 @@ function render(){
           <div class="tiny muted">${esc(m.cem_courses?.nombre||'')} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div>
           ${m.descripcion?`<div class="tiny muted" style="margin-top:4px">${esc(m.descripcion)}</div>`:''}
         </div></div>
-      <div class="row between" style="margin-top:12px">
+      <div class="row between sep">
         ${bloqueado ? `<span class="chip warn"><span class="material-symbols-outlined">lock</span> Requiere ${esc(m.requiere_modulo)}</span>`
           : `<span class="chip ok">Disponible</span>`}
         ${bloqueado ? '' : `<a class="btn outline sm" href="${esc(m.url||'#')}" target="_blank">

@@ -40,7 +40,7 @@ import { sb, $, esc, mensajeError, homeForRoot } from './assets/app.js?v=2026-08
 
 const msg = $('#msg'), sub = $('#sub'), form = $('#form');
 const aviso = (t, clase = 'err') =>
-  msg.innerHTML = `<div class="chip ${clase}" style="margin-top:12px">${esc(t)}</div>`;
+  msg.innerHTML = `<div class="chip ${clase} sep">${esc(t)}</div>`;
 
 /* El enlace del correo trae el token en el fragmento (#access_token=…) o como
    ?code=… según el tipo de flujo. La librería lo canjea sola al arrancar y

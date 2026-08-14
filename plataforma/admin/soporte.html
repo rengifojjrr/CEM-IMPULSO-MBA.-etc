@@ -25,7 +25,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Centro de soporte</h1><p>Gestiona y resuelve las consultas de estudiantes.</p></div>
+    <div><h1>Centro de soporte <button type="button" class="ayuda-btn" data-ayuda="Consultas que abren los estudiantes desde su panel. Lo que respondas aquí les llega como aviso y queda en el hilo.">?</button></h1><p>Gestiona y resuelve las consultas de estudiantes.</p></div>
     <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">add</span> Nuevo ticket</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -97,7 +97,7 @@ async function detalle(){
           · ${esc(t.cem_profiles?.email||'')}</div></div>
       <div class="row">${chipEstado(t.estado)}${chipEstado(t.prioridad)}${chip(t.categoria,'neutral')}</div>
     </div>
-    ${puede? `<div class="row" style="margin-top:12px">
+    ${puede? `<div class="row sep">
       <div class="field" style="margin:0;flex:1;min-width:140px"><label class="tiny">Estado</label><select id="sEstado">
         ${opciones(['abierto','en_proceso','esperando','resuelto','cerrado'], t.estado)}</select></div>
       <div class="field" style="margin:0;flex:1;min-width:140px"><label class="tiny">Prioridad</label><select id="sPrio">
@@ -151,9 +151,9 @@ $('#btnNuevo').onclick = async () => {
       ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>
     <div class="field"><label>Asunto *</label><input id="nA" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Categoría</label><select id="nC">
+      <div class="field medio"><label>Categoría</label><select id="nC">
         ${opciones(['acceso','contenido','pagos','certificados','general'])}</select></div>
-      <div class="field" style="flex:1;min-width:140px"><label>Prioridad</label><select id="nP">
+      <div class="field medio"><label>Prioridad</label><select id="nP">
         ${['baja','media','alta','urgente'].map(v=>`<option ${v==='media'?'selected':''}>${v}</option>`).join('')}</select></div>
     </div>
     <div class="field"><label>Descripción</label><textarea id="nD"></textarea></div>`,

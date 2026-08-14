@@ -42,7 +42,7 @@
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Estudiante o programa…"></div>
-      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option></select></div>
+      <div class="field"><label>Estado <button type="button" class="ayuda-btn" data-ayuda="El de la inscripción: activa si está estudiando, congelada si pidió pausa, cancelada si se retiró. Las cuotas tienen su propio estado, aparte.">?</button></label><select id="fEstado"><option value="">Todos</option></select></div>
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
     <div class="table-wrap"><table id="tabla" class="tarjetas"><thead id="th"></thead><tbody id="tb"></tbody></table></div>
@@ -127,7 +127,7 @@ function resolverSolicitud(id, aprobar){
   $('[data-s]', m).onclick = async () => {
     const resp = $('#solResp', m).value.trim();
     if (!aprobar && resp.length < 5) {
-      $('#solMsg', m).innerHTML = '<div class="chip err" style="margin-top:8px">Escribe el motivo: el estudiante lo va a leer.</div>';
+      $('#solMsg', m).innerHTML = '<div class="chip err sep-poco">Escribe el motivo: el estudiante lo va a leer.</div>';
       return;
     }
     const { error } = await sb.rpc('cem_resolver_solicitud_inscripcion', {
@@ -357,10 +357,10 @@ function pagar(i){
   const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
     <p class="tiny muted" style="margin:-4px 0 12px">
       Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda||'USD'))}</b></p>
-    <div class="row"><div class="field" style="flex:1;min-width:130px"><label>Monto *</label>
+    <div class="row"><div class="field medio"><label>Monto *</label>
       <input type="number" step="0.01" id="pMonto" value="${saldoCuota}" required>
       <div class="tiny" id="pAviso"></div></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Método</label>
+      <div class="field medio"><label>Método</label>
         <select id="pMetodo">${opciones(['transferencia','zelle','paypal','binance','efectivo','pago movil','tarjeta'])}</select></div></div>
     <div class="field"><label>Referencia ${ayuda('El número con el que el banco identifica la operación. Es lo que permite comprobarla después contra el extracto.')}</label>
       <input id="pRef" placeholder="Ej.: 004512873"></div>
@@ -415,9 +415,9 @@ $('#btnNueva').onclick = async () => {
     <div class="field"><label>Programa *</label><select id="nCurso" required>
       ${(cursos||[]).map(c=>`<option value="${c.id}" data-p="${c.precio}">${esc(c.nombre)}</option>`).join('')}</select></div>
     <div class="field"><label>Cohorte</label><select id="nCoh"></select></div>
-    <div class="row"><div class="field" style="flex:1;min-width:120px"><label>Cuotas</label>
+    <div class="row"><div class="field corto"><label>Cuotas</label>
       <select id="nCuotas"><option value="1">Pago único</option><option value="3" selected>3</option><option value="6">6</option></select></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Descuento</label><input type="number" step="0.01" id="nDesc" value="0"></div></div>`,
+      <div class="field corto"><label>Descuento</label><input type="number" step="0.01" id="nDesc" value="0"></div></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Crear inscripción</button>` });
   const fill=()=>{ const cid=$('#nCurso',m).value;
     $('#nCoh',m).innerHTML='<option value="">Sin cohorte</option>'+(cohs||[]).filter(c=>c.course_id===cid).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join(''); };

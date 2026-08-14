@@ -171,24 +171,24 @@ function editarEval(e){
     <div class="field"><label>Instrucciones para el estudiante</label>
       <textarea id="aDesc" rows="2">${esc(v.descripcion || '')}</textarea></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:130px"><label>Tipo</label>
+      <div class="field medio"><label>Tipo</label>
         <select id="aTipo">${['quiz','examen','practica','ensayo'].map(t =>
           `<option ${v.tipo === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Puntaje máximo</label>
+      <div class="field corto"><label>Puntaje máximo</label>
         <input type="number" id="aMax" value="${v.puntaje_max ?? 100}" min="1"></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Aprueba con</label>
+      <div class="field corto"><label>Aprueba con</label>
         <input type="number" id="aNota" value="${v.nota_aprobatoria ?? 60}" min="0"></div>
     </div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:120px"><label>Minutos (opcional)</label>
+      <div class="field corto"><label>Minutos (opcional)</label>
         <input type="number" id="aTiempo" value="${v.tiempo_min ?? ''}" min="1" placeholder="sin límite"></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Intentos</label>
+      <div class="field corto"><label>Intentos</label>
         <input type="number" id="aIntentos" value="${v.intentos ?? 1}" min="1" max="10"></div>
     </div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label>Abre el</label>
+      <div class="field medio"><label>Abre el</label>
         <input type="date" id="aAbre" value="${soloFecha(v.abre_en)}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Cierra el</label>
+      <div class="field medio"><label>Cierra el</label>
         <input type="date" id="aCierra" value="${soloFecha(v.cierra_en)}"></div>
     </div>
     <label class="row" style="gap:8px;align-items:center;margin-bottom:10px">
@@ -279,12 +279,12 @@ function agregarLeccion(moduleId){
   const m = modal({ title:`Agregar a "${mo?.titulo || ''}"`, body:`
     <div class="field"><label>Título *</label><input id="lTitulo" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:130px"><label>Tipo</label>
+      <div class="field medio"><label>Tipo</label>
         <select id="lTipo">
           <option value="video">Video</option><option value="pdf">Documento</option>
           <option value="texto">Texto</option><option value="enlace">Enlace</option>
           <option value="en_vivo">Sesión en vivo</option></select></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Duración (min)</label>
+      <div class="field corto"><label>Duración (min)</label>
         <input type="number" id="lDur" min="1" placeholder="opcional"></div>
     </div>
     <div class="field" id="campoUrl"><label>Enlace</label>
@@ -302,7 +302,7 @@ function agregarLeccion(moduleId){
     footer:`<button class="btn outline" data-x>Cancelar</button>
             <button class="btn" data-s>Agregar</button>` });
 
-  const aviso = (t, k='err') => $('#lMsg', m).innerHTML = `<div class="chip ${k}" style="margin-top:8px">${esc(t)}</div>`;
+  const aviso = (t, k='err') => $('#lMsg', m).innerHTML = `<div class="chip ${k} sep-poco">${esc(t)}</div>`;
 
   $('#lVideo', m).onclick = async () => {
     try {

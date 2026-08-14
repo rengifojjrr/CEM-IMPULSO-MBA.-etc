@@ -109,9 +109,9 @@ function form(r){
     <div class="field"><label>Título *</label><input id="aT" value="${esc(r?.titulo||'')}" required></div>
     <div class="field"><label>Mensaje</label><textarea id="aB" style="min-height:120px">${esc(r?.cuerpo||'')}</textarea></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label>Audiencia</label><select id="aA">
+      <div class="field medio"><label>Audiencia</label><select id="aA">
         ${opciones(['todos','estudiantes','profesores','administrativos'], r?.audiencia)}</select></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Canal</label><select id="aC">
+      <div class="field medio"><label>Canal</label><select id="aC">
         ${opciones(['plataforma','email','ambos'], r?.canal)}</select></div>
     </div>
     <div class="row">

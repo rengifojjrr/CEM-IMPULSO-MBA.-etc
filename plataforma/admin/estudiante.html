@@ -14,8 +14,6 @@
 <body>
 <div id="page" class="hidden">
   <div id="migas"></div>
-  <p class="tiny muted" style="margin:0 0 10px">Todo lo de esta persona en un sitio: en qué está inscrita,
-    cómo va, qué debe y qué certificados tiene. Desde aquí se le matricula en otro programa y se le registran pagos.</p>
   <div class="card" id="hero"></div>
   <div class="tabs" id="tabs">
     <button class="active" data-t="resumen">Resumen</button>
@@ -69,11 +67,13 @@ function hero(){
     <span class="avatar lg">${initials(stu.nombre,stu.apellido)}</span>
     <div class="grow" style="flex:1;min-width:220px">
       <h1 style="margin:0 0 4px;font-size:21px">${esc(stu.nombre)} ${esc(stu.apellido||'')}</h1>
+      <p class="tiny muted" style="margin:0 0 4px">Todo lo de esta persona en un sitio: en qué está inscrita,
+        cómo va, qué debe y qué certificados tiene. Desde aquí se le matricula y se le registran pagos.</p>
       <!-- item 23 · el correo salía repetido y sin servir para nada. Aquí, que
            es donde se usa para escribirle, se deja pulsable. -->
       <div class="tiny muted"><a href="mailto:${esc(stu.email)}">${esc(stu.email)}</a>
         · ${esc(stu.pais||'—')} ${stu.documento?'· '+esc(stu.documento_tipo||'Doc')+' '+esc(stu.documento):''}</div>
-      <div class="row" style="margin-top:8px">
+      <div class="row sep-poco">
         ${stu.activo?chip('activo','ok'):chip('inactivo','err')}
         <span class="chip info">${ens.length} inscripción(es)</span>
         <span class="chip ${prog>=80?'ok':prog<40?'err':'warn'}">Progreso ${pct(prog)}</span>
@@ -215,10 +215,10 @@ function registrarPago(i){
   const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
     <p class="tiny muted" style="margin:-4px 0 12px">
       Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda||'USD'))}</b></p>
-    <div class="row"><div class="field" style="flex:1;min-width:130px"><label>Monto *</label>
+    <div class="row"><div class="field medio"><label>Monto *</label>
       <input type="number" step="0.01" id="pMonto" value="${saldoCuota}" required>
       <div class="tiny" id="pAviso"></div></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Método</label>
+      <div class="field medio"><label>Método</label>
         <select id="pMetodo">${opciones(['transferencia','zelle','paypal','binance','efectivo','pago movil','tarjeta'])}</select></div></div>
     <div class="field"><label>Referencia</label>
       <input id="pRef" placeholder="Ej.: 004512873"></div>
@@ -261,9 +261,9 @@ async function matricular(){
     <div class="field"><label>Programa *</label><select id="mCurso" required>
       ${(cursos||[]).map(c=>`<option value="${c.id}" data-p="${c.precio}">${esc(c.nombre)}</option>`).join('')}</select></div>
     <div class="field"><label>Cohorte</label><select id="mCoh"></select></div>
-    <div class="row"><div class="field" style="flex:1;min-width:110px"><label>Cuotas</label>
+    <div class="row"><div class="field corto"><label>Cuotas</label>
       <select id="mCuotas"><option value="1">Pago único</option><option value="3" selected>3 cuotas</option><option value="6">6 cuotas</option></select></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Descuento</label><input type="number" step="0.01" id="mDesc" value="0"></div></div>`,
+      <div class="field corto"><label>Descuento</label><input type="number" step="0.01" id="mDesc" value="0"></div></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Matricular</button>` });
   const fillCoh = () => { const cid=$('#mCurso',m).value;
     $('#mCoh',m).innerHTML = '<option value="">Sin cohorte</option>' +

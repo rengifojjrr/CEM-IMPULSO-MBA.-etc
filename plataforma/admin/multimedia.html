@@ -93,13 +93,13 @@ function render(){
 
   if (vista==='grid'){
     $('#cont').innerHTML = `<div class="grid g3">${list.length? list.map(m=>`
-      <div class="card" style="margin:0">
+      <div class="card sin-margen">
         <div class="row between" style="align-items:flex-start">
           <span class="material-symbols-outlined" style="font-size:30px;color:var(--primary)">${ico(m.tipo)}</span>
           ${m.publico?chip('pública','ok'):chip('restringida','warn')}</div>
         <div style="font-weight:600;margin-top:8px">${esc(m.nombre)}</div>
         <div class="tiny muted">${esc(ubicacion(m))} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div>
-        <div class="row" style="margin-top:10px">
+        <div class="row sep">
           ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
           ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar el recurso" title="Editar / mover"><span class="material-symbols-outlined">edit</span></button>
           <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso"><span class="material-symbols-outlined">delete</span></button>`:''}
@@ -158,21 +158,21 @@ function form(m){
     <div class="field"><label>Descripción</label><input id="rD" value="${esc(m?.descripcion||'')}"></div>
     <div class="field"><label>Archivo del recurso *</label>${archivo.html}
       <div class="row" style="margin-top:8px;align-items:center;gap:10px">
-        <p class="tiny muted grow" style="margin:0">El formato y el tamaño se sacan del archivo: no hay que escribirlos.</p>
+        <p class="tiny muted grow sin-margen">El formato y el tamaño se sacan del archivo: no hay que escribirlos.</p>
         <button class="btn outline sm" id="btnSubirVideoYT" type="button">
           <span class="material-symbols-outlined">smart_display</span> Subir a YouTube</button>
       </div></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:130px"><label>Formato</label><select id="rT">
+      <div class="field medio"><label>Formato</label><select id="rT">
         ${opciones(['pdf','excel','video','imagen','enlace'], m?.tipo)}</select></div>
       <div class="field" style="flex:1;min-width:170px"><label>Tamaño</label>
         <input id="rS" readonly value="${m?.tamano_bytes ? ((Number(m.tamano_bytes))/1048576).toFixed(1)+' MB' : '—'}"></div>
     </div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:160px"><label>Curso asociado</label><select id="rC"><option value="">Sin curso</option>
+      <div class="field medio"><label>Curso asociado</label><select id="rC"><option value="">Sin curso</option>
         ${cursos.map(c=>`<option value="${c.id}" ${m?.course_id===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:160px"><label>Módulo (opcional)</label><select id="rM"><option value="">Todo el curso</option></select></div>
-      <div class="field" style="flex:1;min-width:160px"><label>Lección (opcional)</label><select id="rL"><option value="">Sin lección específica</option></select></div>
+      <div class="field medio"><label>Módulo (opcional)</label><select id="rM"><option value="">Todo el curso</option></select></div>
+      <div class="field medio"><label>Lección (opcional)</label><select id="rL"><option value="">Sin lección específica</option></select></div>
     </div>
     <p class="tiny muted" style="margin-top:-8px">Mueve o adjunta este recurso a un curso, módulo o lección específica; déjalos vacíos para que quede libre en la biblioteca.</p>
     <label class="check"><input type="checkbox" id="rP" ${m?.publico?'checked':''}> Visible para todos los estudiantes del curso</label>`,

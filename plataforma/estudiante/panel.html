@@ -33,7 +33,7 @@
       <tbody id="tbDesempeno"></tbody></table></div>
   </div>
 
-  <div class="grid g2" style="margin-top:16px">
+  <div class="grid g2 sep-mucho">
     <div class="card"><h2 class="sec">Mis evaluaciones</h2><div id="entregas"></div></div>
     <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
   </div>
@@ -86,7 +86,7 @@ async function init(){
       <div>No tienes clases programadas próximamente.</div></div>`;
 
   $('#cursos').innerHTML = (ens||[]).length ? ens.map(e=>`
-    <div class="card" style="margin:0">
+    <div class="card sin-margen">
       <div class="row between" style="align-items:flex-start">
         <div style="flex:1;min-width:0">
           <span class="chip teal">${esc(e.cem_courses?.modalidad?.replace('_',' ')||'')}</span>
@@ -98,7 +98,7 @@ async function init(){
         <div class="row between tiny muted"><span>Progreso general</span><b>${pct(e.progreso)}</b></div>
         ${bar(e.progreso)}
       </div>
-      <div class="row" style="margin-top:12px">
+      <div class="row sep">
         <a class="btn sm" href="clase.html?curso=${e.cem_courses?.id}">Continuar</a>
         <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>
       </div>

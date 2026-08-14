@@ -47,17 +47,17 @@
     <div class="sub">Regístrate como estudiante para inscribirte en nuestros programas.</div>
     <form id="formReg">
       <div class="row">
-        <div class="field" style="flex:1;min-width:130px"><label>Nombre</label><input type="text" id="rNombre" required></div>
-        <div class="field" style="flex:1;min-width:130px"><label>Apellido</label><input type="text" id="rApellido" required></div>
+        <div class="field medio"><label>Nombre</label><input type="text" id="rNombre" required></div>
+        <div class="field medio"><label>Apellido</label><input type="text" id="rApellido" required></div>
       </div>
       <div class="row">
-        <div class="field" style="flex:1;min-width:130px"><label>Tipo de documento</label>
+        <div class="field medio"><label>Tipo de documento</label>
           <select id="rDocTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
-        <div class="field" style="flex:1;min-width:130px"><label>Número</label><input type="text" id="rDoc" required></div>
+        <div class="field medio"><label>Número</label><input type="text" id="rDoc" required></div>
       </div>
       <div class="row">
-        <div class="field" style="flex:1;min-width:130px"><label>Teléfono</label><input type="tel" id="rTel" placeholder="+58 412 1234567"></div>
-        <div class="field" style="flex:1;min-width:130px"><label>País</label><input type="text" id="rPais"></div>
+        <div class="field medio"><label>Teléfono</label><input type="tel" id="rTel" placeholder="+58 412 1234567"></div>
+        <div class="field medio"><label>País</label><input type="text" id="rPais"></div>
       </div>
       <div class="field"><label>Correo</label><input type="email" id="rEmail" required autocomplete="username"></div>
       <div class="field"><label>Contraseña</label><input type="password" id="rPass" required minlength="6" autocomplete="new-password"></div>
@@ -111,7 +111,7 @@ function destinoSeguro() {
 
 // Cuando llega rebotado por vencimiento, se dice por qué en vez de dejarlo adivinando.
 if (qs('motivo') === 'vencida') {
-  loginMsg.innerHTML = '<div class="chip warn" style="margin-top:10px">Tu sesión venció por inactividad. Vuelve a entrar y seguimos donde ibas.</div>';
+  loginMsg.innerHTML = '<div class="chip warn sep">Tu sesión venció por inactividad. Vuelve a entrar y seguimos donde ibas.</div>';
 }
 
 const tarjetas = ['cardLogin', 'cardReg', 'cardOlvide'];
@@ -139,7 +139,7 @@ $('#formOlvide').onsubmit = async (e) => {
   olvideMsg.innerHTML = '';
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) {
-    olvideMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Revisa la dirección: no parece un correo válido.</div>';
+    olvideMsg.innerHTML = '<div class="chip err sep">Revisa la dirección: no parece un correo válido.</div>';
     return;
   }
 
@@ -149,12 +149,12 @@ $('#formOlvide').onsubmit = async (e) => {
   btn.disabled = false;
 
   if (error && /invalid|not valid/i.test(error.message) && /email/i.test(error.message)) {
-    olvideMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Esa dirección no puede recibir correo. Revísala o escríbenos por otro medio.</div>';
+    olvideMsg.innerHTML = '<div class="chip err sep">Esa dirección no puede recibir correo. Revísala o escríbenos por otro medio.</div>';
     return;
   }
   // Cualquier otro tropiezo (límite de envíos, caída momentánea) se responde
   // igual que el caso bueno: no hay forma de sondear quién tiene cuenta.
-  olvideMsg.innerHTML = `<div class="chip ok" style="margin-top:10px">
+  olvideMsg.innerHTML = `<div class="chip ok sep">
     Si <b>${esc(correo)}</b> tiene una cuenta, ya salió el enlace. Revisa también la carpeta de correo no deseado.</div>`;
 };
 
@@ -166,7 +166,7 @@ $('#formLogin').onsubmit = async (e) => {
   e.preventDefault();
   loginMsg.innerHTML = '';
   const { error } = await sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#pass').value });
-  if (error) { loginMsg.innerHTML = `<div class="chip err" style="margin-top:10px">${esc(error.message)}</div>`; return; }
+  if (error) { loginMsg.innerHTML = `<div class="chip err sep">${esc(error.message)}</div>`; return; }
   const p = await (async () => {
     const { data } = await sb.rpc('cem_my_profile');
     const row = Array.isArray(data) ? data[0] : data;
@@ -175,8 +175,8 @@ $('#formLogin').onsubmit = async (e) => {
     // no null), así que hay que comprobar el id, no sólo si "hay algo".
     return (row && row.id) ? row : null;
   })();
-  if (!p) { loginMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Tu usuario no tiene perfil asignado.</div>'; await sb.auth.signOut(); return; }
-  if (!p.activo) { loginMsg.innerHTML = '<div class="chip err" style="margin-top:10px">Cuenta desactivada.</div>'; await sb.auth.signOut(); return; }
+  if (!p) { loginMsg.innerHTML = '<div class="chip err sep">Tu usuario no tiene perfil asignado.</div>'; await sb.auth.signOut(); return; }
+  if (!p.activo) { loginMsg.innerHTML = '<div class="chip err sep">Cuenta desactivada.</div>'; await sb.auth.signOut(); return; }
   location.href = destinoSeguro() || homeForRoot(p.rol);
 };
 
@@ -191,9 +191,9 @@ $('#formReg').onsubmit = async (e) => {
       telefono: $('#rTel').value.trim(), pais: $('#rPais').value.trim(),
     }},
   });
-  if (error) { regMsg.innerHTML = `<div class="chip err" style="margin-top:10px">${esc(error.message)}</div>`; return; }
+  if (error) { regMsg.innerHTML = `<div class="chip err sep">${esc(error.message)}</div>`; return; }
   $('#formReg').reset();
-  regMsg.innerHTML = '<div class="chip ok" style="margin-top:10px">Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.</div>';
+  regMsg.innerHTML = '<div class="chip ok sep">Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.</div>';
 };
 </script>
 </body>

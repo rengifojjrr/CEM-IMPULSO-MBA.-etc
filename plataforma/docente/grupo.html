@@ -143,7 +143,7 @@ function render(){
       <td>${x.promedio == null ? '<span class="muted">—</span>'
             : `<b style="color:${Number(x.promedio) < 60 ? 'var(--error)' : 'inherit'}">${x.promedio}</b>`}</td>
       <td>${num(x.entregas_hechas)} de ${num(x.entregas_esperadas)}
-        ${Number(x.entregas_tarde) ? `<div class="tiny" style="color:var(--error)">${x.entregas_tarde} tarde</div>` : ''}</td>
+        ${Number(x.entregas_tarde) ? `<div class="tiny err-text">${x.entregas_tarde} tarde</div>` : ''}</td>
       <td>${x.asistencia_pct == null ? '<span class="muted">—</span>' : pct(x.asistencia_pct)}</td>
       <td class="muted">${x.ultimo_acceso ? fdate(x.ultimo_acceso) : 'nunca'}</td>
       <td><span class="chip ${kind}">${esc(txt)}</span></td></tr>`;

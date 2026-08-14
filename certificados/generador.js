@@ -997,6 +997,35 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
      recargar, todo volvía a como estaba: la plantilla a su carpeta vieja y la
      carpeta nueva, borrada. */
 
+  /* ============ preguntar antes de borrar (item 37) ============
+     Los borrados del generador usaban el confirm() del navegador: una caja
+     gris del sistema, con el título de la página encima y sin sitio para
+     explicar bien qué se pierde. Este pregunta con la misma pinta que el
+     resto del generador y deja destacar lo que no tiene vuelta atrás. */
+  function preguntar({ titulo, cuerpo, aceptar = 'Sí, continuar', peligro = false }){
+    return new Promise((resolver) => {
+      const fondo = document.createElement('div');
+      fondo.className = 'modal-fondo';
+      fondo.innerHTML = `<div class="modal-caja" style="max-width:520px">
+        <div class="modal-cab"><b>${escapeHtml(titulo)}</b></div>
+        <div class="modal-cuerpo">
+          <div style="line-height:1.6">${cuerpo}</div>
+          <div class="row" style="margin-top:16px;justify-content:flex-end">
+            <button class="btn outline small" data-no>Cancelar</button>
+            <button class="btn ${peligro ? 'danger' : 'teal'} small" data-si>${escapeHtml(aceptar)}</button>
+          </div>
+        </div></div>`;
+      document.body.appendChild(fondo);
+      const cerrar = (r) => { fondo.remove(); document.removeEventListener('keydown', porTecla); resolver(r); };
+      const porTecla = (e) => { if (e.key === 'Escape') cerrar(false); };
+      fondo.querySelector('[data-no]').onclick = () => cerrar(false);
+      fondo.querySelector('[data-si]').onclick = () => cerrar(true);
+      fondo.addEventListener('click', (e) => { if (e.target === fondo) cerrar(false); });
+      document.addEventListener('keydown', porTecla);
+      fondo.querySelector('[data-si]').focus();
+    });
+  }
+
   /** Avisa arriba del tablero mientras se guarda, y cuando termina. */
   function avisoCarpetas(texto, error){
     const el = document.getElementById('carpetasMsg');
@@ -1076,7 +1105,15 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       return;
     }
     const nombres = indices.slice().sort((a, b) => a - b).map(i => templatesFull[i].nombre);
-    if(!confirm(`¿Eliminar estas ${indices.length} plantilla(s)? Esto SÍ las borra por completo, no se puede deshacer:\n\n${nombres.join('\n')}`)) return;
+    if(!await preguntar({
+      titulo: `Eliminar ${indices.length} diseño(s)`,
+      peligro: true,
+      aceptar: `Sí, eliminar ${indices.length}`,
+      cuerpo: `<p>Se borran por completo y <b>no se pueden recuperar</b>. Los certificados
+        ya emitidos con ellos siguen valiendo; lo que se pierde es el diseño.</p>
+        <ul style="margin:8px 0 0;padding-left:18px">${nombres.map(n =>
+          `<li>${escapeHtml(n)}</li>`).join('')}</ul>`,
+    })) return;
 
     const configAbierta = templatesFull[currentIdx]?.config;   // referencia, no índice: puede quedar invalidada
     for(const idx of indices){
@@ -1220,14 +1257,20 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       renderCarpetasBoard();
       guardarCambioDeCarpetas([], `la subcarpeta "${limpio}"`);
     }));
-    wrap.querySelectorAll('[data-carpeta-renombrar]').forEach(btn => btn.addEventListener('click', e => {
+    wrap.querySelectorAll('[data-carpeta-renombrar]').forEach(btn => btn.addEventListener('click', async e => {
       e.stopPropagation();   // que no dispare también el plegado de la cabecera
       const actual = btn.dataset.carpetaRenombrar;
       const nuevo = prompt(`Nuevo nombre o ruta para "${actual}" (escribe algo con / para moverla a otro lugar del árbol):`, actual);
       if(nuevo === null) return;
       const limpio = normalizarRutaCarpeta(nuevo);
       if(!limpio || limpio === actual) return;
-      if(carpetasExistentes().includes(limpio) && !confirm(`Ya existe una carpeta "${limpio}". ¿Fusionar "${actual}" con ella (junto con sus subcarpetas, si tiene)?`)) return;
+      if(carpetasExistentes().includes(limpio) && !await preguntar({
+        titulo: 'Ya existe una carpeta con ese nombre',
+        aceptar: 'Sí, fusionarlas',
+        cuerpo: `<p>Ya hay una carpeta «<b>${escapeHtml(limpio)}</b>». Si sigues, todo lo que
+          hay en «${escapeHtml(actual)}» —incluidas sus subcarpetas— pasa a vivir dentro de ella.</p>
+          <p>Ningún diseño se borra: sólo cambian de sitio.</p>`,
+      })) return;
       // Sólo se guardan las que de verdad cambian de ruta, no las 27.
       const tocadas = [];
       templatesFull.forEach((t, i) => {
@@ -1240,7 +1283,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       renderCarpetasBoard(); renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
       guardarCambioDeCarpetas(tocadas, `el nuevo nombre de "${limpio}"`);
     }));
-    wrap.querySelectorAll('[data-carpeta-eliminar]').forEach(btn => btn.addEventListener('click', e => {
+    wrap.querySelectorAll('[data-carpeta-eliminar]').forEach(btn => btn.addEventListener('click', async e => {
       e.stopPropagation();
       const nombre = btn.dataset.carpetaEliminar;
       const enSubarbol = templatesFull.filter(t => {
@@ -1253,7 +1296,12 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
         : tieneSubcarpetas
           ? `¿Eliminar la carpeta vacía "${nombre}"? Sus subcarpetas suben un nivel.`
           : `¿Eliminar la carpeta vacía "${nombre}"?`;
-      if(!confirm(aviso)) return;
+      if(!await preguntar({
+        titulo: `Eliminar la carpeta «${nombre}»`,
+        peligro: true,
+        aceptar: 'Sí, eliminar la carpeta',
+        cuerpo: `<p>${escapeHtml(aviso).replace(/^¿[^?]*\? ?/, '')}</p>`,
+      })) return;
       const tocadas = [];
       templatesFull.forEach((t, i) => {
         const antes = normalizarRutaCarpeta(t.config.carpeta);
@@ -1474,7 +1522,13 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
 
   document.getElementById('btnEliminarPlantilla').addEventListener('click', async () => {
     if(templatesFull.length <= 1){ alert('Debe quedar al menos una plantilla.'); return; }
-    if(!confirm(`¿Eliminar la plantilla "${templatesFull[currentIdx].nombre}"?`)) return;
+    if(!await preguntar({
+      titulo: 'Eliminar este diseño',
+      peligro: true,
+      aceptar: 'Sí, eliminarlo',
+      cuerpo: `<p>Se borra «<b>${escapeHtml(templatesFull[currentIdx].nombre)}</b>» por completo y
+        <b>no se puede recuperar</b>. Los certificados ya emitidos con él siguen valiendo.</p>`,
+    })) return;
     const t = templatesFull[currentIdx];
     if(t.id) await supabase.rpc('delete_cert_template', { p_id: t.id });
     reindexTemplateIdxAfterDelete(currentIdx);
@@ -1552,7 +1606,15 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const destinos = templatesFull.map((t, i) => ({ t, i })).filter(x => (x.t.config.carpeta || '').trim() === carpetaDestino);
     if(!destinos.length){ alert('Esa carpeta todavía no tiene ninguna plantilla.'); return; }
     const nombreCarpeta = carpetaDestino || 'Sin carpeta';
-    if(!confirm(`Se reemplazarán los campos de las ${destinos.length} plantilla(s) de «${nombreCarpeta}» por los de «${origen.nombre}», y se guardan de una vez.\n\nEl fondo de cada certificado no se toca. ¿Continuar?`)) return;
+    if(!await preguntar({
+      titulo: `Copiar el diseño a ${destinos.length} plantilla(s)`,
+      peligro: true,
+      aceptar: `Sí, copiar a las ${destinos.length}`,
+      cuerpo: `<p>Los campos de las ${destinos.length} plantilla(s) de «<b>${escapeHtml(nombreCarpeta)}</b>»
+        se <b>reemplazan</b> por los de «<b>${escapeHtml(origen.nombre)}</b>» y se guardan de una vez.
+        Lo que tuvieran ahora se pierde.</p>
+        <p>El fondo de cada certificado no se toca.</p>`,
+    })) return;
 
     // Los "valores fijos" (overrides) son aparte del diseño de los campos: p.ej. una
     // Fecha puesta a mano SOLO para esa plantilla, sin tocar el Excel. Como es algo
@@ -1563,11 +1625,14 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const detalleFijos = nFijosOrigen
       ? ` Tiene ${nFijosOrigen}: ${Object.entries(fijosOrigen).map(([k, v]) => `${k}=${v}`).join(', ')}.`
       : ' No tiene ninguno puesto.';
-    const copiarFijos = confirm(
-      `¿También quieres copiar los valores fijos de «${origen.nombre}» a las demás plantillas de «${nombreCarpeta}»?${detalleFijos}\n\n` +
-      `Aceptar: se reemplazan los valores fijos que ya tuviera cada plantilla, por los de «${origen.nombre}».\n` +
-      `Cancelar: cada plantilla conserva sus propios valores fijos; solo se copia el diseño de los campos.`
-    );
+    const copiarFijos = await preguntar({
+      titulo: 'Copiar también los valores fijos',
+      aceptar: 'Sí, copiarlos también',
+      cuerpo: `<p>Los valores fijos son los datos puestos a mano en una plantilla —por ejemplo una
+        Fecha— sin tocar el Excel.${escapeHtml(detalleFijos)}</p>
+        <p><b>Sí</b>: cada plantilla de «${escapeHtml(nombreCarpeta)}» pierde los suyos y toma los de
+        «${escapeHtml(origen.nombre)}». <b>Cancelar</b>: cada una conserva los que ya tenía.</p>`,
+    });
 
     const btn = document.getElementById('btnCopiarEstiloMasivo');
     btn.disabled = true;
@@ -1595,7 +1660,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     setTimeout(() => { if(el.textContent.startsWith('Copiado y guardado')) el.textContent = ''; }, 14000);
   });
 
-  document.getElementById('btnCopiarEstilo').addEventListener('click', () => {
+  document.getElementById('btnCopiarEstilo').addEventListener('click', async () => {
     const sel = document.getElementById('selCopiarEstilo');
     const origen = templatesFull[Number(sel.value)];
     if(!origen){ alert('Elige la plantilla de la que quieres copiar.'); return; }
@@ -1606,7 +1671,12 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       ? `Se reemplazarán los ${actuales.length} campo(s) de esta plantilla por los ${nuevos.length} de «${origen.nombre}».\n\n` +
         `El fondo de este certificado no se toca.\n¿Continuar?`
       : `Se copiarán los ${nuevos.length} campo(s) de «${origen.nombre}». ¿Continuar?`;
-    if(!confirm(aviso)) return;
+    if(!await preguntar({
+      titulo: 'Copiar el diseño de otra plantilla',
+      peligro: actuales.length > 0,
+      aceptar: 'Sí, copiarlo',
+      cuerpo: `<p>${escapeHtml(aviso).split('\n')[0]}</p><p>El fondo de este certificado no se toca.</p>`,
+    })) return;
 
     // copia profunda: cada plantilla debe quedar con sus propios objetos,
     // si no, mover un campo aquí movería también el de la plantilla original
@@ -1759,10 +1829,15 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     renderGuias();
   });
 
-  document.getElementById('btnLimpiarGuias').addEventListener('click', () => {
+  document.getElementById('btnLimpiarGuias').addEventListener('click', async () => {
     const g = guiasDe();
     if(!g.v.length && !g.h.length) return;
-    if(!confirm(`¿Quitar las ${g.v.length + g.h.length} guías de esta plantilla?`)) return;
+    if(!await preguntar({
+      titulo: 'Quitar las guías',
+      aceptar: `Sí, quitar las ${g.v.length + g.h.length}`,
+      cuerpo: `<p>Se borran las ${g.v.length + g.h.length} guías de esta plantilla. Los campos
+        se quedan donde están: sólo desaparecen las líneas a las que se pegaban.</p>`,
+    })) return;
     g.v = []; g.h = [];
     guiaSel = null;
     renderGuias();
@@ -2036,7 +2111,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
    * pulsar una, y si no el campo resaltado. Sólo actúa si el foco no está en un
    * cuadro de texto, para no borrar nada mientras se escribe un nombre.
    */
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', async e => {
     if(e.key !== 'Delete' && e.key !== 'Backspace' && e.key !== 'Escape') return;
     const a = document.activeElement;
     if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
@@ -2058,7 +2133,13 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const f = config.fields[campoSel];
     if(!f) return;
     e.preventDefault();
-    if(!confirm(`¿Quitar el campo «${f.nombre || 'sin nombre'}» de esta plantilla?`)) return;
+    if(!await preguntar({
+      titulo: 'Quitar este campo',
+      peligro: true,
+      aceptar: 'Sí, quitarlo',
+      cuerpo: `<p>Se quita «<b>${escapeHtml(f.nombre || 'sin nombre')}</b>» de esta plantilla, con
+        su posición, sus márgenes y su tipografía. Habría que volver a colocarlo a mano.</p>`,
+    })) return;
     config.fields.splice(campoSel, 1);
     campoSel = null;
     renderChips(); renderFieldSettings();
@@ -2266,10 +2347,15 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
         e.preventDefault();
         document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
       });
-      cont.addEventListener('dblclick', e => {
+      cont.addEventListener('dblclick', async e => {
         const chip = e.target.closest('.var-chip');
         if(!chip || !cont.contains(chip)) return;
-        if(!confirm(`¿Quitar la variable «${chip.dataset.var}» del texto?`)) return;
+        if(!await preguntar({
+          titulo: 'Quitar la variable',
+          aceptar: 'Sí, quitarla',
+          cuerpo: `<p>Se quita «<b>${escapeHtml(chip.dataset.var)}</b>» de este texto. El resto
+            del texto se queda tal cual.</p>`,
+        })) return;
         chip.remove();
         const i = Number(cont.dataset.plantillaEditor);
         config.fields[i].plantillaTexto = leerPlantillaEditorHtml(cont);
@@ -3066,7 +3152,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   }
 
   /** Inserta una "chip" de variable en el punto donde estaba el cursor (o al final si no había) y guarda. */
-  function insertarVariableEnPlantilla(i, nombreVar){
+  async function insertarVariableEnPlantilla(i, nombreVar){
     const cont = document.querySelector(`[data-plantilla-editor="${i}"]`);
     if(!cont || !nombreVar) return;
     cont.focus();
@@ -3098,7 +3184,13 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const otroIdx = config.fields.findIndex((f, fi) => fi !== i && f.tipo === 'texto' && f.activo && normalizarNombreCampo(f.nombre) === key);
     if(otroIdx >= 0){
       const otro = config.fields[otroIdx];
-      if(confirm(`El campo «${otro.nombre}» ya está activo y se imprime aparte, en su propio recuadro. Si sigue así, «${nombreVar}» va a salir dos veces en el certificado (aquí adentro del texto y en ese recuadro). ¿Apagar «${otro.nombre}» para que no se repita?`)){
+      if(await preguntar({
+        titulo: 'Ese dato saldría dos veces',
+        aceptar: `Sí, apagar «${otro.nombre}»`,
+        cuerpo: `<p>«<b>${escapeHtml(otro.nombre)}</b>» ya está activo y se imprime aparte, en su
+          propio recuadro. Si lo dejas así, «${escapeHtml(nombreVar)}» va a salir <b>dos veces</b> en
+          el certificado: aquí dentro del texto y también en ese recuadro.</p>`,
+      })){
         otro.activo = false;
         renderChips();
         // no se hace un renderFieldSettings() completo aquí para no perder el
@@ -3577,9 +3669,16 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const a = document.createElement('a');
       a.href = c.url; a.download = c.filename; a.click();
     }));
-    wrap.querySelectorAll('[data-gen-descartar]').forEach(btn => btn.addEventListener('click', () => {
+    wrap.querySelectorAll('[data-gen-descartar]').forEach(btn => btn.addEventListener('click', async () => {
       const gi = Number(btn.dataset.genDescartar);
-      if(!confirm('¿Descartar esta vista previa? Como nada se había registrado, no queda ningún rastro guardado.')) return;
+      if(!await preguntar({
+        titulo: 'Descartar la vista previa',
+        aceptar: 'Sí, descartarla',
+        cuerpo: `<p>Se pierden los certificados generados en pantalla. Como todavía no se
+          registraron, <b>no queda ningún rastro guardado</b>: nadie los ha recibido y ningún
+          código empezó a verificar.</p>
+          <p>Se pueden volver a generar cuando quieras.</p>`,
+      })) return;
       generationHistory.splice(gi, 1);
       renderGenerationHistory();
     }));
@@ -3588,7 +3687,13 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const g = generationHistory[gi];
       const pendientes = g.results.filter(r => r.ok && !r.registrado);
       if(!pendientes.length) return;
-      if(!confirm(`¿Registrar ${pendientes.length} certificado(s)? Quedarán oficiales: sus códigos QR empezarán a verificar y aparecerán en «Certificados emitidos». Un certificado registrado se quita después revocándolo, uno por uno, no descartando la vista previa.`)) return;
+      if(!await preguntar({
+        titulo: `Registrar ${pendientes.length} certificado(s)`,
+        aceptar: `Sí, registrar ${pendientes.length}`,
+        cuerpo: `<p>Quedan <b>oficiales</b>: sus códigos QR empiezan a verificar y aparecen en
+          «Certificados emitidos».</p>
+          <p>Después no se quitan descartando la vista previa: hay que revocarlos uno por uno.</p>`,
+      })) return;
       g.registrando = true;
       renderGenerationHistory();
       let fallos = 0;
@@ -3991,8 +4096,22 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   document.getElementById('buscarEmitidos').addEventListener('input', renderIssuedTable);
   document.getElementById('btnRefrescarLista').addEventListener('click', loadIssued);
   document.getElementById('btnBorrarHistorial').addEventListener('click', async () => {
-    if(!confirm(`Esto borra PERMANENTEMENTE los ${issued.length} certificados emitidos hasta ahora (incluye los códigos QR ya impresos, que dejarán de verificar). Úsalo solo para limpiar pruebas. ¿Continuar?`)) return;
-    if(!confirm('Confirma una vez más: no se puede deshacer. ¿Borrar todo el historial?')) return;
+    if(!await preguntar({
+      titulo: `Borrar los ${issued.length} certificados emitidos`,
+      peligro: true,
+      aceptar: 'Entiendo, continuar',
+      cuerpo: `<p>Esto borra <b>permanentemente</b> los ${issued.length} certificados emitidos
+        hasta ahora.</p>
+        <p><b>Los códigos QR ya impresos dejarán de verificar.</b> Si alguno de esos certificados
+        está en manos de un estudiante o de un empleador, quedará como no válido.</p>
+        <p>Úsalo sólo para limpiar pruebas.</p>`,
+    })) return;
+    if(!await preguntar({
+      titulo: 'Confirma una vez más',
+      peligro: true,
+      aceptar: 'Sí, borrar todo el historial',
+      cuerpo: '<p>No se puede deshacer.</p>',
+    })) return;
     const { error } = await supabase.rpc('delete_all_cert_certificates');
     if(error){ alert('Error: ' + error.message); return; }
     issuedSeleccionados.clear();

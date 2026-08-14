@@ -28,7 +28,7 @@
 
   <div class="card" id="cardExigido" hidden>
     <div class="row" style="gap:10px;align-items:flex-start">
-      <span class="material-symbols-outlined" style="color:var(--error)">gpp_maybe</span>
+      <span class="material-symbols-outlined err-text">gpp_maybe</span>
       <div>
         <b>Tu rol requiere segundo factor.</b>
         <p class="tiny muted" style="margin:4px 0 0">
@@ -85,7 +85,7 @@
     <div id="resumenPoliticas"><p class="muted">Revisando…</p></div>
     <details style="margin-top:12px">
       <summary class="tiny" style="cursor:pointer">Ver tabla por tabla</summary>
-      <div class="table-wrap" style="margin-top:10px"><table>
+      <div class="table-wrap sep"><table>
         <thead><tr><th>Tabla</th><th>Filas</th><th>Estado</th><th>Qué significa</th></tr></thead>
         <tbody id="tbPoliticas"></tbody></table></div>
     </details>
@@ -127,7 +127,7 @@ function pintarEstado(){
   if (activos.length) {
     $('#estado').innerHTML = `
       <div class="list-item">
-        <span class="material-symbols-outlined" style="color:var(--ok)">verified_user</span>
+        <span class="material-symbols-outlined ok-text">verified_user</span>
         <div class="grow"><div class="t">Activo</div>
           <div class="s">${activos.map(f => esc(f.friendly_name || 'Aplicación de códigos')).join(', ')}</div></div>
         <button class="btn ghost sm" id="btnQuitar" style="color:var(--error)">Quitar</button>
@@ -177,17 +177,17 @@ $('#btnVerificar').onclick = async () => {
   const codigo = $('#codigo').value.replace(/\D/g, '');
   const msg = $('#msgAlta');
   if (codigo.length !== 6) {
-    msg.innerHTML = '<div class="chip err" style="margin-top:8px">El código son seis dígitos.</div>';
+    msg.innerHTML = '<div class="chip err sep-poco">El código son seis dígitos.</div>';
     return;
   }
   const { data: reto, error: eReto } = await sb.auth.mfa.challenge({ factorId: enAlta.id });
-  if (eReto) { msg.innerHTML = `<div class="chip err" style="margin-top:8px">${esc(mensajeError(eReto))}</div>`; return; }
+  if (eReto) { msg.innerHTML = `<div class="chip err sep-poco">${esc(mensajeError(eReto))}</div>`; return; }
 
   const { error } = await sb.auth.mfa.verify({
     factorId: enAlta.id, challengeId: reto.id, code: codigo,
   });
   if (error) {
-    msg.innerHTML = `<div class="chip err" style="margin-top:8px">
+    msg.innerHTML = `<div class="chip err sep-poco">
       Ese código no coincide. Fíjate que sea el actual: cambian cada 30 segundos.</div>`;
     return;
   }

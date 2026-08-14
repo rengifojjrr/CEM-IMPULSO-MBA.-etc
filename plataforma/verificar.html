@@ -35,13 +35,13 @@ async function verificar(codigo){
   const { data, error } = await sb.rpc('cem_verify_certificate', { p_codigo: codigo });
   if (error || !data || !data.codigo){
     res.innerHTML = `<div class="card" style="border-color:var(--error)">
-      <div class="row"><span class="material-symbols-outlined" style="color:var(--error)">cancel</span>
+      <div class="row"><span class="material-symbols-outlined err-text">cancel</span>
       <b>No encontrado</b></div>
       <p class="tiny muted" style="margin:8px 0 0">No existe un certificado válido con el código <code>${esc(codigo)}</code>.</p></div>`;
     return;
   }
   res.innerHTML = `<div class="card" style="border-color:var(--ok)">
-    <div class="row"><span class="material-symbols-outlined" style="color:var(--ok)">verified</span>
+    <div class="row"><span class="material-symbols-outlined ok-text">verified</span>
       <b>Certificado auténtico</b></div>
     <div style="margin-top:12px">
       <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">

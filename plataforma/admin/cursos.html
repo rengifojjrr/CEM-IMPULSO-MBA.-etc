@@ -135,37 +135,37 @@ function edit(c){
     etiquetaSubir:'Elegir la imagen de portada',
   });
   const m = modal({ title:`Editar: ${c.nombre}`, wide:true, body:`
-    <div class="row"><div class="field" style="flex:2;min-width:220px"><label>Nombre</label><input id="eNombre" value="${esc(c.nombre)}"></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Código</label><input id="eCodigo" value="${esc(c.codigo||'')}" placeholder="CEM-DIP-009"></div></div>
+    <div class="row"><div class="field largo"><label>Nombre</label><input id="eNombre" value="${esc(c.nombre)}"></div>
+      <div class="field corto"><label>Código</label><input id="eCodigo" value="${esc(c.codigo||'')}" placeholder="CEM-DIP-009"></div></div>
     <div class="field"><label>Subtítulo</label><input id="eSub" value="${esc(c.subtitulo||'')}"></div>
     <div class="field"><label>Descripción corta</label><textarea id="eDesc" style="min-height:60px">${esc(c.descripcion_corta||'')}</textarea></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="eTipo">
+      <div class="field medio"><label>Tipo</label><select id="eTipo">
         ${opciones(['masterclass','curso','programa','diplomado','maestria'], c.tipo)}</select></div>
-      <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="eMod">
+      <div class="field medio"><label>Modalidad</label><select id="eMod">
         ${opciones(['online','en_vivo','presencial','hibrido'], c.modalidad)}</select></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Nivel</label><select id="eNivel">
+      <div class="field corto"><label>Nivel</label><select id="eNivel">
         ${opciones(['basico','intermedio','avanzado'], c.nivel)}</select></div>
     </div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:110px"><label>Horas</label><input type="number" id="eHoras" value="${c.horas||0}"></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Precio</label><input type="number" step="0.01" id="ePrecio" value="${c.precio||0}"></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Categoría</label><select id="eCat">
+      <div class="field corto"><label>Horas</label><input type="number" id="eHoras" value="${c.horas||0}"></div>
+      <div class="field corto"><label>Precio</label><input type="number" step="0.01" id="ePrecio" value="${c.precio||0}"></div>
+      <div class="field medio"><label>Categoría</label><select id="eCat">
         ${categorias.map(cat=>`<option value="${esc(cat.nombre)}" ${c.categoria===cat.nombre?'selected':''}>${esc(cat.nombre)}</option>`).join('') || `<option value="${esc(c.categoria||'')}">${esc(c.categoria||'Sin categorías definidas')}</option>`}</select></div>
-      <div class="field" style="flex:1;min-width:140px"><label>Estado</label><select id="eEstado">
+      <div class="field medio"><label>Estado</label><select id="eEstado">
         ${opciones(['borrador','en_revision','publicado','pausado','archivado'], c.estado)}</select></div>
     </div>
     <div class="field"><label>Imagen de portada</label>${portada.html}</div>
     <label class="check"><input type="checkbox" id="eDest" ${c.destacado?'checked':''}> Destacado en el catálogo</label>
-    <h2 class="sec" style="margin-top:18px">Descuentos y facilidades de pago</h2>
+    <h2 class="sec sep-mucho">Descuentos y facilidades de pago</h2>
     <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="eDescPct" value="${c.descuento_pct??''}" placeholder="0"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Código de descuento</label><input id="eCodigoDesc" value="${esc(c.codigo_descuento||'')}" placeholder="Ej. CEM10"></div>
-      <div class="field" style="flex:2;min-width:220px"><label>Condición del descuento</label><input id="eDescNota" value="${esc(c.descuento_nota||'')}" placeholder="Pago de contado, pronto pago, alianza…"></div>
+      <div class="field medio"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="eDescPct" value="${c.descuento_pct??''}" placeholder="0"></div>
+      <div class="field medio"><label>Código de descuento</label><input id="eCodigoDesc" value="${esc(c.codigo_descuento||'')}" placeholder="Ej. CEM10"></div>
+      <div class="field largo"><label>Condición del descuento</label><input id="eDescNota" value="${esc(c.descuento_nota||'')}" placeholder="Pago de contado, pronto pago, alianza…"></div>
     </div>
     <label class="check" style="margin-bottom:12px"><input type="checkbox" id="eCuotasHab" ${c.cuotas_habilitadas?'checked':''}> Se acepta pago en cuotas</label>
     <div class="row" id="eCuotasCantidadWrap" style="display:${c.cuotas_habilitadas?'flex':'none'}">
-      <div class="field" style="flex:1;min-width:150px"><label>Cantidad de cuotas</label><input type="number" min="2" id="eCuotasCantidad" value="${c.cuotas_cantidad||3}"></div>
+      <div class="field medio"><label>Cantidad de cuotas</label><input type="number" min="2" id="eCuotasCantidad" value="${c.cuotas_cantidad||3}"></div>
     </div>
     <div class="field"><label>Métodos / pasarelas de pago aceptados</label>
       <div class="metodos-pago" id="eMetodosPago" style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px">
