@@ -36,14 +36,43 @@
 /* Esta página es un envoltorio: el motor del generador vive en generador.js y
    lo comparte con la pantalla equivalente del portal institucional. */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { montarGenerador, ESTILOS_GENERADOR } from './generador.js';
+import { montarGenerador, ESTILOS_GENERADOR } from './generador.js?v=2026-08-14';
 
 const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-document.head.insertAdjacentHTML('beforeend', '<style>' + ESTILOS_GENERADOR + '</style>');
-montarGenerador({ supabase, contenedor: document.getElementById('host'), rutaVerificar: 'verificar.html' });
+/* Esta pantalla emite documentos oficiales: pide cuenta.
+   Hasta hace poco funcionaba sin entrar, y con eso cualquiera que diera con la
+   dirección podía emitir un certificado a nombre de quien quisiera, revocar el
+   de un graduado real o leer los datos de todos los emitidos. El servidor ya no
+   lo permite; aquí se avisa con claridad en vez de dejar que la pantalla se
+   llene de errores de permiso.
+
+   La sesión es la misma del portal: si ya entraste allí, esto abre directo. */
+const { data: { session } } = await supabase.auth.getSession();
+
+if (!session) {
+  document.getElementById('host').innerHTML = `
+    <div style="max-width:560px;margin:40px auto;background:#fff;border:1px solid #dde3ea;
+                border-radius:12px;padding:26px 24px;">
+      <h2 style="margin:0 0 8px;font-size:19px;color:#132743;">Hay que entrar para usar el generador</h2>
+      <p style="margin:0 0 6px;color:#4b5563;line-height:1.6;">
+        Desde aquí se emiten certificados que después cualquiera puede verificar por su
+        código QR. Por eso la herramienta pide una cuenta del equipo.</p>
+      <p style="margin:0 0 18px;color:#6b7280;font-size:13.5px;line-height:1.6;">
+        Si ya entraste al portal en este navegador, vuelve a cargar esta página y abrirá sola.</p>
+      <a href="../plataforma/index.html?next=admin%2Fcertificados-plantillas.html"
+         style="display:inline-block;background:#132743;color:#fff;text-decoration:none;
+                padding:11px 20px;border-radius:8px;font-weight:600;">Entrar</a>
+      <p style="margin:18px 0 0;color:#6b7280;font-size:13px;">
+        Para verificar un certificado que ya tienes no hace falta cuenta:
+        <a href="verificar.html" style="color:#1b7f76;">verificar un certificado</a>.</p>
+    </div>`;
+} else {
+  document.head.insertAdjacentHTML('beforeend', '<style>' + ESTILOS_GENERADOR + '</style>');
+  montarGenerador({ supabase, contenedor: document.getElementById('host'), rutaVerificar: 'verificar.html' });
+}
 </script>
 </body>
 </html>

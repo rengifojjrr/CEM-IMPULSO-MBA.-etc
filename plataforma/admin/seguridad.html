@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
 <style>
   .qr-caja{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
   .qr-caja img{width:190px;height:190px;border:1px solid var(--outline-variant);border-radius:10px;background:#fff;padding:8px;}
@@ -73,16 +73,37 @@
       <thead><tr><th>Persona</th><th>Rol</th><th>Segundo factor</th></tr></thead>
       <tbody id="tbPersonal"></tbody></table></div>
   </div>
+
+  <div class="card" id="cardPoliticas" hidden>
+    <h2 class="sec">Políticas de acceso de la base</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Lo que de verdad decide quién ve qué no son los botones de estas pantallas,
+      son las políticas de la base. Una tabla sin políticas no la protege el
+      diseño de la página: la protege —o no— la base. Esto lo revisa cada vez
+      que abres esta pantalla, así que una tabla nueva que salga mal configurada
+      se ve aquí y no dentro de un año.</p>
+    <div id="resumenPoliticas"><p class="muted">Revisando…</p></div>
+    <details style="margin-top:12px">
+      <summary class="tiny" style="cursor:pointer">Ver tabla por tabla</summary>
+      <div class="table-wrap" style="margin-top:10px"><table>
+        <thead><tr><th>Tabla</th><th>Filas</th><th>Estado</th><th>Qué significa</th></tr></thead>
+        <tbody id="tbPoliticas"></tbody></table></div>
+    </details>
+  </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, emptyRow, ok, fail, confirmDialog, mensajeError } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'],
                         active:'seguridad.html', area:'admin' });
 
 /* Los roles que mueven dinero o firman documentos deberían tenerlo sí o sí. */
 const ROLES_QUE_LO_NECESITAN = ['admin', 'superadmin', 'cobranza'];
+/* Quién ve la radiografía de la base. Coincide con lo que exige la propia
+   función en el servidor: pedirla con otro rol devuelve un error, no una lista
+   recortada. */
+const PUEDEN_REVISAR_LA_BASE = ['admin', 'superadmin', 'auditor'];
 let factores = [], enAlta = null;
 
 if (p) cargar();
@@ -98,6 +119,7 @@ async function cargar(){
   factores = data?.totp || [];
   pintarEstado();
   pintarPersonal();
+  if (PUEDEN_REVISAR_LA_BASE.includes(p.rol)) revisarPoliticas();
 }
 
 function pintarEstado(){
@@ -224,6 +246,68 @@ async function pintarPersonal(){
             : necesario ? chip('falta ponerlo','err')
             : chip('sin activar','neutral')}</td></tr>`;
   }).join('') : emptyRow(3, 'No hay cuentas administrativas.');
+}
+
+/* ═══════════ la radiografía de las políticas de la base ═══════════ */
+
+const VEREDICTOS = {
+  abierta:   { etiqueta: 'abierta a cualquiera', tono: 'err',     icono: 'gpp_bad' },
+  bloqueada: { etiqueta: 'cerrada, sin políticas', tono: 'warn',  icono: 'lock' },
+  sin_rls:   { etiqueta: 'sólo del servidor',     tono: 'neutral', icono: 'dns' },
+  bien:      { etiqueta: 'con políticas',          tono: 'ok',     icono: 'verified_user' },
+};
+
+async function revisarPoliticas(){
+  $('#cardPoliticas').hidden = false;
+  const { data, error } = await sb.rpc('cem_revisar_politicas');
+  if (error) {
+    $('#resumenPoliticas').innerHTML = `<div class="chip err">${esc(mensajeError(error))}</div>`;
+    return;
+  }
+  const tablas = data || [];
+  const por = (v) => tablas.filter(t => t.veredicto === v);
+
+  const abiertas = por('abierta');
+  const bloqueadas = por('bloqueada');
+
+  /* El único caso que hay que arreglar corriendo es "abierta": permisos para el
+     navegador y RLS apagado. Las "cerradas sin políticas" no filtran nada — son
+     tablas de otras herramientas que viven en esta misma base y no las usa
+     ninguna pantalla de CEM. Se listan para que quien las necesite algún día
+     sepa que le va a hacer falta escribirles políticas primero. */
+  $('#resumenPoliticas').innerHTML = `
+    <div class="list-item">
+      <span class="material-symbols-outlined" style="color:${abiertas.length ? 'var(--error)' : 'var(--ok)'}">
+        ${abiertas.length ? 'gpp_bad' : 'verified_user'}</span>
+      <div class="grow">
+        <div class="t">${abiertas.length
+          ? `${abiertas.length} tabla(s) abiertas a cualquiera`
+          : 'Ninguna tabla queda abierta'}</div>
+        <div class="s">${abiertas.length
+          ? `Hay que encenderles RLS y escribirles políticas: ${abiertas.map(t => esc(t.tabla)).join(', ')}.`
+          : `Las ${por('bien').length} tablas que usan las pantallas tienen políticas propias.`}</div>
+      </div>
+    </div>
+    ${bloqueadas.length ? `
+    <div class="list-item">
+      <span class="material-symbols-outlined">lock</span>
+      <div class="grow">
+        <div class="t">${bloqueadas.length} tabla(s) cerradas y sin políticas</div>
+        <div class="s">No filtran nada: con RLS encendido y ninguna política, la base
+          no devuelve ni acepta filas desde el navegador. Son de otras herramientas
+          que comparten esta base y ninguna pantalla de CEM las toca. Si alguna se
+          fuera a usar, primero hay que escribirle políticas.</div>
+      </div>
+    </div>` : ''}`;
+
+  $('#tbPoliticas').innerHTML = tablas.length ? tablas.map(t => {
+    const v = VEREDICTOS[t.veredicto] || VEREDICTOS.bien;
+    return `<tr>
+      <td><code class="tiny">${esc(t.tabla)}</code></td>
+      <td class="tiny">${num(t.filas)}</td>
+      <td>${chip(v.etiqueta, v.tono)}</td>
+      <td class="tiny muted">${esc(t.explicacion)}</td></tr>`;
+  }).join('') : emptyRow(4, 'No se pudo leer el estado de las tablas.');
 }
 </script>
 </body>

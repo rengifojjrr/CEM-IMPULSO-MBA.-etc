@@ -3,7 +3,7 @@
    haga la operación prohibida y verifican que no ocurra. Una pantalla puede
    olvidarse de esconder un botón; la base no. */
 
-import { acta, nuevaPestana, entrar, conLaBase } from '../entorno.mjs';
+import { acta, nuevaPestana, entrar, conLaBase, BASE } from '../entorno.mjs';
 
 export default async function correr(navegador) {
   const a = acta('roles');
@@ -96,6 +96,32 @@ export default async function correr(navegador) {
 
   const roles = await Ad.locator('#roles').textContent();
   a.comprobar(/cobranza/.test(roles), 'La matriz de permisos incluye el rol de cobranza');
+
+  /* ============ la radiografía de la base, sólo para quien debe ============ */
+  await Ad.goto(`${BASE}/plataforma/admin/seguridad.html`, { waitUntil: 'domcontentloaded' });
+  await Ad.waitForSelector('#estado', { timeout: 25000 });
+  await Ad.waitForTimeout(4000);
+  a.comprobar(!(await Ad.locator('#cardPoliticas').isHidden()),
+    'El administrador ve el estado de las políticas de acceso de la base');
+  a.comprobar(/Ninguna tabla queda abierta/.test(await Ad.locator('#resumenPoliticas').textContent()),
+    'Y hoy ninguna tabla queda abierta a cualquiera');
+
+  await C.goto(`${BASE}/plataforma/admin/seguridad.html`, { waitUntil: 'domcontentloaded' });
+  await C.waitForSelector('#estado', { timeout: 25000 });
+  await C.waitForTimeout(3000);
+  a.comprobar(await C.locator('#cardPoliticas').isHidden(),
+    'A cobranza no se le muestra');
+
+  await C.silenciarMientras(async () => {
+    // Y no basta con no mostrárselo: pedírsela a la base directamente también
+    // se rechaza, que es lo que impide averiguar el esquema desde la consola.
+    const r = await conLaBase(C, async (sb) => {
+      const { error } = await sb.rpc('cem_revisar_politicas');
+      return error?.message || 'LA DEVOLVIÓ';
+    });
+    a.comprobar(/administrador|auditor/i.test(r),
+      'Ni pidiéndosela a la base directamente la consigue');
+  });
 
   for (const [nombre, pagina] of [['cobranza', C], ['auditor', A], ['coordinador', Co], ['administrador', Ad]]) {
     a.comprobar(pagina.errores.length === 0,

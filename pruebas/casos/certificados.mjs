@@ -31,8 +31,40 @@ function valorDe(campo, alumno, i) {
 export default async function correr(navegador) {
   const a = acta('certificados');
 
+  /* ============ 0) sin cuenta no se emite nada ============ */
+  /* Esta pantalla estuvo abierta a cualquiera: con sólo dar con la dirección se
+     podían leer los datos de todos los certificados emitidos, emitir uno nuevo
+     a nombre de quien fuera o revocar el de un graduado real. */
+  const X = await nuevaPestana(navegador);
+  await X.goto(`${BASE}/certificados/generar.html`, { waitUntil: 'domcontentloaded' });
+  await X.waitForTimeout(4000);
+  const puerta = await X.locator('#host').textContent();
+  a.comprobar(/[Hh]ay que entrar/.test(puerta),
+    'Sin cuenta, el generador no se abre: pide entrar');
+  a.comprobar((await X.locator('.panel').count()) === 0,
+    'Y no monta ninguno de sus paneles');
+
+  await X.silenciarMientras(async () => {
+    // Ni por la puerta de atrás: la propia base rechaza las llamadas.
+    const r = await X.evaluate(async () => {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      const sb = createClient('https://vajbsfgojtunamhrzrpf.supabase.co',
+        'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl');
+      const salida = {};
+      for (const f of ['list_cert_certificates', 'list_cert_templates_light',
+                       'delete_all_cert_certificates']) {
+        const { data, error } = await sb.rpc(f);
+        salida[f] = error ? error.code || error.message : `DEVOLVIÓ ${JSON.stringify(data).slice(0, 40)}`;
+      }
+      return salida;
+    });
+    a.comprobar(Object.values(r).every((v) => v === '42501'),
+      `Y la base rechaza esas llamadas sin sesión ${JSON.stringify(r)}`);
+  });
+
   /* ============ 1) el mismo motor en las dos pantallas ============ */
   const P = await nuevaPestana(navegador, { ancho: 1400, alto: 1200 });
+  await entrar(P, 'admin');
 
   // Cuánto pesa abrir la pantalla, y cuántas veces se baja cada fondo.
   let bytesConfig = 0;
@@ -251,6 +283,8 @@ export default async function correr(navegador) {
     `La pantalla del portal tampoco ${JSON.stringify(A.errores.slice(0, 2))}`);
   a.comprobar(V.errores.length === 0,
     `Ni la verificación pública ${JSON.stringify(V.errores.slice(0, 2))}`);
+  a.comprobar(X.errores.length === 0,
+    `Ni la pantalla que pide entrar ${JSON.stringify(X.errores.slice(0, 2))}`);
 
   return a;
 }

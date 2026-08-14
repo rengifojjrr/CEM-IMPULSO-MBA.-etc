@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -25,7 +25,7 @@
   <div id="panel"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, modal, ok, run, audit, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, modal, ok, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');

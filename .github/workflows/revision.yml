@@ -1,0 +1,60 @@
+# Revisión automática al subir cambios.
+#
+# Antes de esto, la única forma de saber si un cambio rompía algo era abrir la
+# plataforma y probarla a mano. Ahora cada empujón al repositorio pasa por las
+# comprobaciones estáticas: en menos de un minuto dicen si algún <script> quedó
+# con un error de sintaxis, si se colgó un enlace, si se colaron credenciales o
+# si los archivos compartidos quedaron con versiones distintas en cada pantalla.
+#
+# Las pruebas con navegador (pruebas/) necesitan un Supabase vivo y las cuentas
+# de demostración, así que no corren por omisión: se activan poniendo la
+# variable de repositorio CORRER_PRUEBAS_E2E en "si" (Settings → Variables) y
+# el secreto CEM_PASS con la contraseña de esas cuentas.
+
+name: Revisión
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  estatica:
+    name: Comprobaciones estáticas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Revisar el repositorio
+        run: node herramientas/revisar.mjs
+
+  navegador:
+    name: Pruebas con navegador
+    runs-on: ubuntu-latest
+    needs: estatica
+    # Sólo si el repositorio está configurado para ello: hacen falta la base y
+    # las cuentas de prueba, y escriben datos de demostración.
+    if: vars.CORRER_PRUEBAS_E2E == 'si'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar Playwright
+        working-directory: pruebas
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Correr las pruebas
+        working-directory: pruebas
+        env:
+          CEM_PASS: ${{ secrets.CEM_PASS }}
+        run: npm test
