@@ -657,6 +657,12 @@ function normalizarConfig(cfg){
         f.formato = /^\s*(c[eé]dula|documento|dni|c\.?i\.?)\s*$/i.test(String(f.nombre||''))
           ? 'cedula' : 'ninguno';
       }
+      // Qué hacer cuando el texto no cabe ni al tamaño mínimo de letra:
+      // 'ajustar' = seguir achicando la letra hasta que quepa en una sola línea
+      // (nunca invade lo de arriba/abajo, pero puede salir muy chica);
+      // 'abajo' = repartir en varias líneas que crecen desde el borde superior
+      // de la caja hacia abajo (letra más legible, pero necesita espacio libre debajo).
+      if(f.desborde !== 'ajustar' && f.desborde !== 'abajo') f.desborde = 'abajo';
       // letras sueltas con un color distinto al del resto (p.ej. las iniciales):
       // se guardan por posición dentro de la palabra, no por texto literal, así
       // sirven igual sin importar el nombre real de cada persona.
@@ -1751,7 +1757,10 @@ function ajustarMuestra(texto, f, anchoCajaPx, altoCajaPx){
   const ctx = cv.getContext('2d');
   const topeAlto = altoCajaPx / 1.25;
   const maxS = Math.max(4, Math.min(f.maxFontSize || 32, topeAlto));
-  const minS = Math.min(f.minFontSize || 12, maxS);
+  // en "ajustar tamaño al margen" la muestra debe verse encogerse de verdad
+  // (igual que en el certificado final) en vez de quedar recortada por la
+  // caja de la vista previa, que no muestra el salto de línea real
+  const minS = f.desborde === 'ajustar' ? Math.min(4, maxS) : Math.min(f.minFontSize || 12, maxS);
   return fitFontSize(ctx, texto, f.fontFamily || 'Georgia, serif', f.bold, maxS, minS, anchoCajaPx);
 }
 
@@ -1948,6 +1957,12 @@ function renderFieldSettings(){
         <label title="La letra se achica sola hasta el mínimo si el texto no cabe">
           Letra de <input type="number" data-i="${i}" data-p="maxFontSize" value="${f.maxFontSize}" style="width:58px;">
           a <input type="number" data-i="${i}" data-p="minFontSize" value="${f.minFontSize}" style="width:58px;"> px</label>
+        <label>Si un texto no cabe ni al mínimo
+          <select data-i="${i}" data-p="desborde">
+            <option value="ajustar" ${f.desborde==='ajustar'?'selected':''}>Ajustar tamaño al margen</option>
+            <option value="abajo" ${f.desborde==='abajo'?'selected':''}>Seguir hacia abajo</option>
+          </select></label>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Qué hacer con un texto tan largo que no cabe ni con la letra al tamaño mínimo. «Ajustar tamaño al margen» sigue achicando la letra —por debajo del mínimo si hace falta— hasta que quepa entera en una sola línea, sin invadir nunca lo que haya arriba o abajo de esta caja: usa esto en campos apretados entre otros textos, como el Nombre. «Seguir hacia abajo» respeta el tamaño mínimo y en vez de achicar más la letra, reparte el texto en varias líneas que arrancan en el borde superior de la caja y crecen hacia abajo: usa esto si quieres letra siempre legible en campos con espacio libre debajo, como un título de curso largo.">?</button>
         <label>Formato
           <select data-i="${i}" data-p="formato">
             <option value="ninguno" ${(f.formato||'ninguno')==='ninguno'?'selected':''}>Tal cual</option>
@@ -2035,7 +2050,7 @@ function renderFieldSettings(){
         const lbl = wrap.querySelector(`[data-op-lbl="${i}"]`);
         if(lbl) lbl.textContent = Math.round(val*100) + '%';
       }
-      if(p === 'activo' || p === 'nombre' || p === 'widthPct' || p === 'opacity') renderChips();
+      if(p === 'activo' || p === 'nombre' || p === 'widthPct' || p === 'opacity' || p === 'desborde') renderChips();
     };
     el.addEventListener('change', aplicar);
     if(el.type === 'range') el.addEventListener('input', aplicar);   // realimentación inmediata
@@ -3160,7 +3175,12 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     const altoCajaPx = Math.max(6, ((v.botPct - v.topPct)/100) * canvas.height);
     const topeAlto = altoCajaPx / 1.25;
     const maxSize = Math.max(4, Math.min((f.maxFontSize || f.fontSize || 32) + (Number(aj.dSize) || 0), topeAlto));
-    const minSize = Math.min(f.minFontSize || 12, maxSize);
+    // "Ajustar tamaño al margen": la letra se encoge todo lo que haga falta
+    // —incluso por debajo del mínimo configurado— para que el texto quepa
+    // siempre en una sola línea, sin invadir nunca lo que haya arriba o abajo
+    // de la caja. "Seguir hacia abajo" respeta el mínimo configurado; si ni
+    // así cabe en una línea, se reparte en varias (ver más abajo).
+    const minSize = f.desborde === 'ajustar' ? Math.min(4, maxSize) : Math.min(f.minFontSize || 12, maxSize);
     const estilos = estilosPorCaracter(text, f);
     const fitSize = estilos
       ? fitFontSizeMixto(ctx, text, estilos, f.bold, maxSize, minSize, boxWidthPx)
@@ -3204,17 +3224,21 @@ async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
         }
       }
     } else {
-      // ni al tamaño mínimo cabe en una sola línea: se reparte en varias,
-      // cortando sólo entre palabras y respetando los mismos márgenes
-      // izquierdo/derecho, en vez de recortarlo con el borde de la caja.
+      // ni al tamaño mínimo cabe en una sola línea (esto sólo puede pasar en
+      // modo "seguir hacia abajo": en "ajustar tamaño al margen" la letra ya
+      // se encogió lo necesario para no llegar aquí). Se reparte en varias
+      // líneas, cortando sólo entre palabras y respetando los mismos
+      // márgenes izquierdo/derecho. El bloque arranca en el borde SUPERIOR
+      // de la caja y crece sólo hacia abajo —nunca hacia arriba— para no
+      // superponerse con lo que haya encima (p.ej. un encabezado del diseño).
       const lineas = envolverLineasBalanceado(ctx, text, estilos, f.bold, fontFamily, fitSize, boxWidthPx);
       const lineHeight = fitSize * 1.22;
       const altoBloque = lineas.length * lineHeight;
       ctx.beginPath();
-      ctx.rect(leftPx, Math.min(topPx, yPx - altoBloque/2), boxWidthPx, Math.max(altoCajaPx, altoBloque));
+      ctx.rect(leftPx, topPx, boxWidthPx, Math.max(altoCajaPx, altoBloque));
       ctx.clip();
       lineas.forEach((linea, li) => {
-        const yLinea = yPx - altoBloque/2 + lineHeight * (li + 0.5);
+        const yLinea = topPx + lineHeight * (li + 0.5);
         if(!estilos){
           ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
           ctx.fillText(linea.texto, drawX, yLinea);
