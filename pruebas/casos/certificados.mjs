@@ -102,10 +102,19 @@ export default async function correr(navegador) {
   a.comprobar((await A.locator('.sidebar').count()) === 1,
     'La pantalla del portal monta el mismo motor y conserva el menú alrededor');
 
-  const controles = (p) => p.evaluate(() => document.querySelectorAll('#appContent [id]').length);
-  const [cPub, cPortal] = [await controles(P), await controles(A)];
-  a.comprobar(cPub === cPortal && cPub > 300,
-    `Las dos pantallas tienen exactamente los mismos controles (${cPub} y ${cPortal})`);
+  /* Se comparan los identificadores, no cuántos hay. Contar daba un número que
+     cambia con la plantilla que toque cargar primero (cada una tiene sus
+     campos), y eso hacía fallar la prueba sin que nada estuviera roto. Lo que
+     de verdad prueba que el motor es uno solo es que las dos pantallas monten
+     exactamente el mismo juego de controles. */
+  const controles = (p) => p.evaluate(() =>
+    [...document.querySelectorAll('#appContent [id]')].map((el) => el.id).sort());
+  const [idsPub, idsPortal] = [await controles(P), await controles(A)];
+  const soloEnUna = idsPub.filter((x) => !idsPortal.includes(x))
+    .concat(idsPortal.filter((x) => !idsPub.includes(x)));
+  a.comprobar(soloEnUna.length === 0 && idsPub.length > 50,
+    `Las dos pantallas montan el mismo juego de ${idsPub.length} controles` +
+    (soloEnUna.length ? ` — se descuadran en ${JSON.stringify(soloEnUna.slice(0, 5))}` : ''));
 
   /* Los iconos del portal son una tipografía de ligaduras: si no carga, en vez
      del símbolo se lee la palabra ("dashboard", "search"). Se mide el ancho

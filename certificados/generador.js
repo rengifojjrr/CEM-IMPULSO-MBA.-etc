@@ -744,10 +744,25 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   }
 
   // ---------- Arranque ----------
-  // Sin login por ahora: una sola persona prueba todo, sin división de roles.
   async function init(){
-    await loadTemplates();
-    await loadIssued();
+    try {
+      await loadTemplates();
+      await loadIssued();
+    } catch (e) {
+      /* Si el arranque falla, la pantalla no puede quedarse a medias fingiendo
+         que está vacía: eso fue lo que hizo creer que se habían borrado 27
+         diseños. Se dice qué pasó, se deja claro que nada se perdió y se ofrece
+         el único paso que suele resolverlo. */
+      contenedor.insertAdjacentHTML('afterbegin', `
+        <div style="background:#fdecea;border:1px solid #f5c6c2;border-left:4px solid #c0392b;
+                    border-radius:10px;padding:16px 18px;margin-bottom:16px;">
+          <b style="color:#a5281d;">No se pudo cargar tu biblioteca de plantillas</b>
+          <p style="margin:6px 0 0;white-space:pre-line;color:#5b2b26;line-height:1.55;">${
+            escapeHtml(e.message || String(e))}</p>
+          <button class="btn" style="margin-top:12px" onclick="location.reload()">Volver a intentar</button>
+        </div>`);
+      throw e;
+    }
   }
 
   /* ============ el fondo va al almacenamiento, no dentro del JSON ============
@@ -800,10 +815,25 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   // ---------- Biblioteca de plantillas ----------
   async function loadTemplates(){
     const { data, error } = await supabase.rpc('list_cert_templates_light');
-    if(error || !data || !data.length){
+
+    /* "No pude cargar la lista" y "no hay ninguna plantilla" son cosas
+       distintas y antes se trataban igual: ante un error, la pantalla sembraba
+       una plantilla genérica. El resultado era el peor posible — quien tenía 27
+       diseños guardados entraba y veía uno solo, recién creado, como si se
+       hubieran borrado todos. (No se borraban: sólo no se listaban.)
+       Ante un error se avisa y no se escribe NADA. */
+    if(error){
+      throw new Error('No se pudieron cargar tus plantillas: ' + (error.message || error.code) +
+        '\n\nTus diseños NO se han borrado: sólo no se pudieron leer. ' +
+        'Lo más habitual es que la sesión haya caducado — vuelve a entrar y recarga.');
+    }
+
+    if(!data.length){
       const cfg = normalizarConfig(defaultConfig());
       await externalizarFondo(cfg);
-      const { data: saved } = await supabase.rpc('save_cert_template', { p_id: null, p_nombre: 'Certificado CEM (genérico)', p_config: cfg });
+      const { data: saved, error: eSem } = await supabase.rpc('save_cert_template',
+        { p_id: null, p_nombre: 'Certificado CEM (genérico)', p_config: cfg });
+      if(eSem || !saved) throw new Error('No se pudo crear la primera plantilla: ' + (eSem?.message || ''));
       templatesFull = [{ id: saved.id, nombre: saved.nombre, config: cfg }];
     } else {
       templatesFull = await Promise.all(data.map(async t => {
