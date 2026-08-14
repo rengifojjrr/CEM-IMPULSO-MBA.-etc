@@ -52,7 +52,12 @@
       <div class="field"><label>Endpoint REST (nuestro)</label><div class="dato-tec" id="webhookUrl">—</div></div>
       <div class="field"><label>ApiKey (haz clic para revelar)</label>
         <div class="dato-tec oculto-secreto" id="webhookKey" title="Clic para mostrar/ocultar">—</div></div>
-      <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar ambos</button>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar ambos</button>
+        <button class="btn outline sm" id="btnRotar" style="color:var(--error)">
+          <span class="material-symbols-outlined">key</span> Rotar la clave</button>
+      </div>
+      <div id="estadoRotacion"></div>
     </div>
   </div>
 
@@ -101,8 +106,8 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
 
-const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'bancaribe.html', area:'admin' });
-const puedeOperar = p && ['coordinador','admin','superadmin'].includes(p.rol);
+const p = await mount({ require:['admin','superadmin'], active:'bancaribe.html', area:'admin' });
+const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
 const FN = `${SUPABASE_URL}/functions/v1/cem-bancaribe`;
 let notifs = [], estado = null;
 
@@ -146,6 +151,48 @@ $('#webhookKey').onclick = () => $('#webhookKey').classList.toggle('ver');
 $('#btnCopiar').onclick = async () => {
   await navigator.clipboard.writeText(`Endpoint: ${estado?.webhook_url||''}\nApiKey: ${estado?.webhook_api_key||''}`);
   ok('Copiado al portapapeles');
+};
+
+/* ============ rotar la clave del webhook ============
+   Era una sola clave fija guardada en la configuración: si se filtraba, no
+   había forma de cambiarla sin editar la base a mano. Ahora se rota desde
+   acá, y la anterior sigue valiendo un tiempo para que el banco no quede
+   cortado en mitad del cambio. */
+const GRACIA_HORAS = 48;
+
+$('#btnRotar').onclick = async () => {
+  if (p.rol !== 'admin' && p.rol !== 'superadmin') {
+    fail('Sólo un administrador puede rotar la clave del webhook.'); return;
+  }
+  const m = modal({ title:'Rotar la clave del webhook', body:`
+    <p>Se genera una clave nueva y hay que entregársela a Bancaribe.</p>
+    <p>Durante <b>${GRACIA_HORAS} horas</b> la clave actual <b>sigue funcionando</b>,
+       para que las notificaciones no se corten mientras el banco la actualiza.
+       Pasado ese plazo, sólo sirve la nueva.</p>
+    <p class="tiny muted">Queda asentado en la auditoría quién la rotó y cuándo.
+       Si el banco sigue usando la vieja, también queda registrado, para poder avisarles a tiempo.</p>
+    <div id="rotMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Generar clave nueva</button>` });
+
+  $('[data-s]', m).onclick = async () => {
+    $('[data-s]', m).disabled = true;
+    const { data: nueva, error } = await sb.rpc('cem_rotar_clave_webhook', { p_gracia_horas: GRACIA_HORAS });
+    if (error) {
+      $('#rotMsg', m).innerHTML = `<div class="chip err" style="margin-top:10px">${esc(error.message)}</div>`;
+      $('[data-s]', m).disabled = false;
+      return;
+    }
+    m.close();
+    ok('Clave rotada. Entrégale la nueva al banco.');
+    await cargar();
+    // Se muestra revelada una sola vez: es el momento en que hay que copiarla.
+    $('#webhookKey').classList.add('ver');
+    $('#estadoRotacion').innerHTML = `<div class="chip warn" style="margin-top:10px;display:block;white-space:normal;height:auto;line-height:1.5;padding:9px 12px">
+      Clave nueva generada. La anterior deja de servir en ${GRACIA_HORAS} horas:
+      envíasela a Bancaribe antes de ese plazo.</div>`;
+    void nueva;  // el valor ya viene en el estado recargado; no hace falta mostrarlo dos veces
+  };
 };
 $('#btnRefrescar').onclick = cargar;
 $('#btnCerrarDiag').onclick = () => $('#cardDiag').classList.add('hidden');

@@ -40,7 +40,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
          toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
-const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
 
@@ -141,7 +141,7 @@ function plantillaEnBlanco(){
 }
 
 $('#btnImportar').onclick = async () => {
-  if (!['coordinador','admin','superadmin'].includes(p.rol)) {
+  if (!['cobranza','coordinador','admin','superadmin'].includes(p.rol)) {
     fail('Tu rol no puede importar estudiantes.'); return;
   }
   const [{ data: cursos }, { data: cohortes }] = await Promise.all([

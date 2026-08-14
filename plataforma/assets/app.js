@@ -406,6 +406,7 @@ const ADMIN_NAV = [
     ['usuarios.html', 'manage_accounts', 'Usuarios y roles'],
     ['permisos.html', 'admin_panel_settings', 'Matriz de permisos'],
     ['auditoria.html', 'history', 'Auditoría'],
+    ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
     ['configuracion.html', 'settings', 'Configuración'],
   ]},
 ];
@@ -437,10 +438,48 @@ const ADMIN_MOBILE = [
 
 const ROLES_STAFF = ['coordinador', 'admin', 'superadmin'];
 
+/* El auditor entraba a las mismas pantallas del administrador con los botones
+   escondidos: bastaba olvidar una comprobación en una pantalla nueva para que
+   pudiera operar. Ahora la base misma le impide escribir, y además ve un menú
+   propio con lo que de verdad necesita revisar. */
+const AUDITOR_NAV = [
+  { lbl: 'Auditoría', items: [
+    ['auditoria.html', 'history', 'Registro de auditoría'],
+    ['reportes.html', 'analytics', 'Reportes'],
+    ['permisos.html', 'admin_panel_settings', 'Matriz de permisos'],
+    ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
+  ]},
+  { lbl: 'Consulta', items: [
+    ['estudiantes.html', 'person', 'Estudiantes'],
+    ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
+    ['certificados.html', 'workspace_premium', 'Certificados'],
+    ['cursos.html', 'school', 'Cursos'],
+  ]},
+];
+
+/* El rol de cobranza existe para que quien verifica pagos no necesite además
+   acceso a cursos, notas y usuarios. Su menú es corto a propósito. */
+const COBRANZA_NAV = [
+  { lbl: 'Cobranza', items: [
+    ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
+    ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
+    ['estudiantes.html', 'person', 'Estudiantes'],
+    ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
+  ]},
+];
+
 /**
  * Punto de entrada de cada página.
  * @param {{require?:string[], active?:string, title?:string, area?:'admin'|'estudiante'|'docente', pub?:boolean}} opts
  */
+/* Cuando no se puede entrar a una pantalla, mount() ya reemplazó el cuerpo por
+ * el aviso correspondiente y no queda nada más que hacer. Devolver null no
+ * bastaba: las páginas siguen ejecutándose después del `await mount(...)` y
+ * enganchan eventos a elementos que ya no existen ("Cannot set properties of
+ * null"). Con una promesa que nunca se resuelve, el módulo simplemente se
+ * detiene ahí — sin error y sin efectos raros. */
+const DETENER_LA_PAGINA = new Promise(() => {});
+
 export async function mount(opts = {}) {
   vigilarSesion();
   vigilarErrores();
@@ -449,14 +488,23 @@ export async function mount(opts = {}) {
 
   if (opts.pub) { document.body.classList.add('cem-publico'); renderPublicHeader(p); return p; }
 
-  if (!p) { location.href = base() + 'index.html?next=' + encodeURIComponent(location.pathname.split('/').slice(-2).join('/')); return null; }
-  if (!p.activo) { document.body.innerHTML = '<div class="auth-wrap"><div class="auth-card"><h1>Cuenta desactivada</h1><p class="sub">Contacta al administrador.</p></div></div>'; return null; }
+  if (!p) {
+    location.href = base() + 'index.html?next=' + encodeURIComponent(rutaRelativaActual());
+    return DETENER_LA_PAGINA;
+  }
+  if (!p.activo) {
+    document.body.innerHTML = `<div class="auth-wrap"><div class="auth-card">
+      <div class="brand-badge"><span class="material-symbols-outlined">no_accounts</span></div>
+      <h1>Cuenta desactivada</h1>
+      <p class="sub">Tu cuenta está desactivada. Escríbele al administrador para reactivarla.</p></div></div>`;
+    return DETENER_LA_PAGINA;
+  }
   if (opts.require && !opts.require.includes(p.rol)) {
     document.body.innerHTML = `<div class="auth-wrap"><div class="auth-card">
       <div class="brand-badge"><span class="material-symbols-outlined">lock</span></div>
       <h1>Sin acceso</h1><p class="sub">Tu rol (<b>${esc(p.rol)}</b>) no tiene permiso para esta página.</p>
       <a class="btn block" href="${homeFor(p.rol)}">Ir a mi inicio</a></div></div>`;
-    return null;
+    return DETENER_LA_PAGINA;
   }
   renderShell(p, area, opts.active);
   return p;
@@ -465,18 +513,27 @@ export async function mount(opts = {}) {
 export function homeFor(rol) {
   if (rol === 'estudiante') return '../estudiante/panel.html';
   if (rol === 'profesor') return '../docente/panel.html';
+  if (rol === 'cobranza') return '../admin/pagos-verificar.html';
+  if (rol === 'auditor') return '../admin/auditoria.html';
   return '../admin/index.html';
 }
 export function homeForRoot(rol) {
   if (rol === 'estudiante') return 'estudiante/panel.html';
   if (rol === 'profesor') return 'docente/panel.html';
+  if (rol === 'cobranza') return 'admin/pagos-verificar.html';
+  if (rol === 'auditor') return 'admin/auditoria.html';
   return 'admin/index.html';
 }
 
 function renderShell(p, area, active) {
-  const nav = area === 'admin' ? ADMIN_NAV : area === 'docente' ? [{ lbl: '', items: TEACHER_NAV }] : [{ lbl: '', items: STUDENT_NAV }];
+  const nav = area === 'admin'
+    ? (p.rol === 'cobranza' ? COBRANZA_NAV : p.rol === 'auditor' ? AUDITOR_NAV : ADMIN_NAV)
+    : area === 'docente' ? [{ lbl: '', items: TEACHER_NAV }]
+    : [{ lbl: '', items: STUDENT_NAV }];
   const flat = nav.flatMap(g => g.items);
-  const areaLabel = area === 'admin' ? 'Portal institucional' : area === 'docente' ? 'Portal docente' : 'Portal del estudiante';
+  const areaLabel = area === 'admin'
+    ? (p.rol === 'cobranza' ? 'Cobranza' : p.rol === 'auditor' ? 'Auditoría' : 'Portal institucional')
+    : area === 'docente' ? 'Portal docente' : 'Portal del estudiante';
 
   const sideHtml = nav.map(g => `
     <div class="nav-group">
@@ -516,7 +573,7 @@ function renderShell(p, area, active) {
       <main class="content" id="cemContent"></main>
     </div>
     <nav class="bottomnav">
-      ${(area === 'admin' ? ADMIN_MOBILE : flat).slice(0, 5).map(([href, ic, txt]) => `
+      ${(area === 'admin' && !['cobranza','auditor'].includes(p.rol) ? ADMIN_MOBILE : flat).slice(0, 5).map(([href, ic, txt]) => `
         <a class="${active === href ? 'active' : ''}" href="${href}">
           <span class="material-symbols-outlined">${ic}</span>${txt}</a>`).join('')}
     </nav>`;

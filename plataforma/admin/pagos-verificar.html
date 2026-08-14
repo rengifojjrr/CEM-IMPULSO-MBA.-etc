@@ -69,8 +69,8 @@ import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kp
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
 
-const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
-const puedeOperar = p && ['coordinador','admin','superadmin'].includes(p.rol);
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
+const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
 let pagos = [], tasa = null;
 
 if (p) cargar();
@@ -198,20 +198,30 @@ async function verDetalle(x){
         method:'POST',
         headers:{ Authorization:`Bearer ${session?.access_token}`, apikey:SUPABASE_KEY,
                   'Content-Type':'application/json' },
-        body: JSON.stringify({ servicio:'operaciones', referencia: x.referencia,
-                               monto: x.monto, fecha: x.fecha }),
+        // La función del banco espera "accion", no "servicio".
+        body: JSON.stringify({
+          accion: 'operaciones',
+          referencia: x.referencia,
+          monto: x.monto,
+          documento: x.cem_enrollments?.cem_profiles?.documento || null,
+          // El banco quiere mm/dd/aaaa; la fecha del pago viene ISO.
+          fecha: new Date(x.fecha).toLocaleDateString('en-US'),
+        }),
       });
       const r = await res.json();
-      if (!res.ok || r.error) {
+      if (!res.ok || r.error || r.ok === false) {
         caja.innerHTML = `<div class="chip warn" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
-          No se pudo consultar: ${esc(r.error || ('el banco respondió ' + res.status))}.
+          No se pudo consultar: ${esc(r.error || (typeof r.datos === 'string' ? r.datos.slice(0,160) : 'el banco respondió ' + (r.status || res.status)))}.
           ${/900908|subscription/i.test(JSON.stringify(r))
             ? 'Bancaribe todavía no habilitó la suscripción a este servicio para nuestra aplicación.'
             : ''}
           Verifica el comprobante a mano por ahora.</div>`;
         return;
       }
-      const ops = r.operaciones || r.data || [];
+      // El banco devuelve la lista con nombres distintos según el servicio.
+      const d = r.datos || {};
+      const ops = d.listaOperaciones || d.operaciones || d.transacciones ||
+                  (Array.isArray(d) ? d : []);
       caja.innerHTML = ops.length
         ? `<div class="chip ok" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
              El banco confirma ${ops.length} operación(es) con esa referencia.</div>

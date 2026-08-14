@@ -52,15 +52,18 @@
         <th class="rot">Publicar</th><th class="rot">Aprobar</th><th class="rot">Exportar</th><th class="rot">Eliminar</th></tr></thead>
       <tbody id="tb"></tbody></table></div>
     <p class="tiny muted" style="margin-top:10px">
-      Nota: la matriz documenta y controla las capacidades de la interfaz. Las reglas de base de datos
-      (RLS) siguen aplicándose siempre como última barrera de seguridad.</p>
+      Esta matriz gobierna lo que muestra la interfaz. Por debajo, la base de datos aplica sus
+      propias reglas y son las que mandan: cambiar roles, desactivar cuentas y borrar cursos están
+      reservados a <b>administrador</b>; el rol de <b>cobranza</b> sólo alcanza dinero y estudiantes;
+      y el <b>auditor</b> no puede escribir en ninguna tabla, aunque una pantalla se olvide de
+      esconderle el botón.</p>
   </div>
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, ok, run, audit, confirmDialog } from '../assets/app.js';
 const p = await mount({ require:['admin','superadmin','auditor'], active:'permisos.html', area:'admin' });
 const puede = p && ['admin','superadmin'].includes(p.rol);
-const ROLES = ['superadmin','admin','coordinador','profesor','auditor'];
+const ROLES = ['superadmin','admin','coordinador','cobranza','profesor','auditor'];
 const ACCIONES = ['ver','crear','editar','publicar','aprobar','exportar','eliminar'];
 let perms=[], rol='admin', dirty={};
 if (p) load();
@@ -115,10 +118,14 @@ $('#btnReset').onclick = async () => {
   const mods = modulos();
   const rows = mods.flatMap(m=>ACCIONES.map(a=>{
     let v=false;
+    // Los sugeridos reflejan lo que la base de datos permite de verdad, para
+    // que la matriz no prometa algo que después el servidor rechaza.
     if (rol==='superadmin') v=true;
-    else if (rol==='admin') v = a!=='eliminar';
-    else if (rol==='coordinador') v = ['ver','crear','editar'].includes(a);
-    else if (rol==='profesor') v = a==='ver' || (['crear','editar'].includes(a) && ['Contenidos','Evaluaciones','Calificaciones'].includes(m));
+    else if (rol==='admin') v = true;
+    else if (rol==='coordinador') v = a!=='eliminar';       // borrar cursos es sólo de admin
+    else if (rol==='cobranza') v = ['Pagos','Inscripciones','Estudiantes'].includes(m)
+                                   && ['ver','crear','editar','aprobar','exportar'].includes(a);
+    else if (rol==='profesor') v = a==='ver' || (['crear','editar','publicar'].includes(a) && ['Contenidos','Evaluaciones','Calificaciones'].includes(m));
     else if (rol==='auditor') v = ['ver','exportar'].includes(a);
     return { rol, modulo:m, accion:a, permitido:v };
   }));
