@@ -94,24 +94,24 @@ $('#btnExport').onclick=()=>download('usuarios_cem.csv', toCSV(rows.map(u=>({
 function form(u){
   const m = modal({ title:`Editar: ${u.nombre} ${u.apellido||''}`, wide:true, body:`
     <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label>Nombre *</label><input id="uN" value="${esc(u.nombre||'')}"></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Nombre *</label><input id="uN" value="${esc(u.nombre||'')}" required></div>
       <div class="field" style="flex:1;min-width:150px"><label>Apellido</label><input id="uA" value="${esc(u.apellido||'')}"></div>
     </div>
     <div class="field"><label>Correo</label><input value="${esc(u.email)}" disabled></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:160px"><label>Rol *</label><select id="uR">
+      <div class="field" style="flex:1;min-width:160px"><label>Rol *</label><select id="uR" required>
         ${opciones(['estudiante','profesor','coordinador','admin','auditor','superadmin'], u.rol)}</select></div>
-      <div class="field" style="flex:1;min-width:140px"><label>Teléfono</label><input id="uT" value="${esc(u.telefono||'')}"></div>
+      <div class="field" style="flex:1;min-width:140px"><label>Teléfono</label><input id="uT" value="${esc(u.telefono||'')}" placeholder="+58 412 1234567"></div>
     </div>
     <div class="row">
       <div class="field" style="flex:1;min-width:130px"><label>Tipo doc.</label><input id="uDT" value="${esc(u.documento_tipo||'')}"></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Documento</label><input id="uD" value="${esc(u.documento||'')}"></div>
+      <div class="field" style="flex:1;min-width:130px"><label>Documento</label><input id="uD" value="${esc(u.documento||'')}" placeholder="V-12.345.678"></div>
       <div class="field" style="flex:1;min-width:130px"><label>País</label><input id="uP" value="${esc(u.pais||'')}"></div>
       <div class="field" style="flex:1;min-width:130px"><label>Ciudad</label><input id="uC" value="${esc(u.ciudad||'')}"></div>
     </div>
     <div class="field"><label>Biografía / notas</label><textarea id="uB" style="min-height:60px">${esc(u.bio||'')}</textarea></div>
     <label class="check"><input type="checkbox" id="uAct" ${u.activo?'checked':''}> Cuenta activa</label>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar la cuenta</button>` });
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{
     const nuevoRol=$('#uR',m).value;

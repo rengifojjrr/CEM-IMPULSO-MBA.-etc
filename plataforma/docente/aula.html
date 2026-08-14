@@ -167,7 +167,7 @@ function editarEval(e){
   const soloFecha = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
 
   const m = modal({ title: nueva ? 'Nueva evaluación' : 'Editar evaluación', wide:true, body:`
-    <div class="field"><label>Nombre *</label><input id="aNombre" value="${esc(v.nombre)}"></div>
+    <div class="field"><label>Nombre *</label><input id="aNombre" value="${esc(v.nombre)}" required></div>
     <div class="field"><label>Instrucciones para el estudiante</label>
       <textarea id="aDesc" rows="2">${esc(v.descripcion || '')}</textarea></div>
     <div class="row">
@@ -277,7 +277,7 @@ function agregarLeccion(moduleId){
   const siguiente = (mo?.cem_lessons?.length || 0) + 1;
 
   const m = modal({ title:`Agregar a "${mo?.titulo || ''}"`, body:`
-    <div class="field"><label>Título *</label><input id="lTitulo"></div>
+    <div class="field"><label>Título *</label><input id="lTitulo" required></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:130px"><label>Tipo</label>
         <select id="lTipo">

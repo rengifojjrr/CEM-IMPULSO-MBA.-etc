@@ -13,7 +13,7 @@
 </head>
 <body>
 <div id="page" class="hidden">
-  <a class="btn ghost sm" href="estudiantes.html" style="margin-bottom:10px"><span class="material-symbols-outlined">arrow_back</span> Volver</a>
+  <div id="migas"></div>
   <div class="card" id="hero"></div>
   <div class="tabs" id="tabs">
     <button class="active" data-t="resumen">Resumen</button>
@@ -55,6 +55,12 @@ async function load(){
 }
 
 function hero(){
+  /* item 41 · «Volver» no decía a dónde. El rastro sí: dice dónde estás y deja
+     subir un nivel de un clic. */
+  $('#migas').innerHTML = migas([
+    ['Estudiantes', 'estudiantes.html'],
+    [(stu.nombre || '') + ' ' + (stu.apellido || '')],
+  ]);
   const prog = ens.length? ens.reduce((a,x)=>a+Number(x.progreso||0),0)/ens.length : 0;
   const saldo = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
   $('#hero').innerHTML = `<div class="row" style="gap:16px;align-items:flex-start">
@@ -224,7 +230,7 @@ async function matricular(){
   const { data: cursos } = await sb.from('cem_courses').select('id,nombre,precio').eq('estado','publicado').order('nombre');
   const { data: cohs } = await sb.from('cem_cohorts').select('id,nombre,course_id');
   const m = modal({ title:`Matricular a ${stu.nombre}`, body:`
-    <div class="field"><label>Programa *</label><select id="mCurso">
+    <div class="field"><label>Programa *</label><select id="mCurso" required>
       ${(cursos||[]).map(c=>`<option value="${c.id}" data-p="${c.precio}">${esc(c.nombre)}</option>`).join('')}</select></div>
     <div class="field"><label>Cohorte</label><select id="mCoh"></select></div>
     <div class="row"><div class="field" style="flex:1;min-width:110px"><label>Cuotas</label>

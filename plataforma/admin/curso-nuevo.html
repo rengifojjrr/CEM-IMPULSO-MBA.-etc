@@ -64,7 +64,7 @@
       <div class="card">
         <h2 class="sec">Información académica</h2>
         <div class="row">
-          <div class="field" style="flex:1;min-width:150px"><label>Tipo *</label><select id="tipo">
+          <div class="field" style="flex:1;min-width:150px"><label>Tipo *</label><select id="tipo" required>
             <option value="curso">Curso (20 h)</option><option value="masterclass">Masterclass (hasta 4 h)</option>
             <option value="programa">Programa (20–89 h)</option><option value="diplomado" selected>Diplomado (90 h)</option>
             <option value="maestria">Maestría (240 h)</option></select></div>
@@ -112,7 +112,7 @@
       <div class="card">
         <h2 class="sec">Precio</h2>
         <div class="row">
-          <div class="field" style="flex:1;min-width:150px"><label>Precio de lista *</label><input type="number" step="0.01" id="precio" value="0"></div>
+          <div class="field" style="flex:1;min-width:150px"><label>Precio de lista *</label><input type="number" step="0.01" id="precio" value="0" required></div>
           <div class="field" style="flex:1;min-width:130px"><label>Moneda</label><select id="moneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
         </div>
         <label class="check"><input type="checkbox" id="destacado"> Mostrar como destacado en el catálogo público</label>
@@ -143,6 +143,8 @@
 
   <div class="row between" style="margin-top:16px">
     <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined">arrow_back</span> Atrás</button>
+    <button class="btn outline" id="btnCrearYa" title="Crea el programa como borrador con lo que lleves puesto; el resto se completa después">
+      <span class="material-symbols-outlined">bolt</span> Crear ya como borrador</button>
     <button class="btn" id="btnNext">Siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
   </div>
 </div>
@@ -188,13 +190,38 @@ function renderSteps(){
   $$('.step').forEach(s => s.classList.toggle('on', Number(s.dataset.step)===step));
   $('#btnPrev').style.visibility = step===0?'hidden':'visible';
   $('#btnNext').innerHTML = step===LABELS.length-1
-    ? 'Crear programa <span class="material-symbols-outlined">check</span>'
+    ? 'Crear el programa <span class="material-symbols-outlined">check</span>'
     : 'Siguiente <span class="material-symbols-outlined">arrow_forward</span>';
+  /* Seis pasos para dar de alta un curso eran muchos: casi todos los campos
+     tienen un valor razonable por defecto. Desde el primer paso se puede crear
+     con lo imprescindible y afinar el resto después, en la ficha. */
+  $('#btnCrearYa').hidden = step === LABELS.length-1;
   if (step===LABELS.length-1) review();
 }
 function go(i){ if(i>0 && !$('#nombre').value.trim()){ fail('Primero escribe el nombre del programa.'); return; } step=i; renderSteps(); }
 $('#btnPrev').onclick = () => go(Math.max(0,step-1));
 $('#btnNext').onclick = () => step===LABELS.length-1 ? crear() : go(Math.min(LABELS.length-1,step+1));
+$('#btnCrearYa').onclick = () => {
+  if (!$('#nombre').value.trim()) { fail('Al menos ponle nombre al programa.'); return; }
+  crear('borrador');
+};
+
+/* item 40 · el código se propone solo a partir del nombre y el año, en vez de
+   que cada quien invente el suyo. Se puede cambiar; sólo se rellena si está
+   vacío, para no pisar lo que se escriba a mano. */
+$('#nombre').addEventListener('blur', () => {
+  const campo = $('#codigo');
+  if (campo.value.trim()) return;
+  const nombre = $('#nombre').value.trim();
+  if (!nombre) return;
+  const siglas = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .split(/\s+/).filter(w => w.length > 3).slice(0,2)
+    .map(w => w.slice(0,3).toUpperCase()).join('-') || 'PRG';
+  campo.value = `CEM-${siglas}-${new Date().getFullYear()}`;
+});
+
+/* item 38 · avisa antes de perder un formulario a medias. */
+const vigilancia = vigilarCambiosSinGuardar($('#page'));
 
 $('#addMod').onclick = () => { mods.push({titulo:`Módulo ${mods.length+1}: `, imagen_url:null}); renderMods(); };
 function renderMods(){
@@ -273,8 +300,14 @@ async function crear(estado='publicado'){
     }), 'No se pudo crear la cohorte');
   }
   await audit('curso_creado','cem_courses',course.id,'medio',{nombre:course.nombre, estado});
-  ok('Programa creado correctamente');
-  setTimeout(()=>location.href='cursos.html', 700);
+  /* Ya está guardado: si no lo marcamos como limpio, al salir de la página
+     saltaría el aviso de «tienes cambios sin guardar» justo cuando sí se
+     guardaron. */
+  vigilancia.limpio();
+  ok(estado==='borrador'
+    ? 'Programa guardado como borrador. Puedes seguir completándolo desde su ficha.'
+    : 'Programa creado y publicado.');
+  setTimeout(()=>location.href = estado==='borrador' ? `contenido.html?curso=${course.id}` : 'cursos.html', 900);
 }
 $('#btnDraft').onclick = () => crear('borrador');
 </script>

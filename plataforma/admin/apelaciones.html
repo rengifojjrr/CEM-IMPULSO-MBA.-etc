@@ -103,15 +103,15 @@ function resolver(r){
   const m = modal({ title:'Resolver apelación', wide:true, body:`
     <div class="card" style="background:var(--surface-container);box-shadow:none;margin-bottom:12px">
       <b class="tiny">Motivo del estudiante</b><p class="tiny" style="margin:6px 0 0">${esc(r.motivo||'')}</p></div>
-    <div class="field"><label>Decisión *</label><select id="aE">
+    <div class="field"><label>Decisión *</label><select id="aE" required>
       <option value="en_analisis">En análisis (seguir revisando)</option>
       <option value="requiere_info">Requiere más información del estudiante</option>
       <option value="aceptada">Aceptada — ajustar la nota</option>
       <option value="rechazada">Rechazada — mantener la nota</option></select></div>
     <div class="field hidden" id="wrapNota"><label>Nueva nota *</label>
-      <input type="number" id="aN" min="0" max="100" value="${nota??''}"></div>
+      <input type="number" id="aN" min="0" max="100" value="${nota??''}" required></div>
     <div class="field"><label>Resolución / respuesta al estudiante *</label>
-      <textarea id="aR" placeholder="Explica la decisión tomada…"></textarea></div>`,
+      <textarea id="aR" placeholder="Explica la decisión tomada…" required></textarea></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar resolución</button>` });
   const upd = () => $('#wrapNota',m).classList.toggle('hidden', $('#aE',m).value!=='aceptada');
   $('#aE',m).onchange = upd; upd();

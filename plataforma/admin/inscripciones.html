@@ -120,7 +120,7 @@ function resolverSolicitud(id, aprobar){
     ${aprobar ? `<div class="chip warn" style="margin:10px 0;white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
       ${esc(EFECTO[s.tipo])}</div>` : ''}
     <div class="field"><label>${aprobar ? 'Nota para el estudiante (opcional)' : 'Explícale por qué *'}</label>
-      <textarea id="solResp" rows="2"></textarea></div>
+      <textarea id="solResp" rows="2" required></textarea></div>
     <div id="solMsg"></div>`,
     footer: `<button class="btn outline" data-x>Cancelar</button>
              <button class="btn" data-s>${aprobar ? 'Aprobar' : 'Rechazar'}</button>` });
@@ -268,11 +268,34 @@ function render(){
 ['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{$('#q').value='';$('#fEstado').value='';render();};
 $('#btnExport').onclick=()=>{
-  const rows = tab==='ins'? ens.map(r=>({estudiante:(r.cem_profiles?.nombre||'')+' '+(r.cem_profiles?.apellido||''),
-      email:r.cem_profiles?.email, programa:r.cem_courses?.nombre, cohorte:r.cem_cohorts?.nombre,
-      precio:r.precio_final, estado:r.estado, fecha:r.fecha_inscripcion}))
-    : tab==='cuotas'? insts : pays;
-  download(`${tab}_cem.csv`, toCSV(rows));
+  /* Saca lo que se está viendo, no todo: antes exportaba la tabla entera
+     dijera lo que dijera el filtro, y no avisaba de cuántas filas iban a
+     salir — se abría el Excel para descubrirlo. */
+  const q = $('#q').value.trim(), f = $('#fEstado').value;
+  const nombreHoja = { ins:'inscripciones', cuotas:'cuotas', pagos:'pagos' }[tab];
+  let filas;
+  if (tab==='ins'){
+    filas = ens.filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre']) && (!f||r.estado===f))
+      .map(r=>({ estudiante:`${r.cem_profiles?.nombre||''} ${r.cem_profiles?.apellido||''}`.trim(),
+        email:r.cem_profiles?.email, programa:r.cem_courses?.nombre, cohorte:r.cem_cohorts?.nombre,
+        precio:r.precio_final, estado:etiqueta(r.estado), fecha:r.fecha_inscripcion }));
+  } else if (tab==='cuotas'){
+    filas = insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
+      .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre']) && (!f||i.estado===f))
+      .map(i=>({ estudiante:`${i._e.cem_profiles?.nombre||''} ${i._e.cem_profiles?.apellido||''}`.trim(),
+        programa:i._e.cem_courses?.nombre, cuota:i.numero, monto:i.monto, saldo:i.saldo,
+        vence:i.fecha_vencimiento, estado:etiqueta(i.estado) }));
+  } else {
+    filas = pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
+      .filter(x=>x._e && match(x._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
+        && (f===''||String(x.conciliado?1:0)===f))
+      .map(x=>({ fecha:x.fecha, estudiante:`${x._e.cem_profiles?.nombre||''} ${x._e.cem_profiles?.apellido||''}`.trim(),
+        programa:x._e.cem_courses?.nombre, monto:x.monto, moneda:x.moneda, tasa:x.tasa,
+        en_dolares:enDolares(x), metodo:etiqueta(x.metodo), referencia:x.referencia,
+        conciliado:x.conciliado?'Sí':'No' }));
+  }
+  download(`${nombreHoja}_cem.csv`, toCSV(filas));
+  ok(`${filas.length} fila(s) exportadas${q||f ? ' — las que deja ver el filtro' : ''}`);
 };
 
 function pagar(i){
@@ -337,9 +360,9 @@ $('#btnNueva').onclick = async () => {
     sb.from('cem_cohorts').select('id,nombre,course_id'),
   ]);
   const m = modal({ title:'Nueva inscripción', body:`
-    <div class="field"><label>Estudiante *</label><select id="nEst">
+    <div class="field"><label>Estudiante *</label><select id="nEst" required>
       ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>
-    <div class="field"><label>Programa *</label><select id="nCurso">
+    <div class="field"><label>Programa *</label><select id="nCurso" required>
       ${(cursos||[]).map(c=>`<option value="${c.id}" data-p="${c.precio}">${esc(c.nombre)}</option>`).join('')}</select></div>
     <div class="field"><label>Cohorte</label><select id="nCoh"></select></div>
     <div class="row"><div class="field" style="flex:1;min-width:120px"><label>Cuotas</label>

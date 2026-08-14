@@ -84,7 +84,7 @@
       <details class="sec-fold" open>
         <summary><span class="material-symbols-outlined">tune</span> General</summary>
         <div class="cuerpo">
-          <div class="field"><label>Nombre de la plantilla *</label><input id="nombre"></div>
+          <div class="field"><label>Nombre de la plantilla *</label><input id="nombre" required></div>
           <div class="field"><label>Orientación</label>
             <div class="row"><button class="chip chip-btn" data-or="horizontal">Horizontal</button>
               <button class="chip chip-btn" data-or="vertical">Vertical</button></div></div>
@@ -723,7 +723,7 @@ function corregir(c){
     <div class="field"><label>Título del certificado</label><input id="fTit" value="${esc(c.titulo||'')}"></div>
     <div class="field"><label>Fecha de emisión (texto impreso)</label><input id="fFec" value="${esc(d.emision||'')}"></div>
     <div class="field"><label>Motivo de la corrección *</label>
-      <input id="fMot" placeholder="Ej.: el apellido venía mal escrito en el registro"></div>`,
+      <input id="fMot" placeholder="Ej.: el apellido venía mal escrito en el registro" required></div>`,
     footer:`<button class="btn outline" data-no>Cancelar</button>
             <button class="btn" data-si>Guardar corrección</button>` });
 

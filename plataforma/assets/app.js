@@ -296,11 +296,13 @@ export const TXT = {
   cohorte: 'cohorte', cohortes: 'cohortes',
   evaluacion: 'evaluación', evaluaciones: 'evaluaciones',
   entrega: 'entrega', constancia: 'constancia de estudios',
-  sinPermiso: 'No tienes permiso para hacer esto.',
-  sesionVencida: 'Tu sesión venció. Vuelve a entrar para continuar.',
-  sinConexion: 'No hay conexión con el servidor. Revisa tu internet e inténtalo otra vez.',
+  /* item 42 · un error que sólo dice «no se pudo» deja a la persona parada.
+     Cada mensaje termina diciendo qué hacer con él. */
+  sinPermiso: 'Tu rol no puede hacer esto. Pídele a un administrador que te lo habilite en Permisos.',
+  sesionVencida: 'Tu sesión venció por seguridad. Vuelve a entrar y retoma donde ibas.',
+  sinConexion: 'No se pudo hablar con el servidor. Revisa tu internet y vuelve a intentarlo; nada se guardó a medias.',
   guardado: 'Guardado.',
-  errorGenerico: 'No se pudo completar la operación.',
+  errorGenerico: 'No se pudo completar la operación. Inténtalo otra vez; si vuelve a fallar, avísale al equipo técnico con la hora exacta.',
 };
 
 /* ============ traducción de errores (uno solo para toda la plataforma) ============
@@ -309,16 +311,16 @@ export const TXT = {
  * traduce lo conocido y se deja pasar tal cual lo que ya viene en castellano
  * (nuestras funciones del servidor lanzan mensajes escritos para leerse). */
 const ERRORES_CONOCIDOS = {
-  '23505': 'Ya existe un registro con esos mismos datos.',
-  '23503': 'No se puede: hay información relacionada que depende de esto.',
-  '23514': 'Alguno de los datos no cumple con lo permitido.',
-  '23502': 'Falta completar un dato obligatorio.',
-  '22P02': 'Alguno de los datos tiene un formato que no se entiende.',
+  '23505': 'Ya existe un registro con esos mismos datos. Búscalo en la lista y edítalo en vez de crear otro.',
+  '23503': 'No se puede borrar: hay información que depende de esto. Quita primero lo que cuelga de aquí.',
+  '23514': 'Alguno de los datos está fuera de lo permitido. Revisa los campos marcados y corrige el que no cuadre.',
+  '23502': 'Falta un dato obligatorio. Completa los campos con asterisco y vuelve a guardar.',
+  '22P02': 'Un dato tiene un formato que no se entiende: revisa fechas, montos y números.',
   '42501': TXT.sinPermiso,
-  '42P01': 'Esa parte del sistema todavía no está disponible.',
+  '42P01': 'Esa parte del sistema todavía no está disponible. Avísale al equipo técnico.',
   'PGRST301': TXT.sesionVencida,
-  'PGRST116': 'No se encontró lo que buscabas.',
-  'PGRST201': 'La consulta es ambigua; avísale al equipo técnico.',
+  'PGRST116': 'No se encontró lo que buscabas. Puede que alguien lo haya borrado: recarga la lista.',
+  'PGRST201': 'La consulta quedó ambigua. Avísale al equipo técnico indicando en qué pantalla pasó.',
 };
 
 /** Convierte cualquier error (de Supabase, de red o propio) en una frase legible. */
@@ -946,10 +948,39 @@ function renderPublicHeader(p) {
 }
 
 /* ============ helpers de render ============ */
-export function kpi(label, value, icon, sub = '', cls = '') {
-  return `<div class="kpi"><div class="k-top"><span>${esc(label)}</span>
+/**
+ * Un indicador. El último parámetro, `explica`, es lo que de verdad cuenta esa
+ * cifra: «cuántos estudiantes» no dice si son los de este mes, los que pagaron
+ * o los que entraron alguna vez. Sale como un «?» al lado del título.
+ */
+export function kpi(label, value, icon, sub = '', cls = '', explica = '') {
+  return `<div class="kpi"><div class="k-top"><span>${esc(label)}${explica ? ' ' + ayuda(explica) : ''}</span>
     <span class="material-symbols-outlined">${icon}</span></div>
     <div class="k-val">${value}</div>${sub ? `<div class="k-sub ${cls}">${esc(sub)}</div>` : ''}</div>`;
+}
+
+/**
+ * Ocho indicadores en fila son ocho números que nadie mira. Deja a la vista los
+ * que se consultan a diario dentro de `host`, y cuelga el resto detrás de un
+ * desplegable justo debajo, recordando si quedó abierto.
+ */
+export function kpisConMas(host, principales, secundarios, clave = 'cemKpisMas') {
+  const cont = typeof host === 'string' ? $(host) : host;
+  if (!cont) return;
+  cont.innerHTML = principales.join('');
+  const previo = cont.parentNode.querySelector('.kpis-mas');
+  if (previo) previo.remove();
+  if (!secundarios.length) { montarAyudas(cont); return; }
+
+  const d = document.createElement('details');
+  d.className = 'kpis-mas';
+  d.open = localStorage.getItem(clave) === '1';
+  d.innerHTML = `<summary><span class="material-symbols-outlined">expand_more</span>
+      <span>${secundarios.length} indicadores más</span></summary>
+    <div class="kpis">${secundarios.join('')}</div>`;
+  cont.insertAdjacentElement('afterend', d);
+  d.addEventListener('toggle', () => localStorage.setItem(clave, d.open ? '1' : '0'));
+  montarAyudas(cont); montarAyudas(d);
 }
 export function bar(p, gold = false) {
   return `<div class="bar ${gold ? 'gold' : ''}"><i style="width:${Math.min(100, Math.max(0, Number(p) || 0))}%"></i></div>`;
@@ -976,6 +1007,131 @@ export function emptyRow(cols, msg = 'Sin resultados.', accion = null) {
       <span class="material-symbols-outlined">${esc(accion.icono || 'add')}</span>
       ${esc(accion.texto)}</button>` : '';
   return `<tr><td colspan="${cols}"><div class="empty">${esc(msg)}${boton}</div></td></tr>`;
+}
+
+/* ============ elegir qué columnas se ven (item 24) ============
+   Contabilidad quiere saldo y documento; coordinación quiere progreso y último
+   acceso. Antes se veían las diez columnas siempre y cada quien leía de lado.
+   Ahora cada persona apaga las que no usa y la elección se recuerda. */
+
+/**
+ * @param {string} tablaSel  selector de la <table> (debe tener id)
+ * @param {string} hostSel   dónde poner el botón «Columnas»
+ * @param {string} clave     clave de localStorage
+ * @param {Array<{i:number, nombre:string, fija?:boolean}>} columnas
+ *        `i` es la posición de la columna (1 = la primera). Las `fija` no se
+ *        pueden apagar: sin ellas la fila no se identifica.
+ */
+export function selectorColumnas(tablaSel, hostSel, clave, columnas) {
+  const tabla = $(tablaSel), host = $(hostSel);
+  if (!tabla || !host) return;
+  if (!tabla.id) tabla.id = 'tabla-' + Math.random().toString(36).slice(2, 8);
+
+  let ocultas = new Set();
+  try { ocultas = new Set(JSON.parse(localStorage.getItem(clave) || '[]')); } catch { /* preferencia ilegible: se ven todas */ }
+  columnas.filter((c) => c.fija).forEach((c) => ocultas.delete(c.i));
+
+  const hoja = document.createElement('style');
+  document.head.appendChild(hoja);
+  const aplicar = () => {
+    hoja.textContent = [...ocultas]
+      .map((i) => `#${tabla.id} tr > *:nth-child(${i}){display:none !important;}`).join('\n');
+    localStorage.setItem(clave, JSON.stringify([...ocultas]));
+    const n = ocultas.size;
+    boton.innerHTML = `<span class="material-symbols-outlined">view_column</span> Columnas${n ? ` (${columnas.length - n} de ${columnas.length})` : ''}`;
+  };
+
+  const boton = document.createElement('button');
+  boton.type = 'button';
+  boton.className = 'btn ghost sm';
+  host.appendChild(boton);
+  boton.onclick = () => {
+    const m = modal({ title:'Qué columnas quieres ver', body:
+      `<p class="tiny muted">Se guarda para la próxima vez que entres, sólo en este equipo.</p>` +
+      columnas.map((c) => `<label class="check" style="display:flex;gap:9px;align-items:center;padding:5px 0">
+          <input type="checkbox" data-col-tog="${c.i}" ${ocultas.has(c.i) ? '' : 'checked'} ${c.fija ? 'disabled' : ''}>
+          <span>${esc(c.nombre)}${c.fija ? ' <span class="tiny muted">(siempre visible)</span>' : ''}</span>
+        </label>`).join(''),
+      footer:`<button class="btn outline" data-x>Cerrar</button>
+              <button class="btn ghost" id="colTodas">Ver todas</button>` });
+    $$('[data-col-tog]', m).forEach((c) => c.onchange = () => {
+      const i = Number(c.dataset.colTog);
+      if (c.checked) ocultas.delete(i); else ocultas.add(i);
+      aplicar();
+    });
+    $('#colTodas', m).onclick = () => {
+      ocultas.clear(); aplicar();
+      $$('[data-col-tog]', m).forEach((c) => c.checked = true);
+    };
+  };
+  aplicar();
+}
+
+/* ============ hacer lo mismo con varias filas a la vez (item 25) ============
+   Aprobar veinte pagos era abrir veinte veces la misma ventana. Con esto se
+   marcan las filas que hagan falta y la acción se aplica a todas. */
+
+/**
+ * Conecta las casillas de una tabla con una barra de acciones.
+ * La tabla debe traer un `<th class="sel"><input type="checkbox" data-todas>`
+ * y cada fila un `<td class="sel"><input type="checkbox" data-sel="ID">`.
+ *
+ * @param {string} tablaSel   selector de la <table>
+ * @param {string} barraSel   selector del contenedor de la barra
+ * @param {Array<{texto:string, icono?:string, clase?:string, hacer:Function}>} acciones
+ *        `hacer` recibe el array de ids marcados.
+ * @returns {{marcados:Function, limpiar:Function}}
+ */
+export function seleccionMultiple(tablaSel, barraSel, acciones) {
+  const tabla = $(tablaSel), barra = $(barraSel);
+  if (!tabla || !barra) return { marcados: () => [], limpiar() {} };
+
+  const casillas = () => $$('[data-sel]', tabla);
+  const marcados = () => casillas().filter((c) => c.checked).map((c) => c.dataset.sel);
+
+  function pintar() {
+    const n = marcados().length;
+    barra.hidden = n === 0;
+    if (!n) return;
+    barra.innerHTML = `<span class="cuenta">${n} ${n === 1 ? 'seleccionada' : 'seleccionadas'}</span>` +
+      acciones.map((a, i) => `<button type="button" class="btn sm ${esc(a.clase || 'outline')}" data-acc="${i}">
+        ${a.icono ? `<span class="material-symbols-outlined">${esc(a.icono)}</span>` : ''}${esc(a.texto)}</button>`).join('') +
+      `<button type="button" class="btn ghost sm" data-quitar>Quitar la selección</button>`;
+    $$('[data-acc]', barra).forEach((b) => b.onclick = async () => {
+      const ids = marcados();
+      if (!ids.length) return;
+      try { await acciones[Number(b.dataset.acc)].hacer(ids); }
+      catch (e) { fail(mensajeError(e, 'No se pudo aplicar a todas.')); }
+    });
+    $('[data-quitar]', barra).onclick = () => limpiar();
+  }
+
+  function limpiar() {
+    casillas().forEach((c) => { c.checked = false; c.closest('tr')?.classList.remove('marcada'); });
+    const todas = $('[data-todas]', tabla); if (todas) { todas.checked = false; todas.indeterminate = false; }
+    pintar();
+  }
+
+  tabla.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (t.matches('[data-todas]')) {
+      casillas().forEach((c) => { c.checked = t.checked; c.closest('tr')?.classList.toggle('marcada', t.checked); });
+    } else if (t.matches('[data-sel]')) {
+      t.closest('tr')?.classList.toggle('marcada', t.checked);
+      const todas = $('[data-todas]', tabla);
+      if (todas) {
+        const n = marcados().length, total = casillas().length;
+        todas.checked = n === total && total > 0;
+        todas.indeterminate = n > 0 && n < total;
+      }
+    } else return;
+    pintar();
+  });
+  /* Marcar una casilla no debe abrir la ficha de la fila. */
+  tabla.addEventListener('click', (ev) => { if (ev.target.closest('td.sel, th.sel')) ev.stopPropagation(); }, true);
+
+  pintar();
+  return { marcados, limpiar };
 }
 
 /* ============ ordenar una tabla pulsando su encabezado ============

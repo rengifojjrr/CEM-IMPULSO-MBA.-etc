@@ -109,7 +109,7 @@ $('#btnNueva').onclick = () => form(null);
 function form(b){
   const isNew=!b;
   const m = modal({ title:isNew?'Crear insignia':`Editar: ${b.nombre}`, wide:true, body:`
-    <div class="field"><label>Nombre *</label><input id="bN" value="${esc(b?.nombre||'')}" placeholder="Analista de Datos Avanzado"></div>
+    <div class="field"><label>Nombre *</label><input id="bN" value="${esc(b?.nombre||'')}" placeholder="Analista de Datos Avanzado" required></div>
     <div class="field"><label>Descripción</label><textarea id="bD" style="min-height:60px">${esc(b?.descripcion||'')}</textarea></div>
     <div class="row">
       <div class="field" style="flex:2;min-width:200px"><label>Competencia principal</label>
@@ -123,7 +123,7 @@ function form(b){
         <span class="material-symbols-outlined">${i}</span></button>`).join('')}</div></div>
     <div class="field"><label>Color</label><input type="color" id="bColor" value="${esc(b?.color||'#c9a227')}" style="height:42px"></div>
     <label class="check"><input type="checkbox" id="bA" ${b? (b.activo?'checked':'') : 'checked'}> Insignia activa</label>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar la insignia</button>` });
   let icono = b?.icono || 'military_tech';
   $$('[data-i]',m).forEach(el=>el.onclick=()=>{ icono=el.dataset.i;
     $$('[data-i]',m).forEach(x=>x.classList.toggle('on',x===el)); });
@@ -143,9 +143,9 @@ function form(b){
 $('#btnOtorgar').onclick = async () => {
   const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre').limit(500);
   const m = modal({ title:'Otorgar insignia', body:`
-    <div class="field"><label>Insignia *</label><select id="oB">
+    <div class="field"><label>Insignia *</label><select id="oB" required>
       ${badges.filter(b=>b.activo).map(b=>`<option value="${b.id}">${esc(b.nombre)}</option>`).join('')}</select></div>
-    <div class="field"><label>Estudiante *</label><select id="oE">
+    <div class="field"><label>Estudiante *</label><select id="oE" required>
       ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Otorgar</button>` });
   $('[data-x]',m).onclick=m.close;

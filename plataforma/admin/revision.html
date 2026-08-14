@@ -93,7 +93,7 @@ function resolver(r, aprobar){
   const m = modal({ title: aprobar?'Aprobar y publicar':'Devolver para cambios', body:`
     <p class="tiny muted" style="margin-top:0">${esc(r.titulo)}</p>
     <div class="field"><label>Comentario ${aprobar?'(opcional)':'*'}</label>
-      <textarea id="cm" placeholder="${aprobar?'Observaciones de la aprobación…':'Indica qué debe corregirse…'}"></textarea></div>`,
+      <textarea id="cm" placeholder="${aprobar?'Observaciones de la aprobación…':'Indica qué debe corregirse…'}" required></textarea></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button>
       <button class="btn ${aprobar?'':'danger'}" data-s>${aprobar?'Aprobar y publicar':'Devolver'}</button>` });
   $('[data-x]',m).onclick=m.close;

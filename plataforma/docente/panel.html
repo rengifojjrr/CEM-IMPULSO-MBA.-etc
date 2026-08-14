@@ -133,7 +133,7 @@ function calificar(s, ens){
     </div>`:''}
     <div class="row" style="margin-top:12px">
       <div class="field" style="flex:1;min-width:130px"><label>Puntaje (0–100) *</label>
-        <input type="number" id="gP" min="0" max="100" value="${s.puntaje??''}"></div></div>
+        <input type="number" id="gP" min="0" max="100" value="${s.puntaje??''}" required></div></div>
     <div class="field"><label>Retroalimentación</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>
     <div id="gMsg"></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button>
@@ -156,7 +156,7 @@ function reabrir(s){
     <p>La entrega vuelve a estar abierta y el estudiante puede enviarla de nuevo.
        El puntaje que tenga ahora se borra.</p>
     <div class="field"><label>¿Por qué la devuelves? *</label>
-      <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto."></textarea>
+      <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto." required></textarea>
       <span class="tiny muted">El estudiante lo va a leer en su aviso.</span></div>
     <div id="rMsg"></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button>
@@ -195,7 +195,7 @@ async function pasarAsistencia(classId, ens){
 
 $('#btnAnuncio').onclick = () => {
   const m = modal({ title:'Publicar anuncio', body:`
-    <div class="field"><label>Título *</label><input id="aT"></div>
+    <div class="field"><label>Título *</label><input id="aT" required></div>
     <div class="field"><label>Mensaje</label><textarea id="aB"></textarea></div>
     <div class="field"><label>Dirigido a</label><select id="aC"><option value="">Todos mis grupos</option>
       ${cohortes.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}</select></div>`,

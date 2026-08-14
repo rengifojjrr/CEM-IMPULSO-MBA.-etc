@@ -47,7 +47,7 @@
       </div>
       <div class="row">
         <div class="field" style="flex:1;min-width:150px"><label>Teléfono</label>
-          <input id="telefono" type="tel"></div>
+          <input id="telefono" type="tel" placeholder="+58 412 1234567"></div>
         <div class="field" style="flex:1;min-width:150px"><label>País</label>
           <input id="pais"></div>
         <div class="field" style="flex:1;min-width:150px"><label>Ciudad</label>
@@ -211,7 +211,7 @@ function pedirCambio(enrollmentId, tipo){
   const m = modal({ title: `Pedir ${tipo === 'reactivacion' ? 'reactivación' : tipo}`, body: `
     <p>${esc(EXPLICACION[tipo])}</p>
     <div class="field"><label>Cuéntanos el motivo *</label>
-      <textarea id="solMotivo" rows="3" placeholder="Lo lee quien resuelve tu solicitud."></textarea></div>
+      <textarea id="solMotivo" rows="3" placeholder="Lo lee quien resuelve tu solicitud." required></textarea></div>
     ${tipo === 'congelamiento' ? `<div class="field"><label>¿Hasta cuándo, más o menos?</label>
       <input type="date" id="solHasta"></div>` : ''}
     <div id="solMsg"></div>`,

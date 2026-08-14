@@ -94,19 +94,19 @@ function form(q){
   const isNew=!q?.id;
   const opts = (q?.opciones||['','','','']);
   const dlg = modal({ title:isNew?'Crear pregunta':'Editar pregunta', wide:true, body:`
-    <div class="field"><label>Enunciado *</label><textarea id="qE" style="min-height:70px">${esc(q?.enunciado||'')}</textarea></div>
+    <div class="field"><label>Enunciado *</label><textarea id="qE" style="min-height:70px" required>${esc(q?.enunciado||'')}</textarea></div>
     <div class="field"><label>Texto de ayuda (opcional)</label><input id="qA" value="${esc(q?.ayuda||'')}"></div>
     <div class="row">
       <div class="field" style="flex:2;min-width:200px"><label>Curso relacionado</label><select id="qC"><option value="">Sin curso</option>
         ${cursos.map(c=>`<option value="${c.id}" ${q?.course_id===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:160px"><label>Tipo *</label><select id="qT">
+      <div class="field" style="flex:1;min-width:160px"><label>Tipo *</label><select id="qT" required>
         ${['multiple','verdadero_falso','corta','ensayo'].map(v=>`<option value="${v}" ${q?.tipo===v?'selected':''}>${v.replace('_','/')}</option>`).join('')}</select></div>
       <div class="field" style="flex:1;min-width:130px"><label>Dificultad</label><select id="qD">
         ${opciones(['baja','media','alta'], q?.dificultad)}</select></div>
     </div>
     <div id="opcWrap"></div>
     <div class="field"><label>Explicación de la respuesta</label><textarea id="qX" style="min-height:60px">${esc(q?.explicacion||'')}</textarea></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar la pregunta</button>` });
 
   const renderOpts = () => {
     const t = $('#qT',dlg).value;
@@ -118,7 +118,7 @@ function form(q){
           <input class="inp" data-o="${i}" value="${esc(opts[i]||'')}" placeholder="Opción ${i+1}"></div>`).join('')}</div>`;
     } else if (t==='verdadero_falso'){
       const cv = String(q?.respuesta_correcta??'').replace(/"/g,'');
-      W.innerHTML = `<div class="field"><label>Respuesta correcta *</label><select id="qVF">
+      W.innerHTML = `<div class="field"><label>Respuesta correcta *</label><select id="qVF" required>
         <option value="Verdadero" ${cv==='Verdadero'?'selected':''}>Verdadero</option>
         <option value="Falso" ${cv==='Falso'?'selected':''}>Falso</option></select></div>`;
     } else {

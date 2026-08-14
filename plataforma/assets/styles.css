@@ -437,3 +437,20 @@ th.ordenable:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;
   .table-wrap{overflow-x:visible;}
 }
 .err-text{color:var(--error);}
+
+/* ---- indicadores secundarios plegados (item 20) ------------------------- */
+/* Los ocho KPIs de golpe eran ruido. Los tres o cuatro de siempre quedan a la
+   vista y el resto vive aquí dentro, plegado. */
+.kpis-mas{margin:-8px 0 16px;}
+.kpis-mas>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  font-size:12.5px;font-weight:600;color:var(--on-surface-variant);padding:6px 10px;border-radius:999px;
+  border:1px solid var(--outline-variant);background:var(--surface-lowest);}
+.kpis-mas>summary::-webkit-details-marker{display:none;}
+.kpis-mas>summary:hover{background:var(--surface-container);}
+.kpis-mas>summary .material-symbols-outlined{font-size:18px;transition:transform .16s ease;}
+.kpis-mas[open]>summary .material-symbols-outlined{transform:rotate(180deg);}
+.kpis-mas .kpis{margin-top:10px;}
+
+/* ---- acciones sobre varias filas (item 25) ------------------------------ */
+td.sel,th.sel{width:34px;text-align:center;}
+tr.marcada{background:color-mix(in srgb, var(--primary) 7%, transparent);}

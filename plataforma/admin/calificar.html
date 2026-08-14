@@ -113,7 +113,7 @@ function detalle(){
     ${puede? `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--outline-variant)">
       <div class="row">
         <div class="field" style="flex:1;min-width:150px"><label>Puntaje (máx. ${a?.puntaje_max||100}) *</label>
-          <input type="number" id="gP" min="0" max="${a?.puntaje_max||100}" value="${s.puntaje??''}"></div>
+          <input type="number" id="gP" min="0" max="${a?.puntaje_max||100}" value="${s.puntaje??''}" required></div>
         <div class="field" style="flex:1;min-width:150px"><label>Referencia</label>
           <div class="tiny muted" style="padding-top:8px">Nota aprobatoria: <b>${a?.nota_aprobatoria||70}</b></div></div>
       </div>
@@ -165,7 +165,7 @@ function detalle(){
         <p>Vuelve a quedar abierta y el estudiante puede enviarla de nuevo.
            El puntaje actual se borra y él recibe un aviso con tu motivo.</p>
         <div class="field"><label>¿Por qué la devuelves? *</label>
-          <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto."></textarea></div>
+          <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto." required></textarea></div>
         <div id="rMsg"></div>`,
         footer:`<button class="btn outline" data-x>Cancelar</button>
                 <button class="btn" data-s>Devolver</button>` });

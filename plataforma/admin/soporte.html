@@ -147,9 +147,9 @@ async function detalle(){
 $('#btnNuevo').onclick = async () => {
   const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre').limit(500);
   const m = modal({ title:'Nuevo ticket', body:`
-    <div class="field"><label>Estudiante *</label><select id="nE">
+    <div class="field"><label>Estudiante *</label><select id="nE" required>
       ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>
-    <div class="field"><label>Asunto *</label><input id="nA"></div>
+    <div class="field"><label>Asunto *</label><input id="nA" required></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:140px"><label>Categoría</label><select id="nC">
         ${opciones(['acceso','contenido','pagos','certificados','general'])}</select></div>

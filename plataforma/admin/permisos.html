@@ -60,7 +60,8 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, ok, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, ok, run, audit, confirmDialog, etiqueta,
+         QUE_HACE_EL_ROL } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['admin','superadmin','auditor'], active:'permisos.html', area:'admin' });
 const puede = p && ['admin','superadmin'].includes(p.rol);
 const ROLES = ['superadmin','admin','coordinador','cobranza','profesor','auditor'];
@@ -71,9 +72,15 @@ if (p) load();
 async function load(){
   const { data } = await sb.from('cem_permissions').select('*');
   perms = data||[];
-  $('#roles').innerHTML = ROLES.map(r=>`<button class="chip chip-btn ${r===rol?'on':''}" data-r="${r}">${r}</button>`).join('');
-  $$('[data-r]').forEach(b=>b.onclick=()=>{
-    if (Object.keys(dirty).length && !confirm('Tienes cambios sin guardar. ¿Descartarlos?')) return;
+  $('#roles').innerHTML = ROLES.map(r=>`<button class="chip chip-btn ${r===rol?'on':''}" data-r="${r}"
+    title="${esc(QUE_HACE_EL_ROL[r]||'')}">${esc(etiqueta(r))}</button>`).join('');
+  $$('[data-r]').forEach(b=>b.onclick=async()=>{
+    // El confirm() del navegador es una caja gris del sistema que no explica
+    // bien qué se pierde. El diálogo de la plataforma dice cuántos cambios son.
+    const n = Object.keys(dirty).length;
+    if (n && !await confirmDialog(
+      `Tienes ${n} cambio(s) sin guardar en «${etiqueta(rol)}». Si cambias de rol se pierden. ¿Seguir igual?`,
+      'Cambios sin guardar')) return;
     rol=b.dataset.r; dirty={}; $$('[data-r]').forEach(x=>x.classList.toggle('on',x===b)); render();
   });
   render();

@@ -41,9 +41,10 @@
         <div class="tasa-actual" id="tasaActual">—</div>
         <div class="tiny muted" id="tasaOrigen"></div>
       </div>
-      <div class="field" style="margin:0"><label>Nueva tasa (Bs por dólar)</label>
+      <div class="field" style="margin:0"><label>Nueva tasa (Bs por dólar)
+        <button type="button" class="ayuda-btn" data-ayuda="Cuántos bolívares vale un dólar hoy. Sólo afecta a los pagos que se registren de aquí en adelante: los ya aprobados guardan la tasa con la que se convirtieron.">?</button></label>
         <input type="number" step="0.01" min="0.01" id="inpTasa" placeholder="Ej: 40,50"></div>
-      <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar tasa</button>
+      <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar la tasa del día</button>
     </div>
     <div id="msgTasa"></div>
   </div>
@@ -56,8 +57,10 @@
         <option value="rechazado">Rechazados</option>
         <option value="">Todos</option>
       </select></div></div>
+    <div class="barra-seleccion" id="barraSel" hidden></div>
     <div class="table-wrap">
-      <table class="tarjetas"><thead><tr>
+      <table class="tarjetas" id="tabla"><thead><tr>
+        <th class="sel"><input type="checkbox" data-todas aria-label="Marcar todos los pagos de la lista"></th>
         <th>Reportado</th><th>Estudiante</th><th>Referencia</th><th class="num">Monto</th>
         <th>Cuota</th><th>Estado</th><th></th>
       </tr></thead><tbody id="tb"></tbody></table>
@@ -69,7 +72,8 @@
 import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, fail, modal,
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY,
-         etiqueta, montoPagado, enDolares, saldo as saldoCelda } from '../assets/app.js?v=2026-08-14';
+         etiqueta, montoPagado, enDolares, saldo as saldoCelda,
+         seleccionMultiple, ayuda, montarAyudas } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -105,10 +109,14 @@ function renderKpis(){
   const hoy = new Date().toISOString().slice(0,10);
   const aprobadosHoy = pagos.filter(x => x.estado === 'confirmado' && String(x.fecha).slice(0,10) === hoy);
   $('#kpis').innerHTML = [
-    kpi('Por revisar', num(porRevisar.length), 'pending_actions', 'esperan tu verificación'),
-    kpi('Monto por revisar', money(montoPorRevisar, 'USD'), 'payments', 'equivalente en dólares'),
-    kpi('Aprobados hoy', num(aprobadosHoy.length), 'task_alt', 'ya abonados a su cuota'),
+    kpi('Por revisar', num(porRevisar.length), 'pending_actions', 'esperan tu verificación', '',
+      'Pagos que un estudiante reportó y todavía nadie aprobó ni rechazó. Mientras estén aquí, la cuota sigue debiendo.'),
+    kpi('Monto por revisar', money(montoPorRevisar, 'USD'), 'payments', 'equivalente en dólares', '',
+      'Lo que suman esos pagos convertido a dólares con la tasa de cada pago. Todavía no es un ingreso: sólo se contará al aprobarlos.'),
+    kpi('Aprobados hoy', num(aprobadosHoy.length), 'task_alt', 'ya abonados a su cuota', '',
+      'Pagos con fecha de hoy que ya fueron aprobados y descontados del saldo del estudiante.'),
   ].join('');
+  montarAyudas($('#kpis'));
 }
 
 function render(){
@@ -117,6 +125,8 @@ function render(){
   $('#tb').innerHTML = lista.length ? lista.map(x => {
     const c = x.cem_installments;
     return `<tr>
+      <td class="sel">${puedeOperar && x.estado === 'reportado'
+        ? `<input type="checkbox" data-sel="${x.id}" aria-label="Marcar el pago ${esc(x.referencia||'')}">` : ''}</td>
       <td class="tiny muted" data-col="Fecha">${fdatetime(x.fecha)}</td>
       <td class="wrap" data-col="Estudiante"><b>${esc(nombreDe(x))}</b>
         <div class="tiny muted">${esc(x.cem_enrollments?.cem_courses?.nombre || '')}</div></td>
@@ -137,13 +147,62 @@ function render(){
           <button class="btn ghost sm" data-ok="${x.id}" title="Aprobar y abonar a la cuota"><span class="material-symbols-outlined">check_circle</span></button>
           <button class="btn ghost sm" data-no="${x.id}" title="Rechazar"><span class="material-symbols-outlined">cancel</span></button>` : ''}
       </td></tr>`;
-  }).join('') : emptyRow(7);
+  }).join('') : emptyRow(8, f === 'reportado'
+      ? 'No hay pagos esperando revisión. Todo al día.'
+      : 'Ningún pago con ese estado.');
 
   $$('[data-ver]').forEach(b => b.onclick = () => verDetalle(pagos.find(x => x.id === b.dataset.ver)));
   $$('[data-ok]').forEach(b => b.onclick = () => aprobar(pagos.find(x => x.id === b.dataset.ok)));
   $$('[data-no]').forEach(b => b.onclick = () => rechazar(pagos.find(x => x.id === b.dataset.no)));
+  if (seleccion) seleccion.limpiar();
 }
 $('#fEstado').onchange = render;
+
+/* item 25 · en un lunes con veinte transferencias del fin de semana, abrir
+   veinte ventanas iguales es media hora. Se marcan y se aprueban de una. */
+let seleccion = null;
+if (puedeOperar) seleccion = seleccionMultiple('#tabla', '#barraSel', [
+  { texto:'Aprobar los marcados', icono:'check_circle', clase:'', hacer: aprobarVarios },
+  { texto:'Rechazar los marcados', icono:'cancel', clase:'danger outline', hacer: rechazarVarios },
+]);
+
+async function aprobarVarios(ids){
+  const sel = pagos.filter(x => ids.includes(x.id));
+  const total = sel.reduce((a, x) => a + Number(x.monto_base ?? x.monto ?? 0), 0);
+  if (!await confirmDialog(`Se aprobarán ${sel.length} pago(s) por ${money(total,'USD')} en total y cada uno se abonará a su cuota. ` +
+      'Es lo mismo que aprobarlos uno por uno; asegúrate de haberlos verificado contra el banco.')) return;
+  let hechos = 0; const fallos = [];
+  for (const x of sel) {
+    const { error } = await sb.rpc('cem_aprobar_pago', { p_payment_id: x.id });
+    if (error) fallos.push(`${x.referencia || x.id.slice(0,8)}: ${mensajeError(error)}`); else hechos++;
+  }
+  await cargar();
+  if (!fallos.length) ok(`${hechos} pago(s) aprobado(s) y abonado(s).`);
+  else fail(`Se aprobaron ${hechos}. No se pudo con ${fallos.length}: ${fallos.slice(0,3).join(' · ')}`);
+}
+
+async function rechazarVarios(ids){
+  const m = modal({ title:`Rechazar ${ids.length} pago(s)`, body:`
+    <p class="tiny muted">El mismo motivo se enviará a los ${ids.length} estudiantes, así que escríbelo
+      de forma que sirva para todos. Ninguna cuota se toca.</p>
+    <div class="field"><label>Motivo del rechazo *</label>
+      <textarea id="mvMotivo" rows="3" required placeholder="Por ejemplo: estas referencias no aparecen en el estado de cuenta del banco."></textarea></div>
+    <div id="mvMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn danger" id="mvGo">Rechazar los ${ids.length}</button>` });
+  $('#mvGo', m).onclick = async () => {
+    const motivo = $('#mvMotivo', m).value.trim();
+    if (!motivo) { $('#mvMsg', m).innerHTML = '<div class="chip err">Escribe el motivo: sin él el estudiante no sabe qué corregir.</div>'; return; }
+    let hechos = 0; const fallos = [];
+    for (const id of ids) {
+      const { error } = await sb.rpc('cem_rechazar_pago', { p_payment_id: id, p_motivo: motivo });
+      if (error) fallos.push(mensajeError(error)); else hechos++;
+    }
+    m.close(); await cargar();
+    if (!fallos.length) ok(`${hechos} pago(s) rechazado(s). Cada estudiante verá el motivo.`);
+    else fail(`Se rechazaron ${hechos}. No se pudo con ${fallos.length}.`);
+  };
+}
 
 async function verDetalle(x){
   if(!x) return;

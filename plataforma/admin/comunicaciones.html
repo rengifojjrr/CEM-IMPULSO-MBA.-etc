@@ -105,7 +105,7 @@ $('#btnNuevo').onclick=()=>form(null);
 function form(r){
   const isNew=!r;
   const m = modal({ title:isNew?'Nuevo anuncio':'Editar anuncio', wide:true, body:`
-    <div class="field"><label>Título *</label><input id="aT" value="${esc(r?.titulo||'')}"></div>
+    <div class="field"><label>Título *</label><input id="aT" value="${esc(r?.titulo||'')}" required></div>
     <div class="field"><label>Mensaje</label><textarea id="aB" style="min-height:120px">${esc(r?.cuerpo||'')}</textarea></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:150px"><label>Audiencia</label><select id="aA">

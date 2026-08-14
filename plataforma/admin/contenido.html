@@ -24,6 +24,7 @@
 </head>
 <body>
 <div id="page" class="hidden">
+  <div id="migas"></div>
   <div class="page-head">
     <div><h1>Constructor de contenido</h1><p id="sub">Organiza módulos y lecciones del programa.</p></div>
     <div class="actions">
@@ -43,7 +44,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, modal, ok, fail, run, audit, qs, confirmDialog,
          abrirSubidaVideo, subirImagenCurso, subirDocumentoLeccion, campoArchivo, opciones,
-         etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects } from '../assets/app.js?v=2026-08-14';
+         etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, migas } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'contenido.html', area:'admin' });
 let cursos=[], cursoId=null, mods=[], sel=null, docs=[];
 const ICO_DOC = t => t==='pdf'?'picture_as_pdf':t==='excel'?'table_chart':t==='video'?'play_circle':t==='imagen'?'image':'attach_file';
@@ -65,6 +66,13 @@ async function loadMods(){
   mods = (data||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
   const c = cursos.find(x=>x.id===cursoId);
   $('#sub').textContent = `${c?.nombre||''} · ${mods.length} módulos · ${mods.reduce((a,m)=>a+m.cem_lessons.length,0)} lecciones`;
+  /* item 41 · desde aquí se llega desde la lista de programas y no había cómo
+     volver ni cómo saber en qué programa estabas parado. */
+  $('#migas').innerHTML = migas([
+    ['Programas', 'cursos.html'],
+    [c?.nombre || 'Programa'],
+    ['Contenido'],
+  ]);
   render();
 }
 
@@ -209,12 +217,12 @@ function formMod(m){
     etiquetaSubir:'Elegir la miniatura',
   });
   const dlg = modal({ title:isNew?'Nuevo módulo':`Editar: ${m.titulo}`, body:`
-    <div class="field"><label>Título *</label><input id="mT" value="${esc(m?.titulo||'')}" placeholder="Módulo 1: Fundamentos"></div>
+    <div class="field"><label>Título *</label><input id="mT" value="${esc(m?.titulo||'')}" placeholder="Módulo 1: Fundamentos" required></div>
     <div class="field"><label>Descripción</label><textarea id="mD" style="min-height:70px">${esc(m?.descripcion||'')}</textarea></div>
     <div class="field"><label>Orden</label><input type="number" id="mO" value="${m?.orden ?? (mods.length+1)}"></div>
     <div class="field"><label>Miniatura del módulo</label>${miniatura.html}</div>`,
     footer:`${isNew?'':'<button class="btn danger" data-del>Eliminar</button>'}
-      <button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+      <button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar los cambios</button>` });
   $('[data-x]',dlg).onclick=dlg.close;
   miniatura.conectar(dlg);
   const d=$('[data-del]',dlg);
@@ -244,7 +252,7 @@ function nuevaLeccion(moduleId){
     etiquetaSubir:'Subir el material',
   });
   const dlg = modal({ title:`Nueva lección en ${mod.titulo}`, body:`
-    <div class="field"><label>Título *</label><input id="nT" placeholder="1.1 Introducción"></div>
+    <div class="field"><label>Título *</label><input id="nT" placeholder="1.1 Introducción" required></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="nTipo">
         ${opciones(['video','pdf','texto','enlace','quiz','tarea','en_vivo'])}</select></div>

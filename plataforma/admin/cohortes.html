@@ -101,11 +101,11 @@ function form(c){
   const isNew = !c;
   const m = modal({ title: isNew?'Nueva cohorte':`Editar: ${c.nombre}`, wide:true, body:`
     <div class="row">
-      <div class="field" style="flex:2;min-width:220px"><label>Programa *</label><select id="cCurso">
+      <div class="field" style="flex:2;min-width:220px"><label>Programa *</label><select id="cCurso" required>
         ${cursos.map(x=>`<option value="${x.id}" ${c&&c.course_id===x.id?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Código *</label><input id="cCodigo" value="${esc(c?.codigo||'')}"></div>
+      <div class="field" style="flex:1;min-width:130px"><label>Código *</label><input id="cCodigo" value="${esc(c?.codigo||'')}" required placeholder="CEM-DIP-009"></div>
     </div>
-    <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera"></div>
+    <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera" required></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="cMod">
         ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
@@ -125,7 +125,7 @@ function form(c){
     </div>
     <div class="field"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
       ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>`,
-    footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar la cohorte</button>` });
   mejorarSelects(m);
   let horarioValor = { dias: c?.horario_dias || [], horaInicio: c?.horario_hora_inicio || '', horaFin: c?.horario_hora_fin || '' };
   montarHorarioPicker($('#cHorarioPicker',m), horarioValor, (v) => { horarioValor = v; });

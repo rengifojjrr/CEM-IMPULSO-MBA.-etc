@@ -136,7 +136,7 @@ function form(m){
     etiquetaSubir:'Subir el archivo',
   });
   const dlg = modal({ title:isNew?'Agregar recurso':`Editar: ${m.nombre}`, body:`
-    <div class="field"><label>Nombre *</label><input id="rN" value="${esc(m?.nombre||'')}"></div>
+    <div class="field"><label>Nombre *</label><input id="rN" value="${esc(m?.nombre||'')}" required></div>
     <div class="field"><label>Descripción</label><input id="rD" value="${esc(m?.descripcion||'')}"></div>
     <div class="field"><label>Archivo del recurso *</label>${archivo.html}
       <div class="row" style="margin-top:8px;align-items:center;gap:10px">
@@ -158,7 +158,7 @@ function form(m){
     </div>
     <p class="tiny muted" style="margin-top:-8px">Mueve o adjunta este recurso a un curso, módulo o lección específica; déjalos vacíos para que quede libre en la biblioteca.</p>
     <label class="check"><input type="checkbox" id="rP" ${m?.publico?'checked':''}> Visible para todos los estudiantes del curso</label>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar el recurso</button>` });
   $('[data-x]',dlg).onclick=dlg.close;
   function pobM(){
     const list = mods.filter(x=>x.course_id===$('#rC',dlg).value);

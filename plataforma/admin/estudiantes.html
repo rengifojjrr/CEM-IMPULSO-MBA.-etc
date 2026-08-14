@@ -24,22 +24,33 @@
   <div class="kpis" id="kpis"></div>
   <div class="card">
     <div class="filters">
-      <div class="field grow"><label>Búsqueda</label><input type="search" id="q" placeholder="Nombre, correo o documento…"></div>
-      <div class="field"><label>Cohorte</label><select id="fCoh"><option value="">Todas</option></select></div>
-      <div class="field"><label>Estado académico</label><select id="fEst"><option value="">Todos</option>
-        <option value="excelente">Excelente (≥80%)</option><option value="riesgo">En riesgo (&lt;40%)</option>
-        <option value="inactivo">Inactivo (sin acceso 30d)</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
+      <div class="field grow"><label>Buscar</label>
+        <input type="search" id="q" placeholder="Nombre, correo o documento…"></div>
+      <div class="row" style="gap:6px;align-items:center" id="zonaColumnas"></div>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Estudiante</th><th>País</th><th>Cursos</th><th>Progreso</th><th>Saldo</th><th>Último acceso</th><th>Estado</th><th></th></tr></thead>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span>
+        Filtrar por cohorte o situación <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Cohorte</label><select id="fCoh"><option value="">Todas</option></select></div>
+        <div class="field"><label>Situación
+          <button type="button" class="ayuda-btn" data-ayuda="Se calcula del progreso y del último acceso: excelente 80% o más, en riesgo por debajo de 40%, inactivo si lleva 30 días sin entrar.">?</button></label>
+          <select id="fEst"><option value="">Todas</option>
+          <option value="excelente">Va muy bien (80% o más)</option><option value="riesgo">En riesgo (menos del 40%)</option>
+          <option value="inactivo">Sin entrar hace 30 días</option></select></div>
+      </div>
+    </details>
+    <div class="table-wrap"><table class="tarjetas" id="tabla">
+      <thead><tr><th>Estudiante</th><th>País</th><th class="num">Cursos</th><th>Progreso</th><th class="num">Saldo</th><th>Último acceso</th><th>Situación</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
-         toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-14';
+         toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY,
+         selectorColumnas, montarAyudas } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
@@ -65,32 +76,61 @@ async function load(){
   });
   const url = new URLSearchParams(location.search); if (url.get('q')) $('#q').value = url.get('q');
   $('#kpis').innerHTML = [
-    kpi('Estudiantes', num(rows.length),'school',`${rows.filter(r=>r._n>0).length} con inscripción`),
-    kpi('Progreso promedio', pct(rows.reduce((a,r)=>a+r._prog,0)/Math.max(rows.length,1)),'trending_up','global'),
-    kpi('En riesgo', num(rows.filter(r=>r._estado==='riesgo').length),'warning','progreso bajo 40%'),
-    kpi('Saldo por cobrar', money(rows.reduce((a,r)=>a+r._saldo,0)),'account_balance_wallet','de estudiantes'),
+    kpi('Estudiantes', num(rows.length),'school',`${rows.filter(r=>r._n>0).length} con inscripción`,'',
+      'Cuentas con rol de estudiante. Algunas todavía no están inscritas en ningún programa: ésas son la diferencia con el número de abajo.'),
+    kpi('Progreso promedio', pct(rows.reduce((a,r)=>a+r._prog,0)/Math.max(rows.length,1)),'trending_up','global','',
+      'Promedio del avance de todos los estudiantes de la lista. Quien no tiene inscripción cuenta como 0% y baja el promedio.'),
+    kpi('En riesgo', num(rows.filter(r=>r._estado==='riesgo').length),'warning','progreso bajo 40%','',
+      'Estudiantes con menos del 40% del programa hecho. Son a los que conviene llamar.'),
+    kpi('Saldo por cobrar', money(rows.reduce((a,r)=>a+r._saldo,0)),'account_balance_wallet','de estudiantes','',
+      'Suma de las cuotas pendientes, parciales y vencidas de todos ellos. Los pagos aún sin verificar no lo bajan.'),
   ].join('');
+  montarAyudas($('#kpis'));
   render();
 }
-function render(){
+/** Lo que se ve ahora mismo: lo comparten la tabla y la exportación. */
+function visibles(){
   const q=$('#q').value.trim(), c=$('#fCoh').value, e=$('#fEst').value;
-  const list = rows.filter(r=>match(r,q,['nombre','apellido','email','documento'])
+  return rows.filter(r=>match(r,q,['nombre','apellido','email','documento'])
     && (!c||r._cohs.includes(c)) && (!e||r._estado===e));
+}
+function render(){
+  const list = visibles();
+  const n = [$('#fCoh').value, $('#fEst').value].filter(Boolean).length;
+  $('#nFiltros').hidden = !n; $('#nFiltros').textContent = n;
   $('#tb').innerHTML = list.length? list.map(r=>`<tr class="clickable" onclick="location.href='estudiante.html?id=${r.id}'">
-    <td><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(r.nombre,r.apellido)}</span>
+    <td data-col="Estudiante"><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(r.nombre,r.apellido)}</span>
       <div><b>${esc(r.nombre)} ${esc(r.apellido||'')}</b><div class="tiny muted">${esc(r.email)}</div></div></div></td>
-    <td>${esc(r.pais||'—')}</td><td>${num(r._n)}</td>
-    <td style="min-width:110px">${bar(r._prog)}<span class="tiny muted">${pct(r._prog)}</span></td>
-    <td>${r._saldo>0?`<span class="chip warn">${money(r._saldo)}</span>`:'<span class="chip ok">Al día</span>'}</td>
-    <td class="muted">${r._acceso?fdate(r._acceso):'—'}</td>
-    <td>${r._estado==='excelente'?chip('excelente','ok'):r._estado==='riesgo'?chip('en riesgo','err'):r._estado==='inactivo'?chip('inactivo','neutral'):chip('activo','info')}</td>
-    <td><span class="material-symbols-outlined">chevron_right</span></td></tr>`).join('') : emptyRow(8);
+    <td data-col="País">${esc(r.pais||'—')}</td><td class="num" data-col="Cursos">${num(r._n)}</td>
+    <td style="min-width:110px" data-col="Progreso">${bar(r._prog)}<span class="tiny muted">${pct(r._prog)}</span></td>
+    <td class="num" data-col="Saldo">${r._saldo>0?`<span class="chip warn">${money(r._saldo)}</span>`:'<span class="chip ok">Al día</span>'}</td>
+    <td class="muted" data-col="Último acceso">${r._acceso?fdate(r._acceso):'—'}</td>
+    <td data-col="Situación">${r._estado==='excelente'?chip('Va muy bien','ok'):r._estado==='riesgo'?chip('En riesgo','err'):r._estado==='inactivo'?chip('Sin entrar','neutral'):chip('Activo','info')}</td>
+    <td><span class="material-symbols-outlined">chevron_right</span></td></tr>`).join('')
+    : emptyRow(8, rows.length ? 'Ningún estudiante coincide con lo que buscaste.' : 'Todavía no hay estudiantes.',
+        rows.length ? null : {texto:'Inscribir al primero', id:'irNuevo', icono:'person_add'});
+  const irNuevo = $('#irNuevo'); if (irNuevo) irNuevo.onclick = () => location.href = 'inscripciones.html';
 }
 ['#q','#fCoh','#fEst'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{['#q','#fCoh','#fEst'].forEach(s=>$(s).value=''); render();};
-$('#btnExport').onclick=()=>download('estudiantes_cem.csv', toCSV(rows.map(r=>({
-  nombre:r.nombre, apellido:r.apellido, email:r.email, pais:r.pais, documento:r.documento,
-  cursos:r._n, progreso:Math.round(r._prog), saldo:r._saldo, estado:r._estado }))));
+
+/* item 56 · exportar lo que se está mirando, no la base entera: si filtraste
+   por cohorte y exportas 500 filas, el Excel no sirve para lo que buscabas. */
+$('#btnExport').onclick=()=>{
+  const list = visibles();
+  if (!list.length) { fail('No hay nada que exportar con estos filtros.'); return; }
+  download('estudiantes_cem.csv', toCSV(list.map(r=>({
+    nombre:r.nombre, apellido:r.apellido, email:r.email, pais:r.pais, documento:r.documento,
+    cursos:r._n, progreso:Math.round(r._prog), saldo:r._saldo, estado:r._estado }))));
+  ok(`${list.length} estudiante(s) exportado(s)${list.length<rows.length?' (los que muestra el filtro)':''}.`);
+};
+
+/* item 24 · cada área mira columnas distintas; que cada quien apague las suyas. */
+selectorColumnas('#tabla', '#zonaColumnas', 'cemColEstudiantes', [
+  { i:1, nombre:'Estudiante', fija:true }, { i:2, nombre:'País' }, { i:3, nombre:'Cursos' },
+  { i:4, nombre:'Progreso' }, { i:5, nombre:'Saldo' }, { i:6, nombre:'Último acceso' },
+  { i:7, nombre:'Situación' },
+]);
 
 /* ============ importar una cohorte entera desde Excel ============
    Cargar treinta personas de a una es media mañana. La plataforma ya sabía
@@ -161,7 +201,7 @@ $('#btnImportar').onclick = async () => {
 
     <div class="row">
       <div class="field" style="flex:2;min-width:220px"><label>Programa *</label>
-        <select id="impCurso">${(cursos||[]).map(c =>
+        <select id="impCurso" required>${(cursos||[]).map(c =>
           `<option value="${c.id}">${esc(c.nombre)} — ${money(c.precio, c.moneda||'USD')}</option>`).join('')
           || '<option value="">No hay programas publicados</option>'}</select></div>
       <div class="field" style="flex:1;min-width:150px"><label>Cohorte</label>
@@ -170,7 +210,7 @@ $('#btnImportar').onclick = async () => {
         <select id="impCuotas"><option value="1">1 (contado)</option><option value="3">3</option><option value="6">6</option></select></div>
     </div>
     <div class="field"><label>Archivo (.xlsx) *</label>
-      <input type="file" id="impArchivo" accept=".xlsx,.xls"></div>
+      <input type="file" id="impArchivo" accept=".xlsx,.xls" required></div>
     <div id="impPrevia"></div>
     <div id="impMsg"></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button>

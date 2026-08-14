@@ -140,7 +140,7 @@ function pedirExcepcion(reparos){
           </ul></div>`).join('')}
       </div>
       <div class="field"><label>Motivo de la excepción *</label>
-        <textarea id="exMotivo" rows="3" placeholder="Ej.: convenio institucional aprobado por el consejo académico el 12/08."></textarea></div>
+        <textarea id="exMotivo" rows="3" placeholder="Ej.: convenio institucional aprobado por el consejo académico el 12/08." required></textarea></div>
       <p class="tiny muted">Queda asentado en la auditoría con tu nombre y la fecha.</p>`,
       footer: `<button class="btn outline" data-x>Cancelar</button>
                <button class="btn" data-si>Emitir como excepción</button>` });
@@ -188,7 +188,7 @@ $('#btnEmitir').onclick = async () => {
     .select('id,progreso,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)').order('fecha_inscripcion',{ascending:false}).limit(500);
   window.__inscripciones = ens || [];
   const m = modal({ title:'Emitir certificado manualmente', body:`
-    <div class="field"><label>Inscripción *</label><select id="eE">
+    <div class="field"><label>Inscripción *</label><select id="eE" required>
       ${(ens||[]).map(e=>`<option value="${e.id}">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))} — ${esc(e.cem_courses?.nombre||'')} (${Math.round(e.progreso)}%)</option>`).join('')}</select></div>
     <div class="field"><label>Plantilla</label><select id="eT">
       ${tpls.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('')||'<option value="">Sin plantilla</option>'}</select></div>

@@ -42,7 +42,7 @@
     <div class="card">
       <div class="row between"><h2 class="sec">Inscripciones recientes</h2><a class="btn ghost sm" href="inscripciones.html">Ver todas</a></div>
       <div class="table-wrap">
-        <table><thead><tr><th>Estudiante</th><th>Programa</th><th>Estado</th><th>Monto</th><th>Fecha</th></tr></thead>
+        <table class="tarjetas"><thead><tr><th>Estudiante</th><th>Programa</th><th>Estado</th><th class="num">Monto</th><th>Fecha</th></tr></thead>
         <tbody id="tbInscripciones"></tbody></table>
       </div>
     </div>
@@ -54,23 +54,36 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, esc, kpi, chip, bar, money, num, fdate, emptyRow, pct, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, kpi, chip, bar, money, num, fdate, emptyRow, pct, chipEstado,
+         kpisConMas } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'index.html', area:'admin' });
 if (p) init();
 
 async function init(){
   const { data: m } = await sb.rpc('cem_admin_metrics');
-  $('#kpis').innerHTML = [
-    kpi('Estudiantes activos', num(m.estudiantes_activos), 'school', `${num(m.estudiantes_total)} en total`),
-    kpi('Cursos publicados', num(m.cursos_publicados), 'menu_book', `${num(m.cursos_total)} creados`),
-    kpi('Cohortes activas', num(m.cohortes_activas), 'groups', 'en curso o abiertas'),
-    kpi('Clases hoy', num(m.clases_hoy), 'event', 'programadas'),
-    kpi('Por calificar', num(m.evaluaciones_pendientes), 'assignment', 'entregas pendientes'),
-    kpi('Ingresos del mes', money(m.ingresos_mes), 'payments', `${money(m.ingresos_total)} acumulado`),
-    kpi('Por cobrar', money(m.por_cobrar), 'account_balance_wallet', `${money(m.cartera_vencida)} vencido`, 'down'),
-    kpi('Progreso promedio', pct(m.progreso_promedio), 'trending_up', 'de inscripciones activas'),
-  ].join('');
+  /* items 20 y 50 · cuatro cifras a la vista, las que se miran cada mañana; el
+     resto a un clic. Y cada una dice qué está contando: «estudiantes» no
+     significa lo mismo para quien lleva la caja que para quien lleva el aula. */
+  kpisConMas('#kpis', [
+    kpi('Estudiantes activos', num(m.estudiantes_activos), 'school', `${num(m.estudiantes_total)} en total`, '',
+      'Personas con al menos una inscripción activa hoy. El total de abajo incluye a quienes ya terminaron o se retiraron.'),
+    kpi('Por cobrar', money(m.por_cobrar), 'account_balance_wallet', `${money(m.cartera_vencida)} vencido`, 'down',
+      'Suma de las cuotas todavía no pagadas, en dólares. «Vencido» es la parte cuya fecha límite ya pasó.'),
+    kpi('Ingresos del mes', money(m.ingresos_mes), 'payments', `${money(m.ingresos_total)} acumulado`, '',
+      'Pagos verificados con fecha de este mes, convertidos a dólares. Los pagos aún por verificar no entran.'),
+    kpi('Por calificar', num(m.evaluaciones_pendientes), 'assignment', 'entregas pendientes', '',
+      'Entregas de estudiantes que ya llegaron y todavía no tienen nota.'),
+  ], [
+    kpi('Cursos publicados', num(m.cursos_publicados), 'menu_book', `${num(m.cursos_total)} creados`, '',
+      'Programas visibles en el catálogo. Los borradores cuentan en «creados» pero nadie los ve.'),
+    kpi('Cohortes activas', num(m.cohortes_activas), 'groups', 'en curso o abiertas', '',
+      'Cohortes que están dando clase o que aún admiten inscripciones.'),
+    kpi('Clases hoy', num(m.clases_hoy), 'event', 'programadas', '',
+      'Clases del calendario con fecha de hoy, dictadas o no.'),
+    kpi('Progreso promedio', pct(m.progreso_promedio), 'trending_up', 'de inscripciones activas', '',
+      'Promedio de lecciones completadas sobre lecciones totales, sólo entre inscripciones activas.'),
+  ]);
 
   $('#atencion').innerHTML = [
     ['assignment', 'Entregas por calificar', m.evaluaciones_pendientes, 'calificar.html'],
@@ -100,11 +113,16 @@ async function init(){
   const { data: ins } = await sb.from('cem_enrollments')
     .select('id,precio_final,estado,fecha_inscripcion,profile_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)')
     .order('fecha_inscripcion',{ascending:false}).limit(6);
-  $('#tbInscripciones').innerHTML = ins?.length ? ins.map(e => `<tr class="clickable" onclick="location.href='estudiante.html?id=${e.cem_profiles ? '' : ''}'">
-      <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
-      <td class="wrap">${esc(e.cem_courses?.nombre||'')}</td>
-      <td>${chipEstado(e.estado)}</td><td>${money(e.precio_final)}</td>
-      <td class="muted">${fdate(e.fecha_inscripcion)}</td></tr>`).join('') : emptyRow(5);
+  /* La fila llevaba «estudiante.html?id=» sin id: llevaba a una ficha vacía.
+     El id que hace falta es el del perfil de la inscripción. */
+  $('#tbInscripciones').innerHTML = ins?.length ? ins.map(e => `<tr class="clickable" data-ir="estudiante.html?id=${esc(e.profile_id||'')}">
+      <td data-col="Estudiante">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
+      <td class="wrap" data-col="Programa">${esc(e.cem_courses?.nombre||'')}</td>
+      <td data-col="Estado">${chipEstado(e.estado)}</td><td class="num" data-col="Monto">${money(e.precio_final)}</td>
+      <td class="muted" data-col="Fecha">${fdate(e.fecha_inscripcion)}</td></tr>`).join('')
+    : emptyRow(5, 'Todavía no hay inscripciones.', {texto:'Inscribir a alguien', id:'irInscribir', icono:'person_add'});
+  $$('#tbInscripciones tr[data-ir]').forEach(tr => tr.onclick = () => location.href = tr.dataset.ir);
+  const irIns = $('#irInscribir'); if (irIns) irIns.onclick = () => location.href = 'inscripciones.html';
 
   const { data: cohs } = await sb.from('cem_cohorts')
     .select('id,nombre,codigo,cupos,estado,fecha_inicio,cem_courses(nombre)')

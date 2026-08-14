@@ -106,7 +106,7 @@ async function asignar(t){
 $('#btnNuevo').onclick = () => {
   const m = modal({ title:'Invitar profesor', body:`
     <p class="tiny muted" style="margin-top:0">El profesor debe registrarse primero en la plataforma; aquí le asignas el rol docente por su correo.</p>
-    <div class="field"><label>Correo del usuario ya registrado *</label><input id="iEmail" type="email" placeholder="profesor@correo.com"></div>`,
+    <div class="field"><label>Correo del usuario ya registrado *</label><input id="iEmail" type="email" placeholder="profesor@correo.com" required></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Asignar rol docente</button>` });
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{

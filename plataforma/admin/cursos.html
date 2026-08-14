@@ -119,7 +119,16 @@ const ordenCursos = { campo:null, asc:true };
 
 ['#q','#fTipo','#fMod','#fNivel','#fEstado'].forEach(s => { const el=$(s); el.oninput = render; el.onchange = render; });
 $('#btnClear').onclick = () => { ['#q','#fTipo','#fMod','#fNivel','#fEstado'].forEach(s=>$(s).value=''); render(); };
-$('#btnExport').onclick = () => download('cursos_cem.csv', toCSV(rows.map(({_alumnos,_avance,...r})=>({...r, alumnos:_alumnos}))));
+$('#btnExport').onclick = () => {
+  // Antes sacaba TODO, dijera lo que dijera el filtro puesto, y no avisaba de
+  // cuántas filas iban a salir: se abría el Excel para descubrirlo.
+  const q = $('#q').value.trim(), t = $('#fTipo').value, m = $('#fMod').value,
+        n = $('#fNivel').value, e = $('#fEstado').value;
+  const list = rows.filter(r => match(r,q,['nombre','codigo','categoria'])
+    && (!t||r.tipo===t) && (!m||r.modalidad===m) && (!n||r.nivel===n) && (!e||r.estado===e));
+  download('cursos_cem.csv', toCSV(list.map(({_alumnos,_avance,...r})=>({...r, alumnos:_alumnos}))));
+  ok(`${list.length} programa(s) exportados${list.length < rows.length ? ' (los que deja ver el filtro)' : ''}`);
+};
 
 function edit(c){
   const portada = campoArchivo({
@@ -128,7 +137,7 @@ function edit(c){
   });
   const m = modal({ title:`Editar: ${c.nombre}`, wide:true, body:`
     <div class="row"><div class="field" style="flex:2;min-width:220px"><label>Nombre</label><input id="eNombre" value="${esc(c.nombre)}"></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Código</label><input id="eCodigo" value="${esc(c.codigo||'')}"></div></div>
+      <div class="field" style="flex:1;min-width:120px"><label>Código</label><input id="eCodigo" value="${esc(c.codigo||'')}" placeholder="CEM-DIP-009"></div></div>
     <div class="field"><label>Subtítulo</label><input id="eSub" value="${esc(c.subtitulo||'')}"></div>
     <div class="field"><label>Descripción corta</label><textarea id="eDesc" style="min-height:60px">${esc(c.descripcion_corta||'')}</textarea></div>
     <div class="row">
@@ -164,7 +173,7 @@ function edit(c){
         ${METODOS_PAGO.map(mp=>`<label class="check"><input type="checkbox" data-metodo="${esc(mp)}" ${(c.metodos_pago||[]).includes(mp)?'checked':''}> ${esc(mp)}</label>`).join('')}
       </div>
     </div>`,
-    footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar el programa</button>` });
   mejorarSelects(m);
   $('#eCuotasHab',m).onchange = () => { $('#eCuotasCantidadWrap',m).style.display = $('#eCuotasHab',m).checked ? 'flex' : 'none'; };
   $('[data-c]',m).onclick = m.close;
