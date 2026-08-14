@@ -46,7 +46,9 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toCSV, download, ok, fail, modal, confirmDialog, run, audit, mejorarSelects, subirImagenCurso } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toCSV, download, ok, fail,
+         modal, confirmDialog, run, audit, mejorarSelects, subirImagenCurso, campoArchivo, opciones,
+         etiqueta, chipEstado, ayuda, montarAyudas, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cursos.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -86,6 +88,10 @@ $('#btnClear').onclick = () => { ['#q','#fTipo','#fMod','#fNivel','#fEstado'].fo
 $('#btnExport').onclick = () => download('cursos_cem.csv', toCSV(rows.map(({_alumnos,_avance,...r})=>({...r, alumnos:_alumnos}))));
 
 function edit(c){
+  const portada = campoArchivo({
+    id:'ePort', tipo:'imagen', valor: c.imagen_url || '', subir: subirImagenCurso,
+    etiquetaSubir:'Elegir la imagen de portada',
+  });
   const m = modal({ title:`Editar: ${c.nombre}`, wide:true, body:`
     <div class="row"><div class="field" style="flex:2;min-width:220px"><label>Nombre</label><input id="eNombre" value="${esc(c.nombre)}"></div>
       <div class="field" style="flex:1;min-width:120px"><label>Código</label><input id="eCodigo" value="${esc(c.codigo||'')}"></div></div>
@@ -107,14 +113,7 @@ function edit(c){
       <div class="field" style="flex:1;min-width:140px"><label>Estado</label><select id="eEstado">
         ${['borrador','en_revision','publicado','pausado','archivado'].map(v=>`<option ${c.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
     </div>
-    <div class="field"><label>Imagen de portada</label>
-      <div class="row" style="gap:8px;align-items:center">
-        <input id="eImg" value="${esc(c.imagen_url||'')}" style="flex:1">
-        <button type="button" class="btn outline sm" id="eBtnImg"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
-        <input type="file" id="eImgArchivo" accept="image/*" class="hidden">
-      </div>
-      <img loading="lazy" decoding="async" id="eImgPreview" src="${esc(c.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${c.imagen_url?'':'display:none'}">
-    </div>
+    <div class="field"><label>Imagen de portada</label>${portada.html}</div>
     <label class="check"><input type="checkbox" id="eDest" ${c.destacado?'checked':''}> Destacado en el catálogo</label>
     <h2 class="sec" style="margin-top:18px">Descuentos y facilidades de pago</h2>
     <div class="row">
@@ -135,23 +134,14 @@ function edit(c){
   mejorarSelects(m);
   $('#eCuotasHab',m).onchange = () => { $('#eCuotasCantidadWrap',m).style.display = $('#eCuotasHab',m).checked ? 'flex' : 'none'; };
   $('[data-c]',m).onclick = m.close;
-  $('#eBtnImg',m).onclick = () => $('#eImgArchivo',m).click();
-  $('#eImgArchivo',m).onchange = async () => {
-    const file = $('#eImgArchivo',m).files[0];
-    if (!file) return;
-    try {
-      const url = await subirImagenCurso(file);
-      $('#eImg',m).value = url; $('#eImgPreview',m).src = url; $('#eImgPreview',m).style.display = 'block';
-      ok('Imagen subida');
-    } catch (e) { fail(e.message || 'No se pudo subir la imagen.'); }
-  };
+  portada.conectar(m);
   $('[data-s]',m).onclick = async () => {
     const metodosPago = $$('[data-metodo]',m).filter(x=>x.checked).map(x=>x.dataset.metodo);
     await run(sb.from('cem_courses').update({
       nombre:$('#eNombre',m).value.trim(), codigo:$('#eCodigo',m).value.trim()||null, subtitulo:$('#eSub',m).value.trim(),
       descripcion_corta:$('#eDesc',m).value.trim(), tipo:$('#eTipo',m).value, modalidad:$('#eMod',m).value,
       nivel:$('#eNivel',m).value, horas:Number($('#eHoras',m).value)||0, precio:Number($('#ePrecio',m).value)||0,
-      categoria:$('#eCat',m).value.trim(), estado:$('#eEstado',m).value, imagen_url:$('#eImg',m).value.trim()||null,
+      categoria:$('#eCat',m).value.trim(), estado:$('#eEstado',m).value, imagen_url:portada.valor()||null,
       destacado:$('#eDest',m).checked, updated_at:new Date().toISOString(),
       descuento_pct:$('#eDescPct',m).value?Number($('#eDescPct',m).value):null, descuento_nota:$('#eDescNota',m).value.trim()||null,
       codigo_descuento:$('#eCodigoDesc',m).value.trim().toUpperCase()||null,

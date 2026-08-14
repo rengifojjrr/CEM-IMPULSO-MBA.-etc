@@ -433,3 +433,4 @@ th.ordenable:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;
   table.tarjetas tfoot tr.totales{background:var(--surface-container);}
   .table-wrap{overflow-x:visible;}
 }
+.err-text{color:var(--error);}

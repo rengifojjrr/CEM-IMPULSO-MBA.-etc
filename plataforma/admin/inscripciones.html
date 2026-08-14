@@ -45,12 +45,14 @@
       <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option></select></div>
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
-    <div class="table-wrap"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+    <div class="table-wrap"><table id="tabla"><thead id="th"></thead><tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, money, num, fdate, emptyRow, match, kpi, modal, ok, fail,
-         run, audit, toCSV, download, qs, mensajeError } from '../assets/app.js?v=2026-08-14';
+         run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
+         opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
+         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
 const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
 let ens=[], insts=[], pays=[], sols=[], tab='ins';
@@ -73,7 +75,8 @@ async function load(){
   const vencidas = insts.filter(x=>['pendiente','parcial','vencida'].includes(x.estado) && x.fecha_vencimiento < hoy);
   $('#kpis').innerHTML = [
     kpi('Inscripciones', num(ens.length),'assignment_ind',`${ens.filter(x=>x.estado==='activa').length} activas`),
-    kpi('Ingresos totales', money(pays.reduce((a,x)=>a+Number(x.monto||0),0)),'payments',`${pays.length} pagos`),
+    kpi('Cobrado', money(pays.filter(x=>x.estado==='confirmado').reduce((a,x)=>a+enDolares(x),0)),'payments',
+        `${pays.filter(x=>x.estado==='confirmado').length} pagos confirmados`),
     kpi('Por cobrar', money(insts.filter(x=>x.estado!=='pagada'&&x.estado!=='anulada').reduce((a,x)=>a+Number(x.saldo||0),0)),'account_balance_wallet','cuotas abiertas'),
     kpi('Cartera vencida', money(vencidas.reduce((a,x)=>a+Number(x.saldo||0),0)),'warning',`${vencidas.length} cuotas`,'down'),
   ].join('');
@@ -138,56 +141,124 @@ function resolverSolicitud(id, aprobar){
 
 $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab=b.dataset.t; render(); });
 
+/* El orden que se está mirando en cada pestaña. Antes no se podía ordenar por
+   ninguna columna: para saber quién debía más había que exportar a Excel. */
+const orden = { ins:{campo:null,asc:true}, cuotas:{campo:null,asc:true}, pagos:{campo:null,asc:true} };
+
+/** Suma de una columna, sobre lo que se está viendo (no sobre todo). */
+const suma = (lista, f) => lista.reduce((a,x)=>a+(Number(f(x))||0),0);
+
+/** Pone (o quita) la fila de totales al pie de la tabla. */
+function ponerTotales(celdas){
+  const tabla = $('#tabla');
+  const viejo = tabla.querySelector('tfoot');
+  if (viejo) viejo.remove();
+  if (!$('#tb').querySelector('td[data-col]')) return;   // tabla vacía: no hay nada que sumar
+  tabla.insertAdjacentHTML('beforeend', filaTotales(celdas));
+}
+
 function render(){
   const q=$('#q').value.trim(), f=$('#fEstado').value;
+  $('#tabla').classList.add('tarjetas');   // en el teléfono, cada fila una tarjeta
+
   if (tab==='ins'){
-    $('#fEstado').innerHTML = '<option value="">Todos</option>'+['pendiente','activa','suspendida','congelada','finalizada','cancelada'].map(v=>`<option ${f===v?'selected':''}>${v}</option>`).join('');
-    $('#th').innerHTML = '<tr><th>Estudiante</th><th>Programa</th><th>Cohorte</th><th>Precio</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th>Fecha</th><th></th></tr>';
-    const list = ens.filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre']) && (!f||r.estado===f));
-    $('#tb').innerHTML = list.length? list.map(r=>{
-      const mine = insts.filter(i=>i.enrollment_id===r.id);
-      const pagado = pays.filter(x=>x.enrollment_id===r.id).reduce((a,x)=>a+Number(x.monto||0),0);
-      const saldo = mine.filter(i=>i.estado!=='pagada'&&i.estado!=='anulada').reduce((a,i)=>a+Number(i.saldo||0),0);
-      return `<tr>
-        <td class="wrap"><b>${esc((r.cem_profiles?.nombre||'')+' '+(r.cem_profiles?.apellido||''))}</b>
+    $('#fEstado').innerHTML = '<option value="">Todos</option>'
+      + opciones(['pendiente','activa','suspendida','congelada','finalizada','cancelada'], f);
+    $('#th').innerHTML = `<tr><th data-ord="_alumno">Estudiante</th><th data-ord="cem_courses.nombre">Programa</th>
+      <th>Cohorte</th><th class="num" data-ord="precio_final">Precio</th>
+      <th class="num" data-ord="_pagado">Pagado</th><th class="num" data-ord="_saldo">Saldo</th>
+      <th data-ord="estado">Estado</th><th data-ord="fecha_inscripcion">Fecha</th><th></th></tr>`;
+    const list = ordenarPor(ens
+      .filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre']) && (!f||r.estado===f))
+      .map(r=>({ ...r,
+        _alumno: `${r.cem_profiles?.nombre||''} ${r.cem_profiles?.apellido||''}`.trim(),
+        _pagado: pays.filter(x=>x.enrollment_id===r.id && x.estado!=='rechazado' && x.estado!=='anulado')
+                     .reduce((a,x)=>a+enDolares(x),0),
+        _saldo: insts.filter(i=>i.enrollment_id===r.id && i.estado!=='pagada' && i.estado!=='anulada')
+                     .reduce((a,i)=>a+Number(i.saldo||0),0),
+      })), orden.ins);
+
+    $('#tb').innerHTML = list.length? list.map(r=>`<tr>
+        <td class="wrap" data-col="Estudiante"><b>${esc(r._alumno)}</b>
           <div class="tiny muted">${esc(r.cem_profiles?.email||'')}</div></td>
-        <td class="wrap">${esc(r.cem_courses?.nombre||'')}</td><td>${esc(r.cem_cohorts?.nombre||'—')}</td>
-        <td>${money(r.precio_final)}</td><td>${money(pagado)}</td>
-        <td>${saldo>0?`<span class="chip warn">${money(saldo)}</span>`:'<span class="chip ok">0</span>'}</td>
-        <td>${chip(r.estado)}</td><td class="muted">${fdate(r.fecha_inscripcion)}</td>
-        <td><a class="btn ghost sm" href="estudiante.html?id=${r.profile_id}"><span class="material-symbols-outlined">visibility</span></a></td></tr>`;
-    }).join('') : emptyRow(9);
+        <td class="wrap" data-col="Programa">${esc(r.cem_courses?.nombre||'')}</td>
+        <td data-col="Cohorte">${esc(r.cem_cohorts?.nombre||'—')}</td>
+        <td class="num" data-col="Precio">${money(r.precio_final)}</td>
+        <td class="num" data-col="Pagado">${money(r._pagado)}</td>
+        <td class="num" data-col="Saldo">${saldo(r._saldo)}</td>
+        <td data-col="Estado">${chipEstado(r.estado)}</td>
+        <td class="muted" data-col="Fecha">${fdate(r.fecha_inscripcion)}</td>
+        <td data-col=""><a class="btn ghost sm" href="estudiante.html?id=${r.profile_id}"
+             title="Ver la ficha del estudiante"><span class="material-symbols-outlined">visibility</span></a></td></tr>`).join('')
+      : emptyRow(9, 'Todavía no hay inscripciones que coincidan.',
+                 editable ? {texto:'Inscribir a alguien', id:'vacioNueva', icono:'person_add'} : null);
+    ponerTotales(['', '', 'Totales', {num:true,html:money(suma(list,r=>r.precio_final))},
+      {num:true,html:money(suma(list,r=>r._pagado))}, {num:true,html:money(suma(list,r=>r._saldo))}, '', '', '']);
+    const vacioNueva = $('#vacioNueva');
+    if (vacioNueva) vacioNueva.onclick = () => $('#btnNueva').click();
+    ordenable('#tabla', orden.ins, render);
   }
+
   if (tab==='cuotas'){
-    $('#fEstado').innerHTML = '<option value="">Todos</option>'+['pendiente','parcial','pagada','vencida','congelada','anulada','reembolsada'].map(v=>`<option ${f===v?'selected':''}>${v}</option>`).join('');
-    $('#th').innerHTML = '<tr><th>Estudiante</th><th>Programa</th><th>#</th><th>Monto</th><th>Saldo</th><th>Vence</th><th>Estado</th><th></th></tr>';
+    $('#fEstado').innerHTML = '<option value="">Todos</option>'
+      + opciones(['pendiente','parcial','pagada','vencida','congelada','anulada','reembolsada'], f);
+    $('#th').innerHTML = `<tr><th data-ord="_alumno">Estudiante</th><th data-ord="_curso">Programa</th>
+      <th class="num" data-ord="numero">#</th><th class="num" data-ord="monto">Monto</th>
+      <th class="num" data-ord="saldo">Saldo</th><th data-ord="fecha_vencimiento">Vence</th>
+      <th data-ord="estado">Estado</th><th></th></tr>`;
     const hoy = new Date().toISOString().slice(0,10);
-    const rows = insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
-      .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre']) && (!f||i.estado===f));
+    const rows = ordenarPor(insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
+      .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre']) && (!f||i.estado===f))
+      .map(i=>({ ...i,
+        _alumno: `${i._e.cem_profiles?.nombre||''} ${i._e.cem_profiles?.apellido||''}`.trim(),
+        _curso: i._e.cem_courses?.nombre||'' })), orden.cuotas);
+
     $('#tb').innerHTML = rows.length? rows.map(i=>{
       const venc = i.estado!=='pagada' && i.fecha_vencimiento < hoy;
-      return `<tr><td class="wrap">${esc((i._e.cem_profiles?.nombre||'')+' '+(i._e.cem_profiles?.apellido||''))}</td>
-        <td class="wrap">${esc(i._e.cem_courses?.nombre||'')}</td><td>${i.numero}</td>
-        <td>${money(i.monto)}</td><td>${money(i.saldo)}</td>
-        <td class="${venc?'':'muted'}">${fdate(i.fecha_vencimiento)} ${venc?'<span class="chip err">vencida</span>':''}</td>
-        <td>${chip(i.estado)}</td>
-        <td>${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
-    }).join('') : emptyRow(8);
+      const mora = venc ? Math.round((new Date(hoy) - new Date(i.fecha_vencimiento))/86400000) : 0;
+      return `<tr class="${venc?'vencida':''}">
+        <td class="wrap" data-col="Estudiante">${esc(i._alumno)}</td>
+        <td class="wrap" data-col="Programa">${esc(i._curso)}</td>
+        <td class="num" data-col="Cuota">${i.numero}</td>
+        <td class="num" data-col="Monto">${money(i.monto)}</td>
+        <td class="num" data-col="Saldo">${saldo(i.saldo)}</td>
+        <td class="${venc?'':'muted'}" data-col="Vence">${fdate(i.fecha_vencimiento)}
+          ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
+        <td data-col="Estado">${chipEstado(i.estado)}</td>
+        <td data-col="">${editable && i.estado!=='pagada'
+          ?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
+    }).join('') : emptyRow(8, 'No hay cuotas que coincidan con el filtro.');
+    ponerTotales(['', 'Totales', '', {num:true,html:money(suma(rows,i=>i.monto))},
+      {num:true,html:money(suma(rows,i=>i.saldo))}, '', '', '']);
     $$('[data-pay]').forEach(b=>b.onclick=()=>pagar(insts.find(i=>i.id===b.dataset.pay)));
+    ordenable('#tabla', orden.cuotas, render);
   }
+
   if (tab==='pagos'){
     $('#fEstado').innerHTML = '<option value="">Todos</option><option value="1">Conciliados</option><option value="0">Sin conciliar</option>';
-    $('#th').innerHTML = '<tr><th>Fecha</th><th>Estudiante</th><th>Programa</th><th>Monto</th><th>Método</th><th>Referencia</th><th>Conciliado</th><th></th></tr>';
-    const rows = pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
+    $('#th').innerHTML = `<tr><th data-ord="fecha">Fecha</th><th data-ord="_alumno">Estudiante</th>
+      <th data-ord="_curso">Programa</th><th class="num" data-ord="monto">Monto</th>
+      <th data-ord="metodo">Método</th><th data-ord="referencia">Referencia</th>
+      <th data-ord="conciliado">Conciliado</th><th></th></tr>`;
+    const rows = ordenarPor(pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
       .filter(x=>x._e && match(x._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
-        && (f===''||String(x.conciliado?1:0)===f));
+        && (f===''||String(x.conciliado?1:0)===f))
+      .map(x=>({ ...x,
+        _alumno: `${x._e.cem_profiles?.nombre||''} ${x._e.cem_profiles?.apellido||''}`.trim(),
+        _curso: x._e.cem_courses?.nombre||'' })), orden.pagos);
+
     $('#tb').innerHTML = rows.length? rows.map(x=>`<tr>
-      <td class="muted">${fdate(x.fecha)}</td>
-      <td class="wrap">${esc((x._e.cem_profiles?.nombre||'')+' '+(x._e.cem_profiles?.apellido||''))}</td>
-      <td class="wrap">${esc(x._e.cem_courses?.nombre||'')}</td><td><b>${money(x.monto)}</b></td>
-      <td>${esc(x.metodo||'—')}</td><td>${esc(x.referencia||'—')}</td>
-      <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td>
-      <td>${editable && !x.conciliado?`<button class="btn outline sm" data-conc="${x.id}">Conciliar</button>`:''}</td></tr>`).join('') : emptyRow(8);
+      <td class="muted" data-col="Fecha">${fdate(x.fecha)}</td>
+      <td class="wrap" data-col="Estudiante">${esc(x._alumno)}</td>
+      <td class="wrap" data-col="Programa">${esc(x._curso)}</td>
+      <td class="num" data-col="Monto"><b>${montoPagado(x)}</b></td>
+      <td data-col="Método">${esc(etiqueta(x.metodo))}</td>
+      <td data-col="Referencia">${esc(x.referencia||'—')}</td>
+      <td data-col="Conciliado">${x.conciliado?chip('Sí','ok'):chip('Pendiente','warn')}</td>
+      <td data-col="">${editable && !x.conciliado?`<button class="btn outline sm" data-conc="${x.id}">Conciliar</button>`:''}</td></tr>`).join('')
+      : emptyRow(8, 'No hay pagos registrados que coincidan.');
+    ponerTotales(['', '', 'Total en dólares', {num:true,html:money(suma(rows,enDolares))}, '', '', '', '']);
+    ordenable('#tabla', orden.pagos, render);
     $$('[data-conc]').forEach(b=>b.onclick=async()=>{
       await run(sb.from('cem_payments').update({conciliado:true}).eq('id',b.dataset.conc),'No se pudo conciliar');
       await audit('pago_conciliado','cem_payments',b.dataset.conc,'alto',{}); ok('Pago conciliado'); load();
@@ -205,21 +276,57 @@ $('#btnExport').onclick=()=>{
 };
 
 function pagar(i){
+  const saldoCuota = Number(i.saldo || i.monto) || 0;
+  // El comprobante es una foto o un PDF que quien registra tiene delante, no una
+  // dirección web. Antes esta pantalla sólo aceptaba pegar un enlace, cuando el
+  // propio estudiante ya podía adjuntar el archivo desde la suya.
+  const comprobante = campoArchivo({
+    id:'pComp', tipo:'comprobante', subir: subirComprobante,
+    etiquetaSubir:'Adjuntar el comprobante', permitirEnlace:false,
+  });
+
   const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
+    <p class="tiny muted" style="margin:-4px 0 12px">
+      Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda||'USD'))}</b></p>
     <div class="row"><div class="field" style="flex:1;min-width:130px"><label>Monto *</label>
-      <input type="number" step="0.01" id="pMonto" value="${i.saldo||i.monto}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Método</label><select id="pMetodo">
-        <option>transferencia</option><option>zelle</option><option>paypal</option><option>binance</option>
-        <option>efectivo</option><option>pago movil</option><option>tarjeta</option></select></div></div>
-    <div class="field"><label>Referencia</label><input id="pRef"></div>
-    <div class="field"><label>Comprobante (URL)</label><input id="pComp"></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Registrar</button>` });
+      <input type="number" step="0.01" id="pMonto" value="${saldoCuota}" required>
+      <div class="tiny" id="pAviso"></div></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Método</label>
+        <select id="pMetodo">${opciones(['transferencia','zelle','paypal','binance','efectivo','pago movil','tarjeta'])}</select></div></div>
+    <div class="field"><label>Referencia ${ayuda('El número con el que el banco identifica la operación. Es lo que permite comprobarla después contra el extracto.')}</label>
+      <input id="pRef" placeholder="Ej.: 004512873"></div>
+    <div class="field"><label>Comprobante</label>${comprobante.html}</div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Registrar el pago</button>` });
+
+  comprobante.conectar(m);
+  montarAyudas(m);
+  mejorarSelects(m);
+
+  // Un pago de 5.000 sobre una cuota de 100 casi siempre es un error de tecleo.
+  // El servidor ya lo avisa; aquí se ve mientras se escribe, que es cuando sirve.
+  const monto = $('#pMonto', m), aviso = $('#pAviso', m);
+  monto.addEventListener('input', () => {
+    const v = Number(monto.value) || 0;
+    aviso.className = 'tiny';
+    if (v > saldoCuota * 2 && saldoCuota > 0) {
+      aviso.className = 'tiny err-text';
+      aviso.textContent = `Es más del doble del saldo (${money(saldoCuota, i.moneda||'USD')}). Comprueba la cifra.`;
+    } else if (v > 0 && v < saldoCuota) {
+      aviso.textContent = `Abono parcial: quedarían ${money(saldoCuota - v, i.moneda||'USD')}.`;
+    } else aviso.textContent = '';
+  });
+
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{
-    await run(sb.rpc('cem_register_payment',{ p_installment_id:i.id, p_monto:Number($('#pMonto',m).value),
+    const v = Number(monto.value);
+    if (!(v > 0)) { fail('El monto tiene que ser mayor que cero.'); return; }
+    await run(sb.rpc('cem_register_payment',{ p_installment_id:i.id, p_monto:v,
       p_metodo:$('#pMetodo',m).value, p_referencia:$('#pRef',m).value.trim()||null,
-      p_comprobante:$('#pComp',m).value.trim()||null }),'No se pudo registrar');
-    m.close(); ok('Pago registrado'); load();
+      p_comprobante:comprobante.valor()||null }),'No se pudo registrar');
+    m.close();
+    ok(`Pago de ${money(v, i.moneda||'USD')} registrado en la cuota ${i.numero}`);
+    load();
   };
 }
 

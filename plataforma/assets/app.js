@@ -32,6 +32,31 @@ export const celdaMoney = (n, cur = 'USD') =>
 export const saldo = (n, cur = 'USD') =>
   (Number(n) || 0) <= 0 ? '<span class="chip ok">Al día</span>' : esc(money(n, cur));
 
+/**
+ * Cuánto vale un pago en dólares, sea cual sea la moneda en que se hizo.
+ *
+ * Un pago guarda `monto` en la moneda en que se pagó y `monto_base` ya
+ * convertido a dólares (nulo cuando el pago ya era en dólares). Sumar `monto` a
+ * secas cuenta 4.575 bolívares como 4.575 dólares: la cifra de ingresos salía
+ * disparada y no cuadraba con nada.
+ */
+export const enDolares = (pago) => {
+  if (!pago) return 0;
+  if (pago.monto_base != null) return Number(pago.monto_base) || 0;
+  const m = Number(pago.monto) || 0;
+  if (!pago.moneda || pago.moneda === 'USD') return m;
+  const t = Number(pago.tasa) || 0;
+  return t > 0 ? m / t : 0;   // sin tasa no se puede convertir: no se inventa
+};
+
+/** Cómo se muestra un pago: lo que se pagó y, si no fue en dólares, su equivalente. */
+export const montoPagado = (pago) => {
+  if (!pago) return '—';
+  const propio = money(pago.monto, pago.moneda || 'USD');
+  if (!pago.moneda || pago.moneda === 'USD') return propio;
+  return `${propio}<div class="tiny muted">${money(enDolares(pago))} a ${num(pago.tasa)}</div>`;
+};
+
 /** El mismo importe en bolívares y en dólares, con la tasa que se usó. */
 export function moneyBs(montoUsd, tasa, cur = 'USD') {
   if (montoUsd == null) return '—';

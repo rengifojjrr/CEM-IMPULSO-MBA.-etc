@@ -38,7 +38,9 @@
   <div id="cont"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, abrirSubidaVideo } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit,
+         confirmDialog, abrirSubidaVideo, campoArchivo, subirDocumentoLeccion, opciones, etiqueta,
+         chipEstado, ayuda, montarAyudas, mejorarSelects } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'multimedia.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cursos=[], mods=[], lecciones=[], vista='grid';
@@ -115,20 +117,39 @@ $('#btnNuevo').onclick=()=>form(null);
 
 function form(m){
   const isNew=!m;
+  /* El formato y el tamaño los sabe el propio archivo: pedirlos a mano era
+     pedir un dato que el programa tiene delante, y que además podía quedar mal. */
+  let tamanoBytes = Number(m?.tamano_bytes) || 0;
+  const archivo = campoArchivo({
+    id:'rArch', tipo:'documento', valor: m?.url || '',
+    subir: async (f) => {
+      const r = await subirDocumentoLeccion(f);
+      tamanoBytes = r.tamanoBytes;
+      const dlgAhora = document.querySelector('.modal');
+      if (dlgAhora) {
+        const t = dlgAhora.querySelector('#rT'); if (t) t.value = r.tipo;
+        const sz = dlgAhora.querySelector('#rS'); if (sz) sz.value = (r.tamanoBytes/1048576).toFixed(1)+' MB';
+        const n = dlgAhora.querySelector('#rN'); if (n && !n.value.trim()) n.value = r.nombre.replace(/\.[^.]+$/,'');
+      }
+      return r.url;
+    },
+    etiquetaSubir:'Subir el archivo',
+  });
   const dlg = modal({ title:isNew?'Agregar recurso':`Editar: ${m.nombre}`, body:`
     <div class="field"><label>Nombre *</label><input id="rN" value="${esc(m?.nombre||'')}"></div>
     <div class="field"><label>Descripción</label><input id="rD" value="${esc(m?.descripcion||'')}"></div>
+    <div class="field"><label>Archivo del recurso *</label>${archivo.html}
+      <div class="row" style="margin-top:8px;align-items:center;gap:10px">
+        <p class="tiny muted grow" style="margin:0">El formato y el tamaño se sacan del archivo: no hay que escribirlos.</p>
+        <button class="btn outline sm" id="btnSubirVideoYT" type="button">
+          <span class="material-symbols-outlined">smart_display</span> Subir a YouTube</button>
+      </div></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:130px"><label>Formato</label><select id="rT">
-        ${['pdf','excel','video','imagen','enlace'].map(v=>`<option ${m?.tipo===v?'selected':''}>${v}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Tamaño (MB)</label>
-        <input type="number" step="0.1" id="rS" value="${((Number(m?.tamano_bytes||0))/1048576).toFixed(1)}"></div>
+        ${opciones(['pdf','excel','video','imagen','enlace'], m?.tipo)}</select></div>
+      <div class="field" style="flex:1;min-width:170px"><label>Tamaño</label>
+        <input id="rS" readonly value="${m?.tamano_bytes ? ((Number(m.tamano_bytes))/1048576).toFixed(1)+' MB' : '—'}"></div>
     </div>
-    <div class="field"><label>URL del recurso *</label>
-      <div class="row" style="gap:8px">
-        <input id="rU" value="${esc(m?.url||'')}" placeholder="https://…" style="flex:1">
-        <button class="btn outline sm" id="btnSubirVideo" type="button"><span class="material-symbols-outlined">cloud_upload</span> Subir video</button>
-      </div></div>
     <div class="row">
       <div class="field" style="flex:1;min-width:160px"><label>Curso asociado</label><select id="rC"><option value="">Sin curso</option>
         ${cursos.map(c=>`<option value="${c.id}" ${m?.course_id===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></div>
@@ -152,22 +173,27 @@ function form(m){
   pobM(); pobL();
   $('#rC',dlg).onchange = () => { pobM(); pobL(); };
   $('#rM',dlg).onchange = pobL;
-  $('#btnSubirVideo',dlg).onclick=async()=>{
+  archivo.conectar(dlg);
+  mejorarSelects(dlg);
+  const btnYT = $('#btnSubirVideoYT',dlg);
+  if (btnYT) btnYT.onclick=async()=>{
     const resultado = await abrirSubidaVideo({ tituloDefault: $('#rN',dlg).value.trim() });
     if (!resultado) return;
-    $('#rU',dlg).value = resultado.embedUrl;
+    archivo.fijar(resultado.embedUrl);
+    tamanoBytes = resultado.tamanoBytes;
     $('#rT',dlg).value = 'video';
-    $('#rS',dlg).value = (resultado.tamanoBytes/1048576).toFixed(1);
+    $('#rS',dlg).value = (resultado.tamanoBytes/1048576).toFixed(1)+' MB';
     if (!$('#rN',dlg).value.trim()) $('#rN',dlg).value = resultado.nombreArchivo.replace(/\.[^.]+$/,'');
-    ok('Video subido. Revisa y guarda el recurso.');
+    ok('Vídeo subido a YouTube. Revisa y guarda el recurso.');
   };
   $('[data-s]',dlg).onclick=async()=>{
     const payload={ nombre:$('#rN',dlg).value.trim(), descripcion:$('#rD',dlg).value.trim(),
-      tipo:$('#rT',dlg).value, tamano_bytes:Math.round((Number($('#rS',dlg).value)||0)*1048576),
-      url:$('#rU',dlg).value.trim(), course_id:$('#rC',dlg).value||null,
+      tipo:$('#rT',dlg).value, tamano_bytes:tamanoBytes,
+      url:archivo.valor(), course_id:$('#rC',dlg).value||null,
       module_id:$('#rM',dlg).value||null, lesson_id:$('#rL',dlg).value||null,
       publico:$('#rP',dlg).checked, subido_por:p.id };
-    if (!payload.nombre || !payload.url) return;
+    if (!payload.nombre) { fail('Ponle un nombre al recurso.'); return; }
+    if (!payload.url) { fail('Sube el archivo o pega su dirección.'); return; }
     if (isNew) await run(sb.from('cem_media').insert(payload),'No se pudo agregar');
     else await run(sb.from('cem_media').update(payload).eq('id',m.id),'No se pudo guardar');
     await audit(isNew?'media_creado':'media_actualizado','cem_media',m?.id,'bajo',{nombre:payload.nombre});

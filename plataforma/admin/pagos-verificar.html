@@ -57,8 +57,9 @@
         <option value="">Todos</option>
       </select></div></div>
     <div class="table-wrap">
-      <table><thead><tr>
-        <th>Reportado</th><th>Estudiante</th><th>Referencia</th><th>Monto</th><th>Cuota</th><th>Estado</th><th></th>
+      <table class="tarjetas"><thead><tr>
+        <th>Reportado</th><th>Estudiante</th><th>Referencia</th><th class="num">Monto</th>
+        <th>Cuota</th><th>Estado</th><th></th>
       </tr></thead><tbody id="tb"></tbody></table>
     </div>
   </div>
@@ -67,7 +68,8 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, fail, modal,
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa,
-         toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-14';
+         toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY,
+         etiqueta, montoPagado, enDolares, saldo as saldoCelda } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -115,21 +117,21 @@ function render(){
   $('#tb').innerHTML = lista.length ? lista.map(x => {
     const c = x.cem_installments;
     return `<tr>
-      <td class="tiny muted">${fdatetime(x.fecha)}</td>
-      <td class="wrap"><b>${esc(nombreDe(x))}</b>
+      <td class="tiny muted" data-col="Fecha">${fdatetime(x.fecha)}</td>
+      <td class="wrap" data-col="Estudiante"><b>${esc(nombreDe(x))}</b>
         <div class="tiny muted">${esc(x.cem_enrollments?.cem_courses?.nombre || '')}</div></td>
-      <td class="ref">${esc(x.referencia || '—')}<div class="tiny muted">${esc(x.metodo || '')}</div></td>
-      <td><b>${money(x.monto, x.moneda)}</b>
-        ${x.moneda !== 'USD' && x.monto_base ? `<div class="tiny muted">= ${money(x.monto_base, 'USD')} @ ${esc(String(x.tasa))}</div>` : ''}</td>
-      <td>${c ? `#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || 'USD')}
-             <div class="tiny muted">${c.estado === 'pagada' ? 'pagada'
-               : `debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')}`}</div>` : '<span class="tiny muted">suelto</span>'}</td>
-      <td>${chip(
-          x.estado === 'confirmado' ? 'aprobado' : x.estado === 'rechazado' ? 'rechazado'
-            : x.estado === 'reportado' ? 'por revisar' : x.estado,
+      <td class="ref" data-col="Referencia">${esc(x.referencia || '—')}
+        <div class="tiny muted">${esc(etiqueta(x.metodo))}</div></td>
+      <td class="num" data-col="Monto"><b>${montoPagado(x)}</b></td>
+      <td data-col="Cuota">${c ? `#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || 'USD')}
+             <div class="tiny muted">${c.estado === 'pagada' ? 'Pagada'
+               : `debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')}`}</div>` : '<span class="tiny muted">Sin cuota</span>'}</td>
+      <td data-col="Estado">${chip(
+          x.estado === 'confirmado' ? 'Aprobado' : x.estado === 'rechazado' ? 'Rechazado'
+            : x.estado === 'reportado' ? 'Por revisar' : etiqueta(x.estado),
           x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}
-        ${x.conciliado && x.nota && /autom/i.test(x.nota) ? chip('automático','neutral') : ''}</td>
-      <td style="white-space:nowrap">
+        ${x.conciliado && x.nota && /autom/i.test(x.nota) ? chip('Automático','neutral') : ''}</td>
+      <td style="white-space:nowrap" data-col="">
         <button class="btn ghost sm" data-ver="${x.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
         ${puedeOperar && x.estado === 'reportado' ? `
           <button class="btn ghost sm" data-ok="${x.id}" title="Aprobar y abonar a la cuota"><span class="material-symbols-outlined">check_circle</span></button>

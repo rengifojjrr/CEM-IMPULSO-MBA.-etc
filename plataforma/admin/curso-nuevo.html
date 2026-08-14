@@ -55,12 +55,7 @@
         <div class="field"><label>Descripción corta</label><textarea id="descCorta" style="min-height:60px"></textarea></div>
         <div class="field"><label>Descripción completa</label><textarea id="descripcion"></textarea></div>
         <div class="field"><label>Imagen de portada</label>
-          <div class="row" style="gap:8px;align-items:center">
-            <input id="imagen" placeholder="https://…" style="flex:1">
-            <button type="button" class="btn outline sm" id="btnSubirImagen"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
-            <input type="file" id="imagenArchivo" accept="image/*" class="hidden">
-          </div>
-          <img loading="lazy" decoding="async" id="imagenPreview" class="imagen-preview">
+          <div id="zonaPortada"></div>
         </div>
       </div>
     </div>
@@ -153,7 +148,9 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, ok, fail, run, audit, mejorarSelects, subirImagenCurso, montarHorarioPicker, horarioResumen } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, money, ok, fail, run, audit, mejorarSelects, subirImagenCurso,
+         montarHorarioPicker, horarioResumen, campoArchivo, opciones, etiqueta, ayuda, montarAyudas,
+         vigilarCambiosSinGuardar } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin'], active:'cursos.html', area:'admin' });
 const LABELS = ['Información general','Información académica','Estructura','Disponibilidad','Precio','Revisión'];
@@ -219,22 +216,15 @@ function renderMods(){
   });
 }
 
-$('#btnSubirImagen').onclick = () => $('#imagenArchivo').click();
-$('#imagenArchivo').onchange = async () => {
-  const file = $('#imagenArchivo').files[0];
-  if (!file) return;
-  try {
-    const url = await subirImagenCurso(file);
-    $('#imagen').value = url;
-    $('#imagenPreview').src = url; $('#imagenPreview').classList.add('on');
-    ok('Imagen subida');
-  } catch (e) { fail(e.message || 'No se pudo subir la imagen.'); }
-};
-$('#imagen').oninput = () => {
-  const v = $('#imagen').value.trim();
-  if (v) { $('#imagenPreview').src = v; $('#imagenPreview').classList.add('on'); }
-  else $('#imagenPreview').classList.remove('on');
-};
+/* Antes el campo de la dirección ocupaba todo el ancho y «Subir foto» quedaba
+   pequeño al lado, como si pegar un enlace fuese lo normal. Es al revés: quien
+   crea el programa tiene la imagen en su equipo. */
+const portada = campoArchivo({
+  id:'portada', tipo:'imagen', subir: subirImagenCurso,
+  etiquetaSubir:'Elegir la imagen de portada',
+});
+$('#zonaPortada').innerHTML = portada.html;
+portada.conectar(document);
 
 function review(){
   $('#review').innerHTML = [
@@ -260,7 +250,7 @@ async function crear(estado='publicado'){
     descripcion_corta:$('#descCorta').value.trim(), descripcion:$('#descripcion').value.trim(),
     tipo:$('#tipo').value, categoria:$('#categoria').value.trim(), modalidad:$('#modalidad').value,
     horas:Number($('#horas').value)||0,
-    precio:Number($('#precio').value)||0, moneda:$('#moneda').value, imagen_url:$('#imagen').value.trim()||null,
+    precio:Number($('#precio').value)||0, moneda:$('#moneda').value, imagen_url:portada.valor()||null,
     destacado:$('#destacado').checked, estado, certificado_nombre:$('#certNombre').value.trim()||null,
     descuento_pct:$('#descuentoPct').value?Number($('#descuentoPct').value):null, descuento_nota:$('#descuentoNota').value.trim()||null,
     codigo_descuento:$('#codigoDescuento').value.trim().toUpperCase()||null,

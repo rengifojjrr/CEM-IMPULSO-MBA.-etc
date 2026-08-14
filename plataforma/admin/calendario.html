@@ -57,7 +57,9 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, qs, confirmDialog } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, qs, confirmDialog,
+         campoArchivo, subirDocumentoLeccion, opciones, etiqueta, chipEstado, ayuda, montarAyudas,
+         mejorarSelects } from '../assets/app.js?v=2026-08-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'calendario.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -133,6 +135,14 @@ $('#btnNueva').onclick = () => form(null);
 
 function form(c, fecha){
   const isNew = !c;
+  /* La grabación de una clase es un archivo que suele estar en el equipo de
+     quien la dictó. Antes sólo se podía pegar un enlace: si el vídeo no estaba
+     ya publicado en algún sitio, no había forma de guardarlo. */
+  const grabacion = campoArchivo({
+    id:'sGrab', tipo:'video', valor: c?.grabacion_url || '',
+    subir: async (f) => (await subirDocumentoLeccion(f)).url,
+    etiquetaSubir:'Subir la grabación',
+  });
   const m = modal({ title: isNew?'Nueva sesión':`Editar: ${c.titulo}`, wide:true, body:`
     <div class="field"><label>Cohorte *</label><select id="sCoh">
       ${cohortes.map(x=>`<option value="${x.id}" ${c&&c.cohort_id===x.id?'selected':''}>${esc(x.nombre)} — ${esc(x.cem_courses?.nombre||'')}</option>`).join('')}</select></div>
@@ -144,17 +154,20 @@ function form(c, fecha){
     </div>
     <div class="row">
       <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="sMod">
-        ${['online','en_vivo','presencial','hibrido'].map(v=>`<option ${c?.modalidad===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
       <div class="field" style="flex:1;min-width:130px"><label>Salón</label><input id="sSalon" value="${esc(c?.salon||'')}"></div>
       <div class="field" style="flex:1;min-width:150px"><label>Estado</label><select id="sEstado">
-        ${['programada','dictada','cancelada','reprogramada'].map(v=>`<option ${c?.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['programada','dictada','cancelada','reprogramada'], c?.estado)}</select></div>
     </div>
     <div class="field"><label>Profesor</label><select id="sProf"><option value="">Sin asignar</option>
       ${profes.map(x=>`<option value="${x.id}" ${c&&c.teacher_id===x.id?'selected':''}>${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>
     <div class="field"><label>Enlace de sesión</label><input id="sUrl" value="${esc(c?.url_sesion||'')}" placeholder="https://meet.google.com/…"></div>
-    <div class="field"><label>Grabación</label><input id="sGrab" value="${esc(c?.grabacion_url||'')}" placeholder="https://…"></div>`,
+    <div class="field"><label>Grabación de la clase</label>${grabacion.html}</div>`,
     footer:`${isNew?'':'<button class="btn danger" data-del>Eliminar</button>'}
       <button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+  grabacion.conectar(m);
+  montarAyudas(m);
+  mejorarSelects(m);
   $('[data-c]',m).onclick = m.close;
   const delBtn = $('[data-del]',m);
   if (delBtn) delBtn.onclick = async () => {
@@ -169,7 +182,7 @@ function form(c, fecha){
       hora_inicio:$('#sIni',m).value||null, hora_fin:$('#sFin',m).value||null, modalidad:$('#sMod',m).value,
       salon:$('#sSalon',m).value.trim(), estado:$('#sEstado',m).value,
       teacher_id:$('#sProf',m).value||null, url_sesion:$('#sUrl',m).value.trim()||null,
-      grabacion_url:$('#sGrab',m).value.trim()||null,
+      grabacion_url:grabacion.valor()||null,
     };
     if (!payload.titulo || !payload.fecha) return;
     if (isNew) await run(sb.from('cem_classes').insert(payload),'No se pudo crear');

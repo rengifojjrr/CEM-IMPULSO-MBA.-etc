@@ -25,7 +25,9 @@
   <div id="panel"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, modal, ok, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs,
+         modal, ok, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
+         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects } from '../assets/app.js?v=2026-08-14';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -169,21 +171,52 @@ function cambiarEstado(e){
 }
 
 function registrarPago(i){
+  const saldoCuota = Number(i.saldo || i.monto) || 0;
+  // Quien registra el pago tiene la captura del banco a mano, no una dirección web.
+  const comprobante = campoArchivo({
+    id:'pComp', tipo:'comprobante', subir: subirComprobante,
+    etiquetaSubir:'Adjuntar el comprobante', permitirEnlace:false,
+  });
+
   const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
+    <p class="tiny muted" style="margin:-4px 0 12px">
+      Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda||'USD'))}</b></p>
     <div class="row"><div class="field" style="flex:1;min-width:130px"><label>Monto *</label>
-      <input type="number" step="0.01" id="pMonto" value="${i.saldo||i.monto}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Método</label><select id="pMetodo">
-        <option>transferencia</option><option>zelle</option><option>paypal</option><option>binance</option>
-        <option>efectivo</option><option>pago movil</option><option>tarjeta</option></select></div></div>
-    <div class="field"><label>Referencia</label><input id="pRef" placeholder="Número de operación"></div>
-    <div class="field"><label>Comprobante (URL)</label><input id="pComp" placeholder="https://…"></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Registrar</button>` });
+      <input type="number" step="0.01" id="pMonto" value="${saldoCuota}" required>
+      <div class="tiny" id="pAviso"></div></div>
+      <div class="field" style="flex:1;min-width:150px"><label>Método</label>
+        <select id="pMetodo">${opciones(['transferencia','zelle','paypal','binance','efectivo','pago movil','tarjeta'])}</select></div></div>
+    <div class="field"><label>Referencia</label>
+      <input id="pRef" placeholder="Ej.: 004512873"></div>
+    <div class="field"><label>Comprobante</label>${comprobante.html}</div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Registrar el pago</button>` });
+
+  comprobante.conectar(m);
+  mejorarSelects(m);
+
+  const monto = $('#pMonto', m), aviso = $('#pAviso', m);
+  monto.addEventListener('input', () => {
+    const v = Number(monto.value) || 0;
+    aviso.className = 'tiny';
+    if (v > saldoCuota * 2 && saldoCuota > 0) {
+      aviso.className = 'tiny err-text';
+      aviso.textContent = `Es más del doble del saldo. Comprueba la cifra.`;
+    } else if (v > 0 && v < saldoCuota) {
+      aviso.textContent = `Abono parcial: quedarían ${money(saldoCuota - v, i.moneda||'USD')}.`;
+    } else aviso.textContent = '';
+  });
+
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{
-    await run(sb.rpc('cem_register_payment',{ p_installment_id:i.id, p_monto:Number($('#pMonto',m).value),
+    const v = Number(monto.value);
+    if (!(v > 0)) { fail('El monto tiene que ser mayor que cero.'); return; }
+    await run(sb.rpc('cem_register_payment',{ p_installment_id:i.id, p_monto:v,
       p_metodo:$('#pMetodo',m).value, p_referencia:$('#pRef',m).value.trim()||null,
-      p_comprobante:$('#pComp',m).value.trim()||null }),'No se pudo registrar el pago');
-    m.close(); ok('Pago registrado'); load();
+      p_comprobante:comprobante.valor()||null }),'No se pudo registrar el pago');
+    m.close();
+    ok(`Pago de ${money(v, i.moneda||'USD')} registrado en la cuota ${i.numero}`);
+    load();
   };
 }
 
