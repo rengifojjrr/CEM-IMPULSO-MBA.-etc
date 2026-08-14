@@ -56,7 +56,7 @@ if (p) { load(); sb.from('cem_categorias').select('nombre').eq('activo',true).or
 
 async function load(){
   const { data } = await sb.from('cem_courses').select('*').order('created_at',{ascending:false});
-  const { data: ens } = await sb.from('cem_enrollments').select('course_id,progreso');
+  const { data: ens } = await sb.from('cem_enrollments').select('course_id,progreso').limit(500);
   const agg = {};
   (ens||[]).forEach(e => { (agg[e.course_id] ||= { n:0, s:0 }); agg[e.course_id].n++; agg[e.course_id].s += Number(e.progreso)||0; });
   rows = (data||[]).map(c => ({ ...c, _alumnos: agg[c.id]?.n||0, _avance: agg[c.id]? agg[c.id].s/agg[c.id].n : 0 }));
@@ -113,7 +113,7 @@ function edit(c){
         <button type="button" class="btn outline sm" id="eBtnImg"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
         <input type="file" id="eImgArchivo" accept="image/*" class="hidden">
       </div>
-      <img id="eImgPreview" src="${esc(c.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${c.imagen_url?'':'display:none'}">
+      <img loading="lazy" decoding="async" id="eImgPreview" src="${esc(c.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${c.imagen_url?'':'display:none'}">
     </div>
     <label class="check"><input type="checkbox" id="eDest" ${c.destacado?'checked':''}> Destacado en el catálogo</label>
     <h2 class="sec" style="margin-top:18px">Descuentos y facilidades de pago</h2>

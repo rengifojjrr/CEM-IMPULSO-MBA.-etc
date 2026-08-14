@@ -58,9 +58,9 @@ if (p) load();
 
 async function load(){
   const [{data:e},{data:i},{data:y},{data:s}] = await Promise.all([
-    sb.from('cem_enrollments').select('*,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email),cem_courses(nombre),cem_cohorts(nombre)').order('fecha_inscripcion',{ascending:false}),
-    sb.from('cem_installments').select('*').order('fecha_vencimiento'),
-    sb.from('cem_payments').select('*').order('fecha',{ascending:false}),
+    sb.from('cem_enrollments').select('*,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email),cem_courses(nombre),cem_cohorts(nombre)').order('fecha_inscripcion',{ascending:false}).limit(500),
+    sb.from('cem_installments').select('*').order('fecha_vencimiento').limit(500),
+    sb.from('cem_payments').select('*').order('fecha',{ascending:false}).limit(500),
     // La tabla apunta dos veces a cem_profiles (quien pide y quien resuelve),
     // así que hay que decir por cuál de las dos relaciones se trae el nombre.
     sb.from('cem_solicitudes_inscripcion')
@@ -225,7 +225,7 @@ function pagar(i){
 
 $('#btnNueva').onclick = async () => {
   const [{data:est},{data:cursos},{data:cohs}] = await Promise.all([
-    sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre'),
+    sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre').limit(500),
     sb.from('cem_courses').select('id,nombre,precio').eq('estado','publicado').order('nombre'),
     sb.from('cem_cohorts').select('id,nombre,course_id'),
   ]);

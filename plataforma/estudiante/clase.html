@@ -66,18 +66,18 @@ async function load(){
     cursoId = cl?.cem_cohorts?.course_id;
   }
   const { data: ens } = await sb.from('cem_enrollments')
-    .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id);
+    .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id).limit(500);
   enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
   if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
   curso = enr.cem_courses;
 
   const [{data:ms},{data:lp},{data:cls},{data:md},{data:evs},{data:subs}] = await Promise.all([
     sb.from('cem_modules').select('*,cem_lessons(*)').eq('course_id',enr.course_id).order('orden'),
-    sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id),
-    enr.cohort_id? sb.from('cem_classes').select('*').eq('cohort_id',enr.cohort_id).order('fecha') : Promise.resolve({data:[]}),
-    sb.from('cem_media').select('*').eq('course_id',enr.course_id),
+    sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id).limit(500),
+    enr.cohort_id? sb.from('cem_classes').select('*').eq('cohort_id',enr.cohort_id).order('fecha').limit(500) : Promise.resolve({data:[]}),
+    sb.from('cem_media').select('*').eq('course_id',enr.course_id).limit(500),
     sb.from('cem_assessments').select('*').eq('course_id',enr.course_id).eq('estado','publicado').order('nombre'),
-    sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id),
+    sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id).limit(500),
   ]);
   mods = (ms||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
   (lp||[]).forEach(x=>progreso[x.lesson_id]=x);

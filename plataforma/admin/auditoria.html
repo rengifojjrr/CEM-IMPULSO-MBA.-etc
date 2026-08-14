@@ -48,7 +48,7 @@ if (p) load();
 async function load(){
   const { data } = await sb.from('cem_audit_events').select('*').order('created_at',{ascending:false}).limit(limite);
   rows = data||[];
-  const { data: ps } = await sb.from('cem_profiles').select('id,nombre,apellido,email');
+  const { data: ps } = await sb.from('cem_profiles').select('id,nombre,apellido,email').limit(500);
   const users = [...new Map((rows.map(r=>r.actor_id).filter(Boolean))
     .map(id=>[id,(ps||[]).find(x=>x.id===id)]).filter(([,v])=>v)).values()];
   $('#fUser').innerHTML = '<option value="">Todos</option>' +

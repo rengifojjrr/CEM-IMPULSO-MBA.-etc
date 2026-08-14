@@ -42,8 +42,8 @@ if (me) load();
 
 async function load(){
   const [{data:certs},{data:ens},{data:all},{data:mine}] = await Promise.all([
-    sb.from('cem_certificates').select('*,cem_courses(nombre)').eq('profile_id',me.id).order('emitido_en',{ascending:false}),
-    sb.from('cem_enrollments').select('*,cem_courses(nombre,certificado_nombre)').eq('profile_id',me.id),
+    sb.from('cem_certificates').select('*,cem_courses(nombre)').eq('profile_id',me.id).order('emitido_en',{ascending:false}).limit(500),
+    sb.from('cem_enrollments').select('*,cem_courses(nombre,certificado_nombre)').eq('profile_id',me.id).limit(500),
     sb.from('cem_badges').select('*').eq('activo',true).order('nombre'),
     sb.from('cem_badge_awards').select('badge_id,otorgado_en').eq('profile_id',me.id),
   ]);

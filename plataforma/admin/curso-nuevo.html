@@ -60,7 +60,7 @@
             <button type="button" class="btn outline sm" id="btnSubirImagen"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
             <input type="file" id="imagenArchivo" accept="image/*" class="hidden">
           </div>
-          <img id="imagenPreview" class="imagen-preview">
+          <img loading="lazy" decoding="async" id="imagenPreview" class="imagen-preview">
         </div>
       </div>
     </div>
@@ -203,7 +203,7 @@ $('#addMod').onclick = () => { mods.push({titulo:`Módulo ${mods.length+1}: `, i
 function renderMods(){
   $('#mods').innerHTML = mods.map((m,i)=>`<div class="row" style="gap:8px;align-items:center">
     <span class="chip neutral">${i+1}</span>
-    ${m.imagen_url?`<img class="mod-thumb" src="${esc(m.imagen_url)}">`:''}
+    ${m.imagen_url?`<img loading="lazy" decoding="async" class="mod-thumb" src="${esc(m.imagen_url)}">`:''}
     <input class="inp" style="flex:1" data-m="${i}" value="${esc(m.titulo)}" placeholder="Título del módulo">
     <button type="button" class="btn outline sm" data-img="${i}" title="Miniatura del módulo"><span class="material-symbols-outlined">add_photo_alternate</span></button>
     <input type="file" accept="image/*" class="hidden" data-imgfile="${i}">
@@ -247,7 +247,7 @@ function review(){
     ['Cohorte inicial', $('#crearCohorte').checked ? `${$('#cohNombre').value} · ${$('#cohTurno').value} · ${horarioResumen(horarioValor)||'sin horario'}` : 'No'],
   ].map(([k,v])=>`<div class="list-item"><div class="grow"><div class="s">${k}</div><div class="t">${esc(String(v))}</div></div></div>`).join('');
   $('#reviewMods').innerHTML = mods.filter(m=>m.titulo.trim()).map(m=>`<div class="card review-mod">
-    ${m.imagen_url?`<img src="${esc(m.imagen_url)}">`:`<div style="height:70px;display:flex;align-items:center;justify-content:center;background:var(--surface-container)">
+    ${m.imagen_url?`<img loading="lazy" decoding="async" src="${esc(m.imagen_url)}">`:`<div style="height:70px;display:flex;align-items:center;justify-content:center;background:var(--surface-container)">
       <span class="material-symbols-outlined" style="color:var(--outline)">image</span></div>`}
     <div class="n">${esc(m.titulo)}</div></div>`).join('') || '<p class="muted tiny">Sin módulos.</p>';
 }

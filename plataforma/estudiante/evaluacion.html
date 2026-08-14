@@ -57,7 +57,7 @@ async function load(){
   if (!enrollment){ fail('No estás inscrito en este programa.'); setTimeout(()=>location.href='panel.html',1200); return; }
 
   const { data: prev } = await sb.from('cem_submissions').select('*').eq('assessment_id',aId)
-    .eq('enrollment_id',enrollment).order('intento',{ascending:false});
+    .eq('enrollment_id',enrollment).order('intento',{ascending:false}).limit(500);
   const usados = (prev||[]).length;
   const abierta = (prev||[]).find(s=>s.estado==='en_progreso');
 

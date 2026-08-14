@@ -141,7 +141,7 @@ function form(b){
 }
 
 $('#btnOtorgar').onclick = async () => {
-  const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre');
+  const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre').limit(500);
   const m = modal({ title:'Otorgar insignia', body:`
     <div class="field"><label>Insignia *</label><select id="oB">
       ${badges.filter(b=>b.activo).map(b=>`<option value="${b.id}">${esc(b.nombre)}</option>`).join('')}</select></div>

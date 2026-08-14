@@ -367,7 +367,7 @@ function dibujar(){
   const imgsHtml = imagenes.map((im,i)=>`
     <div class="blk ${sel?.tipo==='img'&&sel.id===im.id?'sel':''}" data-img="${im.id}"
       style="left:${im.x}%;top:${im.y}%;width:${im.w}%;opacity:${im.op};z-index:${10+i}">
-      <img src="${esc(im.url)}" alt="" onerror="this.style.opacity=.25">
+      <img loading="lazy" decoding="async" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.25">
       <span class="tirador" data-rs="img"></span>
     </div>`).join('');
 
@@ -475,7 +475,7 @@ const redondea = n => Math.round(n*2)/2;
 function renderListaImg(){
   $('#listaImg').innerHTML = imagenes.length ? imagenes.map(im=>`
     <div class="lista-item ${sel?.tipo==='img'&&sel.id===im.id?'sel':''}" data-selimg="${im.id}">
-      <img class="mini-img" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.3">
+      <img loading="lazy" decoding="async" class="mini-img" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.3">
       <div class="grow" style="flex:1;min-width:0">
         <div class="tiny" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(im.nombre||'Imagen')}</div>
         <div class="tiny muted">${im.w}% · ${Math.round(im.op*100)}%</div>

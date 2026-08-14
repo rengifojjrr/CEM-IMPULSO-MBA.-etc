@@ -67,7 +67,7 @@ if (p) load();
 async function load(){
   const [{ data: cos }, { data: ps }] = await Promise.all([
     sb.from('cem_cohorts').select('id,nombre,codigo,course_id,cem_courses(nombre)').order('nombre'),
-    sb.from('cem_profiles').select('id,nombre,apellido').eq('rol','profesor'),
+    sb.from('cem_profiles').select('id,nombre,apellido').eq('rol','profesor').limit(500),
   ]);
   cohortes = cos||[]; profes = ps||[];
   $('#fCohorte').innerHTML = '<option value="">Todas las cohortes</option>' +

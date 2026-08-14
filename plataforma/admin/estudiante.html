@@ -35,17 +35,17 @@ if (p) { if (!id) location.href='estudiantes.html'; else load(); }
 async function load(){
   const [{data:s},{data:e},{data:c},{data:b}] = await Promise.all([
     sb.from('cem_profiles').select('*').eq('id',id).maybeSingle(),
-    sb.from('cem_enrollments').select('*,cem_courses(nombre,tipo),cem_cohorts(nombre)').eq('profile_id',id),
-    sb.from('cem_certificates').select('*,cem_courses(nombre)').eq('profile_id',id),
+    sb.from('cem_enrollments').select('*,cem_courses(nombre,tipo),cem_cohorts(nombre)').eq('profile_id',id).limit(500),
+    sb.from('cem_certificates').select('*,cem_courses(nombre)').eq('profile_id',id).limit(500),
     sb.from('cem_badge_awards').select('*,cem_badges(nombre,nivel,icono)').eq('profile_id',id),
   ]);
   stu=s; ens=e||[]; certs=c||[]; badges=b||[];
   const eids = ens.map(x=>x.id);
   if (eids.length){
     const [{data:sb1},{data:i1},{data:p1}] = await Promise.all([
-      sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,puntaje_max)').in('enrollment_id',eids),
-      sb.from('cem_installments').select('*').in('enrollment_id',eids).order('numero'),
-      sb.from('cem_payments').select('*').in('enrollment_id',eids).order('fecha',{ascending:false}),
+      sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,puntaje_max)').in('enrollment_id',eids).limit(500),
+      sb.from('cem_installments').select('*').in('enrollment_id',eids).order('numero').limit(500),
+      sb.from('cem_payments').select('*').in('enrollment_id',eids).order('fecha',{ascending:false}).limit(500),
     ]);
     subs=sb1||[]; insts=i1||[]; pays=p1||[];
   }

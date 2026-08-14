@@ -45,7 +45,7 @@ let rows=[];
 if (p) load();
 
 async function load(){
-  const { data } = await sb.from('cem_profiles').select('*').order('created_at',{ascending:false});
+  const { data } = await sb.from('cem_profiles').select('*').order('created_at',{ascending:false}).limit(500);
   rows = data||[];
   const porRol = r => rows.filter(x=>x.rol===r).length;
   $('#kpis').innerHTML = [

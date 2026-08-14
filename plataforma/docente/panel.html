@@ -54,8 +54,8 @@ async function load(){
   const cohIds = cohortes.map(c=>c.id), courseIds=[...new Set((tas||[]).map(t=>t.course_id).filter(Boolean))];
 
   const [{data:ens},{data:cls},{data:asis}] = await Promise.all([
-    cohIds.length? sb.from('cem_enrollments').select('id,cohort_id,progreso,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido)').in('cohort_id',cohIds) : Promise.resolve({data:[]}),
-    cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre)').in('cohort_id',cohIds).order('fecha') : Promise.resolve({data:[]}),
+    cohIds.length? sb.from('cem_enrollments').select('id,cohort_id,progreso,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido)').in('cohort_id',cohIds).limit(500) : Promise.resolve({data:[]}),
+    cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre)').in('cohort_id',cohIds).order('fecha').limit(500) : Promise.resolve({data:[]}),
     Promise.resolve({data:[]}),
   ]);
   clases = cls||[];
@@ -110,7 +110,7 @@ async function load(){
 
   const dictadas = clases.filter(c=>c.estado==='dictada').slice(0,8);
   const { data: att } = dictadas.length
-    ? await sb.from('cem_attendance').select('class_id,presente').in('class_id',dictadas.map(c=>c.id))
+    ? await sb.from('cem_attendance').select('class_id,presente').in('class_id',dictadas.map(c=>c.id)).limit(500)
     : { data: [] };
   const byClass={}; (att||[]).forEach(a=>{ (byClass[a.class_id] ||= {t:0,p:0}); byClass[a.class_id].t++; if(a.presente) byClass[a.class_id].p++; });
   $('#tbAsis').innerHTML = dictadas.length ? dictadas.map(c=>{
@@ -176,7 +176,7 @@ function reabrir(s){
 async function pasarAsistencia(classId, ens){
   const cl = clases.find(c=>c.id===classId);
   const alumnos = ens.filter(e=>e.cohort_id===cl.cohort_id);
-  const { data: att } = await sb.from('cem_attendance').select('*').eq('class_id',classId);
+  const { data: att } = await sb.from('cem_attendance').select('*').eq('class_id',classId).limit(500);
   const map={}; (att||[]).forEach(a=>map[a.enrollment_id]=a.presente);
   const m = modal({ title:`Asistencia · ${cl.titulo}`, wide:true, body:`
     <div class="stack">${alumnos.map(a=>`<label class="check">

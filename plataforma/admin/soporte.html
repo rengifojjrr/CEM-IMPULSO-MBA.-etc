@@ -49,8 +49,8 @@ if (p) load();
 
 async function load(){
   const [{data},{data:st}] = await Promise.all([
-    sb.from('cem_tickets').select('*,cem_profiles!cem_tickets_profile_id_fkey(nombre,apellido,email)').order('actualizado_en',{ascending:false}),
-    sb.from('cem_profiles').select('id,nombre,apellido').in('rol',['coordinador','admin','superadmin']),
+    sb.from('cem_tickets').select('*,cem_profiles!cem_tickets_profile_id_fkey(nombre,apellido,email)').order('actualizado_en',{ascending:false}).limit(500),
+    sb.from('cem_profiles').select('id,nombre,apellido').in('rol',['coordinador','admin','superadmin']).limit(500),
   ]);
   tickets=data||[]; staff=st||[];
   $('#kpis').innerHTML = [
@@ -89,7 +89,7 @@ async function detalle(){
     <h3>Selecciona un ticket</h3><p class="muted tiny">Elige un ticket de la lista para ver la conversación.</p></div>`; return; }
   const t=sel;
   const { data: msgs } = await sb.from('cem_ticket_messages').select('*,cem_profiles(nombre,apellido,rol)')
-    .eq('ticket_id',t.id).order('created_at');
+    .eq('ticket_id',t.id).order('created_at').limit(500);
   D.innerHTML = `<div class="card">
     <div class="row between">
       <div><h2 class="sec" style="margin:0 0 3px">${esc(t.asunto)}</h2>
@@ -145,7 +145,7 @@ async function detalle(){
 }
 
 $('#btnNuevo').onclick = async () => {
-  const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre');
+  const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre').limit(500);
   const m = modal({ title:'Nuevo ticket', body:`
     <div class="field"><label>Estudiante *</label><select id="nE">
       ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>

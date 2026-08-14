@@ -32,13 +32,13 @@ let rows=[], progresoPorCurso={};
 if (me) load();
 
 async function load(){
-  const { data: ens } = await sb.from('cem_enrollments').select('id,course_id,progreso,cem_courses(nombre)').eq('profile_id',me.id);
+  const { data: ens } = await sb.from('cem_enrollments').select('id,course_id,progreso,cem_courses(nombre)').eq('profile_id',me.id).limit(500);
   const ids = (ens||[]).map(e=>e.course_id);
   (ens||[]).forEach(e=>progresoPorCurso[e.course_id]=Number(e.progreso)||0);
   $('#fCurso').innerHTML = '<option value="">Todos mis cursos</option>' +
     (ens||[]).map(e=>`<option value="${e.course_id}">${esc(e.cem_courses?.nombre||'')}</option>`).join('');
   if (!ids.length){ $('#lista').innerHTML='<div class="card">Aún no tienes cursos con materiales.</div>'; return; }
-  const { data } = await sb.from('cem_media').select('*,cem_courses(nombre)').in('course_id',ids).order('nombre');
+  const { data } = await sb.from('cem_media').select('*,cem_courses(nombre)').in('course_id',ids).order('nombre').limit(500);
   rows = data||[];
   $('#sub').textContent = `Mostrando ${rows.length} recurso(s) de tus programas.`;
   render();

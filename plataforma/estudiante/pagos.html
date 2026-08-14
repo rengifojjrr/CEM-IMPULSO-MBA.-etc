@@ -87,7 +87,7 @@ async function cargar(){
     .order('fecha_vencimiento', { ascending: true });
   cuotas = cs || [];
 
-  const { data: ps } = await sb.from('cem_payments').select('*').order('fecha', { ascending: false });
+  const { data: ps } = await sb.from('cem_payments').select('*').order('fecha', { ascending: false }).limit(500);
   pagos = ps || [];
 
   renderKpis(); renderCuotas(); renderPagos();

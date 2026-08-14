@@ -101,7 +101,7 @@ async function cargar(){
     sb.from('cem_certificates').select('id', { count:'exact', head:true }).eq('profile_id', p.id),
     sb.from('cem_enrollments')
       .select('id,estado,progreso,fecha_inscripcion,cem_courses(nombre)')
-      .eq('profile_id', p.id).order('fecha_inscripcion', { ascending:false }),
+      .eq('profile_id', p.id).order('fecha_inscripcion', { ascending:false }).limit(500),
     sb.from('cem_solicitudes_perfil').select('*').order('created_at', { ascending:false }),
     sb.from('cem_solicitudes_inscripcion')
       .select('*,cem_enrollments(cem_courses(nombre))').order('created_at', { ascending:false }),

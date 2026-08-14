@@ -51,7 +51,7 @@ async function load(){
     sb.from('cem_assessments').select('*,cem_courses(nombre)').order('created_at',{ascending:false}),
     sb.from('cem_courses').select('id,nombre').order('nombre'),
     sb.from('cem_assessment_questions').select('assessment_id'),
-    sb.from('cem_submissions').select('assessment_id,puntaje,estado'),
+    sb.from('cem_submissions').select('assessment_id,puntaje,estado').limit(500),
   ]);
   $('#fCurso').innerHTML='<option value="">Todos</option>'+(cs||[]).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
   const nq={}; (aq||[]).forEach(x=>nq[x.assessment_id]=(nq[x.assessment_id]||0)+1);

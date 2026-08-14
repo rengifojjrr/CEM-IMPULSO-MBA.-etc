@@ -62,11 +62,11 @@ async function load(){
   const desde = rango? new Date(Date.now()-rango*86400000).toISOString() : '1970-01-01';
   const [{data:cursos},{data:ens},{data:pays},{data:insts},{data:certs},{data:subs},{data:cohs}] = await Promise.all([
     sb.from('cem_courses').select('id,nombre,tipo,precio'),
-    sb.from('cem_enrollments').select('id,course_id,cohort_id,progreso,estado,precio_final,fecha_inscripcion'),
-    sb.from('cem_payments').select('enrollment_id,monto,fecha').gte('fecha',desde),
-    sb.from('cem_installments').select('enrollment_id,monto,saldo,estado,fecha_vencimiento'),
-    sb.from('cem_certificates').select('id,course_id,emitido_en'),
-    sb.from('cem_submissions').select('enrollment_id,puntaje,estado'),
+    sb.from('cem_enrollments').select('id,course_id,cohort_id,progreso,estado,precio_final,fecha_inscripcion').limit(500),
+    sb.from('cem_payments').select('enrollment_id,monto,fecha').gte('fecha',desde).limit(500),
+    sb.from('cem_installments').select('enrollment_id,monto,saldo,estado,fecha_vencimiento').limit(500),
+    sb.from('cem_certificates').select('id,course_id,emitido_en').limit(500),
+    sb.from('cem_submissions').select('enrollment_id,puntaje,estado').limit(500),
     sb.from('cem_cohorts').select('id,nombre,course_id'),
   ]);
   data = { cursos:cursos||[], ens:ens||[], pays:pays||[], insts:insts||[], certs:certs||[], subs:subs||[], cohs:cohs||[] };

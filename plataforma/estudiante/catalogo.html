@@ -72,7 +72,7 @@ function render(){
   $('#count').textContent = `${list.length} programa(s) disponibles`;
   $('#lista').innerHTML = list.length ? list.map(c=>`
     <a class="course-card" href="curso.html?id=${c.id}">
-      <img src="${esc(c.imagen_url||'')}" alt="" onerror="this.style.visibility='hidden'">
+      <img loading="lazy" decoding="async" src="${esc(c.imagen_url||'')}" alt="" onerror="this.style.visibility='hidden'">
       <div class="body">
         <div class="row" style="gap:6px">
           <span class="chip teal">${esc(c.modalidad.replace('_',' '))}</span>

@@ -48,17 +48,17 @@ if (p) init();
 async function init(){
   $('#saludo').textContent = `Hola, ${p.nombre}`;
   const { data: ens } = await sb.from('cem_enrollments')
-    .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)').eq('profile_id',p.id);
+    .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)').eq('profile_id',p.id).limit(500);
   const eids = (ens||[]).map(e=>e.id), cohIds=(ens||[]).map(e=>e.cohort_id).filter(Boolean);
 
   const cIds = (ens||[]).map(e=>e.course_id).filter(Boolean);
   const [{data:clases},{data:insts},{data:subs},{data:anuncios},{data:certs},{data:evals}] = await Promise.all([
     cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre,cem_courses(nombre))').in('cohort_id',cohIds)
       .gte('fecha',new Date().toISOString().slice(0,10)).order('fecha').limit(5) : Promise.resolve({data:[]}),
-    eids.length? sb.from('cem_installments').select('*').in('enrollment_id',eids).order('fecha_vencimiento') : Promise.resolve({data:[]}),
-    eids.length? sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,course_id)').in('enrollment_id',eids) : Promise.resolve({data:[]}),
+    eids.length? sb.from('cem_installments').select('*').in('enrollment_id',eids).order('fecha_vencimiento').limit(500) : Promise.resolve({data:[]}),
+    eids.length? sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,course_id)').in('enrollment_id',eids).limit(500) : Promise.resolve({data:[]}),
     sb.from('cem_announcements').select('*').eq('estado','enviado').order('enviado_en',{ascending:false}).limit(4),
-    sb.from('cem_certificates').select('id').eq('profile_id',p.id),
+    sb.from('cem_certificates').select('id').eq('profile_id',p.id).limit(500),
     cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria')
       .in('course_id',cIds).eq('estado','publicado') : Promise.resolve({data:[]}),
   ]);

@@ -46,9 +46,9 @@ if (p) load();
 
 async function load(){
   const [{data:est},{data:ens},{data:ins},{data:cohs}] = await Promise.all([
-    sb.from('cem_profiles').select('*').eq('rol','estudiante').order('nombre'),
-    sb.from('cem_enrollments').select('id,profile_id,progreso,estado,cohort_id,ultimo_acceso'),
-    sb.from('cem_installments').select('enrollment_id,saldo,estado'),
+    sb.from('cem_profiles').select('*').eq('rol','estudiante').order('nombre').limit(500),
+    sb.from('cem_enrollments').select('id,profile_id,progreso,estado,cohort_id,ultimo_acceso').limit(500),
+    sb.from('cem_installments').select('enrollment_id,saldo,estado').limit(500),
     sb.from('cem_cohorts').select('id,nombre'),
   ]);
   $('#fCoh').innerHTML = '<option value="">Todas</option>' + (cohs||[]).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');

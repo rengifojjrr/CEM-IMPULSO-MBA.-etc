@@ -178,7 +178,7 @@ async function verDetalle(x){
     cont.innerHTML = url
       ? (/\.pdf$/i.test(x.comprobante_url)
           ? `<a class="btn outline sm" href="${url}" target="_blank">Abrir el PDF del comprobante</a>`
-          : `<a href="${url}" target="_blank"><img class="comprobante-img" src="${url}" alt="Comprobante"></a>`)
+          : `<a href="${url}" target="_blank"><img loading="lazy" decoding="async" class="comprobante-img" src="${url}" alt="Comprobante"></a>`)
       : '<span class="tiny muted">No se pudo cargar el comprobante.</span>';
   } else {
     cont.innerHTML = '<span class="tiny muted">El estudiante no adjuntó comprobante.</span>';

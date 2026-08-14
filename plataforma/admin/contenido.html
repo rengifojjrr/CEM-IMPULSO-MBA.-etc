@@ -94,7 +94,7 @@ function render(){
 
 async function cargarDocs(){
   if (!sel) { docs = []; return; }
-  const { data } = await sb.from('cem_media').select('*').eq('lesson_id', sel.id).order('created_at', { ascending: false });
+  const { data } = await sb.from('cem_media').select('*').eq('lesson_id', sel.id).order('created_at', { ascending: false }).limit(500);
   docs = data || [];
 }
 
@@ -211,7 +211,7 @@ function formMod(m){
         <button type="button" class="btn outline sm" id="mBtnImg"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
         <input type="file" id="mImgArchivo" accept="image/*" class="hidden">
       </div>
-      <img id="mImgPreview" src="${esc(m?.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${m?.imagen_url?'':'display:none'}">
+      <img loading="lazy" decoding="async" id="mImgPreview" src="${esc(m?.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${m?.imagen_url?'':'display:none'}">
     </div>`,
     footer:`${isNew?'':'<button class="btn danger" data-del>Eliminar</button>'}
       <button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });

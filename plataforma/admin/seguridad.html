@@ -51,7 +51,7 @@
       <li>Escribe abajo el código de seis dígitos que te muestre.</li>
     </ol>
     <div class="qr-caja">
-      <img id="qr" alt="Código QR para la aplicación de autenticación">
+      <img loading="lazy" decoding="async" id="qr" alt="Código QR para la aplicación de autenticación">
       <div style="flex:1;min-width:220px">
         <div class="field"><label>Clave para escribir a mano</label>
           <div class="secreto" id="secreto">—</div></div>
@@ -202,12 +202,12 @@ async function pintarPersonal(){
   const { data: gente } = await sb.from('cem_profiles')
     .select('id,nombre,apellido,email,rol')
     .in('rol', ['coordinador','cobranza','admin','superadmin','auditor'])
-    .eq('activo', true).order('rol');
+    .eq('activo', true).order('rol').limit(500);
 
   const { data: eventos } = await sb.from('cem_audit_events')
     .select('actor_id,accion,created_at')
     .in('accion', ['segundo_factor_activado','segundo_factor_retirado'])
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }).limit(500);
 
   // El último evento de cada persona dice cómo está ahora.
   const ultimo = {};

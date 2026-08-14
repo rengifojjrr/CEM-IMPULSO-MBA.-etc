@@ -47,7 +47,7 @@ async function load(){
     sb.from('cem_announcements').select('*').order('created_at',{ascending:false}),
     sb.from('cem_cohorts').select('id,nombre,cem_courses(nombre)').order('nombre'),
     sb.from('cem_courses').select('id,nombre').order('nombre'),
-    sb.from('cem_profiles').select('id,nombre,apellido'),
+    sb.from('cem_profiles').select('id,nombre,apellido').limit(500),
   ]);
   rows=data||[]; cohortes=cos||[]; cursos=cs||[];
   perfiles = Object.fromEntries((ps||[]).map(x=>[x.id,`${x.nombre} ${x.apellido||''}`.trim()]));

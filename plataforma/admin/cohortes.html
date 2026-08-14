@@ -49,9 +49,9 @@ async function load(){
   const [{ data: cs }, { data: cos }, { data: ens }, { data: tas }, { data: ps }] = await Promise.all([
     sb.from('cem_courses').select('id,nombre').order('nombre'),
     sb.from('cem_cohorts').select('*').order('fecha_inicio',{ascending:false}),
-    sb.from('cem_enrollments').select('cohort_id'),
+    sb.from('cem_enrollments').select('cohort_id').limit(500),
     sb.from('cem_teacher_assignments').select('cohort_id,teacher_id'),
-    sb.from('cem_profiles').select('id,nombre,apellido').eq('rol','profesor'),
+    sb.from('cem_profiles').select('id,nombre,apellido').eq('rol','profesor').limit(500),
   ]);
   cursos = cs||[]; profes = ps||[];
   const nEns = {}; (ens||[]).forEach(e => nEns[e.cohort_id] = (nEns[e.cohort_id]||0)+1);

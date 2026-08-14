@@ -37,14 +37,14 @@ if (p) load();
 
 async function load(){
   const [{data:ps},{data:tas},{data:cos},{data:cls},{data:subs}] = await Promise.all([
-    sb.from('cem_profiles').select('*').eq('rol','profesor').order('nombre'),
+    sb.from('cem_profiles').select('*').eq('rol','profesor').order('nombre').limit(500),
     sb.from('cem_teacher_assignments').select('teacher_id,cohort_id'),
     sb.from('cem_cohorts').select('id,nombre,course_id,cem_courses(nombre)').order('nombre'),
-    sb.from('cem_classes').select('teacher_id,estado'),
-    sb.from('cem_submissions').select('assessment_id,estado'),
+    sb.from('cem_classes').select('teacher_id,estado').limit(500),
+    sb.from('cem_submissions').select('assessment_id,estado').limit(500),
   ]);
   cohortes = cos||[];
-  const { data: ens } = await sb.from('cem_enrollments').select('cohort_id');
+  const { data: ens } = await sb.from('cem_enrollments').select('cohort_id').limit(500);
   const nByCoh={}; (ens||[]).forEach(e=>nByCoh[e.cohort_id]=(nByCoh[e.cohort_id]||0)+1);
   const cohByT={}; (tas||[]).forEach(t=>(cohByT[t.teacher_id] ||= []).push(t.cohort_id));
   const dictadas={}; (cls||[]).forEach(c=>{ if(c.estado==='dictada') dictadas[c.teacher_id]=(dictadas[c.teacher_id]||0)+1; });

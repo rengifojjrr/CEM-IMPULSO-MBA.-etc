@@ -104,12 +104,12 @@ async function cargarSesion(){
 
   const { data: ens } = await sb.from('cem_enrollments')
     .select('id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email)')
-    .eq('cohort_id', s.cohort_id).in('estado', ['activa','pendiente']);
+    .eq('cohort_id', s.cohort_id).in('estado', ['activa','pendiente']).limit(500);
   alumnos = (ens || []).sort((a, b) =>
     (a.cem_profiles?.apellido || '').localeCompare(b.cem_profiles?.apellido || ''));
 
   const { data: att } = await sb.from('cem_attendance')
-    .select('enrollment_id,presente,minutos').eq('class_id', s.id);
+    .select('enrollment_id,presente,minutos').eq('class_id', s.id).limit(500);
 
   marcas = {};
   (att || []).forEach(a => {

@@ -109,7 +109,7 @@ async function init(){
   const { data: cohs } = await sb.from('cem_cohorts')
     .select('id,nombre,codigo,cupos,estado,fecha_inicio,cem_courses(nombre)')
     .in('estado',['en_curso','inscripciones_abiertas']).order('fecha_inicio').limit(5);
-  const { data: counts } = await sb.from('cem_enrollments').select('cohort_id');
+  const { data: counts } = await sb.from('cem_enrollments').select('cohort_id').limit(500);
   const byCohort = {}; (counts||[]).forEach(r => byCohort[r.cohort_id] = (byCohort[r.cohort_id]||0)+1);
   $('#cohortes').innerHTML = (cohs||[]).map(c => {
     const n = byCohort[c.id]||0, occ = Math.round(100*n/Math.max(c.cupos,1));
