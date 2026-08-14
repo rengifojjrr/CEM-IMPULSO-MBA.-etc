@@ -12,7 +12,7 @@ datos, las cuentas, el almacenamiento y las funciones del servidor.
 
 | Carpeta | Qué hay |
 |---|---|
-| `plataforma/` | El portal: 50 pantallas para estudiantes, docentes y equipo |
+| `plataforma/` | El portal: 51 pantallas para estudiantes, docentes y equipo |
 | `plataforma/assets/` | `app.js` y `styles.css`, compartidos por todas |
 | `certificados/` | El generador por lotes y la verificación pública del QR |
 | `certificados/generador.js` | El motor del generador, que comparten dos pantallas |

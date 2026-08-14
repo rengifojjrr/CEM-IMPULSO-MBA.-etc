@@ -51,9 +51,15 @@ las pruebas que necesitan sembrar algo se saltan ese paso y lo dicen.
 | `casos/academico.mjs` | perfil, congelamiento, requisitos antes de certificar |
 | `casos/docente.mjs` | aula, asistencia y resumen del grupo |
 | `casos/certificados.mjs` | el generador compartido y la generación de un lote |
+| `casos/simplificar.mjs` | que la plataforma siga siendo simple: tablas legibles en el teléfono, un solo buscador, columnas a elegir, indicadores que explican qué cuentan y ningún valor crudo de la base |
 
-Hoy son **118 comprobaciones** repartidas en esos seis archivos, y las 118
+Hoy son **146 comprobaciones** repartidas en esos siete archivos, y las 146
 pasan. Ese número es la referencia: si baja, algo se dejó de comprobar.
+
+`simplificar.mjs` es distinto de los demás: no comprueba que algo funcione,
+sino que siga siendo fácil de usar. Son las cosas que se rompen sin que nadie
+lo note —nada falla, sólo vuelve a costar más trabajo— y por eso hacen falta
+pruebas que las vigilen.
 
 ## Cuando una prueba falla
 

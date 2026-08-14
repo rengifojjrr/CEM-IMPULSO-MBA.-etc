@@ -24,14 +24,20 @@
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Nombre o correo…"></div>
-      <div class="field"><label>Rol</label><select id="fRol"><option value="">Todos</option>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
+    </div>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por rol o estado
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Rol</label><select id="fRol"><option value="">Todos</option>
         <option value="estudiante">Estudiante</option><option value="profesor">Profesor</option>
         <option value="coordinador">Coordinador</option><option value="admin">Administrador</option>
         <option value="auditor">Auditor</option><option value="superadmin">Superadmin</option></select></div>
-      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
+        <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
         <option value="1">Activo</option><option value="0">Inactivo</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
-    </div>
+      </div>
+    </details>
     <div class="table-wrap"><table id="tabla">
       <thead><tr><th data-ord="nombre">Usuario</th><th data-ord="email">Correo</th><th>Rol <button type="button" class="ayuda-btn" data-ayuda="El rol decide qué pantallas ve la persona y qué puede tocar. Se cambia desde la fila; el detalle de cada rol está en Permisos.">?</button></th><th>Documento</th><th data-ord="pais">País</th><th data-ord="created_at">Registro</th><th data-ord="activo">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
@@ -60,8 +66,19 @@ async function load(){
 /** item 26 · por qué columna se ordena la lista de cuentas. */
 const ordenUsuarios = { campo:null, asc:true };
 
+/* item 17 · los filtros secundarios están plegados; esto dice cuántos hay
+   puestos para no tener que abrirlos a mirar. */
+function contarFiltros(valores){
+  const n = valores.filter(Boolean).length;
+  const señal = $('#nFiltros');
+  if (!señal) return;
+  señal.hidden = !n;
+  señal.textContent = n;
+}
+
 function render(){
   const q=$('#q').value.trim(), r=$('#fRol').value, e=$('#fEstado').value;
+  contarFiltros([r,e]);
   const list = ordenarPor(rows.filter(x=>match(x,q,['nombre','apellido','email','documento'])
     && (!r||x.rol===r) && (e===''||String(x.activo?1:0)===e)), ordenUsuarios);
   $('#tb').innerHTML = list.length ? list.map(u=>`<tr>

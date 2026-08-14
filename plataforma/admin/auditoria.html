@@ -21,13 +21,19 @@
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Acción, entidad o usuario…"></div>
-      <div class="field"><label>Desde</label><input type="date" id="fDesde"></div>
-      <div class="field"><label>Hasta</label><input type="date" id="fHasta"></div>
-      <div class="field"><label>Usuario</label><select id="fUser"><option value="">Todos</option></select></div>
-      <div class="field"><label>Nivel de riesgo</label><select id="fRiesgo"><option value="">Todos</option>
-        <option value="alto">Alto (crítico)</option><option value="medio">Medio</option><option value="bajo">Bajo</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por fecha, usuario o riesgo
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Desde</label><input type="date" id="fDesde"></div>
+        <div class="field"><label>Hasta</label><input type="date" id="fHasta"></div>
+        <div class="field"><label>Usuario</label><select id="fUser"><option value="">Todos</option></select></div>
+        <div class="field"><label>Nivel de riesgo</label><select id="fRiesgo"><option value="">Todos</option>
+        <option value="alto">Alto (crítico)</option><option value="medio">Medio</option><option value="bajo">Bajo</option></select></div>
+      </div>
+    </details>
     <div class="table-wrap"><table>
       <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Riesgo</th><th>Detalle</th></tr></thead>
       <tbody id="tb"></tbody></table></div>
@@ -63,9 +69,20 @@ async function load(){
   render();
 }
 
+/* item 17 · los filtros secundarios están plegados; esto dice cuántos hay
+   puestos para no tener que abrirlos a mirar. */
+function contarFiltros(valores){
+  const n = valores.filter(Boolean).length;
+  const señal = $('#nFiltros');
+  if (!señal) return;
+  señal.hidden = !n;
+  señal.textContent = n;
+}
+
 function render(){
   const q=$('#q').value.trim(), d=$('#fDesde').value, h=$('#fHasta').value,
     u=$('#fUser').value, ri=$('#fRiesgo').value;
+  contarFiltros([d,h,u,ri]);
   const list = rows.filter(r=>{
     if (q && !match(r,q,['accion','entidad','actor_email'])) return false;
     if (u && r.actor_id!==u) return false;

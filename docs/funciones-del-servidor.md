@@ -70,6 +70,7 @@ como las demás funciones. Son el vocabulario de permisos de todo el sistema:
 | `cem_recibo_pago(pago)` | Los datos del comprobante, con su número. |
 | `cem_estado_de_cuenta(inscripcion)` | Cuotas, pagos y saldo de una inscripción. |
 | `cem_cartera_por_cobrar()` | Lo que falta cobrar, para conciliar. |
+| `cem_cierre_de_mes(mes)` | Las cuatro cifras del cierre —facturado, cobrado, vencido y por revisar— con su detalle. Se calculan aquí, en un solo sitio, para que no dependan de qué pantalla se mire. |
 | `cem_tasa_vigente()` | La última tasa cargada. |
 | `cem_guardar_tasa_manual(valor, fecha)` | Cargar la tasa a mano. Sólo cobranza para arriba. |
 | `cem_self_enroll(...)` | La inscripción por cuenta propia. **El precio lo pone el servidor**, no el formulario: si viniera del navegador, cualquiera se inscribiría por un dólar. |
@@ -86,7 +87,8 @@ como las demás funciones. Son el vocabulario de permisos de todo el sistema:
 | `cem_recalc_progress(inscripcion)` | Recalcula el avance contando lecciones **y** evaluaciones. |
 | `cem_mi_desempeno(persona)` | Promedio, evaluaciones y qué falta, por programa. |
 | `cem_resumen_grupo(cohorte)` | Lo mismo para todo un grupo: lo que ve el docente. |
-| `cem_requisitos_certificado(inscripcion)` | Qué le falta a alguien para poder certificarse. |
+| `cem_requisitos_certificado(inscripcion)` | Qué le falta a alguien para poder certificarse. **No comprueba de quién es la inscripción**, así que sólo la alcanza el servidor: desde el navegador se llama la envoltura de abajo. |
+| `cem_mis_requisitos_certificado(inscripcion)` | Lo mismo, pero comprobando antes que la inscripción sea de quien pregunta (o que quien pregunta sea del equipo). Es la que llaman las pantallas. |
 | `cem_evaluar_insignias(persona)` | Otorga las insignias cuyo criterio ya cumple. |
 | `cem_solicitar_cambio_inscripcion(...)` | Congelamiento o retiro pedidos por el estudiante. |
 | `cem_resolver_solicitud_inscripcion(...)` | La respuesta del equipo. Rechazar exige explicación. |

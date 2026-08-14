@@ -545,6 +545,38 @@
 
       <p>Todo pago queda registrado con quién lo cargó, método, referencia y comprobante, y genera
         un evento de auditoría de <b>riesgo alto</b>. Es la operación más vigilada del sistema.</p>
+
+      <h3>La historia de una cuota</h3>
+      <p>Una cuota puede pagarse en varias veces. Pulsando el icono de historia en la fila de la
+        cuota se ve cada pago con su fecha, su referencia, si está aprobado y quién lo registró,
+        más lo abonado y lo que queda debiendo. Es lo que hace falta para reclamarle a alguien
+        sin tener que armar la cuenta a mano.</p>
+
+      <h3>Cierre de mes</h3>
+      <p>La pantalla <b>Cierre de mes</b> responde de una vez las cuatro preguntas de fin de mes,
+        y cada cifra explica al pulsar el «?» qué está contando exactamente:</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Cifra</th><th>Qué cuenta</th></tr></thead>
+          <tbody>
+            <tr><td>Se facturó</td><td>Las cuotas que vencían dentro del mes, se hayan cobrado o no.</td></tr>
+            <tr><td>Entró</td><td>Pagos aprobados con fecha del mes, en dólares. Puede incluir cuotas viejas que se pusieron al día.</td></tr>
+            <tr><td>Quedó debiéndose</td><td>De lo que vencía este mes, lo que a día de hoy sigue sin pagarse.</td></tr>
+            <tr><td>Por revisar</td><td>Pagos reportados y todavía sin verificar: ni entraron ni dejaron de entrar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Debajo va el detalle de lo cobrado y de lo vencido, con los días de mora. La hoja se
+        imprime sin el menú ni los botones, y el detalle se exporta a CSV.</p>
+
+      <div class="note">
+        <div class="h">Aprobar varios pagos de una vez</div>
+        <p>En <b>Verificar pagos</b> se marcan las casillas de los pagos que hagan falta y se
+          aprueban o se rechazan todos juntos. Es exactamente lo mismo que hacerlo de uno en uno
+          —cada pago se abona a su cuota igual—, pensado para el lunes con las transferencias del
+          fin de semana. Al rechazar en lote, el motivo que escribas les llega a todos, así que
+          conviene redactarlo de forma que sirva para el grupo.</p>
+      </div>
     </section>
 
     <!-- 7 -->
@@ -564,6 +596,13 @@
       <p>El <b>editor de certificados</b> permite diseñar la plantilla visual, y el
         <b>verificador público</b> permite a un empleador confirmar la validez de un código sin
         tener cuenta en la plataforma.</p>
+
+      <h3>Qué ve el estudiante</h3>
+      <p>En <b>Mis logros</b>, bajo «Camino a la certificación», cada programa muestra los tres
+        requisitos con lo cumplido marcado: terminar las lecciones, aprobar las evaluaciones y no
+        deber cuotas. Los calcula el mismo servidor que los comprueba al emitir, así que lo que ve
+        el estudiante y lo que impide la emisión son siempre la misma cosa. El requisito de pago
+        enlaza directo a su pantalla de pagos.</p>
     </section>
 
     <!-- 8 -->

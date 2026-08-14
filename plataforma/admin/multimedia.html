@@ -27,13 +27,19 @@
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Nombre del archivo…"></div>
-      <div class="field"><label>Curso</label><select id="fCurso"><option value="">Todos</option></select></div>
-      <div class="field"><label>Formato</label><select id="fTipo"><option value="">Todos</option>
+    </div>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por programa, formato o visibilidad
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Curso</label><select id="fCurso"><option value="">Todos</option></select></div>
+        <div class="field"><label>Formato</label><select id="fTipo"><option value="">Todos</option>
         <option value="pdf">PDF</option><option value="excel">Excel</option><option value="video">Video</option>
         <option value="imagen">Imagen</option><option value="enlace">Enlace</option></select></div>
-      <div class="field"><label>Visibilidad</label><select id="fPub"><option value="">Todas</option>
+        <div class="field"><label>Visibilidad</label><select id="fPub"><option value="">Todas</option>
         <option value="1">Pública</option><option value="0">Restringida</option></select></div>
-    </div>
+      </div>
+    </details>
   </div>
   <div id="cont"></div>
 </div>
@@ -69,8 +75,19 @@ const ico = t => t==='pdf'?'picture_as_pdf':t==='excel'?'table_chart':t==='video
 const ubicacion = m => [m.cem_courses?.nombre, mods.find(x=>x.id===m.module_id)?.titulo, lecciones.find(x=>x.id===m.lesson_id)?.titulo]
   .filter(Boolean).join(' › ') || 'Sin curso';
 
+/* item 17 · los filtros secundarios están plegados; esto dice cuántos hay
+   puestos para no tener que abrirlos a mirar. */
+function contarFiltros(valores){
+  const n = valores.filter(Boolean).length;
+  const señal = $('#nFiltros');
+  if (!señal) return;
+  señal.hidden = !n;
+  señal.textContent = n;
+}
+
 function render(){
   const q=$('#q').value.trim(), c=$('#fCurso').value, t=$('#fTipo').value, pu=$('#fPub').value;
+  contarFiltros([c,t,pu]);
   const list = rows.filter(r=>match(r,q,['nombre','descripcion','cem_courses.nombre'])
     && (!c||r.course_id===c) && (!t||r.tipo===t) && (pu===''||String(r.publico?1:0)===pu));
 

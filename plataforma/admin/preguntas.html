@@ -21,14 +21,20 @@
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Texto de la pregunta…"></div>
-      <div class="field"><label>Curso relacionado</label><select id="fCurso"><option value="">Todos</option></select></div>
-      <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
+    </div>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por programa, tipo o dificultad
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Curso relacionado</label><select id="fCurso"><option value="">Todos</option></select></div>
+        <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
         <option value="multiple">Selección múltiple</option><option value="verdadero_falso">Verdadero/Falso</option>
         <option value="corta">Respuesta corta</option><option value="ensayo">Ensayo</option></select></div>
-      <div class="field"><label>Dificultad</label><select id="fDif"><option value="">Todas</option>
+        <div class="field"><label>Dificultad</label><select id="fDif"><option value="">Todas</option>
         <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
-    </div>
+      </div>
+    </details>
     <div class="table-wrap"><table>
       <thead><tr><th>Pregunta</th><th>Tipo</th><th>Curso</th><th>Dificultad</th><th>Usos</th><th>% acierto</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
@@ -58,8 +64,19 @@ async function load(){
   render();
 }
 
+/* item 17 · los filtros secundarios están plegados; esto dice cuántos hay
+   puestos para no tener que abrirlos a mirar. */
+function contarFiltros(valores){
+  const n = valores.filter(Boolean).length;
+  const señal = $('#nFiltros');
+  if (!señal) return;
+  señal.hidden = !n;
+  señal.textContent = n;
+}
+
 function render(){
   const q=$('#q').value.trim(), c=$('#fCurso').value, t=$('#fTipo').value, d=$('#fDif').value;
+  contarFiltros([c,t,d]);
   const list = rows.filter(r=>match(r,q,['enunciado','ayuda','cem_courses.nombre'])
     && (!c||r.course_id===c) && (!t||r.tipo===t) && (!d||r.dificultad===d));
   $('#tb').innerHTML = list.length ? list.map(r=>{
