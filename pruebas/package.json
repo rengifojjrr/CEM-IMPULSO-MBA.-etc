@@ -1,0 +1,12 @@
+{
+  "name": "cem-pruebas",
+  "private": true,
+  "type": "module",
+  "description": "Pruebas de los flujos que no pueden romperse en la plataforma CEM",
+  "scripts": {
+    "test": "node correr.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
