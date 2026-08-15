@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -30,32 +30,35 @@
   <div class="grid g2">
     <div class="card">
       <div class="row between"><h2 class="sec">Próximas clases</h2><a class="btn ghost sm" href="calendario.html">Ver calendario</a></div>
-      <div id="clases"><p class="muted tiny">Cargando…</p></div>
+      <div id="clases"><span class="cargando"></span></div>
     </div>
     <div class="card">
       <div class="row between"><h2 class="sec">Requiere tu atención</h2></div>
-      <div id="atencion"><p class="muted tiny">Cargando…</p></div>
+      <div id="atencion"><span class="cargando"></span></div>
     </div>
   </div>
 
-  <div class="grid g2 sep">
-    <div class="card">
-      <div class="row between"><h2 class="sec">Inscripciones recientes</h2><a class="btn ghost sm" href="inscripciones.html">Ver todas</a></div>
-      <div class="table-wrap">
-        <table class="tarjetas"><thead><tr><th>Estudiante</th><th>Programa</th><th>Estado</th><th class="num">Monto</th><th>Fecha</th></tr></thead>
-        <tbody id="tbInscripciones"></tbody></table>
-      </div>
+  <!-- item 39 · una tabla de cinco columnas metida en media pantalla dejaba
+       fuera «Monto» y «Fecha»: había que arrastrar de lado para ver cuánto
+       pagó cada quien. Una tabla ocupa el ancho que necesita; las listas, que
+       se leen de arriba abajo, son las que van en pareja. -->
+  <div class="card sep">
+    <div class="row between"><h2 class="sec">Inscripciones recientes</h2><a class="btn ghost sm" href="inscripciones.html">Ver todas</a></div>
+    <div class="table-wrap">
+      <table class="tarjetas"><thead><tr><th>Estudiante</th><th>Programa</th><th>Estado</th><th class="num">Monto</th><th>Fecha</th></tr></thead>
+      <tbody id="tbInscripciones"></tbody></table>
     </div>
-    <div class="card">
-      <div class="row between"><h2 class="sec">Cohortes en curso</h2><a class="btn ghost sm" href="cohortes.html">Gestionar</a></div>
-      <div id="cohortes"><p class="muted tiny">Cargando…</p></div>
-    </div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Cohortes en curso</h2><a class="btn ghost sm" href="cohortes.html">Gestionar</a></div>
+    <div id="cohortes"><span class="cargando"></span></div>
   </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, kpi, chip, bar, money, num, fdate, emptyRow, pct, chipEstado,
-         kpisConMas, accionVacio } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, kpi, chip, bar, money, num, fdate, fdateCorta, emptyRow, pct, chipEstado,
+         kpisConMas, accionVacio } from '../assets/app.js?v=2026-08-15';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'index.html', area:'admin' });
 if (p) init();
@@ -91,10 +94,16 @@ async function init(){
     ['gavel', 'Apelaciones abiertas', m.apelaciones_pendientes, 'apelaciones.html'],
     ['fact_check', 'Contenidos por revisar', m.contenidos_pendientes, 'revision.html'],
     ['support_agent', 'Tickets de soporte', m.tickets_abiertos, 'soporte.html'],
+  /* items 19 y 20 · «0» venía con una etiqueta verde, y cuatro filas verdes
+     seguidas son cuatro manchas que hay que leer para descubrir que no hay
+     nada que hacer. Lo que no requiere atención no se pinta: una raya. Y lo
+     que sí, un número, en rojo sólo cuando de verdad se está acumulando. */
   ].map(([ic,t,n,href]) => `<a class="list-item" href="${href}">
-      <span class="material-symbols-outlined" style="color:var(--on-surface-variant)">${ic}</span>
+      <span class="material-symbols-outlined">${ic}</span>
       <div class="grow"><div class="t">${t}</div></div>
-      ${Number(n)>0 ? `<span class="chip ${Number(n)>4?'err':'warn'}">${n}</span>` : '<span class="chip ok">0</span>'}
+      ${Number(n)>0
+        ? `<b class="cifra${Number(n)>4?' err-text':''}">${num(n)}</b>`
+        : '<span class="muted" title="Nada pendiente">—</span>'}
       <span class="material-symbols-outlined">chevron_right</span></a>`).join('');
 
   const { data: clases } = await sb.from('cem_classes')
@@ -102,9 +111,9 @@ async function init(){
     .gte('fecha', new Date().toISOString().slice(0,10)).order('fecha').limit(6);
   $('#clases').innerHTML = (clases?.length ? clases : []).map(c => `
     <div class="list-item">
-      <div style="text-align:center;min-width:44px">
-        <div style="font-size:17px;font-weight:700">${new Date(c.fecha+'T12:00').getDate()}</div>
-        <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div>
+      <div class="dia">
+        <b>${new Date(c.fecha+'T12:00').getDate()}</b>
+        <span>${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</span>
       </div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${esc(c.cem_cohorts?.cem_courses?.nombre||'')} · ${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
@@ -118,9 +127,10 @@ async function init(){
      El id que hace falta es el del perfil de la inscripción. */
   $('#tbInscripciones').innerHTML = ins?.length ? ins.map(e => `<tr class="clickable" data-ir="estudiante.html?id=${esc(e.profile_id||'')}">
       <td data-col="Estudiante">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
-      <td class="wrap" data-col="Programa">${esc(e.cem_courses?.nombre||'')}</td>
+      <td data-col="Programa"><span class="recorta" title="${esc(e.cem_courses?.nombre||'')}"
+        >${esc(e.cem_courses?.nombre||'')}</span></td>
       <td data-col="Estado">${chipEstado(e.estado)}</td><td class="num" data-col="Monto">${money(e.precio_final)}</td>
-      <td class="muted" data-col="Fecha">${fdate(e.fecha_inscripcion)}</td></tr>`).join('')
+      <td class="muted" data-col="Fecha">${fdateCorta(e.fecha_inscripcion)}</td></tr>`).join('')
     : emptyRow(5, 'Todavía no hay inscripciones.', {texto:'Inscribir a alguien', id:'irInscribir', icono:'person_add'});
   $$('#tbInscripciones tr[data-ir]').forEach(tr => tr.onclick = () => location.href = tr.dataset.ir);
 
@@ -134,7 +144,7 @@ async function init(){
     return `<div class="list-item"><div class="grow">
       <div class="t">${esc(c.nombre)}</div>
       <div class="s">${esc(c.cem_courses?.nombre||'')} · ${n}/${c.cupos} inscritos</div>
-      <div style="margin-top:6px">${bar(occ)}</div></div>${chipEstado(c.estado)}</div>`;
+      <div class="sep-poco">${bar(occ)}</div></div>${chipEstado(c.estado)}</div>`;
   }).join('') || '<p class="muted tiny">Sin cohortes activas.</p>';
 }
 </script>

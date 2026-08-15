@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -52,7 +52,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
          toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY,
-         selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-14';
+         selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor, avisar } from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
@@ -250,11 +250,11 @@ $('#btnImportar').onclick = async () => {
       filas = crudas.map(mapearFila).filter(f => Object.values(f).some(v => v));
     } catch {
       filas = [];
-      $('#impPrevia', m).innerHTML = '<div class="chip err sep">No pudimos leer ese archivo. ¿Es un .xlsx?</div>';
+      avisar($('#impPrevia', m), 'No pudimos leer ese archivo. ¿Es un .xlsx?', 'err');
       return;
     }
     if (!filas.length) {
-      $('#impPrevia', m).innerHTML = '<div class="chip err sep">La planilla no trae filas con datos.</div>';
+      avisar($('#impPrevia', m), 'La planilla no trae filas con datos.', 'err');
       $('#impIr', m).disabled = true;
       return;
     }
@@ -290,11 +290,11 @@ $('#btnImportar').onclick = async () => {
   function pintarResultados(r){
     const malas = r.resultados.filter(x => x.estado === 'error' || x.estado === 'omitida');
     $('#impMsg', m).innerHTML = `
-      <div class="chip ${r.resumen.errores ? 'warn' : 'ok'}" style="margin:12px 0">
+      <p class="nota ${r.resumen.errores ? 'warn' : 'ok'}">
         ${r.simulacion
           ? `${r.resumen.listas} lista(s) para importar · ${r.resumen.errores} con problemas`
           : `${r.resumen.creadas} inscrita(s) · ${r.resumen.omitidas} omitida(s) · ${r.resumen.errores} con error`}
-      </div>
+      </p>
       ${malas.length ? `<div class="table-wrap" style="max-height:200px"><table>
         <thead><tr><th>Fila</th><th>Correo</th><th>Qué pasó</th></tr></thead>
         <tbody>${malas.map(x => `<tr>
@@ -308,7 +308,7 @@ $('#btnImportar').onclick = async () => {
     btn.disabled = true;
     btn.textContent = revisado ? 'Importando…' : 'Revisando…';
     const r = await llamar(!revisado);
-    if (r.error) { $('#impMsg', m).innerHTML = `<div class="chip err sep">${esc(r.error)}</div>`;
+    if (r.error) { avisar($('#impMsg', m), r.error, 'err');
       btn.disabled = false; btn.textContent = revisado ? 'Importar de verdad' : 'Revisar planilla'; return; }
 
     pintarResultados(r);

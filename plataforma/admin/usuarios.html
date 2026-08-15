@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -44,7 +44,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog, opciones, ordenable, ordenarPor, etiqueta, QUE_HACE_EL_ROL } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog, opciones, ordenable, ordenarPor, etiqueta, QUE_HACE_EL_ROL } from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['admin','superadmin','auditor'], active:'usuarios.html', area:'admin' });
 const puede = p && ['admin','superadmin'].includes(p.rol);
 let rows=[];
@@ -90,7 +90,7 @@ function render(){
     <td>${esc(u.documento? (u.documento_tipo||'')+' '+u.documento : '—')}</td>
     <td>${esc(u.pais||'—')}</td><td class="muted">${fdate(u.created_at)}</td>
     <td>${u.activo?chip('activo','ok'):chip('inactivo','err')}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       ${u.rol==='estudiante'?`<a class="btn ghost sm" href="estudiante.html?id=${u.id}" title="Ver perfil"><span class="material-symbols-outlined">visibility</span></a>`:''}
       ${puede?`<button class="btn ghost sm" data-e="${u.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
       <button class="btn ghost sm" data-t="${u.id}" title="${u.activo?'Desactivar':'Activar'}">

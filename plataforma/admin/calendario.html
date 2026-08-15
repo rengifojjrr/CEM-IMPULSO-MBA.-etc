@@ -9,21 +9,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
-  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--outline-variant);
-    border:1px solid var(--outline-variant);border-radius:var(--radius);overflow:hidden;}
-  .cal .dow{background:var(--surface-container);padding:8px 6px;text-align:center;font-size:11px;font-weight:700;
-    text-transform:uppercase;color:var(--on-surface-variant);}
+  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--filete);
+    border:1px solid var(--filete);border-radius:var(--r);overflow:hidden;}
+  .cal .dow{background:var(--hueco);padding:8px 6px;text-align:center;font-size:var(--t-xs);font-weight:700;
+    text-transform:uppercase;color:var(--tinta-2);}
   .cal .day{background:var(--surface-lowest);min-height:104px;padding:6px;display:flex;flex-direction:column;gap:4px;}
-  .cal .day.out{background:var(--surface);opacity:.55;}
-  .cal .day.today .num{background:var(--primary);color:#fff;border-radius:50%;}
-  .cal .num{font-size:12px;font-weight:700;width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
-  .ev{font-size:10.8px;padding:3px 6px;border-radius:6px;background:var(--secondary-container);color:var(--secondary);
+  .cal .day.out{background:var(--papel);opacity:.55;}
+  .cal .day.today .num{background:var(--primary);color:#fff;border-radius:var(--r-full);}
+  .cal .num{font-size:var(--t-xs);font-weight:700;width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+  .ev{font-size:var(--t-xs);padding:3px 6px;border-radius:var(--r);background:var(--secondary-container);color:var(--secondary);
     cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
-  .ev.presencial{background:var(--tertiary-fixed);color:var(--tertiary);}
-  .ev.dictada{background:var(--surface-highest);color:var(--on-surface-variant);}
-  @media(max-width:760px){ .cal .day{min-height:78px;} .ev{font-size:11.5px;padding:3px 5px;} }
+  .ev.presencial{background:var(--gold-suave);color:var(--gold);}
+  .ev.dictada{background:var(--hueco);color:var(--tinta-2);}
+  @media(max-width:760px){ .cal .day{min-height:78px;} .ev{font-size:var(--t-xs);padding:3px 5px;} }
 </style>
 </head>
 <body>
@@ -59,7 +59,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, qs, confirmDialog,
          campoArchivo, subirDocumentoLeccion, opciones, etiqueta, chipEstado, ayuda, montarAyudas,
-         mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-14';
+         mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-15';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'calendario.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -120,7 +120,7 @@ function render(){
     <td>${esc(c.modalidad.replace('_',' '))}</td><td>${esc(c.salon||'—')}</td>
     <td>${esc(profes.find(x=>x.id===c.teacher_id)?.nombre||'—')}</td>
     <td>${chipEstado(c.estado)}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       ${c.url_sesion?`<a class="btn ghost sm" href="${esc(c.url_sesion)}" target="_blank" title="Abrir sesión"><span class="material-symbols-outlined">videocam</span></a>`:''}
       ${editable?`<button class="btn ghost sm" data-edit="${c.id}" title="Editar la clase"><span class="material-symbols-outlined">edit</span></button>`:''}
     </td></tr>`).join('') : emptyRow(9, 'No hay clases programadas este mes.', {texto:'Programar una clase', id:'vacioClase', icono:'event'});

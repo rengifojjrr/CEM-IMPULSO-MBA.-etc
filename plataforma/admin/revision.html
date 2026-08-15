@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -30,7 +30,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, chipEstado} from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'revision.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let rows=[], perfiles={};
@@ -64,7 +64,7 @@ function render(){
     <td>${esc(r.version||'v1')}</td>
     <td>${chipEstado(r.estado)}</td>
     <td class="muted">${fdate(r.actualizado_en||r.created_at)}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       <button class="btn ghost sm" data-ver="${r.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
       ${puede && r.estado!=='aprobado' ? `<button class="btn ghost sm" data-ap="${r.id}" title="Aprobar y publicar" style="color:var(--ok)"><span class="material-symbols-outlined">check_circle</span></button>
       <button class="btn ghost sm" data-dev="${r.id}" title="Devolver" style="color:var(--warn)"><span class="material-symbols-outlined">assignment_return</span></button>`:''}

@@ -9,12 +9,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
   .tasa-box{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
-  .tasa-actual{font-size:26px;font-weight:750;letter-spacing:-.02em;color:var(--primary);line-height:1.1;}
-  .comprobante-img{max-width:100%;max-height:60vh;border-radius:8px;border:1px solid var(--outline-variant);display:block;}
-  td.ref{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;}
+  /* La tasa vigente es una cifra: se escribe con la letra de las cifras y
+     con el tamaño que el sistema reserva para «un número que importa». */
+  .tasa-actual{font-size:var(--t-xl);font-weight:var(--peso-fuerte);letter-spacing:-.025em;
+    line-height:1.1;font-family:var(--cifra);font-variant-numeric:tabular-nums;}
+  .comprobante-img{max-width:100%;max-height:60vh;border-radius:var(--r);border:1px solid var(--filete);display:block;}
+  td.ref{font-family:var(--cifra);font-size:var(--t-xs);}
 </style>
 </head>
 <body>
@@ -73,7 +76,7 @@ import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kp
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY,
          etiqueta, montoPagado, enDolares, saldo as saldoCelda,
-         seleccionMultiple, ayuda, montarAyudas } from '../assets/app.js?v=2026-08-14';
+         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-15';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -128,25 +131,25 @@ function render(){
       <td class="sel">${puedeOperar && x.estado === 'reportado'
         ? `<input type="checkbox" data-sel="${x.id}" aria-label="Marcar el pago ${esc(x.referencia||'')}">` : ''}</td>
       <td class="tiny muted" data-col="Fecha">${fdatetime(x.fecha)}</td>
-      <td class="wrap" data-col="Estudiante"><b>${esc(nombreDe(x))}</b>
-        <div class="tiny muted">${esc(x.cem_enrollments?.cem_courses?.nombre || '')}</div></td>
-      <td class="ref" data-col="Referencia">${esc(x.referencia || '—')}
-        <div class="tiny muted">${esc(etiqueta(x.metodo))}</div></td>
-      <td class="num" data-col="Monto"><b>${montoPagado(x)}</b></td>
-      <td data-col="Cuota">${c ? `#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || 'USD')}
-             <div class="tiny muted">${c.estado === 'pagada' ? 'Pagada'
-               : `debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')}`}</div>` : '<span class="tiny muted">Sin cuota</span>'}</td>
+      <td data-col="Estudiante"><span class="recorta" title="${esc((x.cem_enrollments?.cem_courses?.nombre || '') || nombreDe(x))}"
+        >${esc(nombreDe(x))}</span></td>
+      <td class="ref" data-col="Referencia" title="${esc(etiqueta(x.metodo))}">${esc(x.referencia || '—')}</td>
+      <td class="num" data-col="Monto">${montoPagado(x)}</td>
+      <td data-col="Cuota">${c ? `<span title="${c.estado === 'pagada' ? 'Cuota pagada'
+             : `Todavía debe ${esc(money(c.saldo ?? c.monto, c.moneda || 'USD'))}`}"
+             >#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || 'USD')}</span>`
+           : '<span class="muted">—</span>'}</td>
       <td data-col="Estado">${chip(
           x.estado === 'confirmado' ? 'Aprobado' : x.estado === 'rechazado' ? 'Rechazado'
             : x.estado === 'reportado' ? 'Por revisar' : etiqueta(x.estado),
           x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}
         ${x.conciliado && x.nota && /autom/i.test(x.nota) ? chip('Automático','neutral') : ''}</td>
-      <td style="white-space:nowrap" data-col="">
+      <td class="nowrap" data-col=""><span class="acciones">
         <button class="btn ghost sm" data-ver="${x.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
         ${puedeOperar && x.estado === 'reportado' ? `
           <button class="btn ghost sm" data-ok="${x.id}" title="Aprobar y abonar a la cuota"><span class="material-symbols-outlined">check_circle</span></button>
           <button class="btn ghost sm" data-no="${x.id}" title="Rechazar"><span class="material-symbols-outlined">cancel</span></button>` : ''}
-      </td></tr>`;
+      </span></td></tr>`;
   }).join('') : emptyRow(8, f === 'reportado'
       ? 'No hay pagos esperando revisión. Todo al día.'
       : 'Ningún pago con ese estado.');
@@ -192,7 +195,7 @@ async function rechazarVarios(ids){
             <button class="btn danger" id="mvGo">Rechazar los ${ids.length}</button>` });
   $('#mvGo', m).onclick = async () => {
     const motivo = $('#mvMotivo', m).value.trim();
-    if (!motivo) { $('#mvMsg', m).innerHTML = '<div class="chip err">Escribe el motivo: sin él el estudiante no sabe qué corregir.</div>'; return; }
+    if (!motivo) { avisar($('#mvMsg', m), 'Escribe el motivo: sin él el estudiante no sabe qué corregir.', 'err'); return; }
     let hechos = 0; const fallos = [];
     for (const id of ids) {
       const { error } = await sb.rpc('cem_rechazar_pago', { p_payment_id: id, p_motivo: motivo });
@@ -220,12 +223,12 @@ async function verDetalle(x){
     ${c ? `<div class="field sep"><label>Cuota</label>
       <div>#${esc(String(c.numero ?? ''))} — debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')} de ${money(c.monto, c.moneda || 'USD')} (${esc(c.estado||'')})</div></div>` : ''}
     ${x.nota ? `<div class="field"><label>Nota</label><div class="tiny">${esc(x.nota)}</div></div>` : ''}
-    <div class="field"><label>Comprobante</label><div id="dComp"><span class="tiny muted">Cargando…</span></div></div>
+    <div class="field"><label>Comprobante</label><div id="dComp"><span class="cargando una"></span></div></div>
     <div class="field"><label>Verificación contra el banco</label>
       <div id="dBanco"><button class="btn outline sm" id="dVerificar">
         <span class="material-symbols-outlined">travel_explore</span>
         Buscar esta referencia en Bancaribe</button>
-        <div class="tiny muted" style="margin-top:5px">Consulta la operación por referencia y monto,
+        <div class="tiny muted sep-poco">Consulta la operación por referencia y monto,
           sin salir de esta pantalla.</div></div></div>`,
     footer: puedeOperar && x.estado === 'reportado'
       ? `<button class="btn outline" data-x>Cerrar</button>
@@ -342,21 +345,21 @@ async function rechazar(x){
             <button class="btn danger" id="rGo">Rechazar pago</button>` });
   $('#rGo', m).onclick = async () => {
     const motivo = $('#rMotivo', m).value.trim();
-    if(!motivo){ $('#rMsg', m).innerHTML = '<div class="chip err">Escribe el motivo.</div>'; return; }
+    if(!motivo){ avisar($('#rMsg', m), 'Escribe el motivo.', 'err'); return; }
     const { error } = await sb.rpc('cem_rechazar_pago', { p_payment_id: x.id, p_motivo: motivo });
-    if(error){ $('#rMsg', m).innerHTML = `<div class="chip err">${esc(error.message)}</div>`; return; }
+    if(error){ avisar($('#rMsg', m), error.message, 'err'); return; }
     m.close(); ok('Pago rechazado. El estudiante verá el motivo.'); cargar();
   };
 }
 
 $('#btnTasa').onclick = async () => {
   const v = Number($('#inpTasa').value || 0);
-  if(v <= 0){ $('#msgTasa').innerHTML = '<div class="chip err">Escribe una tasa mayor que cero.</div>'; return; }
+  if(v <= 0){ avisar('#msgTasa', 'Escribe una tasa mayor que cero.', 'err'); return; }
   const { error } = await sb.rpc('cem_guardar_tasa_manual', { p_valor: v });
-  if(error){ $('#msgTasa').innerHTML = `<div class="chip err">${esc(error.message)}</div>`; return; }
+  if(error){ avisar('#msgTasa', error.message, 'err'); return; }
   $('#inpTasa').value = '';
   olvidarTasa();  // para que el resto de pantallas tome la nueva y no la de la caché
-  $('#msgTasa').innerHTML = '<div class="chip ok">Tasa guardada ✓</div>';
+  avisar('#msgTasa', 'Tasa guardada.', 'ok');
   setTimeout(() => { $('#msgTasa').innerHTML = ''; }, 6000);
   cargar();
 };

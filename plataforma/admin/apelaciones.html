@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -32,7 +32,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, toCSV, download, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, toCSV, download, chipEstado} from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'apelaciones.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[];
@@ -66,7 +66,7 @@ function render(){
       <td><b>${r.cem_submissions?.puntaje ?? '—'}</b><div class="tiny muted">mín. ${a?.nota_aprobatoria||70}</div></td>
       <td class="wrap" style="max-width:280px">${esc((r.motivo||'').slice(0,140))}${(r.motivo||'').length>140?'…':''}</td>
       <td>${chipEstado(r.estado)}</td><td class="muted">${fdate(r.created_at)}</td>
-      <td style="white-space:nowrap">
+      <td class="nowrap">
         <button class="btn ghost sm" data-v="${r.id}" title="Ver la apelación completa"><span class="material-symbols-outlined">visibility</span></button>
         ${puede && !['aceptada','rechazada'].includes(r.estado)?`<button class="btn outline sm" data-r="${r.id}">Resolver</button>`:''}
       </td></tr>`;
@@ -95,7 +95,7 @@ function ver(r){
       <p class="tiny" style="margin:6px 0 0">${esc(r.motivo||'')}</p></div>
     ${r.resolucion? `<div class="card" style="background:${r.estado==='aceptada'?'var(--ok-container)':'var(--error-container)'};box-shadow:none;margin-top:10px">
       <b class="tiny">Resolución</b><p class="tiny" style="margin:6px 0 0">${esc(r.resolucion)}</p>
-      <div class="tiny muted" style="margin-top:4px">${fdate(r.resuelto_en)}</div></div>`:''}` });
+      <div class="tiny muted sep-poco">${fdate(r.resuelto_en)}</div></div>`:''}` });
 }
 
 function resolver(r){

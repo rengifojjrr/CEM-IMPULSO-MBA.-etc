@@ -27,8 +27,12 @@ export default async function correr(navegador) {
   const E = await nuevaPestana(navegador, { ancho: 1300 });
   await entrar(E, 'estudiante', 'estudiante/pagos.html');
   await E.waitForSelector('#cuotas', { timeout: 25000 });
-  await E.waitForFunction(() => !/Cargando/.test(document.querySelector('#cuotas')?.textContent || ''),
-    null, { timeout: 25000 });
+  // El hueco de carga ya no dice «Cargando…»: es un esqueleto sin texto, así
+  // que lo que hay que esperar es a que desaparezca.
+  await E.waitForFunction(() => {
+    const c = document.querySelector('#cuotas');
+    return c && !c.querySelector('.cargando') && c.textContent.trim().length > 0;
+  }, null, { timeout: 25000 });
 
   const porReportar = await E.locator('[data-reportar]').count();
   a.comprobar(porReportar >= 1, 'El estudiante ve sus cuotas pendientes con "Reportar pago"');
@@ -102,8 +106,10 @@ export default async function correr(navegador) {
   /* ============ estado de cuenta y recibo ============ */
   await E.goto(`${BASE}/plataforma/estudiante/pagos.html`, { waitUntil: 'domcontentloaded' });
   await E.waitForSelector('#btnEstadoCuenta', { timeout: 25000 });
-  await E.waitForFunction(() => !/Cargando/.test(document.querySelector('#cuotas')?.textContent || ''),
-    null, { timeout: 25000 });
+  await E.waitForFunction(() => {
+    const c = document.querySelector('#cuotas');
+    return c && !c.querySelector('.cargando') && c.textContent.trim().length > 0;
+  }, null, { timeout: 25000 });
   await E.waitForTimeout(1500);
 
   const ventanaEstado = E.waitForEvent('popup', { timeout: 20000 });

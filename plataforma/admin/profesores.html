@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -29,7 +29,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, initials, accionVacio, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, initials, accionVacio, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'profesores.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let rows=[], cohortes=[];
@@ -74,7 +74,7 @@ function render(){
     <td>${esc(r.email)}</td><td>${esc(r.pais||'—')}</td><td class="num">${num(r._coh)}</td><td class="num">${num(r._alumnos)}</td>
     <td class="num">${num(r._dict)}</td><td class="num">${r._cal>0?`<span class="chip warn">${r._cal}</span>`:'<span class="chip ok">0</span>'}</td>
     <td>${r.activo?chip('activo','ok'):chip('inactivo','err')}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       ${editable?`<button class="btn ghost sm" data-asig="${r.id}" title="Asignar cohortes"><span class="material-symbols-outlined">assignment_ind</span></button>
       <button class="btn ghost sm" data-tog="${r.id}" title="Activar/desactivar"><span class="material-symbols-outlined">${r.activo?'block':'check_circle'}</span></button>`:''}
     </td></tr>`).join('') : emptyRow(9, 'Todavía no hay profesores. Se dan de alta a partir de una cuenta ya registrada.', {texto:'Dar de alta un profesor', id:'vacioProfe', icono:'person_add'});

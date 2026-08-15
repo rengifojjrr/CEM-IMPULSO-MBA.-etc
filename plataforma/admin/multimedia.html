@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -46,7 +46,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit,
          confirmDialog, abrirSubidaVideo, campoArchivo, subirDocumentoLeccion, opciones, etiqueta,
-         chipEstado, ayuda, montarAyudas, mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-14';
+         chipEstado, ayuda, montarAyudas, mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'multimedia.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cursos=[], mods=[], lecciones=[], vista='grid';
@@ -114,7 +114,7 @@ function render(){
         <td>${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</td>
         <td>${m.publico?chip('pública','ok'):chip('restringida','warn')}</td>
         <td class="muted">${fdate(m.created_at)}</td>
-        <td style="white-space:nowrap">
+        <td class="nowrap">
           ${m.url?`<a class="btn ghost sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
           ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar el recurso"><span class="material-symbols-outlined">edit</span></button>
           <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso"><span class="material-symbols-outlined">delete</span></button>`:''}
@@ -165,7 +165,7 @@ function form(m){
     <div class="row">
       <div class="field medio"><label>Formato</label><select id="rT">
         ${opciones(['pdf','excel','video','imagen','enlace'], m?.tipo)}</select></div>
-      <div class="field" style="flex:1;min-width:170px"><label>Tamaño</label>
+      <div class="field medio"><label>Tamaño</label>
         <input id="rS" readonly value="${m?.tamano_bytes ? ((Number(m.tamano_bytes))/1048576).toFixed(1)+' MB' : '—'}"></div>
     </div>
     <div class="row">

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -87,7 +87,7 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, emptyRow, modal, ok, fail, run,
-         mensajeError, confirmDialog, chipEstado} from '../assets/app.js?v=2026-08-14';
+         mensajeError, confirmDialog, chipEstado, avisar, vacio } from '../assets/app.js?v=2026-08-15';
 
 const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
 let tieneCertificados = false;
@@ -184,8 +184,9 @@ function pintarInscripciones(lista){
       <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
       <td>${chipEstado(e.estado)}</td>
       <td class="muted">${fdate(e.fecha_inscripcion)}</td>
-      <td style="white-space:nowrap">${botonesDe(e)}</td></tr>`).join('')}</tbody></table></div>`
-    : '<div class="empty">Todavía no tienes inscripciones.</div>';
+      <td class="nowrap">${botonesDe(e)}</td></tr>`).join('')}</tbody></table></div>`
+    : vacio({ icono:'school', titulo:'Todavía no tienes inscripciones',
+        accion:{ texto:'Ver el catálogo', href:'catalogo.html' } });
 
   $$('[data-sol]').forEach(b => b.onclick = () => pedirCambio(b.dataset.sol, b.dataset.tipo));
 }
@@ -220,7 +221,7 @@ function pedirCambio(enrollmentId, tipo){
   $('[data-s]', m).onclick = async () => {
     const motivo = $('#solMotivo', m).value.trim();
     if (motivo.length < 10) {
-      $('#solMsg', m).innerHTML = '<div class="chip err sep-poco">Escribe el motivo con una frase completa.</div>';
+      avisar($('#solMsg', m), 'Escribe el motivo con una frase completa.', 'err');
       return;
     }
     const { error } = await sb.rpc('cem_solicitar_cambio_inscripcion', {
@@ -228,7 +229,7 @@ function pedirCambio(enrollmentId, tipo){
       p_hasta: $('#solHasta', m)?.value || null,
     });
     if (error) {
-      $('#solMsg', m).innerHTML = `<div class="chip err sep-poco">${esc(mensajeError(error))}</div>`;
+      avisar($('#solMsg', m), mensajeError(error), 'err');
       return;
     }
     m.close();

@@ -9,14 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
   .barlist{display:flex;flex-direction:column;gap:9px;}
-  .barrow{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(0,3fr) auto;gap:10px;align-items:center;font-size:12.6px;}
-  .barrow .track{height:9px;background:var(--surface-highest);border-radius:6px;overflow:hidden;}
-  .barrow .track i{display:block;height:100%;border-radius:6px;background:var(--secondary);}
+  .barrow{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(0,3fr) auto;gap:10px;align-items:center;font-size:var(--t-xs);}
+  .barrow .track{height:9px;background:var(--hueco);border-radius:var(--r);overflow:hidden;}
+  .barrow .track i{display:block;height:100%;border-radius:var(--r);background:var(--secondary);}
   .spark{display:flex;align-items:flex-end;gap:3px;height:70px;}
-  .spark i{flex:1;background:var(--primary-dim);border-radius:3px 3px 0 0;min-height:2px;}
+  .spark i{flex:1;background:var(--primary-dim);border-radius:var(--r) 3px 0 0;min-height:2px;}
 </style>
 </head>
 <body>
@@ -48,7 +48,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, num, pct, kpi, emptyRow, toCSV, download } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, money, num, pct, kpi, emptyRow, toCSV, download } from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'reportes.html', area:'admin' });
 let rango=90, data={};
 if (p) load();

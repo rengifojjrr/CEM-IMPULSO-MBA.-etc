@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -49,10 +49,10 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, money, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, fail,
+import { sb, mount, $, $$, esc, chip, money, num, fdate, fdateCorta, fdatetime, emptyRow, match, kpi, modal, ok, fail,
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
-         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado } from '../assets/app.js?v=2026-08-14';
+         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar } from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
 const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
 let ens=[], insts=[], pays=[], sols=[], tab='ins';
@@ -102,7 +102,7 @@ function renderSolicitudes(){
     <td>${chipEstado(s.tipo)}${s.hasta ? `<div class="tiny muted">hasta ${fdate(s.hasta)}</div>` : ''}</td>
     <td class="wrap">${esc(s.motivo)}</td>
     <td class="muted">${fdate(s.created_at)}</td>
-    <td style="white-space:nowrap">${editable ? `
+    <td class="nowrap">${editable ? `
       <button class="btn ghost sm" data-sol-ok="${s.id}" title="Aprobar"><span class="material-symbols-outlined">check</span></button>
       <button class="btn ghost sm" data-sol-no="${s.id}" style="color:var(--error)" title="Rechazar"><span class="material-symbols-outlined">close</span></button>`
       : '<span class="tiny muted">sólo lectura</span>'}</td></tr>`).join('');
@@ -127,7 +127,7 @@ function resolverSolicitud(id, aprobar){
   $('[data-s]', m).onclick = async () => {
     const resp = $('#solResp', m).value.trim();
     if (!aprobar && resp.length < 5) {
-      $('#solMsg', m).innerHTML = '<div class="chip err sep-poco">Escribe el motivo: el estudiante lo va a leer.</div>';
+      avisar($('#solMsg', m), 'Escribe el motivo: el estudiante lo va a leer.', 'err');
       return;
     }
     const { error } = await sb.rpc('cem_resolver_solicitud_inscripcion', {
@@ -179,17 +179,16 @@ function render(){
       })), orden.ins);
 
     $('#tb').innerHTML = list.length? list.map(r=>`<tr>
-        <td class="wrap" data-col="Estudiante"><b>${esc(r._alumno)}</b>
-          <div class="tiny muted">${esc(r.cem_profiles?.email||'')}</div></td>
-        <td class="wrap" data-col="Programa">${esc(r.cem_courses?.nombre||'')}</td>
+        <td data-col="Estudiante"><b>${esc(r._alumno)}</b></td>
+        <td data-col="Programa"><span class="recorta" title="${esc(r.cem_courses?.nombre||'')}">${esc(r.cem_courses?.nombre||'')}</span></td>
         <td data-col="Cohorte">${esc(r.cem_cohorts?.nombre||'—')}</td>
         <td class="num" data-col="Precio">${money(r.precio_final)}</td>
         <td class="num" data-col="Pagado">${money(r._pagado)}</td>
         <td class="num" data-col="Saldo">${saldo(r._saldo)}</td>
         <td data-col="Estado">${chipEstado(r.estado)}</td>
-        <td class="muted" data-col="Fecha">${fdate(r.fecha_inscripcion)}</td>
-        <td data-col=""><a class="btn ghost sm" href="estudiante.html?id=${r.profile_id}"
-             title="Ver la ficha del estudiante"><span class="material-symbols-outlined">visibility</span></a></td></tr>`).join('')
+        <td class="muted" data-col="Fecha">${fdateCorta(r.fecha_inscripcion)}</td>
+        <td data-col=""><span class="acciones"><a class="btn ghost sm" href="estudiante.html?id=${r.profile_id}"
+             title="Ver la ficha del estudiante"><span class="material-symbols-outlined">visibility</span></a></span></td></tr>`).join('')
       : emptyRow(9, 'Todavía no hay inscripciones que coincidan.',
                  editable ? {texto:'Inscribir a alguien', id:'vacioNueva', icono:'person_add'} : null);
     ponerTotales(['', '', 'Totales', {num:true,html:money(suma(list,r=>r.precio_final))},

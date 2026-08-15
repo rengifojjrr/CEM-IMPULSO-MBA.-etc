@@ -9,13 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
   .hero{background:linear-gradient(120deg,#00122b,#1f3a5f);color:#fff;padding:36px 0;}
   .hero .in{max-width:1200px;margin:0 auto;padding:0 20px;display:flex;gap:26px;flex-wrap:wrap;align-items:center;}
-  .mod-h{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;border-bottom:1px solid var(--outline-variant);}
+  .mod-h{display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;border-bottom:1px solid var(--filete);}
   .mod-h b{flex:1;}
-  .les{display:flex;align-items:center;gap:10px;padding:9px 0 9px 30px;border-bottom:1px solid var(--outline-variant);font-size:13px;}
+  .les{display:flex;align-items:center;gap:10px;padding:9px 0 9px 30px;border-bottom:1px solid var(--filete);font-size:var(--t-sm);}
   .les:last-child{border-bottom:none;}
 </style>
 </head>
@@ -39,7 +39,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, money, fdate, qs, profile, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, money, fdate, qs, profile, chipEstado} from '../assets/app.js?v=2026-08-15';
 const me = await mount({ pub:true });
 const id = qs('id');
 let curso, mods=[], cohortes=[], profe=null, miInscripcion=null;
@@ -114,10 +114,10 @@ function tab(t){
           <div data-body="${i}" class="hidden">${(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden).map(l=>`
             <div class="les"><span class="material-symbols-outlined" style="font-size:17px;color:var(--on-surface-variant)">
               ${l.tipo==='video'?'play_circle':l.tipo==='pdf'?'description':l.tipo==='quiz'?'quiz':'article'}</span>
-              <span style="flex:1">${esc(l.titulo)}</span>
+              <span class="crece">${esc(l.titulo)}</span>
               <span class="tiny muted">${l.duracion_min||0} min</span></div>`).join('')}</div></div>`).join('')
         : '<p class="muted tiny">El temario se publicará próximamente.</p>'}
-      ${curso.descripcion? `<div style="margin-top:18px"><h2 class="sec">Descripción</h2><p class="muted">${esc(curso.descripcion)}</p></div>`:''}
+      ${curso.descripcion? `<div class="sep-mucho"><h2 class="sec">Descripción</h2><p class="muted">${esc(curso.descripcion)}</p></div>`:''}
     </div>`;
     $$('[data-m]').forEach(h=>h.onclick=()=>{
       const i=h.dataset.m, b=$(`[data-body="${i}"]`), ic=$(`[data-ic="${i}"]`);

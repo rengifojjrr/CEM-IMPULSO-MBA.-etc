@@ -13,6 +13,18 @@ export const money = (n, cur = 'USD') => (n == null ? '—' :
   new Intl.NumberFormat('es-ES', { style: 'currency', currency: cur, maximumFractionDigits: 2 }).format(Number(n)));
 export const num = (n) => (n == null ? '—' : new Intl.NumberFormat('es-ES').format(Number(n)));
 export const fdate = (d) => d ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+/* Fecha corta, para dentro de una tabla. «28 ago 2026» ocupa una columna
+   entera; en una lista ordenada por fecha basta el día y el mes, y el año sólo
+   cuando no es el corriente. */
+export const fdateCorta = (d) => {
+  if (!d) return '—';
+  const f = new Date(d);
+  const esteAno = f.getFullYear() === new Date().getFullYear();
+  return f.toLocaleDateString('es-ES', esteAno
+    ? { day: '2-digit', month: 'short' }
+    : { day: '2-digit', month: 'short', year: '2-digit' });
+};
 export const fdatetime = (d) => d ? new Date(d).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 export const initials = (a, b) => ((a || '?')[0] + (b ? b[0] : '')).toUpperCase();
 export const qs = (k) => new URLSearchParams(location.search).get(k);
@@ -52,8 +64,14 @@ export const celdaMoney = (n, cur = 'USD') =>
   `<td class="num">${n == null ? '—' : esc(money(n, cur))}</td>`;
 
 /** Un saldo: cuando no se debe nada lo dice con palabras, que es lo que importa. */
+/* item 31 · en la misma columna convivían «2160,00 US$» alineado a la derecha
+   y un chip «Al día» centrado, así que la columna dejaba de leerse en
+   vertical, que es lo único que una columna sabe hacer. Ahora las dos formas
+   ocupan el mismo sitio: cifra o guion, ambos a la derecha. */
 export const saldo = (n, cur = 'USD') =>
-  (Number(n) || 0) <= 0 ? '<span class="chip ok">Al día</span>' : esc(money(n, cur));
+  (Number(n) || 0) <= 0
+    ? '<span class="muted" title="Sin nada pendiente">—</span>'
+    : esc(money(n, cur));
 
 /**
  * Cuánto vale un pago en dólares, sea cual sea la moneda en que se hizo.
@@ -229,6 +247,31 @@ export function okDeshacer(msg, deshacer) {
 }
 
 /**
+ * El aviso de un formulario, escrito siempre igual (item 53).
+ *
+ * Un mensaje flotante en la esquina sirve para contar lo que ya pasó; lo que
+ * hay que corregir se dice junto al formulario. Antes cada pantalla lo pintaba
+ * a su manera —etiqueta roja, párrafo gris, chip verde—; ahora hay una sola
+ * forma y un solo sitio.
+ *
+ * @param {HTMLElement|string} donde  el hueco reservado en el diálogo
+ * @param {string} texto  vacío para borrar el aviso anterior
+ * @param {'err'|'ok'|'warn'|''} tipo
+ */
+export function avisar(donde, texto, tipo = 'err') {
+  const el = typeof donde === 'string' ? $(donde) : donde;
+  if (!el) return;
+  // El aviso va DENTRO del hueco, no encima de él: así el hueco conserva sus
+  // clases y quien luego lo repinte con contenido normal lo deja limpio.
+  el.innerHTML = '';
+  if (!texto) return;
+  const p = document.createElement('p');
+  p.className = `nota ${tipo}`.trim();
+  p.textContent = texto;
+  el.appendChild(p);
+}
+
+/**
  * El botoncito «?» junto a una etiqueta: dos frases donde surge la duda, en vez
  * de mandar a la persona al manual en otra pestaña.
  */
@@ -296,8 +339,37 @@ export function modal({ title, body, footer, wide = false }) {
   // cabecera, el pie suele traer un botón "Cancelar" con la misma marca.
   $$('[data-x]', bg).forEach(b => { b.onclick = bg.close; });
   bg.onclick = (e) => { if (e.target === bg) bg.close(); };
+  botonesQueAvisan(bg);
   document.body.appendChild(bg);
   return bg;
+}
+
+/* ============ el botón que dice que está trabajando (item 52) ============
+   Guardar tarda un segundo largo y hasta ahora no cambiaba nada en pantalla:
+   la gente volvía a pulsar y se guardaba dos veces. La convención de toda la
+   plataforma es que el botón de confirmar de un diálogo lleva `data-s`, así
+   que en vez de repetir el mismo `disabled = true` en las treinta pantallas se
+   intercepta aquí la asignación del `onclick`: lo que la página escriba queda
+   envuelto en `ocupado()` sin que tenga que enterarse. */
+function botonesQueAvisan(raiz) {
+  $$('[data-s]', raiz).forEach((b) => {
+    const mientras = /guard/i.test(b.textContent) ? 'Guardando…'
+      : /emit/i.test(b.textContent) ? 'Emitiendo…'
+      : /crear/i.test(b.textContent) ? 'Creando…'
+      : /envi/i.test(b.textContent) ? 'Enviando…'
+      : 'Un momento…';
+    let hacer = null, conectado = false;
+    Object.defineProperty(b, 'onclick', {
+      configurable: true,
+      get: () => hacer,
+      set: (fn) => {
+        hacer = fn;
+        if (conectado) return;   // reasignar no debe encadenar dos oyentes
+        conectado = true;
+        b.addEventListener('click', (ev) => ocupado(b, mientras, () => hacer?.call(b, ev)));
+      },
+    });
+  });
 }
 
 export function confirmDialog(msg, title = 'Confirmar') {
@@ -762,10 +834,61 @@ export async function mount(opts = {}) {
   renderShell(p, area, opts.active);
   // Los «?» de ayuda y las cifras de dinero funcionan igual en todas las
   // pantallas: se conectan aquí y no hay que acordarse en cada una.
+  subtituloDetrasDelSigno();
   montarAyudas(document);
   tablasLegiblesEnElTelefono();
   buscadorDePantallaCompleta();
+  esqueletosDeTabla();
   return p;
+}
+
+/* ============ el subtítulo de la pantalla, detrás del «?» (item 29) ============
+   Cada pantalla abría con un párrafo de dos líneas —«Supervisa la actividad
+   académica y administra la experiencia educativa de CEM»— que se lee una vez
+   en la vida y luego empuja los datos medio metro hacia abajo. El texto sigue
+   ahí para quien llega por primera vez, pero pulsando el «?» del título; lo
+   que ocupa el sitio de arriba son las cifras.
+
+   Se hace en un solo lugar porque el encabezado es el mismo en las 51
+   pantallas: cambiar 51 archivos para esto habría sido pagar el impuesto dos
+   veces. */
+function subtituloDetrasDelSigno() {
+  const cabeza = $('.page-head');
+  const h1 = $('.page-head h1');
+  const sub = cabeza && $('.page-head > div > p, .page-head > p');
+  if (!h1 || !sub) return;
+  const texto = sub.textContent.trim();
+  if (!texto) return;
+  sub.remove();
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'ayuda-btn';
+  b.dataset.ayuda = texto;
+  b.setAttribute('aria-label', 'Para qué sirve esta pantalla');
+  b.textContent = '?';
+  h1.append(' ', b);
+}
+
+/* ============ el hueco de la tabla mientras llegan los datos (item 50) ============
+   La tabla nacía vacía —encabezado y nada— y al llegar la consulta la página
+   pegaba un salto de medio metro. En vez de escribir el esqueleto a mano en
+   cada una de las treinta tablas, se rellena aquí cualquier `<tbody>` que aún
+   esté vacío, con tantas columnas como tenga su encabezado. La primera línea
+   que pinte la pantalla lo reemplaza.
+
+   El temporizador es el seguro: si una consulta nunca vuelve, mejor una tabla
+   vacía que un hueco latiendo para siempre. */
+function esqueletosDeTabla() {
+  const puestos = $$('table tbody').filter((tb) => tb.children.length === 0);
+  puestos.forEach((tb) => {
+    const cols = $$('thead th', tb.closest('table')).length;
+    if (!cols) return;
+    tb.innerHTML = filasEsqueleto(cols, 4);
+  });
+  if (!puestos.length) return;
+  setTimeout(() => puestos.forEach((tb) => {
+    if (tb.querySelector('.esqueleto-fila')) tb.innerHTML = '';
+  }), 10000);
 }
 
 /* ============ que las tablas se lean en el teléfono (items 59 y 47) ============
@@ -781,24 +904,96 @@ export async function mount(opts = {}) {
    ancho fijo sin repetirlo fila por fila. */
 function tablasLegiblesEnElTelefono(raiz = document) {
   $$('table', raiz).forEach((tabla) => {
-    const ths = $$('thead th', tabla);
-    // Una tabla de dos columnas ya se lee de frente; apilarla sólo estorba.
-    if (ths.length < 4) return;
-    tabla.classList.add('tarjetas');
-
-    const etiquetas = ths.map((th) => th.textContent.trim());
-    const numericas = ths.map((th) => th.classList.contains('num'));
-    const sellar = () => $$('tbody tr', tabla).forEach((tr) => {
-      // Las filas de «no hay nada» ocupan toda la tabla: no son datos.
-      if (tr.querySelector('td[colspan]')) return;
-      [...tr.children].forEach((td, i) => {
-        if (etiquetas[i] && !td.dataset.col) td.dataset.col = etiquetas[i];
-        if (numericas[i]) td.classList.add('num');
+    const marcar = (ths) => {
+      const etiquetas = ths.map((th) => th.textContent.trim());
+      const numericas = ths.map((th) => th.classList.contains('num'));
+      $$('tbody tr', tabla).forEach((tr) => {
+        // Las filas de «no hay nada» ocupan toda la tabla: no son datos.
+        if (tr.querySelector('td[colspan]')) return;
+        [...tr.children].forEach((td, i) => {
+          if (etiquetas[i] && !td.dataset.col) td.dataset.col = etiquetas[i];
+          if (numericas[i]) td.classList.add('num');
+        });
       });
-    });
+    };
+
+    let obs = null;
+    // Hay pantallas que pintan el encabezado con JavaScript y otras que lo
+    // rehacen entero al cambiar de pestaña. Por eso no se decide nada al
+    // montar —cuando la tabla suele estar vacía— sino en cada pasada: se
+    // vuelven a leer los `th` y se mira si ya hay columnas suficientes.
+    // Y como escribir en la tabla despierta al propio observador, se
+    // desconecta mientras se la toca y se reconecta al terminar.
+    const sellar = () => {
+      obs?.disconnect();
+      const ths = $$('thead th', tabla);
+      // Una tabla de dos columnas ya se lee de frente; apilarla sólo estorba.
+      if (ths.length >= 4) {
+        tabla.classList.add('tarjetas');
+        marcar(ths);
+        monedaAlEncabezado(tabla, ths);
+      }
+      obs?.observe(tabla, { childList: true, subtree: true });
+    };
+    obs = new MutationObserver(sellar);
     sellar();
-    const cuerpo = tabla.tBodies[0];
-    if (cuerpo) new MutationObserver(sellar).observe(cuerpo, { childList: true, subtree: true });
+  });
+}
+
+/* ============ la moneda, una vez, en el encabezado (item 41) ============
+   Una columna de treinta filas repetía «US$» treinta veces para decir algo que
+   no cambia entre filas. Pero en esta plataforma sí puede cambiar —se cobra en
+   dólares y en bolívares—, así que no se puede borrar a ciegas: se mira lo que
+   hay pintado y sólo si TODAS las filas visibles traen la misma moneda se sube
+   al encabezado y se quita de las celdas. En cuanto aparece una fila en otra
+   moneda, cada cifra vuelve a llevar la suya. */
+const CIFRA_CON_MONEDA = /^(-?[\d.,\s]+)\s+(\D{1,4})$/u;
+function monedaAlEncabezado(tabla, ths) {
+  ths.forEach((th, i) => {
+    if (!th.classList.contains('num')) return;
+    // La fila de totales va en el pie pero es la misma columna: si el
+    // encabezado se lleva la moneda, ella también.
+    const celdas = $$('tbody tr, tfoot tr', tabla)
+      .filter((tr) => !tr.querySelector('td[colspan]') && !tr.classList.contains('esqueleto-fila'))
+      .map((tr) => tr.children[i]).filter(Boolean);
+    if (!celdas.length) return;
+
+    const monedas = new Set();
+    const partido = new Map();
+    for (const td of celdas) {
+      const t = td.textContent.trim();
+      if (!t || t === '—') continue;               // vacío no vota
+      const m = CIFRA_CON_MONEDA.exec(t);
+      if (!m) { monedas.add(null); break; }        // no es una cifra con moneda
+      monedas.add(m[2]); partido.set(td, m[1].trim());
+    }
+
+    const unica = monedas.size === 1 && !monedas.has(null) ? [...monedas][0] : null;
+    const marca = $('.unidad', th);
+    if (!unica) { marca?.remove(); delete th.dataset.unidad; return; }
+
+    // El nombre de la columna sin la marca que le hayamos puesto antes.
+    const copia = th.cloneNode(true);
+    $$('.unidad', copia).forEach((u) => u.remove());
+    const nombre = copia.textContent.trim();
+
+    if (th.dataset.unidad !== unica) {
+      marca?.remove();
+      th.insertAdjacentHTML('beforeend', ` <span class="unidad">${esc(unica)}</span>`);
+      th.dataset.unidad = unica;
+    }
+    // En el teléfono no hay encabezado: cada celda lleva el nombre de su
+    // columna delante. Si la moneda se subió al encabezado, ahí también.
+    celdas.forEach((td) => { td.dataset.col = `${nombre} ${unica}`; });
+    // La celda puede traer envoltorio (<b>, un renglón de conversión debajo):
+    // se reescribe sólo si lo único que tiene es la cifra.
+    partido.forEach((cifra, td) => {
+      if (td.children.length === 0) td.textContent = cifra;
+      else if (td.children.length === 1 && td.firstElementChild.children.length === 0
+               && td.textContent.trim() === td.firstElementChild.textContent.trim()) {
+        td.firstElementChild.textContent = cifra;
+      }
+    });
   });
 }
 
@@ -955,9 +1150,12 @@ function renderShell(p, area, active) {
       </div>
       ${sideHtml}
       <div class="foot">
+        <button class="sidebar-plegar" id="cemPlegar" type="button"
+                title="Ensanchar o estrechar el menú">
+          <span class="material-symbols-outlined">chevron_left</span><span>Estrechar</span></button>
         <div class="who"><b>${esc(p.nombre)} ${esc(p.apellido || '')}</b>${esc(etiqueta(p.rol))}</div>
         <button class="btn outline sm block" id="cemLogout">
-          <span class="material-symbols-outlined">logout</span> Cerrar sesión</button>
+          <span class="material-symbols-outlined">logout</span> <span>Cerrar sesión</span></button>
       </div>
     </aside>
     <div class="main">
@@ -975,7 +1173,7 @@ function renderShell(p, area, active) {
       <main class="content" id="cemContent"></main>
     </div>
     <nav class="bottomnav">
-      ${(area === 'admin' && !['cobranza','auditor'].includes(p.rol) ? ADMIN_MOBILE : flat).slice(0, 5).map(([href, ic, txt]) => `
+      ${(area === 'admin' && !['cobranza','auditor'].includes(p.rol) ? ADMIN_MOBILE : flat).slice(0, 4).map(([href, ic, txt]) => `
         <a class="${active === href ? 'active' : ''}" href="${href}">
           <span class="material-symbols-outlined">${ic}</span>${txt}</a>`).join('')}
     </nav>`;
@@ -1004,6 +1202,22 @@ function renderShell(p, area, active) {
     document.body.appendChild(sc);
   };
   unSoloBuscador(area);
+
+  /* item 55 · 236 px fijos son el 16% de una pantalla dedicados a navegación.
+     Quien ya se sabe el menú lo estrecha a iconos y recupera el sitio. */
+  const plegar = $('#cemPlegar');
+  if (plegar) {
+    if (localStorage.getItem('cemMenuPlegado') === '1') shell.classList.add('plegado');
+    plegar.onclick = () => {
+      const ahora = shell.classList.toggle('plegado');
+      localStorage.setItem('cemMenuPlegado', ahora ? '1' : '0');
+      plegar.title = ahora ? 'Ensanchar el menú' : 'Estrechar el menú';
+    };
+    /* Plegado, la entrada sólo tiene su icono: el nombre pasa al tooltip. */
+    $$('.sidebar a.nav-item', shell).forEach((a) => {
+      if (!a.title) a.title = a.textContent.trim();
+    });
+  }
 
   montarCampana();
 }
@@ -1086,9 +1300,16 @@ function renderPublicHeader(p) {
  * o los que entraron alguna vez. Sale como un «?» al lado del título.
  */
 export function kpi(label, value, icon, sub = '', cls = '', explica = '') {
+  /* Un cero es la buena noticia: no lleva rojo ni verde. El color se guarda
+     para lo que de verdad está pasando. */
+  const cero = /^0([,.]0+)?\s|^0$|^0\s|^0[,.]00/.test(String(sub).trim());
+  /* Y la cifra en sí: un «0» en negro grande pesa lo mismo que un 4.000, pero
+     dice que no hay nada. Se escribe en gris, para que la vista pase de largo
+     y se detenga en lo que sí tiene contenido. */
+  const valorVacio = /^0([.,]0+)?(\s|$)/.test(String(value).replace(/<[^>]*>/g, '').trim());
   return `<div class="kpi"><div class="k-top"><span>${esc(label)}${explica ? ' ' + ayuda(explica) : ''}</span>
     <span class="material-symbols-outlined">${icon}</span></div>
-    <div class="k-val">${value}</div>${sub ? `<div class="k-sub ${cls}">${esc(sub)}</div>` : ''}</div>`;
+    <div class="k-val${valorVacio ? ' vacio' : ''}">${value}</div>${sub ? `<div class="k-sub ${cls}${cero ? ' cero' : ''}">${esc(sub)}</div>` : ''}</div>`;
 }
 
 /**
@@ -1128,12 +1349,77 @@ export function chip(txt, kind) {
   const k = kind || CHIP_MAP[String(txt).toLowerCase()] || 'neutral';
   return `<span class="chip ${k}">${esc(String(txt).replace(/_/g, ' '))}</span>`;
 }
+
+/* ============ un hueco que dice por dónde seguir (item 57) ============
+   Al estudiante recién inscrito la plataforma le enseñaba cinco frases grises
+   —«Aún no tienes certificados», «Aún no tienes cursos», «No tienes clases»—
+   y ninguna decía qué hacer. Un hueco es el mejor sitio para poner la puerta:
+   un dibujo tenue, una frase y el botón que lleva al primer paso.
+
+   @param {{icono?:string, titulo:string, texto?:string,
+            accion?:{texto:string, href:string}}} o */
+export function vacio(o) {
+  return `<div class="empty">
+    <span class="material-symbols-outlined ico">${esc(o.icono || 'inbox')}</span>
+    <b>${esc(o.titulo)}</b>
+    ${o.texto ? `<span>${esc(o.texto)}</span>` : ''}
+    ${o.accion ? `<a class="btn sm" href="${esc(o.accion.href)}">${esc(o.accion.texto)}</a>` : ''}
+  </div>`;
+}
 /**
  * Fila de tabla vacía. Con `accion` ofrece por dónde empezar, en vez de dejar a
  * la persona en un callejón: eran 41 mensajes de «no hay nada» y sólo uno decía
  * qué hacer a continuación.
  * @param {{texto:string, id:string, icono?:string}} [accion]
  */
+/* ============ mientras llegan los datos (item 50) ============
+   Antes había una palabra en gris —«Cargando…»— y al llegar la tabla la
+   pantalla saltaba entera. Un bloque del tamaño de lo que viene no salta:
+   el ojo ya sabe dónde va a estar cada cosa. */
+
+/** Filas fantasma con la forma de la tabla que va a venir. */
+export function filasEsqueleto(columnas, filas = 5) {
+  return Array.from({ length: filas }, () =>
+    `<tr class="esqueleto-fila" aria-hidden="true">${
+      Array.from({ length: columnas }, (_, i) =>
+        `<td><span style="width:${[70, 90, 55, 80, 45][i % 5]}%"></span></td>`).join('')
+    }</tr>`).join('');
+}
+
+/** El mismo truco para un bloque suelto: tres líneas de distinto largo. */
+export function bloqueEsqueleto(lineas = 3) {
+  const anchos = ['larga', 'media', 'corta'];
+  return `<div aria-hidden="true">${
+    Array.from({ length: lineas }, (_, i) =>
+      `<div class="hueso linea ${anchos[i % 3]}"></div>`).join('')}</div>`;
+}
+
+/* ============ un botón que dice que está trabajando (item 52) ============
+   Al guardar no cambiaba nada hasta que terminaba, así que se pulsaba dos
+   veces y se guardaba dos veces. */
+
+/**
+ * Envuelve una acción: desactiva el botón, cambia su texto al verbo en
+ * presente y lo devuelve a como estaba pase lo que pase.
+ * @param {HTMLElement|string} boton
+ * @param {string} mientras  «Guardando…», «Aprobando…»
+ * @param {Function} hacer
+ */
+export async function ocupado(boton, mientras, hacer) {
+  const b = typeof boton === 'string' ? $(boton) : boton;
+  if (!b) return hacer();
+  const antes = b.innerHTML;
+  b.disabled = true;
+  b.setAttribute('aria-busy', 'true');
+  b.innerHTML = `<span class="material-symbols-outlined">hourglass_top</span> ${esc(mientras)}`;
+  try { return await hacer(); }
+  finally {
+    b.disabled = false;
+    b.removeAttribute('aria-busy');
+    b.innerHTML = antes;
+  }
+}
+
 export function emptyRow(cols, msg = 'Sin resultados.', accion = null) {
   const boton = accion ? `<button class="btn sm" id="${esc(accion.id)}" data-vacio="${esc(accion.id)}" style="margin-top:10px">
       <span class="material-symbols-outlined">${esc(accion.icono || 'add')}</span>

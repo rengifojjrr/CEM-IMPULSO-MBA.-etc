@@ -9,18 +9,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
-  .cuota{border:1px solid var(--outline-variant);border-radius:12px;padding:14px 16px;background:var(--surface);
+  .cuota{border:1px solid var(--filete);border-radius:var(--r);padding:14px 16px;background:var(--papel);
     display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;}
   .cuota.vencida{border-left:4px solid var(--error);}
   .cuota.pagada{opacity:.72;}
-  .cuota-monto{font-size:22px;font-weight:700;letter-spacing:-.02em;}
-  .cuota-eq{font-size:12.5px;color:var(--on-surface-variant);}
-  .datos-pago{background:var(--surface-container);border:1px solid var(--outline-variant);border-radius:12px;
+  .cuota-monto{font-size:var(--t-lg);font-weight:700;letter-spacing:-.02em;}
+  .cuota-eq{font-size:var(--t-xs);color:var(--tinta-2);}
+  .datos-pago{background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r);
     padding:14px 16px;margin-bottom:16px;}
-  .datos-pago dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0;font-size:14px;}
-  .datos-pago dt{color:var(--on-surface-variant);}
+  .datos-pago dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0;font-size:var(--t-sm);}
+  .datos-pago dt{color:var(--tinta-2);}
   .datos-pago dd{margin:0;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
 </style>
 </head>
@@ -54,7 +54,7 @@
 
   <div class="card">
     <h2 class="sec">Mis cuotas <button type="button" class="ayuda-btn" data-ayuda="Cada cuota tiene su fecha límite. Al pagar, repórtalo aquí con su referencia: hasta que alguien lo verifique, la cuota sigue apareciendo como pendiente.">?</button></h2>
-    <div id="cuotas"><p class="muted">Cargando…</p></div>
+    <div id="cuotas"><span class="cargando"></span></div>
   </div>
 
   <div class="card">
@@ -70,7 +70,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, modal,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
-         imprimirDocumento, mensajeError, filaTotales } from '../assets/app.js?v=2026-08-14';
+         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-15';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
@@ -234,14 +234,12 @@ function abrirReporte(c){
   $('#rMonto').oninput = calcEq; $('#rMoneda').onchange = calcEq;
   mejorarSelects();
 
-  $('#rEnviar').onclick = async () => {
-    const btn = $('#rEnviar');
+  $('#rEnviar').onclick = () => ocupado('#rEnviar', 'Enviando…', async () => {
     const monto = Number($('#rMonto').value || 0);
     const ref = $('#rRef').value.trim();
-    if(monto <= 0){ $('#rMsg').innerHTML = '<div class="chip err">Escribe cuánto pagaste.</div>'; return; }
-    if(!ref){ $('#rMsg').innerHTML = '<div class="chip err">Falta el número de referencia del banco.</div>'; return; }
-    btn.disabled = true;
-    $('#rMsg').innerHTML = '<p class="tiny muted">Enviando…</p>';
+    if(monto <= 0){ avisar('#rMsg', 'Escribe cuánto pagaste.', 'err'); return; }
+    if(!ref){ avisar('#rMsg', 'Falta el número de referencia del banco.', 'err'); return; }
+    avisar('#rMsg', '');
     try{
       let comprobante = null;
       const file = $('#rArchivo').files[0];
@@ -265,10 +263,9 @@ function abrirReporte(c){
       ok('Pago reportado. Lo verificamos y te avisamos.');
       cargar();
     }catch(e){
-      btn.disabled = false;
-      $('#rMsg').innerHTML = `<div class="chip err">${esc(e.message)}</div>`;
+      avisar('#rMsg', e.message, 'err');
     }
-  };
+  });
 }
 
 /* ============ estado de cuenta y recibo ============

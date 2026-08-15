@@ -9,17 +9,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
   .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:16px;}
   .aula > *{min-width:0;}
   @media(max-width:900px){ .aula{grid-template-columns:minmax(0,1fr);} }
-  .les-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:13px;}
+  .les-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r);cursor:pointer;font-size:var(--t-sm);}
   .les-t{flex:1;min-width:0;overflow-wrap:anywhere;}
-  .les-item:hover{background:var(--surface-container);}
+  .les-item:hover{background:var(--hueco);}
   .les-item.on{background:var(--secondary-container);color:var(--secondary);font-weight:600;}
-  .les-item .material-symbols-outlined{font-size:18px;}
-  .player{aspect-ratio:16/9;background:#000;border-radius:var(--radius);overflow:hidden;display:flex;
+  .les-item .material-symbols-outlined{font-size:var(--t-md);}
+  .player{aspect-ratio:16/9;background:#000;border-radius:var(--r);overflow:hidden;display:flex;
     align-items:center;justify-content:center;color:#fff;}
   .player iframe{width:100%;height:100%;border:0;}
 </style>
@@ -55,7 +55,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota } from '../assets/app.js?v=2026-08-15';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
 if (me) load();
@@ -121,7 +121,7 @@ function render(){
       ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>`
       : `<div style="text-align:center;padding:30px">
           <span class="material-symbols-outlined" style="font-size:44px">${l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
-          <div style="margin-top:8px">${esc(l.titulo)}</div></div>`}</div>
+          <div class="sep-poco">${esc(l.titulo)}</div></div>`}</div>
     <div class="card sep">
       <div class="row between">
         <div><h2 class="sec" style="margin:0 0 4px">${esc(l.titulo)}</h2>
@@ -131,7 +131,7 @@ function render(){
           ${progreso[l.id]?.completado?'Completada':'Marcar completada'}</button>
       </div>
       ${l.contenido?`<p class="muted sep">${esc(l.contenido)}</p>`:''}
-      <div style="margin-top:12px">${bar(enr.progreso)}</div>
+      <div class="sep">${bar(enr.progreso)}</div>
     </div>` : '<div class="card">Este curso todavía no tiene lecciones publicadas.</div>';
 
   const btn=$('#btnDone');

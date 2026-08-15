@@ -9,16 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
-  .cert{background:linear-gradient(120deg,#fff,#f2f6fb);border:1px solid var(--outline-variant);
-    border-radius:var(--radius);padding:18px;display:flex;gap:14px;align-items:flex-start;}
+  .cert{background:var(--papel);border:1px solid var(--filete);
+    border-radius:var(--r);padding:18px;display:flex;gap:14px;align-items:flex-start;}
   .badge-card{text-align:center;padding:18px;}
-  .badge-ico{width:62px;height:62px;border-radius:50%;background:var(--tertiary-fixed);color:var(--tertiary);
+  .badge-ico{width:62px;height:62px;border-radius:var(--r-full);background:var(--gold-suave);color:var(--gold);
     display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px;}
-  .badge-ico .material-symbols-outlined{font-size:32px;}
-  .badge-card.locked{opacity:.5;} .badge-card.locked .badge-ico{background:var(--surface-highest);color:var(--outline);}
+  .badge-ico .material-symbols-outlined{font-size:var(--t-2xl);}
+  .badge-card.locked{opacity:.5;} .badge-card.locked .badge-ico{background:var(--hueco);color:var(--filete-fuerte);}
 </style>
 </head>
 <body>
@@ -29,14 +29,14 @@
   <h2 class="sec">Certificados oficiales</h2>
   <div class="grid g2" id="certs"></div>
 
-  <h2 class="sec" style="margin-top:22px">Camino a la certificación</h2>
+  <h2 class="sec sep-mucho">Camino a la certificación</h2>
   <div class="card" id="camino"></div>
 
-  <h2 class="sec" style="margin-top:22px">Insignias</h2>
+  <h2 class="sec sep-mucho">Insignias</h2>
   <div class="grid g4" id="badges"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-15';
 const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
 if (me) load();
 
@@ -52,7 +52,7 @@ async function load(){
   $('#certs').innerHTML = (certs||[]).length ? certs.map(c=>`
     <div class="cert">
       <span class="material-symbols-outlined" style="font-size:40px;color:var(--tertiary-container)">workspace_premium</span>
-      <div style="flex:1;min-width:0">
+      <div class="crece">
         <span class="chip ok">Completado · ${fdate(c.emitido_en)}</span>
         <h3 style="margin:8px 0 4px;font-size:16px">${esc(c.titulo)}</h3>
         <div class="tiny muted">Otorgado por CEM International Education System</div>
@@ -63,7 +63,9 @@ async function load(){
             <span class="material-symbols-outlined">verified</span> Verificar</a>
         </div>
       </div></div>`).join('')
-    : '<div class="card"><p class="muted">Aún no tienes certificados emitidos. Completa un programa para obtener el tuyo.</p></div>';
+    : `<div class="card sin-margen">${vacio({ icono:'workspace_premium',
+        titulo:'Todavía no tienes certificados',
+        texto:'Al terminar un programa, aprobar sus evaluaciones y quedar sin deuda, tu certificado aparece aquí para descargar.' })}</div>`;
 
   $$('[data-pdf]').forEach(b=>b.onclick=()=>verCertificado((certs||[]).find(c=>c.id===b.dataset.pdf)));
 
@@ -106,7 +108,9 @@ async function load(){
       </div>
       ${r.listo ? chip('Cumples todo: falta que lo emitan','ok') : chip('Te falta algo','warn')}</div>`;
   }).join('')
-    : '<p class="muted tiny">No tienes programas pendientes de certificación.</p>';
+    : vacio({ icono:'flag', titulo:'No tienes programas en camino',
+        texto:'Cuando te inscribas en uno, aquí verás qué te falta para certificarte.',
+        accion:{ texto:'Ver el catálogo', href:'catalogo.html' } });
 
   $('#badges').innerHTML = (all||[]).map(b=>{
     const has = got.has(b.id);
@@ -115,7 +119,7 @@ async function load(){
       <div style="font-weight:600;font-size:13.5px">${esc(b.nombre)}</div>
       <div class="tiny muted">${esc(b.nivel||'')}</div>
       <div class="tiny muted sep-poco">${esc(b.criterio||'')}</div>
-      <div style="margin-top:8px">${has?chip('obtenida','ok'):chip('bloqueada','neutral')}</div></div>`;
+      <div class="sep-poco">${has?chip('obtenida','ok'):chip('bloqueada','neutral')}</div></div>`;
   }).join('') || '<div class="card">Sin insignias configuradas.</div>';
 }
 

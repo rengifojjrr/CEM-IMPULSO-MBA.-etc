@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -55,7 +55,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, confirmDialog, abrirSubidaVideo, subirDocumentoLeccion,
-         YoutubeNoConectadoError, chipEstado} from '../assets/app.js?v=2026-08-14';
+         YoutubeNoConectadoError, chipEstado, avisar } from '../assets/app.js?v=2026-08-15';
 
 const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
                         active:'aula.html', area:'docente' });
@@ -127,7 +127,7 @@ function pintarEvals(){
     <td>${num(e.nota_aprobatoria)}</td>
     <td class="tiny">${ventanaDe(e)}</td>
     <td>${chipEstado(e.estado)}${e.barajar ? ' ' + chip('barajada','info') : ''}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       <button class="btn ghost sm" data-ed="${e.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
       <a class="btn ghost sm" href="../admin/preguntas.html?assessment=${e.id}" title="Preguntas">
         <span class="material-symbols-outlined">help_center</span></a>
@@ -201,15 +201,15 @@ function editarEval(e){
 
   $('[data-s]', m).onclick = async () => {
     const nombre = $('#aNombre', m).value.trim();
-    if (!nombre) { $('#aMsg', m).innerHTML = '<div class="chip err">Ponle un nombre.</div>'; return; }
+    if (!nombre) { avisar($('#aMsg', m), 'Ponle un nombre.', 'err'); return; }
     const abre = $('#aAbre', m).value, cierra = $('#aCierra', m).value;
     if (abre && cierra && cierra < abre) {
-      $('#aMsg', m).innerHTML = '<div class="chip err">La fecha de cierre es anterior a la de apertura.</div>';
+      avisar($('#aMsg', m), 'La fecha de cierre es anterior a la de apertura.', 'err');
       return;
     }
     const nota = Number($('#aNota', m).value), max = Number($('#aMax', m).value);
     if (nota > max) {
-      $('#aMsg', m).innerHTML = '<div class="chip err">La nota para aprobar no puede superar el puntaje máximo.</div>';
+      avisar($('#aMsg', m), 'La nota para aprobar no puede superar el puntaje máximo.', 'err');
       return;
     }
 
@@ -229,7 +229,7 @@ function editarEval(e){
     const { error } = nueva
       ? await sb.from('cem_assessments').insert({ ...fila, estado:'borrador' })
       : await sb.from('cem_assessments').update(fila).eq('id', e.id);
-    if (error) { $('#aMsg', m).innerHTML = `<div class="chip err">${esc(mensajeError(error))}</div>`; return; }
+    if (error) { avisar($('#aMsg', m), mensajeError(error), 'err'); return; }
 
     m.close();
     ok(nueva ? 'Evaluación creada como borrador.' : 'Evaluación guardada.');
@@ -302,7 +302,7 @@ function agregarLeccion(moduleId){
     footer:`<button class="btn outline" data-x>Cancelar</button>
             <button class="btn" data-s>Agregar</button>` });
 
-  const aviso = (t, k='err') => $('#lMsg', m).innerHTML = `<div class="chip ${k} sep-poco">${esc(t)}</div>`;
+  const aviso = (t, k='err') => avisar($('#lMsg', m), t, k);
 
   $('#lVideo', m).onclick = async () => {
     try {

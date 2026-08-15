@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -41,7 +41,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-15';
 const me = await mount({ require:['profesor'], active:'panel.html', area:'docente' });
 let cohortes=[], clases=[], subsPend=[];
 if (me) load();
@@ -81,7 +81,7 @@ async function load(){
     return `<div class="list-item"><div class="grow">
       <div class="t">${esc(c.cem_courses?.nombre||'')}</div>
       <div class="s">${esc(c.nombre)} · ${list.length} alumnos</div>
-      <div style="margin-top:6px">${bar(avg)}</div></div>
+      <div class="sep-poco">${bar(avg)}</div></div>
       <div style="text-align:right"><b>${pct(avg)}</b><div class="tiny muted">participación</div></div></div>`;
   }).join('') : '<p class="muted tiny">Aún no tienes cohortes asignadas.</p>';
 
@@ -95,7 +95,7 @@ async function load(){
       ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chipEstado(c.estado)}
     </div>`).join('') : '<p class="muted tiny">Sin sesiones próximas.</p>';
 
-  $('#nPend').textContent = `${subsPend.length} pendientes`;
+  $('#nPend').textContent = subsPend.length === 1 ? '1 pendiente' : `${subsPend.length} pendientes`;
   $('#tbEntregas').innerHTML = subsPend.length ? subsPend.map(s=>{
     const e = (ens||[]).find(x=>x.id===s.enrollment_id);
     return `<tr>
@@ -164,11 +164,11 @@ function reabrir(s){
   $('[data-s]',m).onclick=async()=>{
     const motivo = $('#rMotivo',m).value.trim();
     if (motivo.length < 10) {
-      $('#rMsg',m).innerHTML = '<div class="chip err sep-poco">Escribe el motivo con una frase completa.</div>';
+      avisar($('#rMsg', m), 'Escribe el motivo con una frase completa.', 'err');
       return;
     }
     const { error } = await sb.rpc('cem_reabrir_entrega',{ p_submission_id:s.id, p_motivo:motivo });
-    if (error) { $('#rMsg',m).innerHTML = `<div class="chip err sep-poco">${esc(mensajeError(error))}</div>`; return; }
+    if (error) { avisar($('#rMsg', m), mensajeError(error), 'err'); return; }
     m.close(); ok('Entrega devuelta. El estudiante ya recibió el aviso.'); load();
   };
 }

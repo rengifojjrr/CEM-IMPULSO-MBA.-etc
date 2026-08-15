@@ -52,8 +52,11 @@ export async function abrirNavegador() {
  * `silenciarMientras` permite apagar la anotación durante los bloques que
  * provocan rechazos a propósito (probar que un rol NO puede hacer algo).
  */
-export async function nuevaPestana(navegador, { ancho = 1340, alto = 1050 } = {}) {
-  const contexto = await navegador.newContext({ viewport: { width: ancho, height: alto } });
+export async function nuevaPestana(navegador, { ancho = 1340, alto = 1050, oscuro = false } = {}) {
+  const contexto = await navegador.newContext({
+    viewport: { width: ancho, height: alto },
+    colorScheme: oscuro ? 'dark' : 'light',
+  });
   const pagina = await contexto.newPage();
   const errores = [];
   let silencio = false;

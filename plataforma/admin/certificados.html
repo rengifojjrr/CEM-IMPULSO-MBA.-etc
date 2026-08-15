@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 </head>
 <body>
@@ -44,7 +44,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-15';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let certs=[], elegibles=[], tpls=[];
@@ -86,7 +86,7 @@ function render(){
     <td class="wrap">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(c.titulo)}</td><td class="wrap">${esc(c.cem_courses?.nombre||'—')}</td>
     <td class="muted">${fdate(c.emitido_en)}</td><td>${chipEstado(c.estado)}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       <button class="btn ghost sm" data-ver="${c.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
       <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank" title="Verificación pública">
         <span class="material-symbols-outlined">verified</span></a>

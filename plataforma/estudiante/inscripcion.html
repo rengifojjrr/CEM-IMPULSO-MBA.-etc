@@ -9,11 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
-  .plan{border:2px solid var(--outline-variant);border-radius:var(--radius);padding:14px;cursor:pointer;flex:1;min-width:190px;}
-  .plan.on{border-color:var(--primary);background:var(--primary-fixed);}
-  .plan .p{font-size:21px;font-weight:700;color:var(--primary);}
+  .plan{border:2px solid var(--filete);border-radius:var(--r);padding:14px;cursor:pointer;flex:1;min-width:190px;}
+  .plan.on{border-color:var(--primary);background:var(--primary-suave);}
+  .plan .p{font-size:var(--t-lg);font-weight:700;color:var(--primary);}
 </style>
 </head>
 <body>
@@ -79,7 +79,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta } from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta, ocupado, avisar } from '../assets/app.js?v=2026-08-15';
 const me = await mount({ require:['estudiante','admin','superadmin','coordinador'], area:'estudiante', active:'catalogo.html' });
 const cursoId = qs('curso');
 let curso, cohortes=[], plan=1, descuento=0;
@@ -126,16 +126,16 @@ function renderPlanes(){
     const total = Math.round(base*o.factor*100)/100;
     const dif = Math.round((total - base)*100)/100;   // contra el precio de lista
     const nota = dif < 0
-      ? `<span style="color:var(--ok)">Te ahorras ${money(-dif, curso.moneda)}</span>`
+      ? `<span class="ok-text">Te ahorras ${money(-dif, curso.moneda)}</span>`
       : dif > 0
-        ? `<span style="color:var(--error)">Pagas ${money(dif, curso.moneda)} de más por financiarlo</span>`
+        ? `<span class="err-text">Pagas ${money(dif, curso.moneda)} de más por financiarlo</span>`
         : 'Precio de lista, sin recargo';
     return `<div class="plan ${o.n===plan?'on':''}" data-plan="${o.n}" data-factor="${o.factor}"
       role="button" tabindex="0" aria-pressed="${o.n===plan}">
       <div class="row between"><b>${o.lbl}</b>${o.n===plan?'<span class="material-symbols-outlined" style="color:var(--primary)">check_circle</span>':''}</div>
       <div class="p">${money(total/o.n, curso.moneda)}${o.n>1?'<span class="tiny muted"> cada una</span>':''}</div>
       <div class="tiny muted">${o.n>1?`${o.n} pagos mensuales · `:''}total ${money(total, curso.moneda)}</div>
-      <div class="tiny" style="margin-top:4px">${nota}</div></div>`;
+      <div class="tiny sep-poco">${nota}</div></div>`;
   }).join('');
   const elegir = (el) => { plan=Number(el.dataset.plan); renderPlanes(); resumen(); };
   $$('[data-plan]').forEach(el=>{
@@ -157,8 +157,8 @@ function resumen(){
     <div class="list-item"><div class="grow"><div class="t">${esc(curso.nombre)}</div>
       <div class="s">${esc(curso.duracion_texto||curso.horas+' h')} · ${esc(etiqueta(curso.modalidad))}</div></div></div>
     <div class="row between tiny" style="padding:6px 0"><span class="muted">Subtotal</span><span>${money(base, curso.moneda)}</span></div>
-    ${ahorro?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Descuento (pago único)</span><span style="color:var(--ok)">-${money(ahorro, curso.moneda)}</span></div>`:''}
-    ${descuento?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Cupón</span><span style="color:var(--ok)">-${money(descuento, curso.moneda)}</span></div>`:''}
+    ${ahorro?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Descuento (pago único)</span><span class="ok-text">-${money(ahorro, curso.moneda)}</span></div>`:''}
+    ${descuento?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Cupón</span><span class="ok-text">-${money(descuento, curso.moneda)}</span></div>`:''}
     <div class="row between" style="padding:10px 0;border-top:1px solid var(--outline-variant);margin-top:6px">
       <b>Total a pagar</b><b style="font-size:19px;color:var(--primary)">${money(total, curso.moneda)}</b></div>
     <div class="tiny muted">${plan>1?`${plan} cuotas de ${money(total/plan, curso.moneda)}`:'Pago único'}</div>`;
@@ -168,13 +168,12 @@ $('#btnCupon').onclick = () => {
   const code = $('#cupon').value.trim().toUpperCase();
   if (code && curso.codigo_descuento && code === String(curso.codigo_descuento).trim().toUpperCase() && Number(curso.descuento_pct) > 0) {
     descuento = Math.round((Number(curso.precio)||0)*(Number(curso.descuento_pct)/100)*100)/100;
-    $('#cuponMsg').innerHTML = `<span class="chip ok">Cupón aplicado: ${curso.descuento_pct}% de descuento</span>`;
-  } else { descuento=0; $('#cuponMsg').innerHTML = '<span class="chip err">Cupón no válido</span>'; }
+    avisar('#cuponMsg', `Cupón aplicado: ${curso.descuento_pct}% de descuento`, 'ok');
+  } else { descuento=0; avisar('#cuponMsg', 'Cupón no válido', 'err'); }
   resumen();
 };
 
-$('#btnConfirmar').onclick = async () => {
-  const btn=$('#btnConfirmar'); btn.disabled=true; btn.textContent='Procesando…';
+$('#btnConfirmar').onclick = () => ocupado('#btnConfirmar', 'Registrando tu inscripción…', async () => {
   try{
     await sb.from('cem_profiles').update({
       nombre:$('#dNombre').value.trim(), apellido:$('#dApellido').value.trim(),
@@ -190,10 +189,8 @@ $('#btnConfirmar').onclick = async () => {
     await audit('inscripcion_estudiante','cem_enrollments',enr?.id,'medio',{curso:curso.nombre, plan});
     ok('¡Inscripción registrada! Revisa tu panel.');
     setTimeout(()=>location.href='panel.html', 1100);
-  } catch(e){
-    btn.disabled=false; btn.innerHTML='Confirmar inscripción <span class="material-symbols-outlined">arrow_forward</span>';
-  }
-};
+  } catch(e){ /* `run` ya explicó qué pasó; el botón vuelve solo */ }
+});
 </script>
 </body>
 </html>

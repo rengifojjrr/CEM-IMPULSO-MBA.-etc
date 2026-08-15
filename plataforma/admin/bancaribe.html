@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-14">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
 <style>
-  .dato-tec{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;
-    background:var(--surface-container);padding:8px 10px;border-radius:6px;border:1px solid var(--outline-variant);}
+  .dato-tec{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);word-break:break-all;
+    background:var(--hueco);padding:8px 10px;border-radius:var(--r);border:1px solid var(--filete);}
   .oculto-secreto{filter:blur(5px);transition:filter .15s;cursor:pointer;}
   .oculto-secreto.ver{filter:none;}
 </style>
@@ -44,7 +44,7 @@
   <div class="grid g2">
     <div class="card">
       <h2 class="sec">Estado de la conexión</h2>
-      <div id="estado"><p class="muted">Cargando…</p></div>
+      <div id="estado"><span class="cargando"></span></div>
     </div>
 
     <!-- item 35 · esto hablaba de endpoint, webhook y ApiKey en una pantalla a la
@@ -117,7 +117,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY, chipEstado} from '../assets/app.js?v=2026-08-14';
+import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY, chipEstado, avisar } from '../assets/app.js?v=2026-08-15';
 
 const p = await mount({ require:['admin','superadmin'], active:'bancaribe.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -146,7 +146,7 @@ async function cargar(){
 
 function renderEstado(){
   if (estado?.error){
-    $('#estado').innerHTML = `<div class="chip err">${esc(estado.error)}</div>`;
+    avisar('#estado', estado.error, 'err');
     return;
   }
   $('#estado').innerHTML = `
@@ -195,7 +195,7 @@ $('#btnRotar').onclick = async () => {
     $('[data-s]', m).disabled = true;
     const { data: nueva, error } = await sb.rpc('cem_rotar_clave_webhook', { p_gracia_horas: GRACIA_HORAS });
     if (error) {
-      $('#rotMsg', m).innerHTML = `<div class="chip err sep">${esc(error.message)}</div>`;
+      avisar($('#rotMsg', m), error.message, 'err');
       $('[data-s]', m).disabled = false;
       return;
     }
@@ -247,7 +247,7 @@ $('#btnDiag').onclick = async () => {
       ${noSuscritos ? `<div class="chip warn sep">
         ${noSuscritos} servicio(s) responden 900908: el token es válido pero nuestra aplicación
         no aparece suscrita a esas APIs en el API Manager. Es una habilitación que hace Bancaribe de su lado.</div>` : ''}`;
-  } catch(e){ $('#diag').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#diag', e.message, 'err'); }
 };
 
 $('#btnTasa').onclick = async () => {
@@ -261,7 +261,7 @@ $('#btnTasa').onclick = async () => {
       : `<div class="chip warn">El banco respondió sin tasas</div>
          <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
          <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(r.datos,null,2)).slice(0,1500)}</pre></details>`;
-  } catch(e){ $('#tasas').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#tasas', e.message, 'err'); }
 };
 
 $('#btnSaldo').onclick = async () => {
@@ -276,7 +276,7 @@ $('#btnSaldo').onclick = async () => {
       : `<div class="chip warn">El banco respondió sin saldo</div>
          <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
          <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,1500)}</pre></details>`;
-  } catch(e){ $('#saldo').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#saldo', e.message, 'err'); }
 };
 
 $('#btnVerificar').onclick = async () => {
@@ -290,12 +290,12 @@ $('#btnVerificar').onclick = async () => {
       fecha: $('#vFecha').value.trim() || null,
     });
     const d = r.datos;
-    $('#resVerificar').innerHTML = `<div style="margin-top:12px">
+    $('#resVerificar').innerHTML = `<div class="sep">
       ${d?.success === true ? chip('El banco confirma la operación','ok') : chip('El banco no confirmó la operación','warn')}
       ${d?.descripción||d?.descripcion ? `<div class="tiny muted sep-poco">${esc(String(d.descripción||d.descripcion))}</div>`:''}
       <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta completa</summary>
       <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,2000)}</pre></details></div>`;
-  } catch(e){ $('#resVerificar').innerHTML = `<div class="chip err sep">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#resVerificar', e.message, 'err'); }
 };
 
 async function cargarNotifs(){
@@ -323,7 +323,7 @@ function renderNotifs(){
     <td><b>${esc(String(n.amount ?? '—'))}</b> <span class="tiny muted">${esc(n.currency_code||'')}</span></td>
     <td>${chip(n.payment_type||'—','neutral')}</td>
     <td>${chip(n.estado, n.estado==='conciliada'?'ok':n.estado==='descartada'?'neutral':'warn')}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       <button class="btn ghost sm" data-ver="${n.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
       ${puedeOperar && n.estado==='pendiente' ? `<button class="btn ghost sm" data-desc="${n.id}" title="Descartar"><span class="material-symbols-outlined">block</span></button>` : ''}
     </td></tr>`).join('') : emptyRow(7, 'Sin operaciones en el periodo consultado.');
