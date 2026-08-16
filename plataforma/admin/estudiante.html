@@ -26,7 +26,7 @@
   <div id="panel"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
+import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
          modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
          etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, saldo as saldoCelda } from '../assets/app.js?v=2026-08-18';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
@@ -141,7 +141,7 @@ function tab(t){
           <div class="cuando">${fdatetime(h.cuando)}</div>
           <div class="que"><span class="material-symbols-outlined"
             style="font-size:17px;color:var(--tinta-3)">${ICONO_HITO[h.tipo] || 'circle'}</span>
-            ${esc(h.titulo)}${h.monto != null ? ` · ${money(h.monto, h.moneda || 'USD')}` : ''}</div>
+            ${esc(h.titulo)}${h.monto != null ? ` · ${money(h.monto, h.moneda || MONEDA_BASE)}` : ''}</div>
           ${h.detalle ? `<div class="detalle">${esc(h.detalle)}</div>` : ''}
         </li>`).join('')}</ul>`
         : `<p class="muted tiny">Todavía no hay nada registrado de esta persona.</p>`}
@@ -226,7 +226,7 @@ function tab(t){
         const venc = i.estado!=='pagada' && i.fecha_vencimiento < hoy;
         const mora = venc ? Math.round((new Date(hoy) - new Date(i.fecha_vencimiento))/86400000) : 0;
         return `<tr class="${venc?'vencida':''}"><td class="num">${i.numero}</td><td class="wrap">${esc(e?.cem_courses?.nombre||'')}</td>
-        <td class="num">${money(i.monto, i.moneda||'USD')}</td>
+        <td class="num">${money(i.monto, i.moneda || MONEDA_BASE)}</td>
         <td class="${venc?'':'muted'}">${fdate(i.fecha_vencimiento)}
           ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
         <td class="num">${saldoCelda(i.saldo)}</td><td>${chipEstado(i.estado)}</td>
@@ -242,7 +242,7 @@ function tab(t){
         <td>${esc(etiqueta(x.metodo||'—'))}</td><td>${esc(x.referencia||'—')}</td>
         <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('') : emptyRow(5, 'Todavía no ha hecho ningún pago.')}</tbody>
       ${pays.length ? filaTotales([`Aprobado (${pays.filter(x=>x.estado==='confirmado').length} de ${pays.length} pagos)`,
-        {num:true, html: money(pays.filter(x=>x.estado==='confirmado').reduce((a,x)=>a+enDolares(x),0), 'USD')},
+        {num:true, html: money(pays.filter(x=>x.estado==='confirmado').reduce((a,x)=>a+enDolares(x),0))},
         '', '', '']) : ''}
       </table></div></div>`;
     $$('[data-pay]').forEach(b=>b.onclick=()=>registrarPago(insts.find(i=>i.id===b.dataset.pay)));
@@ -272,7 +272,7 @@ function registrarPago(i){
 
   const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
     <p class="tiny muted" style="margin:-4px 0 12px">
-      Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda||'USD'))}</b></p>
+      Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda || MONEDA_BASE))}</b></p>
     <div class="row"><div class="field medio"><label>Monto *</label>
       <input type="number" step="0.01" id="pMonto" value="${saldoCuota}" required>
       <div class="tiny" id="pAviso"></div></div>
@@ -295,7 +295,7 @@ function registrarPago(i){
       aviso.className = 'tiny err-text';
       aviso.textContent = `Es más del doble del saldo. Comprueba la cifra.`;
     } else if (v > 0 && v < saldoCuota) {
-      aviso.textContent = `Abono parcial: quedarían ${money(saldoCuota - v, i.moneda||'USD')}.`;
+      aviso.textContent = `Abono parcial: quedarían ${money(saldoCuota - v, i.moneda || MONEDA_BASE)}.`;
     } else aviso.textContent = '';
   });
 
@@ -307,7 +307,7 @@ function registrarPago(i){
       p_metodo:$('#pMetodo',m).value, p_referencia:$('#pRef',m).value.trim()||null,
       p_comprobante:comprobante.valor()||null }),'No se pudo registrar el pago');
     m.close();
-    ok(`Pago de ${money(v, i.moneda||'USD')} registrado en la cuota ${i.numero}`);
+    ok(`Pago de ${money(v, i.moneda || MONEDA_BASE)} registrado en la cuota ${i.numero}`);
     load();
   };
 }

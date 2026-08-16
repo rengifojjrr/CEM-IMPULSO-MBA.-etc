@@ -35,19 +35,34 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="card">
-    <h2 class="sec">Tasa del día</h2>
-    <p class="tiny muted">Con esta tasa la plataforma convierte los pagos en bolívares a las cuotas en dólares.
-      Cuando Bancaribe habilite el servicio de Tasa BCV se actualizará sola; mientras tanto, cárgala aquí.</p>
-    <div class="tasa-box">
-      <div>
-        <div class="s tiny muted">Vigente ahora</div>
-        <div class="tasa-actual" id="tasaActual">—</div>
-        <div class="tiny muted" id="tasaOrigen"></div>
+    <h2 class="sec">Tasas del BCV</h2>
+    <p class="tiny muted">La casa cobra en <b>euros</b>. La tasa del <b>euro</b> es la que convierte los
+      pagos en bolívares: es la que cobra. La del <b>dólar</b> no convierte nada — sirve para los
+      reportes y para cuadrar contra el banco. El efectivo en dólares se recibe a la par del euro y no
+      usa ninguna de las dos. Cuando Bancaribe habilite el servicio se actualizarán solas.</p>
+    <div class="grid g2 sep-poco">
+      <div class="tasa-box">
+        <div>
+          <div class="s tiny muted">Euro · vigente ahora</div>
+          <div class="tasa-actual" id="tasaActual">—</div>
+          <div class="tiny muted" id="tasaOrigen"></div>
+        </div>
+        <div class="field sin-margen"><label>Nueva tasa (Bs por euro)
+          <button type="button" class="ayuda-btn" data-ayuda="Cuántos bolívares vale un euro hoy según el BCV. Sólo afecta a los pagos que se registren de aquí en adelante: los ya aprobados guardan la tasa con la que se convirtieron.">?</button></label>
+          <input type="number" step="0.01" min="0.01" id="inpTasa" placeholder="Ej: 48,90"></div>
+        <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar</button>
       </div>
-      <div class="field sin-margen"><label>Nueva tasa (Bs por dólar)
-        <button type="button" class="ayuda-btn" data-ayuda="Cuántos bolívares vale un dólar hoy. Sólo afecta a los pagos que se registren de aquí en adelante: los ya aprobados guardan la tasa con la que se convirtieron.">?</button></label>
-        <input type="number" step="0.01" min="0.01" id="inpTasa" placeholder="Ej: 40,50"></div>
-      <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar la tasa del día</button>
+      <div class="tasa-box">
+        <div>
+          <div class="s tiny muted">Dólar · vigente ahora</div>
+          <div class="tasa-actual" id="tasaActualUsd">—</div>
+          <div class="tiny muted" id="tasaOrigenUsd"></div>
+        </div>
+        <div class="field sin-margen"><label>Nueva tasa (Bs por dólar)
+          <button type="button" class="ayuda-btn" data-ayuda="La del dólar es de referencia: no se usa para convertir ningún cobro, porque el efectivo en dólares se recibe a la par del euro.">?</button></label>
+          <input type="number" step="0.01" min="0.01" id="inpTasaUsd" placeholder="Ej: 45,75"></div>
+        <button class="btn outline" id="btnTasaUsd"><span class="material-symbols-outlined">save</span> Guardar</button>
+      </div>
     </div>
     <div id="msgTasa"></div>
   </div>
@@ -73,7 +88,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, okDeshacer, fail, modal,
+import { sb, mount, MONEDA_BASE, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, okDeshacer, fail, modal,
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa, run,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY, cargarEn, contarFilas,
          etiqueta, montoPagado, enDolares, saldo as saldoCelda,
@@ -86,11 +101,16 @@ let pagos = [], tasa = null;
 if (p) cargar();
 
 async function cargar(){
-  tasa = await tasaVigente();
-  $('#tasaActual').textContent = tasa ? `${tasa.valor} Bs / USD` : 'sin cargar';
-  $('#tasaOrigen').textContent = tasa
-    ? `${tasa.id_tasa === 'MANUAL' ? 'Cargada a mano' : 'Traída del BCV'} · ${tasa.fecha}`
-    : 'Nadie ha cargado la tasa todavía.';
+  const [eur, usd] = await Promise.all([tasaVigente('EUR'), tasaVigente('USD')]);
+  tasa = eur;
+  const pintarTasa = (t, elValor, elOrigen, unidad) => {
+    $(elValor).textContent = t ? `${t.valor} Bs / ${unidad}` : 'sin cargar';
+    $(elOrigen).textContent = t
+      ? `${t.id_tasa === 'MANUAL' ? 'Cargada a mano' : 'Traída del BCV'} · ${t.fecha}`
+      : 'Nadie la ha cargado todavía.';
+  };
+  pintarTasa(eur, '#tasaActual', '#tasaOrigen', '€');
+  pintarTasa(usd, '#tasaActualUsd', '#tasaOrigenUsd', 'US$');
 
   // cem_enrollments apunta dos veces a cem_profiles (el estudiante y el
   // vendedor), así que hay que nombrar la clave foránea o PostgREST no sabe
@@ -117,8 +137,8 @@ function renderKpis(){
   $('#kpis').innerHTML = [
     kpi('Por revisar', num(porRevisar.length), 'pending_actions', 'esperan tu verificación', '',
       'Pagos que un estudiante reportó y todavía nadie aprobó ni rechazó. Mientras estén aquí, la cuota sigue debiendo.'),
-    kpi('Monto por revisar', money(montoPorRevisar, 'USD'), 'payments', 'equivalente en dólares', '',
-      'Lo que suman esos pagos convertido a dólares con la tasa de cada pago. Todavía no es un ingreso: sólo se contará al aprobarlos.'),
+    kpi('Monto por revisar', money(montoPorRevisar), 'payments', 'equivalente en euros', '',
+      'Lo que suman esos pagos convertido a euros con la tasa del día en que se hizo cada uno. Todavía no es un ingreso: sólo se contará al aprobarlos.'),
     kpi('Aprobados hoy', num(aprobadosHoy.length), 'task_alt', 'ya abonados a su cuota', '',
       'Pagos con fecha de hoy que ya fueron aprobados y descontados del saldo del estudiante.'),
   ].join('');
@@ -139,8 +159,8 @@ function render(){
       <td class="ref" data-col="Referencia" title="${esc(etiqueta(x.metodo))}">${esc(x.referencia || '—')}</td>
       <td class="num" data-col="Monto">${montoPagado(x)}</td>
       <td data-col="Cuota">${c ? `<span title="${c.estado === 'pagada' ? 'Cuota pagada'
-             : `Todavía debe ${esc(money(c.saldo ?? c.monto, c.moneda || 'USD'))}`}"
-             >#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || 'USD')}</span>`
+             : `Todavía debe ${esc(money(c.saldo ?? c.monto, c.moneda || MONEDA_BASE))}`}"
+             >#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || MONEDA_BASE)}</span>`
            : '<span class="muted">—</span>'}</td>
       <td data-col="Estado">${chip(
           x.estado === 'confirmado' ? 'Aprobado' : x.estado === 'rechazado' ? 'Rechazado'
@@ -176,7 +196,7 @@ if (puedeOperar) seleccion = seleccionMultiple('#tabla', '#barraSel', [
 async function aprobarVarios(ids){
   const sel = pagos.filter(x => ids.includes(x.id));
   const total = sel.reduce((a, x) => a + Number(x.monto_base ?? x.monto ?? 0), 0);
-  if (!await confirmDialog(`Se aprobarán ${sel.length} pago(s) por ${money(total,'USD')} en total y cada uno se abonará a su cuota. ` +
+  if (!await confirmDialog(`Se aprobarán ${sel.length} pago(s) por ${money(total)} en total y cada uno se abonará a su cuota. ` +
       'Es lo mismo que aprobarlos uno por uno; asegúrate de haberlos verificado contra el banco.')) return;
   let hechos = 0; const fallos = [];
   for (const x of sel) {
@@ -220,12 +240,12 @@ async function verDetalle(x){
       <div><div class="tiny muted">Estudiante</div><div class="t"><b>${esc(nombreDe(x))}</b></div>
         <div class="tiny muted">${esc(pr?.documento || '')} ${esc(pr?.email || '')}</div></div>
       <div><div class="tiny muted">Monto</div><div class="t"><b>${money(x.monto, x.moneda)}</b>
-        ${x.moneda !== 'USD' && x.monto_base ? `<br><span class="tiny muted">= ${money(x.monto_base,'USD')} a la tasa ${esc(String(x.tasa))}</span>` : ''}</div></div>
+        ${x.moneda !== MONEDA_BASE && x.monto_base ? `<br><span class="tiny muted">= ${money(x.monto_base)} a la tasa ${esc(String(x.tasa))}</span>` : ''}</div></div>
       <div><div class="tiny muted">Método</div><div class="t">${esc(x.metodo || '—')}</div></div>
       <div><div class="tiny muted">Fecha del pago</div><div class="t">${fdatetime(x.fecha)}</div></div>
     </div>
     ${c ? `<div class="field sep"><label>Cuota</label>
-      <div>#${esc(String(c.numero ?? ''))} — debe ${money(c.saldo ?? c.monto, c.moneda || 'USD')} de ${money(c.monto, c.moneda || 'USD')} (${esc(c.estado||'')})</div></div>` : ''}
+      <div>#${esc(String(c.numero ?? ''))} — debe ${money(c.saldo ?? c.monto, c.moneda || MONEDA_BASE)} de ${money(c.monto, c.moneda || MONEDA_BASE)} (${esc(c.estado||'')})</div></div>` : ''}
     ${x.nota ? `<div class="field"><label>Nota</label><div class="tiny">${esc(x.nota)}</div></div>` : ''}
     <div class="field"><label>Comprobante</label><div id="dComp"><span class="cargando una"></span></div></div>
     <div class="field"><label>Verificación contra el banco</label>
@@ -327,8 +347,8 @@ async function aprobar(x){
   // El texto va dentro de un <p>, así que se escribe corrido: los saltos de
   // línea no se verían.
   const aviso = c
-    ? `Se abonarán ${money(aplica, c.moneda || 'USD')} a la cuota #${c.numero}, que debe ${money(saldo, c.moneda || 'USD')}. ` +
-      (aplica >= saldo - 0.01 ? 'La cuota quedará pagada.' : `Quedará un saldo de ${money(saldo - aplica, c.moneda || 'USD')}.`)
+    ? `Se abonarán ${money(aplica, c.moneda || MONEDA_BASE)} a la cuota #${c.numero}, que debe ${money(saldo, c.moneda || MONEDA_BASE)}. ` +
+      (aplica >= saldo - 0.01 ? 'La cuota quedará pagada.' : `Quedará un saldo de ${money(saldo - aplica, c.moneda || MONEDA_BASE)}.`)
     : 'Se marcará el pago como aprobado.';
   if(!await confirmDialog(`${aviso} ¿Confirmas que verificaste este pago contra el banco?`)) return;
   const { error } = await sb.rpc('cem_aprobar_pago', { p_payment_id: x.id });
@@ -368,17 +388,19 @@ async function rechazar(x){
   };
 }
 
-$('#btnTasa').onclick = async () => {
-  const v = Number($('#inpTasa').value || 0);
+const guardarTasa = (campo, moneda, comoSeLlama) => async () => {
+  const v = Number($(campo).value || 0);
   if(v <= 0){ avisar('#msgTasa', 'Escribe una tasa mayor que cero.', 'err'); return; }
-  const { error } = await sb.rpc('cem_guardar_tasa_manual', { p_valor: v });
-  if(error){ avisar('#msgTasa', error.message, 'err'); return; }
-  $('#inpTasa').value = '';
+  const { error } = await sb.rpc('cem_guardar_tasa_manual', { p_valor: v, p_moneda: moneda });
+  if(error){ avisar('#msgTasa', mensajeError(error), 'err'); return; }
+  $(campo).value = '';
   olvidarTasa();  // para que el resto de pantallas tome la nueva y no la de la caché
-  avisar('#msgTasa', 'Tasa guardada.', 'ok');
+  avisar('#msgTasa', `Tasa del ${comoSeLlama} guardada.`, 'ok');
   setTimeout(() => { $('#msgTasa').innerHTML = ''; }, 6000);
   cargar();
 };
+$('#btnTasa').onclick = guardarTasa('#inpTasa', 'EUR', 'euro');
+$('#btnTasaUsd').onclick = guardarTasa('#inpTasaUsd', 'USD', 'dólar');
 
 mejorarSelects();
 </script>

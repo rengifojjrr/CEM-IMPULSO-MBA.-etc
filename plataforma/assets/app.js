@@ -18,7 +18,11 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-export const money = (n, cur = 'USD') => (n == null ? '—' :
+/* La moneda de la casa. El CEM pone precio en euros a tasa BCV; el dólar y el
+   bolívar son formas de pagar, no formas de cobrar. Está aquí y no repetido en
+   cincuenta pantallas para que cambiarlo sea cambiar una línea. */
+export const MONEDA_BASE = 'EUR';
+export const money = (n, cur = MONEDA_BASE) => (n == null ? '—' :
   new Intl.NumberFormat('es-ES', { style: 'currency', currency: cur, maximumFractionDigits: 2 }).format(Number(n)));
 export const num = (n) => (n == null ? '—' : new Intl.NumberFormat('es-ES').format(Number(n)));
 export const fdate = (d) => d ? new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -69,7 +73,7 @@ export function chipNota(puntaje, sobre = 100, aprueba = null) {
    «2160,00 US$» y un «0» pelado. */
 
 /** Celda de dinero para una tabla: alineada, con dígitos de ancho fijo. */
-export const celdaMoney = (n, cur = 'USD') =>
+export const celdaMoney = (n, cur = MONEDA_BASE) =>
   `<td class="num">${n == null ? '—' : esc(money(n, cur))}</td>`;
 
 /** Un saldo: cuando no se debe nada lo dice con palabras, que es lo que importa. */
@@ -77,38 +81,48 @@ export const celdaMoney = (n, cur = 'USD') =>
    y un chip «Al día» centrado, así que la columna dejaba de leerse en
    vertical, que es lo único que una columna sabe hacer. Ahora las dos formas
    ocupan el mismo sitio: cifra o guion, ambos a la derecha. */
-export const saldo = (n, cur = 'USD') =>
+export const saldo = (n, cur = MONEDA_BASE) =>
   (Number(n) || 0) <= 0
     ? '<span class="muted" title="Sin nada pendiente">—</span>'
     : esc(money(n, cur));
 
 /**
- * Cuánto vale un pago en dólares, sea cual sea la moneda en que se hizo.
+ * Cuánto salda un pago, en la moneda de la casa, sea cual sea la moneda en que
+ * se hizo.
  *
- * Un pago guarda `monto` en la moneda en que se pagó y `monto_base` ya
- * convertido a dólares (nulo cuando el pago ya era en dólares). Sumar `monto` a
- * secas cuenta 4.575 bolívares como 4.575 dólares: la cifra de ingresos salía
- * disparada y no cuadraba con nada.
+ * Un pago guarda `monto` en la moneda en que llegó y `monto_base` ya convertido
+ * a euros. Sumar `monto` a secas cuenta 4.575 bolívares como 4.575 euros: la
+ * cifra de ingresos salía disparada y no cuadraba con nada.
+ *
+ * La conversión la hace el servidor al reportar el pago y se guarda con la tasa
+ * de ESE día. Aquí no se recalcula nunca: un pago de hace un mes no vale hoy lo
+ * que valía entonces, y volver a dividir por la tasa de hoy sería reescribir la
+ * historia.
  */
-export const enDolares = (pago) => {
+export const enBase = (pago) => {
   if (!pago) return 0;
   if (pago.monto_base != null) return Number(pago.monto_base) || 0;
   const m = Number(pago.monto) || 0;
-  if (!pago.moneda || pago.moneda === 'USD') return m;
+  if (!pago.moneda || pago.moneda === MONEDA_BASE) return m;
   const t = Number(pago.tasa) || 0;
   return t > 0 ? m / t : 0;   // sin tasa no se puede convertir: no se inventa
 };
+/** Nombre anterior, cuando la casa cobraba en dólares. */
+export const enDolares = enBase;
 
-/** Cómo se muestra un pago: lo que se pagó y, si no fue en dólares, su equivalente. */
+/** Cómo se muestra un pago: lo que se pagó y, si no vino en euros, a cuánto equivale. */
 export const montoPagado = (pago) => {
   if (!pago) return '—';
-  const propio = money(pago.monto, pago.moneda || 'USD');
-  if (!pago.moneda || pago.moneda === 'USD') return propio;
-  return `${propio}<div class="tiny muted">${money(enDolares(pago))} a ${num(pago.tasa)}</div>`;
+  const propio = money(pago.monto, pago.moneda || MONEDA_BASE);
+  if (!pago.moneda || pago.moneda === MONEDA_BASE) return propio;
+  const nota = Number(pago.tasa) > 1
+    ? `${money(enBase(pago))} a ${num(pago.tasa)}`
+    : `${money(enBase(pago))} a la par`;
+  return `${propio}<div class="tiny muted">${nota}</div>`;
 };
 
 /** El mismo importe en bolívares y en dólares, con la tasa que se usó. */
-export function moneyBs(montoUsd, tasa, cur = 'USD') {
+export function moneyBs(montoUsd, tasa, cur = MONEDA_BASE) {
   if (montoUsd == null) return '—';
   const enUsd = money(montoUsd, cur);
   if (!tasa || Number(tasa) <= 0) return enUsd;
@@ -835,6 +849,7 @@ const ADMIN_NAV = [
     ['estudiantes.html', 'person', 'Estudiantes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
     ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
+    ['carteras.html', 'account_balance_wallet', 'Carteras'],
     ['cierre-mes.html', 'event_available', 'Cierre de mes'],
     ['bancaribe.html', 'account_balance', 'Banco (Bancaribe)'],
   ]},
@@ -913,6 +928,7 @@ const AUDITOR_NAV = [
 const COBRANZA_NAV = [
   { lbl: 'Cobranza', items: [
     ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
+    ['carteras.html', 'account_balance_wallet', 'Carteras'],
     ['cierre-mes.html', 'event_available', 'Cierre de mes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
     ['estudiantes.html', 'person', 'Estudiantes'],
@@ -2132,24 +2148,84 @@ export async function urlComprobante(ruta){
 const CLAVE_TASA = 'cem:tasa';
 const VIDA_TASA_MS = 10 * 60 * 1000;
 
-/** Tasa del día vigente (la del BCV si el banco respondió, o la cargada a mano). */
-export async function tasaVigente({ forzar = false } = {}){
+/**
+ * Tasa BCV vigente de una moneda. Son dos y hacen cosas distintas: la del EURO
+ * convierte los bolívares que entran —es la que cobra—, y la del DÓLAR sirve
+ * para los reportes y para cuadrar con el banco.
+ */
+export async function tasaVigente(moneda = MONEDA_BASE, { forzar = false } = {}){
+  // Se llamaba con un objeto de opciones cuando sólo había una tasa; las
+  // pantallas viejas siguen haciéndolo y no tienen por qué romperse.
+  if (moneda && typeof moneda === 'object') { forzar = moneda.forzar; moneda = MONEDA_BASE; }
+  const llave = `${CLAVE_TASA}:${moneda}`;
   if (!forzar) {
     try {
-      const c = JSON.parse(sessionStorage.getItem(CLAVE_TASA) || 'null');
+      const c = JSON.parse(sessionStorage.getItem(llave) || 'null');
       if (c && Date.now() - c.en < VIDA_TASA_MS) return c.tasa;
     } catch { /* si el guardado está corrupto, se pide de nuevo */ }
   }
-  const { data, error } = await sb.rpc('cem_tasa_vigente');
+  const { data, error } = await sb.rpc('cem_tasa_vigente', { p_moneda: moneda });
   if (error) return null;
   const t = Array.isArray(data) ? data[0] : data;
   const tasa = t && t.valor ? t : null;
-  try { sessionStorage.setItem(CLAVE_TASA, JSON.stringify({ en: Date.now(), tasa })); } catch {}
+  try { sessionStorage.setItem(llave, JSON.stringify({ en: Date.now(), tasa })); } catch {}
   return tasa;
 }
 
-/** Borra la tasa guardada. Llamar después de cargar una tasa nueva a mano. */
-export function olvidarTasa(){ try { sessionStorage.removeItem(CLAVE_TASA); } catch {} }
+/** Borra las tasas guardadas. Llamar después de cargar una nueva a mano. */
+export function olvidarTasa(){
+  try { ['EUR','USD'].forEach(m => sessionStorage.removeItem(`${CLAVE_TASA}:${m}`)); } catch {}
+}
+
+/* ============ cómo salda cada forma de pago ============
+   La regla vive en la base (`cem_metodos_pago`) y no en el código, porque
+   «el efectivo se recibe a la par del euro» es una decisión comercial que
+   puede cambiar un martes y no debería exigir publicar la plataforma.
+
+   Lo de aquí abajo es SÓLO para enseñar el equivalente mientras alguien
+   escribe. Lo que vale es lo que calcula el servidor al guardar el pago: si
+   los dos números difirieran, manda el del servidor. */
+let _metodos = null;
+export async function metodosDePago({ forzar = false } = {}){
+  if (_metodos && !forzar) return _metodos;
+  const { data } = await sb.from('cem_metodos_pago')
+    .select('*').eq('activo', true).order('orden');
+  _metodos = data || [];
+  return _metodos;
+}
+
+/**
+ * El equivalente en euros de lo que alguien está escribiendo.
+ * Devuelve `null` cuando falta la tasa: sin ella no se inventa un número.
+ */
+export function equivalenteEnBase(monto, metodo, tasas = {}) {
+  const m = (_metodos || []).find(x => x.metodo === metodo);
+  const v = Number(monto) || 0;
+  if (!m || v <= 0) return null;
+  if (m.regla === 'directo' || m.regla === 'uno_a_uno') {
+    return { base: Math.round(v * 100) / 100, tasa: 1, moneda: m.moneda, regla: m.regla };
+  }
+  const t = Number(tasas[m.tasa_moneda]?.valor || tasas[m.tasa_moneda] || 0);
+  if (!(t > 0)) return null;
+  return { base: Math.round((v / t) * 100) / 100, tasa: t, moneda: m.moneda, regla: m.regla };
+}
+
+/** La frase que explica la conversión, en castellano y sin jerga. */
+export function explicaConversion(monto, metodo, tasas = {}) {
+  const r = equivalenteEnBase(monto, metodo, tasas);
+  const m = (_metodos || []).find(x => x.metodo === metodo);
+  if (!m) return '';
+  if (!r) {
+    return m.regla === 'tasa_bcv'
+      ? `Falta cargar la tasa BCV del ${m.tasa_moneda === 'EUR' ? 'euro' : 'dólar'}: sin ella no se puede convertir.`
+      : '';
+  }
+  if (r.regla === 'directo') return '';
+  if (r.regla === 'uno_a_uno') {
+    return `Salda ${money(r.base)} — el efectivo en dólares se recibe a la par del euro.`;
+  }
+  return `Salda ${money(r.base)} a la tasa BCV del euro (${num(r.tasa)} Bs).`;
+}
 
 /* ============ listas largas ============
    Ninguna pantalla paginaba: traían la tabla entera y la dibujaban completa.

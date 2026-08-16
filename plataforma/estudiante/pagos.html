@@ -70,15 +70,28 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, modal,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
+         metodosDePago, explicaConversion, MONEDA_BASE,
          imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-18';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
 
+/* Las dos tasas del BCV y las formas de pago con su regla. Se piden una vez:
+   con esto la pantalla puede decir «esto salda X euros» mientras se escribe,
+   sin ir al servidor en cada tecla. El número que vale, de todas formas, es el
+   que calcula el servidor al guardar. */
+let METODOS = [], TASAS = {};
+const NOMBRE_MONEDA = { EUR:'euros', USD:'dólares', VES:'bolívares' };
+
 if (p) cargar();
 
 async function cargar(){
-  tasa = await tasaVigente();
+  const [eur, usd, mets] = await Promise.all([
+    tasaVigente('EUR'), tasaVigente('USD'), metodosDePago(),
+  ]);
+  TASAS = { EUR: eur, USD: usd };
+  METODOS = mets;
+  tasa = eur;
   renderAvisoTasa();
 
   // RLS ya limita esto a las inscripciones propias: no hace falta filtrar por perfil aquí.
@@ -95,8 +108,9 @@ async function cargar(){
 
 function renderAvisoTasa(){
   $('#avisoTasa').innerHTML = tasa
-    ? `<p class="tiny muted">Tasa del día: <b>${esc(String(tasa.valor))} Bs por dólar</b>
-       (${esc(String(tasa.fecha))}). Si pagas en bolívares, el sistema hace la conversión con esta tasa.</p>`
+    ? `<p class="tiny muted">Tus cuotas están en <b>euros</b>. Si pagas en bolívares se convierten
+       a la tasa BCV del euro, hoy <b>${esc(String(tasa.valor))} Bs</b> (${esc(String(tasa.fecha))});
+       si pagas en efectivo en dólares, se reciben <b>a la par del euro</b>.</p>`
     : `<div class="chip warn">Todavía no hay una tasa del día cargada. Si tu cuota está en dólares y quieres
        pagar en bolívares, escríbenos antes para confirmarte el monto exacto.</div>`;
 }
@@ -106,7 +120,7 @@ function renderKpis(){
   const deuda = pend.reduce((a, c) => a + Number(c.saldo ?? c.monto ?? 0), 0);
   const vencidas = pend.filter(c => c.fecha_vencimiento && new Date(c.fecha_vencimiento) < new Date());
   const enRevision = pagos.filter(x => x.estado === 'reportado').length;
-  const moneda = pend[0]?.moneda || 'USD';
+  const moneda = pend[0]?.moneda || MONEDA_BASE;
   $('#kpis').innerHTML = [
     kpi('Por pagar', money(deuda, moneda), 'account_balance_wallet', `${pend.length} cuota(s) pendiente(s)`),
     kpi('Vencidas', num(vencidas.length), 'event_busy', vencidas.length ? 'ponte al día cuanto antes' : 'ninguna vencida'),
@@ -125,14 +139,14 @@ function renderCuotas(){
     // En una cuota saldada el saldo es cero: mostrar "0,00" como cifra
     // principal confundiría, así que ahí se enseña lo que costó.
     const destacado = pagada ? Number(c.monto ?? 0) : saldo;
-    const eqBs = (!pagada && tasa && (c.moneda || 'USD') !== 'VES')
+    const eqBs = (!pagada && tasa && (c.moneda || MONEDA_BASE) !== 'VES')
       ? `<div class="cuota-eq">≈ ${money(destacado * Number(tasa.valor), 'VES')} a la tasa de hoy</div>` : '';
     const parcial = !pagada && Number(c.monto ?? 0) > saldo
-      ? `<div class="cuota-eq">Ya abonaste ${money(Number(c.monto) - saldo, c.moneda || 'USD')} de ${money(c.monto, c.moneda || 'USD')}</div>` : '';
+      ? `<div class="cuota-eq">Ya abonaste ${money(Number(c.monto) - saldo, c.moneda || MONEDA_BASE)} de ${money(c.monto, c.moneda || MONEDA_BASE)}</div>` : '';
     return `<div class="cuota ${pagada ? 'pagada' : ''} ${vencida ? 'vencida' : ''}">
       <div>
         <div class="s">${esc(c.cem_enrollments?.cem_courses?.nombre || 'Inscripción')} · cuota ${esc(String(c.numero ?? ''))}</div>
-        <div class="cuota-monto">${money(destacado, c.moneda || 'USD')}</div>
+        <div class="cuota-monto">${money(destacado, c.moneda || MONEDA_BASE)}</div>
         ${pagada ? '<div class="cuota-eq">Sin saldo pendiente</div>' : eqBs + parcial}
         <div class="tiny muted">Vence el ${fdate(c.fecha_vencimiento)}</div>
       </div>
@@ -152,8 +166,8 @@ function renderPagos(){
   $('#tbPagos').innerHTML = pagos.length ? pagos.map(x => `<tr>
     <td class="tiny muted">${fdate(x.fecha)}</td>
     <td><b>${esc(x.referencia || '—')}</b><div class="tiny muted">${esc(x.metodo || '')}</div></td>
-    <td class="num">${money(x.monto, x.moneda)}${x.moneda !== 'USD' && x.monto_base
-        ? `<div class="tiny muted">= ${money(x.monto_base, 'USD')}</div>` : ''}</td>
+    <td class="num">${money(x.monto, x.moneda)}${x.moneda !== MONEDA_BASE && x.monto_base
+        ? `<div class="tiny muted">= ${money(x.monto_base)}</div>` : ''}</td>
     <td>${chip(
         x.estado === 'confirmado' ? 'aprobado' : x.estado === 'rechazado' ? 'rechazado' : 'en revisión',
         x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}</td>
@@ -173,7 +187,7 @@ function renderPagos(){
     const total = aprobados.reduce((a, x) => a + Number(x.monto_base ?? x.monto ?? 0), 0);
     tabla.insertAdjacentHTML('beforeend', filaTotales([
       `Aprobado hasta ahora (${aprobados.length} de ${pagos.length} pagos)`, '',
-      { num:true, html: money(total, 'USD') }, '', '', '']));
+      { num:true, html: money(total) }, '', '', '']));
   }
 
   $$('[data-recibo]').forEach(b => b.onclick = () => descargarRecibo(b.dataset.recibo));
@@ -193,26 +207,19 @@ function renderPagos(){
 function abrirReporte(c){
   if(!c) return;
   const saldo = Number(c.saldo ?? c.monto ?? 0);
-  const monedaCuota = c.moneda || 'USD';
+  const monedaCuota = c.moneda || MONEDA_BASE;
   const m = modal({ title:`Reportar un pago — cuota ${c.numero ?? ''}`, body:`
     <p class="tiny muted">Debes <b>${money(saldo, monedaCuota)}</b>${tasa && monedaCuota !== 'VES'
       ? ` (≈ ${money(saldo * Number(tasa.valor), 'VES')} a la tasa de hoy)` : ''}.
       Puedes abonar una parte: se descuenta de tu saldo.</p>
-    <div class="field"><label>¿En qué moneda pagaste?</label>
-      <select id="rMoneda">
-        <option value="VES">Bolívares (Bs)</option>
-        <option value="USD" ${monedaCuota === 'USD' ? 'selected' : ''}>Dólares (USD)</option>
-      </select></div>
-    <div class="field"><label>Monto que pagaste</label>
+    <div class="field"><label>¿Cómo pagaste?</label>
+      <select id="rMetodo">${METODOS.map(m =>
+        `<option value="${esc(m.metodo)}">${esc(m.metodo)} — ${esc(NOMBRE_MONEDA[m.moneda] || m.moneda)}</option>`).join('')}</select></div>
+    <div class="field"><label>Monto que pagaste <span id="rUnidad" class="tiny muted"></span></label>
       <input type="number" step="0.01" min="0.01" id="rMonto" placeholder="0,00"></div>
     <div id="rEquivalente" class="tiny muted"></div>
     <div class="field"><label>Número de referencia</label>
       <input id="rRef" placeholder="Los últimos dígitos que te dio el banco" maxlength="40"></div>
-    <div class="field"><label>¿Cómo pagaste?</label>
-      <select id="rMetodo">
-        <option>Pago móvil</option><option>Transferencia bancaria</option>
-        <option>Depósito</option><option>Zelle</option><option>Efectivo</option><option>Otro</option>
-      </select></div>
     <div class="field"><label>Fecha del pago</label>
       <input type="date" id="rFecha" value="${new Date().toISOString().slice(0,10)}"></div>
     <div class="field"><label>Comprobante (captura o PDF) — opcional pero ayuda mucho</label>
@@ -223,15 +230,17 @@ function abrirReporte(c){
     footer:`<button class="btn outline" data-x>Cancelar</button>
             <button class="btn" id="rEnviar">Reportar pago</button>` });
 
+  /* La forma de pago decide la moneda y la tasa. Antes eran dos campos y se
+     podían contradecir —«dólares» con «pago móvil»—, y entonces la conversión
+     dependía de cuál de los dos mirara el servidor. */
   const calcEq = () => {
-    const v = Number($('#rMonto').value || 0);
-    const mon = $('#rMoneda').value;
-    $('#rEquivalente').textContent = (v > 0 && tasa && mon !== monedaCuota)
-      ? (mon === 'VES' ? `Equivale a ${money(v / Number(tasa.valor), monedaCuota)} a la tasa de hoy.`
-                       : `Equivale a ${money(v * Number(tasa.valor), 'VES')} a la tasa de hoy.`)
-      : '';
+    const metodo = $('#rMetodo').value;
+    const m = METODOS.find(x => x.metodo === metodo);
+    $('#rUnidad').textContent = m ? `(en ${NOMBRE_MONEDA[m.moneda] || m.moneda})` : '';
+    $('#rEquivalente').textContent = explicaConversion($('#rMonto').value, metodo, TASAS);
   };
-  $('#rMonto').oninput = calcEq; $('#rMoneda').onchange = calcEq;
+  $('#rMonto').oninput = calcEq; $('#rMetodo').onchange = calcEq;
+  calcEq();
   mejorarSelects();
 
   $('#rEnviar').onclick = () => ocupado('#rEnviar', 'Enviando…', async () => {
@@ -251,7 +260,7 @@ function abrirReporte(c){
       const { error } = await sb.rpc('cem_reportar_pago', {
         p_installment_id: c.id,
         p_monto: monto,
-        p_moneda: $('#rMoneda').value,
+        p_moneda: null,   // la deduce el servidor a partir del método
         p_referencia: ref,
         p_metodo: $('#rMetodo').value,
         p_fecha: fechaISO,
@@ -328,8 +337,8 @@ async function imprimirEstadoDeCuenta(enrollmentId){
       <th class="num">Monto</th></tr></thead><tbody>
       ${d.pagos.map(x => `<tr><td>${esc(x.fecha)}</td><td>${esc(x.referencia || '—')}</td>
         <td>${esc(x.metodo || '—')}</td>
-        <td class="num">${money(x.monto, x.moneda)}${x.moneda !== 'USD' && x.monto_base
-          ? `<div style="font-size:11px;color:#7A756B">= ${money(x.monto_base, 'USD')}</div>` : ''}</td></tr>`).join('')}
+        <td class="num">${money(x.monto, x.moneda)}${x.moneda !== MONEDA_BASE && x.monto_base
+          ? `<div style="font-size:11px;color:#7A756B">= ${money(x.monto_base)}</div>` : ''}</td></tr>`).join('')}
       </tbody></table>` : '<p style="color:#7A756B">Todavía no hay pagos registrados.</p>'}
 
     <h2>Resumen</h2>
@@ -372,7 +381,7 @@ async function descargarRecibo(paymentId){
       <tr><td>Forma de pago</td><td class="num">${esc(r.metodo || '—')}</td></tr>
       <tr><td>Referencia</td><td class="num">${esc(r.referencia || '—')}</td></tr>
       ${r.moneda !== 'USD' && r.tasa
-        ? `<tr><td>Tasa aplicada</td><td class="num">${num(r.tasa)} Bs/US$</td></tr>` : ''}
+        ? `<tr><td>Tasa aplicada</td><td class="num">${num(r.tasa)} Bs/€</td></tr>` : ''}
     </tbody></table>
 
     <div class="tot fuerte sep">
@@ -380,7 +389,7 @@ async function descargarRecibo(paymentId){
       <span>${money(r.monto, r.moneda)}</span></div>
     ${r.moneda !== 'USD' && r.monto_base
       ? `<div class="tot" style="color:#7A756B"><span>Equivalente</span>
-           <span>${money(r.monto_base, 'USD')}</span></div>` : ''}
+           <span>${money(r.monto_base)}</span></div>` : ''}
 
     <div class="pie">
       Comprobante emitido automáticamente por la plataforma de CEM International.

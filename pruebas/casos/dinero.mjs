@@ -17,11 +17,25 @@ export default async function correr(navegador) {
   a.comprobar((await A.locator('#tasaActual').textContent()).length > 0,
     'La bandeja muestra la tasa vigente');
 
-  await A.fill('#inpTasa', '45.75');
+  /* Son dos tasas y hacen cosas distintas: la del EURO convierte los bolívares
+     que entran —es la que cobra— y la del DÓLAR es de referencia. Si se
+     confundieran, cada pago en bolívares se cobraría con el número equivocado
+     y nadie lo notaría hasta cuadrar el mes. */
+  await A.fill('#inpTasa', '48.90');
   await A.click('#btnTasa');
   await A.waitForTimeout(2000);
-  a.comprobar((await A.locator('#tasaActual').textContent()).includes('45.75'),
-    'El equipo puede cargar la tasa del día a mano');
+  a.comprobar((await A.locator('#tasaActual').textContent()).includes('48.9'),
+    'El equipo puede cargar la tasa del euro a mano');
+
+  await A.fill('#inpTasaUsd', '45.75');
+  await A.click('#btnTasaUsd');
+  await A.waitForTimeout(2000);
+  const dosTasas = await A.evaluate(() => ({
+    eur: document.querySelector('#tasaActual').textContent,
+    usd: document.querySelector('#tasaActualUsd').textContent,
+  }));
+  a.comprobar(/48\.9/.test(dosTasas.eur) && /45\.75/.test(dosTasas.usd),
+    `Y la del dólar por separado, sin pisar la del euro (${dosTasas.eur.trim()} · ${dosTasas.usd.trim()})`);
 
   /* ============ el estudiante reporta un pago ============ */
   const E = await nuevaPestana(navegador, { ancho: 1300 });
@@ -46,11 +60,27 @@ export default async function correr(navegador) {
   if (porReportar) {
     await E.locator('[data-reportar]').first().click();
     await E.waitForSelector('#rMonto', { timeout: 10000 });
-    await E.selectOption('#rMoneda', 'VES');
+
+    /* La forma de pago decide la moneda y la tasa: ya no hay un desplegable de
+       moneda que pueda contradecirla. Se comprueban las dos reglas de la casa,
+       que son lo que de verdad cobra. */
+    await E.selectOption('#rMetodo', 'Pago móvil');
+    await E.fill('#rMonto', '4890');
+    await E.waitForTimeout(700);
+    const enBolivares = await E.locator('#rEquivalente').textContent();
+    a.comprobar(/100,00\s*€/.test(enBolivares) && /48,9/.test(enBolivares),
+      `Bolívares: 4.890 Bs se convierten a 100 € con la tasa BCV del euro (${enBolivares.trim()})`);
+
+    await E.selectOption('#rMetodo', 'Efectivo');
+    await E.fill('#rMonto', '100');
+    await E.waitForTimeout(700);
+    const enEfectivo = await E.locator('#rEquivalente').textContent();
+    a.comprobar(/100,00\s*€/.test(enEfectivo) && /par/i.test(enEfectivo),
+      `Efectivo: 100 US$ saldan 100 € — a la par, sin tasa (${enEfectivo.trim()})`);
+
+    await E.selectOption('#rMetodo', 'Pago móvil');
     await E.fill('#rMonto', '4575');
     await E.waitForTimeout(700);
-    a.comprobar(/100/.test(await E.locator('#rEquivalente').textContent()),
-      'Calcula el equivalente en dólares en vivo con la tasa cargada');
 
     // Sin referencia no se envía: es el dato con el que se verifica en el banco.
     await E.fill('#rRef', '');
@@ -215,6 +245,62 @@ export default async function correr(navegador) {
       'Y dice cuánto se abonó, en cuántos pagos y cuánto queda debiendo');
     await A.keyboard.press('Escape');
   }
+
+  /* ============ las carteras ============
+     Lo que importa comprobar aquí es la regla que sostiene todo el módulo: el
+     saldo NO está guardado en ninguna columna, se calcula sumando movimientos.
+     Así que si se mueve dinero, el saldo tiene que cambiar solo —sin que nadie
+     recalcule nada— y volver atrás al mandar el movimiento a la papelera. */
+  await A.goto(`${BASE}/plataforma/admin/carteras.html`, { waitUntil: 'domcontentloaded' });
+  await A.waitForSelector('.bolsillo', { timeout: 25000 });
+  await A.waitForTimeout(1500);
+
+  const bolsillos = await A.locator('.bolsillo').count();
+  a.comprobar(bolsillos >= 3, `Hay una tarjeta por cartera con su saldo (${bolsillos})`);
+
+  const leerSaldo = () => A.evaluate(() => {
+    const b = [...document.querySelectorAll('.bolsillo')]
+      .find((x) => x.dataset.cartera === 'efectivo_usd');
+    return b ? b.querySelector('.cifra').textContent : '';
+  });
+  const antes = await leerSaldo();
+
+  // Un ajuste: la salida de emergencia para cuadrar con lo que hay de verdad.
+  await A.click('#btnAjuste');
+  await A.waitForSelector('#cMontoD', { timeout: 10000 });
+  await A.selectOption('#cDestino', 'efectivo_usd');
+  await A.fill('#cMontoD', '25');
+  await A.click('#cGo');
+  await A.waitForTimeout(1200);
+  a.comprobar(await A.locator('#cMsg .nota').count() > 0,
+    'Un ajuste sin explicar por qué se hace no se deja guardar');
+
+  await A.fill('#cNota', 'Prueba automática: al contar la caja sobraban 25.');
+  await A.click('#cGo');
+  await A.waitForTimeout(3000);
+  const despues = await leerSaldo();
+  a.comprobar(antes !== despues && /25/.test(despues.replace(/\./g, '')),
+    `El saldo se recalcula solo al registrar el movimiento (${antes.trim()} → ${despues.trim()})`);
+
+  // Y el historial dice de qué está hecho: sin eso, un saldo que no cuadra no
+  // se puede investigar.
+  await A.locator('[data-cartera="efectivo_usd"]').click();
+  await A.waitForSelector('#hist', { timeout: 10000 });
+  await A.waitForTimeout(1500);
+  const historial = await A.locator('#hist').textContent();
+  a.comprobar(/Ajuste/.test(historial) && /sobraban 25/.test(historial),
+    'Y el historial explica cada línea del saldo, con su motivo');
+  await A.locator('.modal [data-x]').first().click();
+  await A.waitForTimeout(600);
+
+  // A la papelera: el saldo vuelve atrás y el movimiento se puede recuperar.
+  await A.locator('#tbConv [data-borrar]').first().click();
+  await A.waitForSelector('[data-borrar]:not(#tbConv [data-borrar])', { timeout: 10000 }).catch(() => {});
+  await A.locator('.modal [data-borrar]').click();
+  await A.waitForTimeout(3000);
+  const vuelto = await leerSaldo();
+  a.comprobar(vuelto === antes,
+    `Mandarlo a la papelera devuelve el saldo a como estaba (${vuelto.trim()})`);
 
   a.comprobar(A.errores.length === 0,
     `La bandeja de pagos no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);

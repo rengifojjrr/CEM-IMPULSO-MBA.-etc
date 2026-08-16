@@ -64,7 +64,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, num, fdate, fdatetime, emptyRow, ok, fail,
+import { sb, mount, MONEDA_BASE, $, $$, esc, money, num, fdate, fdatetime, emptyRow, ok, fail,
          mensajeError, etiqueta, toCSV, download, ayuda, montarAyudas,
          filaTotales } from '../assets/app.js?v=2026-08-18';
 
@@ -100,17 +100,17 @@ async function cargar(){
      «cobrado» parecen lo mismo y no cuadran nunca. */
   const cobrado = Number(cierre.cobrado), facturado = Number(cierre.facturado);
   $('#cuadros').innerHTML = [
-    { c:'', t:'Se facturó', n: money(facturado, 'USD'),
+    { c:'', t:'Se facturó', n: money(facturado),
       q: `${num(cierre.cuotas)} cuota(s) con vencimiento en el mes`,
       a: 'Suma de las cuotas cuya fecha de vencimiento cae dentro del mes, se hayan cobrado o no. Es lo que había que cobrar.' },
-    { c:'entra', t:'Entró', n: money(cobrado, 'USD'),
+    { c:'entra', t:'Entró', n: money(cobrado),
       q: `${num(cierre.pagos)} pago(s) aprobado(s)` +
          (facturado > 0 ? ` · ${Math.round(100 * cobrado / facturado)}% de lo facturado` : ''),
       a: 'Pagos aprobados con fecha del mes, convertidos a dólares con la tasa de cada pago. Puede incluir cuotas de meses anteriores que se pusieron al día.' },
-    { c:'debe', t:'Quedó debiéndose', n: money(Number(cierre.vencido), 'USD'),
+    { c:'debe', t:'Quedó debiéndose', n: money(Number(cierre.vencido)),
       q: `${num(cierre.cuotas_vencidas)} cuota(s) vencida(s) sin pagar`,
       a: 'De las cuotas que vencían este mes, lo que a día de hoy sigue sin pagarse. Es lo que hay que salir a cobrar.' },
-    { c:'', t:'Por revisar', n: money(Number(cierre.por_revisar), 'USD'),
+    { c:'', t:'Por revisar', n: money(Number(cierre.por_revisar)),
       q: `${num(cierre.pagos_por_revisar)} pago(s) sin verificar`,
       a: 'Pagos que los estudiantes reportaron este mes y nadie ha aprobado ni rechazado todavía. Ni entraron ni dejaron de entrar: al verificarlos se moverán a una de las otras cifras.' },
   ].map(x => `<div class="cuadro ${x.c}">
@@ -132,12 +132,12 @@ function pintarCobrado(){
     <td class="wrap">${esc(x.programa || '—')}</td>
     <td>${esc(etiqueta(x.metodo || '—'))}</td>
     <td class="tiny">${esc(x.referencia || '—')}</td>
-    <td class="num">${money(x.monto, x.moneda || 'USD')}
-      ${x.moneda && x.moneda !== 'USD' && x.tasa ? `<div class="tiny muted">a ${esc(String(x.tasa))} Bs/US$</div>` : ''}</td>
-    <td class="num"><b>${money(x.en_dolares, 'USD')}</b></td></tr>`).join('')
+    <td class="num">${money(x.monto, x.moneda || MONEDA_BASE)}
+      ${x.moneda && x.moneda !== MONEDA_BASE && x.tasa ? `<div class="tiny muted">a ${esc(String(x.tasa))} Bs/€</div>` : ''}</td>
+    <td class="num"><b>${money(x.en_dolares)}</b></td></tr>`).join('')
     : emptyRow(7, 'Ningún pago aprobado en este mes.');
   ponerTotales('#tbCobrado', ['Totales', '', '', '', '',
-    '', { num:true, html: money(filas.reduce((a,x) => a + Number(x.en_dolares || 0), 0), 'USD') }]);
+    '', { num:true, html: money(filas.reduce((a,x) => a + Number(x.en_dolares || 0), 0)) }]);
 }
 
 function pintarVencido(){
@@ -148,10 +148,10 @@ function pintarVencido(){
     <td class="num">${x.cuota}</td>
     <td>${fdate(x.vence)}</td>
     <td class="num">${num(x.dias_mora)} día(s)</td>
-    <td class="num"><b>${money(x.debe, x.moneda || 'USD')}</b></td></tr>`).join('')
+    <td class="num"><b>${money(x.debe, x.moneda || MONEDA_BASE)}</b></td></tr>`).join('')
     : emptyRow(6, 'Nada venció sin pagarse este mes. Cobranza al día.');
   ponerTotales('#tbVencido', ['Totales', '', '', '', '',
-    { num:true, html: money(filas.reduce((a,x) => a + Number(x.debe || 0), 0), 'USD') }]);
+    { num:true, html: money(filas.reduce((a,x) => a + Number(x.debe || 0), 0)) }]);
 }
 
 /** La fila de totales vive en el <tfoot>, para que no se mezcle con los datos. */

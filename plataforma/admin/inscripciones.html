@@ -49,7 +49,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, money, num, fdate, fdateCorta, fdatetime, emptyRow, match, kpi, modal, ok, fail,
+import { sb, mount, MONEDA_BASE, $, $$, esc, chip, money, num, fdate, fdateCorta, fdatetime, emptyRow, match, kpi, modal, ok, fail,
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
          ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion } from '../assets/app.js?v=2026-08-18';
@@ -321,8 +321,8 @@ async function historia(i){
 
   modal({ title:`Cuota ${i.numero} · ${e?.cem_profiles?.nombre||''} ${e?.cem_profiles?.apellido||''}`.trim(), wide:true, body:`
     <div class="row" style="gap:18px;flex-wrap:wrap;margin-bottom:12px">
-      <div><div class="tiny muted">De</div><div class="t"><b>${money(i.monto, i.moneda||'USD')}</b></div></div>
-      <div><div class="tiny muted">Abonado</div><div class="t"><b>${money(abonado,'USD')}</b>
+      <div><div class="tiny muted">De</div><div class="t"><b>${money(i.monto, i.moneda || MONEDA_BASE)}</b></div></div>
+      <div><div class="tiny muted">Abonado</div><div class="t"><b>${money(abonado)}</b>
         <span class="tiny muted">en ${suyos.filter(x=>x.estado==='confirmado').length} pago(s)</span></div></div>
       <div><div class="tiny muted">Queda debiendo</div><div class="t">${saldo(i.saldo)}</div></div>
       <div><div class="tiny muted">Vence</div><div class="t">${fdate(i.fecha_vencimiento)}</div></div>
@@ -356,7 +356,7 @@ function pagar(i){
 
   const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
     <p class="tiny muted" style="margin:-4px 0 12px">
-      Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda||'USD'))}</b></p>
+      Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda || MONEDA_BASE))}</b></p>
     <div class="row"><div class="field medio"><label>Monto *</label>
       <input type="number" step="0.01" id="pMonto" value="${saldoCuota}" required>
       <div class="tiny" id="pAviso"></div></div>
@@ -380,9 +380,9 @@ function pagar(i){
     aviso.className = 'tiny';
     if (v > saldoCuota * 2 && saldoCuota > 0) {
       aviso.className = 'tiny err-text';
-      aviso.textContent = `Es más del doble del saldo (${money(saldoCuota, i.moneda||'USD')}). Comprueba la cifra.`;
+      aviso.textContent = `Es más del doble del saldo (${money(saldoCuota, i.moneda || MONEDA_BASE)}). Comprueba la cifra.`;
     } else if (v > 0 && v < saldoCuota) {
-      aviso.textContent = `Abono parcial: quedarían ${money(saldoCuota - v, i.moneda||'USD')}.`;
+      aviso.textContent = `Abono parcial: quedarían ${money(saldoCuota - v, i.moneda || MONEDA_BASE)}.`;
     } else aviso.textContent = '';
   });
 
@@ -398,7 +398,7 @@ function pagar(i){
        registró en la fila equivocada, esto es lo que lo delata. */
     const e = ens.find(x => x.id === i.enrollment_id);
     const quien = `${e?.cem_profiles?.nombre||''} ${e?.cem_profiles?.apellido||''}`.trim();
-    ok(`Pago de ${money(v, i.moneda||'USD')} registrado a ${quien || 'el estudiante'} en la cuota ${i.numero}.`);
+    ok(`Pago de ${money(v, i.moneda || MONEDA_BASE)} registrado a ${quien || 'el estudiante'} en la cuota ${i.numero}.`);
     load();
   };
 }

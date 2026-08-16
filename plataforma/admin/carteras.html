@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Carteras</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-18">
+<style>
+  /* Una tarjeta por bolsillo, con el saldo grande: es la única pregunta que
+     esta pantalla contesta, así que es lo único que se lee de lejos. */
+  .bolsillos{display:grid;gap:var(--aire);
+    grid-template-columns:repeat(auto-fill,minmax(230px,1fr));}
+  .bolsillo{text-align:left;cursor:pointer;font:inherit;color:inherit;
+    padding:var(--e3);border:1px solid var(--filete);border-radius:var(--r);
+    background:var(--papel);transition:border-color var(--rapido);}
+  .bolsillo:hover{border-color:var(--filete-fuerte);}
+  .bolsillo .nom{font-size:var(--t-xs);color:var(--tinta-2);}
+  .bolsillo .cifra{font-family:var(--cifra);font-variant-numeric:tabular-nums;
+    font-size:var(--t-xl);font-weight:var(--peso-fuerte);letter-spacing:-.025em;
+    line-height:1.15;margin:var(--e0) 0 2px;overflow-wrap:anywhere;}
+  .bolsillo .pie{font-size:var(--t-xs);color:var(--tinta-3);}
+  .bolsillo .cifra.negativo{color:var(--error);}
+  /* Un saldo al que le faltan datos se marca: vale más avisar que fingir. */
+  .bolsillo.estimado{border-style:dashed;}
+  .linea-mov{display:flex;justify-content:space-between;gap:var(--e2);
+    padding:var(--e1) 0;border-bottom:1px solid var(--filete);}
+  .linea-mov:last-child{border-bottom:0;}
+  .linea-mov .cuanto{font-family:var(--cifra);font-variant-numeric:tabular-nums;
+    font-weight:var(--peso-fuerte);white-space:nowrap;}
+  .linea-mov .cuanto.sale{color:var(--error);}
+  .tasa-implicita{font-size:var(--t-xs);color:var(--tinta-2);min-height:1.2em;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Carteras <button type="button" class="ayuda-btn" data-ayuda="Cada bolsillo donde hay dinero: la caja, la cuenta del banco, Zelle. Ningún saldo está guardado en la base: se calcula sumando los movimientos cada vez que abres esta pantalla, así que siempre se puede auditar de qué está hecho.">?</button></h1></div>
+    <div class="actions">
+      <button class="btn outline" id="btnAjuste">
+        <span class="material-symbols-outlined">balance</span> Cuadrar una cartera</button>
+      <button class="btn outline" id="btnGasto">
+        <span class="material-symbols-outlined">receipt_long</span> Registrar un gasto</button>
+      <button class="btn" id="btnMover">
+        <span class="material-symbols-outlined">swap_horiz</span> Mover dinero</button>
+    </div>
+  </div>
+
+  <div class="bolsillos" id="bolsillos"></div>
+
+  <div class="card sep" id="cardTransito" hidden>
+    <h2 class="sec">En tránsito <button type="button" class="ayuda-btn" data-ayuda="Dinero que ya entregaste y todavía no ha llegado al otro lado. Ya está descontado de la cartera de origen —no lo tienes— y no se suma a la de destino hasta que confirmes que llegó.">?</button></h2>
+    <div class="list" id="transito"></div>
+  </div>
+
+  <div class="card sep" id="cardSueltos" hidden>
+    <h2 class="sec">Sin clasificar</h2>
+    <p class="tiny muted sin-margen">Dinero real que no suma a ningún saldo porque no dice en qué
+      bolsillo cayó. No se adivina: vale más un saldo incompleto que uno inventado. Asígnalo tú.</p>
+    <div class="table-wrap sep-poco"><table>
+      <thead><tr><th>Fecha</th><th>Referencia</th><th class="num">Monto</th><th>Por qué</th><th></th></tr></thead>
+      <tbody id="sueltos"></tbody></table></div>
+  </div>
+
+  <div class="card sep">
+    <div class="row between">
+      <h2 class="sec">Movimientos entre carteras</h2>
+      <label class="tiny muted row" style="gap:6px">
+        <input type="checkbox" id="verPapelera"> Ver la papelera</label>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Fecha</th><th>De</th><th class="num">Salió</th><th>A</th>
+        <th class="num">Llegó</th><th class="num">Tasa</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tbConv"></tbody></table></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, num, money, fdate, emptyRow, modal, ok, fail, run,
+         mensajeError, avisar, ocupado, montarAyudas, confirmarBorrado, cargarEn,
+         mejorarSelects, chip, MONEDA_BASE } from '../assets/app.js?v=2026-08-18';
+
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'carteras.html', area:'admin' });
+const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
+
+let carteras = [], estado = null, conversiones = [];
+
+if (p) cargar();
+
+/* El saldo se pide al servidor cada vez. No hay copia local ni caché: el día
+   que hubiera una, sería otro número más al que creerle o no. */
+async function cargar(){
+  const [{ data: cs }, { data: est }] = await Promise.all([
+    sb.from('cem_carteras').select('*').eq('activa', true).order('orden'),
+    sb.rpc('cem_carteras_saldos'),
+  ]);
+  carteras = cs || [];
+  estado = est || { saldos: [], pendientes: [], sin_clasificar: [] };
+  pintarBolsillos(); pintarTransito(); pintarSueltos();
+  await cargarConversiones();
+}
+
+const enSuMoneda = (n, moneda) => money(n, moneda || MONEDA_BASE);
+
+function pintarBolsillos(){
+  const sueltosPorMoneda = new Set((estado.sin_clasificar || []).map(x => x.moneda));
+  $('#bolsillos').innerHTML = (estado.saldos || []).map(s => {
+    // Si hay dinero sin clasificar en su misma moneda, este saldo podría estar
+    // incompleto. Se dice, no se disimula.
+    const dudoso = sueltosPorMoneda.has(s.moneda);
+    return `<button type="button" class="bolsillo${dudoso ? ' estimado' : ''}" data-cartera="${esc(s.id)}">
+      <div class="nom">${esc(s.nombre)}</div>
+      <div class="cifra${Number(s.saldo) < 0 ? ' negativo' : ''}">${esc(enSuMoneda(s.saldo, s.moneda))}</div>
+      <div class="pie">${dudoso ? 'puede faltarle algo · ' : ''}toca para ver de qué está hecho</div>
+    </button>`;
+  }).join('') || '<p class="tiny muted">Todavía no hay carteras configuradas.</p>';
+  $$('[data-cartera]').forEach(b => b.onclick = () => verHistorial(b.dataset.cartera));
+}
+
+function pintarTransito(){
+  const t = estado.pendientes || [];
+  $('#cardTransito').hidden = !t.length;
+  $('#transito').innerHTML = t.map(x => `<div class="list-item">
+    <span class="material-symbols-outlined" style="color:var(--warn)">hourglass_top</span>
+    <div class="grow"><div class="t">${esc(enSuMoneda(x.monto_origen, x.moneda_origen))}
+      de ${esc(x.origen)} → ${esc(x.destino)}</div>
+      <div class="s">Salió el ${fdate(x.fecha)}. Esperando ${esc(enSuMoneda(x.monto_destino, x.moneda_destino))}.
+        ${x.nota ? esc(x.nota) : ''}</div></div>
+    ${puedeOperar ? `<button class="btn sm" data-llego="${esc(x.id)}">Ya llegó</button>` : ''}
+  </div>`).join('');
+  $$('[data-llego]').forEach(b => b.onclick = () => confirmarLlegada(b.dataset.llego));
+}
+
+function pintarSueltos(){
+  const s = estado.sin_clasificar || [];
+  $('#cardSueltos').hidden = !s.length;
+  $('#sueltos').innerHTML = s.length ? s.map(x => `<tr>
+    <td class="tiny muted">${fdate(x.fecha)}</td>
+    <td><code>${esc(x.referencia || '—')}</code>
+      <div class="tiny muted">${esc(x.metodo || x.clase)}</div></td>
+    <td class="num">${esc(enSuMoneda(x.monto, x.moneda))}</td>
+    <td class="tiny">${esc(x.porque)}</td>
+    <td class="nowrap">${puedeOperar && x.clase === 'pago'
+      ? `<button class="btn ghost sm" data-clasificar="${esc(x.id)}" data-moneda="${esc(x.moneda)}">Asignar cartera</button>` : ''}</td>
+  </tr>`).join('') : emptyRow(5, 'Todo el dinero está clasificado.');
+  $$('[data-clasificar]').forEach(b => b.onclick = () => clasificar(b.dataset.clasificar, b.dataset.moneda));
+}
+
+async function cargarConversiones(){
+  const verPapelera = $('#verPapelera').checked;
+  await cargarEn('#tbConv', () => {
+    let q = sb.from('cem_conversiones').select('*').order('fecha', { ascending: false }).limit(300);
+    if (!verPapelera) q = q.eq('eliminado', false);
+    return q;
+  }, (data) => { conversiones = data || []; pintarConversiones(); });
+}
+$('#verPapelera').onchange = cargarConversiones;
+
+const nombreCartera = (id) => carteras.find(c => c.id === id)?.nombre || '—';
+const monedaCartera = (id) => carteras.find(c => c.id === id)?.moneda || MONEDA_BASE;
+
+function pintarConversiones(){
+  $('#tbConv').innerHTML = conversiones.length ? conversiones.map(k => {
+    const ajuste = !k.cartera_origen;
+    return `<tr${k.eliminado ? ' class="anulado"' : ''}>
+      <td class="tiny muted">${fdate(k.fecha)}</td>
+      <td>${ajuste ? '<span class="muted">— ajuste —</span>' : esc(nombreCartera(k.cartera_origen))}</td>
+      <td class="num">${ajuste ? '—' : esc(enSuMoneda(k.monto_origen, monedaCartera(k.cartera_origen)))}</td>
+      <td>${esc(nombreCartera(k.cartera_destino))}</td>
+      <td class="num">${esc(enSuMoneda(k.monto_destino, monedaCartera(k.cartera_destino)))}</td>
+      <td class="num tiny muted">${k.tasa ? num(k.tasa) : '—'}</td>
+      <td>${k.eliminado ? chip('en la papelera','neutral')
+            : k.estado === 'pendiente' ? chip('en tránsito','warn') : chip('completada','ok')}
+        ${k.nota ? `<div class="tiny muted">${esc(k.nota)}</div>` : ''}</td>
+      <td class="nowrap"><span class="acciones">${puedeOperar ? (k.eliminado
+        ? `<button class="btn ghost sm" data-restaurar="${esc(k.id)}" title="Sacar de la papelera">
+             <span class="material-symbols-outlined">restore_from_trash</span></button>`
+        : `<button class="btn ghost sm" data-borrar="${esc(k.id)}" title="Mandar a la papelera" style="color:var(--error)">
+             <span class="material-symbols-outlined">delete</span></button>`) : ''}</span></td>
+    </tr>`;
+  }).join('') : emptyRow(8, 'Todavía no se ha movido dinero entre carteras.');
+
+  $$('[data-borrar]').forEach(b => b.onclick = () => borrar(b.dataset.borrar, true));
+  $$('[data-restaurar]').forEach(b => b.onclick = () => borrar(b.dataset.restaurar, false));
+}
+
+/* ============ de qué está hecho un saldo ============
+   Sin esto, cuando un número no cuadra no hay por dónde empezar y la gente
+   deja de creerle a la pantalla. */
+async function verHistorial(id){
+  const c = carteras.find(x => x.id === id);
+  const m = modal({ title:`${c?.nombre || 'Cartera'}`, wide:true,
+    body:`<p class="tiny muted">Cada línea es un movimiento real. El saldo es su suma: no hay
+      ningún número guardado que pueda contradecir esta lista.</p>
+      <div id="hist" class="sep-poco"><span class="cargando una"></span></div>`,
+    footer:`<button class="btn outline" data-x>Cerrar</button>` });
+  const { data, error } = await sb.rpc('cem_cartera_historial', { p_cartera: id, p_limite: 200 });
+  const caja = $('#hist', m);
+  if (error) { caja.innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+  const filas = data || [];
+  caja.innerHTML = filas.length ? filas.map(x => `<div class="linea-mov">
+      <div><div>${esc(x.detalle)}</div>
+        <div class="tiny muted">${fdate(x.fecha)}${x.referencia ? ' · ' + esc(x.referencia) : ''}</div></div>
+      <div class="cuanto${Number(x.monto) < 0 ? ' sale' : ''}">${
+        Number(x.monto) > 0 ? '+' : ''}${esc(enSuMoneda(x.monto, c?.moneda))}</div>
+    </div>`).join('')
+    : '<p class="tiny muted">Todavía no ha entrado ni salido nada de aquí.</p>';
+}
+
+/* ============ mover dinero ============ */
+function abrirMover({ ajuste = false } = {}){
+  if (!puedeOperar) { fail('No tienes permiso para mover dinero.'); return; }
+  const opciones = (sel) => carteras.map(c =>
+    `<option value="${esc(c.id)}"${c.id === sel ? ' selected' : ''}>${esc(c.nombre)} (${esc(c.moneda)})</option>`).join('');
+
+  const m = modal({ title: ajuste ? 'Cuadrar una cartera' : 'Mover dinero entre carteras', body:`
+    ${ajuste ? `<p class="tiny muted">Un ajuste sirve para cuadrar con lo que hay de verdad cuando
+        el conteo no coincide. <b>Nunca edites un movimiento viejo para cuadrar</b>: la corrección
+        tiene que verse en el historial, no esconderse.</p>` : ''}
+    ${ajuste ? '' : `<div class="field"><label>Sale de</label>
+      <select id="cOrigen">${opciones()}</select></div>`}
+    ${ajuste ? '' : `<div class="field"><label>Monto que salió</label>
+      <input type="number" step="0.01" min="0.01" id="cMontoO" placeholder="0,00"></div>`}
+    <div class="field"><label>${ajuste ? 'Cartera que se cuadra' : 'Entra en'}</label>
+      <select id="cDestino">${opciones(carteras[1]?.id)}</select></div>
+    <div class="field"><label>${ajuste
+        ? 'Diferencia (positiva si sobra, negativa si falta)'
+        : 'Monto que de verdad llegó'}
+      <button type="button" class="ayuda-btn" data-ayuda="Escribe lo que llegó, no lo que debería haber llegado. Casi nunca es origen × tasa: hay comisiones, redondeos, y el cambista se queda con algo. El saldo tiene que reflejar lo que pasó.">?</button></label>
+      <input type="number" step="0.01" id="cMontoD" placeholder="0,00"></div>
+    <div class="tasa-implicita" id="cTasa"></div>
+    <div class="field"><label>Fecha</label>
+      <input type="date" id="cFecha" value="${new Date().toISOString().slice(0,10)}"></div>
+    ${ajuste ? '' : `<div class="field"><label>
+      <input type="checkbox" id="cPendiente"> Todavía no ha llegado (queda en tránsito)</label>
+      <span class="tiny muted">Se descuenta del origen —ese dinero ya salió— y no se suma al destino
+        hasta que confirmes que llegó.</span></div>`}
+    <div class="field"><label>Nota${ajuste ? ' — obligatoria' : ' (opcional)'}</label>
+      <input id="cNota" maxlength="200" placeholder="${ajuste
+        ? 'Por ejemplo: al contar la caja había 30 US$ menos.'
+        : 'Por ejemplo: cambio con Pedro.'}"></div>
+    <div id="cMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="cGo">${ajuste ? 'Registrar el ajuste' : 'Guardar el movimiento'}</button>` });
+
+  montarAyudas(m); mejorarSelects();
+
+  // La tasa se enseña como referencia, calculada a partir de los dos montos.
+  // No se usa para nada más: los saldos salen de los montos.
+  const verTasa = () => {
+    if (ajuste) return;
+    const o = Number($('#cMontoO', m).value || 0), d = Number($('#cMontoD', m).value || 0);
+    $('#cTasa', m).textContent = (o > 0 && d > 0)
+      ? `Tasa implícita: ${num(Math.round((d / o) * 10000) / 10000)} — sale del cociente de los dos montos, no al revés.`
+      : '';
+  };
+  if (!ajuste) { $('#cMontoO', m).oninput = verTasa; }
+  $('#cMontoD', m).oninput = verTasa;
+
+  $('#cGo', m).onclick = () => ocupado('#cGo', 'Guardando…', async () => {
+    const destino = $('#cDestino', m).value;
+    const montoD = Number($('#cMontoD', m).value || 0);
+    const nota = $('#cNota', m).value.trim();
+    if (ajuste && !nota) { avisar($('#cMsg', m), 'Un ajuste necesita explicar por qué se hace.', 'err'); return; }
+    if (ajuste && montoD === 0) { avisar($('#cMsg', m), 'Escribe la diferencia, positiva o negativa.', 'err'); return; }
+    if (!ajuste) {
+      const montoO = Number($('#cMontoO', m).value || 0);
+      if (montoO <= 0 || montoD <= 0) {
+        avisar($('#cMsg', m), 'Hacen falta los dos montos: lo que salió y lo que llegó.', 'err'); return;
+      }
+      if ($('#cOrigen', m).value === destino) {
+        avisar($('#cMsg', m), 'El origen y el destino son la misma cartera.', 'err'); return;
+      }
+    }
+    const { error } = await sb.rpc('cem_guardar_conversion', {
+      p_cartera_origen: ajuste ? null : $('#cOrigen', m).value,
+      p_cartera_destino: destino,
+      p_monto_origen: ajuste ? null : Number($('#cMontoO', m).value),
+      p_monto_destino: montoD,
+      p_fecha: $('#cFecha', m).value || null,
+      p_estado: (!ajuste && $('#cPendiente', m).checked) ? 'pendiente' : 'completada',
+      p_nota: nota || null,
+    });
+    if (error) { avisar($('#cMsg', m), mensajeError(error), 'err'); return; }
+    m.close();
+    ok(ajuste ? 'Ajuste registrado, con su explicación.' : 'Movimiento guardado.');
+    cargar();
+  });
+}
+$('#btnMover').onclick = () => abrirMover();
+
+async function confirmarLlegada(id){
+  const k = (estado.pendientes || []).find(x => x.id === id);
+  if (!k) return;
+  const m = modal({ title:'Confirmar que llegó', body:`
+    <p>Ibas a recibir <b>${esc(enSuMoneda(k.monto_destino, k.moneda_destino))}</b> en ${esc(k.destino)}.</p>
+    <div class="field"><label>¿Cuánto llegó de verdad?</label>
+      <input type="number" step="0.01" min="0.01" id="lMonto" value="${esc(String(k.monto_destino))}"></div>
+    <p class="tiny muted">Si llegó menos —comisión, redondeo—, escribe la cifra real. El saldo tiene
+      que decir lo que hay, no lo que se esperaba.</p>
+    <div id="lMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="lGo">Confirmar</button>` });
+  $('#lGo', m).onclick = () => ocupado('#lGo', 'Guardando…', async () => {
+    const v = Number($('#lMonto', m).value || 0);
+    if (v <= 0) { avisar($('#lMsg', m), 'Escribe cuánto llegó.', 'err'); return; }
+    const { error } = await sb.rpc('cem_confirmar_llegada', { p_id: id, p_monto_destino: v });
+    if (error) { avisar($('#lMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Confirmado: ya cuenta en el saldo.'); cargar();
+  });
+}
+
+async function borrar(id, eliminar){
+  if (eliminar) {
+    const k = conversiones.find(x => x.id === id);
+    const bien = await confirmarBorrado({
+      que: 'este movimiento',
+      nombre: `${fdate(k?.fecha)} · ${esc(nombreCartera(k?.cartera_origen))} → ${esc(nombreCartera(k?.cartera_destino))}`,
+      consecuencia: 'Los saldos se recalculan al instante. Queda en la papelera y se puede recuperar.',
+    });
+    if (!bien) return;
+  }
+  await run(sb.rpc('cem_eliminar_conversion', { p_id: id, p_eliminar: eliminar }),
+    'No se pudo cambiar el movimiento.');
+  ok(eliminar ? 'A la papelera. Los saldos ya no lo cuentan.' : 'Recuperado.');
+  cargar();
+}
+
+async function clasificar(pagoId, moneda){
+  const compatibles = carteras.filter(c => c.moneda === moneda);
+  if (!compatibles.length) { fail(`No hay ninguna cartera en ${moneda}.`); return; }
+  const m = modal({ title:'¿En qué cartera cayó este pago?', body:`
+    <div class="field"><label>Cartera</label><select id="aCartera">
+      ${compatibles.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}
+    </select></div>
+    <p class="tiny muted">Sólo salen las carteras en ${esc(moneda)}: el dinero no cambia de moneda
+      por ponerlo en otro bolsillo.</p>
+    <div id="aMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="aGo">Asignar</button>` });
+  mejorarSelects();
+  $('#aGo', m).onclick = () => ocupado('#aGo', 'Guardando…', async () => {
+    const { error } = await sb.rpc('cem_asignar_cartera_pago',
+      { p_payment_id: pagoId, p_cartera: $('#aCartera', m).value });
+    if (error) { avisar($('#aMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Clasificado. Ya suma a su cartera.'); cargar();
+  });
+}
+
+/* ============ lo que sale ============ */
+$('#btnGasto').onclick = () => {
+  if (!puedeOperar) { fail('No tienes permiso para registrar gastos.'); return; }
+  const m = modal({ title:'Registrar un gasto', body:`
+    <div class="field"><label>¿En qué se gastó?</label>
+      <input id="gConcepto" maxlength="140" placeholder="Por ejemplo: honorarios del profesor de agosto"></div>
+    <div class="row">
+      <div class="field medio"><label>Monto</label>
+        <input type="number" step="0.01" min="0.01" id="gMonto" placeholder="0,00"></div>
+      <div class="field medio"><label>Sale de</label>
+        <select id="gCartera">${carteras.map(c =>
+          `<option value="${esc(c.id)}" data-moneda="${esc(c.moneda)}">${esc(c.nombre)} (${esc(c.moneda)})</option>`).join('')}</select></div>
+    </div>
+    <div class="row">
+      <div class="field medio"><label>Fecha</label>
+        <input type="date" id="gFecha" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field medio"><label>Categoría (opcional)</label>
+        <input id="gCategoria" maxlength="60" placeholder="Honorarios, servicios, comisiones…"></div>
+    </div>
+    <div class="field"><label>Referencia o comprobante (opcional)</label>
+      <input id="gRef" maxlength="60"></div>
+    <div id="gMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="gGo">Guardar el gasto</button>` });
+  mejorarSelects();
+  $('#gGo', m).onclick = () => ocupado('#gGo', 'Guardando…', async () => {
+    const concepto = $('#gConcepto', m).value.trim();
+    const monto = Number($('#gMonto', m).value || 0);
+    if (!concepto) { avisar($('#gMsg', m), 'Escribe en qué se gastó.', 'err'); return; }
+    if (monto <= 0) { avisar($('#gMsg', m), 'El monto tiene que ser mayor que cero.', 'err'); return; }
+    const sel = $('#gCartera', m);
+    const { error } = await sb.from('cem_gastos').insert({
+      concepto, monto,
+      moneda: sel.selectedOptions[0].dataset.moneda,
+      cartera_id: sel.value,
+      categoria: $('#gCategoria', m).value.trim() || null,
+      referencia: $('#gRef', m).value.trim() || null,
+      fecha: $('#gFecha', m).value || null,
+      creado_por: p.id,
+    });
+    if (error) { avisar($('#gMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Gasto registrado. Ya está descontado de su cartera.'); cargar();
+  });
+};
+
+/* El ajuste es la salida de emergencia, no una forma normal de trabajar —por
+   eso pide nota obligatoria—, pero tiene que estar a la vista: una función que
+   sólo conoce quien leyó el código no la usa nadie. */
+$('#btnAjuste').onclick = () => abrirMover({ ajuste: true });
+</script>
+</body>
+</html>

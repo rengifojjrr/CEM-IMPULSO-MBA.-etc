@@ -51,7 +51,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
+import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
          toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY,
          selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor, avisar, filtrosEnLaDireccion, contarFilas } from '../assets/app.js?v=2026-08-18';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
@@ -217,7 +217,7 @@ $('#btnImportar').onclick = async () => {
     <div class="row">
       <div class="field largo"><label>Programa *</label>
         <select id="impCurso" required>${(cursos||[]).map(c =>
-          `<option value="${c.id}">${esc(c.nombre)} — ${money(c.precio, c.moneda||'USD')}</option>`).join('')
+          `<option value="${c.id}">${esc(c.nombre)} — ${money(c.precio, c.moneda || MONEDA_BASE)}</option>`).join('')
           || '<option value="">No hay programas publicados</option>'}</select></div>
       <div class="field medio"><label>Cohorte</label>
         <select id="impCohorte"><option value="">Sin cohorte</option></select></div>
