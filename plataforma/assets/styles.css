@@ -296,7 +296,14 @@ p{max-width:68ch;}
 .btn.danger:hover{background:var(--error-suave);}
 .btn.sm{padding:var(--e0) var(--e1);font-size:var(--t-xs);min-height:32px;}
 .btn.block{width:100%;}
-.btn:disabled{opacity:.45;cursor:not-allowed;}
+/* Un botón apagado al 45% se lee como un botón medio borrado: no se sabe si
+   está deshabilitado o si la pantalla se quedó a medias. Se queda entero y
+   dice que no se puede pulsar con el color y el cursor, no desapareciendo. */
+.btn:disabled,.btn[aria-disabled=true]{cursor:not-allowed;opacity:1;
+  background:var(--hueco);color:var(--tinta-3);border-color:var(--filete);
+  box-shadow:none;}
+.btn:disabled:hover,.btn[aria-disabled=true]:hover{background:var(--hueco);
+  color:var(--tinta-3);border-color:var(--filete);}
 /* Mientras trabaja: ocupado y diciéndolo, para que nadie lo pulse dos veces. */
 .btn[aria-busy="true"]{opacity:.7;cursor:progress;}
 
@@ -346,8 +353,21 @@ p{max-width:68ch;}
 /* ─────────────────────────── FORMULARIOS ───────────────────────────────── */
 .field{display:flex;flex-direction:column;gap:var(--e0);margin-bottom:var(--e2);}
 .field label{font-size:var(--t-xs);font-weight:var(--peso-fuerte);color:var(--tinta-2);}
-.inp,input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],
-input[type=time],input[type=search],input[type=tel],input[type=url],input[type=month],select,textarea{
+/* Se seleccionaba por tipo —`input[type=text]`, `input[type=email]`…— y en el
+   HTML hay 83 campos escritos sin `type`, que por omisión son de texto pero no
+   casaban con ninguna de esas reglas. Esos quedaban con la pinta que trae el
+   navegador de fábrica: borde blanco, fondo transparente, otra altura. Era la
+   causa de que en una misma tarjeta unos campos se vieran bien y otros
+   rotos —«CEM International Education» al lado de «100»—.
+
+   Ahora se seleccionan todos y se excluyen sólo los que no son cajas de
+   texto. La lista va dentro de un único `:not()` a propósito: así la regla
+   pesa lo mismo que antes y las pantallas que afinan un campo suyo —el
+   buscador de la barra de arriba, por ejemplo— siguen ganando. */
+.inp,
+input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color],
+          [type=submit],[type=button],[type=reset],[type=image],[type=hidden]),
+select,textarea{
   width:100%;padding:var(--e1) var(--e1);border:1px solid var(--filete);border-radius:var(--r);
   background:var(--papel);color:var(--tinta);min-height:36px;
   transition:border-color var(--rapido);}
@@ -426,12 +446,15 @@ td.wrap{white-space:normal;min-width:180px;}
 .nota.ok{border-left-color:var(--ok);}
 .nota.warn{border-left-color:var(--warn);}
 
-/* Las acciones de fila sólo cuando se acerca el cursor: 51 iconos grises
-   siempre encendidos compiten con los datos. En el teléfono, siempre. */
-td .acciones{display:flex;gap:2px;justify-content:flex-end;opacity:0;
-  transition:opacity var(--rapido);}
-tr:hover td .acciones, tr:focus-within td .acciones{opacity:1;}
-@media (hover:none){ td .acciones{opacity:1;} }
+/* Aquí me equivoqué antes: escondía las acciones de fila y las sacaba al pasar
+   el cursor, para que 51 iconos grises no compitieran con los datos. El efecto
+   real es que los botones desaparecen, y un botón que a veces está y a veces
+   no obliga a buscarlo cada vez. Un control se ve siempre; para que no griten,
+   se bajan de tono y suben al acercarse. */
+td .acciones{display:flex;gap:2px;justify-content:flex-end;}
+td .acciones .btn{color:var(--tinta-3);transition:color var(--rapido), background var(--rapido);}
+tr:hover td .acciones .btn, tr:focus-within td .acciones .btn{color:var(--tinta);}
+td .acciones .btn:hover{color:var(--primary);}
 
 /* ───────────────────────── CHIPS Y ESTADOS ─────────────────────────────── */
 /* El chip es para el estado, no para todo. Sin fondo de color saturado: un
@@ -694,14 +717,19 @@ th.ordenable.desc::after{content:'arrow_downward';opacity:.9;}
 th.num.ordenable::after{margin-left:2px;}
 
 /* ── el «?» de ayuda ─────────────────────────────────────────────────── */
-.ayuda-btn{width:16px;height:16px;min-height:0;border-radius:var(--r-full);
+/* Medía 16 px, la mitad que el control más pequeño de al lado, y aun con el
+   ratón costaba acertarle. 22 px sigue siendo discreto y ya es un objetivo. */
+.ayuda-btn{width:22px;height:22px;min-height:0;border-radius:var(--r-full);
   border:1px solid var(--filete-fuerte);background:none;color:var(--tinta-3);
-  font-size:11px;line-height:1;cursor:pointer;padding:0;margin-left:var(--e0);
-  vertical-align:1px;transition:color var(--rapido),border-color var(--rapido);}
+  font-size:var(--t-xs);line-height:1;cursor:pointer;padding:0;margin-left:var(--e0);
+  vertical-align:middle;transition:color var(--rapido),border-color var(--rapido);}
 .ayuda-btn:hover{border-color:var(--primary);color:var(--primary);}
 .ayuda-globo{position:absolute;z-index:80;max-width:290px;background:var(--inverse-surface);
   color:var(--inverse-on-surface);padding:var(--e1) var(--e2);border-radius:var(--r);
-  font-size:var(--t-xs);line-height:1.5;box-shadow:var(--sombra);animation:subir var(--rapido);}
+  font-size:var(--t-xs);line-height:1.5;box-shadow:var(--sombra);animation:subir var(--rapido);
+  /* El globo puede llevar dos párrafos —el subtítulo de la pantalla y la
+     explicación que ya tenía—: los saltos de línea tienen que verse. */
+  white-space:pre-line;}
 
 /* ── filtros plegados ────────────────────────────────────────────────── */
 .filtros-plegables summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;

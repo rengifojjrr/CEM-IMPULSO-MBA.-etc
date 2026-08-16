@@ -17,8 +17,28 @@
    ============================================================ */
 
 export const ESTILOS_GENERADOR = String.raw`  :root{
-    --navy:#132743; --navy-2:#1c3a5e; --teal:#1b7f76; --gold:#c9a227;
-    --bg:#f4f6f8; --card:#ffffff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
+    /* El generador nació como herramienta suelta y traía su propia paleta,
+       escrita a mano y sólo en claro. Metido dentro del portal eso se veía:
+       los paneles seguían blancos mientras los campos, que sí heredaban los
+       tokens, se ponían oscuros de noche. Media pantalla de cada tema.
+
+       Ahora cada color se pide primero al portal y sólo si no está —cuando
+       esta herramienta se abre por su cuenta, sin la hoja compartida— cae al
+       valor de repuesto. Así el generador cambia de tema y de paleta con el
+       resto de la plataforma sin tener que tocarlo. */
+    --navy:var(--primary, #132743);
+    --navy-2:var(--primary, #1c3a5e);
+    --teal:var(--secondary, #1b7f76);
+    /* Nombre propio: escribir --gold a partir de --gold sería referirse a sí
+       mismo, y CSS anula toda la declaración cuando detecta el ciclo. */
+    --dorado:var(--gold, #c9a227);
+    --bg:var(--fondo, #f4f6f8);
+    --card:var(--papel, #ffffff);
+    --hundido:var(--hueco, #f3f5f7);
+    --border:var(--filete, #dde3ea);
+    --text:var(--tinta, #1f2937);
+    --muted:var(--tinta-2, #6b7280);
+    --sobre-marca:var(--on-primary, #ffffff);
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
@@ -38,9 +58,10 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .btn{cursor:pointer;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:6px;padding:8px 14px;font-size:13px;}
   .btn.outline{background:#fff;color:var(--navy);}
   .btn.teal{background:var(--teal);border-color:var(--teal);}
-  .btn.gold{background:var(--gold);border-color:var(--gold);color:#20200a;}
+  .btn.gold{background:var(--dorado);border-color:var(--dorado);color:#20200a;}
   .btn.danger{background:#fff;color:#b91c1c;border-color:#b91c1c;}
-  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn:disabled{cursor:not-allowed;opacity:1;background:var(--hundido);
+    color:var(--muted);border-color:var(--border);}
   .btn.small{padding:4px 9px;font-size:11.5px;}
   input[type=email], input[type=text], input[type=number], input[type=date], input[type=color], select, textarea{
     padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
@@ -91,7 +112,7 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
 
   #tplPreviewWrap{position:relative;display:block;grid-column:2;grid-row:2;max-width:100%;border:1px solid var(--border);border-radius:6px;overflow:hidden;touch-action:none;}
   #tplPreviewWrap img{display:block;max-width:900px;width:100%;height:auto;}
-  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--gold);z-index:400;touch-action:none;}
+  .field-chip{position:absolute;transform:translate(-50%,-50%);background:rgba(19,39,67,.85);color:#fff;font-size:10px;padding:3px 7px;border-radius:10px;cursor:grab;user-select:none;white-space:nowrap;border:1px solid var(--dorado);z-index:400;touch-action:none;}
   .field-chip:active{cursor:grabbing;}
   .field-chip.inactive{opacity:.4;border-style:dashed;}
 
@@ -106,13 +127,13 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
 
   /* La etiqueta flotante es el asa para mover todo el campo. */
   .field-label{position:absolute;transform:translate(-50%,-100%);background:rgba(19,39,67,.9);color:#fff;
-    font-size:10px;padding:3px 8px;border-radius:8px;white-space:nowrap;z-index:400;border:1px solid var(--gold);
+    font-size:10px;padding:3px 8px;border-radius:8px;white-space:nowrap;z-index:400;border:1px solid var(--dorado);
     cursor:move;user-select:none;touch-action:none;}
   .field-label:active{cursor:grabbing;}
   .field-label.inactive{opacity:.45;}
   .field-label.sel{background:var(--teal);border-color:var(--navy);}
 
-  .field-handle{position:absolute;background:var(--gold);border:1px solid var(--navy);border-radius:3px;
+  .field-handle{position:absolute;background:var(--dorado);border:1px solid var(--navy);border-radius:3px;
     z-index:300;touch-action:none;transform:translate(-50%,-50%);}
   .field-handle.h{width:9px;height:22px;cursor:ew-resize;}
   .field-handle.v{width:22px;height:9px;cursor:ns-resize;}
@@ -146,7 +167,8 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .campo-orden{display:flex;flex-direction:column;gap:1px;}
   .campo-orden .mini{width:20px;height:15px;line-height:1;padding:0;font-size:9px;border:1px solid var(--border);
     background:#fff;border-radius:3px;color:var(--muted);cursor:pointer;}
-  .campo-orden .mini:disabled{opacity:.3;cursor:default;}
+  .campo-orden .mini:disabled{opacity:1;cursor:default;color:var(--muted);
+    background:var(--hundido);border-color:var(--border);}
   .campo-nombre{flex:1;min-width:90px;font-weight:600;}
   .campo-tipo{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
     border:1px solid var(--border);border-radius:10px;padding:2px 8px;white-space:nowrap;}
@@ -173,7 +195,7 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .plantilla-editor{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;
     background:#fff;min-height:36px;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
   .plantilla-editor:focus{outline:2px solid var(--teal);outline-offset:1px;}
-  .var-chip{display:inline-block;background:var(--gold);color:#132743;border-radius:10px;padding:1px 8px;
+  .var-chip{display:inline-block;background:var(--dorado);color:#132743;border-radius:10px;padding:1px 8px;
     margin:0 1px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none;}
   .var-chip:hover{background:#b8901f;color:#fff;}
   .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
@@ -181,7 +203,7 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .badge.revocado{background:#dc2626;}
   .badge.reemplazado{background:#6b7280;}
   tr.fila-marcada{background:rgba(27,127,118,.08);}
-  .badge.borrador{background:var(--gold);color:#132743;}
+  .badge.borrador{background:var(--dorado);color:#132743;}
   .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#eef2f6;color:var(--muted);margin-top:2px;}
 
   /* ---- botón de ayuda "?": reemplaza los párrafos largos de explicación ---- */

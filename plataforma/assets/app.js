@@ -857,8 +857,21 @@ function subtituloDetrasDelSigno() {
   const h1 = $('.page-head h1');
   const sub = cabeza && $('.page-head > div > p, .page-head > p');
   if (!h1 || !sub) return;
+  // Un subtítulo con `id` no es un letrero fijo: la pantalla escribe dentro
+  // —el curso elegido, cuántas entregas faltan— y quitarlo dejaba a la página
+  // hablándole a un elemento que ya no existe. Ése se queda donde está.
+  if (sub.id) return;
   const texto = sub.textContent.trim();
   if (!texto) return;
+  // Hay pantallas que ya traen su propio «?» escrito en el título. Añadir otro
+  // deja dos signos seguidos preguntando cosas parecidas: el subtítulo se
+  // suma al que ya está y no se crea ninguno nuevo.
+  const previo = h1.querySelector('.ayuda-btn');
+  if (previo) {
+    sub.remove();
+    previo.dataset.ayuda = `${texto}\n\n${previo.dataset.ayuda || ''}`.trim();
+    return;
+  }
   sub.remove();
   const b = document.createElement('button');
   b.type = 'button';
