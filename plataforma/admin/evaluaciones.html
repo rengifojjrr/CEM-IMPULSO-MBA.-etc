@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-19">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-20">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -49,7 +49,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor } from '../assets/app.js?v=2026-08-19';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, fail, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, mensajeError } from '../assets/app.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
 accionVacio('vacioEval', () => location.href = 'evaluacion-nueva.html');
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
@@ -97,7 +97,8 @@ function render(){
     <td class="num">${num(r._nq)}</td>
     <td class="num">${num(r._subs)}</td><td class="num">${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chipEstado(r.estado)}</td>
     <td class="nowrap">
-      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar"><span class="material-symbols-outlined">edit</span></a>
+      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar las preguntas"><span class="material-symbols-outlined">edit</span></a>
+      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}#respuestas" title="Ver las respuestas y sus métricas"><span class="material-symbols-outlined">insights</span></a>
       <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>
       ${puede?`<button class="btn ghost sm" data-pub="${r.id}" title="${r.estado==='publicado'?'Despublicar':'Publicar'}">
         <span class="material-symbols-outlined">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
@@ -106,7 +107,18 @@ function render(){
   $$('[data-pub]').forEach(b=>b.onclick=async()=>{
     const r=rows.find(x=>x.id===b.dataset.pub);
     const nuevo = r.estado==='publicado'?'borrador':'publicado';
-    if (nuevo==='publicado' && r._nq===0){ if(!await confirmDialog('Esta evaluación no tiene preguntas. ¿Publicar de todas formas?')) return; }
+    /* Publicar desde la lista tiene que pasar por la misma regla que publicar
+       desde el constructor: si los puntajes no suman el total declarado, no
+       sale. Antes este botón era la puerta de atrás. */
+    if (nuevo==='publicado'){
+      const { data: p, error: e } = await sb.rpc('cem_puntaje_evaluacion',{ p_assessment_id:r.id });
+      if (e){ fail(mensajeError(e)); return; }
+      if (!Number(p?.preguntas)){ fail('Esta evaluación no tiene preguntas todavía.'); return; }
+      if (!p?.cuadra){
+        fail(`Los puntajes suman ${p.total} y la evaluación es sobre ${p.maximo}. Ábrela y cuádralos antes de publicar.`);
+        return;
+      }
+    }
     await run(sb.from('cem_assessments').update({estado:nuevo}).eq('id',r.id),'No se pudo actualizar');
     await audit('evaluacion_estado','cem_assessments',r.id,'medio',{estado:nuevo}); ok('Estado actualizado'); load();
   });

@@ -11,7 +11,7 @@
    y alguien pueda preguntar. */
 
 import { sb, $, $$, esc, fdate, fdatetime, num, modal, ok, fail, mensajeError,
-         avisar, ocupado, initials, confirmarBorrado } from './app.js';
+         avisar, ocupado, initials, confirmarBorrado } from './app.js?v=2026-08-20';
 
 /* ── cuánto hace de esto ──────────────────────────────────────────────────
    En un tablón la fecha exacta estorba: lo que importa es si es de hoy o de

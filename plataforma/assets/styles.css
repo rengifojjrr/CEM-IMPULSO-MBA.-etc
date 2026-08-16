@@ -269,7 +269,10 @@ button{cursor:pointer;}
   .sidebar-plegar{display:none;}
   .topbar .menu-btn{display:inline-flex;}
   .topbar{padding:0 var(--e2);}
-  .content{padding:var(--e2) var(--e2) 96px;}
+  /* El margen lateral tiene que parecerse al hueco entre tarjetas. Con 16 a
+     los lados y 40 entre cajas, las tarjetas se leían pegadas al borde de la
+     pantalla y separadas entre ellas: dos aires distintos en la misma vista. */
+  .content{padding:var(--e3) var(--e3) 96px;}
   .bottomnav{display:flex;}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55;}
 }
@@ -323,7 +326,27 @@ p{max-width:68ch;}
 /* Una tarjeta lleva fondo O filete, nunca las dos cosas más una sombra. */
 .card{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
   padding:var(--e3);}
-.card + .card{margin-top:var(--aire);}
+
+/* EL AIRE ENTRE BLOQUES LO PONE EL CONTENEDOR, NO CADA BLOQUE.
+   ------------------------------------------------------------------------
+   Antes cada pieza traía su propio margen: la tarjeta separaba de la tarjeta
+   siguiente, la fila de cifras separaba de lo que viniera debajo. Funcionaba
+   mientras la página fuera una lista de tarjetas; en cuanto aparecía una
+   combinación que nadie había previsto —una cuadrícula después de una
+   tarjeta, dos cuadrículas seguidas, una tabla suelta— no había regla que
+   las separase y quedaban pegadas, que es exactamente lo que se veía en el
+   teléfono. Ahora el hueco lo pone el contenedor de la pantalla, una sola
+   vez y para todo lo que caiga dentro, así que no hay combinación que se
+   escape. */
+#page > * + *{margin-top:var(--aire);}
+/* Los tres que ya traían su propio margen dejan de ponerlo aquí, para no
+   sumarlo dos veces. Fuera de #page lo siguen necesitando. */
+#page > .page-head, #page > .kpis, #page > .tabs{margin-bottom:0;}
+
+/* Dentro de cualquier otra caja (un panel, una pestaña) siguen valiendo las
+   reglas entre hermanas. `:where` no suma especificidad: la excepción de la
+   cuadrícula, que va justo debajo, sigue ganando. */
+:where(.card, .grid) + :where(.card, .grid){margin-top:var(--aire);}
 /* Dentro de una cuadrícula el hueco lo pone `gap`. El margen entre hermanas
    sólo vale cuando van una debajo de otra; en una fila descolocaba a todas
    menos a la primera. */
@@ -1503,3 +1526,107 @@ tr.grupo-banco .tiny{margin-left:var(--e1);}
 .comentario-anon footer{margin-top:var(--e0);}
 .sub-ap{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
   margin:var(--e3) 0 var(--e1);}
+
+/* ── el editor de evaluaciones ─────────────────────────────────────────────
+   Una pregunta a la vez abierta y el resto plegadas. Con veinte preguntas
+   todas abiertas no se ve dónde estás, y con todas cerradas no se ve qué
+   estás escribiendo: abrir sólo la que se toca es lo único que funciona. */
+.q-tarjeta{background:var(--papel);border:1px solid var(--filete);
+  border-radius:var(--r);padding:var(--e2);margin-bottom:var(--e1);
+  border-left:4px solid transparent;cursor:pointer;}
+.q-tarjeta:hover{border-color:var(--filete-fuerte);}
+.q-tarjeta.activa{border-left-color:var(--primary);cursor:default;
+  border-color:var(--filete-fuerte);}
+.q-tarjeta .q-cabeza{display:flex;gap:var(--e1);align-items:flex-start;}
+.q-tarjeta .q-num{font-family:var(--cifra);font-weight:var(--peso-fuerte);
+  color:var(--tinta-3);min-width:22px;flex:none;padding-top:2px;}
+.q-tarjeta .q-vale{font-family:var(--cifra);font-variant-numeric:tabular-nums;}
+.q-tarjeta .q-vale input{width:80px;text-align:right;}
+/* Una pregunta sin puntos dentro de un examen puntuado casi siempre es un
+   descuido, así que se ve; pero no es un error, porque a veces se quiere. */
+.q-tarjeta.sin-puntos .q-vale input{border-color:var(--warn);}
+.q-seccion{margin:var(--e3) 0 var(--e1);padding:var(--e1) var(--e2);
+  background:var(--hueco);border-radius:var(--r);
+  border-left:4px solid var(--filete-fuerte);}
+.q-seccion h3{margin:0;font-size:var(--t-md);}
+
+/* Las opciones de una pregunta: el control de «cuál es la correcta» va pegado
+   a la opción, no en un desplegable aparte, porque marcar la correcta mirando
+   a otro sitio es cómo se cuelan las claves equivocadas. */
+.opt-fila{display:flex;gap:var(--e1);align-items:center;margin-bottom:var(--e0);}
+.opt-fila input[type=text]{flex:1;min-width:0;}
+.opt-fila input[type=radio],.opt-fila input[type=checkbox]{flex:none;
+  width:20px;height:20px;accent-color:var(--ok);}
+.opt-fila .btn{flex:none;}
+.opt-fila.correcta input[type=text]{border-color:var(--ok);}
+
+/* El marcador de puntos. Es la pieza central del editor: la regla es que la
+   suma de las preguntas dé el total declarado, y si no se ve todo el rato,
+   se descubre al publicar y ya es tarde. */
+.marcador{display:flex;align-items:center;gap:var(--e2);flex-wrap:wrap;
+  padding:var(--e1) var(--e2);border-radius:var(--r);
+  background:var(--hueco);border:1px solid var(--filete);}
+.marcador .cifra{font-family:var(--cifra);font-size:var(--t-lg);
+  font-weight:var(--peso-fuerte);font-variant-numeric:tabular-nums;}
+.marcador.cuadra{border-color:var(--ok);}
+.marcador.cuadra .cifra{color:var(--ok);}
+.marcador.falta{border-color:var(--warn);}
+.marcador.falta .cifra{color:var(--warn);}
+.marcador.pasa{border-color:var(--error);}
+.marcador.pasa .cifra{color:var(--error);}
+
+/* ── métricas de respuestas ────────────────────────────────────────────────
+   Barras horizontales, no tartas: comparar longitudes es fácil y comparar
+   ángulos no lo es. */
+.barra-dato{display:grid;grid-template-columns:minmax(110px,1fr) 3fr auto;
+  gap:var(--e1);align-items:center;margin-bottom:var(--e0);font-size:var(--t-sm);}
+.barra-dato .pista{height:22px;border-radius:var(--r);background:var(--hueco);
+  overflow:hidden;}
+.barra-dato .relleno{height:100%;background:var(--primary);min-width:2px;}
+.barra-dato.acertada .relleno{background:var(--ok);}
+.barra-dato .cuenta{font-family:var(--cifra);font-variant-numeric:tabular-nums;
+  color:var(--tinta-2);min-width:56px;text-align:right;}
+.barra-dato .etq{overflow-wrap:anywhere;}
+
+/* El histograma de notas: columnas, porque el eje es una escala continua de 0
+   a 100 y leerla de izquierda a derecha es cómo se lee una nota. */
+.histograma{display:flex;align-items:flex-end;gap:3px;height:120px;
+  margin:var(--e2) 0 var(--e1);}
+.histograma .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+  height:100%;}
+.histograma .palo{background:var(--primary);border-radius:var(--r) var(--r) 0 0;
+  min-height:2px;}
+.histograma .col.reprueba .palo{background:var(--error);}
+.histograma .pie{font-size:10px;color:var(--tinta-3);text-align:center;
+  font-family:var(--cifra);margin-top:var(--e0);}
+
+/* Una pregunta que falló casi todo el mundo casi nunca es culpa de la clase:
+   o está mal redactada o el tema se explicó mal. Por eso va destacada. */
+.fallada{border-left:3px solid var(--error);padding-left:var(--e2);}
+
+/* ── responder: cuadrícula de opciones ─────────────────────────────────────
+   Con una sola columna por fila en el móvil la cuadrícula deja de ser una
+   cuadrícula, así que se desplaza de lado dentro de su caja. */
+.rejilla-resp{width:100%;border-collapse:collapse;font-size:var(--t-sm);}
+.rejilla-resp th,.rejilla-resp td{padding:var(--e1);text-align:center;
+  border-bottom:1px solid var(--filete);}
+.rejilla-resp th:first-child,.rejilla-resp td:first-child{text-align:left;
+  font-weight:var(--peso-fuerte);}
+.rejilla-resp input{width:20px;height:20px;accent-color:var(--primary);}
+
+/* La escala lineal al responder: los números en fila con su etiqueta en cada
+   extremo, que es lo que dice si 1 es «malo» o «poco». */
+.escala-lineal{display:flex;align-items:center;gap:var(--e1);flex-wrap:wrap;}
+.escala-lineal .punto{display:flex;flex-direction:column;align-items:center;
+  gap:var(--e0);cursor:pointer;min-width:44px;}
+.escala-lineal .punto input{width:20px;height:20px;accent-color:var(--primary);}
+.escala-lineal .tope{font-size:var(--t-xs);color:var(--tinta-3);max-width:120px;}
+
+/* Dos columnas con una barra lateral: el contenido manda y al lado va la ficha
+   de apoyo. En el teléfono no hay «al lado», así que se ponen una debajo de la
+   otra. Sin este corte la columna estrecha se comía la ancha y el contenido
+   principal salía en tiras de cuatro palabras. */
+.grid.dos-columnas{grid-template-columns:minmax(0,2fr) minmax(260px,1fr);}
+@media (max-width:900px){
+  .grid.dos-columnas{grid-template-columns:minmax(0,1fr);}
+}

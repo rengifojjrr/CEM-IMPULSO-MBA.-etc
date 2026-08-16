@@ -37,11 +37,22 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
  * de verdad la dirección de un `import`, un `href` o un `src`. Si no, el mismo
  * nombre escrito de pasada dentro de un comentario también terminaría con un
  * `?v=…` pegado. */
-const COMPARTIDOS =
-  /(?<=["'(])((?:\.\.\/)*(?:\.\/)?(?:assets\/(?:app\.js|styles\.css)|certificados\/generador\.js|generador\.js))(\?v=[0-9-]+)?/g;
+const MODULOS = 'app|temas|aula|preguntas';
+const COMPARTIDOS = new RegExp(
+  `(?<=["'(])(` +
+    // desde una pantalla: ../assets/app.js, ./assets/styles.css
+    `(?:\\.\\.\\/)*(?:\\.\\/)?assets\\/(?:${MODULOS})\\.js` +
+    `|(?:\\.\\.\\/)*(?:\\.\\/)?assets\\/styles\\.css` +
+    // desde dentro de assets, donde son vecinos: ./app.js
+    `|\\.\\/(?:${MODULOS})\\.js` +
+    `|(?:\\.\\.\\/)*(?:\\.\\/)?certificados\\/generador\\.js|generador\\.js` +
+  `)(\\?v=[0-9-]+)?`, 'g');
 
-/** Dónde buscar. */
-const CARPETAS = ['plataforma/**/*.html', 'certificados/*.html'];
+/** Dónde buscar. Los módulos compartidos se importan entre ellos, así que
+    también hay que marcar los `import` que hay DENTRO de assets: si sólo se
+    marcan los HTML, la página baja el app.js nuevo pero preguntas.js sigue
+    pidiendo el viejo y conviven dos copias distintas del mismo módulo. */
+const CARPETAS = ['plataforma/**/*.html', 'plataforma/assets/*.js', 'certificados/*.html'];
 
 const argumento = process.argv[2] || '';
 const soloRevisar = argumento === '--revisar';

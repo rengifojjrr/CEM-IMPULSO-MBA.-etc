@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-19">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-20">
 <style>
-  .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:16px;}
+  .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:var(--aire);}
   .aula > *{min-width:0;}
   @media(max-width:900px){ .aula{grid-template-columns:minmax(0,1fr);} }
   .les-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r);cursor:pointer;font-size:var(--t-sm);}
@@ -57,8 +57,8 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota,
-         mensajeError, modal, avisar, ocupado } from '../assets/app.js?v=2026-08-19';
-import { pintarMuro } from '../assets/aula.js?v=2026-08-18';
+         mensajeError, modal, avisar, ocupado } from '../assets/app.js?v=2026-08-20';
+import { pintarMuro } from '../assets/aula.js?v=2026-08-20';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
 if (me) load();
@@ -135,7 +135,45 @@ function render(){
       </div>
       ${l.contenido?`<p class="muted sep">${esc(l.contenido)}</p>`:''}
       <div class="sep">${bar(enr.progreso)}</div>
-    </div>` : '<div class="card">Este curso todavía no tiene lecciones publicadas.</div>';
+    </div>
+    ${cierreDelCurso()}` : '<div class="card">Este curso todavía no tiene lecciones publicadas.</div>';
+
+/* Terminar de ver el curso y no saber qué sigue es donde se pierde la gente:
+   se queda mirando la última lección sin enterarse de que hay un examen. En
+   cuanto no queda nada por ver, el siguiente paso ocupa el sitio del reproductor
+   y dice cuál es. */
+function cierreDelCurso(){
+  const todas = mods.flatMap(m=>m.cem_lessons);
+  if (!todas.length || todas.some(x=>!progreso[x.id]?.completado)) return '';
+
+  const pendientes = evals.filter(a=>{
+    const mias = entregas.filter(s=>s.assessment_id===a.id);
+    const entregada = mias.some(s=>s.entregado_en);
+    const aprobada = mias.some(s=>s.puntaje!=null && Number(s.puntaje) >= (a.nota_aprobatoria||70));
+    const quedanIntentos = mias.filter(s=>s.entregado_en).length < (a.intentos||1);
+    return !aprobada && (!entregada || quedanIntentos);
+  });
+
+  if (!pendientes.length) return `<div class="card sep" style="border-color:var(--ok)">
+    <div class="row" style="gap:var(--e2)">
+      <span class="material-symbols-outlined" style="font-size:34px;color:var(--ok)">workspace_premium</span>
+      <div class="crece"><b>Terminaste el programa y no tienes evaluaciones pendientes.</b>
+        <div class="tiny muted">Cuando estés al día con los pagos, el certificado aparece en tu sección de certificados.</div></div>
+      <a class="btn outline" href="certificados.html">Ver mis certificados</a>
+    </div></div>`;
+
+  return `<div class="card sep" style="border-color:var(--primary)">
+    <div class="row" style="gap:var(--e2)">
+      <span class="material-symbols-outlined" style="font-size:34px;color:var(--primary)">task_alt</span>
+      <div class="crece"><b>Viste todo el contenido. Ahora toca la evaluación.</b>
+        <div class="tiny muted">${pendientes.length===1
+          ? `«${esc(pendientes[0].nombre)}» · sobre ${pendientes[0].puntaje_max||100} puntos, se aprueba con ${pendientes[0].nota_aprobatoria||70}`
+          : `Te quedan ${pendientes.length} evaluaciones por presentar.`}</div></div>
+      ${pendientes.length===1
+        ? `<a class="btn" href="evaluacion.html?id=${pendientes[0].id}&enr=${enr.id}">Ver evaluación</a>`
+        : `<button class="btn" id="irEvals">Ver evaluaciones</button>`}
+    </div></div>`;
+}
 
   const btn=$('#btnDone');
   if (btn) btn.onclick = async () => {
@@ -149,6 +187,8 @@ function render(){
     ok(done?'Lección completada':'Marcada como pendiente');
     render();
   };
+  const irEvals = $('#irEvals');
+  if (irEvals) irEvals.onclick = () => $('[data-t="evaluaciones"]').click();
   tab($('#tabs button.active')?.dataset.t || 'tablon');
 }
 
@@ -198,7 +238,7 @@ function tab(t){
         estado = chip('en progreso','warn');
         accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr.id}">Continuar</a>`;
       } else if (ult?.estado==='calificada'){
-        estado = chipNota(ult.puntaje, a.puntaje_max, aprob);
+        estado = chipNota(ult.puntaje, 100, aprob);
         accion = sinIntentos ? '<span class="tiny muted">Sin intentos</span>'
           : `<a class="btn outline sm" href="evaluacion.html?id=${a.id}&enr=${enr.id}">Reintentar</a>`;
       } else if (ult?.estado==='entregada'){
