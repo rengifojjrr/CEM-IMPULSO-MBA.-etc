@@ -34,6 +34,10 @@
 
   <div class="kpis" id="kpis"></div>
 
+  <!-- Para este puesto sólo hay una pregunta durante todo el día: a quién
+       llamo ahora. Estos tres la contestan sin abrir ninguna tabla. -->
+  <div class="grid graficos" id="graficos"></div>
+
   <div class="card">
     <h2 class="sec">Tasas del BCV</h2>
     <p class="tiny muted">La casa cobra en <b>euros</b>. La tasa del <b>euro</b> es la que convierte los
@@ -93,6 +97,7 @@ import { sb, mount, MONEDA_BASE, $, $$, esc, chip, num, money, fdate, fdatetime,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY, cargarEn, contarFilas,
          etiqueta, montoPagado, enDolares, saldo as saldoCelda,
          seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-20';
+import { barras, apiladas, anillo } from '../assets/graficos.js?v=2026-08-20';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -143,6 +148,7 @@ function renderKpis(){
       'Pagos con fecha de hoy que ya fueron aprobados y descontados del saldo del estudiante.'),
   ].join('');
   montarAyudas($('#kpis'));
+  pintarGraficos();
 }
 
 function render(){
@@ -403,6 +409,48 @@ $('#btnTasa').onclick = guardarTasa('#inpTasa', 'EUR', 'euro');
 $('#btnTasaUsd').onclick = guardarTasa('#inpTasaUsd', 'USD', 'dólar');
 
 mejorarSelects();
+/* ============ los gráficos de cobranza ============
+   El de la antigüedad es el que más decide de toda la plataforma para este
+   puesto: una deuda de treinta días se cobra y una de noventa casi nunca, y
+   hay que saber cuánto dinero está cruzando esa frontera este mes. */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  const { data: g, error } = await sb.rpc('cem_series_cobranza', { p_dias: 30 });
+  if (error){ host.innerHTML = ''; return; }   // sin permiso: la pantalla sigue sirviendo
+
+  const mes = g.mes || {};
+  host.innerHTML = `
+    <div class="card">${barras({
+      titulo: 'Antigüedad de lo que falta por cobrar',
+      pie: 'Cuanto más abajo, más difícil. Pulsa un tramo para ver quiénes son y llamarlos hoy.',
+      datos: (g.antiguedad || []).map(t => ({
+        etq: `${t.etq}${Number(t.cuantas) ? ` · ${t.cuantas} cuota${Number(t.cuantas) === 1 ? '' : 's'}` : ''}`,
+        n: t.n, href: `?deuda=${t.clave}` })),
+      ordenar: false, col: 'Tramo', colN: 'Importe',
+      formato: (v) => money(v),
+      // El rojo se reserva para lo que de verdad se está perdiendo.
+      marcar: (d) => /Más de 90/.test(d.etq) ? 'err' : /61 a 90/.test(d.etq) ? 'warn' : null,
+    })}</div>
+
+    <div class="card">${anillo({
+      titulo: 'Recaudo del mes contra lo que vencía',
+      pie: 'La meta no es una cifra inventada: es lo que la propia escuela puso a vencer este mes cuando armó los planes de pago.',
+      valor: mes.recaudado, meta: mes.meta, etq: 'del mes',
+      formato: (v) => money(v),
+    })}</div>
+
+    <div class="card" style="grid-column:1/-1">${apiladas({
+      titulo: 'Comprobantes que llegaron cada día, y qué se hizo con ellos',
+      pie: 'Si la parte naranja crece dos días seguidos, hay alguien esperando por nosotros. Pulsa un día para ver los suyos.',
+      periodos: (g.comprobantes || []).map(d => ({ ...d, href: `?dia=${d.clave}` })),
+      series: [
+        { clave: 'aprobados', etq: 'Aprobados', tono: 'ok' },
+        { clave: 'porVerificar', etq: 'Por verificar', tono: 'warn' },
+        { clave: 'rechazados', etq: 'Rechazados', tono: 'err' },
+      ],
+    })}</div>`;
+}
+
 </script>
 </body>
 </html>
