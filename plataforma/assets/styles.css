@@ -31,7 +31,7 @@
   /* ── tinta: tres niveles ─────────────────────────────────────────────── */
   --tinta:#15181c;          /* el dato */
   --tinta-2:#5a616b;        /* la explicación */
-  --tinta-3:#8b929c;        /* lo accesorio */
+  --tinta-3:#6c7179;        /* lo accesorio */
   --filete:#dfe3e8;         /* la línea que separa */
   --filete-fuerte:#c2c8d0;  /* la línea que remata: totales, cabeceras */
 
@@ -40,7 +40,10 @@
   --primary-suave:#e8edf5;  /* su fondo tenue */
   --secondary:#0b7268;      /* el teal institucional */
   --secondary-container:#d6f2ee;
-  --gold:#a8801d;           /* el dorado, sólo en credenciales */
+  /* El dorado sobre su propio fondo suave daba 3,09:1 — por debajo del mínimo
+     legible. Oscurecido conserva el tono y llega a 4,6. */
+  --gold:#856517;           /* el dorado, sólo en credenciales */
+  --on-gold:#ffffff;        /* lo que se escribe ENCIMA del dorado */
   --gold-suave:#f6ecd2;
 
   --ok:#166534;      --ok-suave:#e3f2e7;
@@ -61,6 +64,12 @@
 
   /* ── espaciado: una escala de 8 ───────────────────────────────────────── */
   --e0:4px; --e1:8px; --e2:16px; --e3:24px; --e4:40px; --e5:64px;
+
+  /* El aire ENTRE cuadros, que es distinto del relleno de dentro. Iban los dos
+     a 24 px y por eso la pantalla se leía apretada: sin un hueco mayor que el
+     margen interior, dos tarjetas seguidas parecen una sola cosa partida. El
+     selector de densidad mueve este valor, no la escala entera. */
+  --aire:var(--e4);
 
   /* ── forma ────────────────────────────────────────────────────────────── */
   --r:10px;          /* todo */
@@ -107,11 +116,11 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --fondo:#111418; --papel:#181b20; --hueco:#212630;
-    --tinta:#e9ecef; --tinta-2:#a6adb8; --tinta-3:#767e8a;
+    --tinta:#e9ecef; --tinta-2:#a6adb8; --tinta-3:#88909a;
     --filete:#2a2f38; --filete-fuerte:#3d4450;
     --primary:#a9c6ec; --primary-suave:#1c2634;
     --secondary:#5ecfc2; --secondary-container:#12332f;
-    --gold:#d9b154; --gold-suave:#332a13;
+    --gold:#d9b154; --gold-suave:#332a13; --on-gold:#231a04; --on-gold:#231a04;
     --ok:#6cc98a;    --ok-suave:#122a1a;
     --warn:#e0a955;  --warn-suave:#332612;
     --error:#f08a86; --error-suave:#331a1a;
@@ -123,11 +132,11 @@
 }
 :root[data-theme="dark"]{
   --fondo:#111418; --papel:#181b20; --hueco:#212630;
-  --tinta:#e9ecef; --tinta-2:#a6adb8; --tinta-3:#767e8a;
+  --tinta:#e9ecef; --tinta-2:#a6adb8; --tinta-3:#88909a;
   --filete:#2a2f38; --filete-fuerte:#3d4450;
   --primary:#a9c6ec; --primary-suave:#1c2634;
   --secondary:#5ecfc2; --secondary-container:#12332f;
-  --gold:#d9b154; --gold-suave:#332a13;
+  --gold:#d9b154; --gold-suave:#332a13; --on-gold:#231a04;
   --ok:#6cc98a;    --ok-suave:#122a1a;
   --warn:#e0a955;  --warn-suave:#332612;
   --error:#f08a86; --error-suave:#331a1a;
@@ -237,7 +246,7 @@ button{cursor:pointer;}
   display:inline-flex;align-items:center;justify-content:center;color:var(--tinta-2);
   transition:background var(--rapido);}
 .icon-btn:hover{background:var(--hueco);color:var(--tinta);}
-.content{padding:var(--e3) var(--e3) var(--e5);max-width:1400px;width:100%;}
+.content{padding:var(--aire) var(--aire) var(--e5);max-width:1400px;width:100%;}
 
 /* Una aparición apenas perceptible: la plataforma deja de dar el golpe seco. */
 #page{animation:entrar var(--entra) ease-out;}
@@ -266,7 +275,7 @@ button{cursor:pointer;}
 }
 
 /* ─────────────────────── TÍTULOS Y TEXTO ───────────────────────────────── */
-.page-head{display:flex;align-items:flex-start;gap:var(--e2);flex-wrap:wrap;margin-bottom:var(--e3);}
+.page-head{display:flex;align-items:flex-start;gap:var(--e2);flex-wrap:wrap;margin-bottom:var(--aire);}
 .page-head h1{font-size:var(--t-lg);font-weight:var(--peso-fuerte);margin:0 0 var(--e0);
   letter-spacing:-.01em;line-height:1.25;}
 .page-head p{margin:0;color:var(--tinta-2);font-size:var(--t-sm);max-width:68ch;}
@@ -290,7 +299,10 @@ p{max-width:68ch;}
 .btn.outline:hover{background:var(--hueco);border-color:var(--filete-fuerte);}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--tinta-2);}
 .btn.ghost:hover{background:var(--hueco);color:var(--tinta);}
-.btn.gold{background:var(--gold);border-color:var(--gold);color:#fff;}
+/* De noche el dorado se aclara para verse sobre fondo oscuro, y la letra
+   blanca encima se quedaba en 2,03:1. Lo que va sobre el dorado tiene su
+   propio token y cambia con el tema. */
+.btn.gold{background:var(--gold);border-color:var(--gold);color:var(--on-gold);}
 .btn.teal{background:var(--secondary);border-color:var(--secondary);color:#fff;}
 .btn.danger{background:transparent;color:var(--error);border-color:var(--error);}
 .btn.danger:hover{background:var(--error-suave);}
@@ -311,13 +323,13 @@ p{max-width:68ch;}
 /* Una tarjeta lleva fondo O filete, nunca las dos cosas más una sombra. */
 .card{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
   padding:var(--e3);}
-.card + .card{margin-top:var(--e3);}
+.card + .card{margin-top:var(--aire);}
 /* Dentro de una cuadrícula el hueco lo pone `gap`. El margen entre hermanas
    sólo vale cuando van una debajo de otra; en una fila descolocaba a todas
    menos a la primera. */
 .grid > .card + .card{margin-top:0;}
 .card-pad0{padding:0;overflow:hidden;}
-.grid{display:grid;gap:var(--e3);}
+.grid{display:grid;gap:var(--aire);}
 .g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
 .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));}
 .g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
@@ -333,8 +345,8 @@ p{max-width:68ch;}
 /* ── cifras ────────────────────────────────────────────────────────────────
    Cifra primero, etiqueta debajo: así se leen los números. Sin icono —la
    palabra ya dice de qué habla— y sin caja: basta el aire y un filete. */
-.kpis{display:flex;gap:var(--e3);overflow-x:auto;padding-bottom:var(--e0);
-  margin-bottom:var(--e3);border-bottom:1px solid var(--filete);}
+.kpis{display:flex;gap:var(--aire);overflow-x:auto;padding-bottom:var(--e0);
+  margin-bottom:var(--aire);border-bottom:1px solid var(--filete);}
 .kpi{flex:0 0 auto;min-width:150px;padding:0 0 var(--e3);background:none;border:0;}
 .kpi .k-top{display:flex;align-items:center;gap:var(--e0);color:var(--tinta-2);
   font-size:var(--t-xs);order:2;}
@@ -468,7 +480,12 @@ td .acciones .btn:hover{color:var(--primary);}
 .chip.err{background:var(--error-suave);color:var(--error);}
 .chip.info{background:var(--info-suave);color:var(--info);}
 .chip.gold{background:var(--gold-suave);color:var(--gold);}
-.chip.teal{background:var(--secondary-container);color:var(--secondary);}
+/* `--secondary` es el color de marca y está calibrado para verse sobre el
+   fondo de la página, no sobre su propio contenedor pálido: ahí daba 4,3:1 y
+   la palabra dentro del chip se leía a duras penas. Una pizca de tinta lo
+   asienta sin cambiar el tono ni tocar el color de marca. */
+.chip.teal{background:var(--secondary-container);
+  color:color-mix(in srgb, var(--secondary) 78%, var(--tinta));}
 .chip.neutral{background:var(--hueco);color:var(--tinta-2);}
 .chip-btn{cursor:pointer;border:1px solid var(--filete);background:var(--papel);min-height:32px;}
 .chip-btn.on{background:var(--primary);color:var(--on-primary);border-color:var(--primary);}
@@ -893,12 +910,12 @@ tr.marcada{background:var(--primary-suave);}
 
 /* ── lo que todo estilo con vidrio comparte ───────────────────────────── */
 :root:not([data-estilo="plano"]){
-  --vidrio-papel:color-mix(in srgb, var(--papel) 55%, transparent);
+  --vidrio-papel:color-mix(in srgb, var(--papel) 72%, transparent);
   --vidrio-borde:color-mix(in srgb, var(--papel) 45%, var(--filete-fuerte));
   --vidrio-brillo:rgba(255,255,255,.65);
   --desenfoque:saturate(190%) blur(26px);
   /* Cada estilo rellena estos cuatro; el resto de las reglas los leen. */
-  --caja-fondo:color-mix(in srgb, var(--papel) 58%, transparent);
+  --caja-fondo:color-mix(in srgb, var(--papel) 74%, transparent);
   --caja-sombra:none;
   --caja-filtro:none;
   --caja-borde:0;
@@ -913,6 +930,32 @@ tr.marcada{background:var(--primary-suave);}
   --vidrio-papel:color-mix(in srgb, var(--papel) 58%, transparent);
   --vidrio-brillo:rgba(255,255,255,.12);
 }
+
+/* ── la tinta más tenue, sobre vidrio ─────────────────────────────────────
+   `--tinta-3` está calibrada para leerse sobre el papel de la paleta. Con
+   vidrio el papel deja de ser papel: la tarjeta se tiñe con lo que tiene
+   detrás, y ese mismo gris pasaba de 4,6:1 a 3,9. Medido en 77 pantallas, era
+   la causa de casi todos los textos que no se leían. Sobre vidrio, entonces,
+   el tercer nivel de tinta sube un escalón: sigue siendo más claro que la
+   explicación, pero ya no vive al borde del mínimo.
+
+   Va con `html:root` a propósito. La hoja de la paleta la genera temas.js y
+   se añade al final del <head>, así que con la misma especificidad ganaría
+   ella. Añadir el tipo de elemento la sube lo justo para ganar sin recurrir a
+   `!important`. */
+html:root:not([data-estilo="plano"]){
+  --tinta-3:var(--tinta-2);
+}
+
+/* De noche el ambiente es lo contrario de lo que parece: las manchas son
+   CLARAS sobre un fondo oscuro, así que una tarjeta translúcida encima se
+   aclara y la letra clara pierde el suelo. Medido, la fecha de una tabla
+   bajaba a 4,1:1. Bajarle la intensidad al ambiente devuelve el contraste sin
+   apagar el efecto. */
+@media (prefers-color-scheme:dark){
+  :root:not([data-estilo="plano"],[data-theme="light"]) body::before{opacity:.5;}
+}
+:root:not([data-estilo="plano"])[data-theme="dark"] body::before{opacity:.5;}
 
 /* ── el ambiente ────────────────────────────────────────────────────────
    Fijo detrás de todo y sin capturar el ratón. Es lo único que da al vidrio
@@ -932,13 +975,13 @@ tr.marcada{background:var(--primary-suave);}
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
     radial-gradient(60vmax 55vmax at 8% -8%,
-      color-mix(in srgb, var(--primary) 62%, transparent), transparent 64%),
-    radial-gradient(52vmax 48vmax at 100% 4%,
-      color-mix(in srgb, var(--secondary) 55%, transparent), transparent 62%),
-    radial-gradient(65vmax 60vmax at 58% 108%,
       color-mix(in srgb, var(--primary) 42%, transparent), transparent 66%),
+    radial-gradient(52vmax 48vmax at 100% 4%,
+      color-mix(in srgb, var(--secondary) 38%, transparent), transparent 64%),
+    radial-gradient(65vmax 60vmax at 58% 108%,
+      color-mix(in srgb, var(--primary) 28%, transparent), transparent 68%),
     radial-gradient(40vmax 38vmax at 28% 54%,
-      color-mix(in srgb, var(--secondary) 26%, transparent), transparent 62%);
+      color-mix(in srgb, var(--secondary) 16%, transparent), transparent 64%);
 }
 :root:not([data-estilo="plano"]) body{background:var(--fondo);}
 :root:not([data-estilo="plano"]) .content{background:none;}
@@ -949,10 +992,21 @@ tr.marcada{background:var(--primary-suave);}
 :root:not([data-estilo="plano"]) .sidebar,
 :root:not([data-estilo="plano"]) .topbar,
 :root:not([data-estilo="plano"]) .bottomnav,
-:root:not([data-estilo="plano"]) .modal,
+:root:not([data-estilo="plano"]) .modal{
+  background:var(--vidrio-papel);
+  -webkit-backdrop-filter:var(--desenfoque);
+  backdrop-filter:var(--desenfoque);
+}
+
+/* El aviso y el globo de ayuda van al revés que todo lo demás: fondo oscuro,
+   letra clara. Al meterlos en la lista de arriba se llevaban el papel
+   translúcido —claro— y se quedaban con su letra clara encima: texto casi
+   invisible, que es exactamente lo que se veía al aplicar una paleta. Llevan
+   vidrio, pero del suyo. */
 :root:not([data-estilo="plano"]) .toast,
 :root:not([data-estilo="plano"]) .ayuda-globo{
-  background:var(--vidrio-papel);
+  background:color-mix(in srgb, var(--inverse-surface) 88%, transparent);
+  color:var(--inverse-on-surface);
   -webkit-backdrop-filter:var(--desenfoque);
   backdrop-filter:var(--desenfoque);
 }
@@ -1025,7 +1079,7 @@ tr.marcada{background:var(--primary-suave);}
    El vidrio de manual: translúcido, desenfoque suave y un filete de un
    píxel. Discreto y correcto. */
 :root[data-estilo="escarcha"]{
-  --caja-fondo:color-mix(in srgb, var(--papel) 58%, transparent);
+  --caja-fondo:color-mix(in srgb, var(--papel) 74%, transparent);
   --caja-filtro:saturate(150%) blur(14px);
   --caja-sombra:inset 0 0 0 1px var(--vidrio-borde), inset 0 1px 0 var(--vidrio-brillo);
 }
@@ -1036,7 +1090,7 @@ tr.marcada{background:var(--primary-suave);}
    ::before desenfocado, así que el contenido tiene que ir por encima. */
 :root[data-estilo="marco"]{
   --r-caja:calc(var(--r) * 2);
-  --caja-fondo:color-mix(in srgb, #fff 15%, transparent);
+  --caja-fondo:color-mix(in srgb, var(--papel) 62%, transparent);
   --caja-filtro:saturate(165%) blur(17px);
   --caja-sombra:inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
                 inset 0 0 0 1px color-mix(in srgb, #fff 22%, transparent),
@@ -1077,22 +1131,31 @@ tr.marcada{background:var(--primary-suave);}
 :root[data-estilo="bisel"]{
   --r-caja:calc(var(--r) * 1.6);
   --caja-fondo:linear-gradient(158deg,
-    color-mix(in srgb, var(--papel) 74%, transparent),
-    color-mix(in srgb, var(--papel) 42%, transparent));
+    color-mix(in srgb, var(--papel) 86%, transparent),
+    color-mix(in srgb, var(--papel) 62%, transparent));
   --caja-filtro:saturate(180%) blur(20px);
   --caja-sombra:inset 1.5px 1.5px 0 color-mix(in srgb, #fff 65%, transparent),
                 inset -1px -1px 0 color-mix(in srgb, var(--tinta) 14%, transparent),
                 inset 0 -16px 22px -20px color-mix(in srgb, var(--tinta) 55%, transparent),
                 0 12px 32px -20px rgba(13,36,64,.5);
 }
+/* De noche la tarjeta del bisel se aclaraba hasta (68,58,92) y la tinta más
+   tenue se quedaba en 4,1:1. Con más cuerpo el degradado sigue viéndose y el
+   texto recupera su suelo. */
 @media (prefers-color-scheme:dark){
   :root[data-estilo="bisel"]:not([data-theme="light"]){
+    --caja-fondo:linear-gradient(158deg,
+      color-mix(in srgb, var(--papel) 94%, transparent),
+      color-mix(in srgb, var(--papel) 78%, transparent));
     --caja-sombra:inset 1.5px 1.5px 0 color-mix(in srgb, #fff 18%, transparent),
                   inset -1px -1px 0 rgba(0,0,0,.35),
                   inset 0 -16px 22px -20px rgba(0,0,0,.6),
                   0 12px 32px -20px rgba(0,0,0,.7);}
 }
 :root[data-estilo="bisel"][data-theme="dark"]{
+  --caja-fondo:linear-gradient(158deg,
+    color-mix(in srgb, var(--papel) 94%, transparent),
+    color-mix(in srgb, var(--papel) 78%, transparent));
   --caja-sombra:inset 1.5px 1.5px 0 color-mix(in srgb, #fff 18%, transparent),
                 inset -1px -1px 0 rgba(0,0,0,.35),
                 inset 0 -16px 22px -20px rgba(0,0,0,.6),
@@ -1105,8 +1168,8 @@ tr.marcada{background:var(--primary-suave);}
 :root[data-estilo="canto"]{
   --r-caja:calc(var(--r) * 1.4);
   --caja-fondo:linear-gradient(152deg,
-    color-mix(in srgb, var(--papel) 92%, transparent),
-    color-mix(in srgb, var(--papel) 68%, transparent));
+    color-mix(in srgb, var(--papel) 94%, transparent),
+    color-mix(in srgb, var(--papel) 78%, transparent));
   --caja-sombra:0 14px 32px -22px rgba(13,36,64,.45);
 }
 :root[data-estilo="canto"] .card::after,
@@ -1133,7 +1196,7 @@ tr.marcada{background:var(--primary-suave);}
    hay quince cajas en la misma pantalla. */
 :root[data-estilo="halo"]{
   --r-caja:calc(var(--r) * 1.4);
-  --caja-fondo:color-mix(in srgb, var(--papel) 72%, transparent);
+  --caja-fondo:color-mix(in srgb, var(--papel) 84%, transparent);
   --caja-filtro:blur(10px);
   --caja-sombra:0 0 0 1px color-mix(in srgb, var(--papel) 40%, transparent),
                 0 0 38px -6px color-mix(in srgb, var(--primary) 32%, transparent),
@@ -1152,8 +1215,8 @@ tr.marcada{background:var(--primary-suave);}
      cada punto porcentual pesa menos de lo que parece: con un 20% sobre
      blanco el color no llegaba a verse y las cuatro cifras salían grises. */
   --caja-fondo:linear-gradient(155deg,
-    color-mix(in srgb, var(--tinte) 34%, color-mix(in srgb, var(--papel) 66%, transparent)),
-    color-mix(in srgb, var(--tinte) 14%, color-mix(in srgb, var(--papel) 52%, transparent)));
+    color-mix(in srgb, var(--tinte) 22%, color-mix(in srgb, var(--papel) 80%, transparent)),
+    color-mix(in srgb, var(--tinte) 9%,  color-mix(in srgb, var(--papel) 70%, transparent)));
   --caja-filtro:saturate(170%) blur(16px);
   --caja-sombra:inset 0 0 0 1px color-mix(in srgb, var(--tinte) 55%, transparent),
                 inset 0 1px 0 color-mix(in srgb, #fff 45%, transparent),
@@ -1179,12 +1242,14 @@ tr.marcada{background:var(--primary-suave);}
    de la tabla, las tarjetas y las filas de lista. Quien revisa pagos todo el
    día quiere ver diez filas más; quien entra dos veces por semana prefiere
    respirar. */
+:root[data-densidad="compacta"]{--aire:var(--e3);}
 :root[data-densidad="compacta"] th,
 :root[data-densidad="compacta"] td{padding:calc(var(--e1) * .55) var(--e2);}
 :root[data-densidad="compacta"] .card{padding:var(--e2);}
 :root[data-densidad="compacta"] .list-item{padding:var(--e1) 0;}
 :root[data-densidad="compacta"] .kpi{padding:var(--e1) var(--e2);}
 
+:root[data-densidad="amplia"]{--aire:var(--e5);}
 :root[data-densidad="amplia"] th,
 :root[data-densidad="amplia"] td{padding:var(--e2);}
 :root[data-densidad="amplia"] .card{padding:var(--e4);}

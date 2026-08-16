@@ -76,7 +76,13 @@ export default async function correr(navegador) {
   a.comprobar(cuentas.familia.length <= 3,
     `Con dos tipografías: la del texto y la de las cifras (${cuentas.familia.join(', ')})`);
 
-  /* ============ la tabla, legible ============ */
+  /* ============ la tabla, legible ============
+     El ratón se queda donde hizo clic para entrar, y ahí puede caer encima de
+     una fila: esa fila se pinta con el color de «estás sobre mí» y la
+     comprobación de que no hay filas cebradas se pone roja sin que nadie haya
+     cebrado nada. Se aparta antes de mirar. */
+  await A.mouse.move(2, 2);
+  await A.waitForTimeout(200);
   const tabla = await A.evaluate(() => {
     const filas = [...document.querySelectorAll('#tabla tbody tr')].filter((tr) => !tr.querySelector('td[colspan]'));
     const th = document.querySelector('#tabla thead th');
@@ -251,6 +257,91 @@ export default async function correr(navegador) {
     getComputedStyle(document.documentElement).getPropertyValue('--fondo').trim());
   a.comprobar(deNoche === '#15111f',
     `Con la paleta elegida, el tema oscuro sigue oscureciendo (${deNoche})`);
+  /* ============ que se lea, en las seis paletas y en los dos temas ============
+     Un barrido de 77 pantallas midiendo píxel a píxel encontró 1.993 textos por
+     debajo del mínimo legible, casi todos por lo mismo: `--tinta-3` estaba
+     calibrada contra el papel, y con vidrio el papel se tiñe con lo que tiene
+     detrás. Esto no vuelve a medir píxeles —eso tarda diez minutos— sino los
+     tres pares que causaban el problema, que se pueden comprobar exactos. */
+  const contraste = await P.evaluate(() => {
+    const canal = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const lum = ([r, g, b]) => 0.2126 * canal(r / 255) + 0.7152 * canal(g / 255) + 0.0722 * canal(b / 255);
+    const leer = (txt) => {
+      const d = document.createElement('div');
+      d.style.color = txt; document.body.appendChild(d);
+      const c = getComputedStyle(d).color; d.remove();
+      const n = [...c.matchAll(/-?[\d.]+/g)].map((m) => Number(m[0]));
+      // color-mix() se devuelve como color(srgb 0..1); rgb() como 0..255.
+      return c.startsWith('color(') ? n.slice(0, 3).map((v) => Math.round(v * 255)) : n.slice(0, 3);
+    };
+    const razon = (a, b) => {
+      const [x, y] = [lum(leer(a)), lum(leer(b))].sort((p, q) => q - p);
+      return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100;
+    };
+    const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+    const raiz = document.documentElement;
+    const antes = { estilo: raiz.dataset.estilo, paleta: raiz.dataset.paleta, tema: raiz.dataset.theme };
+    const salida = { peorTinta: 99, peorTinta2: 99, dorado: 99, aviso: 99, donde: '' };
+
+    for (const paleta of ['cem', 'indigo', 'caribe', 'violeta', 'electrico', 'magenta']) {
+      for (const tema of ['light', 'dark']) {
+        raiz.dataset.paleta = paleta; raiz.dataset.theme = tema; raiz.dataset.estilo = 'plano';
+        const c3 = razon(tok('--tinta-3'), tok('--papel'));
+        const c2 = razon(tok('--tinta-2'), tok('--papel'));
+        if (c3 < salida.peorTinta) { salida.peorTinta = c3; salida.donde = `${paleta}/${tema}`; }
+        salida.peorTinta2 = Math.min(salida.peorTinta2, c2);
+        salida.dorado = Math.min(salida.dorado, razon(tok('--on-gold'), tok('--gold')));
+        salida.aviso = Math.min(salida.aviso, razon(tok('--inverse-on-surface'), tok('--inverse-surface')));
+      }
+    }
+    Object.assign(raiz.dataset, { estilo: antes.estilo || 'plano', paleta: antes.paleta || 'cem' });
+    if (antes.tema) raiz.dataset.theme = antes.tema; else delete raiz.dataset.theme;
+    return salida;
+  });
+  a.comprobar(contraste.peorTinta >= 4.5,
+    `La tinta más tenue se lee en las seis paletas y los dos temas (peor: ${contraste.peorTinta} en ${contraste.donde})`);
+  a.comprobar(contraste.peorTinta2 >= 4.5,
+    `Y la de las explicaciones también (peor: ${contraste.peorTinta2})`);
+  a.comprobar(contraste.dorado >= 4.5,
+    `Lo que se escribe sobre el dorado se lee de día y de noche (${contraste.dorado})`);
+  a.comprobar(contraste.aviso >= 4.5,
+    `Y el aviso flotante, que lleva la letra al revés que el resto (${contraste.aviso})`);
+
+  /* Dejar el aspecto como estaba. Sin esto, la elección que hace esta prueba
+     —violeta, bisel, esquinas redondas, densidad compacta— se queda guardada
+     en el navegador de trabajo y las comprobaciones de más arriba, que corren
+     antes en la vuelta SIGUIENTE, miden una plataforma con vidrio: el
+     encabezado de la tabla pasa a tener fondo y «no hay filas cebradas» se
+     pone rojo sin que nadie haya tocado nada. */
+  // La comprobación de que la elección persiste nos dejó en el tablero.
+  await P.goto(`${BASE}/plataforma/admin/configuracion.html`, { waitUntil: 'domcontentloaded' });
+  await P.waitForSelector('#btnFabrica', { timeout: 25000 });
+  await P.click('#btnFabrica');
+  await P.waitForTimeout(800);
+  const fabrica = await P.evaluate(() => ({
+    estilo: document.documentElement.dataset.estilo,
+    forma: document.documentElement.dataset.forma,
+    densidad: document.documentElement.dataset.densidad,
+  }));
+  a.comprobar(fabrica.estilo === 'plano' && fabrica.forma === 'suave' && fabrica.densidad === 'normal',
+    `«Volver a como viene de fábrica» devuelve las tres cosas (${JSON.stringify(fabrica)})`);
+
+  /* El aire entre cuadros tiene que ser mayor que el relleno de dentro, o dos
+     tarjetas seguidas se leen como una sola cosa partida por la mitad. */
+  const aire = await P.evaluate(() => {
+    const px = (v) => parseFloat(v) || 0;
+    const cs = getComputedStyle(document.documentElement);
+    const tarjeta = document.querySelector('.card');
+    return {
+      entre: px(cs.getPropertyValue('--aire')) || px(getComputedStyle(document.querySelector('.grid'))?.gap),
+      dentro: tarjeta ? px(getComputedStyle(tarjeta).paddingTop) : 0,
+    };
+  });
+  a.comprobar(aire.entre > aire.dentro,
+    `Hay más aire entre cuadros que dentro de ellos (${aire.entre} entre · ${aire.dentro} dentro)`);
+
+
   a.comprobar(P.errores.length === 0, `Configuración no lanza errores ${JSON.stringify(P.errores.slice(0, 2))}`);
 
   a.comprobar(A.errores.length === 0, `El escritorio no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);

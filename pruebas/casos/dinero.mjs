@@ -107,6 +107,29 @@ export default async function correr(navegador) {
     await A.waitForTimeout(3500);
     a.comprobar(!(await A.locator('#tb').textContent()).includes(REFERENCIA),
       'Tras aprobar sale de la bandeja "Por revisar"');
+
+    /* ============ y se puede deshacer ============
+       Aparte de comprobar que anular devuelve el saldo a la cuota —que es lo
+       que hace `cem_anular_pago`—, esto deja el escenario como estaba. Sin
+       ello cada corrida se comía la única cuota pendiente del estudiante de
+       demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
+       una prueba que sólo pasa la primera vez no es una prueba. */
+    const devuelto = await A.evaluate(async (ref) => {
+      const m = await import('/plataforma/assets/app.js');
+      const { data: pagos } = await m.sb.from('cem_payments')
+        .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
+      if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
+      const { error } = await m.sb.rpc('cem_anular_pago', {
+        p_payment_id: pagos[0].id,
+        p_motivo: 'Prueba automática: se deshace para dejar la cuota como estaba.',
+      });
+      if (error) return { ok: false, motivo: error.message };
+      const { data: cuota } = await m.sb.from('cem_installments')
+        .select('estado, saldo').eq('id', pagos[0].installment_id).single();
+      return { ok: true, estado: cuota?.estado, saldo: Number(cuota?.saldo) };
+    }, REFERENCIA);
+    a.comprobar(devuelto.ok && devuelto.saldo > 0 && devuelto.estado !== 'pagada',
+      `Anular el pago le devuelve el saldo a la cuota (${JSON.stringify(devuelto)})`);
   }
 
   /* ============ estado de cuenta y recibo ============ */
