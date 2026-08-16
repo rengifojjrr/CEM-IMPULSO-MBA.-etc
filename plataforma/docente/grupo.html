@@ -25,6 +25,9 @@
 
   <div class="kpis" id="kpis"></div>
 
+  <!-- No es un tablero: es para saber a quién ayudar el lunes. -->
+  <div class="grid graficos" id="graficos"></div>
+
   <div class="card" id="cardRiesgo" hidden>
     <h2 class="sec">A quiénes conviene escribirles</h2>
     <p class="tiny muted" style="margin-top:-6px">
@@ -51,6 +54,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi,
          toCSV, download, fail, mensajeError } from '../assets/app.js?v=2026-08-20';
+import { histograma, columnas, barras } from '../assets/graficos.js?v=2026-08-20';
 
 const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
                         active:'grupo.html', area:'docente' });
@@ -129,7 +133,44 @@ async function cargar(){
   render();
 }
 
+async function pintarGraficos(cohorte){
+  const host = $('#graficos');
+  if (!host) return;
+  if (!cohorte){ host.innerHTML = ''; return; }
+  const { data: g, error } = await sb.rpc('cem_series_grupo', { p_cohort_id: cohorte });
+  if (error){ host.innerHTML = ''; return; }
+
+  const asistencia = (g.asistencia || []).map(c => ({
+    etq: c.etq, n: Number(c.de) ? Math.round(100 * Number(c.n) / Number(c.de)) : 0,
+    href: `asistencia.html?clase=${c.id}` }));
+
+  host.innerHTML = `
+    <div class="card">${histograma({
+      titulo: 'Cómo se repartieron las notas del grupo',
+      pie: 'Si sale con dos jorobas —un montón arriba y otro abajo— el grupo va a dos velocidades, y dar la clase a la media no le sirve a ninguno de los dos.',
+      tramos: g.notas || [], corte: 70 })}</div>
+
+    <div class="card">${barras({
+      titulo: 'Lo que opina la clase', formato: (v) => `${Number(v).toFixed(1)} / 5`,
+      col: 'Aspecto', colN: 'Media', ordenar: false,
+      pie: 'De 1 a 5, y sin nombres: si se supiera quién dijo qué, se acaban las opiniones sinceras el mismo día.',
+      datos: (g.valoraciones || []).map(v => ({ ...v, n: Number(v.n) })),
+      marcar: (d) => d.n >= 4 ? 'ok' : d.n >= 3 ? 'warn' : 'err' })}</div>
+
+    <div class="card">${columnas({
+      titulo: 'Asistencia sesión por sesión', datos: asistencia, formato: 'pct', alto: 130,
+      pie: 'La sesión con el bajón suele coincidir con un feriado o con un tema del que se corrió la voz de que era denso. Pulsa una para ver la lista.' })}</div>
+
+    <div class="card">${barras({
+      titulo: 'Cuánto lleva visto el grupo de cada módulo', formato: 'pct',
+      col: 'Módulo', colN: 'Visto', ordenar: false,
+      pie: 'El módulo donde la barra cae es donde se atasca el grupo entero, que es distinto de que se atasque alguien.',
+      datos: (g.avance || []).map(m => ({ ...m, n: Number(m.n) })),
+      marcar: (d) => d.n >= 70 ? 'ok' : d.n >= 35 ? 'warn' : 'err' })}</div>`;
+}
+
 function render(){
+  pintarGraficos($('#selCohorte')?.value);
   const q = $('#q').value.trim();
   const f = $('#fRiesgo').value;
   const lista = filas.filter(x => match(x, q, ['estudiante', 'email'])

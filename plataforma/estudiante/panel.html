@@ -19,6 +19,9 @@
 
   <div class="kpis" id="kpis"></div>
 
+  <!-- Aquí un gráfico no es para analizar: es para dar ganas de seguir. -->
+  <div class="grid graficos" id="graficos"></div>
+
   <h2 class="sec sep-mucho">Cursos activos</h2>
   <div class="grid g2" id="cursos"></div>
 
@@ -42,6 +45,7 @@
 </div>
 <script type="module">
 import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado, chipNota, vacio, etiqueta } from '../assets/app.js?v=2026-08-20';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-20';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 if (p) init();
 
@@ -62,6 +66,8 @@ async function init(){
     cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria,puntaje_max')
       .in('course_id',cIds).eq('estado','publicado') : Promise.resolve({data:[]}),
   ]);
+
+  pintarGraficos(ens || []);
 
   const prog = ens?.length? ens.reduce((a,e)=>a+Number(e.progreso||0),0)/ens.length : 0;
   const saldo = (insts||[]).filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
@@ -179,6 +185,63 @@ async function init(){
           : '<span class="muted">nada pendiente</span>'}</td></tr>`;
   }).join('') : emptyRow(5, 'Todavía no tienes programas activos.');
 })();
+/* ============ mis gráficos ============
+   Uno por inscripción activa no cabe: se pinta el del curso en el que se está
+   más avanzado sin terminar, que es donde uno está de verdad. */
+async function pintarGraficos(ens){
+  const host = $('#graficos');
+  const activas = ens.filter(e => e.estado === 'activa');
+  const foco = activas.sort((a,b) => Number(b.progreso||0) - Number(a.progreso||0))[0] || ens[0];
+  if (!foco){ host.innerHTML = ''; return; }
+
+  const { data: g, error } = await sb.rpc('cem_mi_avance', { p_enrollment_id: foco.id });
+  if (error){ host.innerHTML = ''; return; }
+
+  const curso = foco.cem_courses?.nombre || 'tu programa';
+  /* Los tres requisitos NO son las etapas de un embudo: no se pasa de uno al
+     siguiente, se cumplen a la vez y en cualquier orden. Puestos en embudo
+     salía «40 %, 33 %, 100 %» con una caída del −18 % entre dos cosas que no
+     tienen nada que ver. Son tres barras. */
+  const req = (g.requisitos || []).map(r => ({
+    etq: `${r.etq}${Number(r.meta) ? ` · ${r.n} de ${r.meta}` : ''}`,
+    n: Number(r.meta) ? Math.round(100 * Number(r.n) / Number(r.meta)) : 100 }));
+
+  host.innerHTML = `
+    <div class="card">${barras({
+      titulo: `Cuánto llevas de ${curso}`, formato: 'pct', ordenar: false,
+      col: 'Módulo', colN: 'Visto',
+      pie: 'Módulo a módulo. Un «68 %» suelto no dice si lo que falta es una tarde o tres semanas; esto sí. Pulsa uno para seguir donde lo dejaste.',
+      datos: (g.modulos || []).map(m => ({ ...m, n: Number(m.n),
+        href: `clase.html?enr=${foco.id}&modulo=${m.id}` })),
+      marcar: (d) => d.n >= 100 ? 'ok' : d.n > 0 ? 'warn' : null })}</div>
+
+    <div class="card">${(g.notas || []).length
+      ? linea({
+          titulo: 'Tus notas, una tras otra',
+          datos: (g.notas || []).map(x => ({ etq: x.cuando, n: Number(x.n),
+            href: `evaluacion.html?id=${x.id}&enr=${foco.id}` })),
+          referencia: Number(g.aprobatoria) || 70,
+          etqRef: `la línea punteada es el ${g.aprobatoria || 70}, la nota con la que se aprueba`,
+          pie: 'Ver la propia curva es lo que hace que uno se dé cuenta a tiempo, en vez de enterarse en la última evaluación.' })
+      : `<figure class="gr"><figcaption class="gr-tit">Tus notas</figcaption>
+         <p class="gr-vacio">Todavía no tienes ninguna evaluación calificada.</p></figure>`}</div>
+
+    <div class="card">${barras({
+      titulo: 'Qué te falta para el certificado', formato: 'pct', ordenar: false,
+      col: 'Requisito', colN: 'Cumplido',
+      pie: 'Los tres a la vez: ver el contenido, aprobar las evaluaciones y no deber nada. El certificado sale cuando los tres llegan a cien.',
+      datos: req.map(r => ({ ...r, href: 'certificados.html' })),
+      marcar: (d) => d.n >= 100 ? 'ok' : d.n >= 50 ? 'warn' : 'err' })}</div>
+
+    <div class="card">${hitos({
+      titulo: 'Tus cuotas',
+      pie: 'Verde pagada, naranja por vencer, roja vencida. La mayoría de los retrasos son despistes, no falta de plata.',
+      puntos: (g.cuotas || []).map(c => ({
+        etq: c.etq, cuando: c.cuando, tono: c.tono,
+        detalle: `${money(c.monto, c.moneda || undefined)} · ${etiqueta(c.estado)}`,
+        href: c.estado === 'pagada' ? null : `pagos.html?cuota=${c.id}` })) })}</div>`;
+}
+
 </script>
 </body>
 </html>

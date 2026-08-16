@@ -56,8 +56,12 @@ function trozo(href, clases, estilo, dentro, titulo) {
  * @param {string} [o.colN]     cómo se llama la columna del número
  */
 export function marco({ titulo, pie, cuerpo, datos = [], col = 'Concepto', colN = 'Cantidad',
-                        formato, vacio = 'Todavía no hay datos que enseñar aquí.' }) {
-  const hayAlgo = datos.some((d) => n(d.n) !== 0);
+                        formato, hay = null, vacio = 'Todavía no hay datos que enseñar aquí.' }) {
+  // Por defecto «hay algo» es que alguna cifra no sea cero. Los gráficos cuyo
+  // valor no es un número —la línea de hitos lleva fechas— lo dicen ellos, que
+  // si no Number('20/09/2026') da NaN y el gráfico se declara vacío teniendo
+  // seis cuotas dentro.
+  const hayAlgo = hay != null ? hay : datos.some((d) => n(d.n) !== 0);
   return `<figure class="gr">
     <figcaption class="gr-tit">${esc(titulo)}</figcaption>
     ${hayAlgo ? cuerpo : `<p class="gr-vacio">${esc(vacio)}</p>`}
@@ -182,7 +186,10 @@ export function linea({ titulo, pie, datos, formato, referencia = null, etqRef =
   const x = (i) => (datos.length === 1 ? ancho / 2 : (i * ancho) / (datos.length - 1));
   const y = (v) => altoV - (n(v) / max) * altoV;
   const puntos = datos.map((d, i) => `${x(i).toFixed(2)},${y(d.n).toFixed(2)}`).join(' ');
-  const area = datos.length
+  // Con un solo dato no hay curva que trazar. El área lo unía con las dos
+  // esquinas de abajo y salía un triángulo enorme que no quería decir nada.
+  const hayCurva = datos.length > 1;
+  const area = hayCurva
     ? `M0,${altoV} L${datos.map((d, i) => `${x(i).toFixed(2)},${y(d.n).toFixed(2)}`).join(' L')} L${ancho},${altoV} Z`
     : '';
 
@@ -193,8 +200,8 @@ export function linea({ titulo, pie, datos, formato, referencia = null, etqRef =
         y1="${(altoV * f).toFixed(1)}" y2="${(altoV * f).toFixed(1)}"/>`).join('')}
       ${referencia != null ? `<line class="referencia" x1="0" x2="${ancho}"
         y1="${y(referencia).toFixed(2)}" y2="${y(referencia).toFixed(2)}"/>` : ''}
-      <path class="area" d="${area}"/>
-      <polyline class="trazo" points="${puntos}"/>
+      ${hayCurva ? `<path class="area" d="${area}"/>
+      <polyline class="trazo" points="${puntos}"/>` : ''}
     </svg>
     <div class="gr-puntos">
       ${datos.map((d, i) => trozo(d.href, 'gr-punto-dato',
@@ -286,8 +293,9 @@ export function hitos({ titulo, pie, puntos }) {
     </li>`).join('')}
   </ol>`;
   return marco({ titulo, pie, cuerpo, col: 'Hito', colN: 'Cuándo',
+    hay: puntos.length > 0,
     datos: puntos.map((p) => ({ etq: p.etq, n: p.cuando })),
-    formato: (v) => esc(String(v ?? '—')) });
+    formato: (v) => String(v ?? '—') });
 }
 
 /* ============ ayudas para armar las series ============ */
