@@ -906,18 +906,28 @@ tr.marcada{background:var(--primary-suave);}
 /* ── el ambiente ────────────────────────────────────────────────────────
    Fijo detrás de todo y sin capturar el ratón. Es lo único que da al vidrio
    algo que difuminar, así que tiene que verse: por debajo de un 30% el
-   efecto entero se convierte en un gris caro. */
+   efecto entero se convierte en un gris caro.
+
+   Llevaba `inset:-25vmax` para que las manchas sangraran por los bordes, y
+   eso era un error de bulto: en una ventana de 1400 px, 25vmax son 350 px…
+   por cada lado, así que la capa medía 2100 px de ancho y el centro de la
+   primera mancha —al 8% de ESA anchura— caía a 182 px de su borde
+   izquierdo, es decir 168 px fuera de la pantalla por la izquierda. Las
+   cuatro manchas quedaban casi todas fuera y el vidrio se difuminaba contra
+   nada: gris caro, exactamente lo que este comentario decía que había que
+   evitar. Con `inset:0` los porcentajes son porcentajes de la ventana, que
+   es lo que siempre quisieron decir, y el sangrado lo dan los radios. */
 :root[data-vidrio="si"] body::before{
-  content:'';position:fixed;inset:-25vmax;z-index:-1;pointer-events:none;
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
-    radial-gradient(38vmax 38vmax at 8% -4%,
-      color-mix(in srgb, var(--primary) 58%, transparent), transparent 60%),
-    radial-gradient(34vmax 34vmax at 98% 6%,
-      color-mix(in srgb, var(--secondary) 52%, transparent), transparent 58%),
-    radial-gradient(42vmax 42vmax at 62% 96%,
-      color-mix(in srgb, var(--primary) 38%, transparent), transparent 62%),
-    radial-gradient(30vmax 30vmax at 30% 52%,
-      color-mix(in srgb, var(--secondary) 26%, transparent), transparent 60%);
+    radial-gradient(60vmax 55vmax at 8% -8%,
+      color-mix(in srgb, var(--primary) 62%, transparent), transparent 64%),
+    radial-gradient(52vmax 48vmax at 100% 4%,
+      color-mix(in srgb, var(--secondary) 55%, transparent), transparent 62%),
+    radial-gradient(65vmax 60vmax at 58% 108%,
+      color-mix(in srgb, var(--primary) 42%, transparent), transparent 66%),
+    radial-gradient(40vmax 38vmax at 28% 54%,
+      color-mix(in srgb, var(--secondary) 26%, transparent), transparent 62%);
 }
 :root[data-vidrio="si"] body{background:var(--fondo);}
 :root[data-vidrio="si"] .content{background:none;}
