@@ -993,3 +993,26 @@ tr.marcada{background:var(--primary-suave);}
     background:var(--papel);-webkit-backdrop-filter:none;backdrop-filter:none;
     box-shadow:none;}
 }
+
+/* ── la historia de una persona, en orden ────────────────────────────────
+   Cinco tablas separadas obligan a reconstruir mentalmente lo que pasó. En
+   una columna con su fecha se lee sola: se inscribió, pagó, entregó, aprobó,
+   se graduó. La línea vertical es lo que la convierte en un relato. */
+.linea{position:relative;padding-left:var(--e3);margin:0;list-style:none;}
+.linea::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;
+  width:1px;background:var(--filete);}
+.linea li{position:relative;padding:var(--e1) 0 var(--e1) var(--e2);}
+.linea li::before{content:'';position:absolute;left:-19px;top:15px;width:11px;height:11px;
+  border-radius:var(--r-full);background:var(--papel);
+  box-shadow:0 0 0 2px var(--filete-fuerte);}
+.linea li.ok::before{box-shadow:0 0 0 2px var(--ok);background:var(--ok);}
+.linea li.mal::before{box-shadow:0 0 0 2px var(--error);background:var(--error);}
+.linea li.hito::before{box-shadow:0 0 0 2px var(--gold);background:var(--gold);}
+.linea .cuando{font-size:var(--t-xs);color:var(--tinta-3);font-family:var(--cifra);}
+.linea .que{font-weight:var(--peso-fuerte);line-height:1.35;}
+.linea .detalle{font-size:var(--t-sm);color:var(--tinta-2);}
+
+/* El aviso de que un certificado ya no vale: tiene que verse antes que el
+   propio certificado. */
+.anulado{opacity:.6;}
+.anulado .t{text-decoration:line-through;}

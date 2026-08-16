@@ -44,7 +44,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado} from '../assets/app.js?v=2026-08-16';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-16';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let certs=[], elegibles=[], tpls=[];
@@ -52,7 +52,10 @@ if (p) load();
 
 async function load(){
   const [{data:cs},{data:ens},{data:tp}] = await Promise.all([
-    sb.from('cem_certificates').select('*,cem_profiles(nombre,apellido,email),cem_courses(nombre)').order('emitido_en',{ascending:false}).limit(500),
+    // `cem_certificates` apunta dos veces a `cem_profiles` —el titular y quien
+    // lo anuló—, así que hay que nombrar la clave foránea o PostgREST no sabe
+    // por cuál entrar y devuelve la lista vacía sin decir por qué.
+    sb.from('cem_certificates').select('*,cem_profiles!cem_certificates_profile_id_fkey(nombre,apellido,email),cem_courses(nombre)').order('emitido_en',{ascending:false}).limit(500),
     sb.from('cem_enrollments').select('id,progreso,estado,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre,certificado_nombre)').limit(500),
     sb.from('cem_certificate_templates').select('*').order('created_at'),
   ]);
@@ -85,20 +88,49 @@ function render(){
     <td><code>${esc(c.codigo)}</code></td>
     <td class="wrap">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(c.titulo)}</td><td class="wrap">${esc(c.cem_courses?.nombre||'—')}</td>
-    <td class="muted">${fdate(c.emitido_en)}</td><td>${chipEstado(c.estado)}</td>
-    <td class="nowrap">
-      <button class="btn ghost sm" data-ver="${c.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
-      <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank" title="Verificación pública">
+    <td class="muted">${fdate(c.emitido_en)}</td>
+    <td>${c.anulado_en ? chip('anulado','err') : chipEstado(c.estado)}</td>
+    <td class="nowrap"><span class="acciones">
+      <button class="btn ghost sm" data-ver="${c.id}" title="Ver el certificado"
+        aria-label="Ver el certificado ${esc(c.codigo)}"><span class="material-symbols-outlined">visibility</span></button>
+      <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"
+        title="Verificación pública" aria-label="Abrir la verificación pública de ${esc(c.codigo)}">
         <span class="material-symbols-outlined">verified</span></a>
-      ${puede && c.estado==='emitido'?`<button class="btn ghost sm" data-rev="${c.id}" style="color:var(--error)" title="Revocar">
-        <span class="material-symbols-outlined">block</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(7, 'Todavía no se ha emitido ningún certificado.');
+      ${puede && !c.anulado_en ? `<button class="btn ghost sm" data-rev="${c.id}" style="color:var(--error)"
+        title="Anular" aria-label="Anular el certificado ${esc(c.codigo)}">
+        <span class="material-symbols-outlined">block</span></button>` : ''}
+    </span></td></tr>`).join('') : emptyRow(7, 'Todavía no se ha emitido ningún certificado.');
   $$('[data-ver]').forEach(b=>b.onclick=()=>ver(certs.find(c=>c.id===b.dataset.ver)));
-  $$('[data-rev]').forEach(b=>b.onclick=async()=>{
-    if (!await confirmDialog('¿Revocar este certificado? Dejará de validar en la verificación pública.')) return;
-    await run(sb.from('cem_certificates').update({estado:'revocado'}).eq('id',b.dataset.rev),'No se pudo revocar');
-    await audit('certificado_revocado','cem_certificates',b.dataset.rev,'alto',{}); ok('Certificado revocado'); load();
-  });
+  $$('[data-rev]').forEach(b=>b.onclick=()=>anular(certs.find(c=>c.id===b.dataset.rev)));
+}
+
+/* item 25 · antes «revocar» ponía el estado en revocado y la verificación
+   pública dejaba de encontrarlo: quien escaneaba leía «no existe», que
+   sugiere que el papel es falso. Un título anulado sí existió; lo que hay
+   que decir es cuándo se anuló y por qué. Y eso obliga a escribir el motivo,
+   porque es lo que va a leer un tercero. */
+function anular(c){
+  if (!c) return;
+  const m = modal({ title:`Anular ${c.codigo}`, body:`
+    <p class="tiny muted">El certificado no se borra. Quien lo verifique va a leer que fue anulado,
+      con la fecha y el motivo que escribas aquí. Esto no se puede deshacer desde la pantalla.</p>
+    <div class="field"><label>Motivo de la anulación</label>
+      <textarea id="anMotivo" placeholder="Ej.: el apellido venía mal escrito en el registro y se emitió uno corregido"></textarea></div>
+    <div id="anMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn danger" data-s>Anular el certificado</button>` });
+
+  $('[data-s]', m).onclick = async () => {
+    const motivo = $('#anMotivo', m).value.trim();
+    if (motivo.length < 10) {
+      avisar($('#anMsg', m), 'Escribe el motivo: lo va a leer quien verifique el título.', 'err');
+      return;
+    }
+    const { error } = await sb.rpc('cem_anular_certificado', { p_id: c.id, p_motivo: motivo });
+    if (error) { avisar($('#anMsg', m), mensajeError(error), 'err'); return; }
+    await audit('certificado_anulado','cem_certificates',c.id,'alto',{ motivo });
+    m.close(); ok(`${c.codigo} anulado.`); load();
+  };
 }
 ['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnExport').onclick=()=>download('certificados_cem.csv', toCSV(certs.map(c=>({

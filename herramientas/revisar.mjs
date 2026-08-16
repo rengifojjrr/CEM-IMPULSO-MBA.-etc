@@ -192,6 +192,10 @@ const PUBLICAS = new Set([
   'plataforma/index.html',        // la propia entrada
   'plataforma/nueva-clave.html',  // se llega desde el correo, sin sesión
   'plataforma/verificar.html',    // verificación pública de un certificado
+  // El perfil de un graduado es público a propósito: se llega escaneando el QR
+  // de un título y no puede exigir cuenta. Sólo enseña lo que la propia persona
+  // autorizó, y lo filtra el servidor en `cem_perfil_publico`, no el navegador.
+  'plataforma/perfil-publico.html',
   'plataforma/manual.html',       // documentación
 ]);
 

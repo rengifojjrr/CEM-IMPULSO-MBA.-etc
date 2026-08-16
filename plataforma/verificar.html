@@ -37,24 +37,46 @@ async function verificar(codigo){
     res.innerHTML = `<div class="card" style="border-color:var(--error)">
       <div class="row"><span class="material-symbols-outlined err-text">cancel</span>
       <b>No encontrado</b></div>
-      <p class="tiny muted" style="margin:8px 0 0">No existe un certificado válido con el código <code>${esc(codigo)}</code>.</p></div>`;
+      <p class="tiny muted" style="margin:8px 0 0">${error
+        ? 'No pudimos consultar el registro ahora mismo. Vuelve a intentarlo en un momento.'
+        : `No existe ningún certificado con el código <code>${esc(codigo)}</code>. Comprueba que esté bien copiado: se distinguen las letras de los números.`}</p></div>`;
     return;
   }
-  res.innerHTML = `<div class="card" style="border-color:var(--ok)">
-    <div class="row"><span class="material-symbols-outlined ok-text">verified</span>
-      <b>Certificado auténtico</b></div>
+  /* item 25 · un certificado anulado no se borraba: se dejaba de devolver, y la
+     verificación decía «no existe». Eso sugiere que el papel es falso cuando lo
+     que pasó es que se anuló. Ahora se dice qué pasó y cuándo. */
+  const anulado = !!data.anulado;
+  const linea = (etiqueta, valor, negrita) =>
+    `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--filete)">
+       <span class="muted tiny">${etiqueta}</span>
+       ${negrita ? `<b style="text-align:right">${valor}</b>` : `<span style="text-align:right">${valor}</span>`}
+     </div>`;
+
+  res.innerHTML = `<div class="card" style="border-color:var(--${anulado ? 'error' : 'ok'})">
+    <div class="row"><span class="material-symbols-outlined ${anulado ? 'err-text' : 'ok-text'}">${anulado ? 'gpp_bad' : 'verified'}</span>
+      <b>${anulado ? 'Certificado anulado' : 'Certificado auténtico'}</b></div>
+    ${anulado ? `<p class="nota err">Este certificado lo emitió CEM pero fue anulado
+      el ${fdate(data.anulado_en)}${data.anulado_motivo ? `: ${esc(data.anulado_motivo)}` : '.'}
+      Ya no acredita nada.</p>` : ''}
     <div class="sep">
-      <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
-        <span class="muted tiny">Estudiante</span><b>${esc(data.estudiante)}</b></div>
-      <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
-        <span class="muted tiny">Certificado</span><b style="text-align:right">${esc(data.titulo)}</b></div>
-      ${data.curso?`<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
-        <span class="muted tiny">Programa</span><span style="text-align:right">${esc(data.curso)}</span></div>`:''}
-      <div class="row between" style="padding:6px 0;border-bottom:1px solid var(--outline-variant)">
-        <span class="muted tiny">Emitido</span><span>${fdate(data.emitido_en)}</span></div>
+      ${linea('Estudiante', esc(data.estudiante), true)}
+      ${linea('Certificado', esc(data.titulo), true)}
+      ${data.curso ? linea('Programa', esc(data.curso)) : ''}
+      ${linea('Emitido', fdate(data.emitido_en))}
       <div class="row between" style="padding:6px 0">
         <span class="muted tiny">Código</span><code>${esc(data.codigo)}</code></div>
-    </div></div>`;
+    </div>
+
+    ${data.perfil_slug && !anulado ? `
+      <!-- item 03 · quien escanea un título suele estar a punto de contratar, y
+           lo que quiere saber es qué formación tiene esa persona, no sólo si
+           este papel vale. El QR impreso sigue apuntando aquí —una dirección que
+           no se rompe aunque el graduado despublique su perfil— y desde aquí se
+           pasa al perfil cuando existe. -->
+      <a class="btn block sep" href="perfil-publico.html?p=${encodeURIComponent(data.perfil_slug)}">
+        <span class="material-symbols-outlined">badge</span>
+        Ver todas las credenciales de ${esc(data.estudiante)}</a>` : ''}
+  </div>`;
 }
 
 $('#f').onsubmit = (e) => { e.preventDefault(); verificar($('#codigo').value.trim()); };

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Credenciales</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Credenciales verificables emitidas por CEM International Education System.">
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="CEM International Education System">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-16">
+<style>
+  /* La página es una credencial, no un panel: centrada, estrecha y sin menú.
+     Quien llega aquí viene de escanear un papel y decide en diez segundos. */
+  .credencial{max-width:760px;margin:0 auto;padding:var(--e5) var(--e3) var(--e5);}
+  .cabeza{display:flex;gap:var(--e3);align-items:center;flex-wrap:wrap;
+    padding-bottom:var(--e3);border-bottom:1px solid var(--filete-fuerte);
+    margin-bottom:var(--e3);}
+  .retrato{width:76px;height:76px;border-radius:var(--r-full);flex:none;
+    background:var(--primary-suave);color:var(--primary);object-fit:cover;
+    display:flex;align-items:center;justify-content:center;
+    font-size:var(--t-xl);font-weight:var(--peso-fuerte);}
+  .cabeza h1{margin:0;font-size:var(--t-2xl);letter-spacing:-.03em;line-height:1.05;}
+  .cabeza .desde{color:var(--tinta-2);font-size:var(--t-sm);margin-top:var(--e0);}
+  .emisor{display:inline-flex;align-items:center;gap:var(--e0);font-size:var(--t-xs);
+    color:var(--secondary);font-weight:var(--peso-fuerte);letter-spacing:.06em;
+    text-transform:uppercase;margin-bottom:var(--e1);}
+
+  .titulo-seccion{font-size:var(--t-xs);color:var(--tinta-3);
+    font-weight:var(--peso-fuerte);margin:var(--e4) 0 var(--e2);}
+  .cred{border:1px solid var(--filete);border-radius:var(--r);padding:var(--e2) var(--e3);
+    display:flex;gap:var(--e2);align-items:flex-start;margin-bottom:var(--e1);
+    background:var(--papel);}
+  .cred .sello{color:var(--gold);flex:none;font-size:30px;}
+  .cred h2{margin:0 0 2px;font-size:var(--t-md);line-height:1.3;}
+  .cred .meta{font-size:var(--t-sm);color:var(--tinta-2);}
+  .cred .codigo{font-family:var(--cifra);font-size:var(--t-xs);color:var(--tinta-3);
+    margin-top:var(--e0);}
+  .insignias{display:flex;flex-wrap:wrap;gap:var(--e1);}
+  .insignia{display:flex;align-items:center;gap:var(--e1);border:1px solid var(--filete);
+    border-radius:var(--r-full);padding:var(--e0) var(--e2) var(--e0) var(--e1);
+    font-size:var(--t-sm);}
+  .insignia .material-symbols-outlined{color:var(--gold);font-size:18px;}
+  .pie{margin-top:var(--e5);padding-top:var(--e2);border-top:1px solid var(--filete);
+    font-size:var(--t-xs);color:var(--tinta-3);line-height:1.7;}
+</style>
+</head>
+<body>
+<div id="page">
+  <div class="credencial" id="cont">
+    <span class="cargando"></span>
+  </div>
+</div>
+<script type="module">
+/* El perfil público del graduado.
+   ═══════════════════════════════════════════════════════════════════════════
+   Quien escanea el QR de un título casi siempre es alguien que está a punto
+   de contratar. Lo que quiere saber no es si ese papel concreto es válido,
+   sino qué formación tiene esa persona. Esta página responde a eso — y sólo
+   con lo que el graduado autorizó: nunca cédula, teléfono, correo ni pagos.
+
+   Abre sin sesión a propósito: un enlace que exige darse de alta no lo abre
+   nadie. */
+import { sb, $, esc, fdate, initials, qs } from './assets/app.js?v=2026-08-16';
+
+const slug = qs('p') || location.pathname.split('/').filter(Boolean).pop();
+
+const noEncontrado = () => {
+  $('#cont').innerHTML = `<div class="empty">
+    <span class="material-symbols-outlined ico">person_search</span>
+    <b>Este perfil no está publicado</b>
+    <span>O el enlace no es correcto, o la persona decidió no hacerlo público.
+      Si tienes el código de un certificado, puedes comprobarlo directamente.</span>
+    <a class="btn sm" href="verificar.html">Verificar un certificado</a>
+  </div>`;
+};
+
+async function cargar(){
+  if (!slug) return noEncontrado();
+  const { data, error } = await sb.rpc('cem_perfil_publico', { p_slug: slug });
+  if (error || !data) return noEncontrado();
+
+  const nombre = [data.nombre, data.apellido].filter(Boolean).join(' ');
+  document.title = `${nombre} · Credenciales CEM`;
+
+  const certs = data.certificados || [];
+  const insignias = data.insignias || [];
+
+  $('#cont').innerHTML = `
+    <div class="cabeza">
+      ${data.avatar_url
+        ? `<img class="retrato" src="${esc(data.avatar_url)}" alt="">`
+        : `<div class="retrato">${esc(initials(data.nombre, data.apellido))}</div>`}
+      <div class="crece">
+        <div class="emisor"><span class="material-symbols-outlined" style="font-size:15px">verified</span>
+          CEM International Education System</div>
+        <h1>${esc(nombre)}</h1>
+        <div class="desde">${certs.length
+          ? `${certs.length} credencial${certs.length === 1 ? '' : 'es'} verificada${certs.length === 1 ? '' : 's'}`
+          : 'Sin credenciales publicadas'}${data.pais ? ' · ' + esc(data.pais) : ''}</div>
+      </div>
+    </div>
+
+    ${data.bio ? `<p class="muted">${esc(data.bio)}</p>` : ''}
+
+    ${certs.length ? `
+      <h2 class="titulo-seccion">Certificaciones</h2>
+      ${certs.map(c => `
+        <div class="cred">
+          <span class="material-symbols-outlined sello">workspace_premium</span>
+          <div class="crece">
+            <h2>${esc(c.titulo)}</h2>
+            <div class="meta">${esc(c.programa || '')}${c.horas ? ` · ${c.horas} horas` : ''}
+              · Emitido el ${fdate(c.emitido_en)}${c.nota != null ? ` · Nota ${c.nota}` : ''}</div>
+            <div class="codigo">${esc(c.codigo)}</div>
+          </div>
+          <a class="btn outline sm" href="verificar.html?codigo=${encodeURIComponent(c.codigo)}">Comprobar</a>
+        </div>`).join('')}` : ''}
+
+    ${insignias.length ? `
+      <h2 class="titulo-seccion">Insignias</h2>
+      <div class="insignias">${insignias.map(b => `
+        <span class="insignia"><span class="material-symbols-outlined">${esc(b.icono || 'military_tech')}</span>
+          ${esc(b.nombre)}${b.nivel ? ` · ${esc(b.nivel)}` : ''}</span>`).join('')}</div>` : ''}
+
+    <div class="pie">
+      Esta página la publica la propia persona desde su cuenta y muestra sólo lo que
+      autorizó. Cada certificación se puede comprobar una a una contra el registro de
+      CEM International Education System pulsando «Comprobar».
+    </div>`;
+
+  // Para que al pegar el enlace en WhatsApp o LinkedIn se vea de qué es.
+  const meta = (prop, val) => {
+    const m = document.createElement('meta');
+    m.setAttribute('property', prop); m.content = val;
+    document.head.appendChild(m);
+  };
+  meta('og:title', `${nombre} · Credenciales CEM`);
+  meta('og:description', certs.length
+    ? `${certs.length} credencial(es) verificable(s) de CEM International Education System.`
+    : 'Perfil de credenciales de CEM International Education System.');
+  if (data.avatar_url) meta('og:image', data.avatar_url);
+}
+
+cargar();
+</script>
+</body>
+</html>

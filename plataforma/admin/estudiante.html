@@ -17,6 +17,7 @@
   <div class="card" id="hero"></div>
   <div class="tabs" id="tabs">
     <button class="active" data-t="resumen">Resumen</button>
+    <button data-t="historia">Historia</button>
     <button data-t="cursos">Cursos</button>
     <button data-t="evaluaciones">Evaluaciones</button>
     <button data-t="certificados">Certificados</button>
@@ -25,13 +26,13 @@
   <div id="panel"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs,
+import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
          modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
          etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, saldo as saldoCelda } from '../assets/app.js?v=2026-08-16';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
-let stu, ens=[], subs=[], certs=[], insts=[], pays=[], badges=[];
+let stu, ens=[], subs=[], certs=[], insts=[], pays=[], badges=[], exp=null;
 if (p) { if (!id) location.href='estudiantes.html'; else load(); }
 
 async function load(){
@@ -42,6 +43,13 @@ async function load(){
     sb.from('cem_badge_awards').select('*,cem_badges(nombre,nivel,icono)').eq('profile_id',id),
   ]);
   stu=s; ens=e||[]; certs=c||[]; badges=b||[];
+
+  /* item 01 · «¿este quién es y qué ha hecho?» se respondía abriendo cinco
+     pantallas. `cem_expediente` lo trae todo de una vez, incluida la parte
+     académica que aquí no había —asistencia, entregas, la línea de tiempo—
+     y que es justo la que se preguntaba. */
+  const { data: ex } = await sb.rpc('cem_expediente', { p_profile_id: id });
+  exp = ex || null;
   const eids = ens.map(x=>x.id);
   if (eids.length){
     const [{data:sb1},{data:i1},{data:p1}] = await Promise.all([
@@ -67,8 +75,6 @@ function hero(){
     <span class="avatar lg">${initials(stu.nombre,stu.apellido)}</span>
     <div class="grow" style="flex:1;min-width:220px">
       <h1 style="margin:0 0 4px;font-size:21px">${esc(stu.nombre)} ${esc(stu.apellido||'')}</h1>
-      <p class="tiny muted" style="margin:0 0 4px">Todo lo de esta persona en un sitio: en qué está inscrita,
-        cómo va, qué debe y qué certificados tiene. Desde aquí se le matricula y se le registran pagos.</p>
       <!-- item 23 · el correo salía repetido y sin servir para nada. Aquí, que
            es donde se usa para escribirle, se deja pulsable. -->
       <div class="tiny muted"><a href="mailto:${esc(stu.email)}">${esc(stu.email)}</a>
@@ -79,10 +85,19 @@ function hero(){
         <span class="chip ${prog>=80?'ok':prog<40?'err':'warn'}">Progreso ${pct(prog)}</span>
         ${saldo>0?`<span class="chip warn">Saldo ${money(saldo)}</span>`:'<span class="chip ok">Al día</span>'}
       </div></div>
+    <!-- item 07 · estando en la ficha de alguien, lo que sigue es casi siempre
+         una de tres cosas: registrarle un pago, emitirle un certificado o
+         escribirle. Antes había que ir a otra pantalla y buscarlo de nuevo. -->
     <div class="row">
       ${editable?`<button class="btn outline" id="btnMatricular"><span class="material-symbols-outlined">add_circle</span> Matricular</button>
-      <button class="btn ghost" id="btnToggle" title="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"><span class="material-symbols-outlined">${stu.activo?'block':'check_circle'}</span></button>`:''}
-    </div></div>`;
+      <a class="btn outline" href="mailto:${esc(stu.email)}"><span class="material-symbols-outlined">mail</span> Escribirle</a>
+      <button class="btn ghost" id="btnToggle" title="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"
+        aria-label="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"><span class="material-symbols-outlined">${stu.activo?'block':'check_circle'}</span></button>`:''}
+    </div></div>
+    ${exp?.perfil?.perfil_publico ? `<p class="tiny muted sep-poco">
+      <span class="material-symbols-outlined" style="font-size:15px">public</span>
+      Tiene perfil público: <a href="../plataforma/perfil-publico.html?p=${esc(exp.perfil.perfil_slug)}"
+        target="_blank" rel="noopener">${esc(exp.perfil.perfil_slug)}</a></p>` : ''}`;
   if (editable){
     $('#btnToggle').onclick = async () => {
       await run(sb.from('cem_profiles').update({activo:!stu.activo}).eq('id',id),'No se pudo actualizar');
@@ -102,8 +117,37 @@ function hero(){
 
 $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });
 
+const ICONO_HITO = {
+  inscripcion:'how_to_reg', pago_ok:'payments', pago_no:'money_off', pago:'receipt_long',
+  entrega:'upload_file', nota:'grading', certificado:'workspace_premium', insignia:'military_tech',
+};
+const CLASE_HITO = {
+  pago_ok:'ok', nota:'ok', pago_no:'mal', certificado:'hito', insignia:'hito',
+};
+
 function tab(t){
   const P = $('#panel');
+
+  /* item 02 · la misma información que las otras pestañas, pero contada en el
+     orden en que pasó. Es la vista que responde «¿qué ha hecho esta persona?»
+     sin tener que juntar cinco tablas en la cabeza. */
+  if (t==='historia'){
+    const linea = exp?.linea || [];
+    P.innerHTML = `<div class="card">
+      <div class="row between"><h2 class="sec">Todo lo que ha pasado</h2>
+        <span class="tiny muted">${linea.length} hecho(s), del más reciente al primero</span></div>
+      ${linea.length ? `<ul class="linea">${linea.map(h => `
+        <li class="${CLASE_HITO[h.tipo] || ''}">
+          <div class="cuando">${fdatetime(h.cuando)}</div>
+          <div class="que"><span class="material-symbols-outlined"
+            style="font-size:17px;color:var(--tinta-3)">${ICONO_HITO[h.tipo] || 'circle'}</span>
+            ${esc(h.titulo)}${h.monto != null ? ` · ${money(h.monto, h.moneda || 'USD')}` : ''}</div>
+          ${h.detalle ? `<div class="detalle">${esc(h.detalle)}</div>` : ''}
+        </li>`).join('')}</ul>`
+        : `<p class="muted tiny">Todavía no hay nada registrado de esta persona.</p>`}
+    </div>`;
+  }
+
   if (t==='resumen'){
     const asis = '—';
     P.innerHTML = `<div class="grid g2">
@@ -112,6 +156,20 @@ function tab(t){
           <div class="s">${esc(e.cem_cohorts?.nombre||'')} · último acceso ${e.ultimo_acceso?fdate(e.ultimo_acceso):'—'}</div>
           <div class="sep-poco">${bar(e.progreso)}</div></div>
           <b>${pct(e.progreso)}</b></div>`).join('')||'<p class="muted tiny">Sin cursos activos.</p>'}</div>
+      <!-- item 01 · lo académico faltaba entero: la ficha enseñaba cursos,
+           cuotas y pagos, y ni una palabra de asistencia ni de evaluaciones. -->
+      <div class="card"><h2 class="sec">Cómo va</h2>
+        <div class="kpis">
+          ${kpi('Asistencia', exp?.asistencia?.total
+              ? pct(100 * Number(exp.asistencia.presente) / Number(exp.asistencia.total))
+              : '—', 'co_present',
+              exp?.asistencia?.total ? `${exp.asistencia.presente} de ${exp.asistencia.total} clases` : 'sin clases registradas')}
+          ${kpi('Evaluaciones', String((exp?.entregas || []).filter(x => x.estado === 'calificada').length),
+              'grading', `${(exp?.entregas || []).length} entrega(s) en total`)}
+          ${kpi('Certificados', String((exp?.certificados || []).filter(c => !c.anulado_en).length),
+              'workspace_premium', 'vigentes')}
+        </div>
+      </div>
       <div class="card"><h2 class="sec">Insignias obtenidas</h2>${badges.map(b=>`
         <div class="list-item"><span class="material-symbols-outlined" style="color:var(--tertiary-container)">${esc(b.cem_badges?.icono||'military_tech')}</span>
         <div class="grow"><div class="t">${esc(b.cem_badges?.nombre||'')}</div><div class="s">${esc(b.cem_badges?.nivel||'')} · ${fdate(b.otorgado_en)}</div></div></div>`).join('')
