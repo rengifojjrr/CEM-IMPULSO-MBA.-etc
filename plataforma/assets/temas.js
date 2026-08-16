@@ -150,17 +150,100 @@ export const PALETAS = {
 
 export const PALETA_POR_DEFECTO = 'cem';
 
+/* ── cómo son los recuadros ───────────────────────────────────────────────
+   Las recetas viven en styles.css bajo :root[data-estilo="…"]; aquí sólo
+   están los nombres, para poder pintar el selector y validar lo guardado.
+
+   `desenfoque` no es un adorno del texto: dice si el estilo usa
+   backdrop-filter en las tarjetas, que es lo que cuesta al desplazar. Los
+   dos que no lo usan son los únicos que pueden llegar hasta una tabla
+   larga, y eso hay que poder leerlo antes de elegir. */
+export const ESTILOS = {
+  plano: {
+    nombre: 'Plano',
+    resumen: 'Sin caja: la cifra descansa sobre el fondo y un filete la separa.',
+    desenfoque: false,
+  },
+  escarcha: {
+    nombre: 'Escarcha',
+    resumen: 'Vidrio esmerilado: translúcido, difuminado y un filete de un píxel.',
+    desenfoque: true,
+  },
+  marco: {
+    nombre: 'Marco de vidrio',
+    resumen: 'Aro grueso translúcido y dentro un panel más claro con el canto difuso.',
+    desenfoque: true,
+  },
+  bisel: {
+    nombre: 'Bisel',
+    resumen: 'Luz arriba, sombra abajo: el canto parece tener grosor.',
+    desenfoque: true,
+  },
+  canto: {
+    nombre: 'Canto tallado',
+    resumen: 'Marco de degradado que brilla arriba y se tiñe de la paleta abajo.',
+    desenfoque: false,
+  },
+  halo: {
+    nombre: 'Halo',
+    resumen: 'Sin marco: un resplandor de la paleta se escapa por detrás.',
+    desenfoque: true,
+  },
+  tintado: {
+    nombre: 'Vidrio tintado',
+    resumen: 'Cada cifra con su color: lo que sube en verde, lo que baja en rojo.',
+    desenfoque: true,
+  },
+};
+export const ESTILO_POR_DEFECTO = 'plano';
+
+export const FORMAS = {
+  recta:   { nombre: 'Rectas',   resumen: 'Esquinas de 3 px. Lo más serio.' },
+  suave:   { nombre: 'Suaves',   resumen: 'Esquinas de 10 px. Lo de siempre.' },
+  redonda: { nombre: 'Redondas', resumen: 'Esquinas de 18 px. Lo más amable.' },
+};
+export const FORMA_POR_DEFECTO = 'suave';
+
+export const DENSIDADES = {
+  compacta: { nombre: 'Compacta', resumen: 'Diez filas más por pantalla. Para quien revisa todo el día.' },
+  normal:   { nombre: 'Normal',   resumen: 'El equilibrio de siempre.' },
+  amplia:   { nombre: 'Amplia',   resumen: 'Más aire. Para pantallas grandes y sesiones cortas.' },
+};
+export const DENSIDAD_POR_DEFECTO = 'normal';
+
 /* Dónde se recuerda. Es una preferencia de quien mira, no de la institución:
    va en el navegador de cada quien y no toca la base. */
-const LLAVE = { paleta: 'cemPaleta', tema: 'cemTema', vidrio: 'cemVidrio' };
+const LLAVE = {
+  paleta: 'cemPaleta', tema: 'cemTema', estilo: 'cemEstilo',
+  forma: 'cemForma', densidad: 'cemDensidad',
+  vidrio: 'cemVidrio',   // sólo para leer lo que quedó guardado antes
+};
 const leer = (k, porDefecto) => {
   try { return localStorage.getItem(k) ?? porDefecto; } catch { return porDefecto; }
 };
 const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch { /* sin sitio: se pierde al salir */ } };
 
-export const paletaActual = () => (PALETAS[leer(LLAVE.paleta, PALETA_POR_DEFECTO)] ? leer(LLAVE.paleta, PALETA_POR_DEFECTO) : PALETA_POR_DEFECTO);
+/** Devuelve lo guardado si está en el catálogo; si no, lo de fábrica. */
+const deCatalogo = (catalogo, clave, porDefecto) => {
+  const v = leer(clave, porDefecto);
+  return catalogo[v] ? v : porDefecto;
+};
+
+export const paletaActual = () => deCatalogo(PALETAS, LLAVE.paleta, PALETA_POR_DEFECTO);
 export const temaActual   = () => leer(LLAVE.tema, 'auto');      // auto · claro · oscuro
-export const vidrioActual = () => leer(LLAVE.vidrio, 'no') === 'si';
+export const formaActual  = () => deCatalogo(FORMAS, LLAVE.forma, FORMA_POR_DEFECTO);
+export const densidadActual = () => deCatalogo(DENSIDADES, LLAVE.densidad, DENSIDAD_POR_DEFECTO);
+
+/* Antes esto era un sí/no —`cemVidrio`— y ahora son siete estilos. Quien ya
+   había encendido el vidrio se encuentra con «escarcha», que es exactamente
+   lo que tenía; quien no, con «plano». Nadie entra y ve otra cosa. */
+export const estiloActual = () => {
+  const guardado = leer(LLAVE.estilo, null);
+  if (guardado && ESTILOS[guardado]) return guardado;
+  return leer(LLAVE.vidrio, 'no') === 'si' ? 'escarcha' : ESTILO_POR_DEFECTO;
+};
+/** Sigue habiendo vidrio si el estilo no es el plano. */
+export const vidrioActual = () => estiloActual() !== 'plano';
 
 const declaraciones = (tokens) =>
   Object.entries(tokens).map(([k, v]) => `${k}:${v};`).join('');
@@ -179,12 +262,16 @@ ${sel}[data-theme="dark"]{${declaraciones(p.noche)}}`;
  * Deja la página con la apariencia que toque. Se llama sola al cargar y cada
  * vez que se cambia algo en Configuración.
  */
-export function aplicarApariencia({ paleta, tema, vidrio } = {}) {
+export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidrio } = {}) {
   const raiz = document.documentElement;
 
   if (paleta !== undefined) guardar(LLAVE.paleta, PALETAS[paleta] ? paleta : PALETA_POR_DEFECTO);
   if (tema !== undefined) guardar(LLAVE.tema, tema);
-  if (vidrio !== undefined) guardar(LLAVE.vidrio, vidrio ? 'si' : 'no');
+  if (estilo !== undefined) guardar(LLAVE.estilo, ESTILOS[estilo] ? estilo : ESTILO_POR_DEFECTO);
+  if (forma !== undefined) guardar(LLAVE.forma, FORMAS[forma] ? forma : FORMA_POR_DEFECTO);
+  if (densidad !== undefined) guardar(LLAVE.densidad, DENSIDADES[densidad] ? densidad : DENSIDAD_POR_DEFECTO);
+  // El sí/no de antes sigue funcionando para quien lo llame así.
+  if (vidrio !== undefined) guardar(LLAVE.estilo, vidrio ? 'escarcha' : 'plano');
 
   const clave = paletaActual();
   let hoja = document.getElementById('cemPaletaHoja');
@@ -201,8 +288,21 @@ export function aplicarApariencia({ paleta, tema, vidrio } = {}) {
   if (t === 'auto') delete raiz.dataset.theme;
   else raiz.dataset.theme = t === 'oscuro' ? 'dark' : 'light';
 
-  raiz.dataset.vidrio = vidrioActual() ? 'si' : 'no';
-  return { paleta: clave, tema: t, vidrio: vidrioActual() };
+  raiz.dataset.estilo = estiloActual();
+  raiz.dataset.forma = formaActual();
+  raiz.dataset.densidad = densidadActual();
+  return {
+    paleta: clave, tema: t, estilo: estiloActual(),
+    forma: formaActual(), densidad: densidadActual(),
+  };
+}
+
+/** Vuelve todo a como viene de fábrica. */
+export function aparienciaDeFabrica() {
+  return aplicarApariencia({
+    paleta: PALETA_POR_DEFECTO, tema: 'auto', estilo: ESTILO_POR_DEFECTO,
+    forma: FORMA_POR_DEFECTO, densidad: DENSIDAD_POR_DEFECTO,
+  });
 }
 
 /* Se aplica al cargar el módulo, antes de que `mount()` destape la página:

@@ -34,8 +34,14 @@ export default async function correr(navegador) {
     return c && !c.querySelector('.cargando') && c.textContent.trim().length > 0;
   }, null, { timeout: 25000 });
 
+  /* Esta comprobación se caía sin que hubiera nada roto: corridas anteriores
+     habían aprobado todas las cuotas del estudiante de prueba, así que no le
+     quedaba ninguna pendiente que reportar. El mensaje dice qué encontró, para
+     que la próxima vez se vea en el acto que es el dato y no la pantalla. */
+  const cuotas = await E.locator('#cuotas .li, #cuotas tr').count();
   const porReportar = await E.locator('[data-reportar]').count();
-  a.comprobar(porReportar >= 1, 'El estudiante ve sus cuotas pendientes con "Reportar pago"');
+  a.comprobar(porReportar >= 1,
+    `El estudiante ve sus cuotas pendientes con "Reportar pago" (${porReportar} de ${cuotas} cuota(s))`);
 
   if (porReportar) {
     await E.locator('[data-reportar]').first().click();

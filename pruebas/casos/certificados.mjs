@@ -11,7 +11,7 @@
    3. La generación en tandas paralelas no debe desordenar nada: cada archivo
       conserva su número y cada PDF combinado, una página por estudiante. */
 
-import { acta, nuevaPestana, entrar, BASE } from '../entorno.mjs';
+import { acta, nuevaPestana, entrar, BASE, DESDE_MEMORIA } from '../entorno.mjs';
 
 const ALUMNOS = ['Ana Prueba', 'Bruno Prueba', 'Carla Prueba', 'Diego Prueba'];
 
@@ -74,7 +74,11 @@ export default async function correr(navegador) {
       try { bytesConfig += (await r.body()).length; } catch { /* ya se fue */ }
     }
     const m = r.url().match(/\/storage\/v1\/object\/public\/cem-assets\/fondos\/([^?]+)/);
-    if (m) descargasFondo[m[1]] = (descargasFondo[m[1]] || 0) + 1;
+    // Lo que el arnés sirvió de memoria no viajó por la red: contarlo sería
+    // medir el arnés, no la pantalla.
+    if (m && r.headers()[DESDE_MEMORIA] !== 'si') {
+      descargasFondo[m[1]] = (descargasFondo[m[1]] || 0) + 1;
+    }
   });
 
   await P.goto(`${BASE}/certificados/generar.html`, { waitUntil: 'domcontentloaded' });

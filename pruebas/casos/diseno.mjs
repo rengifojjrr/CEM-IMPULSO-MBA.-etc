@@ -191,19 +191,47 @@ export default async function correr(navegador) {
   a.comprobar((await P.locator('.pal').count()) >= 5,
     `Configuración ofrece varias paletas para elegir (${await P.locator('.pal').count()})`);
 
+  a.comprobar((await P.locator('#estilos .estilo').count()) === 7,
+    `Y siete estilos de recuadro (${await P.locator('#estilos .estilo').count()})`);
+  a.comprobar((await P.locator('#formas .forma').count()) === 3,
+    'Tres formas de esquina');
+  a.comprobar((await P.locator('#densidades [data-densidad]').count()) === 3,
+    'Y tres densidades');
+
   await P.click('[data-paleta="violeta"]');
-  await P.click('#vidrio [data-vidrio="true"]');
+  await P.click('#estilos [data-estilo="bisel"]');
+  await P.click('#formas [data-forma="redonda"]');
+  await P.click('#densidades [data-densidad="compacta"]');
   await P.waitForTimeout(700);
   const elegido = await P.evaluate(() => ({
     paleta: document.documentElement.dataset.paleta,
-    vidrio: document.documentElement.dataset.vidrio,
+    estilo: document.documentElement.dataset.estilo,
+    forma: document.documentElement.dataset.forma,
+    densidad: document.documentElement.dataset.densidad,
     primary: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
+    radio: getComputedStyle(document.documentElement).getPropertyValue('--r').trim(),
     difumina: getComputedStyle(document.querySelector('.sidebar')).backdropFilter !== 'none',
+    // La tarjeta tiene que haber recibido de verdad la receta del bisel.
+    tarjetaDifumina: getComputedStyle(document.querySelector('.card')).backdropFilter !== 'none',
   }));
   a.comprobar(elegido.paleta === 'violeta' && elegido.primary === '#7c3aed',
     `Elegir una paleta cambia el color de marca al momento (${elegido.primary})`);
-  a.comprobar(elegido.vidrio === 'si' && elegido.difumina,
-    'Y el efecto vidrio difumina de verdad lo que hay detrás del menú');
+  a.comprobar(elegido.estilo === 'bisel' && elegido.difumina && elegido.tarjetaDifumina,
+    'Elegir un estilo de vidrio difumina de verdad el menú y las tarjetas');
+  a.comprobar(elegido.forma === 'redonda' && elegido.radio === '18px',
+    `Y elegir esquinas redondas cambia el radio de toda la plataforma (${elegido.radio})`);
+  a.comprobar(elegido.densidad === 'compacta', 'Y la densidad queda registrada');
+
+  // Un estilo «ligero» no puede llevar desenfoque en las tarjetas: es
+  // exactamente lo que promete el rótulo junto a su nombre.
+  await P.click('#estilos [data-estilo="canto"]');
+  await P.waitForTimeout(500);
+  const ligero = await P.evaluate(() =>
+    getComputedStyle(document.querySelector('.card')).backdropFilter);
+  a.comprobar(ligero === 'none',
+    `«Canto tallado» dice que es ligero y no desenfoca las tarjetas (${ligero})`);
+  await P.click('#estilos [data-estilo="bisel"]');
+  await P.waitForTimeout(400);
 
   // La elección tiene que seguir puesta en la pantalla siguiente.
   await P.goto(`${BASE}/plataforma/admin/index.html`, { waitUntil: 'domcontentloaded' });

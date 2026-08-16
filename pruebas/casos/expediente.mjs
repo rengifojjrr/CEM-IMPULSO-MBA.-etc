@@ -10,7 +10,7 @@
    la verificación diciendo que fue anulado —y no como «no existe», que es lo
    que hacía antes y sugiere que el papel es falso. */
 
-import { acta, nuevaPestana, entrar, BASE } from '../entorno.mjs';
+import { acta, nuevaPestana, nuevoContexto, entrar, BASE } from '../entorno.mjs';
 
 export default async function correr(navegador) {
   const a = acta('expediente');
@@ -35,7 +35,7 @@ export default async function correr(navegador) {
   /* ============ el perfil público, sin sesión ============
      Se abre en un contexto nuevo a propósito: si hiciera falta estar dentro
      para verlo, no serviría de nada. */
-  const ctx = await navegador.newContext({ viewport: { width: 1100, height: 900 } });
+  const ctx = await nuevoContexto(navegador, { viewport: { width: 1100, height: 900 } });
   const Pub = await ctx.newPage();
   const erroresPub = [];
   Pub.on('pageerror', (e) => erroresPub.push(e.message));
@@ -90,7 +90,7 @@ export default async function correr(navegador) {
     await A.click('.modal [data-s]');
     await A.waitForTimeout(2500);
 
-    const V = await navegador.newContext({ viewport: { width: 900, height: 800 } });
+    const V = await nuevoContexto(navegador, { viewport: { width: 900, height: 800 } });
     const pag = await V.newPage();
     await pag.goto(`${BASE}/plataforma/verificar.html?codigo=${encodeURIComponent(codigo)}`,
       { waitUntil: 'domcontentloaded' });

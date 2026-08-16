@@ -862,44 +862,55 @@ tr.marcada{background:var(--primary-suave);}
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   VIDRIO  ·  se enciende desde Configuración
+   ASPECTO  ·  cada quien configura el suyo desde Configuración
    ═══════════════════════════════════════════════════════════════════════════
 
-   Dos cosas que conviene tener claras antes de leer esto:
+   Cuatro cosas se eligen por separado y se combinan sin estorbarse:
+
+     data-paleta   los colores          (los define temas.js)
+     data-theme    claro u oscuro
+     data-estilo   cómo son los recuadros: siete tratamientos
+     data-forma    cuánto se redondean las esquinas
+     data-densidad cuánto aire hay entre las cosas
+
+   Dos cosas que conviene tener claras antes de leer los siete estilos:
 
    1. El vidrio no existe sin algo detrás. Difuminar un fondo liso da un gris
       y ya: para que se lea como cristal hace falta color debajo, y bastante.
-      Por eso lo primero que enciende `data-vidrio` no es el desenfoque sino
-      un ambiente —tres manchas sacadas de los colores de la paleta— sobre el
-      que apoyarse. Cambia con la paleta sin escribir un color más.
+      Por eso lo primero que enciende cualquier estilo que no sea `plano` no
+      es el desenfoque sino un ambiente —cuatro manchas sacadas de los
+      colores de la paleta— sobre el que apoyarse. Cambia con la paleta sin
+      escribir un color más.
 
    2. `backdrop-filter` cuesta caro, y lo que cuesta es repintarlo. En algo
       fijo —el menú, la barra de arriba, un diálogo— se calcula una vez y no
       se vuelve a tocar. En una tabla de trescientas filas se recalcularía en
       cada desplazamiento y la pantalla se arrastraría.
 
-   De ahí el reparto: desenfoque fuerte en lo que está quieto, uno suave en
-   las tarjetas —que son diez por pantalla, no trescientas— y nada en la
-   tabla, donde van los datos y el fondo tiene que estarse quieto.         */
+   De ahí que dos de los siete estilos —`canto` y `halo`— estén hechos sin
+   desenfoque en las tarjetas: son los únicos que se pueden llevar hasta la
+   última fila de una tabla larga sin que se note al desplazar.           */
 
-:root[data-vidrio="si"]{
+/* ── lo que todo estilo con vidrio comparte ───────────────────────────── */
+:root:not([data-estilo="plano"]){
   --vidrio-papel:color-mix(in srgb, var(--papel) 55%, transparent);
-  --vidrio-tarjeta:color-mix(in srgb, var(--papel) 58%, transparent);
   --vidrio-borde:color-mix(in srgb, var(--papel) 45%, var(--filete-fuerte));
   --vidrio-brillo:rgba(255,255,255,.65);
   --desenfoque:saturate(190%) blur(26px);
-  --desenfoque-suave:saturate(150%) blur(14px);
+  /* Cada estilo rellena estos cuatro; el resto de las reglas los leen. */
+  --caja-fondo:color-mix(in srgb, var(--papel) 58%, transparent);
+  --caja-sombra:none;
+  --caja-filtro:none;
+  --caja-borde:0;
 }
 @media (prefers-color-scheme:dark){
-  :root[data-vidrio="si"]:not([data-theme="light"]){
+  :root:not([data-estilo="plano"],[data-theme="light"]){
     --vidrio-papel:color-mix(in srgb, var(--papel) 58%, transparent);
-    --vidrio-tarjeta:color-mix(in srgb, var(--papel) 62%, transparent);
     --vidrio-brillo:rgba(255,255,255,.12);
   }
 }
-:root[data-vidrio="si"][data-theme="dark"]{
+:root:not([data-estilo="plano"])[data-theme="dark"]{
   --vidrio-papel:color-mix(in srgb, var(--papel) 58%, transparent);
-  --vidrio-tarjeta:color-mix(in srgb, var(--papel) 62%, transparent);
   --vidrio-brillo:rgba(255,255,255,.12);
 }
 
@@ -917,7 +928,7 @@ tr.marcada{background:var(--primary-suave);}
    nada: gris caro, exactamente lo que este comentario decía que había que
    evitar. Con `inset:0` los porcentajes son porcentajes de la ventana, que
    es lo que siempre quisieron decir, y el sangrado lo dan los radios. */
-:root[data-vidrio="si"] body::before{
+:root:not([data-estilo="plano"]) body::before{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
     radial-gradient(60vmax 55vmax at 8% -8%,
@@ -929,54 +940,77 @@ tr.marcada{background:var(--primary-suave);}
     radial-gradient(40vmax 38vmax at 28% 54%,
       color-mix(in srgb, var(--secondary) 26%, transparent), transparent 62%);
 }
-:root[data-vidrio="si"] body{background:var(--fondo);}
-:root[data-vidrio="si"] .content{background:none;}
+:root:not([data-estilo="plano"]) body{background:var(--fondo);}
+:root:not([data-estilo="plano"]) .content{background:none;}
 
-/* ── lo que está quieto: desenfoque de verdad ─────────────────────────── */
-:root[data-vidrio="si"] .sidebar,
-:root[data-vidrio="si"] .topbar,
-:root[data-vidrio="si"] .bottomnav,
-:root[data-vidrio="si"] .modal,
-:root[data-vidrio="si"] .toast,
-:root[data-vidrio="si"] .ayuda-globo{
+/* ── lo que está quieto: desenfoque de verdad, igual en los seis ──────────
+   El menú y la barra de arriba no se desplazan, así que el desenfoque se
+   calcula una vez. Aquí sale gratis y es donde más se nota. */
+:root:not([data-estilo="plano"]) .sidebar,
+:root:not([data-estilo="plano"]) .topbar,
+:root:not([data-estilo="plano"]) .bottomnav,
+:root:not([data-estilo="plano"]) .modal,
+:root:not([data-estilo="plano"]) .toast,
+:root:not([data-estilo="plano"]) .ayuda-globo{
   background:var(--vidrio-papel);
   -webkit-backdrop-filter:var(--desenfoque);
   backdrop-filter:var(--desenfoque);
 }
-:root[data-vidrio="si"] .sidebar{border-right-color:var(--vidrio-borde);}
-:root[data-vidrio="si"] .topbar{border-bottom-color:var(--vidrio-borde);}
-:root[data-vidrio="si"] .bottomnav{border-top-color:var(--vidrio-borde);}
+:root:not([data-estilo="plano"]) .sidebar{border-right-color:var(--vidrio-borde);}
+:root:not([data-estilo="plano"]) .topbar{border-bottom-color:var(--vidrio-borde);}
+:root:not([data-estilo="plano"]) .bottomnav{border-top-color:var(--vidrio-borde);}
 
 /* El canto superior encendido es lo que convierte una caja translúcida en una
    lámina de cristal. Es el brillo del borde, no el desenfoque. */
-:root[data-vidrio="si"] .modal{
+:root:not([data-estilo="plano"]) .modal{
   border:1px solid var(--vidrio-borde);
   box-shadow:inset 0 1px 0 var(--vidrio-brillo), var(--sombra);
 }
-:root[data-vidrio="si"] .modal-bg{
+:root:not([data-estilo="plano"]) .modal-bg{
   background:color-mix(in srgb, var(--tinta) 26%, transparent);
   -webkit-backdrop-filter:blur(4px);
   backdrop-filter:blur(4px);
 }
 
-/* ── las tarjetas: diez por pantalla, desenfoque suave ────────────────── */
-:root[data-vidrio="si"] .card{
-  background:var(--vidrio-tarjeta);
-  border-color:var(--vidrio-borde);
-  box-shadow:inset 0 1px 0 var(--vidrio-brillo);
-  -webkit-backdrop-filter:var(--desenfoque-suave);
-  backdrop-filter:var(--desenfoque-suave);
+/* ── la caja: una sola regla, siete rellenos ──────────────────────────────
+   `.card` y `.kpi` se pintan igual porque son lo mismo: un dato dentro de un
+   recuadro. Los indicadores no tenían caja —una cifra grande no la
+   necesita— y con vidrio la recuperan, que es justo lo que se pidió. */
+:root:not([data-estilo="plano"]) .card,
+:root:not([data-estilo="plano"]) .kpi{
+  position:relative;
+  border:var(--caja-borde);
+  border-radius:var(--r-caja, var(--r));
+  background:var(--caja-fondo);
+  box-shadow:var(--caja-sombra);
+  -webkit-backdrop-filter:var(--caja-filtro);
+  backdrop-filter:var(--caja-filtro);
 }
-:root[data-vidrio="si"] .card .card{
+:root:not([data-estilo="plano"]) .kpi{
+  padding:var(--e2);
+  min-width:170px;
+}
+/* Con caja, la fila de indicadores ya no necesita el filete que la cerraba:
+   dos separadores para lo mismo es uno de más. */
+:root:not([data-estilo="plano"]) .kpis{border-bottom:0;padding-bottom:0;}
+/* Una tarjeta dentro de otra no se desenfoca dos veces: se vería un halo
+   turbio en el borde interior. */
+:root:not([data-estilo="plano"]) .card .card{
   -webkit-backdrop-filter:none;backdrop-filter:none;
   background:color-mix(in srgb, var(--papel) 40%, transparent);
 }
-:root[data-vidrio="si"] .inp,
-:root[data-vidrio="si"] input:not([type=checkbox],[type=radio],[type=range],[type=file],
+/* La tabla suelta dentro de una tarjeta ya se quita el marco; con vidrio hay
+   que quitarle también el fondo, o queda un rectángulo opaco flotando. */
+:root:not([data-estilo="plano"]) .card > .table-wrap:only-child,
+:root:not([data-estilo="plano"]) .card.solo-tabla{
+  background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;}
+
+:root:not([data-estilo="plano"]) .inp,
+:root:not([data-estilo="plano"]) input:not([type=checkbox],[type=radio],[type=range],[type=file],
   [type=color],[type=submit],[type=button],[type=reset],[type=image],[type=hidden]),
-:root[data-vidrio="si"] select,
-:root[data-vidrio="si"] textarea,
-:root[data-vidrio="si"] .btn.outline{
+:root:not([data-estilo="plano"]) select,
+:root:not([data-estilo="plano"]) textarea,
+:root:not([data-estilo="plano"]) .btn.outline{
   background:color-mix(in srgb, var(--papel) 48%, transparent);
   border-color:var(--vidrio-borde);
 }
@@ -984,25 +1018,287 @@ tr.marcada{background:var(--primary-suave);}
 /* La tabla se queda opaca: encima van los datos, y un dato sobre un fondo que
    cambia se lee peor. El encabezado está fijo, así que además necesita tapar
    lo que le pasa por debajo. */
-:root[data-vidrio="si"] th{background:color-mix(in srgb, var(--papel) 90%, transparent);}
-:root[data-vidrio="si"] tbody tr:hover{background:color-mix(in srgb, var(--hueco) 70%, transparent);}
+:root:not([data-estilo="plano"]) th{background:color-mix(in srgb, var(--papel) 90%, transparent);}
+:root:not([data-estilo="plano"]) tbody tr:hover{background:color-mix(in srgb, var(--hueco) 70%, transparent);}
 
-/* ── cuándo NO ponerlo, aunque esté encendido ─────────────────────────────
+/* ── 1 · escarcha ─────────────────────────────────────────────────────────
+   El vidrio de manual: translúcido, desenfoque suave y un filete de un
+   píxel. Discreto y correcto. */
+:root[data-estilo="escarcha"]{
+  --caja-fondo:color-mix(in srgb, var(--papel) 58%, transparent);
+  --caja-filtro:saturate(150%) blur(14px);
+  --caja-sombra:inset 0 0 0 1px var(--vidrio-borde), inset 0 1px 0 var(--vidrio-brillo);
+}
+
+/* ── 2 · marco de vidrio ──────────────────────────────────────────────────
+   Un aro grueso translúcido y, dentro, un panel algo más claro con el canto
+   difuminado: acrílico esmerilado sobre acrílico. El relleno interior es un
+   ::before desenfocado, así que el contenido tiene que ir por encima. */
+:root[data-estilo="marco"]{
+  --r-caja:calc(var(--r) * 2);
+  --caja-fondo:color-mix(in srgb, #fff 15%, transparent);
+  --caja-filtro:saturate(165%) blur(17px);
+  --caja-sombra:inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+                inset 0 0 0 1px color-mix(in srgb, #fff 22%, transparent),
+                0 20px 44px -26px rgba(13,36,64,.55);
+}
+:root[data-estilo="marco"] .card,
+:root[data-estilo="marco"] .kpi{padding:calc(var(--e2) + 7px);}
+:root[data-estilo="marco"] .card::before,
+:root[data-estilo="marco"] .kpi::before{
+  content:'';position:absolute;inset:7px;border-radius:var(--r);z-index:0;
+  background:color-mix(in srgb, #fff 26%, transparent);
+  filter:blur(7px);pointer-events:none;}
+:root[data-estilo="marco"] .card > *,
+:root[data-estilo="marco"] .kpi > *{position:relative;z-index:1;}
+@media (prefers-color-scheme:dark){
+  :root[data-estilo="marco"]:not([data-theme="light"]){
+    --caja-fondo:color-mix(in srgb, var(--papel) 42%, transparent);
+    --caja-sombra:inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent),
+                  inset 0 0 0 1px color-mix(in srgb, #fff 8%, transparent),
+                  0 20px 44px -26px rgba(0,0,0,.7);}
+  :root[data-estilo="marco"]:not([data-theme="light"]) .card::before,
+  :root[data-estilo="marco"]:not([data-theme="light"]) .kpi::before{
+    background:color-mix(in srgb, #fff 9%, transparent);}
+}
+:root[data-estilo="marco"][data-theme="dark"]{
+  --caja-fondo:color-mix(in srgb, var(--papel) 42%, transparent);
+  --caja-sombra:inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent),
+                inset 0 0 0 1px color-mix(in srgb, #fff 8%, transparent),
+                0 20px 44px -26px rgba(0,0,0,.7);}
+:root[data-estilo="marco"][data-theme="dark"] .card::before,
+:root[data-estilo="marco"][data-theme="dark"] .kpi::before{
+  background:color-mix(in srgb, #fff 9%, transparent);}
+
+/* ── 3 · bisel ────────────────────────────────────────────────────────────
+   Luz arriba a la izquierda, sombra abajo a la derecha: el canto se comporta
+   como una pieza con grosor. Es el único de los siete que hace que el
+   recuadro parezca tocable. */
+:root[data-estilo="bisel"]{
+  --r-caja:calc(var(--r) * 1.6);
+  --caja-fondo:linear-gradient(158deg,
+    color-mix(in srgb, var(--papel) 74%, transparent),
+    color-mix(in srgb, var(--papel) 42%, transparent));
+  --caja-filtro:saturate(180%) blur(20px);
+  --caja-sombra:inset 1.5px 1.5px 0 color-mix(in srgb, #fff 65%, transparent),
+                inset -1px -1px 0 color-mix(in srgb, var(--tinta) 14%, transparent),
+                inset 0 -16px 22px -20px color-mix(in srgb, var(--tinta) 55%, transparent),
+                0 12px 32px -20px rgba(13,36,64,.5);
+}
+@media (prefers-color-scheme:dark){
+  :root[data-estilo="bisel"]:not([data-theme="light"]){
+    --caja-sombra:inset 1.5px 1.5px 0 color-mix(in srgb, #fff 18%, transparent),
+                  inset -1px -1px 0 rgba(0,0,0,.35),
+                  inset 0 -16px 22px -20px rgba(0,0,0,.6),
+                  0 12px 32px -20px rgba(0,0,0,.7);}
+}
+:root[data-estilo="bisel"][data-theme="dark"]{
+  --caja-sombra:inset 1.5px 1.5px 0 color-mix(in srgb, #fff 18%, transparent),
+                inset -1px -1px 0 rgba(0,0,0,.35),
+                inset 0 -16px 22px -20px rgba(0,0,0,.6),
+                0 12px 32px -20px rgba(0,0,0,.7);}
+
+/* ── 4 · canto tallado ────────────────────────────────────────────────────
+   El marco es un degradado de píxel y medio recortado con máscara: brilla
+   arriba y se tiñe de la paleta abajo. Ni una gota de backdrop-filter, así
+   que éste sí puede llegar hasta la tabla. */
+:root[data-estilo="canto"]{
+  --r-caja:calc(var(--r) * 1.4);
+  --caja-fondo:linear-gradient(152deg,
+    color-mix(in srgb, var(--papel) 92%, transparent),
+    color-mix(in srgb, var(--papel) 68%, transparent));
+  --caja-sombra:0 14px 32px -22px rgba(13,36,64,.45);
+}
+:root[data-estilo="canto"] .card::after,
+:root[data-estilo="canto"] .kpi::after,
+:root[data-estilo="canto"] .table-wrap::after{
+  content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;
+  background:linear-gradient(142deg,
+    color-mix(in srgb, #fff 88%, transparent),
+    color-mix(in srgb, #fff 4%, transparent) 46%,
+    color-mix(in srgb, var(--primary) 50%, transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;}
+/* La tabla suelta se lleva su propio canto, que es lo que este estilo puede
+   permitirse y los demás no. */
+:root[data-estilo="canto"] .card > .table-wrap:only-child,
+:root[data-estilo="canto"] .card.solo-tabla{
+  position:relative;border-radius:var(--r-caja);overflow:hidden;
+  background:var(--caja-fondo);}
+
+/* ── 5 · halo ─────────────────────────────────────────────────────────────
+   Sin marco visible: un resplandor del color de la paleta se escapa por
+   detrás y el recuadro flota. El más callado, y el que menos estorba cuando
+   hay quince cajas en la misma pantalla. */
+:root[data-estilo="halo"]{
+  --r-caja:calc(var(--r) * 1.4);
+  --caja-fondo:color-mix(in srgb, var(--papel) 72%, transparent);
+  --caja-filtro:blur(10px);
+  --caja-sombra:0 0 0 1px color-mix(in srgb, var(--papel) 40%, transparent),
+                0 0 38px -6px color-mix(in srgb, var(--primary) 32%, transparent),
+                0 16px 36px -26px rgba(13,36,64,.4);
+}
+
+/* ── 6 · vidrio tintado ───────────────────────────────────────────────────
+   Cada cifra se lleva su color. Lo que sube va en verde y lo que baja en
+   rojo —eso lo dice el dato, no la decoración—; el resto rota por la paleta
+   para que dos indicadores seguidos no se confundan. Las tarjetas se quedan
+   en el color de la paleta: tintarlas todas sería una feria. */
+:root[data-estilo="tintado"]{
+  --tinte:var(--primary);
+  --r-caja:calc(var(--r) * 1.4);
+  /* El tinte se mezcla contra un papel que ya lleva transparencia, así que
+     cada punto porcentual pesa menos de lo que parece: con un 20% sobre
+     blanco el color no llegaba a verse y las cuatro cifras salían grises. */
+  --caja-fondo:linear-gradient(155deg,
+    color-mix(in srgb, var(--tinte) 34%, color-mix(in srgb, var(--papel) 66%, transparent)),
+    color-mix(in srgb, var(--tinte) 14%, color-mix(in srgb, var(--papel) 52%, transparent)));
+  --caja-filtro:saturate(170%) blur(16px);
+  --caja-sombra:inset 0 0 0 1px color-mix(in srgb, var(--tinte) 55%, transparent),
+                inset 0 1px 0 color-mix(in srgb, #fff 45%, transparent),
+                0 14px 32px -22px color-mix(in srgb, var(--tinte) 75%, rgba(13,36,64,1));
+}
+:root[data-estilo="tintado"] .kpis .kpi:nth-child(4n+2){--tinte:var(--secondary);}
+:root[data-estilo="tintado"] .kpis .kpi:nth-child(4n+3){--tinte:var(--info);}
+:root[data-estilo="tintado"] .kpis .kpi:nth-child(4n+4){--tinte:var(--gold);}
+/* El color que sale del dato manda sobre el que sale de la posición. */
+:root[data-estilo="tintado"] .kpi:has(.k-sub.up:not(.cero)){--tinte:var(--ok);}
+:root[data-estilo="tintado"] .kpi:has(.k-sub.down:not(.cero)){--tinte:var(--error);}
+
+/* ── forma: cuánto se redondea todo ───────────────────────────────────────
+   Un solo token gobierna las esquinas de la plataforma entera, así que aquí
+   sólo hay que reescribirlo. */
+:root[data-forma="recta"]{--r:3px;}
+:root[data-forma="suave"]{--r:10px;}
+:root[data-forma="redonda"]{--r:18px;}
+
+/* ── densidad: cuánto aire hay entre las cosas ────────────────────────────
+   No toca la escala de espaciado entera —eso descuadraría cuadrículas y
+   menús—, sólo el relleno de lo que se repite cientos de veces: las celdas
+   de la tabla, las tarjetas y las filas de lista. Quien revisa pagos todo el
+   día quiere ver diez filas más; quien entra dos veces por semana prefiere
+   respirar. */
+:root[data-densidad="compacta"] th,
+:root[data-densidad="compacta"] td{padding:calc(var(--e1) * .55) var(--e2);}
+:root[data-densidad="compacta"] .card{padding:var(--e2);}
+:root[data-densidad="compacta"] .list-item{padding:var(--e1) 0;}
+:root[data-densidad="compacta"] .kpi{padding:var(--e1) var(--e2);}
+
+:root[data-densidad="amplia"] th,
+:root[data-densidad="amplia"] td{padding:var(--e2);}
+:root[data-densidad="amplia"] .card{padding:var(--e4);}
+:root[data-densidad="amplia"] .list-item{padding:var(--e2) 0;}
+:root[data-densidad="amplia"] .kpi{padding:var(--e3);}
+
+/* ── cuándo NO ponerlo, aunque esté elegido ───────────────────────────────
    Quien pidió menos transparencia en su sistema lo pidió por algo, y en el
    papel un fondo difuminado es tinta gastada. */
 @media (prefers-reduced-transparency:reduce), print{
-  :root[data-vidrio="si"] body::before{display:none;}
-  :root[data-vidrio="si"] .sidebar,
-  :root[data-vidrio="si"] .topbar,
-  :root[data-vidrio="si"] .bottomnav,
-  :root[data-vidrio="si"] .modal,
-  :root[data-vidrio="si"] .toast,
-  :root[data-vidrio="si"] .ayuda-globo,
-  :root[data-vidrio="si"] .card,
-  :root[data-vidrio="si"] th{
+  :root:not([data-estilo="plano"]) body::before{display:none;}
+  :root:not([data-estilo="plano"]) .sidebar,
+  :root:not([data-estilo="plano"]) .topbar,
+  :root:not([data-estilo="plano"]) .bottomnav,
+  :root:not([data-estilo="plano"]) .modal,
+  :root:not([data-estilo="plano"]) .toast,
+  :root:not([data-estilo="plano"]) .ayuda-globo,
+  :root:not([data-estilo="plano"]) .card,
+  :root:not([data-estilo="plano"]) .kpi,
+  :root:not([data-estilo="plano"]) th{
     background:var(--papel);-webkit-backdrop-filter:none;backdrop-filter:none;
     box-shadow:none;}
+  :root:not([data-estilo="plano"]) .card::before,
+  :root:not([data-estilo="plano"]) .card::after,
+  :root:not([data-estilo="plano"]) .kpi::before,
+  :root:not([data-estilo="plano"]) .kpi::after{display:none;}
 }
+
+/* ── la muestra de un estilo, en Configuración ────────────────────────────
+   Elegir a ciegas entre siete nombres no es elegir. Cada botón lleva dentro
+   un recuadro pintado con su propio estilo, así que se ve antes de aplicar.
+   `data-muestra` repite las mismas recetas en pequeño; no hereda las de
+   arriba porque aquéllas cuelgan de :root y aquí conviven las siete. */
+.estilos{display:grid;gap:var(--e2);
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+/* `display:block` no es decorativo: dentro de un <button> los <span> son
+   inline, y a un elemento inline la altura no le hace nada. Sin esto el
+   lienzo medía cero y la muestra se montaba encima del nombre. */
+.estilo{display:block;position:relative;text-align:left;cursor:pointer;padding:var(--e1);
+  border:1px solid var(--filete);border-radius:var(--r);background:var(--papel);
+  transition:border-color var(--rapido);font:inherit;color:inherit;}
+.estilo:hover{border-color:var(--filete-fuerte);}
+.estilo[aria-pressed="true"]{border-color:var(--primary);
+  box-shadow:0 0 0 1px var(--primary);}
+.estilo .lienzo{display:block;position:relative;height:64px;border-radius:var(--r);
+  overflow:hidden;margin-bottom:var(--e1);
+  background:
+    radial-gradient(60% 80% at 12% 0%, color-mix(in srgb,var(--primary) 55%,transparent),transparent 70%),
+    radial-gradient(60% 80% at 96% 20%, color-mix(in srgb,var(--secondary) 48%,transparent),transparent 70%),
+    var(--fondo);}
+.estilo .pieza{position:absolute;inset:12px;border-radius:calc(var(--r) * .8);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--cifra);font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  color:var(--tinta);}
+.estilo .nom{display:block;font-size:var(--t-sm);font-weight:var(--peso-fuerte);}
+.estilo .des{display:block;font-size:var(--t-xs);color:var(--tinta-2);line-height:1.4;}
+.estilo .coste{display:inline-block;margin-top:var(--e0);font-size:var(--t-xs);
+  padding:1px 8px;border-radius:var(--r-full);}
+.estilo .coste.barato{background:var(--ok-suave);color:var(--ok);}
+.estilo .coste.caro{background:var(--warn-suave);color:var(--warn);}
+
+[data-muestra="plano"] .pieza{background:none;border-bottom:1px solid var(--filete-fuerte);
+  border-radius:0;align-items:flex-end;}
+[data-muestra="escarcha"] .pieza{background:color-mix(in srgb,var(--papel) 58%,transparent);
+  -webkit-backdrop-filter:saturate(150%) blur(8px);backdrop-filter:saturate(150%) blur(8px);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--papel) 45%,var(--filete-fuerte));}
+[data-muestra="marco"] .pieza{background:color-mix(in srgb,#fff 15%,transparent);
+  -webkit-backdrop-filter:saturate(165%) blur(9px);backdrop-filter:saturate(165%) blur(9px);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),
+             inset 0 0 0 1px color-mix(in srgb,#fff 22%,transparent);}
+[data-muestra="marco"] .pieza::before{content:'';position:absolute;inset:5px;
+  border-radius:6px;background:color-mix(in srgb,#fff 26%,transparent);filter:blur(4px);}
+[data-muestra="bisel"] .pieza{background:linear-gradient(158deg,
+    color-mix(in srgb,var(--papel) 74%,transparent),
+    color-mix(in srgb,var(--papel) 42%,transparent));
+  -webkit-backdrop-filter:saturate(180%) blur(10px);backdrop-filter:saturate(180%) blur(10px);
+  box-shadow:inset 1.5px 1.5px 0 color-mix(in srgb,#fff 65%,transparent),
+             inset -1px -1px 0 color-mix(in srgb,var(--tinta) 14%,transparent),
+             inset 0 -10px 14px -12px color-mix(in srgb,var(--tinta) 55%,transparent);}
+[data-muestra="canto"] .pieza{background:linear-gradient(152deg,
+    color-mix(in srgb,var(--papel) 92%,transparent),
+    color-mix(in srgb,var(--papel) 68%,transparent));}
+[data-muestra="canto"] .pieza::after{content:'';position:absolute;inset:0;
+  border-radius:inherit;padding:1.5px;
+  background:linear-gradient(142deg,color-mix(in srgb,#fff 88%,transparent),
+    color-mix(in srgb,#fff 4%,transparent) 46%,
+    color-mix(in srgb,var(--primary) 50%,transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;}
+[data-muestra="halo"] .pieza{background:color-mix(in srgb,var(--papel) 72%,transparent);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--papel) 40%,transparent),
+             0 0 22px -4px color-mix(in srgb,var(--primary) 40%,transparent);}
+[data-muestra="tintado"] .pieza{background:linear-gradient(155deg,
+    color-mix(in srgb,var(--primary) 20%,color-mix(in srgb,var(--papel) 62%,transparent)),
+    color-mix(in srgb,var(--primary) 7%,color-mix(in srgb,var(--papel) 48%,transparent)));
+  -webkit-backdrop-filter:saturate(170%) blur(9px);backdrop-filter:saturate(170%) blur(9px);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 42%,transparent),
+             inset 0 1px 0 color-mix(in srgb,#fff 40%,transparent);}
+
+/* Las formas y la densidad también se eligen viéndolas. */
+.formas{display:flex;gap:var(--e1);flex-wrap:wrap;}
+.forma{cursor:pointer;font:inherit;color:inherit;padding:var(--e1) var(--e2);
+  border:1px solid var(--filete);background:var(--papel);
+  display:flex;flex-direction:column;align-items:center;gap:var(--e0);
+  font-size:var(--t-xs);min-width:88px;}
+.forma[aria-pressed="true"]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary);}
+.forma i{display:block;width:34px;height:22px;background:var(--primary-suave);
+  border:1px solid var(--primary);}
+.forma[data-forma="recta"], .forma[data-forma="recta"] i{border-radius:3px;}
+.forma[data-forma="suave"], .forma[data-forma="suave"] i{border-radius:10px;}
+.forma[data-forma="redonda"], .forma[data-forma="redonda"] i{border-radius:14px;}
+.forma[data-forma="redonda"]{border-radius:18px;}
 
 /* ── la historia de una persona, en orden ────────────────────────────────
    Cinco tablas separadas obligan a reconstruir mentalmente lo que pasó. En
