@@ -230,7 +230,14 @@ const deCatalogo = (catalogo, clave, porDefecto) => {
 };
 
 export const paletaActual = () => deCatalogo(PALETAS, LLAVE.paleta, PALETA_POR_DEFECTO);
-export const temaActual   = () => leer(LLAVE.tema, 'auto');      // auto · claro · oscuro
+export const TEMAS = ['auto', 'claro', 'oscuro'];
+/* Guardar un valor de tema que no existe dejaba la página en claro sin decir
+   nada: el resto de los ajustes sí se validan contra su catálogo, y éste era
+   el único que se creía cualquier cosa. */
+export const temaActual = () => {
+  const t = leer(LLAVE.tema, 'auto');
+  return TEMAS.includes(t) ? t : 'auto';
+};
 export const formaActual  = () => deCatalogo(FORMAS, LLAVE.forma, FORMA_POR_DEFECTO);
 export const densidadActual = () => deCatalogo(DENSIDADES, LLAVE.densidad, DENSIDAD_POR_DEFECTO);
 
@@ -266,7 +273,7 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidri
   const raiz = document.documentElement;
 
   if (paleta !== undefined) guardar(LLAVE.paleta, PALETAS[paleta] ? paleta : PALETA_POR_DEFECTO);
-  if (tema !== undefined) guardar(LLAVE.tema, tema);
+  if (tema !== undefined) guardar(LLAVE.tema, TEMAS.includes(tema) ? tema : 'auto');
   if (estilo !== undefined) guardar(LLAVE.estilo, ESTILOS[estilo] ? estilo : ESTILO_POR_DEFECTO);
   if (forma !== undefined) guardar(LLAVE.forma, FORMAS[forma] ? forma : FORMA_POR_DEFECTO);
   if (densidad !== undefined) guardar(LLAVE.densidad, DENSIDADES[densidad] ? densidad : DENSIDAD_POR_DEFECTO);

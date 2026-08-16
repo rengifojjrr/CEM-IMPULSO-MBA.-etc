@@ -1630,3 +1630,237 @@ tr.grupo-banco .tiny{margin-left:var(--e1);}
 @media (max-width:900px){
   .grid.dos-columnas{grid-template-columns:minmax(0,1fr);}
 }
+
+/* ═══════════════════════ GRÁFICOS ═════════════════════════════════════════
+   Ni un color escrito aquí que no venga de un token. Los tokens los pone la
+   paleta que cada quien eligió en Configuración, así que los gráficos cambian
+   con ella —también en modo noche— sin tener una tabla de colores propia que
+   se quede desincronizada.
+
+   Las series salen de mezclar los dos colores de la paleta entre ellos y con
+   la tinta suave. No se eligen a mano doce juegos de seis colores: se
+   derivan, y así una paleta nueva trae sus series hechas. La mayoría de los
+   gráficos de la plataforma son de UNA serie —ingresos por mes, matrícula por
+   programa, asistencia— y usan --primary a secas; las de varias series son
+   pocas, y las que hablan de estados usan los colores de estado, que es lo
+   que ya significa «vencido» en el resto de la aplicación. */
+:root{
+  --serie-1:var(--primary);
+  --serie-2:var(--secondary);
+  --serie-3:color-mix(in oklab, var(--primary) 55%, var(--secondary));
+  --serie-4:color-mix(in oklab, var(--primary) 45%, var(--tinta-3));
+  --serie-5:color-mix(in oklab, var(--secondary) 50%, var(--tinta-3));
+  --serie-6:color-mix(in oklab, var(--secondary) 45%, var(--gold));
+  --gr-pista:var(--hueco);
+  /* Las barras redondean lo que diga la forma elegida, pero con tope: una
+     barra de 9 px de alto con esquinas de 999 px es una pastilla, no un dato. */
+  --gr-radio:min(var(--r), 6px);
+}
+
+.gr{margin:0;display:flex;flex-direction:column;gap:var(--e2);}
+.gr + .gr{margin-top:var(--aire);padding-top:var(--aire);
+  border-top:1px solid var(--filete);}
+.gr-tit{font-size:var(--t-sm);font-weight:var(--peso-fuerte);color:var(--tinta);
+  line-height:1.35;}
+.gr-pie{margin:0;font-size:var(--t-xs);color:var(--tinta-2);line-height:1.5;
+  max-width:72ch;}
+.gr-vacio{margin:0;padding:var(--e3) 0;font-size:var(--t-sm);color:var(--tinta-3);}
+.gr-mas{margin:var(--e0) 0 0;font-size:var(--t-xs);color:var(--tinta-3);}
+
+/* La tabla de debajo: plegada, porque el gráfico ya contestó la pregunta. Se
+   abre cuando hace falta el número exacto para pegarlo en un correo. */
+.gr-tabla > summary{cursor:pointer;font-size:var(--t-xs);color:var(--tinta-2);
+  list-style:none;display:inline-flex;align-items:center;gap:var(--e0);
+  padding:var(--e0) var(--e1);border-radius:var(--r);min-height:32px;}
+.gr-tabla > summary::-webkit-details-marker{display:none;}
+.gr-tabla > summary::before{content:'▸';font-size:11px;color:var(--tinta-3);}
+.gr-tabla[open] > summary::before{content:'▾';}
+.gr-tabla > summary:hover{background:var(--hueco);color:var(--tinta);}
+.gr-tabla .table-wrap{margin-top:var(--e1);}
+
+/* ── columnas: el tiempo, de izquierda a derecha ─────────────────────────── */
+.gr-cols{display:flex;align-items:flex-end;gap:3px;height:var(--gr-alto,150px);}
+.gr-cols .gr-col{flex:1;min-width:0;display:flex;flex-direction:column;
+  justify-content:flex-end;height:100%;text-decoration:none;color:inherit;
+  border-radius:var(--gr-radio);}
+.gr-cols a.gr-col{cursor:pointer;}
+.gr-cols a.gr-col:hover .palo{background:var(--serie-3);}
+.gr-cols a.gr-col:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.gr-cols .palo{background:var(--serie-1);border-radius:var(--gr-radio) var(--gr-radio) 0 0;
+  min-height:2px;}
+.gr-cols .v{font-family:var(--cifra);font-size:10px;color:var(--tinta-3);
+  text-align:center;line-height:1.2;margin-bottom:2px;
+  font-variant-numeric:tabular-nums;
+  /* Con más de ocho columnas los números se pisan; entonces sólo el tooltip. */
+  overflow:hidden;white-space:nowrap;}
+.gr-cols .etq{font-size:10px;color:var(--tinta-3);text-align:center;
+  margin-top:var(--e0);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.gr-cols .gr-col.ojo .palo{background:var(--secondary);}
+.gr-cols.histograma .gr-col.bajo .palo{background:var(--error);}
+.gr-cols .palo.pila{display:flex;flex-direction:column-reverse;overflow:hidden;}
+@media (max-width:640px){
+  .gr-cols{gap:2px;}
+  .gr-cols .v{display:none;}
+}
+
+/* ── barras horizontales: comparar cosas con nombre ──────────────────────── */
+.gr-barras{display:flex;flex-direction:column;gap:var(--e1);}
+.gr-fila{display:grid;grid-template-columns:minmax(90px,1.1fr) minmax(0,2.4fr) auto;
+  gap:var(--e1);align-items:center;font-size:var(--t-xs);}
+.gr-etq{overflow-wrap:anywhere;color:var(--tinta-2);line-height:1.3;}
+.gr-pista{display:block;height:20px;background:var(--gr-pista);
+  border-radius:var(--gr-radio);overflow:hidden;}
+a.gr-pista{cursor:pointer;}
+a.gr-pista:hover .gr-relleno{background:var(--serie-3);}
+a.gr-pista:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.gr-relleno{display:block;height:100%;background:var(--serie-1);
+  border-radius:var(--gr-radio);}
+.gr-fila.ok .gr-relleno{background:var(--ok);}
+.gr-fila.warn .gr-relleno{background:var(--warn);}
+.gr-fila.err .gr-relleno{background:var(--error);}
+.gr-cifra{font-family:var(--cifra);font-variant-numeric:tabular-nums;
+  color:var(--tinta);white-space:nowrap;text-align:right;min-width:64px;}
+.gr-cifra small{display:block;font-size:10px;color:var(--tinta-3);}
+@media (max-width:520px){
+  .gr-fila{grid-template-columns:minmax(0,1fr) auto;gap:var(--e0) var(--e1);}
+  .gr-fila .gr-pista{grid-column:1 / -1;}
+}
+
+/* ── una barra apilada + su leyenda ──────────────────────────────────────── */
+.gr-apilada{display:flex;height:26px;border-radius:var(--gr-radio);overflow:hidden;
+  background:var(--gr-pista);}
+.gr-parte{display:block;background:var(--serie-1);min-width:2px;
+  transition:filter var(--rapido);}
+a.gr-parte{cursor:pointer;}
+a.gr-parte:hover{filter:brightness(1.12);}
+a.gr-parte:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}
+.gr-parte.dos{background:var(--serie-2);}   .gr-parte.tres{background:var(--serie-3);}
+.gr-parte.cuatro{background:var(--serie-4);} .gr-parte.cinco{background:var(--serie-5);}
+.gr-parte.seis{background:var(--serie-6);}
+.gr-parte.ok{background:var(--ok);}   .gr-parte.warn{background:var(--warn);}
+.gr-parte.err{background:var(--error);} .gr-parte.info{background:var(--info);}
+.gr-parte.gris{background:var(--filete-fuerte);}
+
+.gr-leyenda{display:flex;flex-wrap:wrap;gap:var(--e1) var(--e2);font-size:var(--t-xs);
+  color:var(--tinta-2);}
+.gr-clave{display:inline-flex;align-items:center;gap:var(--e0);}
+.gr-clave b{font-family:var(--cifra);color:var(--tinta);
+  font-variant-numeric:tabular-nums;font-weight:var(--peso-fuerte);}
+.gr-clave small{color:var(--tinta-3);}
+.gr-punto{width:10px;height:10px;border-radius:var(--gr-radio);flex:none;
+  background:var(--serie-1);}
+.gr-punto.dos{background:var(--serie-2);}   .gr-punto.tres{background:var(--serie-3);}
+.gr-punto.cuatro{background:var(--serie-4);} .gr-punto.cinco{background:var(--serie-5);}
+.gr-punto.seis{background:var(--serie-6);}
+.gr-punto.ok{background:var(--ok);}   .gr-punto.warn{background:var(--warn);}
+.gr-punto.err{background:var(--error);} .gr-punto.info{background:var(--info);}
+.gr-punto.gris{background:var(--filete-fuerte);}
+
+/* ── línea ───────────────────────────────────────────────────────────────── */
+.gr-linea{position:relative;}
+.gr-linea svg{display:block;width:100%;height:var(--gr-alto,170px);overflow:visible;}
+.gr-linea .rejilla{stroke:var(--filete);stroke-width:1;vector-effect:non-scaling-stroke;}
+.gr-linea .referencia{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:4 3;
+  vector-effect:non-scaling-stroke;}
+.gr-linea .area{fill:var(--serie-1);opacity:.10;}
+.gr-linea .trazo{fill:none;stroke:var(--serie-1);stroke-width:2;
+  stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;}
+.gr-puntos{position:absolute;inset:0 0 auto;height:var(--gr-alto,170px);}
+.gr-punto-dato{position:absolute;width:22px;height:22px;transform:translate(-50%,50%);
+  border-radius:var(--r-full);display:block;}
+.gr-punto-dato::after{content:'';position:absolute;inset:7px;border-radius:var(--r-full);
+  background:var(--papel);border:2px solid var(--serie-1);}
+a.gr-punto-dato{cursor:pointer;}
+a.gr-punto-dato:hover::after{inset:5px;background:var(--serie-1);}
+a.gr-punto-dato:focus-visible{outline:2px solid var(--primary);outline-offset:1px;}
+.gr-eje{display:flex;justify-content:space-between;margin-top:var(--e0);
+  font-size:10px;color:var(--tinta-3);}
+.gr-eje span{flex:1;text-align:center;overflow:hidden;white-space:nowrap;}
+.gr-ref-etq{font-size:10px;color:var(--warn);margin-top:var(--e0);}
+@media (max-width:640px){ .gr-eje span.salta{visibility:hidden;} }
+
+/* ── embudo ──────────────────────────────────────────────────────────────── */
+.gr-embudo{display:flex;flex-direction:column;gap:var(--e1);}
+/* La barra en su columna y la etiqueta en la suya: con todo en una fila
+   flexible, el escalón del 100 % empujaba su propio nombre fuera de la caja y
+   el primer paso salía sin decir de qué era. */
+.gr-paso{display:grid;grid-template-columns:minmax(0,1fr) minmax(96px,auto) auto;
+  gap:var(--e1);align-items:center;}
+.gr-escalon{display:flex;align-items:baseline;gap:var(--e1);min-width:0;
+  padding:var(--e1) var(--e2);border-radius:var(--gr-radio);
+  background:var(--serie-1);color:var(--on-primary);text-decoration:none;
+  min-height:38px;}
+a.gr-escalon{cursor:pointer;}
+a.gr-escalon:hover{background:var(--serie-3);}
+a.gr-escalon:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.gr-escalon b{font-family:var(--cifra);font-size:var(--t-sm);
+  font-variant-numeric:tabular-nums;}
+.gr-paso-etq{font-size:var(--t-xs);color:var(--tinta-2);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;}
+.gr-caida{font-family:var(--cifra);font-size:var(--t-xs);color:var(--error);
+  white-space:nowrap;}
+
+/* ── anillo ──────────────────────────────────────────────────────────────── */
+.gr-anillo{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;}
+.gr-anillo-dibujo{position:relative;width:132px;height:132px;flex:none;display:block;}
+a.gr-anillo-dibujo{cursor:pointer;}
+a.gr-anillo-dibujo:focus-visible{outline:2px solid var(--primary);outline-offset:3px;
+  border-radius:var(--r-full);}
+.gr-anillo svg{width:100%;height:100%;transform:rotate(-90deg);}
+.gr-anillo .pista{fill:none;stroke:var(--gr-pista);stroke-width:11;}
+.gr-anillo .avance{fill:none;stroke:var(--serie-1);stroke-width:11;
+  stroke-linecap:round;}
+.gr-anillo-centro{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;}
+.gr-anillo-centro b{font-family:var(--cifra);font-size:var(--t-xl);
+  font-variant-numeric:tabular-nums;line-height:1;}
+.gr-anillo-centro span{font-size:10px;color:var(--tinta-3);margin-top:2px;}
+.gr-anillo-cifras{display:flex;gap:var(--e3);}
+.gr-anillo-cifras b{display:block;font-family:var(--cifra);font-size:var(--t-md);
+  font-variant-numeric:tabular-nums;}
+.gr-anillo-cifras span{font-size:var(--t-xs);color:var(--tinta-3);}
+
+/* ── hitos: cosas con fecha, no una serie ────────────────────────────────── */
+.gr-hitos{list-style:none;margin:0;padding:0 0 0 var(--e2);
+  border-left:2px solid var(--filete);display:flex;flex-direction:column;
+  gap:var(--e2);}
+.gr-hito{position:relative;display:grid;grid-template-columns:1fr auto;
+  gap:0 var(--e1);text-decoration:none;color:inherit;font-size:var(--t-xs);
+  padding:var(--e0) 0;}
+a.gr-hito{cursor:pointer;}
+a.gr-hito:hover .gr-hito-t{color:var(--primary);}
+a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
+  border-radius:var(--r);}
+.gr-marca{position:absolute;left:calc(var(--e2) * -1 - 6px);top:8px;width:10px;height:10px;
+  border-radius:var(--r-full);background:var(--filete-fuerte);
+  box-shadow:0 0 0 3px var(--papel);}
+.gr-hitos li.ok .gr-marca{background:var(--ok);}
+.gr-hitos li.warn .gr-marca{background:var(--warn);}
+.gr-hitos li.err .gr-marca{background:var(--error);}
+.gr-hitos li.info .gr-marca{background:var(--info);}
+.gr-hito-t{font-weight:var(--peso-fuerte);color:var(--tinta);}
+.gr-hito-f{font-family:var(--cifra);color:var(--tinta-3);white-space:nowrap;}
+.gr-hito-d{grid-column:1 / -1;color:var(--tinta-2);}
+
+/* Bajo cualquiera de los estilos de vidrio, la pista de las barras se apoya
+   sobre un fondo translúcido: --hueco se pierde y la barra parece flotar. */
+:root:not([data-estilo="plano"]) .gr-pista,
+:root:not([data-estilo="plano"]) .gr-apilada,
+:root:not([data-estilo="plano"]) .gr-anillo .pista{
+  background:color-mix(in srgb, var(--tinta) 9%, transparent);}
+:root:not([data-estilo="plano"]) .gr-anillo .pista{
+  background:none;stroke:color-mix(in srgb, var(--tinta) 9%, transparent);}
+
+@media (prefers-reduced-motion:no-preference){
+  .gr-relleno,.gr-cols .palo,.gr-anillo .avance{
+    transition:background var(--rapido), width var(--entra), height var(--entra);}
+}
+
+/* Los gráficos van de dos en dos: con auto-fit caben tres de 280 px por fila y
+   una serie de doce meses en 280 px es una fila de rayitas. */
+.grid.graficos{grid-template-columns:repeat(auto-fit,minmax(420px,1fr));}
+@media (max-width:900px){ .grid.graficos{grid-template-columns:minmax(0,1fr);} }
+/* Con sitio de sobra, el nombre de la barra puede ocupar más y dejar de
+   partirse en tres líneas. */
+@container (min-width:460px){ .gr-fila{grid-template-columns:minmax(150px,1.3fr) minmax(0,2fr) auto;} }
+.card{container-type:inline-size;}
