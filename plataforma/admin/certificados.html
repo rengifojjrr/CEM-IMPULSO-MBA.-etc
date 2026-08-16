@@ -38,27 +38,33 @@
       <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
         <option value="emitido">Emitido</option><option value="revocado">Revocado</option></select></div>
     </div>
+    <div class="row between sep-poco"><span id="cuenta"></span></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Código</th><th>Estudiante</th><th>Certificado</th><th>Programa</th><th>Emitido</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-16';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado, avisar, filtrosEnLaDireccion, cargarEn, contarFilas } from '../assets/app.js?v=2026-08-16';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let certs=[], elegibles=[], tpls=[];
 if (p) load();
 
 async function load(){
-  const [{data:cs},{data:ens},{data:tp}] = await Promise.all([
+  // item 12 · si esta consulta falla la tabla se queda vacía, y «no hay
+  // certificados» y «no pudimos preguntar» se veían exactamente igual.
+  await cargarEn('#tb', () => Promise.all([
     // `cem_certificates` apunta dos veces a `cem_profiles` —el titular y quien
     // lo anuló—, así que hay que nombrar la clave foránea o PostgREST no sabe
     // por cuál entrar y devuelve la lista vacía sin decir por qué.
     sb.from('cem_certificates').select('*,cem_profiles!cem_certificates_profile_id_fkey(nombre,apellido,email),cem_courses(nombre)').order('emitido_en',{ascending:false}).limit(500),
     sb.from('cem_enrollments').select('id,progreso,estado,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre,certificado_nombre)').limit(500),
     sb.from('cem_certificate_templates').select('*').order('created_at'),
-  ]);
+  ]).then((rs) => ({ data: rs, error: rs.find(r => r.error)?.error })), pintar);
+}
+
+function pintar([{data:cs},{data:ens},{data:tp}]){
   certs=cs||[]; tpls=tp||[];
   const conCert = new Set(certs.map(c=>c.enrollment_id).filter(Boolean));
   elegibles = (ens||[]).filter(e=>Number(e.progreso)>=80 && !conCert.has(e.id));
@@ -100,6 +106,7 @@ function render(){
         title="Anular" aria-label="Anular el certificado ${esc(c.codigo)}">
         <span class="material-symbols-outlined">block</span></button>` : ''}
     </span></td></tr>`).join('') : emptyRow(7, 'Todavía no se ha emitido ningún certificado.');
+  contarFilas('#cuenta', list.length, certs.length, 500);
   $$('[data-ver]').forEach(b=>b.onclick=()=>ver(certs.find(c=>c.id===b.dataset.ver)));
   $$('[data-rev]').forEach(b=>b.onclick=()=>anular(certs.find(c=>c.id===b.dataset.rev)));
 }
@@ -132,7 +139,9 @@ function anular(c){
     m.close(); ok(`${c.codigo} anulado.`); load();
   };
 }
-['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+// `filtrosEnLaDireccion` ya escucha los dos campos: volver a conectarlos aquí
+// hacía que cada tecla repintara la tabla dos veces.
+filtrosEnLaDireccion({ q:'#q', est:'#fEstado' }, render);
 $('#btnExport').onclick=()=>download('certificados_cem.csv', toCSV(certs.map(c=>({
   codigo:c.codigo, estudiante:(c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''),
   email:c.cem_profiles?.email, titulo:c.titulo, programa:c.cem_courses?.nombre,
@@ -194,18 +203,32 @@ async function emitirLote(ids, tpl, tipo = 'certificado'){
     motivo = await pedirExcepcion(reparos);
     if (motivo === null) return false;
   }
-  let emitidos = 0;
+  const nuevos = [];
   for (const id of ids){
     const conReparo = reparos.some(r => r.id === id);
-    const { error } = await sb.rpc('cem_issue_certificate', {
+    const { data, error } = await sb.rpc('cem_issue_certificate', {
       p_enrollment_id: id, p_template_id: tpl, p_tipo: tipo,
       p_forzar: conReparo, p_motivo_excepcion: conReparo ? motivo : null,
     });
     if (error) { fail(`${nombreDeInscripcion(id)}: ${mensajeError(error)}`); continue; }
-    emitidos++;
+    nuevos.push({ id: data?.id, codigo: data?.codigo, quien: nombreDeInscripcion(id) });
   }
-  if (emitidos) ok(`${emitidos} certificado(s) emitido(s)${motivo ? ', con excepción asentada' : ''}`);
-  return emitidos > 0;
+  /* item 16 · un certificado emitido a la persona equivocada no se borra —queda
+     asentado— pero sí se puede anular. Ofrecerlo aquí mismo, en los segundos
+     siguientes, evita que alguien imprima y entregue el papel antes de que
+     nadie note el error. */
+  if (nuevos.length) {
+    const quienes = nuevos.length === 1 ? nuevos[0].quien : `${nuevos.length} certificados`;
+    okDeshacer(`Emitido a ${quienes}${motivo ? ', con excepción asentada' : ''}.`, async () => {
+      for (const c of nuevos) {
+        if (!c.id) continue;
+        await sb.rpc('cem_anular_certificado', {
+          p_id: c.id, p_motivo: 'Emisión deshecha por quien la hizo, segundos después.' });
+      }
+      load();
+    });
+  }
+  return nuevos.length > 0;
 }
 
 $('#btnLote').onclick = async () => {

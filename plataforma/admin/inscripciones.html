@@ -52,7 +52,7 @@
 import { sb, mount, $, $$, esc, chip, money, num, fdate, fdateCorta, fdatetime, emptyRow, match, kpi, modal, ok, fail,
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
-         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar } from '../assets/app.js?v=2026-08-16';
+         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion } from '../assets/app.js?v=2026-08-16';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
 const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
 let ens=[], insts=[], pays=[], sols=[], tab='ins';
@@ -267,6 +267,7 @@ function render(){
     });
   }
 }
+filtrosEnLaDireccion({ q:'#q', est:'#fEstado' }, render);
 ['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{$('#q').value='';$('#fEstado').value='';render();};
 $('#btnExport').onclick=()=>{

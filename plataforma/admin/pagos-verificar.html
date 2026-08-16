@@ -61,6 +61,7 @@
         <option value="">Todos</option>
       </select></div></div>
     <div class="barra-seleccion" id="barraSel" hidden></div>
+    <div class="row between sep-poco"><span id="cuenta"></span></div>
     <div class="table-wrap">
       <table class="tarjetas" id="tabla"><thead><tr>
         <th class="sel"><input type="checkbox" data-todas aria-label="Marcar todos los pagos de la lista"></th>
@@ -72,9 +73,9 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, fail, modal,
-         confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa,
-         toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY,
+import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, okDeshacer, fail, modal,
+         confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa, run,
+         toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY, cargarEn, contarFilas,
          etiqueta, montoPagado, enDolares, saldo as saldoCelda,
          seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-16';
 
@@ -94,11 +95,13 @@ async function cargar(){
   // cem_enrollments apunta dos veces a cem_profiles (el estudiante y el
   // vendedor), así que hay que nombrar la clave foránea o PostgREST no sabe
   // por cuál de las dos entrar.
-  const { data } = await sb.from('cem_payments')
+  //
+  // item 12 · si la consulta falla, la tabla se quedaba vacía y parecía «no hay
+  // pagos por revisar», que es justo lo contrario de lo que pasa.
+  await cargarEn('#tb', () => sb.from('cem_payments')
     .select('*, cem_installments(numero, monto, saldo, moneda, estado), cem_enrollments(profile_id, cem_profiles!cem_enrollments_profile_id_fkey(nombre, apellido, email, documento), cem_courses(nombre))')
-    .order('fecha', { ascending: false }).limit(300);
-  pagos = data || [];
-  renderKpis(); render();
+    .order('fecha', { ascending: false }).limit(300),
+    (data) => { pagos = data || []; renderKpis(); render(); });
 }
 
 function nombreDe(x){
@@ -154,6 +157,7 @@ function render(){
       ? 'No hay pagos esperando revisión. Todo al día.'
       : 'Ningún pago con ese estado.');
 
+  contarFilas('#cuenta', lista.length, pagos.length, 300);
   $$('[data-ver]').forEach(b => b.onclick = () => verDetalle(pagos.find(x => x.id === b.dataset.ver)));
   $$('[data-ok]').forEach(b => b.onclick = () => aprobar(pagos.find(x => x.id === b.dataset.ok)));
   $$('[data-no]').forEach(b => b.onclick = () => rechazar(pagos.find(x => x.id === b.dataset.no)));
@@ -328,9 +332,21 @@ async function aprobar(x){
     : 'Se marcará el pago como aprobado.';
   if(!await confirmDialog(`${aviso} ¿Confirmas que verificaste este pago contra el banco?`)) return;
   const { error } = await sb.rpc('cem_aprobar_pago', { p_payment_id: x.id });
-  if(error){ fail(error.message); return; }
-  ok('Pago aprobado y abonado a la cuota.');
-  cargar();
+  if(error){ fail(mensajeError(error)); return; }
+  await cargar();
+  /* item 16 · aprobar el pago de la fila de arriba en vez de la de abajo pasa
+     todos los días, y hasta ahora la única salida era buscar el pago, anularlo
+     y explicar por qué. El aviso dice A QUIÉN se le aprobó —no «Guardado»— y
+     durante unos segundos deja volver atrás sin buscar nada. */
+  okDeshacer(
+    `Aprobado el pago de ${nombreDe(x)}${c ? ` a la cuota #${c.numero}` : ''}.`,
+    async () => {
+      await run(sb.rpc('cem_anular_pago', {
+        p_payment_id: x.id,
+        p_motivo: 'Aprobación deshecha por quien la hizo, segundos después.',
+      }), 'No se pudo deshacer la aprobación.');
+      await cargar();
+    });
 }
 
 async function rechazar(x){

@@ -346,6 +346,7 @@ export function modal({ title, body, footer, wide = false }) {
   $$('[data-x]', bg).forEach(b => { b.onclick = bg.close; });
   bg.onclick = (e) => { if (e.target === bg) bg.close(); };
   botonesQueAvisan(bg);
+  fechasSinAmbiguedad(bg);
   document.body.appendChild(bg);
   return bg;
 }
@@ -454,6 +455,124 @@ export async function run(promise, errMsg = TXT.errorGenerico) {
     throw error;
   }
   return data;
+}
+
+/* ============ cuando la consulta no vuelve (item 12) ============
+   Si una consulta falla, la tabla se queda vacía y parece que no hay datos.
+   «No hay estudiantes» y «no pudimos preguntar» son cosas muy distintas y se
+   veían igual: la primera es una respuesta, la segunda es un fallo que hay que
+   reintentar. Este envoltorio distingue las dos y ofrece volver a probar.
+
+   @param {Function} consultar  devuelve la promesa de Supabase
+   @param {HTMLElement|string} donde  dónde escribir el aviso si falla
+   @param {Function} pintar  qué hacer con los datos cuando llegan */
+export async function cargarEn(donde, consultar, pintar) {
+  const host = typeof donde === 'string' ? $(donde) : donde;
+  try {
+    const { data, error } = await consultar();
+    if (error) throw error;
+    return pintar(data);
+  } catch (e) {
+    if (esErrorDeSesion(e)) { sesionVencida(); return; }
+    if (!host) { fail(mensajeError(e)); return; }
+    const aviso = `<div class="empty">
+      <span class="material-symbols-outlined ico">cloud_off</span>
+      <b>No pudimos cargar esto</b>
+      <span>${esc(mensajeError(e, 'La consulta no llegó a completarse.'))}</span>
+      <button class="btn sm" type="button" data-reintentar>Volver a intentarlo</button>
+    </div>`;
+    // Dentro de una tabla el aviso tiene que ir en una fila, o el navegador lo
+    // saca del <tbody> y aparece flotando encima del encabezado.
+    if (host.tagName === 'TBODY') {
+      const columnas = host.closest('table')?.querySelectorAll('thead th').length || 1;
+      host.innerHTML = `<tr><td colspan="${columnas}">${aviso}</td></tr>`;
+    } else {
+      host.innerHTML = aviso;
+    }
+    host.querySelector('[data-reintentar]').onclick = () => cargarEn(donde, consultar, pintar);
+  }
+}
+
+/* ============ el filtro, en la dirección de la página (item 13) ============
+   Se filtra, se entra a una ficha, se vuelve — y la lista está otra vez
+   completa. Guardando el filtro en la dirección, el botón de atrás funciona y
+   además se puede mandar a alguien «mira esta pantalla como la veo yo».
+
+   `replaceState` y no `pushState` a propósito: escribir en un buscador no debe
+   dejar veinte entradas en el historial. */
+export function filtrosEnLaDireccion(campos, alCambiar) {
+  const url = new URL(location.href);
+  const leer = () => Object.fromEntries(
+    Object.keys(campos).map((k) => [k, url.searchParams.get(k) || '']));
+
+  // Al abrir: lo que venga en la dirección manda sobre lo que haya en el campo.
+  const inicial = leer();
+  Object.entries(campos).forEach(([clave, sel]) => {
+    const el = typeof sel === 'string' ? $(sel) : sel;
+    if (el && inicial[clave]) el.value = inicial[clave];
+  });
+
+  const guardar = () => {
+    const u = new URL(location.href);
+    Object.entries(campos).forEach(([clave, sel]) => {
+      const el = typeof sel === 'string' ? $(sel) : sel;
+      const v = (el?.value || '').trim();
+      if (v) u.searchParams.set(clave, v); else u.searchParams.delete(clave);
+    });
+    history.replaceState(null, '', u);
+  };
+
+  Object.values(campos).forEach((sel) => {
+    const el = typeof sel === 'string' ? $(sel) : sel;
+    if (!el) return;
+    ['input', 'change'].forEach((ev) => el.addEventListener(ev, () => {
+      guardar();
+      alCambiar?.();
+    }));
+  });
+  return inicial;
+}
+
+/* ============ cuántas filas hay (item 14) ============
+   Las consultas piden hasta 300 o 500 registros y la lista se corta ahí sin
+   decirlo: nadie se entera de que faltan. Esto dice cuántas se ven, cuántas
+   hay, y avisa cuando la lista está recortada. */
+export function contarFilas(donde, mostradas, total, tope = null) {
+  const host = typeof donde === 'string' ? $(donde) : donde;
+  if (!host) return;
+  const recortada = tope != null && total >= tope;
+  host.innerHTML = mostradas === total
+    ? `<span class="cuenta-filas">${num(total)} ${total === 1 ? 'fila' : 'filas'}${
+        recortada ? ` <b>· la lista está recortada en ${num(tope)}: afina el filtro para verlo todo</b>` : ''}</span>`
+    : `<span class="cuenta-filas">${num(mostradas)} de ${num(total)}${
+        recortada ? ` <b>· recortada en ${num(tope)}</b>` : ''}</span>`;
+}
+
+/* ============ borrar pide la misma puerta en todas partes (item 15) ============
+   Unas pantallas preguntaban y otras borraban directo. Y para lo grave, decir
+   que sí no basta: hay que escribir el nombre de lo que se va a destruir, que
+   es lo que obliga a leerlo. */
+export function confirmarBorrado({ que, nombre, consecuencia, exigirNombre = false }) {
+  return new Promise((res) => {
+    const m = modal({ title: `Borrar ${que}`, body: `
+      <p>Vas a borrar <b>${esc(nombre)}</b>.</p>
+      ${consecuencia ? `<p class="nota warn">${esc(consecuencia)}</p>` : ''}
+      ${exigirNombre ? `<div class="field">
+        <label>Escribe <b>${esc(nombre)}</b> para confirmar</label>
+        <input id="confNombre" autocomplete="off" spellcheck="false"></div>` : ''}
+      <div id="confMsg"></div>`,
+      footer: `<button class="btn outline" data-x>Cancelar</button>
+               <button class="btn danger" data-borrar>Borrar</button>` });
+
+    $('[data-x]', m).addEventListener('click', () => res(false));
+    $('[data-borrar]', m).onclick = () => {
+      if (exigirNombre && $('#confNombre', m).value.trim() !== String(nombre).trim()) {
+        avisar($('#confMsg', m), 'El nombre no coincide. Cópialo tal cual para confirmar.', 'err');
+        return;
+      }
+      m.close(); res(true);
+    };
+  });
 }
 
 export async function audit(accion, entidad, entidad_id, riesgo = 'bajo', detalle = {}) {
@@ -841,12 +960,79 @@ export async function mount(opts = {}) {
   // Los «?» de ayuda y las cifras de dinero funcionan igual en todas las
   // pantallas: se conectan aquí y no hay que acordarse en cada una.
   subtituloDetrasDelSigno();
+  fechasSinAmbiguedad();
+  botonesConNombre();
   montarAyudas(document);
   tablasLegiblesEnElTelefono();
   buscadorDePantallaCompleta();
   esqueletosDeTabla();
   return p;
 }
+
+/* ============ un botón de icono también tiene que tener nombre (item 11) ============
+   Un botón que sólo es un icono se lee «botón» y ya: ni un lector de pantalla
+   ni nadie que no reconozca el dibujo sabe qué hace. Casi todos tienen `title`
+   —que sirve para el ratón y no existe en el teléfono—, así que se copia a
+   `aria-label` en vez de escribirlo dos veces en cada pantalla.
+
+   Se hace también en cada repintado de tabla, porque las acciones de fila
+   nacen y mueren con cada filtro. */
+export function botonesConNombre(raiz = document) {
+  $$('button, a.btn, .icon-btn', raiz).forEach((b) => {
+    if (b.getAttribute('aria-label')) return;
+    // Si tiene texto propio, ya tiene nombre.
+    const texto = [...b.childNodes]
+      .filter((n) => n.nodeType === 3 || !n.classList?.contains('material-symbols-outlined'))
+      .map((n) => n.textContent).join('').trim();
+    if (texto) return;
+    const nombre = b.getAttribute('title') || b.dataset.ayuda;
+    if (nombre) b.setAttribute('aria-label', nombre);
+  });
+}
+
+/* ============ una fecha que no se pueda leer al revés (item 08) ============
+   `<input type="date">` se pinta según el idioma del navegador, no según el de
+   la página: en un equipo en inglés, el 1 de septiembre sale «09/01/2024» y se
+   lee como el 9 de enero. En fechas de vencimiento y de cierre eso no es
+   cosmético — es cobrar el mes que no era.
+
+   No se puede obligar al navegador a cambiar de formato, así que se hace lo
+   único que quita la duda del todo: debajo del campo se escribe la fecha con
+   el mes en letras. Da igual cómo la pinte el widget; lo que se lee es
+   «1 de septiembre de 2024».
+
+   Va por delegación para que funcione también en los diálogos, que nacen
+   después de que esta función haya corrido. */
+const enLetras = (valor) => {
+  if (!valor) return '';
+  // El valor de un input date es siempre AAAA-MM-DD, independiente del idioma.
+  const [a, m, d] = valor.split('-').map(Number);
+  if (!a || !m || !d) return '';
+  return new Date(a, m - 1, d).toLocaleDateString('es-ES',
+    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+};
+
+function aclararFecha(input) {
+  if (!input || input.type !== 'date') return;
+  let eco = input.nextElementSibling;
+  if (!eco || !eco.classList?.contains('fecha-clara')) {
+    eco = document.createElement('small');
+    eco.className = 'fecha-clara';
+    input.insertAdjacentElement('afterend', eco);
+  }
+  eco.textContent = enLetras(input.value);
+}
+
+export function fechasSinAmbiguedad(raiz = document) {
+  $$('input[type=date]', raiz).forEach(aclararFecha);
+}
+
+document.addEventListener('input', (ev) => {
+  if (ev.target?.type === 'date') aclararFecha(ev.target);
+});
+document.addEventListener('change', (ev) => {
+  if (ev.target?.type === 'date') aclararFecha(ev.target);
+});
 
 /* ============ el subtítulo de la pantalla, detrás del «?» (item 29) ============
    Cada pantalla abría con un párrafo de dos líneas —«Supervisa la actividad
@@ -952,6 +1138,7 @@ function tablasLegiblesEnElTelefono(raiz = document) {
         marcar(ths);
         monedaAlEncabezado(tabla, ths);
       }
+      botonesConNombre(tabla);
       obs?.observe(tabla, { childList: true, subtree: true });
     };
     obs = new MutationObserver(sellar);

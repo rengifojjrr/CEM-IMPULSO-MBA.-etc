@@ -41,6 +41,7 @@
           <option value="inactivo">Sin entrar hace 30 días</option></select></div>
       </div>
     </details>
+    <div class="row between sep-poco"><span id="cuenta"></span></div>
     <div class="table-wrap"><table class="tarjetas" id="tabla">
       <thead><tr><th data-ord="nombre">Estudiante</th><th data-ord="pais">País</th><th class="num" data-ord="_n">Cursos</th>
         <th data-ord="_prog">Progreso</th><th class="num" data-ord="_saldo">Saldo</th>
@@ -52,7 +53,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials,
          toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY,
-         selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor, avisar } from '../assets/app.js?v=2026-08-16';
+         selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor, avisar, filtrosEnLaDireccion, contarFilas } from '../assets/app.js?v=2026-08-16';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
@@ -77,7 +78,6 @@ async function load(){
       _acceso:acceso, _cohs:es.map(e=>e.cohort_id),
       _estado: dias>30?'inactivo' : prog>=80?'excelente' : prog<40?'riesgo':'normal'};
   });
-  const url = new URLSearchParams(location.search); if (url.get('q')) $('#q').value = url.get('q');
   $('#kpis').innerHTML = [
     kpi('Estudiantes', num(rows.length),'school',`${rows.filter(r=>r._n>0).length} con inscripción`,'',
       'Cuentas con rol de estudiante. Algunas todavía no están inscritas en ningún programa: ésas son la diferencia con el número de abajo.'),
@@ -105,6 +105,7 @@ function render(){
   const list = visibles();
   const n = [$('#fCoh').value, $('#fEst').value].filter(Boolean).length;
   $('#nFiltros').hidden = !n; $('#nFiltros').textContent = n;
+  contarFilas('#cuenta', list.length, rows.length, 500);
   $('#tb').innerHTML = list.length? list.map(r=>`<tr class="clickable" onclick="location.href='estudiante.html?id=${r.id}'">
     <td data-col="Estudiante"><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(r.nombre,r.apellido)}</span>
       <div><b>${esc(r.nombre)} ${esc(r.apellido||'')}</b><div class="tiny muted">${esc(r.email)}</div></div></div></td>
@@ -120,6 +121,11 @@ function render(){
         rows.length ? null : {texto:'Inscribir al primero', id:'irNuevo', icono:'person_add'});
   ordenable('#tabla', ordenEstudiantes, render);
 }
+/* items 13 y 14 · el filtro vive en la dirección, así el botón de atrás
+   funciona y se puede mandar «mira esta pantalla como la veo yo». Y la lista
+   dice cuántas filas se están viendo de cuántas hay: antes se cortaba en
+   500 sin avisar. */
+filtrosEnLaDireccion({ q:'#q', coh:'#fCoh', est:'#fEst' }, render);
 ['#q','#fCoh','#fEst'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{['#q','#fCoh','#fEst'].forEach(s=>$(s).value=''); render();};
 

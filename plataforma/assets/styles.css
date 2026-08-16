@@ -1016,3 +1016,30 @@ tr.marcada{background:var(--primary-suave);}
    propio certificado. */
 .anulado{opacity:.6;}
 .anulado .t{text-decoration:line-through;}
+
+/* El eco de una fecha con el mes en letras. Discreto, pero suficiente para que
+   nadie confunda el 1 de septiembre con el 9 de enero. */
+.fecha-clara{display:block;font-size:var(--t-xs);color:var(--tinta-3);
+  margin-top:var(--e0);line-height:1.4;}
+.fecha-clara:empty{display:none;}
+
+/* Cuántas filas se están viendo y de cuántas. Va junto a la tabla, en voz baja,
+   y sólo levanta la voz cuando la lista se quedó recortada. */
+.cuenta-filas{font-size:var(--t-xs);color:var(--tinta-3);font-variant-numeric:tabular-nums;}
+.cuenta-filas b{color:var(--warn);font-weight:var(--peso-fuerte);}
+
+/* ── un botón mide siempre lo mismo en el mismo sitio (item 10) ──────────
+   Había `.btn`, `.btn.sm` y controles que no usaban ninguna de las dos y se
+   quedaban con la altura que les tocara. Dentro de una barra de acciones o de
+   una fila de tabla, todos los controles se alinean por el mismo alto: es lo
+   que hace que la fila se lea como una fila y no como una repisa. */
+.page-head .actions > *,
+.filters > *,
+.row.between > .row > .btn{min-height:36px;}
+td .acciones .btn,
+td .btn{min-height:32px;}
+/* Un campo metido entre botones tiene que medir como ellos. */
+.page-head .actions .field,
+.filters .field{margin-bottom:0;}
+.page-head .actions .field select,
+.page-head .actions .field input{min-height:36px;}
