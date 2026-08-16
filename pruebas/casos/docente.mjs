@@ -53,8 +53,14 @@ export default async function correr(navegador) {
   await D.waitForTimeout(3000);
 
   a.comprobar((await D.locator('#selCurso option').count()) >= 1,
-    'El aula lista sólo los programas que dicta');
+    'El aula lista sólo los grupos que dicta');
 
+  /* El aula abre en el tablón, que es lo primero que se mira al entrar a una
+     clase. Las evaluaciones viven en «Trabajo de clase», junto al material:
+     son la misma pregunta —qué tiene que hacer el grupo— y separarlas obligaba
+     a saltar entre pestañas para preparar una semana. */
+  await D.click('[data-t="evals"]');
+  await D.waitForTimeout(800);
   await D.click('#btnNuevaEval');
   await D.waitForSelector('#aNombre', { timeout: 10000 });
   a.comprobar((await D.locator('#aBarajar').count()) === 1,
@@ -79,11 +85,9 @@ export default async function correr(navegador) {
   await D.locator('.modal [data-x]').first().click();
   await D.waitForTimeout(600);
 
-  /* ============ su aula: material ============ */
-  await D.click('[data-t="material"]');
-  await D.waitForTimeout(900);
+  /* ============ su aula: el material, en la misma pestaña ============ */
   a.comprobar(!(await D.locator('#panelMaterial').isHidden()),
-    'La pestaña de material abre los módulos del programa');
+    'Y en la misma pestaña están los módulos del programa, sin tener que cambiar de sitio');
 
   a.comprobar(D.errores.length === 0,
     `Las pantallas del docente no lanzan errores ${JSON.stringify(D.errores.slice(0, 2))}`);

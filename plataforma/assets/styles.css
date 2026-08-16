@@ -1414,3 +1414,92 @@ td .btn{min-height:32px;}
 .filters .field{margin-bottom:0;}
 .page-head .actions .field select,
 .page-head .actions .field input{min-height:36px;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL AULA  ·  tablón, comentarios y cuadrícula de notas
+   ═══════════════════════════════════════════════════════════════════════════
+   Lo que hace que un aula se sienta un aula no es tener el contenido —eso ya
+   estaba— sino que haya un sitio donde el profesor diga «mañana no hay clase»
+   y alguien pueda preguntar. */
+
+.muro-nuevo{padding:var(--e2);}
+.muro-abrir{display:flex;align-items:center;gap:var(--e2);width:100%;
+  padding:var(--e2);border:0;border-radius:var(--r);background:var(--hueco);
+  color:var(--tinta-2);font:inherit;font-size:var(--t-sm);cursor:pointer;
+  text-align:left;transition:background var(--rapido);}
+.muro-abrir:hover{background:var(--primary-suave);color:var(--tinta);}
+
+.post{padding:var(--e3);}
+.post + .post{margin-top:var(--aire);}
+.post-cab{display:flex;align-items:flex-start;gap:var(--e2);margin-bottom:var(--e2);}
+.post-quien{font-weight:var(--peso-fuerte);font-size:var(--t-sm);line-height:1.3;}
+.post-cuando{font-size:var(--t-xs);color:var(--tinta-3);}
+.post-cab .fijado{font-size:15px;color:var(--gold);vertical-align:-2px;}
+.post-cuerpo{font-size:var(--t-sm);line-height:1.6;overflow-wrap:anywhere;}
+.post-adjuntos{display:flex;flex-wrap:wrap;gap:var(--e1);margin-top:var(--e2);}
+.adjunto{display:inline-flex;align-items:center;gap:var(--e0);font-size:var(--t-xs);
+  padding:var(--e0) var(--e1);border:1px solid var(--filete);border-radius:var(--r);
+  color:var(--tinta-2);text-decoration:none;}
+.adjunto:hover{border-color:var(--primary);color:var(--primary);}
+
+/* Los comentarios cuelgan del aviso con una línea, como una conversación. */
+.post-comentarios{margin-top:var(--e3);padding-top:var(--e2);
+  border-top:1px solid var(--filete);}
+.comentario{display:flex;align-items:flex-start;gap:var(--e1);
+  font-size:var(--t-sm);line-height:1.5;padding:var(--e0) 0;}
+.comentario .avatar.sm{width:26px;height:26px;font-size:11px;flex:none;}
+.comentario > .btn{flex:none;}
+.comentar{display:flex;gap:var(--e1);margin-top:var(--e1);}
+.comentar input{flex:1;min-width:0;}
+
+/* ── la cuadrícula de notas ────────────────────────────────────────────────
+   La columna del nombre se queda quieta al desplazar de lado: sin ella, a la
+   tercera evaluación ya no se sabe de quién es la fila que se está mirando. */
+table.notas th.pegada, table.notas td.pegada{position:sticky;left:0;z-index:2;
+  background:var(--papel);max-width:190px;}
+table.notas th{white-space:normal;vertical-align:bottom;}
+table.notas th .recorta{display:block;max-width:120px;}
+table.notas .celda-nota{padding:2px var(--e0);}
+table.notas .celda-nota input{width:72px;text-align:right;min-height:34px;
+  padding:2px var(--e0);font-family:var(--cifra);font-variant-numeric:tabular-nums;}
+/* Una nota por debajo de la aprobatoria se marca, pero con el borde: pintar la
+   casilla entera de rojo convierte la tabla en un semáforo. */
+table.notas .celda-nota.suspende input{border-color:var(--error);color:var(--error);}
+table.notas .celda-nota.guardada input{border-color:var(--ok);}
+@media (prefers-reduced-motion:no-preference){
+  table.notas .celda-nota input{transition:border-color var(--rapido);}
+}
+
+/* El código de clase: es lo que se dicta por teléfono o se copia a un chat,
+   así que va con la letra de las cifras y bien separado. */
+.codigo-clase{font-family:var(--cifra);font-size:var(--t-lg);letter-spacing:.12em;
+  font-weight:var(--peso-fuerte);text-transform:lowercase;}
+
+/* Encabezado de grupo dentro de una tabla: dice en qué módulo o carpeta estás
+   sin sacarte de la tabla. Es una fila, no una caja: meter cada grupo en su
+   propia tarjeta rompería la alineación de las columnas, que es lo único que
+   una tabla sabe hacer bien. */
+tr.grupo-banco td{background:var(--hueco);font-size:var(--t-xs);
+  padding:var(--e1) var(--e2);border-bottom:1px solid var(--filete-fuerte);}
+tr.grupo-banco .material-symbols-outlined{font-size:16px;vertical-align:-3px;
+  color:var(--tinta-3);margin-right:var(--e0);}
+tr.grupo-banco .tiny{margin-left:var(--e1);}
+
+/* La escala de 1 a 5: cinco botones, no un desplegable ni un deslizador. Se
+   contesta de un toque, que es la única forma de que alguien conteste. */
+.escala{display:flex;gap:var(--e0);}
+.escala button{flex:1;min-height:44px;font:inherit;font-family:var(--cifra);
+  font-size:var(--t-md);cursor:pointer;border:1px solid var(--filete);
+  border-radius:var(--r);background:var(--papel);color:var(--tinta-2);
+  transition:background var(--rapido),border-color var(--rapido),color var(--rapido);}
+.escala button:hover{border-color:var(--primary);color:var(--tinta);}
+.escala button[aria-pressed="true"]{background:var(--primary);color:var(--on-primary);
+  border-color:var(--primary);font-weight:var(--peso-fuerte);}
+
+/* Un comentario anónimo: se lee como una cita, no como una fila de tabla. La
+   barra de la izquierda es lo que dice «esto lo escribió una persona». */
+.comentario-anon{margin:0 0 var(--e2);padding:var(--e1) 0 var(--e1) var(--e2);
+  border-left:2px solid var(--filete-fuerte);font-size:var(--t-sm);line-height:1.6;}
+.comentario-anon footer{margin-top:var(--e0);}
+.sub-ap{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
+  margin:var(--e3) 0 var(--e1);}

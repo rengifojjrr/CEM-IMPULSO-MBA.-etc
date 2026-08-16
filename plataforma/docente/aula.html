@@ -9,25 +9,43 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-18">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-19">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Mi aula</h1>
-      <p>Crea evaluaciones y sube material de los programas que dictas.</p></div>
+    <div><h1>Mi aula <button type="button" class="ayuda-btn" data-ayuda="Cada grupo que dictas tiene su propio tablón, su material, su gente y sus notas. El código de clase es lo que le pasas a alguien para que se inscriba.">?</button></h1></div>
     <div class="actions">
-      <select id="selCurso" style="min-width:240px"></select>
+      <select id="selCurso" style="min-width:280px" aria-label="Grupo"></select>
+    </div>
+  </div>
+
+  <div class="card sep-poco" id="cabAula" hidden>
+    <div class="row between">
+      <div>
+        <div class="tiny muted">Código de clase</div>
+        <div class="codigo-clase" id="codigoClase">—</div>
+      </div>
+      <div class="grow" style="min-width:220px">
+        <div class="tiny muted">Próximas entregas</div>
+        <div id="proximas" class="sep-poco"></div>
+      </div>
     </div>
   </div>
 
   <div class="tabs" id="tabs">
-    <button class="active" data-t="evals">Evaluaciones</button>
-    <button data-t="material">Material de clase</button>
+    <button class="active" data-t="tablon">Tablón</button>
+    <button data-t="evals">Trabajo de clase</button>
+    <button data-t="gente">Personas</button>
+    <button data-t="notas">Calificaciones</button>
+    <button data-t="puntajes">Cómo va el grupo</button>
   </div>
 
+  <!-- Tablón -->
+  <div id="panelTablon"></div>
+
   <!-- Evaluaciones -->
-  <div id="panelEvals">
+  <div id="panelEvals" hidden>
     <div class="card">
       <div class="row between">
         <h2 class="sec">Evaluaciones del programa</h2>
@@ -38,6 +56,38 @@
         <thead><tr><th>Nombre</th><th>Tipo</th><th>Puntaje</th><th>Aprueba con</th>
           <th>Ventana</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tbEvals"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Personas -->
+  <div id="panelGente" hidden>
+    <div class="card">
+      <h2 class="sec">Quién está en clase</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nombre</th><th>Papel</th><th>Avance</th><th>Estado</th></tr></thead>
+        <tbody id="tbGente"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Calificaciones -->
+  <div id="panelNotas" hidden>
+    <div class="card"><div id="cuadricula"></div></div>
+  </div>
+
+  <!-- Puntajes: lo que opinan y lo que hacen -->
+  <div id="panelPuntajes" hidden>
+    <div class="card">
+      <h2 class="sec">Retención <button type="button" class="ayuda-btn" data-ayuda="Esto no lo opina nadie: sale de lo que la gente hace. Quien lleva tres semanas sin entrar todavía no se ha ido, pero se está yendo — y es el único número con el que se puede hacer algo a tiempo.">?</button></h2>
+      <div class="kpis" id="kpisRetencion"></div>
+    </div>
+    <div class="card">
+      <h2 class="sec">Qué opina la clase <button type="button" class="ayuda-btn" data-ayuda="Lo contestan los estudiantes al terminar cada sesión, y llega sin nombre. Un profesor puede caer muy bien y que su grupo no aprenda, y al revés: por eso esto se lee al lado de la retención, no en su lugar.">?</button></h2>
+      <div class="kpis" id="kpisOpinion"></div>
+      <div class="table-wrap sep-poco"><table>
+        <thead><tr><th>Sesión</th><th>Fecha</th><th class="num">Respuestas</th><th class="num">Nota</th></tr></thead>
+        <tbody id="tbClases"></tbody></table></div>
+      <h3 class="sub-ap sep">Lo que escribieron</h3>
+      <div id="comentarios"></div>
     </div>
   </div>
 
@@ -55,51 +105,153 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, confirmDialog, abrirSubidaVideo, subirDocumentoLeccion,
-         YoutubeNoConectadoError, chipEstado, avisar } from '../assets/app.js?v=2026-08-18';
+         YoutubeNoConectadoError, chipEstado, avisar, pct, bar, kpi, montarAyudas } from '../assets/app.js?v=2026-08-19';
+import { pintarMuro, pintarProximas, pintarNotas } from '../assets/aula.js?v=2026-08-18';
 
 const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
                         active:'aula.html', area:'docente' });
-let cursos = [], evals = [], modulos = [], tab = 'evals';
+/* El aula es de un GRUPO, no de un programa: el tablón, la gente y las notas
+   son de la cohorte. El programa se deduce de ella. */
+let grupos = [], evals = [], modulos = [], tab = 'tablon', aula = null;
+const cursoActual = () => $('#selCurso').selectedOptions[0]?.dataset.curso || '';
+const cohorteActual = () => $('#selCurso').value;
 if (me) inicio();
 
 async function inicio(){
   const { data: tas } = await sb.from('cem_teacher_assignments')
     .select('course_id,cohort_id,cem_cohorts(course_id)').eq('teacher_id', me.id);
 
-  const ids = [...new Set((tas || [])
-    .flatMap(t => [t.course_id, t.cem_cohorts?.course_id])
-    .filter(Boolean))];
+  const cohortes = [...new Set((tas || []).map(t => t.cohort_id).filter(Boolean))];
 
-  if (ids.length) {
-    const { data } = await sb.from('cem_courses').select('id,nombre').in('id', ids).order('nombre');
-    cursos = data || [];
+  if (cohortes.length) {
+    const { data } = await sb.from('cem_cohorts')
+      .select('id,nombre,codigo,course_id,cem_courses(nombre)').in('id', cohortes).order('nombre');
+    grupos = data || [];
   } else if (me.rol !== 'profesor') {
-    const { data } = await sb.from('cem_courses').select('id,nombre').order('nombre');
-    cursos = data || [];
+    // La coordinación ve todos los grupos: entra aquí a revisar, no a dictar.
+    const { data } = await sb.from('cem_cohorts')
+      .select('id,nombre,codigo,course_id,cem_courses(nombre)').order('nombre').limit(200);
+    grupos = data || [];
   }
 
-  if (!cursos.length) {
-    $('#selCurso').innerHTML = '<option value="">Sin programas asignados</option>';
-    $('#tbEvals').innerHTML = emptyRow(7, 'Todavía no tienes programas asignados.');
+  if (!grupos.length) {
+    $('#selCurso').innerHTML = '<option value="">Sin grupos asignados</option>';
+    $('#tbEvals').innerHTML = emptyRow(7, 'Todavía no tienes ningún grupo asignado.');
     $('#btnNuevaEval').disabled = true;
+    $('#panelTablon').innerHTML = `<div class="empty">
+      <span class="material-symbols-outlined ico">school</span>
+      <b>Todavía no tienes clase asignada</b>
+      <span>Cuando la coordinación te asigne un grupo, su aula aparece aquí.</span></div>`;
     return;
   }
 
-  $('#selCurso').innerHTML = cursos.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  $('#selCurso').innerHTML = grupos.map(g =>
+    `<option value="${esc(g.id)}" data-curso="${esc(g.course_id)}">${
+      esc(g.cem_courses?.nombre || '')} — ${esc(g.nombre || g.codigo || '')}</option>`).join('');
   $('#selCurso').onchange = cargar;
   cargar();
+}
+
+/* ============ el aula del grupo ============ */
+async function cargarAula(){
+  const cohorte = cohorteActual();
+  if (!cohorte) return;
+  const { data, error } = await sb.rpc('cem_aula', { p_cohort: cohorte });
+  if (error) { $('#panelTablon').innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+  aula = data;
+
+  $('#cabAula').hidden = false;
+  $('#codigoClase').textContent = aula.cohorte?.codigo || '—';
+  pintarProximas('#proximas', aula);
+  pintarMuro({ host: '#panelTablon', aula, yo: me.id, recargar: cargarAula });
+
+  $('#tbGente').innerHTML = (aula.gente || []).length ? (aula.gente || []).map(g => `<tr>
+      <td>${esc(g.nombre || '—')}</td>
+      <td>${chip(g.rol === 'profesor' ? 'Profesor' : 'Estudiante', g.rol === 'profesor' ? 'teal' : 'neutral')}</td>
+      <td>${g.progreso != null ? `${bar(g.progreso)}<span class="tiny muted">${pct(g.progreso)}</span>` : '—'}</td>
+      <td>${g.estado ? chipEstado(g.estado) : '—'}</td>
+    </tr>`).join('') : emptyRow(4, 'Todavía no hay nadie inscrito en este grupo.');
+
+  pintarPestana();
+}
+
+/* ============ los dos puntajes ============
+   La opinión la da el estudiante y es subjetiva; la retención sale de los
+   datos y no la opina nadie. Se enseñan juntas y separadas a propósito: un
+   profesor puede caer muy bien y que su grupo no aprenda, y al revés. */
+async function cargarPuntajes(){
+  const { data, error } = await sb.rpc('cem_puntajes_cohorte', { p_cohort: cohorteActual() });
+  if (error) { $('#kpisRetencion').innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+  const r = data.retencion || {}, o = data.opinion || {};
+
+  $('#kpisRetencion').innerHTML = [
+    kpi('Siguen activos', `${num(r.activos ?? 0)}`, 'group', `de ${num(r.inscritos ?? 0)} inscritos`, '',
+      'Quien no se ha retirado. No dice si están aprendiendo, sólo si siguen ahí.'),
+    kpi('En riesgo', num(r.en_riesgo ?? 0), 'warning', 'sin entrar hace 3 semanas',
+      (r.en_riesgo ?? 0) > 0 ? 'down' : '',
+      'Todavía no se han ido, pero se están yendo. Es a quienes conviene escribirles esta semana.'),
+    kpi('Avance medio', `${num(r.avance_medio ?? 0)}%`, 'trending_up', 'del contenido', '',
+      'El promedio de lo que lleva visto el grupo.'),
+    kpi('Asistencia', r.asistencia != null ? `${num(r.asistencia)}%` : '—', 'event_available', 'a las sesiones', '',
+      'De todas las asistencias tomadas, cuántas fueron presente.'),
+    kpi('Sin entregar nada', num(r.sin_entregar ?? 0), 'assignment_late', 'ni una evaluación', '',
+      'Están inscritos y no han entregado nada todavía. Es la señal más temprana de abandono.'),
+    kpi('Se retiraron', num(r.abandonos ?? 0), 'person_remove', 'ya no están', '',
+      'Los que ya se fueron. Sirve para comparar cohortes, no para hacer algo hoy.'),
+  ].join('');
+
+  $('#kpisOpinion').innerHTML = o.respuestas
+    ? [
+        kpi('Nota general', num(o.general), 'star', `de ${num(o.respuestas)} respuestas`, '',
+          'El promedio de las tres preguntas, sobre 5.'),
+        kpi('Se entendió', num(o.claridad), 'lightbulb', 'sobre 5'),
+        kpi('Les sirve', num(o.utilidad), 'workspace_premium', 'sobre 5'),
+        kpi('El ritmo', num(o.ritmo), 'speed', 'sobre 5', '',
+          '1 es muy lento o muy rápido; 5 es justo.'),
+      ].join('')
+    : '<p class="tiny muted">Todavía nadie ha opinado. Las sesiones marcadas como dictadas les ofrecen opinar.</p>';
+  montarAyudas($('#panelPuntajes'));
+
+  $('#tbClases').innerHTML = (data.por_clase || []).length
+    ? (data.por_clase || []).map(c => `<tr>
+        <td class="wrap">${esc(c.titulo)}</td>
+        <td class="tiny muted">${fdate(c.fecha)}</td>
+        <td class="num">${num(c.respuestas)}</td>
+        <td class="num">${c.nota != null ? num(c.nota) : '<span class="muted">—</span>'}</td>
+      </tr>`).join('')
+    : emptyRow(4, 'Todavía no hay sesiones con opiniones.');
+
+  const coms = data.comentarios || [];
+  $('#comentarios').innerHTML = coms.length
+    ? coms.map(c => `<blockquote class="comentario-anon">
+        ${esc(c.texto)}<footer class="tiny muted">${fdate(c.cuando)}</footer></blockquote>`).join('')
+    : '<p class="tiny muted">Nadie ha escrito nada todavía.</p>';
 }
 
 $$('#tabs button').forEach(b => b.onclick = () => {
   $$('#tabs button').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
   tab = b.dataset.t;
-  $('#panelEvals').hidden = tab !== 'evals';
-  $('#panelMaterial').hidden = tab !== 'material';
+  pintarPestana();
 });
 
+function pintarPestana(){
+  $('#panelTablon').hidden = tab !== 'tablon';
+  // «Trabajo de clase» junta lo que antes eran dos pestañas: las evaluaciones
+  // y el material son la misma pregunta —qué tiene que hacer la clase— y
+  // separarlas obligaba a saltar entre ellas para preparar una semana.
+  $('#panelEvals').hidden = tab !== 'evals';
+  $('#panelMaterial').hidden = tab !== 'evals';
+  $('#panelGente').hidden = tab !== 'gente';
+  $('#panelNotas').hidden = tab !== 'notas';
+  $('#panelPuntajes').hidden = tab !== 'puntajes';
+  if (tab === 'notas' && cohorteActual()) pintarNotas('#cuadricula', cohorteActual());
+  if (tab === 'puntajes' && cohorteActual()) cargarPuntajes();
+}
+
 async function cargar(){
-  const cursoId = $('#selCurso').value;
+  const cursoId = cursoActual();
+  await cargarAula();
   const [{ data: ev }, { data: mods }] = await Promise.all([
     sb.from('cem_assessments').select('*').eq('course_id', cursoId).order('created_at'),
     sb.from('cem_modules').select('id,titulo,orden,cem_lessons(id,titulo,tipo,duracion_min,orden,url)')
@@ -214,7 +366,7 @@ function editarEval(e){
     }
 
     const fila = {
-      course_id: $('#selCurso').value,
+      course_id: cursoActual(),
       nombre, descripcion: $('#aDesc', m).value.trim() || null,
       tipo: $('#aTipo', m).value, puntaje_max: max, nota_aprobatoria: nota,
       tiempo_min: Number($('#aTiempo', m).value) || null,

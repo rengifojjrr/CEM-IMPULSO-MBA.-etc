@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-18">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-19">
 <style>
   .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:16px;}
   .aula > *{min-width:0;}
@@ -44,7 +44,8 @@
       <div id="visor"></div>
       <div class="card sep">
         <div class="tabs" id="tabs">
-          <button class="active" data-t="notas">Mis notas</button>
+          <button class="active" data-t="tablon">Tablón</button>
+          <button data-t="notas">Mis notas</button>
           <button data-t="evaluaciones">Evaluaciones</button>
           <button data-t="recursos">Recursos</button>
           <button data-t="sesiones">Sesiones en vivo</button>
@@ -55,7 +56,9 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota } from '../assets/app.js?v=2026-08-18';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota,
+         mensajeError, modal, avisar, ocupado } from '../assets/app.js?v=2026-08-19';
+import { pintarMuro } from '../assets/aula.js?v=2026-08-18';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
 if (me) load();
@@ -146,13 +149,28 @@ function render(){
     ok(done?'Lección completada':'Marcada como pendiente');
     render();
   };
-  tab($('#tabs button.active')?.dataset.t || 'notas');
+  tab($('#tabs button.active')?.dataset.t || 'tablon');
 }
 
 $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });
 
 function tab(t){
   const P=$('#panelTabs');
+  if (t==='tablon'){
+    /* El tablón es de la cohorte, no de la lección: es donde el profesor
+       avisa de lo que pasa con la clase entera. */
+    P.innerHTML = '<span class="cargando una"></span>';
+    if (!enr?.cohort_id) {
+      P.innerHTML = `<div class="empty"><span class="material-symbols-outlined ico">groups</span>
+        <b>Esta inscripción no está en ningún grupo</b>
+        <span>El tablón es de un grupo con su profesor. Escríbele a coordinación para que te asignen a uno.</span></div>`;
+      return;
+    }
+    sb.rpc('cem_aula', { p_cohort: enr.cohort_id }).then(({ data, error }) => {
+      if (error) { P.innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+      pintarMuro({ host: P, aula: data, yo: me.id, recargar: () => tab('tablon') });
+    });
+  }
   if (t==='notas'){
     const nota = progreso[actual?.id]?.notas || '';
     P.innerHTML = `<div class="field"><label>Notas personales de esta lección</label>
@@ -214,8 +232,55 @@ function tab(t){
       ${chipEstado(c.estado)}
       ${c.estado!=='dictada'&&c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Unirme</a>`:''}
       ${c.grabacion_url?`<a class="btn outline sm" href="${esc(c.grabacion_url)}" target="_blank">Grabación</a>`:''}
+      ${c.estado==='dictada'?`<button class="btn outline sm" data-opinar="${esc(c.id)}"
+          data-titulo="${esc(c.titulo)}">Opinar</button>`:''}
       </div>`).join('') : '<p class="muted tiny">Sin sesiones programadas.</p>';
+    $$('[data-opinar]', P).forEach(b => b.onclick = () => opinar(b.dataset.opinar, b.dataset.titulo));
   }
+}
+
+/* ============ qué te pareció la clase ============
+   Tres notas de 1 a 5 y un comentario. Tres porque son las que se contestan
+   sin pensarlo mucho: si se piden ocho, nadie contesta ninguna. Y el profesor
+   lo ve SIN NOMBRE: si se supiera quién dijo qué, nadie diría nada útil. */
+function opinar(claseId, titulo){
+  const escala = (id, etiqueta, ayuda) => `
+    <div class="field"><label>${esc(etiqueta)} <span class="tiny muted">${esc(ayuda)}</span></label>
+      <div class="escala" id="${id}">${[1,2,3,4,5].map(n =>
+        `<button type="button" data-v="${n}">${n}</button>`).join('')}</div></div>`;
+
+  const m = modal({ title:`¿Qué te pareció «${titulo}»?`, body:`
+    <p class="tiny muted">Tu profesor ve el promedio y lo que escribas, pero <b>no quién lo escribió</b>.
+      Contesta con confianza: es para que la próxima clase salga mejor.</p>
+    ${escala('vClaridad', 'Se entendió', '1 = nada · 5 = clarísimo')}
+    ${escala('vUtilidad', 'Me sirve', '1 = nada · 5 = mucho')}
+    ${escala('vRitmo', 'El ritmo', '1 = muy lento o muy rápido · 5 = justo')}
+    <div class="field"><label>¿Algo que mejorarías? (opcional)</label>
+      <textarea id="vCom" rows="3" maxlength="600"
+        placeholder="Por ejemplo: los ejemplos ayudaron mucho, pero la última parte fue muy rápida."></textarea></div>
+    <div id="vMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Ahora no</button>
+            <button class="btn" id="vGo">Enviar</button>` });
+
+  const valores = {};
+  $$('.escala button', m).forEach(b => b.onclick = () => {
+    const caja = b.parentElement;
+    $$('button', caja).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    valores[caja.id] = Number(b.dataset.v);
+  });
+
+  $('#vGo', m).onclick = () => ocupado('#vGo', 'Enviando…', async () => {
+    if (!valores.vClaridad || !valores.vUtilidad || !valores.vRitmo) {
+      avisar($('#vMsg', m), 'Marca las tres: son un clic cada una.', 'err'); return;
+    }
+    const { error } = await sb.rpc('cem_valorar_clase', {
+      p_class_id: claseId, p_claridad: valores.vClaridad,
+      p_utilidad: valores.vUtilidad, p_ritmo: valores.vRitmo,
+      p_comentario: $('#vCom', m).value.trim() || null,
+    });
+    if (error) { avisar($('#vMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Gracias. Tu profesor lo verá sin tu nombre.');
+  });
 }
 </script>
 </body>
