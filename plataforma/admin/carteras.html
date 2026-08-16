@@ -52,6 +52,11 @@
 
   <div class="bolsillos" id="bolsillos"></div>
 
+  <!-- El saldo de cada cartera va en SU moneda, arriba. Esto es otra cosa: el
+       movimiento del negocio, y para compararlo entre meses hay que ponerlo
+       todo en la misma unidad. -->
+  <div class="grid graficos" id="graficos"></div>
+
   <div class="card sep" id="cardTransito" hidden>
     <h2 class="sec">En tránsito <button type="button" class="ayuda-btn" data-ayuda="Dinero que ya entregaste y todavía no ha llegado al otro lado. Ya está descontado de la cartera de origen —no lo tienes— y no se suma a la de destino hasta que confirmes que llegó.">?</button></h2>
     <div class="list" id="transito"></div>
@@ -83,6 +88,7 @@
 import { sb, mount, $, $$, esc, num, money, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, avisar, ocupado, montarAyudas, confirmarBorrado, cargarEn,
          mejorarSelects, chip, MONEDA_BASE } from '../assets/app.js?v=2026-08-20';
+import { apiladas, barras } from '../assets/graficos.js?v=2026-08-20';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'carteras.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -100,7 +106,7 @@ async function cargar(){
   ]);
   carteras = cs || [];
   estado = est || { saldos: [], pendientes: [], sin_clasificar: [] };
-  pintarBolsillos(); pintarTransito(); pintarSueltos();
+  pintarBolsillos(); pintarTransito(); pintarSueltos(); pintarGraficos();
   await cargarConversiones();
 }
 
@@ -400,6 +406,29 @@ $('#btnGasto').onclick = () => {
    eso pide nota obligatoria—, pero tiene que estar a la vista: una función que
    sólo conoce quien leyó el código no la usa nadie. */
 $('#btnAjuste').onclick = () => abrirMover({ ajuste: true });
+/* ============ el dinero visto de lejos ============ */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  const { data: g, error } = await sb.rpc('cem_series_carteras', { p_meses: 6 });
+  if (error){ host.innerHTML = ''; return; }
+
+  host.innerHTML = `
+    <div class="card">${apiladas({
+      titulo: 'Lo que entró y lo que salió, mes a mes',
+      pie: 'En euros, para poder comparar meses aunque el dinero haya entrado en tres monedas distintas. El mes en que la parte roja gana se ve sin leer un número.',
+      periodos: (g.flujo || []).map(m => ({ ...m, href: `?mes=${m.clave}` })),
+      series: [
+        { clave: 'entradas', etq: 'Entradas', tono: 'ok' },
+        { clave: 'salidas', etq: 'Salidas', tono: 'err' },
+      ],
+      formato: (v) => money(v) })}</div>
+
+    <div class="card">${barras({
+      titulo: 'En qué se gasta', col: 'Categoría', colN: 'Gastado', tope: 8,
+      pie: 'Barras y no torta: con ocho categorías la torta se vuelve un abanico de colores y hay que ir a la leyenda por cada trozo.',
+      datos: (g.gastos || []).map(x => ({ ...x, n: Number(x.n) })),
+      formato: (v) => money(v) })}</div>`;
+}
 </script>
 </body>
 </html>

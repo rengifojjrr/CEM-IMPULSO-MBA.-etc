@@ -1694,7 +1694,11 @@ tr.grupo-banco .tiny{margin-left:var(--e1);}
   /* Con más de ocho columnas los números se pisan; entonces sólo el tooltip. */
   overflow:hidden;white-space:nowrap;}
 .gr-cols .etq{font-size:10px;color:var(--tinta-3);text-align:center;
-  margin-top:var(--e0);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  margin-top:var(--e0);overflow:visible;white-space:nowrap;}
+/* Una fecha no cabe en una columna de veinte puntos, y recortada con puntos
+   suspensivos («1…») no dice nada. Se enseña una de cada tantas y las demás se
+   ocultan: el eje sigue siendo legible y las columnas no se estrechan. */
+.gr-cols .etq.salta{visibility:hidden;}
 .gr-cols .gr-col.ojo .palo{background:var(--secondary);}
 .gr-cols.histograma .gr-col.bajo .palo{background:var(--error);}
 .gr-cols .palo.pila{display:flex;flex-direction:column-reverse;overflow:hidden;}

@@ -29,6 +29,7 @@
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
          modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
          etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, saldo as saldoCelda } from '../assets/app.js?v=2026-08-20';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -149,8 +150,12 @@ function tab(t){
   }
 
   if (t==='resumen'){
-    const asis = '—';
-    P.innerHTML = `<div class="grid g2">
+    // Los gráficos van del curso en el que está más avanzado sin terminar,
+    // que es donde la persona está de verdad ahora mismo.
+    const foco = ens.filter(e=>e.estado==='activa')
+      .sort((a,b)=>Number(b.progreso||0)-Number(a.progreso||0))[0] || ens[0];
+    if (foco) pintarGraficos(foco);
+    P.innerHTML = `<div class="grid graficos" id="gExp"></div><div class="grid g2">
       <div class="card"><h2 class="sec">Cursos activos</h2>${ens.filter(e=>e.estado==='activa').map(e=>`
         <div class="list-item"><div class="grow"><div class="t">${esc(e.cem_courses?.nombre||'')}</div>
           <div class="s">${esc(e.cem_cohorts?.nombre||'')} · último acceso ${e.ultimo_acceso?fdate(e.ultimo_acceso):'—'}</div>
@@ -342,6 +347,37 @@ async function matricular(){
     await audit('matricula_manual','cem_enrollments',enr.id,'medio',{estudiante:stu.email});
     m.close(); ok('Estudiante matriculado'); load();
   };
+}
+/* ============ el expediente, en gráficos ============
+   La misma consulta que ve el estudiante en su panel: si el coordinador
+   mirara otros números que la persona a la que llama, la conversación empieza
+   torcida. */
+async function pintarGraficos(enr){
+  const { data: g, error } = await sb.rpc('cem_mi_avance', { p_enrollment_id: enr.id });
+  const host = document.getElementById('gExp');
+  if (error || !host) return;
+  host.innerHTML = `
+    <div class="card">${barras({
+      titulo: `Avance en ${enr.cem_courses?.nombre || 'el programa'}`,
+      formato: 'pct', ordenar: false, col: 'Módulo', colN: 'Visto',
+      pie: 'Dónde se quedó exactamente, que es lo que hay que saber antes de llamarle.',
+      datos: (g.modulos || []).map(m => ({ ...m, n: Number(m.n) })),
+      marcar: (d) => d.n >= 100 ? 'ok' : d.n > 0 ? 'warn' : null })}</div>
+
+    <div class="card">${(g.notas || []).length
+      ? linea({ titulo: 'Sus notas en el tiempo',
+          datos: (g.notas || []).map(x => ({ etq: x.cuando, n: Number(x.n) })),
+          referencia: Number(g.aprobatoria) || 70,
+          etqRef: `la punteada es el ${g.aprobatoria || 70}`,
+          pie: 'Una nota mala aislada no dice nada; tres bajando seguidas sí.' })
+      : `<figure class="gr"><figcaption class="gr-tit">Sus notas</figcaption>
+         <p class="gr-vacio">Todavía no tiene evaluaciones calificadas.</p></figure>`}</div>
+
+    <div class="card" style="grid-column:1/-1">${hitos({
+      titulo: 'Sus cuotas',
+      pie: 'Se lee el patrón: siempre tarde, o se torció este mes. No es lo mismo.',
+      puntos: (g.cuotas || []).map(c => ({ etq: c.etq, cuando: c.cuando, tono: c.tono,
+        detalle: `${money(c.monto, c.moneda || undefined)} · ${c.estado}` })) })}</div>`;
 }
 </script>
 </body>

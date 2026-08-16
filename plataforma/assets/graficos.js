@@ -153,10 +153,15 @@ export function apilada({ titulo, pie, partes, formato }) {
 export function apiladas({ titulo, pie, periodos, series, formato, alto = 160 }) {
   const totales = periodos.map((p) => series.reduce((t, s) => t + n(p.valores[s.clave]), 0));
   const max = techo(totales);
+  // Lo mismo que en las columnas sueltas: con treinta días, ni los importes ni
+  // las fechas caben encima de una columna de veinte puntos. Los importes se
+  // van al tooltip y de las fechas se deja una de cada tantas.
+  const cifras = periodos.length <= 8;
+  const cadaCuantas = Math.ceil(periodos.length / 8);
   const cuerpo = `<div class="gr-cols apiladas" style="--gr-alto:${alto}px" role="img"
       aria-label="${esc(titulo)}">
     ${periodos.map((p, i) => `<span class="gr-col">
-      <span class="v">${fmt(totales[i], formato)}</span>
+      ${cifras ? `<span class="v">${fmt(totales[i], formato)}</span>` : ''}
       <span class="palo pila" style="height:${Math.max(2, Math.round(100 * totales[i] / max))}%">
         ${series.map((s) => {
           const v = n(p.valores[s.clave]);
@@ -167,7 +172,7 @@ export function apiladas({ titulo, pie, periodos, series, formato, alto = 160 })
             `${p.etq} · ${s.etq}: ${fmt(v, formato)}`);
         }).join('')}
       </span>
-      <span class="etq">${esc(p.etq)}</span></span>`).join('')}
+      <span class="etq${i % cadaCuantas ? ' salta' : ''}">${esc(p.etq)}</span></span>`).join('')}
   </div>
   <div class="gr-leyenda">${series.map((s) =>
     `<span class="gr-clave"><i class="gr-punto ${s.tono || ''}"></i>${esc(s.etq)}</span>`).join('')}</div>`;

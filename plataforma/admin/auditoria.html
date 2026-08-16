@@ -18,6 +18,7 @@
     <div class="actions"><button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar CSV</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
+  <div class="grid graficos" id="graficos"></div>
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Acción, entidad o usuario…"></div>
@@ -47,9 +48,37 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdatetime, emptyRow, match, kpi, modal, toCSV, download } from '../assets/app.js?v=2026-08-20';
+import { apiladas, barras } from '../assets/graficos.js?v=2026-08-20';
+
+/* ============ el registro visto de lejos ============
+   Un pico de eventos de riesgo alto un martes a las once de la noche es
+   exactamente lo que un registro de auditoría existe para enseñar, y en una
+   tabla de mil filas no se ve. */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  if (!host) return;
+  const { data: g, error } = await sb.rpc('cem_series_gobierno', { p_dias: 30 });
+  if (error){ host.innerHTML = ''; return; }
+  host.innerHTML = `
+    <div class="card">${apiladas({
+      titulo: 'Qué pasó cada día, y con cuánto riesgo',
+      pie: 'Treinta días. Lo que se busca no es el volumen sino la forma: un día que rompe el patrón. Pulsa uno para ver su registro.',
+      periodos: (g.eventos || []).map(d => ({ ...d, href: `?desde=${d.clave}&hasta=${d.clave}` })),
+      series: [
+        { clave: 'alto', etq: 'Riesgo alto', tono: 'err' },
+        { clave: 'medio', etq: 'Medio', tono: 'warn' },
+        { clave: 'bajo', etq: 'Bajo', tono: 'gris' },
+      ] })}</div>
+
+    <div class="card">${barras({
+      titulo: 'Quién hizo acciones sensibles', col: 'Persona', colN: 'Acciones', tope: 8,
+      pie: 'No es para vigilar a nadie: es para notar cuando una cuenta empieza a hacer diez veces lo que hacía.',
+      datos: (g.actores || []).map(x => ({ ...x, n: Number(x.n),
+        href: x.id ? `usuarios.html?id=${x.id}` : null })) })}</div>`;
+}
 const p = await mount({ require:['admin','superadmin','auditor'], active:'auditoria.html', area:'admin' });
 let rows=[], limite=100;
-if (p) load();
+if (p) { load(); pintarGraficos(); }
 
 async function load(){
   const { data } = await sb.from('cem_audit_events').select('*').order('created_at',{ascending:false}).limit(limite);

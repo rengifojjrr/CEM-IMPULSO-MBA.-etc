@@ -29,6 +29,7 @@
     <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">add</span> Nuevo ticket</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
+  <div class="grid graficos" id="graficos"></div>
   <div class="sup">
     <div class="card" style="max-height:78vh;overflow:auto">
       <div class="filters" style="margin-bottom:8px">
@@ -42,10 +43,26 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdatetime, kpi, match, initials, modal, ok, run, audit, opciones, chipEstado} from '../assets/app.js?v=2026-08-20';
+import { barras } from '../assets/graficos.js?v=2026-08-20';
+
+/* Mismo criterio que la deuda: un ticket de ocho días ya no es un ticket, es
+   alguien que se fue. */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  if (!host) return;
+  const { data: g, error } = await sb.rpc('cem_series_gobierno', { p_dias: 30 });
+  if (error){ host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="card" style="grid-column:1/-1">${barras({
+    titulo: 'Cuánto llevan esperando los tickets abiertos', ordenar: false,
+    col: 'Antigüedad', colN: 'Tickets',
+    pie: 'De arriba abajo, de lo recién llegado a lo que lleva demasiado. La barra de abajo es la que hay que vaciar hoy.',
+    datos: (g.tickets || []).map(t => ({ ...t, n: Number(t.n), href: `?edad=${t.clave}` })),
+    marcar: (d) => /Más de una semana/.test(d.etq) ? 'err' : /3 a 7/.test(d.etq) ? 'warn' : 'ok' })}</div>`;
+}
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'soporte.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let tickets=[], sel=null, fEstado='', staff=[];
-if (p) load();
+if (p) { load(); pintarGraficos(); }
 
 async function load(){
   const [{data},{data:st}] = await Promise.all([
