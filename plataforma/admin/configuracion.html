@@ -9,7 +9,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-16">
+<style>
+  .sub-ap{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
+    margin:var(--e3) 0 var(--e1);}
+  .paletas{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:var(--e1);}
+  /* La muestra es el argumento: el nombre se lee después de haber visto el color. */
+  .pal{display:flex;align-items:center;gap:var(--e2);padding:var(--e1) var(--e2);
+    border:1px solid var(--filete);border-radius:var(--r);background:var(--papel);
+    cursor:pointer;text-align:left;min-height:56px;
+    transition:border-color var(--rapido),background var(--rapido);}
+  .pal:hover{border-color:var(--filete-fuerte);}
+  .pal[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-suave);}
+  .pal .tiras{display:flex;flex:none;border-radius:var(--r-full);overflow:hidden;
+    box-shadow:0 0 0 1px var(--filete);}
+  .pal .tiras i{width:15px;height:26px;display:block;}
+  .pal .nom{font-size:var(--t-sm);font-weight:var(--peso-fuerte);line-height:1.25;}
+  .pal .des{font-size:var(--t-xs);color:var(--tinta-2);line-height:1.35;}
+</style>
 </head>
 <body>
 <div id="page" class="hidden">
@@ -85,6 +102,34 @@
     </div>
   </div>
 
+  <!-- La apariencia es de quien mira, no de la institución: se guarda en este
+       equipo y no toca la base ni a nadie más. Por eso lo dice arriba. -->
+  <div class="card">
+    <div class="row between">
+      <h2 class="sec">Apariencia</h2>
+      <span class="chip neutral">sólo para ti, en este equipo</span>
+    </div>
+    <p class="tiny muted sin-margen">Elige los colores con los que quieres trabajar. El cambio
+      se ve al momento y se recuerda la próxima vez que entres.</p>
+
+    <h3 class="sub-ap">Paleta</h3>
+    <div class="paletas" id="paletas"></div>
+
+    <div class="grid g2 sep">
+      <div>
+        <h3 class="sub-ap">Claro u oscuro</h3>
+        <div class="row" id="temas"></div>
+      </div>
+      <div>
+        <h3 class="sub-ap">Efecto vidrio</h3>
+        <div class="row" id="vidrio"></div>
+        <p class="tiny muted sep-poco">Superficies traslúcidas con el fondo difuminado detrás, en
+          el menú, la barra de arriba, los diálogos y las tarjetas. Las tablas se quedan opacas a
+          propósito: un dato encima de un fondo que cambia se lee peor.</p>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <h2 class="sec">Integraciones</h2>
     <div class="list-item">
@@ -104,8 +149,56 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, esc, ok, run, audit, confirmDialog, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-15';
+import { sb, mount, $, $$, esc, ok, run, audit, confirmDialog, SUPABASE_URL, SUPABASE_KEY,
+         PALETAS, aplicarApariencia, paletaActual, temaActual, vidrioActual } from '../assets/app.js?v=2026-08-16';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
+
+/* ============ apariencia ============
+   Pintar los botones y aplicar al pulsar. No hay «Guardar»: el cambio se ve
+   en el acto, que es la única forma de elegir un color con criterio. */
+function pintarApariencia(){
+  const elegida = paletaActual();
+  $('#paletas').innerHTML = Object.entries(PALETAS).map(([clave, pal]) => `
+    <button type="button" class="pal" data-paleta="${esc(clave)}"
+      aria-pressed="${clave === elegida}">
+      <span class="tiras" aria-hidden="true">${pal.muestra.map(c =>
+        `<i style="background:${esc(c)}"></i>`).join('')}</span>
+      <span><span class="nom">${esc(pal.nombre)}</span>
+        <span class="des">${esc(pal.resumen)}</span></span>
+    </button>`).join('');
+
+  const tema = temaActual();
+  $('#temas').innerHTML = [
+    ['auto','Como el sistema','brightness_auto'],
+    ['claro','Claro','light_mode'],
+    ['oscuro','Oscuro','dark_mode'],
+  ].map(([v, txt, ico]) => `<button type="button" class="btn ${tema === v ? '' : 'outline'}"
+      data-tema="${v}" aria-pressed="${tema === v}">
+      <span class="material-symbols-outlined">${ico}</span> ${txt}</button>`).join('');
+
+  const conVidrio = vidrioActual();
+  $('#vidrio').innerHTML = [
+    [false,'Sin vidrio','crop_square'],
+    [true,'Con vidrio','blur_on'],
+  ].map(([v, txt, ico]) => `<button type="button" class="btn ${conVidrio === v ? '' : 'outline'}"
+      data-vidrio="${v}" aria-pressed="${conVidrio === v}">
+      <span class="material-symbols-outlined">${ico}</span> ${txt}</button>`).join('');
+
+  $$('[data-paleta]').forEach(b => b.onclick = () => {
+    aplicarApariencia({ paleta: b.dataset.paleta });
+    pintarApariencia();
+    ok(`Paleta «${PALETAS[b.dataset.paleta].nombre}» aplicada.`);
+  });
+  $$('[data-tema]').forEach(b => b.onclick = () => {
+    aplicarApariencia({ tema: b.dataset.tema });
+    pintarApariencia();
+  });
+  $$('#vidrio [data-vidrio]').forEach(b => b.onclick = () => {
+    aplicarApariencia({ vidrio: b.dataset.vidrio === 'true' });
+    pintarApariencia();
+  });
+}
+pintarApariencia();
 let all = [];
 if (p) { load(); cargarEstadoYoutube(); cargarListas(); }
 

@@ -860,3 +860,136 @@ tr.marcada{background:var(--primary-suave);}
   .topbar .search.buscando input{padding-left:34px;padding-right:40px;color:var(--tinta);}
   .topbar .search.buscando .gsearch-cerrar{display:inline-flex;right:var(--e2);}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIDRIO  ·  se enciende desde Configuración
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Dos cosas que conviene tener claras antes de leer esto:
+
+   1. El vidrio no existe sin algo detrás. Difuminar un fondo liso da un gris
+      y ya: para que se lea como cristal hace falta color debajo, y bastante.
+      Por eso lo primero que enciende `data-vidrio` no es el desenfoque sino
+      un ambiente —tres manchas sacadas de los colores de la paleta— sobre el
+      que apoyarse. Cambia con la paleta sin escribir un color más.
+
+   2. `backdrop-filter` cuesta caro, y lo que cuesta es repintarlo. En algo
+      fijo —el menú, la barra de arriba, un diálogo— se calcula una vez y no
+      se vuelve a tocar. En una tabla de trescientas filas se recalcularía en
+      cada desplazamiento y la pantalla se arrastraría.
+
+   De ahí el reparto: desenfoque fuerte en lo que está quieto, uno suave en
+   las tarjetas —que son diez por pantalla, no trescientas— y nada en la
+   tabla, donde van los datos y el fondo tiene que estarse quieto.         */
+
+:root[data-vidrio="si"]{
+  --vidrio-papel:color-mix(in srgb, var(--papel) 55%, transparent);
+  --vidrio-tarjeta:color-mix(in srgb, var(--papel) 58%, transparent);
+  --vidrio-borde:color-mix(in srgb, var(--papel) 45%, var(--filete-fuerte));
+  --vidrio-brillo:rgba(255,255,255,.65);
+  --desenfoque:saturate(190%) blur(26px);
+  --desenfoque-suave:saturate(150%) blur(14px);
+}
+@media (prefers-color-scheme:dark){
+  :root[data-vidrio="si"]:not([data-theme="light"]){
+    --vidrio-papel:color-mix(in srgb, var(--papel) 58%, transparent);
+    --vidrio-tarjeta:color-mix(in srgb, var(--papel) 62%, transparent);
+    --vidrio-brillo:rgba(255,255,255,.12);
+  }
+}
+:root[data-vidrio="si"][data-theme="dark"]{
+  --vidrio-papel:color-mix(in srgb, var(--papel) 58%, transparent);
+  --vidrio-tarjeta:color-mix(in srgb, var(--papel) 62%, transparent);
+  --vidrio-brillo:rgba(255,255,255,.12);
+}
+
+/* ── el ambiente ────────────────────────────────────────────────────────
+   Fijo detrás de todo y sin capturar el ratón. Es lo único que da al vidrio
+   algo que difuminar, así que tiene que verse: por debajo de un 30% el
+   efecto entero se convierte en un gris caro. */
+:root[data-vidrio="si"] body::before{
+  content:'';position:fixed;inset:-25vmax;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(38vmax 38vmax at 8% -4%,
+      color-mix(in srgb, var(--primary) 58%, transparent), transparent 60%),
+    radial-gradient(34vmax 34vmax at 98% 6%,
+      color-mix(in srgb, var(--secondary) 52%, transparent), transparent 58%),
+    radial-gradient(42vmax 42vmax at 62% 96%,
+      color-mix(in srgb, var(--primary) 38%, transparent), transparent 62%),
+    radial-gradient(30vmax 30vmax at 30% 52%,
+      color-mix(in srgb, var(--secondary) 26%, transparent), transparent 60%);
+}
+:root[data-vidrio="si"] body{background:var(--fondo);}
+:root[data-vidrio="si"] .content{background:none;}
+
+/* ── lo que está quieto: desenfoque de verdad ─────────────────────────── */
+:root[data-vidrio="si"] .sidebar,
+:root[data-vidrio="si"] .topbar,
+:root[data-vidrio="si"] .bottomnav,
+:root[data-vidrio="si"] .modal,
+:root[data-vidrio="si"] .toast,
+:root[data-vidrio="si"] .ayuda-globo{
+  background:var(--vidrio-papel);
+  -webkit-backdrop-filter:var(--desenfoque);
+  backdrop-filter:var(--desenfoque);
+}
+:root[data-vidrio="si"] .sidebar{border-right-color:var(--vidrio-borde);}
+:root[data-vidrio="si"] .topbar{border-bottom-color:var(--vidrio-borde);}
+:root[data-vidrio="si"] .bottomnav{border-top-color:var(--vidrio-borde);}
+
+/* El canto superior encendido es lo que convierte una caja translúcida en una
+   lámina de cristal. Es el brillo del borde, no el desenfoque. */
+:root[data-vidrio="si"] .modal{
+  border:1px solid var(--vidrio-borde);
+  box-shadow:inset 0 1px 0 var(--vidrio-brillo), var(--sombra);
+}
+:root[data-vidrio="si"] .modal-bg{
+  background:color-mix(in srgb, var(--tinta) 26%, transparent);
+  -webkit-backdrop-filter:blur(4px);
+  backdrop-filter:blur(4px);
+}
+
+/* ── las tarjetas: diez por pantalla, desenfoque suave ────────────────── */
+:root[data-vidrio="si"] .card{
+  background:var(--vidrio-tarjeta);
+  border-color:var(--vidrio-borde);
+  box-shadow:inset 0 1px 0 var(--vidrio-brillo);
+  -webkit-backdrop-filter:var(--desenfoque-suave);
+  backdrop-filter:var(--desenfoque-suave);
+}
+:root[data-vidrio="si"] .card .card{
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+  background:color-mix(in srgb, var(--papel) 40%, transparent);
+}
+:root[data-vidrio="si"] .inp,
+:root[data-vidrio="si"] input:not([type=checkbox],[type=radio],[type=range],[type=file],
+  [type=color],[type=submit],[type=button],[type=reset],[type=image],[type=hidden]),
+:root[data-vidrio="si"] select,
+:root[data-vidrio="si"] textarea,
+:root[data-vidrio="si"] .btn.outline{
+  background:color-mix(in srgb, var(--papel) 48%, transparent);
+  border-color:var(--vidrio-borde);
+}
+
+/* La tabla se queda opaca: encima van los datos, y un dato sobre un fondo que
+   cambia se lee peor. El encabezado está fijo, así que además necesita tapar
+   lo que le pasa por debajo. */
+:root[data-vidrio="si"] th{background:color-mix(in srgb, var(--papel) 90%, transparent);}
+:root[data-vidrio="si"] tbody tr:hover{background:color-mix(in srgb, var(--hueco) 70%, transparent);}
+
+/* ── cuándo NO ponerlo, aunque esté encendido ─────────────────────────────
+   Quien pidió menos transparencia en su sistema lo pidió por algo, y en el
+   papel un fondo difuminado es tinta gastada. */
+@media (prefers-reduced-transparency:reduce), print{
+  :root[data-vidrio="si"] body::before{display:none;}
+  :root[data-vidrio="si"] .sidebar,
+  :root[data-vidrio="si"] .topbar,
+  :root[data-vidrio="si"] .bottomnav,
+  :root[data-vidrio="si"] .modal,
+  :root[data-vidrio="si"] .toast,
+  :root[data-vidrio="si"] .ayuda-globo,
+  :root[data-vidrio="si"] .card,
+  :root[data-vidrio="si"] th{
+    background:var(--papel);-webkit-backdrop-filter:none;backdrop-filter:none;
+    box-shadow:none;}
+}

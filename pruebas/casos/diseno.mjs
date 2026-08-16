@@ -14,7 +14,7 @@
    correcto es añadirlo a los tokens de `styles.css` y subir el tope aquí
    a propósito, no que se cuele sin que nadie lo mire. */
 
-import { acta, nuevaPestana, entrar } from '../entorno.mjs';
+import { acta, nuevaPestana, entrar, BASE } from '../entorno.mjs';
 
 /** Cuenta los valores distintos de una propiedad entre lo que se ve. */
 const inventario = () => ({
@@ -183,6 +183,47 @@ export default async function correr(navegador) {
   a.comprobar(!movil.cajaEnCaja, 'Ni hay una tarjeta metida dentro de otra');
   a.comprobar(movil.botonesPequenos.length === 0,
     `Y todo lo que se pulsa con el dedo tiene tamaño de dedo (${movil.botonesPequenos.join(' · ') || 'todos'})`);
+
+  /* ============ la apariencia que elige cada quien ============ */
+  const P = await nuevaPestana(navegador, { ancho: 1440 });
+  await entrar(P, 'admin', 'admin/configuracion.html');
+  await P.waitForSelector('.pal', { timeout: 25000 });
+  a.comprobar((await P.locator('.pal').count()) >= 5,
+    `Configuración ofrece varias paletas para elegir (${await P.locator('.pal').count()})`);
+
+  await P.click('[data-paleta="violeta"]');
+  await P.click('#vidrio [data-vidrio="true"]');
+  await P.waitForTimeout(700);
+  const elegido = await P.evaluate(() => ({
+    paleta: document.documentElement.dataset.paleta,
+    vidrio: document.documentElement.dataset.vidrio,
+    primary: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
+    difumina: getComputedStyle(document.querySelector('.sidebar')).backdropFilter !== 'none',
+  }));
+  a.comprobar(elegido.paleta === 'violeta' && elegido.primary === '#7c3aed',
+    `Elegir una paleta cambia el color de marca al momento (${elegido.primary})`);
+  a.comprobar(elegido.vidrio === 'si' && elegido.difumina,
+    'Y el efecto vidrio difumina de verdad lo que hay detrás del menú');
+
+  // La elección tiene que seguir puesta en la pantalla siguiente.
+  await P.goto(`${BASE}/plataforma/admin/index.html`, { waitUntil: 'domcontentloaded' });
+  await P.waitForTimeout(2500);
+  const persiste = await P.evaluate(() => ({
+    paleta: document.documentElement.dataset.paleta,
+    primary: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
+  }));
+  a.comprobar(persiste.paleta === 'violeta' && persiste.primary === '#7c3aed',
+    'La elección se mantiene al cambiar de pantalla');
+
+  // El tema oscuro tiene que seguir funcionando con la paleta puesta: es lo que
+  // se rompe si los colores se escriben en el elemento en vez de en una hoja.
+  await P.evaluate(() => document.documentElement.dataset.theme = 'dark');
+  await P.waitForTimeout(300);
+  const deNoche = await P.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--fondo').trim());
+  a.comprobar(deNoche === '#15111f',
+    `Con la paleta elegida, el tema oscuro sigue oscureciendo (${deNoche})`);
+  a.comprobar(P.errores.length === 0, `Configuración no lanza errores ${JSON.stringify(P.errores.slice(0, 2))}`);
 
   a.comprobar(A.errores.length === 0, `El escritorio no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);
   a.comprobar(N.errores.length === 0, `El modo oscuro tampoco ${JSON.stringify(N.errores.slice(0, 2))}`);

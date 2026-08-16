@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-15">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-16">
 <style>
   .tasa-box{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
   /* La tasa vigente es una cifra: se escribe con la letra de las cifras y
@@ -76,7 +76,7 @@ import { sb, mount, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kp
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY,
          etiqueta, montoPagado, enDolares, saldo as saldoCelda,
-         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-15';
+         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-16';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);

@@ -1,6 +1,12 @@
 // CEM · Runtime compartido por todas las páginas de la plataforma.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+/* La apariencia elegida se aplica al importar este módulo, que es lo primero
+   que corre en cualquier pantalla y ocurre antes de que `mount()` destape
+   `#page`. Se reexporta para que Configuración pueda ofrecerla. */
+export { PALETAS, PALETA_POR_DEFECTO, aplicarApariencia,
+         paletaActual, temaActual, vidrioActual } from './temas.js';
+
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
