@@ -44,7 +44,8 @@
   <div class="card"><h2 class="sec">Anuncios</h2><div id="anuncios"></div></div>
 </div>
 <script type="module">
-import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado, chipNota, vacio, etiqueta } from '../assets/app.js?v=2026-08-20';
+import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado,
+         chipNota, vacio, etiqueta, confirmDialog, ok, avisar, mensajeError } from '../assets/app.js?v=2026-08-20';
 import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-20';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 if (p) init();
@@ -52,7 +53,8 @@ if (p) init();
 async function init(){
   $('#saludo').textContent = `Hola, ${p.nombre}`;
   const { data: ens } = await sb.from('cem_enrollments')
-    .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)').eq('profile_id',p.id).limit(500);
+    .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)')
+    .eq('profile_id',p.id).neq('estado','cancelada').limit(500);
   const eids = (ens||[]).map(e=>e.id), cohIds=(ens||[]).map(e=>e.cohort_id).filter(Boolean);
 
   const cIds = (ens||[]).map(e=>e.course_id).filter(Boolean);
@@ -66,6 +68,12 @@ async function init(){
     cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria,puntaje_max')
       .in('course_id',cIds).eq('estado','publicado') : Promise.resolve({data:[]}),
   ]);
+
+  /* Qué inscripciones están abiertas y cuáles esperan el primer pago. Se
+     pregunta al servidor y no se deduce del estado, porque la regla —gratis,
+     ya pagó, ya terminó— vive en cem_acceso_abierto() y sólo hay una. */
+  const { data: acceso } = await sb.rpc('cem_mi_acceso');
+  const puertas = acceso || {};
 
   pintarGraficos(ens || []);
 
@@ -120,13 +128,37 @@ async function init(){
         ${bar(e.progreso)}
       </div>
       <div class="row sep">
-        <a class="btn sm" href="clase.html?curso=${e.cem_courses?.id}">Continuar</a>
-        <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>
+        ${puertas[e.id]?.abierto === false
+          ? `<a class="btn sm" href="pagos.html?enr=${e.id}">
+               <span class="material-symbols-outlined">lock_open</span> Pagar para empezar</a>
+             <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`
+          : `<a class="btn sm" href="clase.html?curso=${e.cem_courses?.id}">Continuar</a>
+             <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`}
       </div>
+      ${puertas[e.id]?.abierto === false ? `<p class="tiny muted sep-poco">
+        El acceso se abre en cuanto se confirme tu primer pago${
+          puertas[e.id]?.primeraCuota ? ` de ${money(puertas[e.id].primeraCuota, puertas[e.id].moneda)}` : ''}.
+        <button class="enlace" data-baja="${e.id}"
+          data-curso="${esc(e.cem_courses?.nombre||'el programa')}">Ya no me interesa</button></p>` : ''}
       </div>
     </div>`).join('') : `<div class="card sin-margen">${vacio({ icono:'school', titulo:'Todavía no estás inscrito en ningún programa',
         texto:'Cuando te inscribas, aquí verás tu avance y por dónde ibas.',
         accion:{ texto:'Ver el catálogo', href:'catalogo.html' } })}</div>`;
+
+  /* Darse de baja de lo que nunca se llegó a pagar. Sin esto, quien se inscribe
+     por curiosidad se queda la tarjeta de «Pagar para empezar» encima para
+     siempre, y a la escuela le queda una cuota fantasma en la cartera. */
+  $$('[data-baja]').forEach(b=>b.onclick = async () => {
+    const curso = b.dataset.curso;
+    if (!await confirmDialog(
+      `¿Cancelar tu inscripción en «${curso}»? No has pagado nada, así que no se cobra ` +
+      'ni se devuelve nada, y puedes volver a inscribirte cuando quieras.',
+      'Cancelar inscripción')) return;
+    const { error } = await sb.rpc('cem_cancelar_inscripcion', { p_enrollment_id: b.dataset.baja });
+    if (error) { avisar(mensajeError(error)); return; }
+    ok('Inscripción cancelada.');
+    init();
+  });
 
   const enrPorCurso = {}; (ens||[]).forEach(e=>{ enrPorCurso[e.course_id] = e.id; });
   const tareas = (evals||[]).map(a=>{

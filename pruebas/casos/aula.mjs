@@ -98,6 +98,22 @@ export default async function correr(navegador) {
     const guardada = await D.locator('#cuadricula .celda-nota input').first().inputValue();
     a.comprobar(guardada === '7',
       `La nota se guarda al salir de la casilla, sin botón (quedó «${guardada}»)`);
+
+    /* Y que sea UNA casilla por estudiante y evaluación. Con dos intentos de la
+       misma evaluación la cuadrícula enseñaba una nota cualquiera de las dos
+       —jsonb_object_agg se quedaba con la última fila que le llegara— mientras
+       el guardado escribía siempre en el último intento. O sea: escribías 7,
+       decía «guardado», y al volver seguía poniendo 100. La nota estaba bien
+       guardada; lo que engañaba era la pantalla. */
+    const rejilla = await D.evaluate(() => {
+      const inputs = [...document.querySelectorAll('#cuadricula .celda-nota input')];
+      const pares = inputs.map((i) => `${i.dataset.ins}·${i.dataset.ev}`);
+      return { total: pares.length, distintos: new Set(pares).size };
+    });
+    a.comprobar(rejilla.total === rejilla.distintos,
+      `Cada estudiante tiene una sola casilla por evaluación, no una por intento (${
+        rejilla.total} casillas, ${rejilla.distintos} pares distintos)`);
+
     // Dejarlo como estaba: la prueba no debe cambiarle las notas a nadie.
     await D.locator('#cuadricula .celda-nota input').first().fill(antes);
     await D.locator('#cuadricula .celda-nota input').first().blur();

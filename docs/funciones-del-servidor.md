@@ -74,6 +74,23 @@ como las demás funciones. Son el vocabulario de permisos de todo el sistema:
 | `cem_tasa_vigente()` | La última tasa cargada. |
 | `cem_guardar_tasa_manual(valor, fecha)` | Cargar la tasa a mano. Sólo cobranza para arriba. |
 | `cem_self_enroll(...)` | La inscripción por cuenta propia. **El precio lo pone el servidor**, no el formulario: si viniera del navegador, cualquiera se inscribiría por un dólar. |
+| `cem_cancelar_inscripcion(inscripcion, motivo)` | Dar de baja lo que nunca se pagó, a petición del propio estudiante o del equipo. Con un solo pago confirmado se niega: eso ya no es cancelar, es devolver, y lo decide quien cobra. |
+
+### Primero se paga, después se entra
+
+La regla del negocio: sin pago confirmado no hay curso. Vive en **una sola
+función**, para que la clase, el examen y el progreso no puedan opinar distinto.
+
+| Función | Qué decide |
+|---|---|
+| `cem_acceso_abierto(inscripcion)` | La única definición de «tiene acceso»: es del equipo, o el curso es gratis, o la inscripción está activa o finalizada, o hay un pago confirmado. Todo lo demás la consulta; nadie la reimplementa. |
+| `cem_mi_acceso()` | Para cada inscripción de quien pregunta: si está abierta, su estado, y cuánto es la primera cuota. Es lo que deja a la pantalla explicar por qué está bloqueada en vez de dejar chocar contra un error en cada clic. Las canceladas no salen. |
+| `cem_material_lecciones(ids[])` | El enlace y el cuerpo de las lecciones pedidas, sólo para el equipo, el docente del curso, o quien pagó. Existe porque `cem_lessons.url` y `.contenido` ya no se leen por consulta directa — ver [politicas-de-acceso.md](politicas-de-acceso.md). |
+
+Dos disparadores lo sostienen sin que nadie tenga que acordarse:
+`cem_tg_activar_al_pagar` pone la inscripción en activa cuando un pago pasa a
+confirmado, y `cem_tg_activar_si_es_gratis` abre en el acto lo que no cuesta
+nada.
 
 ### Académico
 

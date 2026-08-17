@@ -329,6 +329,14 @@ p{max-width:68ch;}
 /* Mientras trabaja: ocupado y diciéndolo, para que nadie lo pulse dos veces. */
 .btn[aria-busy="true"]{opacity:.7;cursor:progress;}
 
+/* Una acción que vive dentro de una frase —«…o ya no me interesa»— y no merece
+   el peso de un botón. Es un <button> de verdad, con su foco y su teclado; sólo
+   se viste de enlace. */
+.enlace{background:none;border:0;padding:0;font:inherit;color:var(--primary);
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+.enlace:hover{color:var(--tinta);}
+.enlace:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:2px;}
+
 /* ───────────────────────── SUPERFICIES ─────────────────────────────────── */
 /* Una tarjeta lleva fondo O filete, nunca las dos cosas más una sombra. */
 .card{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);

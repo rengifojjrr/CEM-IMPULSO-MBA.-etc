@@ -254,11 +254,21 @@ async function cargar(){
   await cargarAula();
   const [{ data: ev }, { data: mods }] = await Promise.all([
     sb.from('cem_assessments').select('*').eq('course_id', cursoId).order('created_at'),
-    sb.from('cem_modules').select('id,titulo,orden,cem_lessons(id,titulo,tipo,duracion_min,orden,url)')
+    sb.from('cem_modules').select('id,titulo,orden,cem_lessons(id,titulo,tipo,duracion_min,orden)')
       .eq('course_id', cursoId).order('orden'),
   ]);
   evals = ev || [];
   modulos = mods || [];
+
+  /* El enlace del material va aparte: la base dejó de entregarlo en la consulta
+     abierta para que no se lo lleve quien no ha pagado. Al docente del curso sí
+     se lo da. */
+  const ids = modulos.flatMap(m=>m.cem_lessons || []).map(l=>l.id);
+  if (ids.length){
+    const { data: material } = await sb.rpc('cem_material_lecciones',{ p_ids: ids });
+    modulos.forEach(m=>(m.cem_lessons||[]).forEach(l=>{ l.url = material?.[l.id]?.url ?? null; }));
+  }
+
   pintarEvals();
   pintarMaterial();
 }

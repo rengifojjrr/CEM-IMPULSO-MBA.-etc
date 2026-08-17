@@ -62,8 +62,22 @@ $('#curso').onchange = async () => { cursoId = $('#curso').value; sel=null; awai
 
 async function loadMods(){
   if (!cursoId) return;
-  const { data } = await sb.from('cem_modules').select('*,cem_lessons(*)').eq('course_id',cursoId).order('orden');
+  const { data } = await sb.from('cem_modules')
+    .select('*,cem_lessons(id,module_id,titulo,descripcion,tipo,duracion_min,orden,obligatorio,estado)')
+    .eq('course_id',cursoId).order('orden');
   mods = (data||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
+
+  /* El enlace y el cuerpo se piden aparte: la base ya no los entrega por
+     consulta abierta, porque son el curso y el curso se paga. A quien coordina
+     se los da igual, que para eso los edita en esta misma pantalla. */
+  const ids = mods.flatMap(m=>m.cem_lessons).map(l=>l.id);
+  if (ids.length){
+    const { data: material } = await sb.rpc('cem_material_lecciones',{ p_ids: ids });
+    mods.forEach(m=>m.cem_lessons.forEach(l=>{
+      l.url = material?.[l.id]?.url ?? null;
+      l.contenido = material?.[l.id]?.contenido ?? null;
+    }));
+  }
   const c = cursos.find(x=>x.id===cursoId);
   $('#sub').textContent = `${c?.nombre||''} · ${mods.length} módulos · ${mods.reduce((a,m)=>a+m.cem_lessons.length,0)} lecciones`;
   /* item 41 · desde aquí se llega desde la lista de programas y no había cómo

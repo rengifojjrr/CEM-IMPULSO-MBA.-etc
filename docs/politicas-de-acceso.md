@@ -50,6 +50,41 @@ No se les tocó nada en esta revisión a propósito: son de otros proyectos y
 cambiarles los permisos podría romper algo que no se ve desde aquí. Si alguna se
 va a volver a usar, lo primero es escribirle políticas.
 
+## Una fila entera no es la unidad correcta: `cem_lessons`
+
+Las políticas de RLS deciden por fila, y hay un caso donde eso no alcanza. El
+**título** de una lección es el catálogo: tiene que verse sin haber pagado nada,
+porque es lo que convence de comprar. El **enlace del vídeo** y el **cuerpo del
+texto** son el curso: si se leen sin pagar, la puerta de la inscripción es un
+cartel. Es la misma fila, y hacen falta las dos cosas.
+
+Se resolvió por columna, que es el otro instrumento que da Postgres:
+
+```sql
+revoke select on public.cem_lessons from anon, authenticated;
+grant select (id, module_id, titulo, descripcion, tipo,
+              duracion_min, orden, obligatorio, estado, created_at)
+  on public.cem_lessons to anon, authenticated;
+```
+
+`url` y `contenido` no están en esa lista, así que `select url from cem_lessons`
+devuelve *permission denied* desde el navegador, con clave pública o con sesión.
+Quien tiene derecho a ellas las pide por `cem_material_lecciones(uuid[])`, que
+mira si es personal de la escuela, el docente del curso, o alguien con una
+inscripción abierta según `cem_acceso_abierto()`.
+
+Dos cosas que hay que saber si tocas esta tabla:
+
+1. **Una columna nueva nace cerrada.** No se verá desde el navegador hasta que le
+   agregues su `grant`. Es a propósito: obliga a decidir si se abre.
+2. **`select('*')` deja de funcionar** para `anon` y `authenticated` — Postgres
+   comprueba el permiso columna por columna al expandir el asterisco. Las
+   pantallas que leen lecciones piden columnas por su nombre.
+
+Revocar sólo la columna, dejando el `SELECT` de tabla puesto, **no sirve de
+nada**: con el permiso de tabla se leen todas las columnas igual. Hay que quitar
+el de tabla y devolver los que sí van.
+
 ## El caso que se encontró y se cerró
 
 La revisión que produjo este documento destapó un agujero real, y no estaba en

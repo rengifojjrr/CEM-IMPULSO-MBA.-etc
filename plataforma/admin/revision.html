@@ -38,11 +38,24 @@ if (p) load();
 
 async function load(){
   const [{data},{data:ps}] = await Promise.all([
-    sb.from('cem_content_reviews').select('*,cem_lessons(titulo,estado,tipo,url,contenido)').order('created_at',{ascending:false}),
+    sb.from('cem_content_reviews').select('*,cem_lessons(id,titulo,estado,tipo)').order('created_at',{ascending:false}),
     sb.from('cem_profiles').select('id,nombre,apellido').limit(500),
   ]);
   perfiles = Object.fromEntries((ps||[]).map(x=>[x.id,`${x.nombre} ${x.apellido||''}`.trim()]));
   rows = data||[];
+
+  /* Lo que hay que revisar es justo lo que la base dejó de entregar en abierto
+     —el enlace y el cuerpo—, así que se pide aparte. Quien revisa tiene
+     derecho; quien no ha pagado el curso, no. */
+  const ids = rows.map(r=>r.cem_lessons?.id).filter(Boolean);
+  if (ids.length){
+    const { data: material } = await sb.rpc('cem_material_lecciones',{ p_ids: ids });
+    rows.forEach(r=>{
+      if (!r.cem_lessons) return;
+      r.cem_lessons.url = material?.[r.cem_lessons.id]?.url ?? null;
+      r.cem_lessons.contenido = material?.[r.cem_lessons.id]?.contenido ?? null;
+    });
+  }
   const hoy = new Date().toISOString().slice(0,10);
   $('#kpis').innerHTML = [
     kpi('Pendientes de revisión', num(rows.filter(r=>r.estado==='pendiente').length),'pending_actions','en cola'),
