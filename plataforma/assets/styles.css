@@ -182,8 +182,40 @@ button{cursor:pointer;}
 /* ───────────────────────────── ENTRADA ─────────────────────────────────── */
 .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;
   padding:var(--e3);background:var(--fondo);}
+/* `margin:auto` y no sólo el centrado del contenedor: con align-items:center,
+   una tarjeta más alta que la pantalla se recorta por arriba y la parte cortada
+   no se puede alcanzar ni desplazando. Con margin auto el desbordamiento se
+   reparte y todo queda accesible. Se nota en el registro, que es largo, y en un
+   teléfono en horizontal. */
 .auth-card{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
-  max-width:400px;width:100%;padding:var(--e4) var(--e3);}
+  max-width:400px;width:100%;padding:var(--e4) var(--e3);margin:auto;}
+/* El registro pregunta bastante más que la entrada: en 400 px cada pareja de
+   campos se parte en dos líneas y el formulario parece el doble de largo. */
+.auth-card.ancha{max-width:580px;}
+
+/* El medidor de la contraseña. El color dice lo mismo que el texto —nunca sólo
+   el color— para quien no distingue rojo de verde. */
+.medida-clave{font-size:var(--t-xs);margin:calc(var(--e1) * -1) 0 var(--e2);}
+.medida-clave[data-nivel="vacia"]{color:var(--tinta-3);}
+.medida-clave[data-nivel="corta"]{color:var(--error);}
+.medida-clave[data-nivel="debil"]{color:var(--warn);}
+.medida-clave[data-nivel="aceptable"],
+.medida-clave[data-nivel="fuerte"]{color:var(--ok);}
+
+/* Una casilla con su explicación al lado. Con `.row` no vale: lleva
+   flex-wrap, así que en un teléfono el texto salta de línea y la casilla se
+   queda sola arriba, como si fuera de otra cosa. Aquí el texto ocupa lo que
+   queda y envuelve dentro de su columna. */
+.casilla{display:flex;align-items:flex-start;gap:var(--e1);cursor:pointer;}
+.casilla > input{flex:0 0 auto;margin-top:3px;}
+.casilla > span{flex:1;min-width:0;}
+
+/* Un grupo de campos con su título, para que un formulario largo se lea como
+   tres preguntas cortas y no como veinte casillas seguidas. */
+.grupo-campos{border:0;padding:0;margin:0 0 var(--e3);}
+.grupo-campos > legend{font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  text-transform:uppercase;letter-spacing:.04em;color:var(--tinta-2);
+  padding:0;margin-bottom:var(--e1);}
 .auth-card h1{font-size:var(--t-lg);font-weight:var(--peso-fuerte);margin:var(--e2) 0 var(--e0);}
 .auth-card .sub{color:var(--tinta-2);font-size:var(--t-sm);margin-bottom:var(--e3);}
 .brand-badge{width:44px;height:44px;border-radius:var(--r);background:var(--primary);

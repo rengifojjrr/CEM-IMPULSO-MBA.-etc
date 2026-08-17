@@ -405,6 +405,60 @@ export function confirmDialog(msg, title = 'Confirmar') {
   });
 }
 
+/* ============ la contraseña ============
+ * Una medida sencilla y honesta: longitud y variedad. No pretende ser un
+ * medidor de seguridad —para eso hace falta un diccionario de las filtradas—,
+ * sólo evitar «12345678» y decirlo mientras se escribe, no al enviar.
+ *
+ * Vive aquí porque la piden dos pantallas: el registro y el cambio de
+ * contraseña. Tenerla dos veces significaría que un día una exige ocho
+ * caracteres y la otra seis, y nadie se enteraría hasta que alguien se queda
+ * sin poder entrar. */
+export const CLAVE_MINIMA = 8;
+
+export function fuerzaDeClave(v) {
+  const clave = String(v ?? '');
+  if (!clave) return { nivel: 'vacia', texto: `Mínimo ${CLAVE_MINIMA} caracteres.`, sirve: false };
+  const variedad = [/[a-z]/, /[A-Z]/, /\d/, /[^\w]/].filter(r => r.test(clave)).length;
+  if (clave.length < CLAVE_MINIMA) {
+    return { nivel: 'corta', texto: `Muy corta: te faltan ${CLAVE_MINIMA - clave.length}.`, sirve: false };
+  }
+  if (clave.length >= 12 && variedad >= 3) return { nivel: 'fuerte', texto: 'Fuerte.', sirve: true };
+  if (variedad >= 2) return { nivel: 'aceptable', texto: 'Aceptable.', sirve: true };
+  return { nivel: 'debil', texto: 'Débil: mezcla mayúsculas, números o símbolos.', sirve: true };
+}
+
+/** Pinta el medidor y el aviso de «no coinciden» en un par de campos. */
+export function medidorDeClave({ clave, repetir, donde }) {
+  const c = typeof clave === 'string' ? $(clave) : clave;
+  const r = typeof repetir === 'string' ? $(repetir) : repetir;
+  const d = typeof donde === 'string' ? $(donde) : donde;
+  if (!c || !d) return () => true;
+
+  /* El mínimo lo pone la constante, no el HTML: con el número escrito a mano en
+     cada `minlength` basta un descuido para que la casilla acepte seis y el envío
+     exija ocho, y la persona no entiende por qué no la deja pasar. */
+  [c, r].forEach((el) => { if (el) el.minLength = CLAVE_MINIMA; });
+
+  const pintar = () => {
+    const f = fuerzaDeClave(c.value);
+    const repetida = r ? r.value : '';
+    const cuadran = !r || !repetida || repetida === c.value;
+    d.dataset.nivel = cuadran ? f.nivel : 'corta';
+    d.textContent = cuadran ? f.texto : 'Las dos contraseñas no coinciden.';
+  };
+  c.addEventListener('input', pintar);
+  if (r) r.addEventListener('input', pintar);
+  pintar();
+
+  /** ¿Se puede enviar? Devuelve el motivo si no, o null si sí. */
+  return () => {
+    if (!fuerzaDeClave(c.value).sirve) return `Usa al menos ${CLAVE_MINIMA} caracteres.`;
+    if (r && r.value !== c.value) return 'Las dos contraseñas no coinciden.';
+    return null;
+  };
+}
+
 /* ============ vocabulario y mensajes en un solo lugar ============
  * Antes cada pantalla escribía sus propios textos: cambiar cómo se llama algo
  * obligaba a buscarlo por los 44 archivos y siempre quedaba alguno viejo.

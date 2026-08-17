@@ -23,49 +23,137 @@
       <button class="btn block" type="submit">Ingresar <span class="material-symbols-outlined">login</span></button>
       <div id="loginMsg"></div>
     </form>
+    <!-- `type="button"` en todos: sin él un <button> vale por «enviar», y basta
+         mover uno dentro del formulario para que empiece a enviarlo sin que nadie
+         entienda por qué. -->
     <div style="margin-top:14px;text-align:center">
-      <button class="btn ghost sm" id="toOlvide">Olvidé mi contraseña</button>
-      <button class="btn ghost sm" id="toReg">¿No tienes cuenta? Regístrate</button>
+      <button type="button" class="btn ghost sm" id="toOlvide">Olvidé mi contraseña</button>
+      <button type="button" class="btn ghost sm" id="toReg">¿No tienes cuenta? Regístrate</button>
       <a class="btn ghost sm" href="estudiante/catalogo.html">Ver catálogo público</a>
     </div>
     <div class="demo-list">
       Cuentas de prueba (contraseña <b>CemDemo2026!</b>):
       <div class="sep-poco">
-        <button class="btn outline sm" data-demo="admin@cem.demo">Administrador</button>
-        <button class="btn outline sm" data-demo="coordinador@cem.demo">Coordinador</button>
-        <button class="btn outline sm" data-demo="profesor@cem.demo">Profesor</button>
-        <button class="btn outline sm" data-demo="cobranza@cem.demo">Cobranza</button>
-        <button class="btn outline sm" data-demo="estudiante@cem.demo">Estudiante</button>
-        <button class="btn outline sm" data-demo="auditor@cem.demo">Auditor</button>
+        <button type="button" class="btn outline sm" data-demo="admin@cem.demo">Administrador</button>
+        <button type="button" class="btn outline sm" data-demo="coordinador@cem.demo">Coordinador</button>
+        <button type="button" class="btn outline sm" data-demo="profesor@cem.demo">Profesor</button>
+        <button type="button" class="btn outline sm" data-demo="cobranza@cem.demo">Cobranza</button>
+        <button type="button" class="btn outline sm" data-demo="estudiante@cem.demo">Estudiante</button>
+        <button type="button" class="btn outline sm" data-demo="auditor@cem.demo">Auditor</button>
       </div>
     </div>
   </div>
 
-  <div class="auth-card hidden" id="cardReg">
+  <!-- Todos los campos llevan `for`, `name` y `autocomplete`. Sonará a detalle y
+       no lo es: sin `for` el rótulo no es rótulo —al tocarlo no pasa nada, y en
+       un teléfono se toca el rótulo constantemente porque es lo más grande—, sin
+       `name` el navegador no ofrece autocompletar, y el propio navegador lo
+       reporta como error en la consola. Los ocho campos estaban así. -->
+  <div class="auth-card ancha hidden" id="cardReg">
     <div class="brand-badge"><span class="material-symbols-outlined">person_add</span></div>
     <h1>Crear cuenta</h1>
-    <div class="sub">Regístrate como estudiante para inscribirte en nuestros programas.</div>
-    <form id="formReg">
-      <div class="row">
-        <div class="field medio"><label>Nombre</label><input type="text" id="rNombre" required></div>
-        <div class="field medio"><label>Apellido</label><input type="text" id="rApellido" required></div>
-      </div>
-      <div class="row">
-        <div class="field medio"><label>Tipo de documento</label>
-          <select id="rDocTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
-        <div class="field medio"><label>Número</label><input type="text" id="rDoc" required></div>
-      </div>
-      <div class="row">
-        <div class="field medio"><label>Teléfono</label><input type="tel" id="rTel" placeholder="+58 412 1234567"></div>
-        <div class="field medio"><label>País</label><input type="text" id="rPais"></div>
-      </div>
-      <div class="field"><label>Correo</label><input type="email" id="rEmail" required autocomplete="username"></div>
-      <div class="field"><label>Contraseña</label><input type="password" id="rPass" required minlength="6" autocomplete="new-password"></div>
-      <button class="btn gold block" type="submit">Crear mi cuenta</button>
+    <div class="sub">Regístrate como estudiante para inscribirte en nuestros programas.
+      Sólo se pide una vez: después queda en tu perfil.</div>
+    <form id="formReg" novalidate>
+      <fieldset class="grupo-campos">
+        <legend>Quién eres</legend>
+        <div class="row">
+          <div class="field medio"><label for="rNombre">Nombre</label>
+            <input type="text" id="rNombre" name="nombre" required autocomplete="given-name"></div>
+          <div class="field medio"><label for="rApellido">Apellido</label>
+            <input type="text" id="rApellido" name="apellido" required autocomplete="family-name"></div>
+        </div>
+        <div class="row">
+          <div class="field medio"><label for="rDocTipo">Tipo de documento</label>
+            <select id="rDocTipo" name="documento_tipo">
+              <option value="Cédula">Cédula</option>
+              <option value="DNI">DNI</option>
+              <option value="Pasaporte">Pasaporte</option>
+            </select></div>
+          <div class="field medio"><label for="rDoc">Número de documento</label>
+            <input type="text" id="rDoc" name="documento" required autocomplete="off"
+              placeholder="V-12345678"></div>
+        </div>
+        <div class="field corto"><label for="rNac">Fecha de nacimiento</label>
+          <input type="date" id="rNac" name="fecha_nacimiento" required autocomplete="bday">
+          <span class="tiny muted">Va en el certificado y nos dice a qué grupo de edad acompañarte.</span></div>
+      </fieldset>
+
+      <fieldset class="grupo-campos">
+        <legend>Cómo ubicarte</legend>
+        <div class="row">
+          <div class="field medio"><label for="rTel">Teléfono</label>
+            <input type="tel" id="rTel" name="telefono" autocomplete="tel"
+              placeholder="+58 412 1234567"></div>
+          <div class="field medio"><label for="rPais">País</label>
+            <input type="text" id="rPais" name="pais" autocomplete="country-name"></div>
+        </div>
+        <div class="row">
+          <div class="field medio"><label for="rCiudad">Ciudad</label>
+            <input type="text" id="rCiudad" name="ciudad" autocomplete="address-level2"></div>
+          <div class="field medio"><label for="rOcupacion">A qué te dedicas</label>
+            <input type="text" id="rOcupacion" name="ocupacion" autocomplete="organization-title"
+              placeholder="Estudiante, emprendedor, docente…"></div>
+        </div>
+        <div class="field"><label for="rComo">¿Cómo nos conociste?</label>
+          <select id="rComo" name="como_nos_conocio">
+            <option value="">Prefiero no decirlo</option>
+            <option value="instagram">Instagram</option>
+            <option value="tiktok">TikTok</option>
+            <option value="facebook">Facebook</option>
+            <option value="youtube">YouTube</option>
+            <option value="google">Buscando en Google</option>
+            <option value="recomendacion">Me lo recomendó alguien</option>
+            <option value="evento">En un evento o feria</option>
+            <option value="whatsapp">Por WhatsApp</option>
+            <option value="otro">Otro</option>
+          </select></div>
+      </fieldset>
+
+      <fieldset class="grupo-campos">
+        <legend>Con qué entras</legend>
+        <div class="field"><label for="rEmail">Correo</label>
+          <input type="email" id="rEmail" name="email" required autocomplete="username">
+          <span class="tiny muted">Aquí llega la confirmación y todos los avisos del curso.</span></div>
+        <div class="row">
+          <div class="field medio"><label for="rPass">Contraseña</label>
+            <input type="password" id="rPass" name="password" required
+              minlength="8" autocomplete="new-password"></div>
+          <div class="field medio"><label for="rPass2">Repite la contraseña</label>
+            <input type="password" id="rPass2" name="password2" required
+              minlength="8" autocomplete="new-password"></div>
+        </div>
+        <div class="medida-clave" id="rFuerza" data-nivel="vacia" aria-live="polite"></div>
+      </fieldset>
+
+      <label class="casilla">
+        <input type="checkbox" id="rAcepta" name="acepta" required>
+        <span class="tiny muted">Acepto que el CEM guarde estos datos para gestionar mi
+          formación y me escriba sobre los programas en los que me inscriba.</span></label>
+
+      <button class="btn gold block sep" type="submit">Crear mi cuenta</button>
       <div id="regMsg"></div>
     </form>
     <div style="margin-top:12px;text-align:center">
-      <button class="btn ghost sm" id="toLogin">Volver a iniciar sesión</button>
+      <button type="button" class="btn ghost sm" id="toLogin">Volver a iniciar sesión</button>
+    </div>
+  </div>
+
+  <!-- Después de registrarse no se vuelve al formulario en blanco: se dice qué
+       hacer ahora y se deja a mano el reenvío, porque el correo de confirmación
+       se pierde, se va a no deseado, o el enlace caduca. -->
+  <div class="auth-card hidden" id="cardRevisa">
+    <div class="brand-badge"><span class="material-symbols-outlined">mark_email_unread</span></div>
+    <h1>Revisa tu correo</h1>
+    <div class="sub">Te enviamos un enlace a <b id="revisaCorreo">tu correo</b>.
+      Púlsalo y tu cuenta queda lista.</div>
+    <p class="tiny muted">Si no aparece en unos minutos, mira en <b>correo no deseado</b> o
+      <b>promociones</b>: es donde suele acabar el primer mensaje de un remitente nuevo.</p>
+    <button type="button" class="btn outline block sep" id="btnReenviar">
+      <span class="material-symbols-outlined">forward_to_inbox</span> Enviármelo otra vez</button>
+    <div id="revisaMsg"></div>
+    <div style="margin-top:12px;text-align:center">
+      <button type="button" class="btn ghost sm" id="toLogin3">Ya lo confirmé, quiero entrar</button>
     </div>
   </div>
 
@@ -83,15 +171,22 @@
       <div id="olvideMsg"></div>
     </form>
     <div style="margin-top:12px;text-align:center">
-      <button class="btn ghost sm" id="toLogin2">Volver a iniciar sesión</button>
+      <button type="button" class="btn ghost sm" id="toLogin2">Volver a iniciar sesión</button>
     </div>
   </div>
 </div>
 
 <script type="module">
-import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError } from './assets/app.js?v=2026-08-20';
+import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
+         medidorDeClave } from './assets/app.js?v=2026-08-20';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
+const revisaMsg = $('#revisaMsg');
+
+/* La dirección de esta misma carpeta, sin el archivo ni la consulta. Es la base
+   de los enlaces que van al correo, y tiene que salir de aquí y no estar escrita
+   a mano: en local es 127.0.0.1:8125 y publicada es el dominio de verdad. */
+const AQUI = location.href.replace(/[^/?#]*(\?.*)?(#.*)?$/, '');
 
 /* A dónde iba la persona antes de que la mandáramos a entrar. Se acepta sólo
    una ruta relativa dentro de la plataforma: si alguien manipula el enlace
@@ -103,8 +198,35 @@ function destinoSeguro() {
   return /^(admin|estudiante|docente)\/[\w.-]+\.html/.test(n) ? n : null;
 }
 
-// Si ya hay sesión activa, ir directo al panel del rol
+const tarjetas = ['cardLogin', 'cardReg', 'cardOlvide', 'cardRevisa'];
+const mostrar = (cual) => tarjetas.forEach(t =>
+  $('#' + t).classList.toggle('hidden', t !== cual));
+
+/* Supabase manda aquí lo que falla en un enlace de correo: llega como fragmento
+   —#error=access_denied&error_code=otp_expired— y sin nada que lo lea se queda
+   la dirección con esa cola pegada y la pantalla de entrada como si no hubiera
+   pasado nada. La persona ve un churro y no sabe si tiene cuenta o no.
+   Los enlaces de confirmación apuntan a confirmar.html, que lo explica mejor;
+   esto es la red por si el «Site URL» del proyecto todavía apunta a la raíz. */
+function quejaDelCorreo() {
+  const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const codigo = h.get('error_code') || h.get('error');
+  if (!codigo) return false;
+  const caducado = /otp_expired|expired/i.test(codigo);
+  loginMsg.innerHTML = `<div class="chip ${caducado ? 'warn' : 'err'} sep">${
+    caducado
+      ? 'El enlace del correo ya caducó o se usó una vez. Pide otro y entra desde el nuevo.'
+      : esc((h.get('error_description') || codigo).replace(/\+/g, ' '))}</div>`;
+  // Se limpia la cola para que al recargar no vuelva a salir el mismo aviso.
+  history.replaceState(null, '', location.pathname + location.search);
+  return true;
+}
+const veniaDeUnEnlaceRoto = quejaDelCorreo();
+
+// Si ya hay sesión activa, ir directo al panel del rol. No cuando el enlace
+// falló: ahí hay algo que leer antes de que la pantalla se vaya.
 (async () => {
+  if (veniaDeUnEnlaceRoto) return;
   const p = await profile();
   if (p) location.replace(destinoSeguro() || homeForRoot(p.rol));
 })();
@@ -114,14 +236,11 @@ if (qs('motivo') === 'vencida') {
   loginMsg.innerHTML = '<div class="chip warn sep">Tu sesión venció por inactividad. Vuelve a entrar y seguimos donde ibas.</div>';
 }
 
-const tarjetas = ['cardLogin', 'cardReg', 'cardOlvide'];
-const mostrar = (cual) => tarjetas.forEach(t =>
-  $('#' + t).classList.toggle('hidden', t !== cual));
-
 if (qs('registro')) mostrar('cardReg');
 $('#toReg').onclick = () => mostrar('cardReg');
 $('#toLogin').onclick = () => mostrar('cardLogin');
 $('#toLogin2').onclick = () => mostrar('cardLogin');
+$('#toLogin3').onclick = () => mostrar('cardLogin');
 $('#toOlvide').onclick = () => {
   $('#oEmail').value = $('#email').value.trim();  // si ya escribió el correo, no lo repite
   mostrar('cardOlvide');
@@ -180,20 +299,122 @@ $('#formLogin').onsubmit = async (e) => {
   location.href = destinoSeguro() || homeForRoot(p.rol);
 };
 
+/* La contraseña se comprueba mientras se escribe, no al enviar: enterarse de
+   que no coincide después de rellenar veinte casillas es la forma más segura de
+   que alguien abandone el registro. */
+const claveLista = medidorDeClave({ clave: '#rPass', repetir: '#rPass2', donde: '#rFuerza' });
+
+/* No se puede nacer mañana, y una escuela no matricula a un bebé. Se acota en el
+   propio campo para que el calendario del teléfono ni ofrezca esas fechas. */
+(() => {
+  const hoy = new Date();
+  const aFecha = (d) => d.toISOString().slice(0, 10);
+  const nac = $('#rNac');
+  nac.max = aFecha(new Date(hoy.getFullYear() - 4, hoy.getMonth(), hoy.getDate()));
+  nac.min = aFecha(new Date(hoy.getFullYear() - 110, 0, 1));
+})();
+
+// El correo al que se registró, para poder reenviarle la confirmación.
+let correoPendiente = '';
+
 $('#formReg').onsubmit = async (e) => {
   e.preventDefault();
   regMsg.innerHTML = '';
+  const queja = (t) => { regMsg.innerHTML = `<div class="chip err sep">${esc(t)}</div>`; };
+
+  /* Se valida aquí y no con el `required` del navegador porque el formulario
+     lleva `novalidate`: el globo nativo sale en el idioma del navegador, tapa el
+     campo y no se puede leer con lector de pantalla. */
+  /* En el orden en que están en pantalla, y la casilla de aceptar al final,
+     que es donde está. Si se comprueba antes, alguien que se equivocó al
+     repetir la contraseña recibe «acepta los datos» y no entiende nada. */
+  const correo = $('#rEmail').value.trim();
+  const falta = [
+    [!$('#rNombre').value.trim(), 'Falta tu nombre.'],
+    [!$('#rApellido').value.trim(), 'Falta tu apellido.'],
+    [!$('#rDoc').value.trim(), 'Falta el número de documento.'],
+    [!$('#rNac').value, 'Falta tu fecha de nacimiento.'],
+    [!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo), 'Revisa el correo: no parece una dirección válida.'],
+    [!!claveLista(), claveLista()],
+    [!$('#rAcepta').checked, 'Hace falta que aceptes el uso de tus datos para poder crear la cuenta.'],
+  ].find(([mal]) => mal);
+  if (falta) { queja(falta[1]); return; }
+
+  const btn = $('#formReg button[type=submit]');
+  btn.disabled = true;
   const { error } = await sb.auth.signUp({
-    email: $('#rEmail').value.trim(), password: $('#rPass').value,
-    options: { data: {
-      cem_signup: 'true', nombre: $('#rNombre').value.trim(), apellido: $('#rApellido').value.trim(),
-      documento_tipo: $('#rDocTipo').value, documento: $('#rDoc').value.trim(),
-      telefono: $('#rTel').value.trim(), pais: $('#rPais').value.trim(),
-    }},
+    email: correo, password: $('#rPass').value,
+    options: {
+      /* Sin esto el enlace del correo va al «Site URL» del proyecto, que puede
+         ser cualquier cosa —era localhost:3000— y la confirmación termina en una
+         dirección que no existe. Aquí se dice a dónde volver. */
+      emailRedirectTo: AQUI + 'confirmar.html',
+      data: {
+        cem_signup: 'true',
+        nombre: $('#rNombre').value.trim(), apellido: $('#rApellido').value.trim(),
+        documento_tipo: $('#rDocTipo').value, documento: $('#rDoc').value.trim(),
+        telefono: $('#rTel').value.trim(), pais: $('#rPais').value.trim(),
+        ciudad: $('#rCiudad').value.trim(), fecha_nacimiento: $('#rNac').value,
+        ocupacion: $('#rOcupacion').value.trim(), como_nos_conocio: $('#rComo').value,
+      },
+    },
   });
-  if (error) { regMsg.innerHTML = `<div class="chip err sep">${esc(error.message)}</div>`; return; }
+  btn.disabled = false;
+  if (error) {
+    /* El límite de envíos de correo se ve igual que una caída, y no lo es:
+       reintentar en el momento vuelve a fallar. Se dice que espere. */
+    if (/rate|too many|seconds|limit/i.test(error.message) || error.status === 429) {
+      queja('Demasiados intentos seguidos. Espera un par de minutos y vuelve a probar: '
+        + 'el servidor de correo limita cuántos mensajes salen de golpe.');
+      return;
+    }
+    if (/already registered|already exists|User already/i.test(error.message)) {
+      queja('Ya hay una cuenta con ese correo. Entra con tu contraseña, '
+        + 'o usa «Olvidé mi contraseña» si no la recuerdas.');
+      return;
+    }
+    queja(mensajeError(error, 'No se pudo crear la cuenta.'));
+    return;
+  }
+
+  correoPendiente = correo;
   $('#formReg').reset();
-  regMsg.innerHTML = '<div class="chip ok sep">Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.</div>';
+  $('#revisaCorreo').textContent = correo;
+  revisaMsg.innerHTML = '';
+  mostrar('cardRevisa');
+};
+
+/* Reenviar la confirmación. Es la salida de casi todos los casos que traen a
+   alguien de vuelta: el correo no llegó, se fue a no deseado, o el enlace
+   caducó. Sin esto la única opción era registrarse otra vez, que falla porque el
+   correo ya existe, y ahí se acaba el camino. */
+$('#btnReenviar').onclick = async () => {
+  const btn = $('#btnReenviar');
+  const correo = correoPendiente || prompt('¿A qué correo lo reenviamos?')?.trim();
+  if (!correo) return;
+  correoPendiente = correo;
+  $('#revisaCorreo').textContent = correo;
+  btn.disabled = true;
+  const { error } = await sb.auth.resend({
+    type: 'signup', email: correo,
+    options: { emailRedirectTo: AQUI + 'confirmar.html' },
+  });
+  btn.disabled = false;
+  /* Si el límite de envíos está por medio, se dice cuánto esperar en vez de un
+     «error» a secas: el reintento inmediato vuelve a fallar igual. */
+  if (error && /rate|seconds|limit/i.test(error.message)) {
+    revisaMsg.innerHTML = `<div class="chip warn sep">Espera un momento antes de pedir otro:
+      el servidor de correo limita los envíos seguidos.</div>`;
+    return;
+  }
+  if (error && /already|confirm/i.test(error.message)) {
+    revisaMsg.innerHTML = `<div class="chip ok sep">Esa cuenta ya está confirmada.
+      Puedes entrar directamente.</div>`;
+    return;
+  }
+  if (error) { revisaMsg.innerHTML = `<div class="chip err sep">${esc(mensajeError(error))}</div>`; return; }
+  revisaMsg.innerHTML = `<div class="chip ok sep">Enviado otra vez a <b>${esc(correo)}</b>.
+    El enlace anterior deja de servir: usa el del correo nuevo.</div>`;
 };
 </script>
 </body>

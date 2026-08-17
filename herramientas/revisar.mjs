@@ -191,6 +191,9 @@ titulo('Toda pantalla del portal comprueba quién entra');
 const PUBLICAS = new Set([
   'plataforma/index.html',        // la propia entrada
   'plataforma/nueva-clave.html',  // se llega desde el correo, sin sesión
+  // Igual: se llega desde el enlace de confirmación, y justo antes de que exista
+  // la sesión. Exigirla aquí haría imposible confirmar una cuenta.
+  'plataforma/confirmar.html',
   'plataforma/verificar.html',    // verificación pública de un certificado
   // El perfil de un graduado es público a propósito: se llega escaneando el QR
   // de un título y no puede exigir cuenta. Sólo enseña lo que la propia persona
