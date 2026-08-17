@@ -208,6 +208,40 @@ export default async function correr(navegador) {
   a.comprobar((await P.locator('[data-ap="densidades"] [data-densidad]').count()) === 3,
     'Y tres densidades');
 
+  /* ============ la paleta del manual de marca ============
+     Entre las paletas está la de la empresa, y sus colores son los del manual y
+     no unos parecidos. Se fijan aquí los hexadecimales para que si alguien los
+     ajusta «un poquito» se entere de que está tocando la identidad, no un tema
+     más. También la tipografía: un manual de marca son los colores Y la letra, y
+     dejar los colores oficiales con la letra de otra identidad no es aplicarlo.  */
+  const marca = await P.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js');
+    const antes = { paleta: t.paletaActual(), tema: t.temaActual() };
+    t.aplicarApariencia({ paleta: 'cemMarca', tema: 'claro' });
+    const cs = getComputedStyle(document.documentElement);
+    const v = (k) => cs.getPropertyValue(k).trim();
+    const salida = {
+      existe: !!t.PALETAS.cemMarca,
+      fuente: t.PALETAS.cemMarca?.fuente,
+      letraPuesta: getComputedStyle(document.body).fontFamily,
+      letraPedida: !!document.getElementById('cemLetraPaleta'),
+      series: [1, 2, 3, 4, 5, 6].map((n) => v(`--serie-${n}`).toUpperCase()),
+    };
+    t.aplicarApariencia(antes);
+    salida.letraRetirada = !document.getElementById('cemLetraPaleta');
+    return salida;
+  });
+  a.comprobar(marca.existe,
+    'Entre las paletas está la oficial de la empresa, la del manual de marca');
+  a.comprobar(JSON.stringify(marca.series)
+      === JSON.stringify(['#506EFF', '#6ED333', '#F7468E', '#FCAE47', '#C74EF9', '#52F7F2']),
+    `Y sus gráficos usan los colores del manual sin retocar (${marca.series.slice(0, 3).join(' ')}…)`);
+  a.comprobar(marca.fuente === 'Montserrat' && /Montserrat/.test(marca.letraPuesta) && marca.letraPedida,
+    `Con la tipografía del manual, que se pide sólo al elegirla (${
+      marca.letraPuesta.split(',')[0]})`);
+  a.comprobar(marca.letraRetirada,
+    'Y al cambiar a otra paleta se retira: no se queda una letra descargada de más');
+
   await P.click('[data-paleta="violeta"]');
   await P.click('[data-ap="estilos"] [data-estilo="bisel"]');
   await P.click('[data-ap="formas"] [data-forma="redonda"]');
@@ -261,13 +295,22 @@ export default async function correr(navegador) {
     getComputedStyle(document.documentElement).getPropertyValue('--fondo').trim());
   a.comprobar(deNoche === '#15111f',
     `Con la paleta elegida, el tema oscuro sigue oscureciendo (${deNoche})`);
-  /* ============ que se lea, en las seis paletas y en los dos temas ============
+  /* ============ que se lea, en TODAS las paletas y en los dos temas ============
      Un barrido de 77 pantallas midiendo píxel a píxel encontró 1.993 textos por
      debajo del mínimo legible, casi todos por lo mismo: `--tinta-3` estaba
      calibrada contra el papel, y con vidrio el papel se tiñe con lo que tiene
      detrás. Esto no vuelve a medir píxeles —eso tarda diez minutos— sino los
-     tres pares que causaban el problema, que se pueden comprobar exactos. */
-  const contraste = await P.evaluate(() => {
+     tres pares que causaban el problema, que se pueden comprobar exactos.
+
+     Antes esta comprobación no medía lo que decía medir. Recorría seis nombres
+     de paleta escritos a mano poniendo `data-paleta`, pero la hoja que lleva los
+     colores sólo contiene la paleta ELEGIDA: al poner «indigo» no había ninguna
+     regla que coincidiera y se seguían leyendo los tokens de base. O sea que
+     medía la paleta de la casa cinco veces y una sola de verdad, y daba verde.
+     Ahora se llama a aplicarApariencia() —el camino real— y se recorre el
+     catálogo entero, así que una paleta nueva entra sola en la prueba. */
+  const contraste = await P.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js');
     const canal = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const lum = ([r, g, b]) => 0.2126 * canal(r / 255) + 0.7152 * canal(g / 255) + 0.0722 * canal(b / 255);
     const leer = (txt) => {
@@ -284,31 +327,34 @@ export default async function correr(navegador) {
     };
     const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-    const raiz = document.documentElement;
-    const antes = { estilo: raiz.dataset.estilo, paleta: raiz.dataset.paleta, tema: raiz.dataset.theme };
-    const salida = { peorTinta: 99, peorTinta2: 99, dorado: 99, aviso: 99, donde: '' };
+    const nombres = Object.keys(t.PALETAS);
+    const antes = { paleta: t.paletaActual(), tema: t.temaActual(), estilo: t.estiloActual() };
+    const salida = { peorTinta: 99, peorTinta2: 99, dorado: 99, aviso: 99,
+                     donde: '', dondeDorado: '', paletas: nombres.length };
 
-    for (const paleta of ['cem', 'indigo', 'caribe', 'violeta', 'electrico', 'magenta']) {
-      for (const tema of ['light', 'dark']) {
-        raiz.dataset.paleta = paleta; raiz.dataset.theme = tema; raiz.dataset.estilo = 'plano';
+    for (const paleta of nombres) {
+      for (const tema of ['claro', 'oscuro']) {
+        t.aplicarApariencia({ paleta, tema, estilo: 'plano' });
         const c3 = razon(tok('--tinta-3'), tok('--papel'));
         const c2 = razon(tok('--tinta-2'), tok('--papel'));
+        const cd = razon(tok('--on-gold'), tok('--gold'));
         if (c3 < salida.peorTinta) { salida.peorTinta = c3; salida.donde = `${paleta}/${tema}`; }
+        if (cd < salida.dorado) { salida.dorado = cd; salida.dondeDorado = `${paleta}/${tema}`; }
         salida.peorTinta2 = Math.min(salida.peorTinta2, c2);
-        salida.dorado = Math.min(salida.dorado, razon(tok('--on-gold'), tok('--gold')));
         salida.aviso = Math.min(salida.aviso, razon(tok('--inverse-on-surface'), tok('--inverse-surface')));
       }
     }
-    Object.assign(raiz.dataset, { estilo: antes.estilo || 'plano', paleta: antes.paleta || 'cem' });
-    if (antes.tema) raiz.dataset.theme = antes.tema; else delete raiz.dataset.theme;
+    t.aplicarApariencia(antes);
     return salida;
   });
   a.comprobar(contraste.peorTinta >= 4.5,
-    `La tinta más tenue se lee en las seis paletas y los dos temas (peor: ${contraste.peorTinta} en ${contraste.donde})`);
+    `La tinta más tenue se lee en las ${contraste.paletas} paletas y los dos temas (peor: ${
+      contraste.peorTinta} en ${contraste.donde})`);
   a.comprobar(contraste.peorTinta2 >= 4.5,
     `Y la de las explicaciones también (peor: ${contraste.peorTinta2})`);
   a.comprobar(contraste.dorado >= 4.5,
-    `Lo que se escribe sobre el dorado se lee de día y de noche (${contraste.dorado})`);
+    `Lo que se escribe sobre el dorado se lee de día y de noche (${contraste.dorado} en ${
+      contraste.dondeDorado})`);
   a.comprobar(contraste.aviso >= 4.5,
     `Y el aviso flotante, que lleva la letra al revés que el resto (${contraste.aviso})`);
 

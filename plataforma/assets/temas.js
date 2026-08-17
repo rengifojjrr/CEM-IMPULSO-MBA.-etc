@@ -47,6 +47,67 @@ export const PALETAS = {
     },
   },
 
+  /* La del manual de marca, tal cual. Los ocho pares del manual —fuerte y
+     claro— son un arcoíris a propósito: es una escuela con mascota y con birrete
+     de colores, y el manual los enseña juntos.
+     De los ocho, dos hacen de cromo: el azul #506EFF, que es el de la chaqueta
+     de CEMI, y el verde #6ED333, que es el que abre la paleta. Los otros seis no
+     se tiran: son las series de los gráficos, así que un tablero de esta
+     plataforma sale con los colores de la marca y no con seis azules calculados.
+
+     Ni #FFEA50 ni #52F7F2 pueden ser cromo por mucho que estén en el manual: un
+     amarillo o un cian de ese brillo con texto blanco encima no se lee, y con
+     texto negro tampoco del todo. Están donde se ven bien, que es rellenando una
+     barra, no rodeando una letra. */
+  cemMarca: {
+    nombre: 'CEM · manual de marca',
+    resumen: 'Los colores oficiales del manual, con Montserrat. Es la de la empresa.',
+    muestra: ['#506EFF', '#6ED333', '#F7468E'],
+    fuente: 'Montserrat',
+    dia: {
+      '--fondo': '#f6f7fb', '--papel': '#ffffff', '--hueco': '#eceef7',
+      '--tinta': '#14172b', '--tinta-2': '#535a77', '--tinta-3': '#666d85',
+      '--filete': '#dfe3f2', '--filete-fuerte': '#c3c9e4',
+      // El azul del manual es luminoso; para texto sobre blanco se oscurece lo
+      // justo para que se lea, y el de la marca se guarda para los rellenos.
+      '--primary': '#3450e8', '--primary-suave': '#e6eaff', '--on-primary': '#ffffff',
+      '--secondary': '#3f8f1c', '--secondary-container': '#e6f7dc',
+      /* Los colores con significado —bien, ojo, mal, credencial— también son de
+         la marca en esta paleta. Es la única que los toca: dejar el verde
+         bosque y el dorado marrón de la casa junto al azul del manual se ve
+         exactamente como lo que sería, dos identidades en la misma pantalla.
+         Van oscurecidos respecto al manual porque aquí hacen de TEXTO sobre
+         claro, y el naranja o el verde del manual a ese tamaño no se leen. */
+      '--ok': '#2f6f13', '--ok-suave': '#e9f8e0',
+      '--warn': '#9a6207', '--warn-suave': '#fdf0da',
+      '--error': '#c62828', '--error-suave': '#fde8e8',
+      '--gold': '#9a6207', '--gold-suave': '#fdf0da', '--on-gold': '#ffffff',
+      /* Las series de los gráficos, sin retocar. Son seis y el manual trae ocho
+         pares: quedan fuera el rojo #FF4545, que en esta plataforma significa
+         «error» y no puede significar además «tercer trimestre», y el amarillo
+         #FFEA50, que en una barra de tres píxeles sobre fondo claro desaparece. */
+      '--serie-1': '#506EFF', '--serie-2': '#6ED333', '--serie-3': '#F7468E',
+      '--serie-4': '#FCAE47', '--serie-5': '#C74EF9', '--serie-6': '#52F7F2',
+    },
+    noche: {
+      '--fondo': '#101223', '--papel': '#181b2f', '--hueco': '#20243d',
+      '--tinta': '#e9ebf7', '--tinta-2': '#a3aac9', '--tinta-3': '#8a91b0',
+      '--filete': '#272c47', '--filete-fuerte': '#3a4165',
+      '--primary': '#7E90FF', '--primary-suave': '#1c2140', '--on-primary': '#0c1130',
+      '--secondary': '#99E672', '--secondary-container': '#16290d',
+      /* De noche se invierte el problema: sobre fondo oscuro los que se leen son
+         los claros del manual, y son justo los que el manual da como pareja. */
+      '--ok': '#99E672', '--ok-suave': '#16290d',
+      '--warn': '#FECC77', '--warn-suave': '#33260f',
+      '--error': '#FF7C7A', '--error-suave': '#331a1a',
+      '--gold': '#FCAE47', '--gold-suave': '#33260f', '--on-gold': '#2a1c05',
+      // De noche mandan los claros de cada par del manual, que es para lo que
+      // están: los fuertes sobre fondo oscuro vibran.
+      '--serie-1': '#7E90FF', '--serie-2': '#99E672', '--serie-3': '#FF7BAC',
+      '--serie-4': '#FECC77', '--serie-5': '#DE7FFF', '--serie-6': '#9FFFFA',
+    },
+  },
+
   indigo: {
     nombre: 'Índigo y mandarina',
     resumen: 'Institucional pero despierta. La mandarina aparece poco y se ve.',
@@ -260,9 +321,32 @@ function hojaDe(clave) {
   const p = PALETAS[clave];
   if (!p) return '';
   const sel = `:root[data-paleta="${clave}"]`;
-  return `${sel}{${declaraciones(p.dia)}}
+  /* Si la paleta trae tipografía —la del manual de marca la trae—, se declara
+     junto a los colores: una identidad son las dos cosas, y separarlas dejaría
+     los colores de la empresa con la letra de otra. */
+  const conLetra = (tokens) => p.fuente
+    ? { ...tokens, '--texto': `'${p.fuente}',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif` }
+    : tokens;
+  return `${sel}{${declaraciones(conLetra(p.dia))}}
 @media (prefers-color-scheme:dark){${sel}:not([data-theme="light"]){${declaraciones(p.noche)}}}
 ${sel}[data-theme="dark"]{${declaraciones(p.noche)}}`;
+}
+
+/* La tipografía se pide sólo si alguien elige una paleta que la use. Cargarla en
+   las 58 pantallas por si acaso serían 58 descargas de una letra que casi nadie
+   va a ver, y tocar los 58 archivos cada vez que se añada una paleta.
+   `display=swap`: primero se lee con la letra del sistema y luego cambia. Con
+   `block` la página se quedaría en blanco esperando a Google. */
+function pedirLaLetra(familia) {
+  const id = 'cemLetraPaleta';
+  const puesto = document.getElementById(id);
+  if (!familia) { if (puesto) puesto.remove(); return; }
+  const href = `https://fonts.googleapis.com/css2?family=${
+    encodeURIComponent(familia).replace(/%20/g, '+')}:wght@400;500;600;700&display=swap`;
+  if (puesto) { if (puesto.href !== href) puesto.href = href; return; }
+  const link = document.createElement('link');
+  link.id = id; link.rel = 'stylesheet'; link.href = href;
+  document.head.appendChild(link);
 }
 
 /**
@@ -290,6 +374,7 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidri
   // La de la casa ya está escrita en styles.css: no hace falta repetirla.
   hoja.textContent = clave === PALETA_POR_DEFECTO ? '' : hojaDe(clave);
   raiz.dataset.paleta = clave;
+  pedirLaLetra(PALETAS[clave]?.fuente);
 
   const t = temaActual();
   if (t === 'auto') delete raiz.dataset.theme;
