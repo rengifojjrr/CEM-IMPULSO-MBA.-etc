@@ -637,6 +637,40 @@
 
       <p>Complementan el circuito <b>Soporte</b>, con tickets priorizados y conversación por caso,
         y <b>Comunicaciones</b>, para anuncios dirigidos a una cohorte o a todos.</p>
+
+      <h3>Envío de correo</h3>
+      <p>La plataforma <b>nunca manda un correo en el momento</b>: lo deja en una cola y un reloj la
+        vacía cada minuto. Así el aviso de dentro de la plataforma —la campana— le llega a la persona
+        aunque el correo falle, y nada se pierde por el camino. Quien envía es la propia base de datos:
+        no hay ninguna pieza intermedia que se pueda quedar apagada.</p>
+
+      <div class="note">
+        <div class="h">Los dos correos que no hay que confundir</div>
+        <p>Son dos sistemas distintos y se configuran en sitios distintos. El de <b>confirmar la cuenta
+          y recuperar la contraseña</b> lo manda Supabase por su cuenta, y se configura en su panel.
+          El de <b>«tu pago fue aprobado», las cuotas que vencen y los certificados</b> lo manda la
+          plataforma, y se configura en <b>Operación → Envío de correo</b>. Arreglar uno no arregla el
+          otro: si el primero está mal, nadie puede crear una cuenta; si el segundo está mal, las
+          cuentas funcionan pero nadie se entera de nada.</p>
+      </div>
+
+      <p>En <b>Operación → Envío de correo</b> se ve si está saliendo, cuántos esperan, cuántos
+        fallaron y por qué —agrupado por motivo, porque veinte mensajes con el mismo error son
+        <i>un</i> problema y no veinte—. Ahí mismo se pega la clave del proveedor, sin escribir SQL.
+        La clave entra pero no sale: la pantalla enseña los cuatro últimos caracteres para que puedas
+        reconocerla, y guardarla o quitarla queda registrado en la auditoría.</p>
+
+      <p>Dos detalles que evitan un disgusto el primer día. El botón de <b>mandar una prueba</b> es la
+        única forma de descubrir que el dominio no está verificado en el proveedor: una clave correcta
+        con un dominio sin verificar deja pasar la configuración y rechaza cada envío. Y la pantalla
+        <b>avisa de cuántos mensajes de la cola van a rebotar</b> porque su dirección es de las cuentas
+        de demostración, con un botón para tirarlos: un lote de rebotes en el primer envío es la forma
+        más rápida de que un proveedor te marque como spam y te limite la cuenta.</p>
+
+      <p>Mientras no haya proveedor configurado, la plataforma lo <b>dice</b> en vez de fingir: la
+        campana avisa de que los avisos por correo están en pausa y que esa lista es la única forma de
+        enterarse. Es la diferencia entre que alguien no reciba un correo y que además crea que su pago
+        no se aprobó.</p>
     </section>
 
     <!-- 9 -->

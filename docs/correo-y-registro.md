@@ -150,3 +150,27 @@ a enviarlo y nadie entienda por qué.
 3. Probar de verdad un registro nuevo, con un correo real, y pulsar el enlace.
    Es la única forma de saber que la lista quedó bien: cuando falla, falla en
    silencio.
+
+---
+
+## No confundir estos dos correos
+
+Hay **dos sistemas de correo** distintos y se configuran en sitios distintos.
+Confundirlos hace perder una tarde, porque arreglar uno no arregla el otro:
+
+| | El correo de esta página | El correo de la plataforma |
+|---|---|---|
+| **Qué manda** | Confirmar la cuenta, recuperar la contraseña | «Tu pago fue aprobado», cuotas que vencen, certificado emitido |
+| **Quién lo manda** | Supabase Auth, por su cuenta | La base de datos, con `pg_net`, desde `cem_correo_cola` |
+| **Dónde se configura** | Panel de Supabase → Authentication (Site URL, Redirect URLs, y el proveedor SMTP de Auth) | En la plataforma: **Operación → Envío de correo** |
+| **Si está mal** | Nadie puede crear una cuenta ni recobrar su clave | Las cuentas funcionan, pero nadie se entera de nada |
+
+El segundo estuvo parado del 14 al 17 de agosto con 345 mensajes dentro. Lo que
+faltaba no era código: no había ningún reloj llamando a la función que vacía la
+cola. Ahora lo hay, cada minuto, y sin proveedor configurado sale sin tocar la
+red. El detalle está en `docs/experiencia-del-estudiante.md`, sección 1.
+
+**Los dos necesitan el dominio verificado en el proveedor.** Si vas a contratar
+Resend para la plataforma, aprovecha y apunta también el SMTP de Auth al mismo
+dominio: así los dos correos salen de la misma dirección y no hay uno que caiga
+en spam y otro no.

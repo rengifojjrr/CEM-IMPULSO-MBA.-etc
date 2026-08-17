@@ -31,6 +31,13 @@ de ellas es la que parece más tonta: *que alguien que no ha entrado vea cursos*
 
 ## 1 · CRÍTICO · Nadie recibe ningún correo
 
+> **Estado: resuelto todo menos la parte que es tuya.** El reloj ya existe y
+> vacía la cola cada minuto, los duplicados ya no pueden acumularse, y la
+> plataforma ya dice cuándo el correo está en pausa en vez de fingir que lo
+> manda. Lo único que falta es contratar el proveedor y pegar la clave, que se
+> hace desde **Operación → Envío de correo** sin tocar SQL. Al final de esta
+> sección está el detalle de qué se hizo.
+
 Hay **323 correos en la cola sin enviar**, el más viejo del 14 de agosto. Entre
 ellos:
 
@@ -75,6 +82,85 @@ escrito y funcionando y **no sale de la base de datos**.
 > Mientras no haya proveedor, conviene decirlo en la pantalla de soporte: «los
 > avisos por correo están en pausa, revisa la campana». Hoy la plataforma se
 > comporta como si los mandara.
+
+### Qué se hizo
+
+**El reloj, que era lo que faltaba.** No hay Edge Function en el camino: la base
+de datos habla con el proveedor directamente, con `pg_net`. Se hizo así porque
+para que `pg_cron` llamara a una Edge Function la base tendría que guardar la
+clave de servicio, y ésa no puede vivir en el repositorio. La clave del
+proveedor, en cambio, ya vivía en la base. Un motor menos que se pueda apagar
+solo.
+
+Son dos pasos porque `pg_net` es asíncrono —`http_post` devuelve un número de
+petición y la respuesta aparece después—, así que hay un estado `enviando` entre
+medias. Sin él, un mensaje se volvería a mandar antes de saber si el primero
+llegó:
+
+| Cada minuto | Qué hace |
+|---|---|
+| `cem_correo_empujar(25)` | entrega la tanda al proveedor y anota el número de petición |
+| `cem_correo_recoger()` | lee lo que contestó y cierra cada mensaje: enviado, a reintentar, o fallido |
+
+Sin proveedor configurado, `empujar` sale en la primera línea sin tocar la red:
+no cuesta nada tener el reloj encendido.
+
+**Los duplicados, que eran peor que el silencio.** De los 345 mensajes que había
+al empezar, **252 eran el mismo mensaje repetido**: 63 copias idénticas de
+«Solicitud de congelamiento por resolver» a tres direcciones del equipo, y 63 de
+«Tu solicitud fue rechazada» a una sola persona. Las dejó una prueba que se corrió
+63 veces, pero eso es el síntoma: la causa es que nada impedía encolar dos veces
+lo mismo. **Si se enchufaba el proveedor con la cola así, esa persona recibía 63
+rechazos iguales.** Ahora cada mensaje lleva una huella (`para` + `asunto` +
+`cuerpo`) con un índice único *mientras espera*, así que el mismo texto no puede
+acumularse sin enviar — pero sí puede volver a mandarse una vez salió, que es lo
+correcto: «tu cuota vence» el mes que viene dice lo mismo. La cola bajó de 345 a
+97 sin perder ni un mensaje distinto.
+
+**Reintentos con espera creciente.** Antes eran cuatro intentos seguidos: una
+caída de diez minutos del proveedor se comía los cuatro en cuatro minutos y el
+mensaje quedaba fallido para siempre por algo que ya se había arreglado. Ahora la
+espera crece —1, 4, 16 y 64 minutos— y se distingue lo que no se arregla
+insistiendo (un 4xx: dirección inválida, clave mala, remitente sin verificar) de
+lo que sí (un 5xx o un tiempo agotado). Y un mensaje que se queda en `enviando`
+más de media hora vuelve solo a la cola, porque `pg_net` limpia sus respuestas a
+las pocas horas y sin ese rescate se quedaría colgado para siempre.
+
+**Un sitio donde pegar la clave.** La única forma de activar el correo era un
+`INSERT` a mano. Eso convertía «contratar un proveedor» en una tarea de
+programador, y por eso llevaba tres días sin hacerse. Ahora hay pantalla:
+**Operación → Envío de correo**. La clave entra pero no sale — la pantalla enseña
+`••••` y los cuatro últimos caracteres, nada más — y guardarla o quitarla queda
+en la auditoría, porque quien puede cambiar el remitente puede mandar correo en
+nombre de la escuela. Además tiene un «mandar una prueba», que es la única forma
+de descubrir que el dominio no está verificado: una clave correcta con un dominio
+sin verificar deja pasar la configuración y rechaza cada envío.
+
+**La plataforma ya no finge.** La campana avisa: «los avisos por correo están en
+pausa, así que esta lista es la única forma de enterarte; nada se pierde». Es lo
+que hizo que quien esperaba el correo de «tu pago fue aprobado» creyera durante
+tres días que su pago no se había aprobado.
+
+**Y un aviso antes de conectar, no después.** De los mensajes que esperan, 97 van
+a cuentas de demostración (`@cem.demo`): direcciones que no existen. El día que
+se conecte el proveedor saldrían todos de golpe y rebotarían todos de golpe, y un
+lote de rebotes en el primer envío es la forma más rápida de que un proveedor te
+marque como spam y te limite la cuenta. La pantalla lo cuenta aparte, marca esas
+filas con «no existe» y ofrece tirarlas sin tocar las de direcciones reales.
+
+### Lo que falta, que es tuyo
+
+1. **Abrir cuenta en Resend** y verificar el dominio de la escuela. Sin dominio
+   verificado no se puede mandar desde `@tudominio.com`.
+2. **Entrar en Operación → Envío de correo**, pulsar «Tirar esos 97» y pegar la
+   clave y el remitente.
+3. **Mandar la prueba a tu propio correo** desde esa misma pantalla. Si llega,
+   está hecho: la cola se vacía sola en el siguiente minuto.
+
+Comprobado con 29 comprobaciones en `pruebas/casos/correo.mjs`: que el duplicado
+rebota, que la clave no se puede leer ni por la función interna ni pidiendo la
+tabla, que un estudiante no toca nada de esto pero sí puede saber que el correo
+está en pausa, y que la campana lo dice.
 
 ---
 

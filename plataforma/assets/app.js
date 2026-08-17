@@ -924,6 +924,7 @@ const ADMIN_NAV = [
   { lbl: 'Operación', items: [
     ['leads.html', 'contact_phone', 'Contactos de la web'],
     ['comunicaciones.html', 'mail', 'Comunicaciones'],
+    ['correo.html', 'outgoing_mail', 'Envío de correo'],
     ['soporte.html', 'support_agent', 'Soporte'],
   ]},
   { lbl: 'Gobierno', items: [
@@ -1540,6 +1541,14 @@ async function montarCampana() {
   if (!btn) return;
 
   let avisos = [];
+  /* Si no hay proveedor de correo, los avisos de aquí son los ÚNICOS que la
+     persona va a recibir, y hay que decirlo. Callarlo es lo que hizo que quien
+     esperaba el correo de «tu pago fue aprobado» creyera durante días que su
+     pago no se había aprobado. Se pregunta una vez por carga: cambia cuando
+     alguien conecta un proveedor, no cada dos minutos. */
+  let enPausa = false;
+  sb.rpc('cem_correo_en_pausa').then(({ data }) => { enPausa = data === true; });
+
   async function refrescar() {
     const { data, error } = await sb.rpc('cem_mis_notificaciones', { p_limite: 20 });
     if (error) return;
@@ -1551,9 +1560,14 @@ async function montarCampana() {
 
   btn.onclick = async () => {
     await refrescar();
+    const pausa = enPausa
+      ? `<p class="nota warn" id="cemCorreoPausa">Los avisos por correo están en pausa,
+           así que <b>esta lista es la única forma de enterarte</b>. Nada se pierde: los
+           mensajes quedan guardados y saldrán en cuanto el correo vuelva a funcionar.</p>`
+      : '';
     const dlg = modal({
       title: 'Avisos',
-      body: avisos.length
+      body: pausa + (avisos.length
         ? `<div class="avisos">${avisos.map(a => `
             <${a.url ? 'a' : 'div'} class="aviso ${a.leida_en ? '' : 'nuevo'}"
               ${a.url ? `href="${base()}${esc(a.url)}"` : ''}>
@@ -1561,7 +1575,7 @@ async function montarCampana() {
               ${a.cuerpo ? `<span>${esc(a.cuerpo)}</span>` : ''}
               <em>${fdatetime(a.created_at)}</em>
             </${a.url ? 'a' : 'div'}>`).join('')}</div>`
-        : '<div class="empty">No tienes avisos por ahora.</div>',
+        : '<div class="empty">No tienes avisos por ahora.</div>'),
       footer: avisos.some(a => !a.leida_en)
         ? '<button class="btn outline" data-x>Cerrar</button><button class="btn" data-leidas>Marcar todo como leído</button>'
         : '<button class="btn outline block" data-x>Cerrar</button>',
@@ -1579,10 +1593,9 @@ async function montarCampana() {
   setInterval(refrescar, 120000);
 }
 
-/* Las páginas públicas ya no viven todas en la misma carpeta: el inicio y el
-   «quiénes somos» están en la raíz de la plataforma y el catálogo cuelga de
-   estudiante/. Con los enlaces escritos a mano, el mismo encabezado llevaba a
-   404 desde la mitad de las pantallas. Se calcula de dónde se está mirando. */
+/* El encabezado público lo usan pantallas de la raíz de la plataforma y también
+   de estudiante/. Con los enlaces escritos a mano, el mismo encabezado llevaba a
+   404 desde la mitad de ellas. Se calcula de dónde se está mirando. */
 const enSubcarpeta = () => /\/(estudiante|admin|docente)\//.test(location.pathname);
 export const raizPublica = () => (enSubcarpeta() ? '../' : './');
 

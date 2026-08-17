@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Envío de correo</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-20">
+<style>
+  .pista-clave{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--filete);}
+  .motivo-fallo{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    word-break:break-word;line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Envío de correo</h1>
+      <p>La plataforma nunca manda un correo en el momento: lo deja en una cola y un reloj
+         la vacía cada minuto. Así el aviso de dentro de la plataforma le llega a la persona
+         aunque el correo falle, y nada se pierde por el camino. Aquí se ve si está saliendo.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnVaciar"><span class="material-symbols-outlined">send</span> Vaciar la cola ahora</button>
+      <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined">refresh</span> Refrescar</button>
+    </div>
+  </div>
+
+  <div id="aviso"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2 class="sec">El proveedor de correo</h2>
+      <div id="estado"><span class="cargando"></span></div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Probar que llega</h2>
+      <p class="tiny muted">Manda un mensaje real a una dirección tuya. Es la única forma de saber
+        que el remitente está verificado en el proveedor: una clave correcta con un dominio sin
+        verificar deja pasar la configuración y rechaza cada envío.</p>
+      <form id="formPrueba" class="stack">
+        <div class="field"><label for="pPara">Enviar una prueba a</label>
+          <input type="email" id="pPara" placeholder="tucorreo@ejemplo.com" autocomplete="email"></div>
+        <button class="btn" type="submit"><span class="material-symbols-outlined">outgoing_mail</span> Mandar la prueba</button>
+      </form>
+      <div id="msgPrueba"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Lo que no salió</h2>
+      <div class="row">
+        <button class="btn outline sm hidden" id="btnReintentar">
+          <span class="material-symbols-outlined">replay</span> Devolver los fallidos a la cola</button>
+        <button class="btn ghost sm hidden" id="btnDescartar">
+          <span class="material-symbols-outlined">delete_sweep</span> Descartarlos</button>
+      </div></div>
+    <div id="fallos"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Los que llevan más tiempo esperando</h2>
+    <p class="tiny muted" id="cuenta"></p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Para</th><th>Asunto</th><th>Esperando desde</th><th>Intentos</th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, esc, num, fdatetime, fdesde, kpi, chip, toast, ok, fail,
+         avisar, mensajeError, confirmDialog, contarFilas } from '../assets/app.js?v=2026-08-20';
+await mount({ roles:['admin','superadmin'] });
+
+let E = null;
+
+async function cargar(){
+  const { data, error } = await sb.rpc('cem_correo_estado');
+  if (error) { $('#estado').innerHTML = `<p class="muted tiny">${esc(mensajeError(error))}</p>`; return; }
+  E = data || {};
+  pintar();
+}
+
+function cifra(k){ return Number(E.cifras?.[k] || 0); }
+
+function pintar(){
+  const pendientes = cifra('pendiente'), enviando = cifra('enviando'),
+        fallidos = cifra('fallido'), enviados = cifra('enviado');
+
+  /* El aviso de arriba dice la única cosa que hay que saber al entrar. Si los
+     avisos están en pausa hay que decirlo con todas las letras: durante tres
+     días la plataforma se comportó como si los mandara. */
+  /* Antes de conectar hay que avisar de esto, no después: un lote de rebotes en
+     el primer envío es la forma más rápida de que el proveedor te marque como
+     spam y te limite la cuenta. Las direcciones de demostración no existen. */
+  const rebotes = Number(E.rebotaran || 0);
+  const avisoRebotes = rebotes
+    ? `<div class="nota warn"><b>${num(rebotes)} de los que esperan van a rebotar.</b>
+        Su dirección es de las cuentas de demostración, así que no existe. Si conectas el
+        proveedor con esto dentro, salen todos de golpe y rebotan todos de golpe — y un lote
+        de rebotes en el primer envío es la forma más rápida de que te limiten la cuenta.
+        <button class="btn ghost sm" id="btnTirarMentira" style="margin-top:8px">
+          <span class="material-symbols-outlined">delete_sweep</span>
+          Tirar esos ${num(rebotes)}</button></div>`
+    : '';
+
+  $('#aviso').innerHTML = avisoRebotes + (E.configurado
+    ? (E.reloj_activo ? '' : `<div class="nota err"><b>El reloj está parado.</b>
+        Hay proveedor configurado pero nadie está vaciando la cola. Pulsa «Vaciar la cola ahora»
+        para sacar lo que espera, y avisa de esto: el reloj debería estar siempre encendido.</div>`)
+    : `<div class="nota warn"><b>Los avisos por correo están en pausa.</b>
+        No hay proveedor de correo configurado, así que ${pendientes
+          ? `los <b>${num(pendientes)}</b> mensajes que esperan no van a salir`
+          : 'nada de lo que se genere va a salir'}. No se pierde nada: en cuanto
+        pegues la clave aquí abajo, la cola se vacía sola. Mientras tanto, cada persona
+        sí está viendo su aviso dentro de la plataforma, en la campana.</div>`);
+
+  $('#kpis').innerHTML = [
+    kpi('Esperando', num(pendientes), 'schedule',
+      E.mas_viejo ? `el más viejo, ${fdesde(E.mas_viejo)}` : 'la cola está limpia',
+      pendientes > 200 ? 'down' : '',
+      'Mensajes generados que todavía no han salido. Con proveedor conectado esto baja a cero en minutos; sin proveedor, sube.'),
+    kpi('Camino al proveedor', num(enviando), 'outgoing_mail',
+      enviando ? 'contestando en menos de un minuto' : 'nada en tránsito', '',
+      'Ya se entregaron al proveedor y se está esperando su respuesta. Es un estado de paso: si algo se queda aquí más de media hora, vuelve solo a la cola.'),
+    kpi('Salieron en 24 h', num(E.enviados_24h || 0), 'mark_email_read',
+      `${num(enviados)} en total`, E.enviados_24h ? 'up' : '',
+      'Confirmados por el proveedor en el último día.'),
+    kpi('No salieron', num(fallidos), 'unsubscribe',
+      fallidos ? 'hay que mirarlo' : 'ninguno', fallidos ? 'down' : '',
+      'Se agotaron los intentos, o el proveedor los rechazó por algo que no se arregla insistiendo: una dirección inválida, la clave, el remitente sin verificar.'),
+  ].join('');
+
+  $('#estado').innerHTML = `
+    <div class="stack">
+      <div class="list-item"><div class="grow">
+        <div class="t">Estado</div>
+        <div class="s">${E.configurado
+          ? 'Conectado. Los correos salen por Resend.'
+          : 'En pausa. Los correos se acumulan sin enviarse.'}</div></div>
+        ${chip(E.configurado ? 'Conectado' : 'En pausa', E.configurado ? 'ok' : 'warn')}</div>
+      <div class="list-item"><div class="grow">
+        <div class="t">El reloj que vacía la cola</div>
+        <div class="s">Cada minuto, dentro de la propia base de datos.</div></div>
+        ${chip(E.reloj_activo ? 'Encendido' : 'Parado', E.reloj_activo ? 'ok' : 'err')}</div>
+      ${E.configurado ? `
+      <div class="list-item"><div class="grow">
+        <div class="t">Remitente</div>
+        <div class="s">${esc(E.remitente || '—')}</div></div></div>
+      <div class="list-item"><div class="grow">
+        <div class="t">Clave</div>
+        <div class="s">Guardada sólo del lado del servidor. Ni esta pantalla la puede leer.</div></div>
+        <span class="pista-clave">${esc(E.clave_pista || '—')}</span></div>` : ''}
+    </div>
+
+    <details class="filtros-plegables sep-mucho" ${E.configurado ? '' : 'open'}>
+      <summary><span class="material-symbols-outlined">key</span>
+        ${E.configurado ? 'Cambiar el proveedor o el remitente' : 'Conectar un proveedor de correo'}</summary>
+      <p class="tiny muted">Hace falta una cuenta en <b>Resend</b> con el dominio de la escuela
+        verificado. La clave es la que empieza por <code>re_</code>. Se guarda cifrada del lado del
+        servidor: ni el navegador ni el repositorio la ven nunca, y esta pantalla sólo enseña los
+        cuatro últimos caracteres para que puedas reconocerla.</p>
+      <form id="formProv" class="stack">
+        <div class="field"><label for="cProv">Proveedor</label>
+          <select id="cProv"><option value="resend">Resend</option></select></div>
+        <div class="field"><label for="cRemit">Remitente</label>
+          <input type="text" id="cRemit" placeholder="CEM &lt;no-responder@tudominio.com&gt;"
+            value="${esc(E.remitente || '')}">
+          <span class="pista">Tiene que ser una dirección de un dominio verificado en Resend.</span></div>
+        <div class="field"><label for="cClave">Clave del proveedor</label>
+          <input type="password" id="cClave" autocomplete="off"
+            placeholder="${E.configurado ? 'déjala vacía para conservar la de ahora' : 're_...'}">
+        </div>
+        <div class="row">
+          <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+          ${E.configurado ? `<button class="btn ghost" type="button" id="btnQuitar">
+            <span class="material-symbols-outlined">link_off</span> Desconectar</button>` : ''}
+        </div>
+      </form>
+      <div id="msgProv"></div>
+    </details>`;
+
+  const fallos = E.fallos || [];
+  $('#btnReintentar').classList.toggle('hidden', !fallos.length);
+  $('#btnDescartar').classList.toggle('hidden', !fallos.length);
+  $('#fallos').innerHTML = fallos.length
+    ? `<p class="tiny muted">Agrupado por motivo: veinte mensajes con el mismo error son
+         <i>un</i> problema, no veinte.</p>` + fallos.map((f) => `
+      <div class="list-item"><div class="grow">
+        <div class="motivo-fallo">${esc(f.motivo || 'sin motivo registrado')}</div></div>
+        ${chip(`${num(f.cuantos)} mensaje${f.cuantos === 1 ? '' : 's'}`, 'err')}</div>`).join('')
+    : '<p class="muted tiny">Ninguno. Todo lo que se intentó, salió.</p>';
+
+  const espera = E.proximos || [];
+  $('#tb').innerHTML = espera.length ? espera.map((p) => `<tr>
+      <td data-col="Para">${esc(p.para)}
+        ${p.de_mentira ? '<span class="chip warn">no existe</span>' : ''}</td>
+      <td data-col="Asunto">${esc(p.asunto)}</td>
+      <td data-col="Esperando desde">${fdatetime(p.espera_desde)}
+        <span class="tiny muted">· ${esc(fdesde(p.espera_desde))}</span></td>
+      <td data-col="Intentos">${p.intentos ? num(p.intentos) : '—'}</td></tr>`).join('')
+    : `<tr><td colspan="4" class="muted tiny" style="text-align:center;padding:22px">
+        No hay nada esperando. La cola está vacía.</td></tr>`;
+  contarFilas('#cuenta', espera.length, cifra('pendiente'), 10);
+}
+
+/* ── los botones ───────────────────────────────────────────────────────── */
+$('#btnRefrescar').onclick = () => cargar();
+
+$('#btnVaciar').onclick = async () => {
+  const { data: r, error } = await sb.rpc('cem_correo_vaciar_ahora', { p_tanda: 25 });
+  if (error) return fail(mensajeError(error, 'No se pudo empujar la cola.'));
+  if (r.en_pausa) fail(r.motivo || 'Los avisos por correo están en pausa.');
+  else if (!r.puestos) ok('No había nada esperando: la cola está vacía.');
+  else ok(`${r.puestos} mensaje(s) camino al proveedor. El resultado aparece en menos de un minuto.`);
+  cargar();
+};
+
+$('#btnReintentar').onclick = async () => {
+  if (!await confirmDialog(
+    'Los mensajes que fallaron vuelven a la cola y se intentan otra vez. Si el motivo del fallo '
+    + 'sigue ahí —una dirección inválida, el remitente sin verificar— volverán a fallar.',
+    'Reintentar lo que no salió')) return;
+  const { data: r, error } = await sb.rpc('cem_correo_reintentar');
+  if (error) return fail(mensajeError(error, 'No se pudo reintentar.'));
+  ok(`${r.devueltos_a_la_cola} mensaje(s) de vuelta en la cola.`);
+  cargar();
+};
+
+$('#btnDescartar').onclick = async () => {
+  if (!await confirmDialog(
+    'Los mensajes que fallaron se borran y no se vuelven a intentar. Es lo que se hace cuando '
+    + 'el motivo del fallo no tiene arreglo —direcciones que ya no existen— o cuando el aviso '
+    + 'ya no viene a cuento porque pasó el momento. Queda registrado en la auditoría.',
+    'Descartar lo que no salió')) return;
+  const { data: r, error } = await sb.rpc('cem_correo_descartar', { p_estado: 'fallido' });
+  if (error) return fail(mensajeError(error, 'No se pudo descartar.'));
+  ok(`${r.descartados} mensaje(s) descartado(s).`);
+  cargar();
+};
+
+/* Los dos formularios se repintan junto con la tarjeta, así que se escuchan
+   desde arriba en vez de reengancharlos en cada pintada. */
+document.addEventListener('submit', async (ev) => {
+  if (ev.target.id === 'formPrueba') {
+    ev.preventDefault();
+    const para = $('#pPara').value.trim();
+    if (!para) return avisar('#msgPrueba', 'Escribe una dirección a la que mandar la prueba.');
+    const { data: r, error } = await sb.rpc('cem_correo_prueba', { p_para: para });
+    if (error) return avisar('#msgPrueba', mensajeError(error, 'No se pudo mandar la prueba.'));
+    avisar('#msgPrueba', r.mensaje, r.en_pausa ? 'warn' : 'ok');
+    cargar();
+  }
+  if (ev.target.id === 'formProv') {
+    ev.preventDefault();
+    const remit = $('#cRemit').value.trim(), clave = $('#cClave').value;
+    if (!remit) return avisar('#msgProv', 'Falta el remitente: la dirección desde la que se manda.');
+    if (!clave && !E.configurado) return avisar('#msgProv',
+      'Falta la clave del proveedor. Es la que empieza por re_ en el panel de Resend.');
+    const { data: r, error } = await sb.rpc('cem_correo_proveedor_guardar',
+      { p_proveedor: $('#cProv').value, p_remitente: remit, p_api_key: clave || null });
+    if (error) return avisar('#msgProv', mensajeError(error, 'No se pudo guardar la configuración.'));
+    E = r; pintar();
+    ok('Guardado. La cola empieza a salir en menos de un minuto.');
+  }
+});
+
+document.addEventListener('click', async (ev) => {
+  if (ev.target.closest('#btnTirarMentira')) {
+    if (!await confirmDialog(
+      'Se borran los mensajes que van a direcciones de demostración, que no existen. Los que van '
+      + 'a direcciones reales se quedan. Es lo que hay que hacer antes de conectar el proveedor.',
+      'Tirar los que van a rebotar')) return;
+    const { data: r, error } = await sb.rpc('cem_correo_tirar_los_de_mentira');
+    if (error) return fail(mensajeError(error, 'No se pudieron descartar.'));
+    ok(`${r.descartados} mensaje(s) descartado(s). Los de direcciones reales siguen en la cola.`);
+    return cargar();
+  }
+  if (!ev.target.closest('#btnQuitar')) return;
+  if (!await confirmDialog(
+    'Los avisos por correo vuelven a quedar en pausa. Lo que esté en la cola no se pierde, '
+    + 'pero no saldrá hasta que vuelvas a conectar un proveedor.', 'Desconectar el correo')) return;
+  const { data: r, error } = await sb.rpc('cem_correo_proveedor_quitar');
+  if (error) return fail(mensajeError(error, 'No se pudo desconectar.'));
+  E = r; pintar();
+  toast('Correo desconectado. Los avisos quedan en pausa.');
+});
+
+cargar();
+</script>
+</body>
+</html>
