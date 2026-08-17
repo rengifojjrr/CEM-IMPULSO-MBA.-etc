@@ -1801,6 +1801,47 @@ tr.grupo-banco .tiny{margin-left:var(--e1);}
   .grid.dos-columnas{grid-template-columns:minmax(0,1fr);}
 }
 
+/* ── 8 · panel de datos ───────────────────────────────────────────────────
+   El aspecto de un panel que se mira de noche y durante horas: la caja apenas
+   se separa del fondo —un tono más clara y un filete de un píxel— y todo el
+   peso visual se lo lleva la cifra. El rótulo se convierte en una etiqueta
+   pequeña en versalitas, encima; la cifra crece y toma el color de lo que está
+   diciendo.
+
+   No difumina, así que aguanta una tabla de cientos de filas sin coste.
+
+   Va al final del bloque de estilos a propósito: sus reglas de `.kpi` tienen
+   que ganarle a las genéricas, y aquí lo hacen por orden de cascada sin tener
+   que inflar la especificidad. */
+:root[data-estilo="panel"]{
+  --r-caja:calc(var(--r) * 1.3);
+  --caja-fondo:var(--papel);
+  --caja-filtro:none;
+  --caja-sombra:inset 0 0 0 1px var(--filete);
+}
+/* El rótulo, en versalitas y separado: deja de competir con la cifra. */
+:root[data-estilo="panel"] .kpi .k-top{
+  font-size:11px;letter-spacing:.11em;text-transform:uppercase;
+  font-weight:var(--peso-fuerte);color:var(--tinta-3);
+}
+:root[data-estilo="panel"] .kpi .k-val{
+  font-size:calc(var(--t-xl) * 1.12);letter-spacing:-.03em;
+}
+/* Y la cifra toma el color de lo que dice. El estado va en el subtítulo
+   —«250,00 € vencido»— así que se lee desde ahí con :has(): la cifra sola no
+   sabe si es una buena noticia. */
+:root[data-estilo="panel"] .kpi:has(.k-sub.up:not(.cero)) .k-val{color:var(--ok);}
+:root[data-estilo="panel"] .kpi:has(.k-sub.down:not(.cero)) .k-val{color:var(--error);}
+:root[data-estilo="panel"] .kpi.entra .k-val{color:var(--ok);}
+:root[data-estilo="panel"] .kpi.debe .k-val{color:var(--error);}
+:root[data-estilo="panel"] .kpi.warn .k-val{color:var(--warn);}
+/* El cero sigue siendo gris: es la buena noticia y no necesita color. */
+:root[data-estilo="panel"] .kpi .k-val.vacio{color:var(--tinta-3);}
+/* Los títulos de sección, con la misma voz de etiqueta. */
+:root[data-estilo="panel"] .card > .sec:first-child{
+  font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--tinta-3);
+}
+
 /* ═══════════════════════ GRÁFICOS ═════════════════════════════════════════
    Ni un color escrito aquí que no venga de un token. Los tokens los pone la
    paleta que cada quien eligió en Configuración, así que los gráficos cambian

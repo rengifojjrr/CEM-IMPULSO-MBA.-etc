@@ -201,12 +201,23 @@ export default async function correr(navegador) {
      en assets/apariencia.js y puede pintarse dos veces en la misma página —en
      Configuración y en la ventana que abre cualquier usuario desde el menú—.
      Dos elementos con el mismo id habrían roto esto de forma silenciosa. */
-  a.comprobar((await P.locator('[data-ap="estilos"] .estilo').count()) === 7,
-    `Y siete estilos de recuadro (${await P.locator('[data-ap="estilos"] .estilo').count()})`);
-  a.comprobar((await P.locator('[data-ap="formas"] .forma').count()) === 3,
-    'Tres formas de esquina');
-  a.comprobar((await P.locator('[data-ap="densidades"] [data-densidad]').count()) === 3,
-    'Y tres densidades');
+  /* Los números salen del catálogo y no escritos a mano: cada vez que se añadía
+     un estilo había que venir a subir el número, y el día que alguien no lo
+     hacía la prueba se ponía roja por una función nueva que estaba bien. Lo que
+     importa es que el panel ofrezca TODO lo que hay, no que haya siete. */
+  const cuantos = await P.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js');
+    return { paletas: Object.keys(t.PALETAS).length, estilos: Object.keys(t.ESTILOS).length,
+             formas: Object.keys(t.FORMAS).length, densidades: Object.keys(t.DENSIDADES).length };
+  });
+  a.comprobar((await P.locator('[data-ap="estilos"] .estilo').count()) === cuantos.estilos,
+    `Ofrece los ${cuantos.estilos} estilos de recuadro que hay, no unos cuantos`);
+  a.comprobar((await P.locator('.pal').count()) === cuantos.paletas,
+    `Y las ${cuantos.paletas} paletas`);
+  a.comprobar((await P.locator('[data-ap="formas"] .forma').count()) === cuantos.formas,
+    `Las ${cuantos.formas} formas de esquina`);
+  a.comprobar((await P.locator('[data-ap="densidades"] [data-densidad]').count()) === cuantos.densidades,
+    `Y las ${cuantos.densidades} densidades`);
 
   /* ============ la paleta del manual de marca ============
      Entre las paletas está la de la empresa, y sus colores son los del manual y

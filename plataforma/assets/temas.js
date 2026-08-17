@@ -26,6 +26,28 @@
    día», «pendiente» y «vencida» significan lo mismo en todas las paletas, así
    que no son decoración y no cambian. El dorado tampoco: es de las
    credenciales. */
+/* El juego de tokens del panel nocturno. Se declara aparte porque `dia` y
+   `noche` apuntan al MISMO objeto: esta paleta no tiene versión clara, y
+   escribirlo dos veces sería invitar a que un día se desincronicen. */
+const NOCTURNO = {
+  '--luz': "radial-gradient(1300px 820px at 82% -12%, rgba(155,92,255,.30), transparent 62%)," +
+    "radial-gradient(1100px 800px at -10% 8%, rgba(62,123,255,.24), transparent 64%)," +
+    "radial-gradient(950px 720px at 14% 116%, rgba(255,69,166,.20), transparent 62%)," +
+    "radial-gradient(880px 660px at 104% 92%, rgba(0,224,209,.16), transparent 62%)",
+  '--fondo': '#08080e', '--papel': '#12121b', '--hueco': '#1b1b27',
+  '--tinta': '#f0f1f6', '--tinta-2': '#9ea3b8', '--tinta-3': '#7c8196',
+  '--filete': '#22222f', '--filete-fuerte': '#33334455',
+  '--primary': '#6E9DFF', '--primary-suave': '#161a2c', '--on-primary': '#050a18',
+  '--secondary': '#00E0D1', '--secondary-container': '#0a2422',
+  '--ok': '#7EFF72', '--ok-suave': '#0f2411',
+  '--warn': '#FFB55C', '--warn-suave': '#2a1d0b',
+  '--error': '#FF7FB8', '--error-suave': '#2b1220',
+  '--gold': '#C4A0FF', '--gold-suave': '#1e1533', '--on-gold': '#140828',
+  '--serie-1': '#6E9DFF', '--serie-2': '#7EFF72', '--serie-3': '#FF6EB8',
+  '--serie-4': '#FFA33D', '--serie-5': '#B98BFF', '--serie-6': '#3DEBDE',
+  '--serie-7': '#FFE45E', '--serie-8': '#E9ECEF',
+};
+
 export const PALETAS = {
   cem: {
     nombre: 'CEM institucional',
@@ -135,6 +157,29 @@ export const PALETAS = {
       '--serie-4': '#FFA33D', '--serie-5': '#B98BFF', '--serie-6': '#3DEBDE',
       '--serie-7': '#FFE45E', '--serie-8': '#E9ECEF',
     },
+  },
+
+
+  /* Panel nocturno: fondo negro, resplandores de color y cifras de colores.
+     ======================================================================
+     Es el aspecto de los paneles de datos que se miran de noche y durante
+     horas: negro casi puro, unas luces de color muy grandes y muy diluidas en
+     las esquinas, tarjetas que son apenas un tono más claras que el fondo con
+     un filete de un píxel, y el color reservado para las CIFRAS.
+
+     Es la única paleta que NO tiene modo claro. No es un descuido: el sentido
+     de este aspecto es el fondo oscuro, y una versión clara sería otra paleta
+     distinta con el mismo nombre. Los dos juegos son iguales a propósito, así
+     que quien la elige la ve igual de día y de noche.
+
+     Los colores de las series siguen siendo los del board — esto es un traje,
+     no otra marca. */
+  nocturno: {
+    nombre: 'Panel nocturno',
+    resumen: 'Negro con resplandores y cifras de colores. Para mirar datos de noche, sin modo claro.',
+    muestra: ['#0B0B12', '#6E9DFF', '#00E0D1'],
+    dia: NOCTURNO,
+    noche: NOCTURNO,
   },
 
   indigo: {
@@ -285,6 +330,14 @@ export const ESTILOS = {
     nombre: 'Halo',
     resumen: 'Sin marco: un resplandor de la paleta se escapa por detrás.',
     desenfoque: true,
+  },
+  /* El aspecto de panel de datos: la tarjeta apenas se separa del fondo y el
+     rótulo se vuelve una etiqueta en versalitas. Lo que llama la atención es la
+     cifra, no la caja. No difumina, así que aguanta una tabla larga. */
+  panel: {
+    nombre: 'Panel de datos',
+    resumen: 'Caja casi invisible, rótulo en versalitas y la cifra grande y de color.',
+    desenfoque: false,
   },
   tintado: {
     nombre: 'Vidrio tintado',
