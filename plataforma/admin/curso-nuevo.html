@@ -15,10 +15,10 @@
   .steps button{flex:0 0 auto;display:flex;align-items:center;gap:8px;background:var(--surface-lowest);
     border:1px solid var(--filete);border-radius:var(--r);padding:7px 14px;font-size:var(--t-xs);font-weight:600;
     color:var(--tinta-2);}
-  .steps button.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .steps button.on{background:var(--primary);color:var(--on-primary);border-color:var(--primary);}
   .steps button .n{width:20px;height:20px;border-radius:var(--r-full);background:var(--hueco);color:var(--tinta-2);
     display:inline-flex;align-items:center;justify-content:center;font-size:var(--t-xs);}
-  .steps button.on .n{background:rgba(255,255,255,.25);color:#fff;}
+  .steps button.on .n{background:color-mix(in srgb, var(--on-primary) 25%, transparent);color:var(--on-primary);}
   .step{display:none;} .step.on{display:block;}
   .imagen-preview{margin-top:8px;width:160px;height:90px;border-radius:var(--radius-sm);object-fit:cover;
     border:1px solid var(--filete);display:none;}

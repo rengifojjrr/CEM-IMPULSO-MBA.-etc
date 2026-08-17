@@ -25,16 +25,17 @@
     font-weight:var(--peso-fuerte);}
   .opt input{accent-color:var(--primary);width:20px;height:20px;flex:none;}
   .timer{font-variant-numeric:tabular-nums;font-weight:var(--peso-fuerte);}
-  /* La barra de arriba se queda pegada porque el tiempo y el botón de entregar
-     tienen que estar siempre a la vista, aunque el examen tenga cuarenta
-     preguntas. */
-  .barra-examen{position:sticky;top:70px;z-index:20;}
+  /* Se queda pegada porque el tiempo y el botón de entregar tienen que estar
+     siempre a la vista, aunque el examen tenga cuarenta preguntas. La clase
+     `pegajosa` es la que le pone el fondo opaco: sin él, las preguntas se
+     leerían a través de la barra al desplazar. */
+  .barra-examen{top:70px;}
   @media (max-width:900px){ .barra-examen{top:60px;} }
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
-  <div class="card barra-examen">
+  <div class="card pegajosa barra-examen">
     <div class="row between">
       <div class="crece"><h1 id="tit" style="margin:0;font-size:var(--t-md)"></h1>
         <p class="tiny muted" style="margin:3px 0 0">Tus respuestas se guardan solas. Sólo cuentan al pulsar «Entregar».</p>

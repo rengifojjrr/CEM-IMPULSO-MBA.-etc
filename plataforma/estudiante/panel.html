@@ -15,7 +15,7 @@
 <div id="page" class="hidden">
   <div class="page-head"><div><h1 id="saludo">Hola</h1><p>Este es el resumen de tu actividad académica.</p></div></div>
 
-  <div class="card" id="proxima" style="background:linear-gradient(120deg,#00122b,#1f3a5f);color:#fff;border:none"></div>
+  <div class="card" id="proxima" style="background:linear-gradient(120deg,color-mix(in oklab, var(--primary) 88%, #000),color-mix(in oklab, var(--primary) 62%, var(--secondary)));color:var(--on-primary);border:none"></div>
 
   <div class="kpis" id="kpis"></div>
 
@@ -91,8 +91,23 @@ async function init(){
     </div>` : `<div class="row" style="gap:12px"><span class="material-symbols-outlined">event_available</span>
       <div>No tienes clases programadas próximamente.</div></div>`;
 
+  /* Un número del 0 al 100 estable a partir del nombre: el mismo curso saca
+     siempre la misma tapa, y dos cursos distintos casi nunca la misma. Sirve
+     sólo cuando no hay foto. */
+  const mezcla = (txt) => {
+    let h = 0;
+    for (const c of String(txt)) h = (h * 31 + c.charCodeAt(0)) % 1000;
+    return 20 + (h % 65);
+  };
   $('#cursos').innerHTML = (ens||[]).length ? ens.map(e=>`
-    <div class="card sin-margen">
+    <div class="card con-portada sin-margen">
+      ${e.cem_courses?.imagen_url
+        ? `<img class="portada" src="${esc(e.cem_courses.imagen_url)}" alt=""
+             loading="lazy" onerror="this.remove()">`
+        : `<div class="portada portada-vacia" aria-hidden="true"
+             style="--mezcla:${mezcla(e.cem_courses?.nombre||'')}"
+             >${esc((e.cem_courses?.nombre||'?').trim()[0].toUpperCase())}</div>`}
+      <div class="dentro">
       <div class="row between" style="align-items:flex-start">
         <div class="crece">
           <span class="chip teal">${esc(etiqueta(e.cem_courses?.modalidad||''))}</span>
@@ -107,6 +122,7 @@ async function init(){
       <div class="row sep">
         <a class="btn sm" href="clase.html?curso=${e.cem_courses?.id}">Continuar</a>
         <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>
+      </div>
       </div>
     </div>`).join('') : `<div class="card sin-margen">${vacio({ icono:'school', titulo:'Todavía no estás inscrito en ningún programa',
         texto:'Cuando te inscribas, aquí verás tu avance y por dónde ibas.',

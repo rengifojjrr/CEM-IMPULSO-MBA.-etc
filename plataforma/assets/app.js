@@ -1379,6 +1379,9 @@ function renderShell(p, area, active) {
                 title="Ensanchar o estrechar el menú">
           <span class="material-symbols-outlined">chevron_left</span><span>Estrechar</span></button>
         <div class="who"><b>${esc(p.nombre)} ${esc(p.apellido || '')}</b>${esc(etiqueta(p.rol))}</div>
+        <button class="btn ghost sm block" id="cemApariencia"
+                title="Colores, estilo de los recuadros, claro u oscuro">
+          <span class="material-symbols-outlined">palette</span> <span>Apariencia</span></button>
         <button class="btn outline sm block" id="cemLogout">
           <span class="material-symbols-outlined">logout</span> <span>Cerrar sesión</span></button>
       </div>
@@ -1417,6 +1420,27 @@ function renderShell(p, area, active) {
     const abiertos = $$('.nav-group.abierto', shell).map(g => g.dataset.grupo);
     try { localStorage.setItem('cemNavAbiertos', JSON.stringify(abiertos)); } catch {}
   }));
+
+  /* La apariencia es de quien mira, no de la institución: se guarda en este
+
+     navegador. Por eso el botón está en el pie del menú, al lado del nombre
+
+     de la persona, y no dentro de Configuración —que sólo ve el administrador.
+
+     El módulo se carga al pulsar y no al arrancar: son doce paletas y siete
+
+     estilos que la mayoría de las visitas no va a abrir. */
+
+  const btnAp = $('#cemApariencia');
+
+  if (btnAp) btnAp.onclick = async () => {
+
+    const m = await import('./apariencia.js?v=2026-08-20');
+
+    m.abrirApariencia();
+
+  };
+
 
   const sidebar = $('#cemSidebar');
   $('#cemMenu').onclick = () => {

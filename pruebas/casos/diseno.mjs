@@ -197,17 +197,21 @@ export default async function correr(navegador) {
   a.comprobar((await P.locator('.pal').count()) >= 5,
     `Configuración ofrece varias paletas para elegir (${await P.locator('.pal').count()})`);
 
-  a.comprobar((await P.locator('#estilos .estilo').count()) === 7,
-    `Y siete estilos de recuadro (${await P.locator('#estilos .estilo').count()})`);
-  a.comprobar((await P.locator('#formas .forma').count()) === 3,
+  /* Los selectores son `data-ap` y no ids porque el panel de apariencia vive
+     en assets/apariencia.js y puede pintarse dos veces en la misma página —en
+     Configuración y en la ventana que abre cualquier usuario desde el menú—.
+     Dos elementos con el mismo id habrían roto esto de forma silenciosa. */
+  a.comprobar((await P.locator('[data-ap="estilos"] .estilo').count()) === 7,
+    `Y siete estilos de recuadro (${await P.locator('[data-ap="estilos"] .estilo').count()})`);
+  a.comprobar((await P.locator('[data-ap="formas"] .forma').count()) === 3,
     'Tres formas de esquina');
-  a.comprobar((await P.locator('#densidades [data-densidad]').count()) === 3,
+  a.comprobar((await P.locator('[data-ap="densidades"] [data-densidad]').count()) === 3,
     'Y tres densidades');
 
   await P.click('[data-paleta="violeta"]');
-  await P.click('#estilos [data-estilo="bisel"]');
-  await P.click('#formas [data-forma="redonda"]');
-  await P.click('#densidades [data-densidad="compacta"]');
+  await P.click('[data-ap="estilos"] [data-estilo="bisel"]');
+  await P.click('[data-ap="formas"] [data-forma="redonda"]');
+  await P.click('[data-ap="densidades"] [data-densidad="compacta"]');
   await P.waitForTimeout(700);
   const elegido = await P.evaluate(() => ({
     paleta: document.documentElement.dataset.paleta,
@@ -230,13 +234,13 @@ export default async function correr(navegador) {
 
   // Un estilo «ligero» no puede llevar desenfoque en las tarjetas: es
   // exactamente lo que promete el rótulo junto a su nombre.
-  await P.click('#estilos [data-estilo="canto"]');
+  await P.click('[data-ap="estilos"] [data-estilo="canto"]');
   await P.waitForTimeout(500);
   const ligero = await P.evaluate(() =>
     getComputedStyle(document.querySelector('.card')).backdropFilter);
   a.comprobar(ligero === 'none',
     `«Canto tallado» dice que es ligero y no desenfoca las tarjetas (${ligero})`);
-  await P.click('#estilos [data-estilo="bisel"]');
+  await P.click('[data-ap="estilos"] [data-estilo="bisel"]');
   await P.waitForTimeout(400);
 
   // La elección tiene que seguir puesta en la pantalla siguiente.
@@ -316,8 +320,8 @@ export default async function correr(navegador) {
      pone rojo sin que nadie haya tocado nada. */
   // La comprobación de que la elección persiste nos dejó en el tablero.
   await P.goto(`${BASE}/plataforma/admin/configuracion.html`, { waitUntil: 'domcontentloaded' });
-  await P.waitForSelector('#btnFabrica', { timeout: 25000 });
-  await P.click('#btnFabrica');
+  await P.waitForSelector('[data-ap="fabrica"]', { timeout: 25000 });
+  await P.click('[data-ap="fabrica"]');
   await P.waitForTimeout(800);
   const fabrica = await P.evaluate(() => ({
     estilo: document.documentElement.dataset.estilo,

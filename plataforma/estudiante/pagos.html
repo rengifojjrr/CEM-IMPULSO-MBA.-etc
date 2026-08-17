@@ -320,7 +320,7 @@ async function imprimirEstadoDeCuenta(enrollmentId){
 
     <h2>Programa</h2>
     <div><b>${esc(d.programa.nombre)}</b>
-      <div style="font-size:12px;color:#7A756B">
+      <div style="font-size:12px;color:var(--tinta-3)">
         ${esc(d.programa.codigo || '')} · inscrito desde el ${esc(d.programa.desde)} ·
         situación: ${esc(d.programa.estado_inscripcion)}</div></div>
 
@@ -338,8 +338,8 @@ async function imprimirEstadoDeCuenta(enrollmentId){
       ${d.pagos.map(x => `<tr><td>${esc(x.fecha)}</td><td>${esc(x.referencia || '—')}</td>
         <td>${esc(x.metodo || '—')}</td>
         <td class="num">${money(x.monto, x.moneda)}${x.moneda !== MONEDA_BASE && x.monto_base
-          ? `<div style="font-size:11px;color:#7A756B">= ${money(x.monto_base)}</div>` : ''}</td></tr>`).join('')}
-      </tbody></table>` : '<p style="color:#7A756B">Todavía no hay pagos registrados.</p>'}
+          ? `<div style="font-size:11px;color:var(--tinta-3)">= ${money(x.monto_base)}</div>` : ''}</td></tr>`).join('')}
+      </tbody></table>` : '<p style="color:var(--tinta-3)">Todavía no hay pagos registrados.</p>'}
 
     <h2>Resumen</h2>
     <div class="tot"><span>Precio de lista</span><span>${n(d.totales.precio_lista)}</span></div>
@@ -370,7 +370,7 @@ async function descargarRecibo(paymentId){
 
     <h2>Recibimos de</h2>
     <div><b>${esc(r.estudiante)}</b>
-      <div style="font-size:12px;color:#7A756B">
+      <div style="font-size:12px;color:var(--tinta-3)">
         ${r.documento ? esc(r.documento) + ' · ' : ''}${esc(r.email)}</div></div>
 
     <h2>Concepto</h2>
@@ -388,7 +388,7 @@ async function descargarRecibo(paymentId){
       <span>Monto recibido</span>
       <span>${money(r.monto, r.moneda)}</span></div>
     ${r.moneda !== 'USD' && r.monto_base
-      ? `<div class="tot" style="color:#7A756B"><span>Equivalente</span>
+      ? `<div class="tot" style="color:var(--tinta-3)"><span>Equivalente</span>
            <span>${money(r.monto_base)}</span></div>` : ''}
 
     <div class="pie">

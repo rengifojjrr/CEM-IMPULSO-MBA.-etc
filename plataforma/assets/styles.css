@@ -147,7 +147,14 @@
 }
 
 *{box-sizing:border-box;}
-html,body{overflow-x:hidden;}
+/* `clip` y no `hidden`. Los dos recortan lo que se sale de lado, pero
+   `hidden` convierte el elemento en un CONTENEDOR DE DESPLAZAMIENTO, y a
+   partir de ahí `position:sticky` se resuelve contra el body —que nunca se
+   desplaza por dentro— en vez de contra la ventana. Resultado: ninguna barra
+   pegajosa de contenido se pegaba. Se veía en la evaluación, donde el tiempo
+   y el botón de entregar se iban con el desplazamiento justo cuando más falta
+   hacían. `clip` recorta igual y no crea ese contenedor. */
+html,body{overflow-x:clip;}
 body{
   margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--texto);
   font-size:var(--t-sm);line-height:1.55;-webkit-font-smoothing:antialiased;
@@ -1868,3 +1875,81 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
    partirse en tres líneas. */
 @container (min-width:460px){ .gr-fila{grid-template-columns:minmax(150px,1.3fr) minmax(0,2fr) auto;} }
 .card{container-type:inline-size;}
+
+/* ── LO QUE SE QUEDA PEGADO TIENE QUE TAPAR ────────────────────────────────
+   Una barra pegajosa se queda quieta mientras el resto se desplaza POR DEBAJO
+   de ella. Si es translúcida, lo de debajo se lee a través: dos textos en el
+   mismo sitio, que es lo que se veía en la evaluación —el aviso «esta
+   evaluación no tiene preguntas» asomando por dentro de la barra del examen.
+
+   No es un problema de márgenes: por mucho aire que se ponga, al desplazar
+   vuelven a encontrarse. Lo que hace falta es que la barra sea opaca.
+
+   La barra superior, la lateral y la de abajo son la excepción y por eso no
+   están aquí: llevan `backdrop-filter`, que desenfoca lo de detrás hasta
+   volverlo textura. Ahí la transparencia es el efecto, no un descuido. */
+/* La especificidad importa aquí más que en ningún otro sitio. La regla del
+   vidrio es `:root:not([data-estilo="plano"]) .card` —(0,3,0)— y le pone
+   `position:relative` a toda tarjeta. Un `.pegajosa` a secas —(0,1,0)— pierde,
+   así que la barra dejaba de ser pegajosa en cuanto se elegía cualquier estilo
+   que no fuera el plano… pero el `top:70px` sobrevivía, y sobre un elemento
+   relativo eso lo empuja 70 px hacia abajo SIN reservarle el hueco: se
+   plantaba encima de la primera pregunta. Ése era el solapamiento, y por eso
+   no se arreglaba con márgenes: no era un problema de aire. */
+:root .card.pegajosa,
+:root .pegajosa{position:sticky;z-index:20;}
+:root:not([data-estilo="plano"]) .card.pegajosa,
+:root:not([data-estilo="plano"]) .pegajosa > .card{
+  background:var(--papel);
+  -webkit-backdrop-filter:var(--desenfoque);
+  backdrop-filter:var(--desenfoque);
+}
+/* El encabezado de una tabla larga es el mismo caso: se queda arriba mientras
+   las filas pasan por debajo. Estaba al 90 % de opacidad, así que cada fila
+   se veía como un fantasma cruzando los títulos de las columnas. */
+:root:not([data-estilo="plano"]) thead th{
+  background:var(--papel);
+  -webkit-backdrop-filter:var(--desenfoque);
+  backdrop-filter:var(--desenfoque);
+}
+
+/* ── el panel de apariencia ────────────────────────────────────────────────
+   Vivía dentro de la hoja de Configuración. Al poder abrirse desde el pie del
+   menú en cualquier pantalla, sus estilos tienen que estar donde están todos. */
+.sub-ap{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
+  margin:var(--e3) 0 var(--e1);}
+.paletas{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:var(--e1);}
+/* La muestra es el argumento: el nombre se lee después de haber visto el color. */
+.pal{display:flex;align-items:center;gap:var(--e2);padding:var(--e1) var(--e2);
+  border:1px solid var(--filete);border-radius:var(--r);background:var(--papel);
+  cursor:pointer;text-align:left;min-height:56px;
+  transition:border-color var(--rapido),background var(--rapido);}
+.pal:hover{border-color:var(--filete-fuerte);}
+.pal[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-suave);}
+.pal .tiras{display:flex;flex:none;border-radius:var(--r-full);overflow:hidden;
+  box-shadow:0 0 0 1px var(--filete);}
+.pal .tiras i{width:15px;height:26px;display:block;}
+.pal .nom{font-size:var(--t-sm);font-weight:var(--peso-fuerte);line-height:1.25;}
+.pal .des{font-size:var(--t-xs);color:var(--tinta-2);line-height:1.35;}
+.ap-panel .sub-ap:first-child{margin-top:0;}
+
+/* ── la portada de un curso ────────────────────────────────────────────────
+   Una lista de programas sin imágenes es una lista de párrafos: todos se
+   parecen y hay que leerlos para distinguirlos. Con la portada se reconoce el
+   suyo de un vistazo, que es lo único que hace un estudiante en esta pantalla.
+
+   Y cuando un curso todavía no tiene foto no se deja un rectángulo gris: se
+   pinta una tapa con su inicial, sacada de la paleta de quien mira. Un hueco
+   gris parece un error de carga; una tapa con letra parece una decisión. */
+.portada{display:block;width:100%;height:132px;object-fit:cover;
+  background:var(--hueco);border-radius:var(--r) var(--r) 0 0;}
+.portada-vacia{display:flex;align-items:center;justify-content:center;
+  font-family:var(--titulo, inherit);font-size:38px;font-weight:var(--peso-fuerte);
+  color:var(--on-primary);letter-spacing:-.03em;
+  background:linear-gradient(135deg,
+    color-mix(in oklab, var(--primary) calc(var(--mezcla, 50) * 1%), var(--secondary)),
+    color-mix(in oklab, var(--primary) 85%, #000));}
+/* La tarjeta con portada pega la imagen a los bordes: el padding va dentro. */
+.card.con-portada{padding:0;overflow:hidden;}
+.card.con-portada > .dentro{padding:var(--e3);}
+@media (max-width:720px){ .portada{height:112px;} }
