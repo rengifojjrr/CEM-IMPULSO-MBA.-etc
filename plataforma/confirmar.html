@@ -140,7 +140,7 @@ async function haySesion(intentos = 12) {
     const destino = await entrar();
     acciones.classList.remove('hidden');
     acciones.innerHTML = `<a class="btn" href="${esc(destino)}">Entrar ahora</a>
-      <a class="btn outline" href="estudiante/catalogo.html">Ver los programas</a>`;
+      <a class="btn outline" href="catalogo.html">Ver los programas</a>`;
     setTimeout(() => { location.href = destino; }, 1800);
     return;
   }

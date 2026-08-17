@@ -256,9 +256,22 @@
         </table>
       </div>
 
-      <p>Hay dos páginas que funcionan <b>sin sesión iniciada</b>: el catálogo público de programas
-        (con su ficha de detalle) y el verificador de certificados. Cualquiera con el código de un
-        certificado puede comprobar su validez sin tener cuenta.</p>
+      <p>Hay una <b>web pública</b> que funciona sin sesión iniciada, y funciona entera: la portada
+        (<code>inicio.html</code>), quiénes somos, el <b>catálogo de programas</b>
+        (<code>catalogo.html</code>) con su ficha de detalle (<code>curso.html</code>), el verificador
+        de certificados, el perfil público de un graduado y la pantalla de confirmación de cuenta.
+        Cualquiera con el código de un certificado puede comprobar su validez sin tener cuenta, y
+        cualquiera puede ver el temario y el precio de un programa antes de registrarse.</p>
+
+      <div class="note">
+        <div class="h">Por qué el catálogo vive en la raíz</div>
+        <p>El catálogo y la ficha del programa colgaban de <code>estudiante/</code>. Es una dirección
+          que dice «esto es para alumnos» de las dos páginas que existen precisamente para quien
+          <i>todavía no lo es</i>, y así lo leían tanto las personas como Google. Se mudaron a
+          <code>plataforma/catalogo.html</code> y <code>plataforma/curso.html</code>. Las direcciones
+          viejas siguen funcionando como reenvío, porque están en enlaces que ya se mandaron, y se
+          llevan consigo lo que fuera pegado detrás (la búsqueda, el id del curso).</p>
+      </div>
 
       <div class="note">
         <div class="h">Qué pasa si alguien entra donde no debe</div>

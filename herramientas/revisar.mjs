@@ -200,6 +200,12 @@ const PUBLICAS = new Set([
   // autorizó, y lo filtra el servidor en `cem_perfil_publico`, no el navegador.
   'plataforma/perfil-publico.html',
   'plataforma/manual.html',       // documentación
+  // El catálogo y la ficha del programa: públicos, y en la raíz por eso mismo.
+  'plataforma/catalogo.html',
+  'plataforma/curso.html',
+  // Y los dos reenvíos que dejaron en su sitio viejo. No tienen script ninguno.
+  'plataforma/estudiante/catalogo.html',
+  'plataforma/estudiante/curso.html',
 ]);
 
 const sinControl = [];

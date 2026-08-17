@@ -24,14 +24,120 @@ export default async function correr(navegador) {
 
   /* ============ 1 · sin sesión se ven los cursos ============ */
   const P = await nuevaPestana(navegador, { ancho: 1300, alto: 900 });
-  await P.goto(`${BASE}/plataforma/estudiante/catalogo.html`, { waitUntil: 'domcontentloaded' });
+  await P.goto(`${BASE}/plataforma/catalogo.html`, { waitUntil: 'domcontentloaded' });
   await P.waitForTimeout(3500);
   const enCatalogo = await P.locator('.course-card').count();
   a.comprobar(enCatalogo > 0,
     `Quien no ha entrado ve el catálogo (${enCatalogo} programas). Si esto falla, la web no vende nada.`);
   a.comprobar(P.errores.length === 0,
     `Y sin errores: un 401 aquí deja la página muda ${JSON.stringify(P.errores.slice(0, 2))}`);
+
+  /* Los filtros y el buscador, también sin sesión: son la única forma de
+     encontrar algo cuando el catálogo crezca, y viven enteros en el navegador,
+     así que si se rompen no lo dice ningún error de red. */
+  const cuantosSalen = async () => P.locator('.course-card').count();
+  const categorias = await P.locator('#chips .chip-btn').count();
+  a.comprobar(categorias > 1, `Las categorías salen de los cursos que hay (${categorias - 1} más «Todas»)`);
+
+  await P.fill('#q', 'zzzznoexiste');
+  await P.waitForTimeout(400);
+  a.comprobar(await cuantosSalen() === 0
+    && (await P.locator('#lista').textContent()).includes('No se encontraron'),
+    'Buscar algo que no existe dice que no hay nada, no deja la rejilla en blanco');
+
+  await P.fill('#q', '');
+  await P.selectOption('#fNivel', 'basico');
+  await P.waitForTimeout(400);
+  const soloBasico = await cuantosSalen();
+  a.comprobar(soloBasico >= 0 && soloBasico <= enCatalogo,
+    `Filtrar por nivel quita cursos en vez de añadirlos (${soloBasico} de ${enCatalogo})`);
+  await P.click('#btnClear');
+  await P.waitForTimeout(400);
+  a.comprobar(await cuantosSalen() === enCatalogo,
+    'Y «Limpiar filtros» devuelve el catálogo entero');
+
+  /* La nota de los que ya lo hicieron. Puede no haber ninguna todavía —la
+     valoración pide un mínimo de respuestas antes de publicar una media—, así
+     que lo que se comprueba es que la función responda y que si hay nota, se
+     enseñe; no que exista un número concreto. */
+  const valoraciones = await P.evaluate(async () => {
+    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    const { data, error } = await m.sb.rpc('cem_valoracion_cursos', { p_minimo: 5 });
+    return { error: error?.message || null, cuantas: Object.keys(data || {}).length };
+  });
+  a.comprobar(!valoraciones.error,
+    `Quien no ha entrado puede pedir las valoraciones (${valoraciones.error || 'sin error'})`);
+  a.comprobar(await P.locator('.nota-curso').count() === valoraciones.cuantas
+    || (await P.locator('.nota-curso').count()) > 0,
+    `Y las que hay se enseñan en la tarjeta (${valoraciones.cuantas} curso(s) con nota publicable)`);
+
+  /* Ordenar por nota no puede tirar cursos de la lista: los que no tienen nota
+     van al final, no al limbo. */
+  await P.selectOption('#fOrd', 'valorados');
+  await P.waitForTimeout(400);
+  a.comprobar(await cuantosSalen() === enCatalogo,
+    'Ordenar por «Mejor valorados» reordena, no esconde los que aún no tienen nota');
+
+  /* Un curso de verdad, para probar con él la ficha y el reenvío. */
+  const unCurso = new URL(await P.locator('.course-card').first().getAttribute('href'),
+    `${BASE}/plataforma/`).searchParams.get('id');
   await P.close();
+
+  /* ============ 1b · la dirección vieja sigue llevando a su sitio ============ */
+  /* El catálogo colgaba de estudiante/, que decía «esto es para alumnos» de una
+     página que es un escaparate. Se mudó a la raíz, pero la dirección vieja está
+     en enlaces que ya se mandaron, así que tiene que seguir funcionando. */
+  for (const [vieja, nueva] of [
+    ['estudiante/catalogo.html', 'catalogo.html'],
+    /* Con id de verdad a propósito: la ficha sin id salta al catálogo por su
+       cuenta, y entonces la prueba mediría eso en vez del reenvío. */
+    [`estudiante/curso.html?id=${unCurso}`, 'curso.html'],
+  ]) {
+    const R = await nuevaPestana(navegador, { ancho: 1200, alto: 800 });
+    await R.goto(`${BASE}/plataforma/${vieja}`, { waitUntil: 'domcontentloaded' });
+    await R.waitForTimeout(3000);
+    a.comprobar(R.url().includes(`/plataforma/${nueva}`),
+      `La dirección vieja de ${nueva} reenvía a la nueva (${R.url().split('/plataforma/')[1]})`);
+    await R.close();
+  }
+  /* Y lo que iba pegado a la dirección viaja con ella: si alguien mandó el
+     enlace de una búsqueda, el reenvío no puede tirarla. */
+  const Q = await nuevaPestana(navegador, { ancho: 1200, alto: 800 });
+  await Q.goto(`${BASE}/plataforma/estudiante/catalogo.html?q=marketing`, { waitUntil: 'domcontentloaded' });
+  await Q.waitForTimeout(3000);
+  a.comprobar(await Q.inputValue('#q') === 'marketing',
+    'Con lo que se buscara ya escrito: el reenvío no pierde la consulta');
+  await Q.close();
+
+  /* ============ 1c · la ficha del programa, sin haber entrado ============ */
+  /* Es la página donde se decide comprar. Que exigiera sesión sería cerrar la
+     puerta justo delante de quien iba a pagar. */
+  const F = await nuevaPestana(navegador, { ancho: 1300, alto: 950 });
+  await F.goto(`${BASE}/plataforma/curso.html?id=${unCurso}`, { waitUntil: 'domcontentloaded' });
+  await F.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
+  await F.waitForTimeout(3000);
+  a.comprobar((await F.locator('#hero h1').textContent()).trim().length > 3,
+    `La ficha abre sin sesión: «${(await F.locator('#hero h1').textContent()).trim().slice(0, 42)}»`);
+  a.comprobar((await F.locator('#hero').textContent()).includes('€')
+    || /\d/.test(await F.locator('#hero').textContent()),
+    'Con el precio a la vista, que es lo que se viene a mirar');
+  a.comprobar(await F.locator('#hero a[href*="inscripcion.html"]').count() === 1,
+    'Y un botón para inscribirse que apunta a la inscripción, no a estudiante/curso.html');
+  a.comprobar(await F.locator('.mod-h').count() > 0,
+    `Se ve el temario antes de pagar (${await F.locator('.mod-h').count()} módulos)`);
+
+  /* Las tres pestañas: temario, profesor y certificación. Si una se queda en
+     blanco parece que la página se rompió. */
+  for (const [t, palabra] of [['profesor', 'Docente'], ['cert', 'certificado']]) {
+    await F.click(`#tabs button[data-t="${t}"]`);
+    await F.waitForTimeout(500);
+    const dentro = await F.locator('#panel').textContent();
+    a.comprobar(dentro.trim().length > 30,
+      `La pestaña «${t}» dice algo (${dentro.trim().length} caracteres)${
+        dentro.toLowerCase().includes(palabra.toLowerCase()) ? '' : ' — sin la palabra esperada'}`);
+  }
+  a.comprobar(F.errores.length === 0, `Sin errores ${JSON.stringify(F.errores.slice(0, 2))}`);
+  await F.close();
 
   /* ============ 2 · la portada ============ */
   const I = await nuevaPestana(navegador, { ancho: 1300, alto: 950 });
@@ -90,7 +196,7 @@ export default async function correr(navegador) {
   /* ============ 4 · el encabezado público lleva a algún sitio ============ */
   /* Estaba escrito a mano suponiendo que todas las páginas públicas vivían en
      estudiante/. Con el inicio en la raíz, la mitad de los enlaces daban 404. */
-  for (const desde of ['inicio.html', 'estudiante/catalogo.html']) {
+  for (const desde of ['inicio.html', 'catalogo.html', 'nosotros.html']) {
     const H = await nuevaPestana(navegador, { ancho: 1200, alto: 800 });
     await H.goto(`${BASE}/plataforma/${desde}`, { waitUntil: 'domcontentloaded' });
     await H.waitForTimeout(2500);

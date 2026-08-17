@@ -44,7 +44,7 @@
           <p class="entrada sin-margen">Programas con cupo abierto. Cada uno dice cuánto dura,
             cómo se da y cuánto cuesta antes de que tengas que registrarte.</p>
         </div>
-        <a class="btn outline" href="estudiante/catalogo.html">
+        <a class="btn outline" href="catalogo.html">
           Ver el catálogo completo <span class="material-symbols-outlined">arrow_forward</span></a>
       </div>
       <div class="grid g3 sep" id="destacados"></div>
@@ -150,7 +150,7 @@ await mount({ pub: true });
 $('#formBuscar').onsubmit = (e) => {
   e.preventDefault();
   const t = $('#q').value.trim();
-  location.href = 'estudiante/catalogo.html' + (t ? `?q=${encodeURIComponent(t)}` : '');
+  location.href = 'catalogo.html' + (t ? `?q=${encodeURIComponent(t)}` : '');
 };
 
 const { data: cursos, error: errCursos } = await sb.from('cem_courses')
@@ -166,7 +166,7 @@ const lista = cursos || [];
 const categorias = [...new Set(lista.map((c) => c.categoria).filter(Boolean))].slice(0, 6);
 $('#atajos').innerHTML = categorias.length
   ? `<span class="tiny muted" style="align-self:center">Populares:</span>` + categorias.map((c) =>
-      `<a class="chip chip-btn" href="estudiante/catalogo.html?q=${encodeURIComponent(c)}">${esc(c)}</a>`).join('')
+      `<a class="chip chip-btn" href="catalogo.html?q=${encodeURIComponent(c)}">${esc(c)}</a>`).join('')
   : '';
 
 /* Las cifras del manual de marca, y la de cursos sale de la base: poner «40
@@ -185,7 +185,7 @@ const mezcla = (txt) => {
 };
 
 $('#destacados').innerHTML = lista.slice(0, 6).map((c) => `
-  <a class="course-card" href="estudiante/curso.html?id=${esc(c.id)}">
+  <a class="course-card" href="curso.html?id=${esc(c.id)}">
     ${c.imagen_url
       ? `<img src="${esc(c.imagen_url)}" alt="" loading="lazy" onerror="this.remove()">`
       : `<div class="portada portada-vacia" aria-hidden="true"
@@ -208,7 +208,7 @@ $('#destacados').innerHTML = lista.slice(0, 6).map((c) => `
      consulta falló sería mentira, y encima una que hace que nadie avise. */
   || (errCursos
     ? `<p class="nota err">No pudimos cargar los programas ahora mismo.
-        <a href="estudiante/catalogo.html">Prueba en el catálogo</a> o vuelve en un rato.</p>`
+        <a href="catalogo.html">Prueba en el catálogo</a> o vuelve en un rato.</p>`
     : '<p class="muted">Estamos preparando los próximos programas.</p>');
 
 /* ============ el formulario de contacto ============ */

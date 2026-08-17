@@ -799,6 +799,15 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 /* El título de una tarjeta dentro del portal, con la misma voz. */
 .tit-tarjeta{margin:var(--e1) 0 var(--e0);font-size:var(--t-md);line-height:1.3;
   font-weight:var(--peso-fuerte);}
+/* La nota de un curso en el catálogo. El número va además de la estrella: una
+   fila de cinco estrellas obliga a contarlas para saber si son cuatro o cinco, y
+   «4,6» se lee de un golpe. La estrella se queda como señal de qué es. */
+.nota-curso{display:flex;align-items:baseline;gap:var(--e0);}
+.nota-curso .material-symbols-outlined{font-size:15px;color:var(--gold);
+  align-self:center;font-variation-settings:'FILL' 1;}
+.nota-curso b{font-family:var(--cifra);font-variant-numeric:tabular-nums;
+  font-size:var(--t-sm);}
+
 .price{font-size:var(--t-lg);font-weight:var(--peso-fuerte);color:var(--tinta);
   font-family:var(--cifra);font-variant-numeric:tabular-nums;}
 

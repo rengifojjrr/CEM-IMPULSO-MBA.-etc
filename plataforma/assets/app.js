@@ -1596,8 +1596,8 @@ function renderPublicHeader(p) {
       <span class="material-symbols-outlined">account_balance</span> CEM International</a>
     <nav>
       <a href="${r}inicio.html"${activa('inicio.html')}>Inicio</a>
-      <a href="${r}estudiante/catalogo.html"${activa('catalogo.html')}>Cursos</a>
-      <a href="${r}estudiante/catalogo.html?tipo=programa">Programas</a>
+      <a href="${r}catalogo.html"${activa('catalogo.html')}>Cursos</a>
+      <a href="${r}catalogo.html?tipo=programa">Programas</a>
       <a href="${r}nosotros.html"${activa('nosotros.html')}>Quiénes somos</a>
       <a href="${r}verificar.html"${activa('verificar.html')}>Verificar certificado</a>
     </nav>

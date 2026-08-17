@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Catálogo de cursos</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-20">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="pub-main">
+    <div style="text-align:center;margin-bottom:26px">
+      <h1 style="font-size:30px;margin:0 0 8px">¿Qué quieres aprender hoy?</h1>
+      <p class="muted sin-margen">Programas internacionales con certificación oficial de CEM.</p>
+      <div style="max-width:520px;margin:18px auto 0;position:relative">
+        <span class="material-symbols-outlined" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--on-surface-variant)">search</span>
+        <input type="search" id="q" placeholder="Buscar por nombre, categoría o tema…" style="padding-left:40px;border-radius:24px">
+      </div>
+    </div>
+
+    <div class="row" style="justify-content:center;margin-bottom:18px" id="chips"></div>
+
+    <div class="filters card" style="margin-bottom:18px">
+      <div class="field"><label>Modalidad</label><select id="fMod"><option value="">Todas</option>
+        <option value="online">Online</option><option value="en_vivo">En vivo</option>
+        <option value="presencial">Presencial</option><option value="hibrido">Híbrido</option></select></div>
+      <div class="field"><label>Nivel</label><select id="fNivel"><option value="">Todos</option>
+        <option value="basico">Básico</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option></select></div>
+      <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
+        <option value="masterclass">Masterclass</option><option value="curso">Curso</option>
+        <option value="programa">Programa</option><option value="diplomado">Diplomado</option><option value="maestria">Maestría</option></select></div>
+      <div class="field"><label>Ordenar</label><select id="fOrd">
+        <option value="destacado">Destacados primero</option><option value="precio_asc">Precio: menor a mayor</option>
+        <option value="precio_desc">Precio: mayor a menor</option>
+        <option value="valorados">Mejor valorados</option>
+        <option value="nombre">Nombre</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar filtros</button>
+    </div>
+
+    <p class="tiny muted" id="count"></p>
+    <div class="grid g3" id="lista"></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, money, match, qs, etiqueta } from './assets/app.js?v=2026-08-20';
+await mount({ pub:true });
+let rows=[], cat='';
+
+const [{ data }, { data: notas }] = await Promise.all([
+  sb.from('cem_courses').select('*').eq('estado','publicado').order('destacado',{ascending:false}),
+  /* Lo que opinan los que ya lo hicieron. Va aparte y no en el select porque la
+     valoración es por CLASE y anónima: la media por curso la agrega el servidor,
+     que además se guarda de publicar una nota sacada de dos respuestas. */
+  sb.rpc('cem_valoracion_cursos', { p_minimo: 5 }),
+]);
+rows = data||[];
+const VALORACION = notas || {};
+if (qs('tipo')) $('#fTipo').value = qs('tipo');
+if (qs('q')) $('#q').value = qs('q');
+
+const cats = [...new Set(rows.map(r=>r.categoria).filter(Boolean))];
+$('#chips').innerHTML = `<button class="chip chip-btn on" data-cat="">Todas</button>` +
+  cats.map(c=>`<button class="chip chip-btn" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+$$('[data-cat]').forEach(b=>b.onclick=()=>{ cat=b.dataset.cat;
+  $$('[data-cat]').forEach(x=>x.classList.toggle('on', x===b)); render(); });
+
+/* La nota, si hay suficientes respuestas para que signifique algo. Se escribe el
+   número además de la estrella: una fila de cinco estrellas obliga a contarlas, y
+   «4,6» se lee de un golpe. Y se dice de cuántas respuestas sale, porque un 4,6
+   de seis personas y uno de doscientas no son la misma información. */
+function estrellas(v){
+  if (!v || !v.nota) return '';
+  return `<div class="nota-curso" title="Media de claridad, utilidad y ritmo">
+    <span class="material-symbols-outlined" aria-hidden="true">star</span>
+    <b>${String(v.nota).replace('.', ',')}</b>
+    <span class="tiny muted">de ${v.respuestas} respuesta${v.respuestas === 1 ? '' : 's'}</span>
+  </div>`;
+}
+
+function render(){
+  const q=$('#q').value.trim(), m=$('#fMod').value, n=$('#fNivel').value, t=$('#fTipo').value, o=$('#fOrd').value;
+  let list = rows.filter(r=>match(r,q,['nombre','subtitulo','descripcion_corta','categoria'])
+    && (!m||r.modalidad===m) && (!n||r.nivel===n) && (!t||r.tipo===t) && (!cat||r.categoria===cat));
+  if (o==='precio_asc') list.sort((a,b)=>a.precio-b.precio);
+  else if (o==='precio_desc') list.sort((a,b)=>b.precio-a.precio);
+  else if (o==='valorados') list.sort((a,b)=>
+    (Number(VALORACION[b.id]?.nota)||0) - (Number(VALORACION[a.id]?.nota)||0));
+  else if (o==='nombre') list.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  else list.sort((a,b)=>(b.destacado?1:0)-(a.destacado?1:0));
+
+  $('#count').textContent = `${list.length} programa(s) disponibles`;
+  $('#lista').innerHTML = list.length ? list.map(c=>`
+    <a class="course-card" href="curso.html?id=${c.id}">
+      <img loading="lazy" decoding="async" src="${esc(c.imagen_url||'')}" alt="" onerror="this.style.visibility='hidden'">
+      <div class="body">
+        <div class="row" style="gap:6px">
+          <span class="chip teal">${esc(etiqueta(c.modalidad||''))}</span>
+          ${c.destacado?'<span class="chip gold">Destacado</span>':''}
+        </div>
+        <h3>${esc(c.nombre)}</h3>
+        ${estrellas(VALORACION[c.id])}
+        <p class="tiny muted" style="margin:0;flex:1">${esc(c.descripcion_corta||'')}</p>
+        <div class="row between sep-poco">
+          <span class="chip neutral">${esc(etiqueta(c.nivel||''))}</span>
+          <span class="price">${money(c.precio, c.moneda)}</span>
+        </div>
+      </div></a>`).join('')
+    : `<div class="card" style="grid-column:1/-1;text-align:center;padding:40px">
+        <span class="material-symbols-outlined" style="font-size:42px;color:var(--outline)">search_off</span>
+        <h3>No se encontraron resultados</h3>
+        <p class="muted tiny">Intenta ajustar tus filtros o buscar con términos más generales.</p></div>`;
+}
+['#q','#fMod','#fNivel','#fTipo','#fOrd'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{['#q','#fMod','#fNivel','#fTipo'].forEach(s=>$(s).value=''); cat='';
+  $$('[data-cat]').forEach((x,i)=>x.classList.toggle('on', i===0)); render();};
+render();
+</script>
+</body>
+</html>
