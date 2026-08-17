@@ -137,6 +137,9 @@ export function moneyBs(montoUsd, tasa, cur = MONEDA_BASE) {
    guiones bajos. Aquí está la traducción, en un solo sitio, para que la misma
    cosa se llame igual en las 50 pantallas. */
 export const ETIQUETAS = {
+  // contactos que llegan de la web pública
+  nuevo: 'Sin contactar', contactado: 'Contactado', interesado: 'Interesado',
+  inscrito: 'Se inscribió', descartado: 'Descartado',
   // publicación de cursos, contenidos y evaluaciones
   borrador: 'Borrador', en_revision: 'En revisión', publicado: 'Publicado',
   pausado: 'En pausa', archivado: 'Archivado',
@@ -919,6 +922,7 @@ const ADMIN_NAV = [
     ['insignias.html', 'military_tech', 'Insignias'],
   ]},
   { lbl: 'Operación', items: [
+    ['leads.html', 'contact_phone', 'Contactos de la web'],
     ['comunicaciones.html', 'mail', 'Comunicaciones'],
     ['soporte.html', 'support_agent', 'Soporte'],
   ]},
@@ -982,6 +986,7 @@ const AUDITOR_NAV = [
 const COBRANZA_NAV = [
   { lbl: 'Cobranza', items: [
     ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
+    ['leads.html', 'contact_phone', 'Contactos de la web'],
     ['carteras.html', 'account_balance_wallet', 'Carteras'],
     ['cierre-mes.html', 'event_available', 'Cierre de mes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
@@ -1574,22 +1579,33 @@ async function montarCampana() {
   setInterval(refrescar, 120000);
 }
 
+/* Las páginas públicas ya no viven todas en la misma carpeta: el inicio y el
+   «quiénes somos» están en la raíz de la plataforma y el catálogo cuelga de
+   estudiante/. Con los enlaces escritos a mano, el mismo encabezado llevaba a
+   404 desde la mitad de las pantallas. Se calcula de dónde se está mirando. */
+const enSubcarpeta = () => /\/(estudiante|admin|docente)\//.test(location.pathname);
+export const raizPublica = () => (enSubcarpeta() ? '../' : './');
+
 function renderPublicHeader(p) {
+  const r = raizPublica();
   const h = document.createElement('header');
   h.className = 'pub-header';
+  const activa = (archivo) => location.pathname.endsWith(archivo) ? ' class="on"' : '';
   h.innerHTML = `<div class="pub-inner">
-    <a class="pub-brand" href="catalogo.html">
+    <a class="pub-brand" href="${r}inicio.html">
       <span class="material-symbols-outlined">account_balance</span> CEM International</a>
     <nav>
-      <a href="catalogo.html">Cursos</a>
-      <a href="catalogo.html?tipo=programa">Programas</a>
-      <a href="../verificar.html">Verificar certificado</a>
+      <a href="${r}inicio.html"${activa('inicio.html')}>Inicio</a>
+      <a href="${r}estudiante/catalogo.html"${activa('catalogo.html')}>Cursos</a>
+      <a href="${r}estudiante/catalogo.html?tipo=programa">Programas</a>
+      <a href="${r}nosotros.html"${activa('nosotros.html')}>Quiénes somos</a>
+      <a href="${r}verificar.html"${activa('verificar.html')}>Verificar certificado</a>
     </nav>
     <div class="pub-cta">
-      ${p ? `<a class="btn outline sm" href="${homeFor(p.rol)}">Mi panel</a>
+      ${p ? `<a class="btn outline sm" href="${r}${homeForRoot(p.rol)}">Mi panel</a>
              <div class="avatar" title="${esc(p.email)}">${initials(p.nombre, p.apellido)}</div>`
-          : `<a class="btn outline sm" href="../index.html">Iniciar sesión</a>
-             <a class="btn sm" href="../index.html?registro=1">Registrarse</a>`}
+          : `<a class="btn outline sm" href="${r}index.html">Iniciar sesión</a>
+             <a class="btn sm" href="${r}index.html?registro=1">Registrarse</a>`}
     </div></div>`;
   document.body.insertBefore(h, document.body.firstChild);
   const page = $('#page');
@@ -1647,6 +1663,8 @@ const CHIP_MAP = {
   requiere_cambios:'warn', en_analisis:'warn', requiere_info:'warn', abierto:'info', programada:'info', inscripciones_abiertas:'info', recibida:'info',
   vencida:'err', cancelada:'err', rechazada:'err', suspendida:'err', anulada:'err', inactivo:'err', pausado:'warn', tarde:'err',
   finalizada:'teal', archivado:'neutral', congelada:'neutral', alta:'err', media:'warn', baja:'neutral', urgente:'err',
+  // contactos de la web: «sin contactar» es un aviso, no un estado neutro.
+  'sin contactar':'warn', contactado:'info', interesado:'info', 'se inscribió':'ok', descartado:'neutral',
 };
 export function chip(txt, kind) {
   const k = kind || CHIP_MAP[String(txt).toLowerCase()] || 'neutral';
