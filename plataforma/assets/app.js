@@ -2318,7 +2318,19 @@ export function explicaConversion(monto, metodo, tasas = {}) {
   }
   if (r.regla === 'directo') return '';
   if (r.regla === 'uno_a_uno') {
-    return `Salda ${money(r.base)} — el efectivo en dólares se recibe a la par del euro.`;
+    /* Decir «el efectivo en dólares» era heredado de cuando sólo el efectivo iba
+       a la par; ahora también Zelle, PayPal y tarjeta, y quien paga con tarjeta
+       leía una frase sobre efectivo.
+       Y se dice lo que se ahorra. La paridad es una concesión de la escuela: si
+       no se cuenta, el estudiante no se entera de que le están cobrando menos, y
+       una ventaja que no se ve no convence a nadie. El cruce sale de las dos
+       tasas del BCV, que esta pantalla ya tiene cargadas. */
+    const eur = Number(tasas.EUR?.valor || tasas.EUR || 0);
+    const usd = Number(tasas.USD?.valor || tasas.USD || 0);
+    const cruce = usd > 0 ? eur / usd : 0;
+    const ahorro = cruce > 1 ? r.base - (r.base / cruce) : 0;
+    return `Salda ${money(r.base)} — los dólares se reciben a la par del euro.`
+      + (ahorro >= 0.5 ? ` Al cambio real pagarías ${money(r.base / cruce)}: te ahorras ${money(ahorro)}.` : '');
   }
   return `Salda ${money(r.base)} a la tasa BCV del euro (${num(r.tasa)} Bs).`;
 }

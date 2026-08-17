@@ -225,19 +225,27 @@ export default async function correr(navegador) {
       fuente: t.PALETAS.cemMarca?.fuente,
       letraPuesta: getComputedStyle(document.body).fontFamily,
       letraPedida: !!document.getElementById('cemLetraPaleta'),
-      series: [1, 2, 3, 4, 5, 6].map((n) => v(`--serie-${n}`).toUpperCase()),
+      series: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => v(`--serie-${n}`).toUpperCase()),
     };
-    t.aplicarApariencia(antes);
+    /* Se vuelve a «caribe» y no a la de antes: la de fábrica es ahora la de la
+       marca, que TRAE letra, así que volver a ella no retiraría el enlace y la
+       comprobación de abajo no probaría nada. */
+    t.aplicarApariencia({ paleta: 'caribe', tema: antes.tema });
     salida.letraRetirada = !document.getElementById('cemLetraPaleta');
+    t.aplicarApariencia(antes);
     return salida;
   });
   a.comprobar(marca.existe,
     'Entre las paletas está la oficial de la empresa, la del manual de marca');
+  /* Los ocho cromáticos del brand board, en su orden y sin retocar. Se fijan
+     aquí para que si alguien los ajusta «un poquito» se entere de que está
+     tocando la identidad. */
   a.comprobar(JSON.stringify(marca.series)
-      === JSON.stringify(['#506EFF', '#6ED333', '#F7468E', '#FCAE47', '#C74EF9', '#52F7F2']),
-    `Y sus gráficos usan los colores del manual sin retocar (${marca.series.slice(0, 3).join(' ')}…)`);
-  a.comprobar(marca.fuente === 'Montserrat' && /Montserrat/.test(marca.letraPuesta) && marca.letraPedida,
-    `Con la tipografía del manual, que se pide sólo al elegirla (${
+      === JSON.stringify(['#3E7BFF', '#7EFF72', '#FF45A6', '#FF8A00',
+                          '#9B5CFF', '#00E0D1', '#FFE45E', '#1F1F1F']),
+    `Y sus gráficos usan los ocho colores del board sin retocar (${marca.series.slice(0, 3).join(' ')}…)`);
+  a.comprobar(marca.fuente === 'Poppins' && /Poppins/.test(marca.letraPuesta) && marca.letraPedida,
+    `Con la tipografía del board, que se pide sólo al elegirla (${
       marca.letraPuesta.split(',')[0]})`);
   a.comprobar(marca.letraRetirada,
     'Y al cambiar a otra paleta se retira: no se queda una letra descargada de más');

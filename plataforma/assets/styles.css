@@ -85,6 +85,9 @@
   --sidebar-w:236px;
   --sidebar-w-min:64px;
 
+  /* La luz de color del fondo. Vacía salvo que la paleta traiga la suya. */
+  --luz:none;
+
   --texto:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --cifra:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
 
@@ -155,8 +158,21 @@
    y el botón de entregar se iban con el desplazamiento justo cuando más falta
    hacían. `clip` recorta igual y no crea ese contenedor. */
 html,body{overflow-x:clip;}
+/* El fondo son DOS capas: un color plano y, encima, una luz de color.
+   ------------------------------------------------------------------------
+   `--fondo` tiene que seguir siendo un color y no un degradado, porque se usa
+   también como relleno de un borde y de una sombra (`box-shadow:0 0 0 2px
+   var(--fondo)`) y ahí un degradado no vale.
+   La luz va aparte, en `--luz`, y por omisión no hay ninguna: sólo la paleta de
+   la marca la trae. `background-attachment:fixed` la deja quieta al desplazar —
+   si se moviera con el contenido se vería el corte al final de la página. */
 body{
-  margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--texto);
+  margin:0;color:var(--tinta);font-family:var(--texto);
+  background-color:var(--fondo);
+  background-image:var(--luz, none);
+  background-repeat:no-repeat;
+  background-attachment:fixed;
+  background-size:cover;
   font-size:var(--t-sm);line-height:1.55;-webkit-font-smoothing:antialiased;
 }
 .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
@@ -181,7 +197,7 @@ button{cursor:pointer;}
 
 /* ───────────────────────────── ENTRADA ─────────────────────────────────── */
 .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;
-  padding:var(--e3);background:var(--fondo);}
+  padding:var(--e3);background:transparent;}
 /* `margin:auto` y no sólo el centrado del contenedor: con align-items:center,
    una tarjeta más alta que la pantalla se recorta por arriba y la parte cortada
    no se puede alcanzar ni desplazando. Con margin auto el desbordamiento se
@@ -718,9 +734,44 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 .tarjetas-idea{display:grid;gap:var(--aire);grid-template-columns:repeat(auto-fit,minmax(260px,1fr));}
 .tarjeta-idea{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
   padding:var(--e3);}
-.tarjeta-idea .ico{width:40px;height:40px;border-radius:var(--r);display:flex;
+/* El icono de cada tarjeta, en su color. En el brand board los cinco valores
+   son cinco estrellas de cinco colores distintos; una rejilla de cinco iconos
+   todos del mismo azul no se parece a eso. El fondo es el mismo color al 14 %,
+   que es lo que el board llama «efectos de luz». */
+.tarjeta-idea .ico{width:44px;height:44px;border-radius:var(--r);display:flex;
   align-items:center;justify-content:center;background:var(--primary-suave);
   color:var(--primary);margin-bottom:var(--e2);}
+.tarjeta-idea .ico[data-serie]{
+  color:var(--tono);
+  background:color-mix(in oklab, var(--tono) 14%, var(--papel));
+}
+.tarjeta-idea .ico[data-serie="1"]{--tono:var(--serie-1);}
+.tarjeta-idea .ico[data-serie="2"]{--tono:var(--serie-2);}
+.tarjeta-idea .ico[data-serie="3"]{--tono:var(--serie-3);}
+.tarjeta-idea .ico[data-serie="4"]{--tono:var(--serie-4);}
+.tarjeta-idea .ico[data-serie="5"]{--tono:var(--serie-5);}
+.tarjeta-idea .ico[data-serie="6"]{--tono:var(--serie-6);}
+/* El verde y el amarillo del board son demasiado luminosos para ser tinta sobre
+   blanco; se oscurecen sólo cuando hacen de icono, no en las barras. */
+.tarjeta-idea .ico[data-serie="2"],
+.tarjeta-idea .ico[data-serie="6"]{
+  color:color-mix(in oklab, var(--tono) 62%, var(--tinta));
+}
+
+/* Un chip que va del color de su serie. Los ocho de «qué te llevas» del board
+   salen cada uno de un color, como las etiquetas de sus redes sociales. */
+.chip-marca{display:inline-flex;align-items:center;gap:var(--e0);
+  font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  padding:.35em .75em;border-radius:var(--r-full);
+  color:color-mix(in oklab, var(--tono) 55%, var(--tinta));
+  background:color-mix(in oklab, var(--tono) 16%, var(--papel));
+  border:1px solid color-mix(in oklab, var(--tono) 32%, var(--papel));}
+.chip-marca[data-serie="1"]{--tono:var(--serie-1);}
+.chip-marca[data-serie="2"]{--tono:var(--serie-2);}
+.chip-marca[data-serie="3"]{--tono:var(--serie-3);}
+.chip-marca[data-serie="4"]{--tono:var(--serie-4);}
+.chip-marca[data-serie="5"]{--tono:var(--serie-5);}
+.chip-marca[data-serie="6"]{--tono:var(--serie-6);}
 .tarjeta-idea h3{margin:0 0 var(--e1);font-size:var(--t-md);}
 .tarjeta-idea p{margin:0;color:var(--tinta-2);font-size:var(--t-sm);}
 
@@ -1123,7 +1174,9 @@ html:root:not([data-estilo="plano"]){
     radial-gradient(40vmax 38vmax at 28% 54%,
       color-mix(in srgb, var(--secondary) 16%, transparent), transparent 64%);
 }
-:root:not([data-estilo="plano"]) body{background:var(--fondo);}
+/* `background` a secas aquí borraba la capa de luz, porque la forma corta
+   reinicia background-image. Se toca sólo el color. */
+:root:not([data-estilo="plano"]) body{background-color:var(--fondo);}
 :root:not([data-estilo="plano"]) .content{background:none;}
 
 /* ── lo que está quieto: desenfoque de verdad, igual en los seis ──────────
@@ -1768,6 +1821,11 @@ tr.grupo-banco .tiny{margin-left:var(--e1);}
   --serie-4:color-mix(in oklab, var(--primary) 45%, var(--tinta-3));
   --serie-5:color-mix(in oklab, var(--secondary) 50%, var(--tinta-3));
   --serie-6:color-mix(in oklab, var(--secondary) 45%, var(--gold));
+  /* Siete y ocho: el brand board del CEM trae ocho colores cromáticos y las
+     paletas derivadas también necesitan llegar a ocho, o una lista de ocho
+     categorías repite color en la séptima y parecen la misma cosa. */
+  --serie-7:color-mix(in oklab, var(--primary) 30%, var(--gold));
+  --serie-8:color-mix(in oklab, var(--secondary) 65%, var(--primary));
   --gr-pista:var(--hueco);
   /* Las barras redondean lo que diga la forma elegida, pero con tope: una
      barra de 9 px de alto con esquinas de 999 px es una pastilla, no un dato. */
@@ -1832,10 +1890,38 @@ tr.grupo-banco .tiny{margin-left:var(--e1);}
 .gr-pista{display:block;height:20px;background:var(--gr-pista);
   border-radius:var(--gr-radio);overflow:hidden;}
 a.gr-pista{cursor:pointer;}
-a.gr-pista:hover .gr-relleno{background:var(--serie-3);}
 a.gr-pista:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
 .gr-relleno{display:block;height:100%;background:var(--serie-1);
   border-radius:var(--gr-radio);}
+
+/* Cada barra de su color, girando por las ocho series.
+   ------------------------------------------------------------------------
+   Antes todas eran --serie-1 y un tablero entero salía del mismo azul: doce
+   gráficos que parecían el mismo gráfico. Y no es sólo estética — en una
+   comparación entre COSAS DISTINTAS (programas, canales, categorías) el color
+   es lo que dice «esta fila no es la de arriba». Donde el color sí sería
+   mentira es en una serie temporal, y ésas son columnas, no barras: las
+   columnas siguen de un solo color a propósito, porque los meses son la misma
+   cosa medida doce veces.
+   Se salta a la vuelta de ocho para que la novena no repita la primera pegada.
+
+   El turno va dentro de `:where()` a propósito: así pesa (0,2,0) y no (0,4,0),
+   y las reglas de estado de abajo —que son las que dicen «esto está vencido»—
+   ganan sin tener que inflarlas. Una fila vencida sale roja aunque le tocara
+   el turquesa, que es lo correcto: el color de turno es decoración, el de
+   estado es información. */
+:where(.gr-barras .gr-fila:nth-child(8n+1)) .gr-relleno{background:var(--serie-1);}
+:where(.gr-barras .gr-fila:nth-child(8n+2)) .gr-relleno{background:var(--serie-2);}
+:where(.gr-barras .gr-fila:nth-child(8n+3)) .gr-relleno{background:var(--serie-3);}
+:where(.gr-barras .gr-fila:nth-child(8n+4)) .gr-relleno{background:var(--serie-4);}
+:where(.gr-barras .gr-fila:nth-child(8n+5)) .gr-relleno{background:var(--serie-5);}
+:where(.gr-barras .gr-fila:nth-child(8n+6)) .gr-relleno{background:var(--serie-6);}
+:where(.gr-barras .gr-fila:nth-child(8n+7)) .gr-relleno{background:var(--serie-7);}
+:where(.gr-barras .gr-fila:nth-child(8n+8)) .gr-relleno{background:var(--serie-8);}
+/* Al pasar por encima, la barra se aclara en su propio color en vez de
+   cambiar al azul de otra serie, que hacía parecer que el dato había cambiado. */
+a.gr-pista:hover .gr-relleno{filter:brightness(1.12) saturate(1.1);}
+
 .gr-fila.ok .gr-relleno{background:var(--ok);}
 .gr-fila.warn .gr-relleno{background:var(--warn);}
 .gr-fila.err .gr-relleno{background:var(--error);}
@@ -1911,8 +1997,18 @@ a.gr-punto-dato:focus-visible{outline:2px solid var(--primary);outline-offset:1p
   padding:var(--e1) var(--e2);border-radius:var(--gr-radio);
   background:var(--serie-1);color:var(--on-primary);text-decoration:none;
   min-height:38px;}
+/* Cada escalón de su color, pero sólo entre los que aguantan letra blanca
+   encima. El escalón lleva su cifra DENTRO, en blanco, y sobre el verde #7EFF72
+   o el amarillo #FFE45E el blanco desaparece: por eso el embudo gira entre
+   cuatro —azul, rosa, púrpura y naranja— y no entre los ocho. Los otros cuatro
+   se lucen en las barras, que no llevan texto encima.
+   Con `:where()` para que un escalón con estado siga ganando. */
+:where(.gr-embudo .gr-paso:nth-child(4n+1)) .gr-escalon{background:var(--serie-1);}
+:where(.gr-embudo .gr-paso:nth-child(4n+2)) .gr-escalon{background:var(--serie-3);}
+:where(.gr-embudo .gr-paso:nth-child(4n+3)) .gr-escalon{background:var(--serie-5);}
+:where(.gr-embudo .gr-paso:nth-child(4n+4)) .gr-escalon{background:var(--serie-4);}
 a.gr-escalon{cursor:pointer;}
-a.gr-escalon:hover{background:var(--serie-3);}
+a.gr-escalon:hover{filter:brightness(1.12) saturate(1.1);}
 a.gr-escalon:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
 .gr-escalon b{font-family:var(--cifra);font-size:var(--t-sm);
   font-variant-numeric:tabular-nums;}

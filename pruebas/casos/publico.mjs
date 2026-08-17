@@ -39,8 +39,8 @@ export default async function correr(navegador) {
   await I.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
   await I.waitForTimeout(3500);
 
-  a.comprobar((await I.locator('h1').first().textContent()).includes('Educación para todos'),
-    'La portada abre con el lema de la casa');
+  a.comprobar((await I.locator('h1').first().textContent()).includes('Educamos hoy'),
+    'La portada abre con el lema del board: «Educamos hoy, lideras mañana»');
   a.comprobar(await I.locator('#q').count() === 1,
     'Y lo primero que se puede hacer es buscar: el buscador está arriba, no al final');
   const tarjetas = await I.locator('#destacados .course-card').count();
@@ -65,15 +65,21 @@ export default async function correr(navegador) {
 
   const texto = await N.locator('#page').textContent();
   for (const [que, palabra] of [
-    ['la misión', 'Formar personas de todas las edades'],
-    ['la visión', 'ecosistema educativo multigeneracional'],
+    ['el propósito', 'Formar profesionales y emprendedores'],
+    ['la visión', 'centro de estudios de marketing'],
     ['dónde estamos', 'Caracas'],
     ['a quién servimos', 'adultos mayores'],
   ]) {
     a.comprobar(texto.includes(palabra), `Dice ${que}`);
   }
-  a.comprobar(await N.locator('#valores .tarjeta-idea').count() === 6,
-    `Los seis valores del manual (${await N.locator('#valores .tarjeta-idea').count()})`);
+  a.comprobar(await N.locator('#valores .tarjeta-idea').count() === 5,
+    `Los cinco valores del board (${await N.locator('#valores .tarjeta-idea').count()})`);
+  /* Y cada uno de su color: en el board son cinco estrellas de cinco colores,
+     y una rejilla de cinco iconos del mismo azul no se parece a eso. */
+  const tonos = await N.evaluate(() => new Set(
+    [...document.querySelectorAll('#valores .ico')]
+      .map((e) => getComputedStyle(e).color)).size);
+  a.comprobar(tonos >= 4, `Cada valor con su color, como las estrellas del board (${tonos} distintos)`);
   a.comprobar(await N.locator('#cincoW .tarjeta-idea').count() === 5,
     'Y las cinco preguntas');
   a.comprobar(await N.locator('#historia li').count() >= 8,

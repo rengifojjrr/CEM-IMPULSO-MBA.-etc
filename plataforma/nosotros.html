@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>CEM International · Quiénes somos</title>
-<meta name="description" content="Misión, visión, valores e historia del CEM: un ecosistema educativo multigeneracional nacido en Caracas en 2016.">
+<title>CEM · Quiénes somos</title>
+<meta name="description" content="Propósito, visión, valores e historia del CEM, Centro de Estudios de Marketing, nacido en Caracas en 2016.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,27 +20,27 @@
 <div id="page" class="hidden">
 
   <section class="portada-cem">
-    <h1>Educación para todos</h1>
-    <p class="lema">No es un lema bonito: es la razón por la que en la misma escuela
-      caben un niño de nueve años, su madre montando un negocio y su abuelo aprendiendo
-      a usar el teléfono.</p>
+    <h1>Educamos hoy, lideras mañana</h1>
+    <p class="lema">Formamos profesionales y emprendedores con visión estratégica y
+      herramientas actuales, para transformar ideas en resultados y construir un futuro
+      con impacto en Latinoamérica.</p>
   </section>
 
   <section class="franja tenue">
     <div class="dentro tarjetas-idea">
       <div class="tarjeta-idea">
         <div class="ico"><span class="material-symbols-outlined">flag</span></div>
-        <h3>Misión</h3>
-        <p>Formar personas de todas las edades en marketing, negocios, creatividad y
-          tecnología mediante un modelo educativo práctico, accesible y aplicable al
-          mundo real, que convierta el conocimiento en oportunidades concretas.</p>
+        <h3>Propósito</h3>
+        <p>Formar profesionales y emprendedores con visión estratégica y herramientas
+          actuales, para transformar ideas en resultados y construir un futuro con
+          impacto en Latinoamérica.</p>
       </div>
       <div class="tarjeta-idea">
         <div class="ico"><span class="material-symbols-outlined">visibility</span></div>
         <h3>Visión</h3>
-        <p>Ser el ecosistema educativo multigeneracional referente en Latinoamérica,
-          reconocido por formar personas capaces de crear, emprender y adaptarse a un
-          mundo que cambia todos los días.</p>
+        <p>Ser el centro de estudios de marketing y negocios de referencia en
+          Latinoamérica: el sitio al que se viene a aprender lo que de verdad se está
+          usando, no lo que se usaba hace cinco años.</p>
       </div>
       <div class="tarjeta-idea">
         <div class="ico"><span class="material-symbols-outlined">favorite</span></div>
@@ -55,8 +55,8 @@
   <section class="franja">
     <div class="dentro">
       <h2>Nuestros valores</h2>
-      <p class="entrada">Seis, y se notan en decisiones concretas: qué se enseña, a quién
-        se le abre la puerta y qué se cobra por ello.</p>
+      <p class="entrada">Cinco, y se notan en decisiones concretas: qué se enseña, quién
+        lo enseña y qué se cobra por ello.</p>
       <div class="tarjetas-idea" id="valores"></div>
     </div>
   </section>
@@ -131,13 +131,14 @@
 import { sb, mount, $, esc } from './assets/app.js?v=2026-08-20';
 await mount({ pub: true });
 
+/* Los cinco valores del brand board, cada uno con su color — en el board son
+   cinco estrellas de cinco colores distintos, y aquí se respeta. */
 const VALORES = [
-  ['school', 'Educación continua', 'Aprender no se acaba a los veinte. Hay programas para cada etapa, y volver es normal.'],
-  ['handyman', 'Acción práctica', 'Se estudia haciendo. Cada módulo pide algo entregado, no algo leído.'],
-  ['public', 'Impacto real', 'Lo que se enseña tiene que servir en el trabajo o en el negocio de quien lo estudia.'],
-  ['strategy', 'Excelencia estratégica', 'Enseñamos a decidir con criterio, no a repetir recetas que caducan.'],
-  ['lightbulb', 'Innovación constante', 'El temario se revisa cuando el mundo cambia, no cuando toca por calendario.'],
-  ['accessibility_new', 'Accesibilidad', 'Precio, horario y modalidad pensados para que entrar sea posible, no un privilegio.'],
+  ['star', 'Excelencia', 'Enseñamos a decidir con criterio, no a repetir recetas que caducan.', 1],
+  ['favorite', 'Pasión', 'Da clase quien vive de esto y le gusta. Se nota en la primera sesión.', 3],
+  ['groups', 'Comunidad', 'No se estudia solo: la cohorte, el tablón y las dudas compartidas son parte del método.', 5],
+  ['bolt', 'Innovación', 'El temario se revisa cuando el mundo cambia, no cuando toca por calendario.', 4],
+  ['public', 'Impacto', 'Lo que se enseña tiene que servir en el trabajo o en el negocio de quien lo estudia.', 6],
 ];
 
 const CINCO_W = [
@@ -163,20 +164,20 @@ const HISTORIA = [
   ['Actualidad', 'Se funda el CEM y todo lo anterior pasa a ser una sola escuela.'],
 ];
 
-$('#valores').innerHTML = VALORES.map(([ico, tit, txt]) => `
+$('#valores').innerHTML = VALORES.map(([ico, tit, txt, serie]) => `
   <div class="tarjeta-idea">
-    <div class="ico"><span class="material-symbols-outlined">${esc(ico)}</span></div>
+    <div class="ico" data-serie="${serie}"><span class="material-symbols-outlined">${esc(ico)}</span></div>
     <h3>${esc(tit)}</h3><p>${esc(txt)}</p>
   </div>`).join('');
 
-$('#cincoW').innerHTML = CINCO_W.map(([ico, tit, txt]) => `
+$('#cincoW').innerHTML = CINCO_W.map(([ico, tit, txt], i) => `
   <div class="tarjeta-idea">
-    <div class="ico"><span class="material-symbols-outlined">${esc(ico)}</span></div>
+    <div class="ico" data-serie="${(i % 6) + 1}"><span class="material-symbols-outlined">${esc(ico)}</span></div>
     <h3>${esc(tit)}</h3><p>${esc(txt)}</p>
   </div>`).join('');
 
-$('#propuesta').innerHTML = PROPUESTA.map((t) =>
-  `<span class="chip teal">${esc(t)}</span>`).join('');
+$('#propuesta').innerHTML = PROPUESTA.map((t, i) =>
+  `<span class="chip-marca" data-serie="${(i % 6) + 1}">${esc(t)}</span>`).join('');
 
 $('#historia').innerHTML = HISTORIA.map(([cuando, que]) =>
   `<li><b>${esc(cuando)}</b><span>${esc(que)}</span></li>`).join('');

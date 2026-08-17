@@ -47,64 +47,93 @@ export const PALETAS = {
     },
   },
 
-  /* La del manual de marca, tal cual. Los ocho pares del manual —fuerte y
-     claro— son un arcoíris a propósito: es una escuela con mascota y con birrete
-     de colores, y el manual los enseña juntos.
-     De los ocho, dos hacen de cromo: el azul #506EFF, que es el de la chaqueta
-     de CEMI, y el verde #6ED333, que es el que abre la paleta. Los otros seis no
-     se tiran: son las series de los gráficos, así que un tablero de esta
-     plataforma sale con los colores de la marca y no con seis azules calculados.
+  /* La del brand board del CEM, tal cual.
+     ======================================================================
+     Diez colores, y ocho de ellos son cromáticos: verde, amarillo, naranja,
+     rosa, púrpura, azul y turquesa. Eso no es decoración, es la identidad —el
+     birrete del logo es un arcoíris y las cinco estrellas de los valores son
+     cada una de un color distinto. Una plataforma que los reduce a un azul y
+     pinta doce gráficos del mismo azul no se parece a esta marca.
 
-     Ni #FFEA50 ni #52F7F2 pueden ser cromo por mucho que estén en el manual: un
-     amarillo o un cian de ese brillo con texto blanco encima no se lee, y con
-     texto negro tampoco del todo. Están donde se ven bien, que es rellenando una
-     barra, no rodeando una letra. */
+     Así que los ocho van enteros a las series de los gráficos, y el azul
+     #3E7BFF hace de cromo porque es el único que se lee como texto sin
+     retocarlo mucho. El carbón #1F1F1F y el gris #E9ECEF del board son la
+     tinta y los huecos.
+
+     El board pide además glassmorphism y gradientes suaves. Eso no se decide
+     aquí —es el eje `data-estilo`, que ya tiene siete estilos— pero sí se deja
+     el fondo claro que pide, y los colores aguantan el vidrio encima. */
   cemMarca: {
-    nombre: 'CEM · manual de marca',
-    resumen: 'Los colores oficiales del manual, con Montserrat. Es la de la empresa.',
-    muestra: ['#506EFF', '#6ED333', '#F7468E'],
-    fuente: 'Montserrat',
+    nombre: 'CEM · marca oficial',
+    resumen: 'Los diez colores del brand board, con Poppins. Es la de la empresa.',
+    muestra: ['#3E7BFF', '#7EFF72', '#FF45A6', '#9B5CFF'],
+    fuente: 'Poppins',
     dia: {
-      '--fondo': '#f6f7fb', '--papel': '#ffffff', '--hueco': '#eceef7',
-      '--tinta': '#14172b', '--tinta-2': '#535a77', '--tinta-3': '#666d85',
-      '--filete': '#dfe3f2', '--filete-fuerte': '#c3c9e4',
-      // El azul del manual es luminoso; para texto sobre blanco se oscurece lo
-      // justo para que se lea, y el de la marca se guarda para los rellenos.
-      '--primary': '#3450e8', '--primary-suave': '#e6eaff', '--on-primary': '#ffffff',
-      '--secondary': '#3f8f1c', '--secondary-container': '#e6f7dc',
-      /* Los colores con significado —bien, ojo, mal, credencial— también son de
-         la marca en esta paleta. Es la única que los toca: dejar el verde
-         bosque y el dorado marrón de la casa junto al azul del manual se ve
-         exactamente como lo que sería, dos identidades en la misma pantalla.
-         Van oscurecidos respecto al manual porque aquí hacen de TEXTO sobre
-         claro, y el naranja o el verde del manual a ese tamaño no se leen. */
-      '--ok': '#2f6f13', '--ok-suave': '#e9f8e0',
-      '--warn': '#9a6207', '--warn-suave': '#fdf0da',
-      '--error': '#c62828', '--error-suave': '#fde8e8',
-      '--gold': '#9a6207', '--gold-suave': '#fdf0da', '--on-gold': '#ffffff',
-      /* Las series de los gráficos, sin retocar. Son seis y el manual trae ocho
-         pares: quedan fuera el rojo #FF4545, que en esta plataforma significa
-         «error» y no puede significar además «tercer trimestre», y el amarillo
-         #FFEA50, que en una barra de tres píxeles sobre fondo claro desaparece. */
-      '--serie-1': '#506EFF', '--serie-2': '#6ED333', '--serie-3': '#F7468E',
-      '--serie-4': '#FCAE47', '--serie-5': '#C74EF9', '--serie-6': '#52F7F2',
+      // Blanco #FFFFFF, Gris Claro #E9ECEF y Carbón #1F1F1F, del board.
+      /* «Gradientes suaves» y «efectos de luz», que es lo que pide el board.
+         Seis manchas de color muy diluidas, una por cada color cromático de la
+         marca, repartidas por las esquinas. No es un degradado de dos colores
+         girado 135° —eso se ve en cualquier plantilla—: son luces sueltas, como
+         las del board, y desde cualquier sitio de la pantalla se ven tres o
+         cuatro colores distintos a la vez.
+         Van al 12-30 % y no más: el fondo tiene que ser fondo. Cada punto de
+         esta capa está debajo de texto que hay que poder leer, y las tarjetas
+         encima son casi opacas. */
+      '--luz': "radial-gradient(1200px 780px at 88% -10%, rgba(126,255,114,.30), transparent 62%)," +
+        "radial-gradient(1000px 760px at -8% 12%, rgba(62,123,255,.22), transparent 64%)," +
+        "radial-gradient(900px 700px at 8% 112%, rgba(155,92,255,.22), transparent 62%)," +
+        "radial-gradient(820px 620px at 100% 88%, rgba(255,69,166,.18), transparent 62%)," +
+        "radial-gradient(760px 600px at 52% 46%, rgba(0,224,209,.12), transparent 70%)," +
+        "radial-gradient(680px 520px at 68% 118%, rgba(255,138,0,.12), transparent 64%)",
+      '--fondo': '#f4f6f9', '--papel': '#ffffff', '--hueco': '#e9ecef',
+      '--tinta': '#1f1f1f', '--tinta-2': '#54585f', '--tinta-3': '#696e77',
+      '--filete': '#e2e6ea', '--filete-fuerte': '#c8ced6',
+      /* El azul del board es #3E7BFF. Sobre blanco, con texto blanco encima,
+         se queda a 3,3 de contraste: no llega. Se oscurece lo justo para que
+         un botón se pueda leer, y el #3E7BFF entero se guarda para rellenos,
+         que es donde el board lo usa. */
+      '--primary': '#2c62e0', '--primary-suave': '#e7eeff', '--on-primary': '#ffffff',
+      '--secondary': '#7c3ff0', '--secondary-container': '#f0e8ff',
+      /* Los colores con significado también salen del board: el verde para
+         «bien», el naranja para «ojo», el rosa para «mal». Oscurecidos, porque
+         aquí hacen de TEXTO y a tamaño de letra el #7EFF72 no se ve.
+         El dorado deja de ser dorado: esta marca no tiene oro, tiene naranja. */
+      '--ok': '#1f7a34', '--ok-suave': '#e4f9e6',
+      '--warn': '#9a5200', '--warn-suave': '#fff0dc',
+      '--error': '#c8195e', '--error-suave': '#ffe7f1',
+      /* El board no tiene oro. Las credenciales toman el púrpura, que es el
+         color más «premium» de la paleta y además el único que aguanta letra
+         blanca con holgura: el naranja #c96a00 se quedaba en 3,79 de contraste,
+         por debajo del mínimo, y encima se confundía con el aviso. */
+      '--gold': '#6b2fd0', '--gold-suave': '#f0e8ff', '--on-gold': '#ffffff',
+      /* Las ocho series: los ocho cromáticos del board, sin retocar y en el
+         orden en que el board los enseña. Aquí sí van enteros — una barra de
+         color no tiene texto encima, así que puede brillar. */
+      '--serie-1': '#3E7BFF', '--serie-2': '#7EFF72', '--serie-3': '#FF45A6',
+      '--serie-4': '#FF8A00', '--serie-5': '#9B5CFF', '--serie-6': '#00E0D1',
+      '--serie-7': '#FFE45E', '--serie-8': '#1F1F1F',
     },
     noche: {
-      '--fondo': '#101223', '--papel': '#181b2f', '--hueco': '#20243d',
-      '--tinta': '#e9ebf7', '--tinta-2': '#a3aac9', '--tinta-3': '#8a91b0',
-      '--filete': '#272c47', '--filete-fuerte': '#3a4165',
-      '--primary': '#7E90FF', '--primary-suave': '#1c2140', '--on-primary': '#0c1130',
-      '--secondary': '#99E672', '--secondary-container': '#16290d',
-      /* De noche se invierte el problema: sobre fondo oscuro los que se leen son
-         los claros del manual, y son justo los que el manual da como pareja. */
-      '--ok': '#99E672', '--ok-suave': '#16290d',
-      '--warn': '#FECC77', '--warn-suave': '#33260f',
-      '--error': '#FF7C7A', '--error-suave': '#331a1a',
-      '--gold': '#FCAE47', '--gold-suave': '#33260f', '--on-gold': '#2a1c05',
-      // De noche mandan los claros de cada par del manual, que es para lo que
-      // están: los fuertes sobre fondo oscuro vibran.
-      '--serie-1': '#7E90FF', '--serie-2': '#99E672', '--serie-3': '#FF7BAC',
-      '--serie-4': '#FECC77', '--serie-5': '#DE7FFF', '--serie-6': '#9FFFFA',
+      // De noche la misma luz, más apagada: sobre negro cualquier color grita.
+      '--luz': "radial-gradient(1200px 780px at 88% -10%, rgba(126,255,114,.16), transparent 62%)," +
+        "radial-gradient(1000px 760px at -8% 12%, rgba(62,123,255,.20), transparent 64%)," +
+        "radial-gradient(900px 700px at 8% 112%, rgba(155,92,255,.20), transparent 62%)," +
+        "radial-gradient(820px 620px at 100% 88%, rgba(255,69,166,.14), transparent 62%)," +
+        "radial-gradient(760px 600px at 52% 46%, rgba(0,224,209,.10), transparent 70%)," +
+        "radial-gradient(680px 520px at 68% 118%, rgba(255,138,0,.10), transparent 64%)",
+      '--fondo': '#141416', '--papel': '#1d1d20', '--hueco': '#26262b',
+      '--tinta': '#f2f3f5', '--tinta-2': '#b0b4bd', '--tinta-3': '#9398a2',
+      '--filete': '#2e2e34', '--filete-fuerte': '#43444c',
+      // De noche los colores del board se leen tal cual: para eso son luminosos.
+      '--primary': '#8FB4FF', '--primary-suave': '#1a2033', '--on-primary': '#0b1428',
+      '--secondary': '#C4A0FF', '--secondary-container': '#241a38',
+      '--ok': '#7EFF72', '--ok-suave': '#14251a',
+      '--warn': '#FFB55C', '--warn-suave': '#2b1e0e',
+      '--error': '#FF7FB8', '--error-suave': '#2e1522',
+      '--gold': '#C4A0FF', '--gold-suave': '#241a38', '--on-gold': '#180a2e',
+      '--serie-1': '#6E9DFF', '--serie-2': '#7EFF72', '--serie-3': '#FF6EB8',
+      '--serie-4': '#FFA33D', '--serie-5': '#B98BFF', '--serie-6': '#3DEBDE',
+      '--serie-7': '#FFE45E', '--serie-8': '#E9ECEF',
     },
   },
 
@@ -209,7 +238,14 @@ export const PALETAS = {
   },
 };
 
-export const PALETA_POR_DEFECTO = 'cem';
+/* La marca es la de la marca: quien entra por primera vez ve los colores del
+   CEM, no un azul institucional genérico. La antigua «CEM institucional» sigue
+   en el catálogo para quien la prefiera — sobria, de un solo color— pero deja
+   de ser la de fábrica.
+   Ojo si se cambia: hojaDe() no escribe hoja para la paleta por defecto porque
+   asume que está en styles.css, y la del board NO lo está. Por eso ahora se
+   escribe siempre. */
+export const PALETA_POR_DEFECTO = 'cemMarca';
 
 /* ── cómo son los recuadros ───────────────────────────────────────────────
    Las recetas viven en styles.css bajo :root[data-estilo="…"]; aquí sólo
@@ -372,7 +408,11 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidri
     document.head.appendChild(hoja);
   }
   // La de la casa ya está escrita en styles.css: no hace falta repetirla.
-  hoja.textContent = clave === PALETA_POR_DEFECTO ? '' : hojaDe(clave);
+  /* Se escribe siempre, también la de por defecto. Antes se saltaba la de
+     fábrica porque era la que ya venía en styles.css; ahora la de fábrica es la
+     del brand board, que vive aquí y no allí, así que saltarla dejaba la
+     plataforma con los colores viejos y sin que nada lo dijera. */
+  hoja.textContent = hojaDe(clave);
   raiz.dataset.paleta = clave;
   pedirLaLetra(PALETAS[clave]?.fuente);
 

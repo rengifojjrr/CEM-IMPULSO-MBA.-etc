@@ -221,7 +221,12 @@ export default async function correr(navegador) {
   a.comprobar(/Se facturó/.test(cierre) && /Entró/.test(cierre)
            && /Quedó debiéndose/.test(cierre) && /Por revisar/.test(cierre),
     'El cierre de mes trae las cuatro cifras: facturado, cobrado, vencido y por revisar');
-  a.comprobar(await A.locator('#cuadros .ayuda-btn').count() === 4,
+  /* Y una quinta: lo que se concedió por recibir dólares a la par del euro.
+     Va aparte de «entró» a propósito — entró es lo que saldó cuotas, y esto es
+     dinero que se decidió no pedir. Sin esta cifra la paridad es invisible. */
+  a.comprobar(/concedió por paridad/i.test(cierre),
+    'Y la quinta: cuánto se concedió por cobrar los dólares a la par');
+  a.comprobar(await A.locator('#cuadros .ayuda-btn').count() === 5,
     'Y cada una explica qué está contando');
 
   // El mes que se ofrece al entrar es el que acaba de cerrar, no el que corre.

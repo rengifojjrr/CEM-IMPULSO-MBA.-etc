@@ -113,6 +113,18 @@ async function cargar(){
     { c:'', t:'Por revisar', n: money(Number(cierre.por_revisar)),
       q: `${num(cierre.pagos_por_revisar)} pago(s) sin verificar`,
       a: 'Pagos que los estudiantes reportaron este mes y nadie ha aprobado ni rechazado todavía. Ni entraron ni dejaron de entrar: al verificarlos se moverán a una de las otras cifras.' },
+    /* La quinta cifra: lo que cuesta recibir dólares a la par del euro. Va aparte
+       y NO restándose de «entró», porque entró es cierto —esos euros saldaron
+       cuotas— y esto es dinero que se decidió no pedir. Restarlo mezclaría una
+       cobranza con una política de precios. */
+    { c:'', t:'Se concedió por paridad', n: money(Number(cierre.concedido_por_paridad || 0)),
+      q: `${num(cierre.pagos_a_la_par || 0)} pago(s) en dólares a la par` +
+         (Number(cierre.pagos_sin_cruce) > 0
+           ? ` · ${num(cierre.pagos_sin_cruce)} sin medir, falta la tasa del día` : ''),
+      a: 'Zelle, PayPal, tarjeta y efectivo en dólares se reciben a la par: un dólar salda un euro. '
+       + 'Como el euro vale algo más, cada uno de esos pagos lleva un descuento implícito. '
+       + 'Esto es la suma de ese descuento, medida contra el cruce EUR/USD que sale de las dos tasas del BCV. '
+       + 'No es dinero que falte en caja: es dinero que se decidió no pedir.' },
   ].map(x => `<div class="cuadro ${x.c}">
       <div class="tiny muted">${esc(x.t)} ${ayuda(x.a)}</div>
       <div class="n${/^0([.,]0+)?(\s|$)/.test(x.n) ? ' vacio' : ''}">${x.n}</div>
@@ -133,11 +145,17 @@ function pintarCobrado(){
     <td>${esc(etiqueta(x.metodo || '—'))}</td>
     <td class="tiny">${esc(x.referencia || '—')}</td>
     <td class="num">${money(x.monto, x.moneda || MONEDA_BASE)}
-      ${x.moneda && x.moneda !== MONEDA_BASE && x.tasa ? `<div class="tiny muted">a ${esc(String(x.tasa))} Bs/€</div>` : ''}</td>
-    <td class="num"><b>${money(x.en_dolares)}</b></td></tr>`).join('')
+      ${x.moneda && x.moneda !== MONEDA_BASE && x.tasa ? `<div class="tiny muted">a ${esc(String(x.tasa))} Bs/€</div>` : ''}
+      ${x.cruce ? `<div class="tiny muted">a la par · cruce ${esc(String(x.cruce).slice(0, 6))}</div>` : ''}</td>
+    <td class="num"><b>${money(x.en_dolares)}</b>
+      ${Number(x.concedido) > 0
+        ? `<div class="tiny muted" title="Descuento implícito por recibir dólares a la par del euro">−${
+            money(x.concedido)} concedido</div>` : ''}</td></tr>`).join('')
     : emptyRow(7, 'Ningún pago aprobado en este mes.');
+  const concedido = filas.reduce((a, x) => a + Number(x.concedido || 0), 0);
   ponerTotales('#tbCobrado', ['Totales', '', '', '', '',
-    '', { num:true, html: money(filas.reduce((a,x) => a + Number(x.en_dolares || 0), 0)) }]);
+    concedido > 0 ? { num:true, html:`<span class="tiny muted">−${money(concedido)} concedido</span>` } : '',
+    { num:true, html: money(filas.reduce((a,x) => a + Number(x.en_dolares || 0), 0)) }]);
 }
 
 function pintarVencido(){
