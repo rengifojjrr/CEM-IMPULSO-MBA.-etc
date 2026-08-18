@@ -32,6 +32,29 @@
 
   <div class="kpis" id="kpis"></div>
 
+  <!-- Mejora 32. Hasta ahora se verificaba pago por pago mirando referencias a
+       ojo: el aviso del banco en una ventana, el pago reportado en otra, y a
+       comparar seis dígitos. Esto lo propone; confirmar sigue siendo humano,
+       porque una coincidencia de importe y fecha no es una prueba —dos alumnos
+       pueden pagar lo mismo el mismo día— y aprobar un pago es mover dinero. -->
+  <!-- El extracto se descarga del banco y se pega aquí. Hace falta porque el
+       aviso automático del banco llega cuando llega, y mientras tanto lo único
+       que hay es ese archivo. Queda marcado como cargado a mano: no es lo
+       mismo que un aviso del banco y no debe parecerlo. -->
+  <div class="card">
+    <div class="row between"><h2 class="sec">Cargar el extracto a mano</h2>
+      <button class="btn outline sm" id="btnExtracto">
+        <span class="material-symbols-outlined">upload_file</span> Pegar movimientos</button></div>
+    <p class="tiny muted sin-margen">Una línea por movimiento, separando con punto y coma:
+      <b>referencia; monto; fecha; moneda</b>. Volver a pegar el mismo extracto no duplica nada.</p>
+  </div>
+
+  <div class="card" id="cardConciliar" hidden>
+    <div class="row between"><h2 class="sec">Coincidencias que propone el sistema</h2>
+      <span class="tiny muted" id="nConciliar"></span></div>
+    <div id="sugerencias"></div>
+  </div>
+
   <div class="card hidden" id="cardDiag">
     <div class="row between"><h2 class="sec">Diagnóstico de la conexión</h2>
       <button class="btn ghost sm" id="btnCerrarDiag" title="Cerrar el diagnóstico"><span class="material-symbols-outlined">close</span></button></div>
@@ -42,7 +65,7 @@
   </div>
 
   <div class="grid g2">
-    <div class="card">
+    <div class="card" id="cardEstado">
       <h2 class="sec">Estado de la conexión</h2>
       <div id="estado"><span class="cargando"></span></div>
     </div>
@@ -50,7 +73,7 @@
     <!-- item 35 · esto hablaba de endpoint, webhook y ApiKey en una pantalla a la
          que entra quien administra el instituto, no quien programa. Lo técnico
          sigue estando —al banco hay que dárselo— pero plegado y explicado. -->
-    <div class="card">
+    <div class="card" id="cardCredenciales">
       <h2 class="sec">Datos para entregarle al banco</h2>
       <p class="tiny muted">Bancaribe avisa cada pago que entra a nuestra cuenta, y para eso
         necesita dos datos nuestros: una dirección a la que escribirnos y una clave para que
@@ -119,8 +142,22 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY, chipEstado, avisar } from '../assets/app.js?v=2026-08-20';
 
-const p = await mount({ require:['admin','superadmin'], active:'bancaribe.html', area:'admin' });
+/* Cobranza entra: conciliar el extracto contra los pagos reportados es
+   exactamente su trabajo. Lo que no ve nadie más que administración son las
+   credenciales del banco, que se tapan más abajo con `puedeOperar`. */
+const p = await mount({ require:['cobranza','admin','superadmin'], active:'bancaribe.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
+
+/* Conciliar el extracto y tener la clave con la que el banco se identifica no
+   son el mismo permiso. Cobranza entra a lo primero —es su trabajo— y no ve lo
+   segundo: quien cruza referencias no necesita la llave, y una llave que ve
+   más gente es una llave que hay que rotar más veces. */
+const veLasClaves = p && ['admin','superadmin'].includes(p.rol);
+if (!veLasClaves) {
+  document.getElementById('cardCredenciales')?.remove();
+  document.getElementById('btnDiag')?.remove();
+  document.getElementById('cardEstado')?.remove();
+}
 const FN = `${SUPABASE_URL}/functions/v1/cem-bancaribe`;
 let notifs = [], estado = null;
 
@@ -139,12 +176,19 @@ async function llamar(accion, params = {}){
 }
 
 async function cargar(){
-  try { estado = await llamar('estado'); } catch(e){ estado = { error: e.message }; }
-  renderEstado();
+  /* El estado de la conexión lo sirve una función que sólo contesta a
+     administración —configurar el banco no es de cobranza— así que ni se le
+     pregunta: pedirlo para recibir un 403 dejaría un error rojo en la consola
+     y un aviso que no le dice nada a quien sólo viene a conciliar. */
+  if (veLasClaves) {
+    try { estado = await llamar('estado'); } catch(e){ estado = { error: e.message }; }
+    renderEstado();
+  }
   await cargarNotifs();
 }
 
 function renderEstado(){
+  if (!$('#estado')) return;
   if (estado?.error){
     avisar('#estado', estado.error, 'err');
     return;
@@ -156,12 +200,12 @@ function renderEstado(){
     <div class="list-item"><div class="grow"><div class="s">Cuenta</div><div class="t">${esc(estado.cuenta||'—')}</div></div></div>
     <div class="list-item"><div class="grow"><div class="s">Servicios habilitados</div>
       <div class="t">${(estado.servicios||[]).map(s=>chip(s.replace(/_/g,' '),'neutral')).join(' ')}</div></div></div>`;
-  $('#webhookUrl').textContent = estado.webhook_url || '—';
-  $('#webhookKey').textContent = estado.webhook_api_key || '—';
+  if ($('#webhookUrl')) $('#webhookUrl').textContent = estado.webhook_url || '—';
+  if ($('#webhookKey')) $('#webhookKey').textContent = estado.webhook_api_key || '—';
 }
 
-$('#webhookKey').onclick = () => $('#webhookKey').classList.toggle('ver');
-$('#btnCopiar').onclick = async () => {
+if ($('#webhookKey')) $('#webhookKey').onclick = () => $('#webhookKey').classList.toggle('ver');
+if ($('#btnCopiar')) $('#btnCopiar').onclick = async () => {
   await navigator.clipboard.writeText(
     `Dirección a la que el banco nos escribe (endpoint): ${estado?.webhook_url||''}\n` +
     `Clave con la que se identifica (ApiKey): ${estado?.webhook_api_key||''}`);
@@ -175,7 +219,7 @@ $('#btnCopiar').onclick = async () => {
    cortado en mitad del cambio. */
 const GRACIA_HORAS = 48;
 
-$('#btnRotar').onclick = async () => {
+if ($('#btnRotar')) $('#btnRotar').onclick = async () => {
   if (p.rol !== 'admin' && p.rol !== 'superadmin') {
     fail('Sólo un administrador puede cambiar esta clave. Pídeselo a quien lleve la plataforma.'); return;
   }
@@ -213,7 +257,7 @@ $('#btnRotar').onclick = async () => {
 $('#btnRefrescar').onclick = cargar;
 $('#btnCerrarDiag').onclick = () => $('#cardDiag').classList.add('hidden');
 
-$('#btnDiag').onclick = async () => {
+if ($('#btnDiag')) $('#btnDiag').onclick = async () => {
   $('#cardDiag').classList.remove('hidden');
   $('#diag').innerHTML = '<p class="muted tiny">Probando el token y cada servicio contra el banco… (puede tardar)</p>';
   try {
@@ -311,6 +355,45 @@ async function cargarNotifs(){
     kpi('Monto pendiente', money(pend.reduce((a,n)=>a+Number(n.amount||0),0), 'VES'), 'payments', 'sin conciliar'),
   ].join('');
   renderNotifs();
+  pintarSugerencias();
+}
+
+/* ============ conciliar contra el extracto (mejora 32) ============
+   Se ordenan por lo seguras que son. Una referencia que coincide entera es
+   prácticamente certeza; un importe igual el mismo día es una pista. La
+   diferencia se dice con palabras, no con un número que nadie sabe leer. */
+async function pintarSugerencias(){
+  const host = $('#sugerencias');
+  if (!host) return;
+  const { data, error } = await sb.rpc('cem_conciliar_sugerencias', { p_dias: 45 });
+  const lista = error ? [] : (data || []);
+  $('#cardConciliar').hidden = lista.length === 0;
+  if (!lista.length) return;
+
+  $('#nConciliar').textContent = lista.length === 1 ? '1 coincidencia' : `${lista.length} coincidencias`;
+  host.innerHTML = lista.map(x => `<div class="list-item">
+    <span class="material-symbols-outlined"
+      style="color:var(--${x.parecido >= 90 ? 'ok' : x.parecido >= 60 ? 'warn' : 'tinta-3'})">
+      ${x.parecido >= 90 ? 'check_circle' : 'help'}</span>
+    <div class="grow">
+      <div class="t">${esc(x.estudiante || 'Sin nombre')} · ${esc(String(x.pago_monto))} ${esc(x.pago_moneda || '')}</div>
+      <div class="s">Banco: <b>${esc(x.banco_referencia || 'sin referencia')}</b> ${esc(String(x.banco_monto))} ${esc(x.banco_moneda)}
+        ${x.banco_fecha ? ` · ${esc(x.banco_fecha)}` : ''}</div>
+      <div class="s">Reportó: <b>${esc(x.pago_referencia || 'sin referencia')}</b>
+        ${esc(x.pago_metodo || '')}${x.curso ? ` · ${esc(x.curso)}` : ''}</div>
+      <div class="s"><i>${esc(x.porque)}</i></div>
+    </div>
+    ${puedeOperar ? `<button class="btn sm" data-conciliar="${esc(x.notificacion_id)}"
+      data-pago="${esc(x.payment_id)}">Es este</button>` : ''}
+  </div>`).join('');
+
+  $$('[data-conciliar]', host).forEach(b => b.onclick = async () => {
+    const { error: e } = await sb.rpc('cem_conciliar', {
+      p_notificacion_id: b.dataset.conciliar, p_payment_id: b.dataset.pago });
+    if (e) { fail(e.message); return; }
+    ok('Conciliado. El pago sigue esperando tu aprobación en Verificar pagos.');
+    cargarNotifs();
+  });
 }
 
 function renderNotifs(){
@@ -326,9 +409,20 @@ function renderNotifs(){
     <td class="nowrap">
       <button class="btn ghost sm" data-ver="${n.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
       ${puedeOperar && n.estado==='pendiente' ? `<button class="btn ghost sm" data-desc="${n.id}" title="Descartar"><span class="material-symbols-outlined">block</span></button>` : ''}
+      ${puedeOperar && n.estado==='conciliada' ? `<button class="btn ghost sm" data-descon="${n.id}"
+        title="Deshacer la conciliación"><span class="material-symbols-outlined">link_off</span></button>` : ''}
     </td></tr>`).join('') : emptyRow(7, 'Sin operaciones en el periodo consultado.');
 
   $$('[data-ver]').forEach(b=>b.onclick=()=>verDetalle(notifs.find(n=>n.id===b.dataset.ver)));
+  /* Conciliar mal es tan fácil como conciliar bien, así que se puede soltar.
+     El pago vuelve a estar sin conciliar sólo si no le queda otro aviso. */
+  $$('[data-descon]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Soltar esta conciliación? El aviso vuelve a quedar pendiente.')) return;
+    const { error } = await sb.rpc('cem_desconciliar', { p_notificacion_id: b.dataset.descon });
+    if (error) { fail(error.message); return; }
+    ok('Conciliación deshecha.'); cargarNotifs();
+  });
+
   $$('[data-desc]').forEach(b=>b.onclick=async()=>{
     if (!await confirmDialog('¿Descartar esta notificación? Se marcará como no aplicable a ninguna cuota.')) return;
     await run(sb.from('cem_bancaribe_notificaciones').update({
@@ -356,6 +450,40 @@ function verDetalle(n){
 }
 
 mejorarSelects();
+
+/* ============ pegar el extracto (mejora 32) ============
+   Se pide texto separado por punto y coma en vez de un archivo porque es lo
+   que se puede copiar directamente de la web del banco o de un Excel, sin
+   convertir nada. Lo que no se entienda se cuenta aparte y se dice: callar las
+   líneas que no entraron es como se pierde un pago sin que nadie lo note. */
+$('#btnExtracto').onclick = () => {
+  const m = modal({ title:'Pegar los movimientos del extracto', wide:true, body:`
+    <p class="tiny muted">Una línea por movimiento:
+      <b>referencia; monto; fecha; moneda</b>. La moneda es opcional (por defecto VES)
+      y la fecha se escribe como venga del banco.</p>
+    <div class="field"><label>Movimientos</label>
+      <textarea id="exTexto" rows="10" spellcheck="false"
+        placeholder="001234567; 1500.00; 2026-08-12; VES&#10;001234890; 980.50; 2026-08-12"></textarea></div>
+    <div id="exMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="exGo">Cargar</button>` });
+
+  $('#exGo', m).onclick = async () => {
+    const lineas = $('#exTexto', m).value.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lineas.length) { avisar($('#exMsg', m), 'Pega al menos un movimiento.', 'err'); return; }
+    const movs = lineas.map(l => {
+      const [referencia, monto, fecha, moneda] = l.split(';').map(x => (x || '').trim());
+      return { referencia, monto: Number(String(monto).replace(',', '.')) || 0, fecha, moneda };
+    });
+    const { data, error } = await sb.rpc('cem_extracto_cargar', { p_movimientos: movs });
+    if (error) { avisar($('#exMsg', m), error.message, 'err'); return; }
+    m.close();
+    ok(`${data.puestos} movimiento(s) cargados` +
+       (data.repetidos ? `, ${data.repetidos} ya estaban` : '') +
+       (data.sin_datos ? `, ${data.sin_datos} sin referencia o sin importe` : '') + '.');
+    cargarNotifs();
+  };
+};
 </script>
 </body>
 </html>

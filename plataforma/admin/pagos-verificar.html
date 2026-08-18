@@ -172,7 +172,13 @@ function render(){
           x.estado === 'confirmado' ? 'Aprobado' : x.estado === 'rechazado' ? 'Rechazado'
             : x.estado === 'reportado' ? 'Por revisar' : etiqueta(x.estado),
           x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}
-        ${x.conciliado && x.nota && /autom/i.test(x.nota) ? chip('Automático','neutral') : ''}</td>
+        ${x.conciliado && x.nota && /autom/i.test(x.nota) ? chip('Automático','neutral') : ''}
+        <!-- Mejora 33: el motivo del rechazo estaba guardado y no se veía, así
+             que para saber cuál era el problema había que abrir los pagos de
+             uno en uno. Aquí, debajo del estado, se lee de un vistazo. -->
+        ${x.estado === 'rechazado' && x.nota
+          ? `<div class="tiny" style="color:var(--error);white-space:normal;margin-top:3px"
+               title="Motivo del rechazo">${esc(x.nota)}</div>` : ''}</td>
       <td class="nowrap" data-col=""><span class="acciones">
         <button class="btn ghost sm" data-ver="${x.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
         ${puedeOperar && x.estado === 'reportado' ? `

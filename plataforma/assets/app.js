@@ -1006,6 +1006,9 @@ const AUDITOR_NAV = [
 const COBRANZA_NAV = [
   { lbl: 'Cobranza', items: [
     ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
+    /* La conciliación contra el extracto es trabajo suyo, y hasta ahora esta
+       pantalla no estaba en su menú: era de administración. */
+    ['bancaribe.html', 'account_balance', 'Banco y conciliación'],
     ['leads.html', 'contact_phone', 'Contactos de la web'],
     ['carteras.html', 'account_balance_wallet', 'Carteras'],
     ['cierre-mes.html', 'event_available', 'Cierre de mes'],
