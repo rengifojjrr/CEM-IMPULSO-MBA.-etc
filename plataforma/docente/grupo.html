@@ -46,15 +46,16 @@
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Estudiante</th><th>Avance</th><th>Promedio</th><th>Entregas</th>
-        <th>Asistencia</th><th>Último acceso</th><th>Situación</th></tr></thead>
+        <th>Asistencia</th><th>Último acceso</th><th>Situación</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi,
-         toCSV, download, fail, mensajeError } from '../assets/app.js?v=2026-08-20';
+         toCSV, download, fail, mensajeError, modal, ok, avisar, ocupado } from '../assets/app.js?v=2026-08-20';
 import { histograma, columnas, barras } from '../assets/graficos.js?v=2026-08-20';
+import { escribirle } from '../assets/aula.js?v=2026-08-20';
 
 const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
                         active:'grupo.html', area:'docente' });
@@ -124,8 +125,9 @@ async function cargar(){
     return `<div class="list-item">
       <div class="grow"><div class="t">${esc(f.estudiante || f.email)}</div>
         <div class="s">${esc(txt)}${f.ultimo_acceso ? ` · última vez el ${fdate(f.ultimo_acceso)}` : ''}</div></div>
-      <a class="btn ghost sm" href="mailto:${esc(f.email)}">
-        <span class="material-symbols-outlined">mail</span> Escribirle</a>
+      <button class="btn ghost sm" data-escribir="${esc(f.profile_id || '')}"
+        data-nombre="${esc(f.estudiante || f.email)}">
+        <span class="material-symbols-outlined">mail</span> Escribirle</button>
       <span class="chip ${kind}">${esc(txt.split(' ').slice(0, 2).join(' '))}</span>
     </div>`;
   }).join('');
@@ -187,8 +189,22 @@ function render(){
         ${Number(x.entregas_tarde) ? `<div class="tiny err-text">${x.entregas_tarde} tarde</div>` : ''}</td>
       <td>${x.asistencia_pct == null ? '<span class="muted">—</span>' : pct(x.asistencia_pct)}</td>
       <td class="muted">${x.ultimo_acceso ? fdate(x.ultimo_acceso) : 'nunca'}</td>
-      <td><span class="chip ${kind}">${esc(txt)}</span></td></tr>`;
-  }).join('') : emptyRow(7, 'Nadie coincide con ese filtro.');
+      <td><span class="chip ${kind}">${esc(txt)}</span></td>
+      <td><button class="btn ghost sm" data-escribir="${esc(x.profile_id || '')}"
+        data-nombre="${esc(x.estudiante || x.email)}" title="Escribirle desde la plataforma">
+        <span class="material-symbols-outlined">mail</span></button></td></tr>`;
+  }).join('') : emptyRow(8, 'Nadie coincide con ese filtro.');
+  conectarEscribir();
+}
+
+/* Escribirle a alguien que se está descolgando es lo único que este rol no
+   podía hacer, y es el rol que primero lo nota. El `mailto:` de antes abría el
+   correo del ordenador —si lo había— y no dejaba rastro de que se le escribió. */
+function conectarEscribir(){
+  $$('[data-escribir]').forEach(b => b.onclick = () => {
+    if (!b.dataset.escribir) { fail('No sabemos a qué cuenta escribirle.'); return; }
+    escribirle(b.dataset.escribir, b.dataset.nombre);
+  });
 }
 
 ['#q', '#fRiesgo'].forEach(s => { const el = $(s); el.oninput = render; el.onchange = render; });

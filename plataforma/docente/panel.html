@@ -25,11 +25,25 @@
     <div class="card"><h2 class="sec">Próximas sesiones</h2><div id="sesiones"></div></div>
   </div>
 
+  <!-- Las dudas de las lecciones que dicta. Antes acababan en su WhatsApp o no
+       se preguntaban; ahora tienen sitio y se ven aquí las que nadie contestó. -->
+  <div class="card" id="cardDudas" hidden>
+    <div class="row between"><h2 class="sec">Dudas esperando respuesta</h2>
+      <span class="chip warn" id="nDudas"></span></div>
+    <p class="tiny muted" style="margin-top:-6px">Lo que contestes lo ve toda la clase:
+      una duda buena la tienen cinco personas y sólo una se atreve a escribirla.</p>
+    <div id="dudas"></div>
+  </div>
+
   <div class="card">
     <div class="row between"><h2 class="sec">Entregas pendientes de calificar</h2>
       <span class="chip warn" id="nPend"></span></div>
+    <!-- Mejora 15: primero lo que bloquea a alguien para certificarse —ya
+         terminó y está esperando por nosotros— y después lo que lleva más
+         tiempo esperando. -->
+    <p class="tiny muted" style="margin-top:-6px">Ordenadas por urgencia real, no por fecha de entrega.</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Estudiante</th><th>Evaluación</th><th>Programa</th><th>Entregado</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Estudiante</th><th>Evaluación</th><th>Programa</th><th>Esperando</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbEntregas"></tbody></table></div>
   </div>
 
@@ -41,7 +55,8 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-20';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError, chipEstado, avisar, ocupado } from '../assets/app.js?v=2026-08-20';
+import { escribirle } from '../assets/aula.js?v=2026-08-20';
 const me = await mount({ require:['profesor'], active:'panel.html', area:'docente' });
 let cohortes=[], clases=[], subsPend=[];
 if (me) load();
@@ -92,21 +107,36 @@ async function load(){
         <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
+      <button class="btn ghost sm" data-sesion="${c.id}" title="Mover la hora o avisar a la clase">
+        <span class="material-symbols-outlined">edit_calendar</span></button>
       ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chipEstado(c.estado)}
     </div>`).join('') : '<p class="muted tiny">Sin sesiones próximas.</p>';
+  $$('[data-sesion]').forEach(b=>b.onclick=()=>gestionarSesion(clases.find(c=>c.id===b.dataset.sesion)));
 
-  $('#nPend').textContent = subsPend.length === 1 ? '1 pendiente' : `${subsPend.length} pendientes`;
-  $('#tbEntregas').innerHTML = subsPend.length ? subsPend.map(s=>{
-    const e = (ens||[]).find(x=>x.id===s.enrollment_id);
-    return `<tr>
-      <td>${esc((e?.cem_profiles?.nombre||'')+' '+(e?.cem_profiles?.apellido||''))}</td>
-      <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td>
-      <td class="wrap">${esc(s.cem_assessments?.cem_courses?.nombre||'')}</td>
-      <td class="muted">${fdatetime(s.entregado_en)}</td>
-      <td>${chipEstado(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td>
-      <td><button class="btn outline sm" data-cal="${s.id}">Calificar</button></td></tr>`;
-  }).join('') : emptyRow(6,'No tienes entregas pendientes.');
+  /* La cola la ordena el servidor: quién lleva más esperando y a quién le está
+     bloqueando el certificado. Si por lo que sea no llegara, se cae a la lista
+     de siempre en vez de dejar la tarjeta vacía. */
+  const { data: cola } = await sb.rpc('cem_cola_de_correccion');
+  const ordenadas = (cola || []).length
+    ? cola.map(c => ({ ...c, sub: subsPend.find(s => s.id === c.id) })).filter(c => c.sub)
+    : subsPend.map(s => ({ id: s.id, sub: s, dias: null, bloquea: false,
+        estudiante: nombreDe(ens, s), evaluacion: s.cem_assessments?.nombre,
+        curso: s.cem_assessments?.cem_courses?.nombre }));
+
+  $('#nPend').textContent = ordenadas.length === 1 ? '1 pendiente' : `${ordenadas.length} pendientes`;
+  $('#tbEntregas').innerHTML = ordenadas.length ? ordenadas.map(c=>`<tr>
+      <td>${esc(c.estudiante || '—')}</td>
+      <td class="wrap">${esc(c.evaluacion || '')}</td>
+      <td class="wrap">${esc(c.curso || '')}</td>
+      <td class="muted">${c.dias == null ? fdatetime(c.sub.entregado_en)
+        : c.dias === 0 ? 'hoy' : `${c.dias} día${c.dias > 1 ? 's' : ''}`}</td>
+      <td>${c.bloquea ? chip('le bloquea el certificado', 'err')
+        : chipEstado(c.sub.estado)}${c.sub.tarde ? ' ' + chip('tarde','err') : ''}</td>
+      <td><button class="btn outline sm" data-cal="${c.id}">Calificar</button></td></tr>`).join('')
+    : emptyRow(6,'No tienes entregas pendientes.');
   $$('[data-cal]').forEach(b=>b.onclick=()=>calificar(subsPend.find(s=>s.id===b.dataset.cal), ens||[]));
+
+  pintarDudasPendientes();
 
   const dictadas = clases.filter(c=>c.estado==='dictada').slice(0,8);
   const { data: att } = dictadas.length
@@ -121,6 +151,85 @@ async function load(){
       <td><button class="btn ghost sm" data-asis="${c.id}" title="Pasar la asistencia"><span class="material-symbols-outlined">how_to_reg</span></button></td></tr>`;
   }).join('') : emptyRow(5,'Aún no has dictado sesiones.');
   $$('[data-asis]').forEach(b=>b.onclick=()=>pasarAsistencia(b.dataset.asis, ens||[]));
+}
+
+/** El nombre del alumno de una entrega, cuando hay que armarlo aquí. */
+const nombreDe = (ens, s) => {
+  const e = (ens || []).find(x => x.id === s.enrollment_id);
+  return `${e?.cem_profiles?.nombre || ''} ${e?.cem_profiles?.apellido || ''}`.trim();
+};
+
+/* ============ las dudas de mis lecciones (mejora 1, desde este lado) ============
+   Sólo las que todavía no ha contestado ningún profesor: las que ya tienen
+   respuesta no son trabajo pendiente. */
+async function pintarDudasPendientes(){
+  const { data } = await sb.rpc('cem_dudas_pendientes', { p_course_id: null });
+  const lista = data || [];
+  $('#cardDudas').hidden = lista.length === 0;
+  if (!lista.length) return;
+  $('#nDudas').textContent = lista.length === 1 ? '1 duda' : `${lista.length} dudas`;
+  $('#dudas').innerHTML = lista.slice(0, 10).map(d => `<div class="list-item">
+    <span class="material-symbols-outlined" style="color:var(--warn)">contact_support</span>
+    <div class="grow"><div class="t">${esc(d.cuerpo)}</div>
+      <div class="s">${esc(d.autor || 'Un estudiante')} · ${esc(d.leccion)} · ${esc(d.curso)}
+        ${d.segundo ? ` · minuto ${Math.floor(d.segundo/60)}:${String(d.segundo%60).padStart(2,'0')}` : ''}</div></div>
+    <span class="tiny muted">${fdate(d.created_at)}</span>
+    <a class="btn outline sm" href="aula.html?leccion=${esc(d.lesson_id)}">Responder</a>
+  </div>`).join('');
+}
+
+/* ============ mover la clase y avisar (mejora 16) ============
+   Mover la hora ya lo podía hacer —la clase es suya—, pero avisar tenía que
+   pedírselo a administración, así que en la práctica lo avisaba por WhatsApp y
+   quien no estaba en el grupo se quedaba sin enterarse. */
+function gestionarSesion(c){
+  if (!c) return;
+  const m = modal({ title: `Sesión · ${c.titulo || ''}`, body: `
+    <div class="row">
+      <div class="field medio"><label>Fecha</label>
+        <input type="date" id="sFecha" value="${esc(c.fecha || '')}"></div>
+      <div class="field corto"><label>Empieza</label>
+        <input type="time" id="sIni" value="${esc((c.hora_inicio || '').slice(0,5))}"></div>
+      <div class="field corto"><label>Termina</label>
+        <input type="time" id="sFin" value="${esc((c.hora_fin || '').slice(0,5))}"></div>
+    </div>
+    <div class="field"><label>Enlace de la sesión</label>
+      <input id="sUrl" value="${esc(c.url_sesion || '')}" placeholder="https://…"></div>
+    <div class="field"><label>Qué decirle a la clase (opcional)</label>
+      <textarea id="sNota" rows="2" maxlength="400"
+        placeholder="Por ejemplo: la movemos al viernes a la misma hora."></textarea>
+      <span class="tiny muted">Si lo dejas vacío se avisa igual, con la fecha y la hora.</span></div>
+    <div id="sMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn outline" id="sSolo">Sólo guardar</button>
+             <button class="btn" id="sAvisar">Guardar y avisar a la clase</button>` });
+
+  const guardar = async () => {
+    const cambios = {
+      fecha: $('#sFecha', m).value || c.fecha,
+      hora_inicio: $('#sIni', m).value || c.hora_inicio,
+      hora_fin: $('#sFin', m).value || c.hora_fin,
+      url_sesion: $('#sUrl', m).value.trim() || null,
+    };
+    const { error } = await sb.from('cem_classes').update(cambios).eq('id', c.id);
+    if (error) { avisar($('#sMsg', m), mensajeError(error), 'err'); return false; }
+    return true;
+  };
+
+  $('#sSolo', m).onclick = () => ocupado('#sSolo', 'Guardando…', async () => {
+    if (!await guardar()) return;
+    m.close(); ok('Sesión guardada. La clase no ha recibido ningún aviso.'); load();
+  });
+
+  $('#sAvisar', m).onclick = () => ocupado('#sAvisar', 'Avisando…', async () => {
+    if (!await guardar()) return;
+    const { data, error } = await sb.rpc('cem_avisar_de_clase', {
+      p_class_id: c.id, p_nota: $('#sNota', m).value.trim() || null });
+    if (error) { avisar($('#sMsg', m), mensajeError(error), 'err'); return; }
+    m.close();
+    ok(`Avisados ${data ?? 0} estudiante(s).`);
+    load();
+  });
 }
 
 function calificar(s, ens){

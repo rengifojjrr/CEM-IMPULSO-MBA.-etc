@@ -38,7 +38,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, run, qs, audit, modal, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-20';
+import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, fail, run, qs, audit, modal, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'calificar.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let subs=[], filtro='pend', sel=null;
@@ -55,7 +55,7 @@ $('#fAssess').onchange = fetchSubs;
 
 async function fetchSubs(){
   let q = sb.from('cem_submissions')
-    .select('*,cem_assessments(nombre,tipo,puntaje_max,nota_aprobatoria,cem_courses(nombre)),cem_enrollments(profile_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email))')
+    .select('*,cem_assessments(nombre,tipo,puntaje_max,nota_aprobatoria,rubrica,cem_courses(nombre)),cem_enrollments(profile_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email))')
     .in('estado',['entregada','calificada']).order('entregado_en',{ascending:false});
   const a = $('#fAssess').value; if (a) q = q.eq('assessment_id',a);
   const { data } = await q;
@@ -88,6 +88,89 @@ function render(){
   detalle();
 }
 
+/* ============ la rúbrica al lado del trabajo (mejora 18) ============
+   Antes se abrían por separado, y corregir con dos pestañas es cómo se ponen
+   notas inconsistentes: a la décima entrega ya no se recuerda cuánto valía la
+   bibliografía. Los puntos por criterio se suman solos en el total, así que la
+   nota deja de ser un número que alguien estimó de memoria. */
+function rubricaHTML(a, s){
+  const r = Array.isArray(a?.rubrica) ? a.rubrica : [];
+  if (!r.length) return '';
+  const previos = (s.rubrica_puntos && typeof s.rubrica_puntos === 'object') ? s.rubrica_puntos : {};
+  return `<div class="card sep" style="background:var(--surface-container);box-shadow:none">
+    <b class="tiny">Rúbrica</b>
+    <div class="stack sep-poco" id="rubricaCal">
+      ${r.map((c, i) => `<div class="row between rub-cal" data-i="${i}" style="gap:var(--e1)">
+        <span class="tiny crece">${esc(c.criterio)}</span>
+        <input type="number" class="rub-n" min="0" max="${esc(String(c.puntos ?? 100))}" step="0.5"
+          value="${esc(String(previos[c.criterio] ?? ''))}"
+          aria-label="Puntos de ${esc(c.criterio)}" style="width:88px">
+        <span class="tiny muted" style="min-width:52px">de ${esc(String(c.puntos ?? '—'))}</span>
+      </div>`).join('')}
+    </div>
+    <p class="tiny muted sep-poco sin-margen">Al escribir los puntos, el total de arriba se pone solo.</p>
+  </div>`;
+}
+
+/** Lo escrito en la rúbrica, como {criterio: puntos}. Null si no hay rúbrica
+    o si no se escribió nada: guardar un objeto vacío diría que se corrigió con
+    rúbrica y se dejó todo a cero, que no es lo mismo que no haberla usado. */
+function leerRubricaPuntos(a){
+  const host = $('#rubricaCal');
+  const r = Array.isArray(a?.rubrica) ? a.rubrica : [];
+  if (!host || !r.length) return null;
+  const out = {};
+  let alguno = false;
+  $$('.rub-cal', host).forEach((f) => {
+    const i = Number(f.dataset.i);
+    const v = $('.rub-n', f).value;
+    if (v === '' || !r[i]) return;
+    out[r[i].criterio] = Number(v);
+    alguno = true;
+  });
+  return alguno ? out : null;
+}
+
+function conectarRubrica(a){
+  const host = $('#rubricaCal');
+  if (!host) return;
+  const sumar = () => {
+    const total = $$('.rub-n', host).reduce((t, i) => t + (Number(i.value) || 0), 0);
+    const escritos = $$('.rub-n', host).some(i => i.value !== '');
+    if (escritos) $('#gP').value = Math.round(total * 100) / 100;
+  };
+  $$('.rub-n', host).forEach(i => i.addEventListener('input', sumar));
+}
+
+/* El cajón de comentarios: se rellena con los que más se usan y pegar uno lo
+   añade al final de lo escrito, no lo reemplaza. */
+async function conectarCajon(){
+  const host = $('#cajon');
+  if (!host) return;
+  const { data } = await sb.from('cem_comentarios_guardados')
+    .select('id,texto,usos').order('usos', { ascending: false }).limit(8);
+  const lista = data || [];
+  host.innerHTML = lista.map(c => `<button type="button" class="chip chip-btn"
+    data-com="${esc(c.texto)}" title="Pegarlo en la retroalimentación">
+    ${esc(c.texto.length > 42 ? c.texto.slice(0, 40) + '…' : c.texto)}</button>`).join('');
+  $$('[data-com]', host).forEach(b => b.onclick = () => {
+    const caja = $('#gF');
+    caja.value = (caja.value.trim() ? caja.value.trim() + ' ' : '') + b.dataset.com;
+    caja.focus();
+    sb.rpc('cem_comentario_usar', { p_texto: b.dataset.com }).then(() => {}, () => {});
+  });
+
+  const guardar = $('#btnGuardarCom');
+  if (guardar) guardar.onclick = async () => {
+    const texto = $('#gF').value.trim();
+    if (!texto) { fail('Escribe primero el comentario.'); return; }
+    const { error } = await sb.rpc('cem_comentario_usar', { p_texto: texto });
+    if (error) { fail(mensajeError(error)); return; }
+    ok('Guardado. Sale en el cajón la próxima vez.');
+    conectarCajon();
+  };
+}
+
 function detalle(){
   const D=$('#detalle');
   if (!sel){ D.innerHTML = `<div class="card" style="text-align:center;padding:44px">
@@ -117,7 +200,15 @@ function detalle(){
         <div class="field medio"><label>Referencia</label>
           <div class="tiny muted" style="padding-top:8px">Nota aprobatoria: <b>${a?.nota_aprobatoria||70}</b></div></div>
       </div>
-      <div class="field"><label>Retroalimentación para el estudiante</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>
+      ${rubricaHTML(a, s)}
+      <div class="field"><label>Retroalimentación para el estudiante</label>
+        <textarea id="gF">${esc(s.feedback||'')}</textarea>
+        <!-- «Falta la bibliografía» se escribe cincuenta veces por cohorte
+             (mejora 19). El cajón se ordena solo: lo que más se usa sube. -->
+        <div class="row sep-poco" style="gap:6px;flex-wrap:wrap" id="cajon"></div>
+        <button type="button" class="btn ghost sm" id="btnGuardarCom">
+          <span class="material-symbols-outlined">bookmark_add</span>
+          Guardar este comentario para reutilizarlo</button></div>
       <div class="row"><button class="btn" id="btnG"><span class="material-symbols-outlined">save</span>
         ${s.estado==='calificada'?'Actualizar calificación':'Guardar calificación'}</button>
         <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
@@ -147,10 +238,17 @@ function detalle(){
   }
 
   if (puede){
+    conectarRubrica(a);
+    conectarCajon();
     const guardar = async () => {
       const v=Number($('#gP').value);
       if (isNaN(v)) return null;
       await run(sb.rpc('cem_grade_submission',{ p_submission_id:s.id, p_puntaje:v, p_feedback:$('#gF').value.trim()||null }),'No se pudo calificar');
+      /* El desglose por criterio se guarda aparte de la nota. Quien reclama
+         una nota tiene derecho a ver de dónde sale, y al reabrir la entrega
+         la rúbrica vuelve con lo que se puso. */
+      const desglose = leerRubricaPuntos(a);
+      if (desglose) await sb.from('cem_submissions').update({ rubrica_puntos: desglose }).eq('id', s.id);
       await audit('entrega_calificada','cem_submissions',s.id,'medio',{puntaje:v});
       return true;
     };

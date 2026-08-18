@@ -92,8 +92,29 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota, money,
          mensajeError, modal, avisar, ocupado, download, imprimirDocumento } from '../assets/app.js?v=2026-08-20';
+import { profile } from '../assets/app.js?v=2026-08-20';
 import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-20';
-const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+
+/* ── quién está mirando ────────────────────────────────────────────────────
+   Esta pantalla la abren dos personas distintas. Un estudiante viene a dar su
+   clase. Un profesor viene a ver cómo se ve su clase ANTES de publicarla
+   (mejora 20): hasta ahora se publicaba y se esperaba a que alguien avisara de
+   que un vídeo no cargaba — que es exactamente lo que acabó pasando.
+
+   El contenido es el mismo; lo que cambia es que en modo vista previa no se
+   escribe nada. Marcar completada, apuntar el minuto o preguntar una duda son
+   cosas de quien está inscrito, y aquí no hay inscripción que tocar.
+
+   La navegación de al lado se queda siendo la suya: alguien que está de visita
+   no debería perder su propio menú. */
+const yo = await profile();
+const ROL = yo?.rol || 'estudiante';
+const soyEstudiante = ROL === 'estudiante';
+const me = await mount({
+  require: ['estudiante','profesor','coordinador','admin','superadmin'],
+  active: soyEstudiante ? 'panel.html' : ROL === 'profesor' ? 'aula.html' : 'contenido.html',
+  area: soyEstudiante ? 'estudiante' : ROL === 'profesor' ? 'docente' : 'admin',
+});
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
 let hayExpress = false;
 let filtro = { texto:'', pendientes:false, despues:false };
@@ -106,11 +127,29 @@ async function load(){
     const { data: cl } = await sb.from('cem_classes').select('cohort_id,cem_cohorts(course_id)').eq('id',claseId).maybeSingle();
     cursoId = cl?.cem_cohorts?.course_id;
   }
-  const { data: ens } = await sb.from('cem_enrollments')
-    .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id).limit(500);
-  enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
-  if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
-  curso = enr.cem_courses;
+  if (soyEstudiante) {
+    const { data: ens } = await sb.from('cem_enrollments')
+      .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id).limit(500);
+    enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
+    if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
+    curso = enr.cem_courses;
+  } else {
+    /* Vista previa: no hay inscripción que mirar, así que se arma una de
+       mentira con el curso pedido. Todo lo que escribe queda desactivado más
+       abajo; esto sólo existe para que el resto de la pantalla —que da por
+       hecho que hay una inscripción— no tenga que preguntarlo en cada línea. */
+    if (!cursoId) {
+      document.body.innerHTML = `<div class="content"><div class="card">
+        Para ver un aula en vista previa hace falta decir cuál:
+        <a href="../admin/contenido.html">elige un programa</a>.</div></div>`;
+      return;
+    }
+    const { data: c } = await sb.from('cem_courses')
+      .select('id,nombre').eq('id', cursoId).maybeSingle();
+    if (!c) { document.body.innerHTML='<div class="content"><div class="card">Ese programa no existe.</div></div>'; return; }
+    curso = c;
+    enr = { id: null, course_id: c.id, cohort_id: null, progreso: 0, cem_courses: c, cem_cohorts: null };
+  }
 
   /* El enlace y el cuerpo de cada lección no vienen aquí: la base ya no los
      entrega por consulta directa. Se piden abajo, después de la puerta, y sólo
@@ -119,16 +158,16 @@ async function load(){
     sb.from('cem_modules')
       .select('*,cem_lessons(id,module_id,titulo,descripcion,tipo,duracion_min,orden,obligatorio,estado)')
       .eq('course_id',enr.course_id).order('orden'),
-    sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id).limit(500),
+    enr.id? sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id).limit(500) : Promise.resolve({data:[]}),
     enr.cohort_id? sb.from('cem_classes').select('*').eq('cohort_id',enr.cohort_id).order('fecha').limit(500) : Promise.resolve({data:[]}),
     sb.from('cem_media').select('*').eq('course_id',enr.course_id).limit(500),
     sb.from('cem_assessments').select('*').eq('course_id',enr.course_id).eq('estado','publicado').order('nombre'),
-    sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id).limit(500),
+    enr.id? sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id).limit(500) : Promise.resolve({data:[]}),
   ]);
   /* La puerta. El servidor ya rechaza las evaluaciones y el progreso de quien
      no ha pagado; aquí se le dice por qué, en vez de dejarle chocar con un
      error en cada clic. */
-  const { data: acceso } = await sb.rpc('cem_mi_acceso');
+  const { data: acceso } = soyEstudiante ? await sb.rpc('cem_mi_acceso') : { data: null };
   if (acceso && acceso[enr.id] && acceso[enr.id].abierto === false) {
     $('#page').innerHTML = `<div class="card" style="max-width:620px;margin:0 auto;text-align:center;padding:var(--e4)">
       <span class="material-symbols-outlined" style="font-size:46px;color:var(--warn)">lock</span>
@@ -219,6 +258,22 @@ function conectarFiltros(){
   alterna('#soloDespues', 'despues');
 }
 
+/* ── el cartel de vista previa (mejora 20) ────────────────────────────────
+   Tiene que ser imposible confundirla con el aula de verdad: quien la mira
+   está viendo el curso de otra persona y nada de lo que haga se guarda. */
+function pintarAvisoDeVista(){
+  if (soyEstudiante) return;
+  if ($('#avisoVista')) return;
+  const cab = $('#migas');
+  if (!cab) return;
+  cab.insertAdjacentHTML('afterend', `<div class="nota warn" id="avisoVista">
+    <b>Vista previa.</b> Así se ve esta aula desde el lado del estudiante.
+    Nada de lo que hagas aquí se guarda: no marca progreso, no deja apuntes y
+    no publica dudas.
+    <a href="${ROL === 'profesor' ? '../docente/aula.html' : '../admin/contenido.html'}"
+       style="margin-left:6px">Volver a lo mío</a></div>`);
+}
+
 /* El índice se repinta solo cuando cambia el filtro, sin rehacer el
    reproductor: si cada tecla del buscador reiniciara el vídeo, buscar sería
    imposible mientras se ve una clase. */
@@ -254,6 +309,7 @@ function pintarIndice(){
 /* ── «para después» (mejora 9) ─────────────────────────────────────────────
    Marcar una lección para volver. Antes había que acordarse del nombre. */
 async function marcarParaDespues(l){
+  if (!soyEstudiante || !enr?.id) return;
   const ahora = !progreso[l.id]?.para_despues;
   const { error } = await sb.from('cem_lesson_progress').upsert({
     enrollment_id: enr.id, lesson_id: l.id, para_despues: ahora,
@@ -365,6 +421,8 @@ let verReloj = null, verSegundos = 0, verLeccion = null, jugando = false;
 function registrarQueSeVe(l, conAPI){
   clearInterval(verReloj);
   if (!l || l.tipo !== 'video' || !(l.video_id || l.url)) return;
+  // En vista previa no se anota quién vio qué: no lo está viendo un alumno.
+  if (!soyEstudiante) return;
   if (verLeccion !== l.id) { verLeccion = l.id; verSegundos = 0; }
   jugando = !conAPI;
 
@@ -404,6 +462,7 @@ function segundoActual(){
 
 let minutoGuardando = false;
 async function guardarElMinuto(l){
+  if (!soyEstudiante || !enr?.id) return;   // en vista previa no se escribe nada
   const s = segundoActual();
   if (s == null || s < 5 || minutoGuardando) return;
   minutoGuardando = true;
@@ -566,6 +625,7 @@ async function montarReproductor(l){
 function render(){
   limpiarReproductor();
   $('#tCurso').textContent = curso?.nombre||'';
+  pintarAvisoDeVista();
   /* El acceso al repaso rápido. Sólo si el curso tiene alguno: un botón que
      lleva a una pantalla vacía es peor que no tenerlo. */
   $('#accionesAula').innerHTML = hayExpress
@@ -592,7 +652,7 @@ function render(){
       <div class="row between">
         <div><h2 class="sec" style="margin:0 0 4px">${esc(l.titulo)}</h2>
           <div class="tiny muted">${esc(l.descripcion||'')}</div></div>
-        <div class="actions">
+        <div class="actions"${soyEstudiante ? '' : ' hidden'}>
           <button class="btn ghost" id="btnDespues"
             title="${progreso[l.id]?.para_despues?'Quitar la marca':'Guardarla para volver'}">
             <span class="material-symbols-outlined"
@@ -700,7 +760,7 @@ function tab(t){
   if (t==='dudas'){
     if (!actual){ P.innerHTML = '<p class="muted tiny">Elige una lección para ver sus dudas.</p>'; return; }
     pintarDudas({
-      host: P, lessonId: actual.id, puedeResponder: false,
+      host: P, lessonId: actual.id, puedeResponder: !soyEstudiante,
       minutoActual: segundoActual,
       // Pulsar el minuto de una duda lleva el vídeo a ese punto: es el gesto
       // que convierte «en el minuto 14» en algo que se puede comprobar.
@@ -723,6 +783,11 @@ function tab(t){
     });
   }
   if (t==='notas'){
+    if (!soyEstudiante) {
+      P.innerHTML = `<p class="muted tiny">Aquí el estudiante escribe sus apuntes de esta
+        lección. Son privados: nadie de la escuela los ve, tú tampoco.</p>`;
+      return;
+    }
     const nota = progreso[actual?.id]?.notas || '';
     const conNotas = mods.flatMap(m=>m.cem_lessons).filter(x=>(progreso[x.id]?.notas||'').trim());
     P.innerHTML = `<div class="field"><label>Notas personales de esta lección</label>

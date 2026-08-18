@@ -455,3 +455,34 @@ function unaDuda(d, puedeResponder) {
     </div>
   </article>`;
 }
+
+/* ============ escribirle a un estudiante (mejora 14) ============
+   Antes su única salida era pedirle el teléfono a administración. Queda
+   registrado a propósito: un mensaje de la escuela a un alumno no es una
+   conversación privada, y si acaba en una queja tiene que poder consultarse. */
+export function escribirle(profileId, nombre){
+  const m = modal({ title: `Escribirle a ${nombre || 'un estudiante'}`, body: `
+    <p class="tiny muted">Le llega como aviso dentro de la plataforma y por correo.
+      Queda registrado, como cualquier comunicación de la escuela.</p>
+    <div class="field"><label>Asunto *</label>
+      <input id="mAsunto" maxlength="120" placeholder="Por ejemplo: te echo de menos en clase"></div>
+    <div class="field"><label>Mensaje *</label>
+      <textarea id="mCuerpo" rows="5" maxlength="2000"
+        placeholder="Escríbele como le hablarías: qué has notado y qué le propones."></textarea></div>
+    <div id="mMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" id="mGo">Enviar</button>` });
+
+  $('#mGo', m).onclick = () => ocupado('#mGo', 'Enviando…', async () => {
+    const asunto = $('#mAsunto', m).value.trim();
+    const cuerpo = $('#mCuerpo', m).value.trim();
+    if (!asunto || cuerpo.length < 10) {
+      avisar($('#mMsg', m), 'Hace falta un asunto y un mensaje con una frase completa.', 'err');
+      return;
+    }
+    const { error } = await sb.rpc('cem_mensaje_a_estudiante', {
+      p_profile_id: profileId, p_asunto: asunto, p_cuerpo: cuerpo });
+    if (error) { avisar($('#mMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Enviado. Le llega el aviso y el correo.');
+  });
+}

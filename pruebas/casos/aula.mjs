@@ -60,6 +60,10 @@ export default async function correr(navegador) {
     await E.goto(`${BASE}/plataforma/estudiante/${enlace.replace(/^\.\//, '')}`,
       { waitUntil: 'domcontentloaded' });
     await E.waitForSelector('#tabs button', { timeout: 25000 });
+    /* El aula abre por la pestaña de dudas —que es de la lección que se está
+       viendo—; el tablón es de la cohorte entera y está al lado. Hay que
+       pedirlo, no dar por hecho cuál sale primero. */
+    await E.click('#tabs button[data-t="tablon"]');
     await E.waitForTimeout(3000);
     const visto = await E.locator('#panelTabs').textContent();
     a.comprobar(visto.includes(MARCA),

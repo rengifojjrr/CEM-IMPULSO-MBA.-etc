@@ -17,6 +17,9 @@
     <div><h1>Mi aula <button type="button" class="ayuda-btn" data-ayuda="Cada grupo que dictas tiene su propio tablón, su material, su gente y sus notas. El código de clase es lo que le pasas a alguien para que se inscriba.">?</button></h1></div>
     <div class="actions">
       <select id="selCurso" style="min-width:280px" aria-label="Grupo"></select>
+      <!-- Mejora 20: comprobar cómo se ve la clase antes de que la vea nadie. -->
+      <a class="btn outline" id="btnVerComoAlumno" href="#">
+        <span class="material-symbols-outlined">visibility</span> Ver como estudiante</a>
     </div>
   </div>
 
@@ -115,6 +118,16 @@ const me = await mount({ require:['profesor','coordinador','admin','superadmin']
 let grupos = [], evals = [], modulos = [], tab = 'tablon', aula = null;
 const cursoActual = () => $('#selCurso').selectedOptions[0]?.dataset.curso || '';
 const cohorteActual = () => $('#selCurso').value;
+
+/* El enlace de vista previa se rehace al cambiar de grupo: si apuntara siempre
+   al primero, enseñaría el aula equivocada. */
+function refrescarVistaPrevia(){
+  const a = $('#btnVerComoAlumno');
+  if (!a) return;
+  const c = cursoActual();
+  a.href = c ? `../estudiante/clase.html?curso=${encodeURIComponent(c)}` : '#';
+  a.hidden = !c;
+}
 if (me) inicio();
 
 async function inicio(){
@@ -148,7 +161,8 @@ async function inicio(){
   $('#selCurso').innerHTML = grupos.map(g =>
     `<option value="${esc(g.id)}" data-curso="${esc(g.course_id)}">${
       esc(g.cem_courses?.nombre || '')} — ${esc(g.nombre || g.codigo || '')}</option>`).join('');
-  $('#selCurso').onchange = cargar;
+  $('#selCurso').onchange = () => { refrescarVistaPrevia(); cargar(); };
+  refrescarVistaPrevia();
   cargar();
 }
 

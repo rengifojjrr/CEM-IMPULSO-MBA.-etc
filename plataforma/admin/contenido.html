@@ -29,6 +29,10 @@
     <div><h1>Constructor de contenido</h1><p id="sub">Organiza módulos y lecciones del programa.</p></div>
     <div class="actions">
       <div class="field" style="margin:0;min-width:230px"><select id="curso"></select></div>
+      <!-- Mejora 20: antes se publicaba y se esperaba a que un alumno avisara
+           de que un vídeo no cargaba. -->
+      <a class="btn outline" id="btnVerComoAlumno" href="#">
+        <span class="material-symbols-outlined">visibility</span> Ver como estudiante</a>
     </div>
   </div>
 
@@ -60,6 +64,15 @@ async function load(){
 }
 $('#curso').onchange = async () => { cursoId = $('#curso').value; sel=null; await loadMods(); };
 
+/* El enlace se rehace cada vez que cambia el programa elegido: si apuntara
+   siempre al primero, «ver como estudiante» enseñaría el aula equivocada. */
+function refrescarVistaPrevia(){
+  const a = $('#btnVerComoAlumno');
+  if (!a) return;
+  a.href = cursoId ? `../estudiante/clase.html?curso=${encodeURIComponent(cursoId)}` : '#';
+  a.classList.toggle('deshabilitado', !cursoId);
+}
+
 async function loadMods(){
   if (!cursoId) return;
   const { data } = await sb.from('cem_modules')
@@ -80,6 +93,7 @@ async function loadMods(){
   }
   const c = cursos.find(x=>x.id===cursoId);
   $('#sub').textContent = `${c?.nombre||''} · ${mods.length} módulos · ${mods.reduce((a,m)=>a+m.cem_lessons.length,0)} lecciones`;
+  refrescarVistaPrevia();
   /* item 41 · desde aquí se llega desde la lista de programas y no había cómo
      volver ni cómo saber en qué programa estabas parado. */
   $('#migas').innerHTML = migas([
