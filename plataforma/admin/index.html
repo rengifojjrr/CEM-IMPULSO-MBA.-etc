@@ -15,14 +15,23 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div>
-      <h1>Resumen administrativo</h1>
-      <p>Supervisa la actividad académica y administra la experiencia educativa de CEM.</p>
+      <h1>Qué hay que hacer hoy</h1>
+      <p>Lo pendiente primero. Las cifras del negocio están más abajo.</p>
     </div>
     <div class="actions">
       <a class="btn outline" href="curso-nuevo.html"><span class="material-symbols-outlined">add_circle</span> Crear programa</a>
       <a class="btn outline" href="calendario.html"><span class="material-symbols-outlined">calendar_month</span> Programar clase</a>
       <a class="btn" href="inscripciones.html"><span class="material-symbols-outlined">person_add</span> Nueva inscripción</a>
     </div>
+  </div>
+
+  <!-- Mejora 24. Esta pantalla empezaba con cuatro cifras del negocio, y quien
+       coordina entra aquí a despachar, no a mirar el ritmo de matrícula. Lo
+       pendiente va primero; las cifras siguen estando, justo debajo. -->
+  <div class="card" id="cardPendientes">
+    <div class="row between"><h2 class="sec">Pendiente</h2>
+      <span class="tiny muted" id="pendResumen"></span></div>
+    <div class="pendientes" id="pendientes"><span class="cargando"></span></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -67,7 +76,34 @@ import { sb, mount, $, $$, esc, kpi, chip, bar, money, num, fdate, fdateCorta, e
 import { embudo, columnas, barras, apilada } from '../assets/graficos.js?v=2026-08-20';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'index.html', area:'admin' });
-if (p) init();
+if (p) { init(); pintarPendientes(); }
+
+/* ============ lo pendiente (mejora 24) ============
+   Cada tarjeta es un botón que lleva a donde se despacha eso. Las que están a
+   cero se apagan pero no se esconden: saber que hoy no hay pagos por verificar
+   también es información, y una lista que cambia de forma cada mañana obliga a
+   volver a leerla entera. */
+async function pintarPendientes(){
+  const host = $('#pendientes');
+  const { data, error } = await sb.rpc('cem_pendientes_de_hoy');
+  if (error || !host) { $('#cardPendientes')?.remove(); return; }
+  const lista = data || [];
+  if (!lista.length) { $('#cardPendientes')?.remove(); return; }
+
+  const total = lista.reduce((t, x) => t + Number(x.n || 0), 0);
+  $('#pendResumen').textContent = total
+    ? `${num(total)} cosa${total === 1 ? '' : 's'} esperando`
+    : 'Nada esperando. Buen día.';
+
+  // Lo que tiene cosas va primero: si hay nueve tarjetas y sólo dos con
+  // número, esas dos tienen que estar arriba y no en medio.
+  const orden = [...lista].sort((a, b) => Number(b.n || 0) - Number(a.n || 0));
+  host.innerHTML = orden.map(x => `
+    <a class="pendiente ${Number(x.n) ? esc(x.tono || '') : 'vacio'}" href="${esc(x.url)}">
+      <span class="material-symbols-outlined">${esc(x.icono || 'task_alt')}</span>
+      <span class="n">${num(x.n)}</span>
+      <span class="que crece">${esc(x.que)}</span></a>`).join('');
+}
 accionVacio('irInscribir', () => location.href = 'inscripciones.html');
 
 async function init(){

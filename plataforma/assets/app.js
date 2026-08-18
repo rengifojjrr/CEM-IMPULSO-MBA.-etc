@@ -892,53 +892,65 @@ export function base() {
 }
 
 /* ============ navegación ============ */
+/* El menú institucional tenía 39 entradas repartidas en siete grupos con
+   nombre de área —«Académico», «Credenciales», «Gobierno»— y nadie recordaba
+   dónde estaba nada, porque nadie piensa en áreas: se piensa en lo que hay que
+   hacer esta mañana. Matricular a alguien. Cobrar. Preparar la clase. Firmar
+   los certificados.
+
+   Así que los grupos se llaman ahora por el verbo, y cada entrada vive donde
+   se la busca: «Formas de pago» estaba en Gobierno con la configuración, y es
+   lo primero que abre quien cobra. Ninguna pantalla desaparece; lo único que
+   cambia es en qué cajón está. */
 const ADMIN_NAV = [
-  { lbl: 'General', items: [
-    ['index.html', 'dashboard', 'Resumen'],
-    ['reportes.html', 'analytics', 'Reportes'],
+  { lbl: 'Hoy', items: [
+    ['index.html', 'dashboard', 'Qué hay que hacer'],
     ['calendario.html', 'calendar_today', 'Calendario'],
   ]},
-  { lbl: 'Académico', items: [
-    ['cursos.html', 'school', 'Cursos'],
-    ['cohortes.html', 'groups', 'Cohortes'],
-    ['contenido.html', 'import_contacts', 'Contenidos'],
-    ['videos.html', 'smart_display', 'Vídeos del curso'],
-    ['revision.html', 'fact_check', 'Revisión'],
-    ['multimedia.html', 'perm_media', 'Biblioteca'],
-    ['profesores.html', 'psychology', 'Profesores'],
-  ]},
-  { lbl: 'Estudiantes', items: [
+  { lbl: 'Matricular', items: [
+    ['leads.html', 'contact_phone', 'Contactos de la web'],
     ['estudiantes.html', 'person', 'Estudiantes'],
-    ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
+    ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
+    ['cohortes.html', 'groups', 'Cohortes'],
+  ]},
+  { lbl: 'Cobrar', items: [
     ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
     ['carteras.html', 'account_balance_wallet', 'Carteras'],
     ['cierre-mes.html', 'event_available', 'Cierre de mes'],
     ['bancaribe.html', 'account_balance', 'Banco (Bancaribe)'],
+    ['formas-de-pago.html', 'payments', 'Formas de pago'],
+    ['stripe.html', 'credit_card', 'Cobros con tarjeta'],
   ]},
-  { lbl: 'Evaluación', items: [
+  { lbl: 'Dar clase', items: [
+    ['cursos.html', 'school', 'Cursos'],
+    ['contenido.html', 'import_contacts', 'Contenidos'],
+    ['videos.html', 'smart_display', 'Vídeos del curso'],
+    ['multimedia.html', 'perm_media', 'Biblioteca'],
+    ['profesores.html', 'psychology', 'Profesores'],
+    ['revision.html', 'fact_check', 'Revisión de contenido'],
+  ]},
+  { lbl: 'Evaluar', items: [
+    ['calificar.html', 'grade', 'Calificar'],
     ['evaluaciones.html', 'quiz', 'Evaluaciones'],
     ['preguntas.html', 'help_center', 'Banco de preguntas'],
-    ['calificar.html', 'grade', 'Calificar'],
     ['apelaciones.html', 'gavel', 'Apelaciones'],
   ]},
-  { lbl: 'Credenciales', items: [
+  { lbl: 'Certificar', items: [
     ['certificados.html', 'workspace_premium', 'Certificados'],
-    ['certificados-plantillas.html', 'design_services', 'Plantillas de certificados'],
+    ['certificados-plantillas.html', 'design_services', 'Plantillas'],
     ['insignias.html', 'military_tech', 'Insignias'],
   ]},
-  { lbl: 'Operación', items: [
-    ['leads.html', 'contact_phone', 'Contactos de la web'],
+  { lbl: 'Hablar con la gente', items: [
     ['comunicaciones.html', 'mail', 'Comunicaciones'],
     ['correo.html', 'outgoing_mail', 'Envío de correo'],
     ['soporte.html', 'support_agent', 'Soporte'],
   ]},
   { lbl: 'Gobierno', items: [
+    ['reportes.html', 'analytics', 'Reportes'],
+    ['auditoria.html', 'history', 'Auditoría'],
     ['usuarios.html', 'manage_accounts', 'Usuarios y roles'],
     ['permisos.html', 'admin_panel_settings', 'Matriz de permisos'],
-    ['auditoria.html', 'history', 'Auditoría'],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
-    ['formas-de-pago.html', 'account_balance', 'Formas de pago'],
-    ['stripe.html', 'credit_card', 'Cobros con tarjeta'],
     ['configuracion.html', 'settings', 'Configuración'],
   ]},
 ];
@@ -1289,6 +1301,93 @@ function monedaAlEncabezado(tabla, ths) {
   });
 }
 
+/* ============ el buscador de arriba busca de verdad (mejora 22) ============
+   Decía «Buscar estudiantes, cursos, cohortes…» y lo que hacía era mandarte a
+   la lista de estudiantes con el texto puesto en su filtro. Si buscabas una
+   cohorte por su código, no la encontrabas nunca; y aunque encontrara a la
+   persona, te dejaba en una lista filtrada en vez de en su ficha.
+
+   Ahora pregunta a la base por las tres cosas y salta al resultado. Con
+   teclado: flechas para moverse, Enter para entrar, Escape para cerrar — quien
+   busca cincuenta veces al día no quiere soltar el teclado. */
+const ICONO_RESULTADO = {
+  estudiante: 'person', profesor: 'psychology', coordinador: 'badge',
+  admin: 'shield_person', superadmin: 'shield_person', cobranza: 'payments',
+  auditor: 'history', curso: 'school', cohorte: 'groups',
+};
+
+function buscadorDeVerdad(caja) {
+  const envoltura = caja.closest('.search') || caja.parentElement;
+  envoltura.style.position = envoltura.style.position || 'relative';
+
+  const lista = document.createElement('div');
+  lista.className = 'gsearch-res';
+  lista.setAttribute('role', 'listbox');
+  lista.hidden = true;
+  envoltura.appendChild(lista);
+
+  let resultados = [];
+  let marcado = -1;
+  let reloj = null;
+  let ultima = 0;
+
+  const cerrar = () => { lista.hidden = true; marcado = -1; };
+
+  const pintar = () => {
+    if (!resultados.length) {
+      lista.innerHTML = `<div class="gsearch-nada">Nada con ese nombre.</div>`;
+      lista.hidden = false;
+      return;
+    }
+    lista.innerHTML = resultados.map((r, i) => `
+      <a class="gsearch-item${i === marcado ? ' on' : ''}" href="${esc(r.url)}" role="option"
+         aria-selected="${i === marcado}">
+        <span class="material-symbols-outlined">${ICONO_RESULTADO[r.tipo] || 'search'}</span>
+        <span class="crece"><b>${esc(r.titulo || '—')}</b>
+          <span class="tiny muted">${esc(r.detalle || '')}</span></span>
+        <span class="tiny muted">${esc(etiqueta(r.tipo))}</span></a>`).join('');
+    lista.hidden = false;
+  };
+
+  const buscar = async () => {
+    const q = caja.value.trim();
+    if (q.length < 2) { resultados = []; cerrar(); return; }
+    const mio = ++ultima;
+    const { data } = await sb.rpc('cem_buscar', { p_q: q, p_tope: 6 });
+    // Una respuesta que llega tarde no puede pisar a una búsqueda más nueva.
+    if (mio !== ultima) return;
+    resultados = data || [];
+    marcado = -1;
+    pintar();
+  };
+
+  caja.addEventListener('input', () => { clearTimeout(reloj); reloj = setTimeout(buscar, 220); });
+  caja.addEventListener('focus', () => { if (resultados.length) pintar(); });
+  caja.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { cerrar(); return; }
+    if (!resultados.length) {
+      // Enter sin resultados todavía: se busca ya, sin esperar al temporizador.
+      if (e.key === 'Enter') { e.preventDefault(); clearTimeout(reloj); buscar(); }
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      marcado = (marcado + (e.key === 'ArrowDown' ? 1 : -1) + resultados.length) % resultados.length;
+      pintar();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const r = resultados[marcado] || resultados[0];
+      if (r) location.href = r.url;
+    }
+  });
+
+  // Pulsar fuera cierra. En `mousedown` y no en `click`: si se espera al click,
+  // el campo pierde el foco antes y la lista se va justo debajo del dedo.
+  document.addEventListener('mousedown', (e) => {
+    if (!envoltura.contains(e.target)) cerrar();
+  });
+}
+
 /* ============ un solo buscador por pantalla (item 27) ============
    Había dos cajas de búsqueda a la vez —la de la barra de arriba y la de cada
    tabla— con reglas distintas: una te mandaba a otra pantalla y la otra
@@ -1302,10 +1401,10 @@ function unSoloBuscador(area) {
   // Sólo cuenta como «buscador de la pantalla» el de la franja de filtros.
   const local = $('#page .filters input#q');
   if (!local) {
+    if (area === 'admin') { buscadorDeVerdad(global); return; }
     global.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && global.value.trim()) {
-        const dest = area === 'admin' ? 'estudiantes.html' : 'catalogo.html';
-        location.href = `${dest}?q=${encodeURIComponent(global.value.trim())}`;
+        location.href = `catalogo.html?q=${encodeURIComponent(global.value.trim())}`;
       }
     });
     return;
@@ -1328,6 +1427,11 @@ function unSoloBuscador(area) {
     local.dispatchEvent(new Event('input', { bubbles: true }));
   };
   global.addEventListener('input', propagar);
+  /* Llegar con `?q=` desde otra pantalla dejaba el texto escrito arriba y la
+     tabla sin filtrar: se veía la palabra en la caja y la lista entera debajo.
+     Se propaga una vez al montar, que es lo que la persona esperaba al pulsar
+     el enlace. */
+  if (!local.value && desdeLaUrl) propagar();
   // Enter no debe recargar ni navegar: ya está filtrando mientras se escribe.
   global.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 

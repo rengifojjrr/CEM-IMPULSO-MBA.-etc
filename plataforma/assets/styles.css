@@ -2301,3 +2301,39 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
   color:var(--tinta-3);}
 .pista.ok{color:var(--ok);} .pista.ok .material-symbols-outlined{color:var(--ok);}
 .pista.warn{color:var(--warn);} .pista.warn .material-symbols-outlined{color:var(--warn);}
+
+/* ── el buscador de arriba, con resultados (mejora 22) ─────────────────────
+   Cuelga del propio campo para que no se despegue al desplazar la página, y
+   por encima de todo: si algo la tapa, la lista existe pero no sirve. */
+.gsearch-res{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:60;
+  background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
+  box-shadow:var(--sombra-alta, 0 12px 32px rgba(0,0,0,.16));
+  max-height:min(60vh, 420px);overflow:auto;padding:4px;}
+.gsearch-item{display:flex;align-items:center;gap:var(--e1);padding:var(--e1);
+  border-radius:var(--r-chico, 8px);text-decoration:none;color:var(--tinta);}
+.gsearch-item .crece{display:flex;flex-direction:column;min-width:0;}
+.gsearch-item b{font-size:var(--t-sm);font-weight:var(--peso-fuerte);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gsearch-item .tiny{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gsearch-item .material-symbols-outlined{font-size:19px;color:var(--tinta-3);flex:none;}
+.gsearch-item:hover, .gsearch-item.on{background:var(--primary-suave);}
+.gsearch-nada{padding:var(--e2);font-size:var(--t-sm);color:var(--tinta-2);}
+@media(max-width:720px){ .gsearch-res{position:fixed;top:56px;left:8px;right:8px;} }
+
+/* ── qué hay que hacer hoy (mejora 24) ─────────────────────────────────────
+   No son indicadores: son botones. Cada uno lleva a la pantalla donde se
+   despacha eso, y los que están a cero se apagan en vez de desaparecer —saber
+   que no hay nada pendiente también es información. */
+.pendientes{display:grid;gap:var(--e1);
+  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));}
+.pendiente{display:flex;align-items:center;gap:var(--e2);padding:var(--e2);
+  border:1px solid var(--filete);border-radius:var(--r);text-decoration:none;
+  color:var(--tinta);background:var(--papel);}
+.pendiente:hover{border-color:var(--primary);background:var(--hueco);}
+.pendiente .n{font-size:var(--t-xl, 26px);font-weight:var(--peso-fuerte);
+  font-variant-numeric:tabular-nums;line-height:1;min-width:1.6ch;text-align:right;}
+.pendiente .que{font-size:var(--t-sm);line-height:1.35;}
+.pendiente.vacio{opacity:.5;}
+.pendiente.warn .n{color:var(--warn);}
+.pendiente.err .n{color:var(--error);}
+.pendiente.info .n{color:var(--info);}

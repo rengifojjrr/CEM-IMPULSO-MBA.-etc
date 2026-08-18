@@ -28,7 +28,7 @@
 <script type="module">
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
          modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
-         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, saldo as saldoCelda } from '../assets/app.js?v=2026-08-20';
+         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, mensajeError, saldo as saldoCelda } from '../assets/app.js?v=2026-08-20';
 import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -90,6 +90,11 @@ function hero(){
          una de tres cosas: registrarle un pago, emitirle un certificado o
          escribirle. Antes había que ir a otra pantalla y buscarlo de nuevo. -->
     <div class="row">
+      <!-- Mejora 23: cuando alguien escribe «no veo mi curso», esto contesta en
+           un minuto lo que antes eran tres correos. Lo puede pulsar también
+           auditoría: es sólo lectura y queda asentado. -->
+      <button class="btn outline" id="btnVerComo" title="Ver qué le está contestando la plataforma">
+        <span class="material-symbols-outlined">visibility</span> Ver lo que ve</button>
       ${editable?`<button class="btn outline" id="btnMatricular"><span class="material-symbols-outlined">add_circle</span> Matricular</button>
       <a class="btn outline" href="mailto:${esc(stu.email)}"><span class="material-symbols-outlined">mail</span> Escribirle</a>
       <button class="btn ghost" id="btnToggle" title="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"
@@ -99,6 +104,9 @@ function hero(){
       <span class="material-symbols-outlined" style="font-size:15px">public</span>
       Tiene perfil público: <a href="../plataforma/perfil-publico.html?p=${esc(exp.perfil.perfil_slug)}"
         target="_blank" rel="noopener">${esc(exp.perfil.perfil_slug)}</a></p>` : ''}`;
+  const btnVerComo = $('#btnVerComo');
+  if (btnVerComo) btnVerComo.onclick = verComo;
+
   if (editable){
     $('#btnToggle').onclick = async () => {
       await run(sb.from('cem_profiles').update({activo:!stu.activo}).eq('id',id),'No se pudo actualizar');
@@ -378,6 +386,72 @@ async function pintarGraficos(enr){
       pie: 'Se lee el patrón: siempre tarde, o se torció este mes. No es lo mismo.',
       puntos: (g.cuotas || []).map(c => ({ etq: c.etq, cuando: c.cuando, tono: c.tono,
         detalle: `${money(c.monto, c.moneda || undefined)} · ${c.estado}` })) })}</div>`;
+}
+
+/* ============ ver lo que ve (mejora 23) ============
+   NO es entrar con su cuenta: eso permitiría escribir en su nombre y haría
+   imposible saber después quién hizo qué. Es una foto de sólo lectura de lo
+   que la plataforma le está contestando a esa persona —qué cursos ve abiertos,
+   por qué los otros no, qué pagos tiene en el aire y qué avisos le llegaron—
+   y queda asentada en la auditoría, con quién miró y a quién. */
+function verComo(){
+  const m = modal({ title: 'Lo que ve esta persona', wide: true,
+    body: '<span class="cargando una"></span>' });
+  const caja = m.querySelector('.modal-b');
+
+  sb.rpc('cem_ver_como', { p_profile_id: id }).then(({ data, error }) => {
+    if (error) { caja.innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+
+    const ins = data.inscripciones || [];
+    const pagos = data.pagos_en_el_aire || [];
+    const avisos = data.avisos || [];
+
+    caja.innerHTML = `
+      <p class="tiny muted">Sólo lectura. Queda registrado en la auditoría que
+        ${esc(p.nombre)} miró la cuenta de ${esc(data.perfil?.nombre || '')}.</p>
+
+      ${data.perfil?.activo === false
+        ? '<p class="nota err"><b>Su cuenta está desactivada.</b> No puede entrar a nada.</p>' : ''}
+      ${data.correo_en_pausa
+        ? `<p class="nota warn"><b>El correo está en pausa.</b> Si dice que no le llegó
+             ningún aviso, es por esto: los mensajes están en cola sin perderse.</p>` : ''}
+
+      <h3 class="sec">Sus cursos</h3>
+      ${ins.length ? `<div class="stack">${ins.map(x => `
+        <div class="list-item">
+          <span class="material-symbols-outlined"
+            style="color:var(--${x.abierto ? 'ok' : 'warn'})">${x.abierto ? 'lock_open' : 'lock'}</span>
+          <div class="grow"><div class="t">${esc(x.curso || '—')}</div>
+            <div class="s">${x.abierto
+              ? `Lo ve abierto · ${pct(x.progreso)} completado`
+              : esc(x.porque || 'Cerrado')}</div>
+            ${x.publicado === false
+              ? '<div class="s" style="color:var(--error)">Ojo: el programa no está publicado, así que tampoco lo vería aunque pagara.</div>' : ''}
+          </div>
+          ${chipEstado(x.estado)}
+          ${Number(x.cuotas_pendientes) ? chip(`${x.cuotas_pendientes} cuota(s)`, 'warn') : ''}
+        </div>`).join('')}</div>`
+        : '<p class="muted tiny">No tiene ninguna inscripción.</p>'}
+
+      <h3 class="sec sep">Pagos en el aire</h3>
+      ${pagos.length ? `<div class="stack">${pagos.map(x => `
+        <div class="list-item">
+          <div class="grow"><div class="t">${money(x.monto, x.moneda)} · ${esc(x.referencia || 'sin referencia')}</div>
+            <div class="s">${esc(x.metodo || '')} · ${fdate(x.fecha)}</div>
+            ${x.nota ? `<div class="s"><i>«${esc(x.nota)}»</i> — ${esc(x.nota_de)}</div>` : ''}</div>
+          ${chipEstado(x.estado)}
+        </div>`).join('')}</div>`
+        : '<p class="muted tiny">Ninguno esperando verificación ni rechazado.</p>'}
+
+      <h3 class="sec sep">Los últimos avisos que le mandamos</h3>
+      ${avisos.length ? `<div class="stack">${avisos.map(x => `
+        <div class="list-item">
+          <div class="grow"><div class="t">${esc(x.titulo)}</div>
+            <div class="s">${fdatetime(x.cuando)}</div></div>
+          ${x.leido ? chip('lo abrió', 'ok') : chip('sin leer', 'neutral')}
+        </div>`).join('')}</div>`
+        : '<p class="muted tiny">Todavía no le hemos mandado ninguno.</p>'}`;
+  });
 }
 </script>
 </body>
