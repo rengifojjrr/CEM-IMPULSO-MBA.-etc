@@ -79,6 +79,10 @@ const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
 if (p) {
   $('#mes').value = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, '0')}`;
   $('#mes').max = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+  /* El informe que llega por correo el día 1 enlaza aquí con su mes puesto.
+     Sin esto, pulsar el aviso de marzo abría el cierre de abril. */
+  const pedido = new URLSearchParams(location.search).get('mes');
+  if (/^\d{4}-\d{2}$/.test(pedido || '')) $('#mes').value = pedido;
   cargar();
 }
 $('#mes').onchange = cargar;

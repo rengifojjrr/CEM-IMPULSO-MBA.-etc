@@ -1658,6 +1658,21 @@ td .btn{min-height:32px;}
 .comentar{display:flex;gap:var(--e1);margin-top:var(--e1);}
 .comentar input{flex:1;min-width:0;}
 
+/* ── las dudas de la lección ───────────────────────────────────────────────
+   Se parecen a los avisos del tablón porque son la misma conversación vista
+   desde otro sitio, pero con dos diferencias que sí importan: una duda tiene
+   estado —espera respuesta, la tiene, está cerrada— y la respuesta del
+   profesor no es un comentario más. Las dos cosas se ven de un vistazo. */
+.duda-nueva textarea{width:100%;}
+.duda{padding:var(--e3);}
+.duda + .duda{margin-top:var(--aire);}
+.duda.resuelta{opacity:.72;}
+.duda.resuelta:hover, .duda.resuelta:focus-within{opacity:1;}
+.comentario.del-profe{background:var(--primary-suave);border-radius:var(--r);
+  padding:var(--e1) var(--e1) var(--e1) var(--e0);}
+.comentario .chip.tiny{font-size:var(--t-xs);padding:0 6px;margin-left:var(--e0);
+  vertical-align:1px;}
+
 /* ── la cuadrícula de notas ────────────────────────────────────────────────
    La columna del nombre se queda quieta al desplazar de lado: sin ella, a la
    tercera evaluación ya no se sabe de quién es la fila que se está mirando. */

@@ -13,6 +13,16 @@
 import { sb, $, $$, esc, fdate, fdatetime, num, modal, ok, fail, mensajeError,
          avisar, ocupado, initials, confirmarBorrado } from './app.js?v=2026-08-20';
 
+/** Segundos a «12:04». Se usa en las dudas y al retomar un vídeo. */
+export const reloj = (s) => {
+  const n = Math.max(0, Math.round(Number(s) || 0));
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const g = n % 60;
+  return (h ? `${h}:${String(m).padStart(2, '0')}` : String(m))
+    + ':' + String(g).padStart(2, '0');
+};
+
 /* ── cuánto hace de esto ──────────────────────────────────────────────────
    En un tablón la fecha exacta estorba: lo que importa es si es de hoy o de
    la semana pasada. La fecha completa se queda en el `title` para quien la
@@ -294,4 +304,154 @@ export async function pintarNotas(host, cohortId) {
       setTimeout(() => inp.closest('td')?.classList.remove('guardada'), 1200);
     };
   });
+}
+
+/* ── las dudas de una lección (mejoras 1 y 13) ─────────────────────────────
+   Hasta ahora, «en el minuto 14 no entendí de dónde sale el WACC» acababa en
+   el WhatsApp del profesor o no se preguntaba. Las dos salidas son malas: la
+   primera se responde una vez a una persona y no queda; la segunda es alguien
+   que se atasca y termina abandonando.
+
+   Por eso el hilo es de la lección y lo ve la cohorte entera: una duda buena
+   la tienen cinco personas y sólo una se atreve a escribirla.
+
+   `minutoActual` es una función, no un número: cuando se pulsa «preguntar» hay
+   que mirar dónde está el vídeo EN ESE MOMENTO, no dónde estaba al pintar.
+
+   @param {object} o
+   @param {string|Element} o.host   dónde pintarlo
+   @param {string} o.lessonId       la lección
+   @param {boolean} o.puedeResponder  si quien mira contesta como profesor
+   @param {Function} [o.minutoActual]  devuelve el segundo del vídeo, o null
+   @param {Function} [o.alSaltar]   qué hacer al pulsar el minuto de una duda
+*/
+export async function pintarDudas({ host, lessonId, puedeResponder = false,
+                                    minutoActual = () => null, alSaltar = null }) {
+  const caja = typeof host === 'string' ? $(host) : host;
+  if (!caja) return;
+  caja.innerHTML = '<span class="cargando una"></span>';
+
+  const { data, error } = await sb.rpc('cem_dudas_de_leccion', { p_lesson_id: lessonId });
+  if (error) { caja.innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+  const dudas = data || [];
+  const recargar = () => pintarDudas({ host, lessonId, puedeResponder, minutoActual, alSaltar });
+
+  caja.innerHTML = `
+    <form class="duda-nueva" id="dudaForm">
+      <textarea id="dudaTexto" rows="2" maxlength="1500"
+        placeholder="¿Qué no quedó claro? Sé concreto: se responde una vez y lo ve toda tu clase."
+        aria-label="Escribe tu duda"></textarea>
+      <div class="row between sep-poco">
+        <label class="tiny muted" id="dudaMinLbl" hidden>
+          <input type="checkbox" id="dudaMin" checked> Marcar el minuto <b id="dudaMinTxt"></b></label>
+        <button class="btn sm" type="submit">Preguntar</button>
+      </div>
+      <div id="dudaMsg"></div>
+    </form>
+    <div id="dudaLista" class="sep">${dudas.length ? dudas.map(d => unaDuda(d, puedeResponder)).join('')
+      : `<div class="empty"><span class="material-symbols-outlined ico">contact_support</span>
+           <b>Nadie ha preguntado nada todavía</b>
+           <span>Si algo no quedó claro, pregúntalo aquí: la respuesta la ve toda tu clase.</span></div>`}</div>`;
+
+  // El minuto sólo se ofrece si hay vídeo sonando: en una lección de texto no
+  // significa nada y sólo añade una casilla que no se entiende.
+  const s = minutoActual();
+  if (s != null && s > 2) {
+    $('#dudaMinLbl', caja).hidden = false;
+    $('#dudaMinTxt', caja).textContent = reloj(s);
+  }
+
+  $('#dudaForm', caja).onsubmit = (ev) => {
+    ev.preventDefault();
+    return ocupado($('#dudaForm button[type=submit]', caja), 'Enviando…', async () => {
+      const cuerpo = $('#dudaTexto', caja).value.trim();
+      if (!cuerpo) { avisar($('#dudaMsg', caja), 'Escribe la duda antes de enviarla.', 'err'); return; }
+      const marcar = $('#dudaMin', caja);
+      const seg = marcar && !marcar.hidden && marcar.checked ? Math.round(minutoActual() || 0) : null;
+      const { error: e } = await sb.rpc('cem_preguntar', {
+        p_lesson_id: lessonId, p_cuerpo: cuerpo, p_segundo: seg || null });
+      if (e) { avisar($('#dudaMsg', caja), mensajeError(e), 'err'); return; }
+      ok('Preguntado. Tu profesor recibe el aviso.');
+      recargar();
+    });
+  };
+
+  $$('[data-saltar]', caja).forEach(b => b.onclick = () => alSaltar?.(Number(b.dataset.saltar)));
+
+  $$('[data-resolver]', caja).forEach(b => b.onclick = async () => {
+    const { error: e } = await sb.rpc('cem_resolver_duda', {
+      p_duda_id: b.dataset.resolver, p_resuelta: b.dataset.valor === '1' });
+    if (e) { fail(mensajeError(e)); return; }
+    recargar();
+  });
+
+  $$('[data-borrar-duda]', caja).forEach(b => b.onclick = async () => {
+    const bien = await confirmarBorrado({
+      que: 'esta duda', nombre: 'la pregunta',
+      consecuencia: 'Se va con sus respuestas y la clase deja de verla.' });
+    if (!bien) return;
+    const { error: e } = await sb.rpc('cem_borrar_duda', { p_duda_id: b.dataset.borrarDuda });
+    if (e) { fail(mensajeError(e)); return; }
+    ok('Duda retirada.'); recargar();
+  });
+
+  $$('[data-responder]', caja).forEach((f) => {
+    f.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const campo = f.querySelector('input');
+      const texto = campo.value.trim();
+      if (!texto) return;
+      campo.value = '';
+      const { error: e } = await sb.rpc('cem_responder_duda', {
+        p_duda_id: f.dataset.responder, p_cuerpo: texto });
+      if (e) { fail(mensajeError(e)); campo.value = texto; return; }
+      recargar();
+    };
+  });
+}
+
+function unaDuda(d, puedeResponder) {
+  const respuestas = d.respuestas || [];
+  const contestada = respuestas.some(r => r.de_docente);
+  return `<article class="card duda${d.resuelta ? ' resuelta' : ''}" data-duda="${esc(d.id)}">
+    <header class="post-cab">
+      <span class="avatar" aria-hidden="true">${esc(inicialesDe(d.autor))}</span>
+      <div class="grow">
+        <div class="post-quien">${esc(d.autor || 'Alguien')}</div>
+        <div class="post-cuando" title="${esc(fdatetime(d.created_at))}">${esc(hace(d.created_at))}</div>
+      </div>
+      ${d.segundo ? `<button type="button" class="btn ghost sm" data-saltar="${esc(String(d.segundo))}"
+        title="Ir a ese punto del vídeo"><span class="material-symbols-outlined">play_circle</span>
+        ${esc(reloj(d.segundo))}</button>` : ''}
+      ${d.resuelta ? '<span class="chip ok">resuelta</span>'
+        : contestada ? '<span class="chip info">respondida</span>'
+        : '<span class="chip warn">sin responder</span>'}
+    </header>
+    <div class="post-cuerpo">${cuerpoHTML(d.cuerpo)}</div>
+
+    <div class="post-comentarios">
+      ${respuestas.map(r => `
+        <div class="comentario${r.de_docente ? ' del-profe' : ''}">
+          <span class="avatar sm" aria-hidden="true">${esc(inicialesDe(r.autor))}</span>
+          <div class="grow"><b>${esc(r.autor || 'Alguien')}</b>
+            ${r.de_docente ? '<span class="chip info tiny">profesor</span>' : ''}
+            <span class="tiny muted"> · ${esc(hace(r.created_at))}</span>
+            <div>${cuerpoHTML(r.cuerpo)}</div></div>
+        </div>`).join('')}
+      <form class="comentar" data-responder="${esc(d.id)}">
+        <input placeholder="${puedeResponder ? 'Responder a la clase…' : 'Añadir algo…'}"
+          maxlength="1500" aria-label="Responder">
+        <button class="btn sm" type="submit">Responder</button>
+      </form>
+      <div class="row sep-poco" style="gap:8px">
+        ${(d.mia || puedeResponder) ? `<button class="btn ghost sm" data-resolver="${esc(d.id)}"
+          data-valor="${d.resuelta ? '0' : '1'}">
+          <span class="material-symbols-outlined">${d.resuelta ? 'undo' : 'check'}</span>
+          ${d.resuelta ? 'Volver a abrirla' : 'Ya está resuelta'}</button>` : ''}
+        ${(d.mia || puedeResponder) ? `<button class="btn ghost sm" data-borrar-duda="${esc(d.id)}"
+          style="color:var(--error)" title="Borrar la duda">
+          <span class="material-symbols-outlined">delete</span></button>` : ''}
+      </div>
+    </div>
+  </article>`;
 }

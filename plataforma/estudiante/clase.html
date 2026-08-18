@@ -59,14 +59,26 @@
   <div class="aula">
     <div class="card" style="align-self:start;max-height:78vh;overflow:auto">
       <h2 class="sec">Contenido del curso</h2>
-      <div id="indice"></div>
+      <!-- Con treinta lecciones, encontrar «dónde explicaron el punto de
+           equilibrio» era abrirlas una por una (mejora 3). -->
+      <div class="field sin-margen">
+        <label class="visually-hidden" for="buscaLeccion">Buscar en el temario</label>
+        <input type="search" id="buscaLeccion" placeholder="Buscar una lección…">
+      </div>
+      <div class="row sep-poco" style="gap:6px">
+        <button type="button" class="chip-btn chip" id="soloPendientes">Sin ver</button>
+        <button type="button" class="chip-btn chip" id="soloDespues">Para después</button>
+      </div>
+      <div id="indice" class="sep-poco"></div>
+      <p class="tiny muted" id="sinResultados" hidden>Ninguna lección coincide con eso.</p>
     </div>
 
     <div>
       <div id="visor"></div>
       <div class="card sep">
         <div class="tabs" id="tabs">
-          <button class="active" data-t="tablon">Tablón</button>
+          <button class="active" data-t="dudas">Dudas</button>
+          <button data-t="tablon">Tablón</button>
           <button data-t="notas">Mis notas</button>
           <button data-t="evaluaciones">Evaluaciones</button>
           <button data-t="recursos">Recursos</button>
@@ -79,11 +91,12 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota, money,
-         mensajeError, modal, avisar, ocupado } from '../assets/app.js?v=2026-08-20';
-import { pintarMuro } from '../assets/aula.js?v=2026-08-20';
+         mensajeError, modal, avisar, ocupado, download, imprimirDocumento } from '../assets/app.js?v=2026-08-20';
+import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-20';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
 let hayExpress = false;
+let filtro = { texto:'', pendientes:false, despues:false };
 if (me) load();
 
 async function load(){
@@ -146,8 +159,12 @@ async function load(){
     mods.forEach(m=>m.cem_lessons.forEach(l=>{
       const x = material?.[l.id];
       l.url = x?.url ?? null;
-      l.video_id = x?.video_id ?? null;
+      // Si nadie emparejó el vídeo pero el enlace es de YouTube, el
+      // identificador está ahí dentro: sacarlo es la diferencia entre que la
+      // clase se vea o se quede en negro.
+      l.video_id = x?.video_id ?? idDeYoutube(x?.url);
       l.contenido = x?.contenido ?? null;
+      l.adjuntos = x?.adjuntos ?? [];
     }));
   }
 
@@ -161,7 +178,91 @@ async function load(){
   (lp||[]).forEach(x=>progreso[x.lesson_id]=x);
   clases = cls||[]; media = md||[]; evals = evs||[]; entregas = subs||[];
   const all = mods.flatMap(m=>m.cem_lessons);
-  actual = all.find(l=>!progreso[l.id]?.completado) || all[0];
+  /* Se puede llegar directo a una lección desde el aviso de «respondieron tu
+     duda» o desde el buscador del curso. Si no viene ninguna, se abre por la
+     primera sin completar, que es lo de siempre. */
+  const pedida = qs('leccion');
+  actual = (pedida && all.find(l=>l.id===pedida))
+    || all.find(l=>!progreso[l.id]?.completado) || all[0];
+  render();
+}
+
+/* ── el buscador del temario (mejora 3) ────────────────────────────────────
+   Se filtra sobre lo que ya está cargado: no hay que ir a la base para buscar
+   entre treinta títulos, y así responde mientras se escribe. */
+const normal = (s) => String(s||'').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'');   // buscar «direccion» encuentra «dirección»
+function pasaElFiltro(l){
+  if (filtro.pendientes && progreso[l.id]?.completado) return false;
+  if (filtro.despues && !progreso[l.id]?.para_despues) return false;
+  if (!filtro.texto) return true;
+  const q = normal(filtro.texto);
+  return normal(l.titulo).includes(q) || normal(l.descripcion).includes(q)
+      || normal(l.contenido).includes(q);
+}
+function conectarFiltros(){
+  const caja = $('#buscaLeccion');
+  if (!caja || caja.dataset.listo) return;
+  caja.dataset.listo = '1';
+  caja.oninput = () => { filtro.texto = caja.value.trim(); pintarIndice(); };
+  const alterna = (sel, clave) => {
+    const b = $(sel);
+    b.onclick = () => {
+      filtro[clave] = !filtro[clave];
+      b.classList.toggle('on', filtro[clave]);
+      b.setAttribute('aria-pressed', String(filtro[clave]));
+      pintarIndice();
+    };
+    b.setAttribute('aria-pressed', 'false');
+  };
+  alterna('#soloPendientes', 'pendientes');
+  alterna('#soloDespues', 'despues');
+}
+
+/* El índice se repinta solo cuando cambia el filtro, sin rehacer el
+   reproductor: si cada tecla del buscador reiniciara el vídeo, buscar sería
+   imposible mientras se ve una clase. */
+function pintarIndice(){
+  conectarFiltros();
+  let visibles = 0;
+  $('#indice').innerHTML = mods.map(m=>{
+    const lecciones = m.cem_lessons.filter(pasaElFiltro);
+    if (!lecciones.length) return '';
+    visibles += lecciones.length;
+    return `<div style="margin-bottom:10px">
+      <div class="tiny" style="font-weight:700;text-transform:uppercase;color:var(--on-surface-variant);padding:4px 10px">${esc(m.titulo)}</div>
+      ${lecciones.map(l=>{
+        const p = progreso[l.id] || {};
+        const done = p.completado;
+        return `<div class="les-item ${actual?.id===l.id?'on':''}" data-l="${l.id}">
+          <span class="material-symbols-outlined" style="color:${done?'var(--ok)':'var(--outline)'}">
+            ${done?'check_circle':'radio_button_unchecked'}</span>
+          <span class="les-t">${esc(l.titulo)}</span>
+          ${p.para_despues?`<span class="material-symbols-outlined" title="Marcada para después"
+            style="color:var(--gold);flex-shrink:0">bookmark</span>`:''}
+          <span class="tiny muted" style="flex-shrink:0">${l.duracion_min||0}′</span></div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+  const aviso = $('#sinResultados');
+  if (aviso) aviso.hidden = visibles > 0;
+  $$('#indice [data-l]').forEach(el=>el.onclick=()=>{
+    actual = mods.flatMap(m=>m.cem_lessons).find(l=>l.id===el.dataset.l); render();
+  });
+}
+
+/* ── «para después» (mejora 9) ─────────────────────────────────────────────
+   Marcar una lección para volver. Antes había que acordarse del nombre. */
+async function marcarParaDespues(l){
+  const ahora = !progreso[l.id]?.para_despues;
+  const { error } = await sb.from('cem_lesson_progress').upsert({
+    enrollment_id: enr.id, lesson_id: l.id, para_despues: ahora,
+    completado: progreso[l.id]?.completado || false,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'enrollment_id,lesson_id' });
+  if (error) { avisar($('#visor'), mensajeError(error), 'err'); return; }
+  progreso[l.id] = { ...(progreso[l.id]||{}), para_despues: ahora };
+  ok(ahora ? 'Guardada para después.' : 'Ya no está marcada.');
   render();
 }
 
@@ -180,6 +281,17 @@ async function load(){
    Lo que NO hace, y conviene decirlo: esto no impide sacar el enlace ni grabar
    la pantalla. Nada en una página web puede. Lo que sí hace es que cualquier
    grabación salga con el nombre de quien la hizo encima. */
+/* El identificador escondido dentro de un enlace de YouTube pegado a mano.
+   Hace falta porque quien crea una lección pega la dirección que copió del
+   navegador —`youtu.be/…`, `youtube.com/shorts/…`, `watch?v=…`— y ninguna de
+   esas se puede meter dentro de un marco: YouTube lo prohíbe con
+   `X-Frame-Options`, así que la clase se quedaba en negro sin decir por qué.
+   Con el identificador suelto sí se puede, por la misma vía que el resto. */
+function idDeYoutube(url){
+  const m = /(?:youtu\.be\/|\/shorts\/|\/embed\/|[?&]v=)([A-Za-z0-9_-]{11})/.exec(String(url || ''));
+  return m ? m[1] : null;
+}
+
 function reproductor(l){
   if (l.tipo !== 'video') return '';
   if (l.video_id) {
@@ -197,8 +309,9 @@ function reproductor(l){
       <div class="tapa-yt" aria-hidden="true"></div>
       <div class="tapa-yt izq" aria-hidden="true"></div>`;
   }
-  // Material antiguo, con la URL entera guardada y sin identificador. Se sigue
-  // viendo tal cual, sin la API: no hay manera de saber si es de YouTube.
+  // Material antiguo, con la URL entera guardada. Si esa URL es de YouTube se
+  // saca el identificador y se trata como cualquier otro vídeo; sólo lo que no
+  // se reconoce va a un marco a pelo.
   return l.url ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>` : '';
 }
 
@@ -270,9 +383,66 @@ function registrarQueSeVe(l, conAPI){
     if (!jugando) return;                 // en pausa tampoco
     verSegundos += 30;
     anotar(verSegundos);
+    guardarElMinuto(l);
   };
   anotar(verSegundos);
   verReloj = setInterval(latir, 30000);
+}
+
+/* ── dónde se quedó (mejora 4) ─────────────────────────────────────────────
+   El aula abría por la primera lección sin completar, y eso está bien. Lo que
+   estaba mal es que quien vio veinte minutos de una de cuarenta y la dejó,
+   al día siguiente empezaba de cero.
+
+   Se guarda el segundo real del reproductor —no los segundos acumulados de
+   `cem_registrar_reproduccion`, que cuentan otra cosa: cuánto se ha visto, no
+   por dónde va—. Cada medio minuto, que es cuando ya late el registro. */
+function segundoActual(){
+  try { return ytPlayer?.getCurrentTime ? Math.round(ytPlayer.getCurrentTime()) : null; }
+  catch { return null; }
+}
+
+let minutoGuardando = false;
+async function guardarElMinuto(l){
+  const s = segundoActual();
+  if (s == null || s < 5 || minutoGuardando) return;
+  minutoGuardando = true;
+  const { error } = await sb.from('cem_lesson_progress').upsert({
+    enrollment_id: enr.id, lesson_id: l.id, segundos_vistos: s,
+    completado: progreso[l.id]?.completado || false,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'enrollment_id,lesson_id' });
+  minutoGuardando = false;
+  // Si no se pudo guardar no pasa nada grave: se reintenta al siguiente latido.
+  if (!error) progreso[l.id] = { ...(progreso[l.id]||{}), segundos_vistos: s };
+}
+
+/* La barra de «lo dejaste en 20:14». Sólo aparece si de verdad hay algo que
+   retomar: pasado el minuto, sin haberla completado, y no al principio. */
+function ofrecerRetomar(l){
+  const host = $('#retomar');
+  const s = Number(progreso[l.id]?.segundos_vistos || 0);
+  if (!host) return;
+  if (progreso[l.id]?.completado || s < 60) { host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="card sep-poco nota info row between" style="gap:var(--e2)">
+    <span>Lo dejaste en <b>${esc(reloj(s))}</b>.</span>
+    <button class="btn sm" id="btnRetomar">
+      <span class="material-symbols-outlined">play_arrow</span> Continuar desde ahí</button></div>`;
+  $('#btnRetomar').onclick = () => {
+    saltarA(s);
+    host.innerHTML = '';
+  };
+}
+
+/** Llevar el vídeo a un segundo concreto. Lo usan «continuar» y las dudas. */
+function saltarA(segundo){
+  if (!ytPlayer?.seekTo) return false;
+  try {
+    ytPlayer.seekTo(Math.max(0, Number(segundo) || 0), true);
+    ytPlayer.playVideo?.();
+    $('#reproductor')?.scrollIntoView({ behavior:'smooth', block:'center' });
+    return true;
+  } catch { return false; }
 }
 
 /* ── La API de YouTube, cargada una sola vez ────────────────────────────────
@@ -326,13 +496,22 @@ function avisoSinVideo(codigo){
    Aparte de reproductor(), que sólo pinta el hueco: instanciarlo es asíncrono
    —la API tarda en cargar— y mientras carga la persona puede haber cambiado de
    lección, así que se comprueba antes de montar nada encima. */
-let ytPlayer = null;
+let ytPlayer = null, leccionDelPlayer = null;
 function limpiarReproductor(){
   clearInterval(aguaReloj); aguaReloj = null;
   clearInterval(verReloj); verReloj = null;
+  /* Antes de tirar el reproductor, anotar por dónde iba. Sin esto sólo se
+     guardaba cada medio minuto, y quien cambia de lección a los cuarenta
+     segundos perdía justo lo que acababa de ver. */
+  if (leccionDelPlayer) guardarElMinuto(leccionDelPlayer);
   if (ytPlayer) { try { ytPlayer.destroy(); } catch { /* ya no había nada que destruir */ } }
-  ytPlayer = null;
+  ytPlayer = null; leccionDelPlayer = null;
 }
+
+/* Cerrar la pestaña también es dejar la clase a medias. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && leccionDelPlayer) guardarElMinuto(leccionDelPlayer);
+});
 
 async function montarReproductor(l){
   limpiarReproductor();
@@ -360,6 +539,7 @@ async function montarReproductor(l){
        Así que se anota al primer PLAYING de verdad. La bandera `fallo` corta
        el registro si `onError` dispara, llegue antes o después. */
     let registrado = false, fallo = false;
+    leccionDelPlayer = l;
     ytPlayer = new YT.Player(host, {
       videoId: l.video_id,
       host: 'https://www.youtube-nocookie.com',
@@ -368,7 +548,7 @@ async function montarReproductor(l){
       events: {
         // El <iframe> de verdad no existe hasta este momento: la marca de agua
         // se arranca aquí, no al instanciar el reproductor.
-        onReady: () => marcaDeAgua(),
+        onReady: () => { marcaDeAgua(); ofrecerRetomar(l); },
         onStateChange: (ev) => {
           if (fallo) return;
           jugando = ev.data === YT.PlayerState.PLAYING;
@@ -399,21 +579,7 @@ function render(){
     [curso?.nombre || 'Curso', `curso.html?id=${curso?.id || ''}`],
     [actual?.titulo || 'Lección'],
   ]);
-  $('#indice').innerHTML = mods.map(m=>`
-    <div style="margin-bottom:10px">
-      <div class="tiny" style="font-weight:700;text-transform:uppercase;color:var(--on-surface-variant);padding:4px 10px">${esc(m.titulo)}</div>
-      ${m.cem_lessons.map(l=>{
-        const done = progreso[l.id]?.completado;
-        return `<div class="les-item ${actual?.id===l.id?'on':''}" data-l="${l.id}">
-          <span class="material-symbols-outlined" style="color:${done?'var(--ok)':'var(--outline)'}">
-            ${done?'check_circle':'radio_button_unchecked'}</span>
-          <span class="les-t">${esc(l.titulo)}</span>
-          <span class="tiny muted" style="flex-shrink:0">${l.duracion_min||0}′</span></div>`;
-      }).join('')}
-    </div>`).join('');
-  $$('[data-l]').forEach(el=>el.onclick=()=>{
-    actual = mods.flatMap(m=>m.cem_lessons).find(l=>l.id===el.dataset.l); render();
-  });
+  pintarIndice();
 
   const l = actual;
   $('#visor').innerHTML = l ? `
@@ -421,18 +587,45 @@ function render(){
       || `<div style="text-align:center;padding:30px">
           <span class="material-symbols-outlined" style="font-size:44px">${l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
           <div class="sep-poco">${esc(l.titulo)}</div></div>`}</div>
+    <div id="retomar"></div>
     <div class="card sep">
       <div class="row between">
         <div><h2 class="sec" style="margin:0 0 4px">${esc(l.titulo)}</h2>
           <div class="tiny muted">${esc(l.descripcion||'')}</div></div>
-        <button class="btn ${progreso[l.id]?.completado?'outline':''}" id="btnDone">
-          <span class="material-symbols-outlined">${progreso[l.id]?.completado?'check_circle':'done'}</span>
-          ${progreso[l.id]?.completado?'Completada':'Marcar completada'}</button>
+        <div class="actions">
+          <button class="btn ghost" id="btnDespues"
+            title="${progreso[l.id]?.para_despues?'Quitar la marca':'Guardarla para volver'}">
+            <span class="material-symbols-outlined"
+              style="${progreso[l.id]?.para_despues?'color:var(--gold)':''}">
+              ${progreso[l.id]?.para_despues?'bookmark':'bookmark_border'}</span></button>
+          <button class="btn ${progreso[l.id]?.completado?'outline':''}" id="btnDone">
+            <span class="material-symbols-outlined">${progreso[l.id]?.completado?'check_circle':'done'}</span>
+            ${progreso[l.id]?.completado?'Completada':'Marcar completada'}</button>
+        </div>
       </div>
       ${l.contenido?`<p class="muted sep">${esc(l.contenido)}</p>`:''}
+      ${adjuntosDe(l)}
       <div class="sep">${bar(enr.progreso)}</div>
     </div>
     ${cierreDelCurso()}` : '<div class="card">Este curso todavía no tiene lecciones publicadas.</div>';
+
+/* El material de la lección, para bajárselo (mejora 7). En Venezuela la
+   conexión se cae, y el PDF o la plantilla de Excel son lo que decide si el
+   curso se puede seguir esa semana. El vídeo no —eso es de YouTube— pero el
+   resto sí. */
+function adjuntosDe(l){
+  const lista = l.adjuntos || [];
+  if (!lista.length) return '';
+  return `<div class="sep">
+    <div class="tiny muted" style="margin-bottom:6px">Material de esta lección</div>
+    <div class="post-adjuntos">${lista.map(a=>`
+      <a class="adjunto" href="${esc(a.url)}" target="_blank" rel="noopener" download>
+        <span class="material-symbols-outlined">${
+          a.tipo==='pdf'?'picture_as_pdf':a.tipo==='hoja'?'table_view':'attach_file'}</span>
+        ${esc(a.nombre||'Descargar')}</a>`).join('')}</div>
+    <p class="tiny muted sep-poco">Descárgalos ahora si vas a estudiar sin conexión.</p>
+  </div>`;
+}
 
 /* Terminar de ver el curso y no saber qué sigue es donde se pierde la gente:
    se queda mirando la última lección sin enterarse de que hay un examen. En
@@ -471,13 +664,18 @@ function cierreDelCurso(){
     </div></div>`;
 }
 
+  const btnDespues = $('#btnDespues');
+  if (btnDespues) btnDespues.onclick = () => marcarParaDespues(l);
+
   const btn=$('#btnDone');
   if (btn) btn.onclick = async () => {
     const done = !progreso[l.id]?.completado;
     await run(sb.from('cem_lesson_progress').upsert({
       enrollment_id:enr.id, lesson_id:l.id, completado:done, actualizado_en:new Date().toISOString()
     },{onConflict:'enrollment_id,lesson_id'}),'No se pudo guardar el progreso');
-    progreso[l.id] = { completado:done };
+    // Se conserva el resto de lo guardado: marcar completada no puede borrar
+    // los apuntes ni el minuto donde se quedó.
+    progreso[l.id] = { ...(progreso[l.id]||{}), completado:done };
     const { data: np } = await sb.rpc('cem_recalc_progress',{p_enrollment_id:enr.id});
     enr.progreso = np ?? enr.progreso;
     ok(done?'Lección completada':'Marcada como pendiente');
@@ -499,6 +697,16 @@ $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.cl
 
 function tab(t){
   const P=$('#panelTabs');
+  if (t==='dudas'){
+    if (!actual){ P.innerHTML = '<p class="muted tiny">Elige una lección para ver sus dudas.</p>'; return; }
+    pintarDudas({
+      host: P, lessonId: actual.id, puedeResponder: false,
+      minutoActual: segundoActual,
+      // Pulsar el minuto de una duda lleva el vídeo a ese punto: es el gesto
+      // que convierte «en el minuto 14» en algo que se puede comprobar.
+      alSaltar: (s) => { if (!saltarA(s)) ok('Este material no permite saltar a un punto.'); },
+    });
+  }
   if (t==='tablon'){
     /* El tablón es de la cohorte, no de la lección: es donde el profesor
        avisa de lo que pasa con la clase entera. */
@@ -516,9 +724,17 @@ function tab(t){
   }
   if (t==='notas'){
     const nota = progreso[actual?.id]?.notas || '';
+    const conNotas = mods.flatMap(m=>m.cem_lessons).filter(x=>(progreso[x.id]?.notas||'').trim());
     P.innerHTML = `<div class="field"><label>Notas personales de esta lección</label>
       <textarea id="nota" placeholder="Escribe tus apuntes…">${esc(nota)}</textarea></div>
-      <button class="btn outline sm" id="btnNota"><span class="material-symbols-outlined">save</span> Guardar nota</button>`;
+      <div class="row" style="gap:var(--e1)">
+        <button class="btn outline sm" id="btnNota"><span class="material-symbols-outlined">save</span> Guardar nota</button>
+        ${conNotas.length?`<button class="btn ghost sm" id="btnBajarNotas"
+          title="Descargar los apuntes de todo el curso">
+          <span class="material-symbols-outlined">download</span>
+          Bajar mis apuntes (${conNotas.length})</button>`:''}
+      </div>
+      <p class="tiny muted sep-poco">Sólo las ves tú. Nadie de la escuela puede leerlas.</p>`;
     $('#btnNota').onclick = async () => {
       await run(sb.from('cem_lesson_progress').upsert({
         enrollment_id:enr.id, lesson_id:actual.id, notas:$('#nota').value,
@@ -526,6 +742,18 @@ function tab(t){
       },{onConflict:'enrollment_id,lesson_id'}),'No se pudo guardar');
       progreso[actual.id] = { ...(progreso[actual.id]||{}), notas:$('#nota').value };
       ok('Nota guardada');
+    };
+    /* Quien estudia en serio toma notas, y unas notas que sólo viven dentro de
+       una plataforma se pierden el día que se acaba el curso (mejora 8). */
+    const bajar = $('#btnBajarNotas');
+    if (bajar) bajar.onclick = () => {
+      const texto = [`Apuntes de ${curso?.nombre||'el curso'}`, ''].concat(
+        mods.flatMap(m => m.cem_lessons
+          .filter(x => (progreso[x.id]?.notas||'').trim())
+          .map(x => `## ${m.titulo} · ${x.titulo}\n\n${progreso[x.id].notas.trim()}\n`))
+      ).join('\n');
+      const nombre = (curso?.nombre||'curso').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      download(`apuntes-${nombre}.md`, texto, 'text/markdown;charset=utf-8');
     };
   }
   if (t==='evaluaciones'){
@@ -559,12 +787,41 @@ function tab(t){
     }).join('') : '<p class="muted tiny">Este curso todavía no tiene evaluaciones publicadas.</p>';
   }
   if (t==='recursos'){
-    P.innerHTML = media.length ? media.map(m=>`<div class="list-item">
+    /* Todo lo descargable del curso en un sitio: lo del curso entero y lo que
+       cuelga de cada lección. Antes había que abrir las treinta lecciones para
+       saber si había algo que bajarse (mejora 7). */
+    const deLecciones = mods.flatMap(m => m.cem_lessons.flatMap(l =>
+      (l.adjuntos||[]).map(a => ({ ...a, leccion: l.titulo }))));
+    const filaCurso = media.map(m=>`<div class="list-item">
       <span class="material-symbols-outlined">${m.tipo==='pdf'?'picture_as_pdf':m.tipo==='video'?'play_circle':'dataset'}</span>
       <div class="grow"><div class="t">${esc(m.nombre)}</div>
         <div class="s">${esc(m.tipo)} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div></div>
-      ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">download</span></a>`:''}
-      </div>`).join('') : '<p class="muted tiny">Sin recursos para este curso.</p>';
+      ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank" download><span class="material-symbols-outlined">download</span></a>`:''}
+      </div>`).join('');
+    const filaLecciones = deLecciones.map(a=>`<div class="list-item">
+      <span class="material-symbols-outlined">${a.tipo==='pdf'?'picture_as_pdf':a.tipo==='hoja'?'table_view':'attach_file'}</span>
+      <div class="grow"><div class="t">${esc(a.nombre||'Material')}</div>
+        <div class="s">${esc(a.leccion)}</div></div>
+      <a class="btn outline sm" href="${esc(a.url)}" target="_blank" download
+        aria-label="Descargar ${esc(a.nombre||'material')}"><span class="material-symbols-outlined">download</span></a>
+      </div>`).join('');
+
+    P.innerHTML = `
+      <div class="row between sep-poco">
+        <p class="tiny muted sin-margen">Todo esto se puede bajar y leer sin conexión.</p>
+        <button class="btn ghost sm" id="btnTemario">
+          <span class="material-symbols-outlined">print</span> Imprimir el temario</button>
+      </div>
+      ${(filaCurso || filaLecciones)
+        ? filaCurso + filaLecciones
+        : '<p class="muted tiny">Este curso todavía no tiene material para descargar.</p>'}`;
+
+    $('#btnTemario').onclick = () => imprimirDocumento(
+      `Temario · ${curso?.nombre || 'Programa'}`,
+      mods.map(m => `<h2>${esc(m.titulo)}</h2>
+        <ol>${m.cem_lessons.map(l => `<li><b>${esc(l.titulo)}</b>${
+          l.descripcion ? `<br><span>${esc(l.descripcion)}</span>` : ''}${
+          l.duracion_min ? ` <i>(${l.duracion_min} min)</i>` : ''}</li>`).join('')}</ol>`).join(''));
   }
   if (t==='sesiones'){
     P.innerHTML = clases.length ? clases.map(c=>`<div class="list-item">
