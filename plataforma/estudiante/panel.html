@@ -26,6 +26,12 @@
   <div class="page-head"><div><h1 id="saludo">Hola</h1>
     <p>Sigue por donde ibas. Abajo tienes tu avance y tus pagos.</p></div></div>
 
+  <!-- La bienvenida sólo existe el primer día (mejora 2). Alguien que acaba de
+       pagar entra a un panel con cursos, cifras y un temario y tiene que
+       deducir por dónde empezar; ahí es donde se pierde la mitad de la gente
+       que ya pagó. -->
+  <div id="bienvenida"></div>
+
   <div class="card" id="proxima" style="background:linear-gradient(120deg,color-mix(in oklab, var(--primary) 88%, #000),color-mix(in oklab, var(--primary) 62%, var(--secondary)));color:var(--on-primary);border:none"></div>
 
   <h2 class="sec">Mis cursos</h2>
@@ -156,6 +162,10 @@ async function init(){
         <div class="row between tiny muted"><span>Progreso general</span><b>${pct(e.progreso)}</b></div>
         ${bar(e.progreso)}
       </div>
+      <!-- Qué falta para el certificado y cómo va contra el grupo. Se rellena
+           después de pintar: son dos preguntas al servidor por curso y no
+           merecen retrasar la pantalla entera. -->
+      <div class="pistas" data-pista="${e.id}"></div>
       <div class="row sep">
         ${puertas[e.id]?.abierto === false
           ? `<a class="btn abrir-curso" href="pagos.html?enr=${e.id}">
@@ -232,6 +242,107 @@ async function init(){
       <div class="grow"><div class="t">${esc(a.titulo)}</div><div class="s">${esc(a.cuerpo||'')}</div></div>
       <span class="tiny muted">${fdate(a.enviado_en)}</span></div>`).join('')
     : '<p class="muted tiny">Sin anuncios recientes.</p>';
+
+  pintarBienvenida(ens || [], puertas);
+  pintarPistas(ens || [], puertas);
+}
+
+/* ============ la bienvenida del primer día (mejora 2) ============
+   Tres frases y un botón. No es una pantalla de ayuda ni un tour: es quitar
+   de en medio la única decisión que hay que tomar el primer día —por dónde
+   empiezo— cuando todavía queda ganas de empezar hoy.
+
+   Desaparece sola en cuanto se ve la primera lección, y se puede cerrar antes.
+   Que se cierre se recuerda en este navegador: no es un dato de la escuela. */
+const BIENVENIDA_CERRADA = 'cemBienvenidaCerrada';
+function pintarBienvenida(ens, puertas){
+  const host = $('#bienvenida');
+  if (!host) return;
+  const abiertas = ens.filter(e => puertas[e.id]?.abierto !== false && e.estado !== 'cancelada');
+  const empezado = ens.some(e => Number(e.progreso || 0) > 0);
+  if (empezado || !abiertas.length || localStorage.getItem(BIENVENIDA_CERRADA) === '1') {
+    host.innerHTML = ''; return;
+  }
+  const e = abiertas[0];
+  const curso = e.cem_courses?.nombre || 'tu programa';
+  host.innerHTML = `<div class="card bienvenida">
+    <button class="icon-btn cerrar" id="cerrarBienvenida" title="Cerrar" aria-label="Cerrar la bienvenida">
+      <span class="material-symbols-outlined">close</span></button>
+    <span class="material-symbols-outlined ico">waving_hand</span>
+    <h2>Bienvenido, ${esc(p.nombre)}</h2>
+    <p>Tu plaza en <b>${esc(curso)}</b> está lista. Se estudia a tu ritmo: cada lección
+      se marca como vista y tu avance se guarda solo.</p>
+    <p class="tiny muted">Si algo no queda claro, pregúntalo en la propia lección: responde
+      tu profesor y lo ve toda tu clase.</p>
+    <a class="btn abrir-curso" href="clase.html?curso=${esc(e.cem_courses?.id || '')}">
+      <span class="material-symbols-outlined">play_arrow</span> Empezar la primera lección</a>
+  </div>`;
+  $('#cerrarBienvenida').onclick = () => {
+    localStorage.setItem(BIENVENIDA_CERRADA, '1');
+    host.innerHTML = '';
+  };
+}
+
+/* ============ qué falta y cómo voy (mejoras 6 y 10) ============
+   Dos frases por curso. La primera convierte «el certificado aparece cuando
+   aparece» en una lista que se puede terminar. La segunda no es para competir:
+   es para que quien se está descolgando lo note cuando todavía se puede
+   recuperar — por eso calla si el grupo es de menos de cuatro, donde decir
+   «la mayoría va por la 8» sería señalar a alguien con el dedo. */
+async function pintarPistas(ens, puertas){
+  const abiertas = ens.filter(e => puertas[e.id]?.abierto !== false);
+  await Promise.all(abiertas.map(async (e) => {
+    const host = $(`[data-pista="${e.id}"]`);
+    if (!host) return;
+    const [{ data: req }, { data: ritmo }] = await Promise.all([
+      sb.rpc('cem_mis_requisitos_certificado', { p_enrollment_id: e.id }),
+      sb.rpc('cem_mi_ritmo', { p_enrollment_id: e.id }),
+    ]);
+    host.innerHTML = [pistaCertificado(req), pistaRitmo(ritmo)].filter(Boolean).join('');
+  }));
+}
+
+function pistaCertificado(req){
+  if (!req) return '';
+  if (req.ya_emitido) return `<p class="pista ok"><span class="material-symbols-outlined">workspace_premium</span>
+    Tu certificado ya está emitido. <a href="certificados.html">Verlo</a></p>`;
+  if (req.listo) return `<p class="pista ok"><span class="material-symbols-outlined">workspace_premium</span>
+    Cumples todo para el certificado. Ya se está tramitando.</p>`;
+
+  // Se dice lo que falta, no lo que está mal. «Le faltan 3 evaluaciones de 3»
+  // es un informe interno; «te faltan 3 evaluaciones» es una lista que se
+  // puede terminar.
+  const falta = [];
+  const sinEval = Number(req.evaluaciones_total || 0) - Number(req.evaluaciones_aprobadas || 0);
+  const avance = Number(req.avance || 0);
+  if (avance < 100) falta.push(`el ${Math.max(1, Math.round(100 - avance))}% del contenido`);
+  // «evaluaciónes» no existe: el plural pierde la tilde. Se escriben las dos
+  // formas en vez de pegarle una terminación a la de singular.
+  if (sinEval > 0) falta.push(`${sinEval} ${sinEval > 1 ? 'evaluaciones' : 'evaluación'}`);
+  if (Number(req.cuotas_pendientes || 0) > 0) {
+    falta.push(`${req.cuotas_pendientes} cuota${Number(req.cuotas_pendientes) > 1 ? 's' : ''} por pagar`);
+  }
+  if (!falta.length) return '';
+  const texto = falta.length === 1 ? falta[0]
+    : falta.slice(0, -1).join(', ') + ' y ' + falta[falta.length - 1];
+  return `<p class="pista"><span class="material-symbols-outlined">workspace_premium</span>
+    Para el certificado te falta ${esc(texto)}.</p>`;
+}
+
+function pistaRitmo(r){
+  if (!r || r.donde === 'sin_grupo' || !Number(r.total)) return '';
+  const mias = Number(r.mias || 0), med = Number(r.mediana || 0);
+  if (r.donde === 'adelante') {
+    return `<p class="pista ok"><span class="material-symbols-outlined">trending_up</span>
+      Vas por la lección ${mias} y la mayoría de tu grupo por la ${med}. Vas por delante.</p>`;
+  }
+  if (r.donde === 'atras') {
+    return `<p class="pista warn"><span class="material-symbols-outlined">schedule</span>
+      Vas por la lección ${mias}; la mayoría de tu grupo va por la ${med}.
+      Todavía se recupera.</p>`;
+  }
+  return `<p class="pista"><span class="material-symbols-outlined">group</span>
+    Vas por la lección ${mias}, al ritmo de tu grupo.</p>`;
 }
 
 /* ============ cómo voy (item 06) ============

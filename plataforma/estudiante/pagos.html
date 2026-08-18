@@ -54,8 +54,15 @@
   <div id="focoCuota"></div>
 
   <div class="card">
-    <h2 class="sec">Mis cuotas <button type="button" class="ayuda-btn" data-ayuda="Cada cuota tiene su fecha límite. Al pagar, repórtalo aquí con su referencia: hasta que alguien lo verifique, la cuota sigue apareciendo como pendiente.">?</button></h2>
+    <div class="row between">
+      <h2 class="sec">Mis cuotas <button type="button" class="ayuda-btn" data-ayuda="Cada cuota tiene su fecha límite. Al pagar, repórtalo aquí con su referencia: hasta que alguien lo verifique, la cuota sigue apareciendo como pendiente.">?</button></h2>
+      <!-- Mejora 11: quien eligió pago único y se quedó corto tenía que
+           pedirlo por fuera, y casi nadie lo pide por fuera. -->
+      <button class="btn ghost sm" id="btnPlan" hidden>
+        <span class="material-symbols-outlined">event_repeat</span> Cambiar mi plan de pago</button>
+    </div>
     <div id="cuotas"><span class="cargando"></span></div>
+    <div id="planPedido"></div>
   </div>
 
   <div class="card">
@@ -309,6 +316,86 @@ function renderCuotas(){
   $$('[data-reportar]').forEach(b => b.onclick = () => abrirReporte(cuotas.find(c => c.id === b.dataset.reportar)));
   $$('[data-tarjeta]').forEach(b => b.onclick = () =>
     pagarConTarjeta(cuotas.find(c => c.id === b.dataset.tarjeta), b));
+
+  ofrecerCambioDePlan(lista);
+}
+
+/* ============ cambiar el plan de pago (mejora 11) ============
+   Sólo tiene sentido ofrecerlo si queda algo por pagar y ninguna de esas
+   cuotas tiene un pago detrás: reordenar dinero que ya se movió es como se
+   pierde el rastro de un pago, y la base lo rechaza por eso mismo. Más vale
+   no enseñar el botón que enseñarlo y que falle al pulsarlo. */
+function ofrecerCambioDePlan(lista){
+  const btn = $('#btnPlan');
+  const aviso = $('#planPedido');
+  if (!btn) return;
+
+  const abiertas = lista.filter(c => c.estado !== 'pagada' && Number(c.saldo ?? c.monto ?? 0) > 0);
+  const conPago = abiertas.some(c => pagos.some(x => x.installment_id === c.id));
+  // Una inscripción cada vez: repartir cuotas de dos programas a la vez no
+  // significa nada.
+  const porInscripcion = new Map();
+  abiertas.forEach(c => porInscripcion.set(c.enrollment_id,
+    (porInscripcion.get(c.enrollment_id) || 0) + Number(c.saldo ?? c.monto ?? 0)));
+
+  if (!abiertas.length || conPago || !porInscripcion.size) { btn.hidden = true; return; }
+  btn.hidden = false;
+
+  btn.onclick = () => {
+    const opciones = [...porInscripcion.entries()].map(([id, debe]) => {
+      const c = abiertas.find(x => x.enrollment_id === id);
+      return { id, debe, moneda: c?.moneda || MONEDA_BASE,
+               nombre: c?.cem_enrollments?.cem_courses?.nombre || 'Inscripción',
+               cuantas: abiertas.filter(x => x.enrollment_id === id).length };
+    });
+
+    const m = modal({ title: 'Cambiar mi plan de pago', body: `
+      <p class="tiny muted">Se reparte lo que <b>todavía debes</b> en el número de cuotas
+        que elijas. Lo ya pagado no se toca. Lo revisa coordinación y te avisamos.</p>
+      <div class="field"><label>¿De qué programa?</label>
+        <select id="pEnr">${opciones.map(o =>
+          `<option value="${esc(o.id)}" data-debe="${o.debe}" data-moneda="${esc(o.moneda)}">
+             ${esc(o.nombre)} — debes ${money(o.debe, o.moneda)} en ${o.cuantas} cuota(s)</option>`).join('')}</select></div>
+      <div class="field corto"><label>¿En cuántas cuotas?</label>
+        <input type="number" id="pCuotas" min="1" max="24" step="1" value="3"></div>
+      <p class="tiny muted" id="pCuenta"></p>
+      <div class="field"><label>¿Por qué? Lo lee quien lo resuelve</label>
+        <textarea id="pMotivo" rows="3" maxlength="500"
+          placeholder="Por ejemplo: cobro quincenal y me viene mejor repartirlo en tres."></textarea></div>
+      <div id="pMsg"></div>`,
+      footer: `<button class="btn outline" data-x>Ahora no</button>
+               <button class="btn" id="pGo">Pedir el cambio</button>` });
+
+    // Enseñar la cuenta hecha evita la sorpresa de «pedí tres y me salieron de 700».
+    const recalcular = () => {
+      const op = $('#pEnr', m).selectedOptions[0];
+      const debe = Number(op?.dataset.debe || 0);
+      const n = Math.min(24, Math.max(1, Number($('#pCuotas', m).value) || 1));
+      $('#pCuenta', m).innerHTML = debe > 0
+        ? `Quedarían <b>${n}</b> cuota(s) de <b>${money(debe / n, op.dataset.moneda)}</b>, una al mes.`
+        : '';
+    };
+    $('#pEnr', m).onchange = recalcular;
+    $('#pCuotas', m).oninput = recalcular;
+    recalcular();
+
+    $('#pGo', m).onclick = () => ocupado('#pGo', 'Enviando…', async () => {
+      const motivo = $('#pMotivo', m).value.trim();
+      if (!motivo) { avisar($('#pMsg', m), 'Cuéntanos el motivo: es lo que va a leer quien lo resuelva.', 'err'); return; }
+      const { error } = await sb.rpc('cem_solicitar_cambio_inscripcion', {
+        p_enrollment_id: $('#pEnr', m).value,
+        p_tipo: 'plan_de_pago',
+        p_motivo: motivo,
+        p_cuotas: Number($('#pCuotas', m).value) || 1,
+      });
+      if (error) { avisar($('#pMsg', m), mensajeError(error), 'err'); return; }
+      m.close();
+      ok('Pedido. Te avisamos en cuanto lo revisen.');
+      if (aviso) aviso.innerHTML = `<p class="nota info sep">
+        Tienes un cambio de plan pendiente de revisión. Mientras tanto, las cuotas
+        siguen como están.</p>`;
+    });
+  };
 }
 
 function renderPagos(){

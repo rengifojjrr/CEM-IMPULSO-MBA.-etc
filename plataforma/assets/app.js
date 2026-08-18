@@ -137,6 +137,10 @@ export function moneyBs(montoUsd, tasa, cur = MONEDA_BASE) {
    guiones bajos. Aquí está la traducción, en un solo sitio, para que la misma
    cosa se llame igual en las 50 pantallas. */
 export const ETIQUETAS = {
+  /* Los tipos de solicitud que puede hacer un estudiante. Sin esto,
+     «plan_de_pago» salía como «Plan de pago» por la regla general, que está
+     bien, pero «cambio de plan» dice mejor lo que es. */
+  plan_de_pago: 'Cambio de plan de pago',
   // contactos que llegan de la web pública
   nuevo: 'Sin contactar', contactado: 'Contactado', interesado: 'Interesado',
   inscrito: 'Se inscribió', descartado: 'Descartado',

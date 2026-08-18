@@ -90,6 +90,7 @@ const EFECTO = {
   congelamiento: 'La inscripción queda en pausa y las cuotas que todavía no vencieron pasan a "congelada". Lo ya vencido se sigue debiendo.',
   retiro: 'La inscripción se cancela y las cuotas pendientes o congeladas se anulan. Lo ya pagado no se devuelve automáticamente.',
   reactivacion: 'La inscripción vuelve a "activa" y las cuotas congeladas se reactivan desde donde quedaron.',
+  plan_de_pago: 'Lo que queda por pagar se reparte en el número de cuotas que pidió, una al mes, empezando dentro de 30 días. Lo ya pagado no se toca, y si alguna cuota pendiente tiene un pago detrás la operación se rechaza entera.',
 };
 
 function renderSolicitudes(){
@@ -99,7 +100,8 @@ function renderSolicitudes(){
   $('#tbSol').innerHTML = sols.map(s => `<tr>
     <td class="wrap">${esc((s.cem_profiles?.nombre||'')+' '+(s.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(s.cem_enrollments?.cem_courses?.nombre || '—')}</td>
-    <td>${chipEstado(s.tipo)}${s.hasta ? `<div class="tiny muted">hasta ${fdate(s.hasta)}</div>` : ''}</td>
+    <td>${chipEstado(s.tipo)}${s.hasta ? `<div class="tiny muted">hasta ${fdate(s.hasta)}</div>` : ''}${
+      s.datos?.cuotas ? `<div class="tiny muted">pide ${esc(String(s.datos.cuotas))} cuota(s)</div>` : ''}</td>
     <td class="wrap">${esc(s.motivo)}</td>
     <td class="muted">${fdate(s.created_at)}</td>
     <td class="nowrap">${editable ? `

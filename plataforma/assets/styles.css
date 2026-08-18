@@ -2272,3 +2272,32 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
    del mismo tamaño que «Ver programa», que no lo es. */
 .btn.abrir-curso{min-height:44px;padding:var(--e2) var(--e3);font-size:var(--t-md);flex:1;}
 .btn.abrir-curso .material-symbols-outlined{font-size:20px;}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL PRIMER DÍA, Y CÓMO VOY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* La bienvenida (mejora 2). Ocupa sitio a propósito y sólo una vez: es la
+   pantalla donde se decide si alguien empieza el curso hoy o «mañana lo
+   miro». En cuanto se ve la primera lección desaparece sola. */
+.bienvenida{position:relative;text-align:center;padding:var(--e4) var(--e3);
+  background:linear-gradient(150deg,
+    color-mix(in oklab, var(--primary) 12%, var(--papel)),
+    color-mix(in oklab, var(--secondary) 8%, var(--papel)));
+  border-color:color-mix(in oklab, var(--primary) 26%, var(--filete));}
+.bienvenida .ico{font-size:40px;color:var(--primary);}
+.bienvenida h2{margin:var(--e1) 0 var(--e1);font-size:var(--t-lg);}
+.bienvenida p{margin:0 auto var(--e1);max-width:52ch;font-size:var(--t-sm);line-height:1.6;}
+.bienvenida .btn{margin-top:var(--e2);}
+.bienvenida .cerrar{position:absolute;top:var(--e1);right:var(--e1);}
+
+/* Las pistas de la tarjeta de curso: qué falta para el certificado y cómo va
+   contra el grupo (mejoras 6 y 10). Son una frase, no una tarjeta dentro de
+   otra: al lado del progreso y con el mismo peso que el resto del texto. */
+.pistas{margin-top:var(--e1);display:flex;flex-direction:column;gap:4px;}
+.pista{display:flex;align-items:flex-start;gap:6px;margin:0;
+  font-size:var(--t-xs);line-height:1.5;color:var(--tinta-2);}
+.pista .material-symbols-outlined{font-size:16px;flex:none;margin-top:1px;
+  color:var(--tinta-3);}
+.pista.ok{color:var(--ok);} .pista.ok .material-symbols-outlined{color:var(--ok);}
+.pista.warn{color:var(--warn);} .pista.warn .material-symbols-outlined{color:var(--warn);}
