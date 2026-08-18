@@ -24,6 +24,24 @@
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
+  <!-- Mejoras 38 y 39. Estas dos van primero porque contestan las dos preguntas
+       con las que se decide algo: por dónde se cae la gente y qué canal la
+       trae. El resto de la pantalla dice cómo va el instituto; estas dos dicen
+       qué hacer. -->
+  <div class="grid graficos">
+    <div class="card" id="gEmbudo"></div>
+    <div class="card" id="gCanales"></div>
+  </div>
+
+  <div class="card" id="cardCanales" hidden>
+    <div class="row between"><h2 class="sec">Qué trae cada canal</h2>
+      <span class="tiny muted">contactos, cuántos pagaron y cuánto entró</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Canal</th><th class="num">Contactos</th><th class="num">Se inscribieron</th>
+        <th class="num">Pagaron</th><th class="num">De cada 100</th><th class="num">Cobrado</th></tr></thead>
+      <tbody id="tbCanales"></tbody></table></div>
+  </div>
+
   <div class="grid graficos">
     <div class="card" id="gInscripciones"></div>
     <div class="card" id="gIngProg"></div>
@@ -44,7 +62,7 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, money, num, pct, kpi, emptyRow, toCSV, download, enBase } from '../assets/app.js?v=2026-08-20';
-import { columnas, barras, apilada, linea } from '../assets/graficos.js?v=2026-08-20';
+import { columnas, barras, apilada, linea, embudo } from '../assets/graficos.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'reportes.html', area:'admin' });
 let rango=90, data={};
 if (p) load();
@@ -56,6 +74,10 @@ $$('[data-r]').forEach(b=>b.onclick=()=>{ rango=Number(b.dataset.r);
 
 async function load(){
   const desde = rango? new Date(Date.now()-rango*86400000).toISOString() : '1970-01-01';
+  // El embudo y los canales responden al mismo rango que el resto: cambiar
+  // arriba y que la mitad de la pantalla siguiera en otro periodo sería peor
+  // que no tenerlos.
+  pintarDireccion(rango || 3650);
   const [{data:cursos},{data:ens},{data:pays},{data:insts},{data:certs},{data:subs},{data:cohs}] = await Promise.all([
     sb.from('cem_courses').select('id,nombre,tipo,precio'),
     sb.from('cem_enrollments').select('id,course_id,cohort_id,progreso,estado,precio_final,fecha_inscripcion').limit(500),
@@ -199,6 +221,66 @@ function render(){
 
 $('#btnCsv').onclick = () => download(`reporte_cem_${rango||'todo'}d.csv`, toCSV(window.__filas||[]));
 $('#btnPrint').onclick = () => window.print();
+
+/* ============ el embudo y los canales (mejoras 38 y 39) ============
+   Las dos preguntas con las que de verdad se decide algo. El embudo dice dónde
+   se cae la gente —y el escalón más alto es donde está el dinero, porque ahí ya
+   habían elegido el curso—. Los canales dicen quién la trae, cruzando de dónde
+   vino cada contacto con quién acabó pagando: sin ese cruce, un canal que trae
+   cien contactos y ningún pago parece el mejor de todos. */
+async function pintarDireccion(dias){
+  const [{ data: pasos }, { data: canales }] = await Promise.all([
+    sb.rpc('cem_embudo', { p_dias: dias }),
+    sb.rpc('cem_por_canal', { p_dias: dias }),
+  ]);
+
+  /* El embudo se dibuja sólo sobre las inscripciones, que sí son una población
+     donde cada escalón contiene al siguiente. Los contactos de la web y las
+     cuentas nuevas van al pie como contexto: mezclarlos haría barras que crecen
+     hacia abajo, que es una figura diciendo lo contrario de lo que pasa. */
+  const escalones = pasos?.pasos || [];
+  const ctx = pasos?.contexto || {};
+  const host = $('#gEmbudo');
+  if (host) {
+    host.innerHTML = escalones.length && Number(escalones[0].n)
+      ? embudo({
+          titulo: 'Por dónde se cae la gente',
+          pie: 'De inscribirse a terminar el temario. La caída más grande es donde está el dinero: '
+             + 'quien ya eligió un curso y no llega a pagar estaba dispuesto a pagar. '
+             + `En el periodo hubo ${num(ctx.contactos || 0)} contacto(s) de la web y `
+             + `${num(ctx.cuentas_nuevas || 0)} cuenta(s) nuevas, que no son escalones de este embudo: `
+             + 'mucha gente se inscribe sin dejar antes sus datos.',
+          pasos: escalones.map(x => ({ etq: x.etq, n: Number(x.n) })),
+        })
+      : '<figure class="gr"><figcaption class="gr-tit">Por dónde se cae la gente</figcaption>'
+        + '<p class="gr-vacio">No hubo inscripciones en este periodo.</p></figure>';
+  }
+
+  const lista = (canales || []).filter(c => Number(c.contactos) || Number(c.inscritos));
+  const gc = $('#gCanales');
+  if (gc) {
+    gc.innerHTML = lista.length
+      ? barras({
+          titulo: 'Cuánto ha entrado por cada canal',
+          col: 'Canal', colN: 'Cobrado', formato: 'dinero',
+          pie: 'Lo cobrado de verdad, no lo prometido. El detalle con las conversiones está en la tabla de abajo.',
+          datos: lista.map(c => ({ etq: c.canal, n: Number(c.cobrado) })),
+        })
+      : '<figure class="gr"><figcaption class="gr-tit">Cuánto ha entrado por cada canal</figcaption>'
+        + '<p class="gr-vacio">Nadie ha dicho todavía cómo nos conoció.</p></figure>';
+  }
+
+  $('#cardCanales').hidden = lista.length === 0;
+  if (lista.length) {
+    $('#tbCanales').innerHTML = lista.map(c => `<tr>
+      <td class="wrap"><b>${esc(c.canal)}</b></td>
+      <td class="num">${num(c.contactos)}</td>
+      <td class="num">${num(c.inscritos)}</td>
+      <td class="num">${num(c.pagaron)}</td>
+      <td class="num">${c.conversion == null ? '<span class="muted">—</span>' : `${c.conversion}`}</td>
+      <td class="num">${money(c.cobrado)}</td></tr>`).join('');
+  }
+}
 </script>
 </body>
 </html>
