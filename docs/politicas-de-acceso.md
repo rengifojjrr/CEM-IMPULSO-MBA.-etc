@@ -116,3 +116,37 @@ la comprobación de quién llama tiene que estar escrita dentro de ella.
 Estas fronteras están comprobadas en `pruebas/casos/roles.mjs`, y no mirando
 botones: las pruebas le piden a la base la operación prohibida y verifican que
 no ocurra.
+
+## Las funciones también tienen permisos, y nacen abiertas
+
+Las políticas de arriba protegen **tablas**. Las funciones tienen su propio
+permiso, y ahí hay una trampa que conviene tener escrita:
+
+> Al crear una función, Postgres le da `EXECUTE` a `PUBLIC`, y en Supabase el
+> rol `anon` —quien no ha entrado— hereda de `PUBLIC`. **Toda función nueva nace
+> llamable sin sesión** salvo que alguien se acuerde de revocarlo.
+
+Escribir `grant execute … to authenticated` no arregla eso: añade un permiso,
+no quita el que ya venía puesto. Hace falta revocarlo a mano:
+
+```sql
+revoke all on function public.mi_funcion(uuid) from public, anon;
+grant execute on function public.mi_funcion(uuid) to authenticated, service_role;
+```
+
+Ninguna función de la plataforma filtra nada por esto: todas comprueban por
+dentro quién llama y devuelven vacío o se plantan. Pero eso es la segunda
+cerradura, y una puerta que sólo tiene la de dentro acaba abierta el día que
+alguien escriba una función nueva sin acordarse.
+
+`cem_revisar_funciones()` las lista, separando tres casos:
+
+| Veredicto | Qué quiere decir |
+|---|---|
+| `a_proposito` | La web pública la llama sin sesión y tiene que estar abierta: verificar un certificado, dejar un contacto, el perfil público, las valoraciones del catálogo. |
+| `inocua` | No es `security definer`, así que corre con los permisos de quien llama y no da más de lo que ya tiene. |
+| `revisar` | Corre con permisos de dueño y la puede llamar cualquiera. Se defiende sola, pero convendría cerrarle también la puerta de fuera. |
+
+Se ve en **Gobierno → Seguridad de mi cuenta**, debajo de las políticas de las
+tablas, con la orden exacta de cada una. Se revisa sola cada vez que se abre esa
+pantalla, igual que las tablas.

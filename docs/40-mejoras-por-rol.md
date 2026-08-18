@@ -7,6 +7,11 @@ No son ideas sueltas: cada una dice **qué pasa hoy**, **por qué molesta** y
 
 El orden dentro de cada bloque es por impacto, no por dificultad.
 
+> **Las cuarenta están hechas.** Qué se construyó para cada una y con qué prueba
+> se comprueba está en [`40-mejoras-hechas.md`](40-mejoras-hechas.md). Este
+> documento se deja como estaba, con el diagnóstico que las justificó: sirve
+> para entender por qué se hizo cada cosa, y para no volver a proponerlas.
+
 **Cómo leer el coste:**
 
 | | |

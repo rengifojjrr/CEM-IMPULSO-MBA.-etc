@@ -74,6 +74,25 @@
       <tbody id="tbPersonal"></tbody></table></div>
   </div>
 
+  <!-- Las políticas revisan las TABLAS. Esto revisa las FUNCIONES, que es por
+       donde se coló el problema: al crear una función, Postgres le da permiso
+       de ejecución a todo el mundo, y hay que acordarse de quitárselo. -->
+  <div class="card" id="cardFunciones" hidden>
+    <h2 class="sec">Funciones que puede llamar alguien sin haber entrado</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Al crear una función, la base le da permiso de ejecución a cualquiera —también
+      a quien no ha entrado— y hay que acordarse de quitárselo. Todas comprueban por
+      dentro quién llama y ninguna filtra nada, pero eso es la segunda cerradura:
+      aquí salen las que sólo tienen esa.</p>
+    <div id="resumenFunciones"><p class="muted">Revisando…</p></div>
+    <details style="margin-top:12px">
+      <summary class="tiny" style="cursor:pointer">Ver función por función</summary>
+      <div class="table-wrap sep"><table>
+        <thead><tr><th>Función</th><th>Estado</th><th>Qué significa</th></tr></thead>
+        <tbody id="tbFunciones"></tbody></table></div>
+    </details>
+  </div>
+
   <div class="card" id="cardPoliticas" hidden>
     <h2 class="sec">Políticas de acceso de la base</h2>
     <p class="tiny muted" style="margin-top:-6px">
@@ -119,7 +138,7 @@ async function cargar(){
   factores = data?.totp || [];
   pintarEstado();
   pintarPersonal();
-  if (PUEDEN_REVISAR_LA_BASE.includes(p.rol)) revisarPoliticas();
+  if (PUEDEN_REVISAR_LA_BASE.includes(p.rol)) { revisarPoliticas(); revisarFunciones(); }
 }
 
 function pintarEstado(){
@@ -308,6 +327,50 @@ async function revisarPoliticas(){
       <td>${chip(v.etiqueta, v.tono)}</td>
       <td class="tiny muted">${esc(t.explicacion)}</td></tr>`;
   }).join('') : emptyRow(4, 'No se pudo leer el estado de las tablas.');
+}
+
+/* ============ los permisos de las funciones ============
+   Lo que `cem_revisar_politicas` no mira. Se separa «revisar» de «a propósito»
+   y de «inocua» para que la cifra de arriba sea la que hay que arreglar y no
+   un número que asusta sin decir nada. */
+const VEREDICTO_FN = {
+  revisar:     { etiqueta: 'sólo se defiende por dentro', tono: 'warn' },
+  a_proposito: { etiqueta: 'pública a propósito',          tono: 'ok' },
+  inocua:      { etiqueta: 'sin permisos de dueño',        tono: 'neutral' },
+};
+
+async function revisarFunciones(){
+  const { data, error } = await sb.rpc('cem_revisar_funciones');
+  if (error) { document.getElementById('cardFunciones')?.remove(); return; }
+  $('#cardFunciones').hidden = false;
+
+  const fns = data || [];
+  const porRevisar = fns.filter(f => f.veredicto === 'revisar');
+
+  $('#resumenFunciones').innerHTML = `
+    <div class="list-item">
+      <span class="material-symbols-outlined"
+        style="color:${porRevisar.length ? 'var(--warn)' : 'var(--ok)'}">
+        ${porRevisar.length ? 'gpp_maybe' : 'verified_user'}</span>
+      <div class="grow">
+        <div class="t">${porRevisar.length
+          ? `${porRevisar.length} función(es) llamables sin haber entrado`
+          : 'Ninguna función queda abierta de más'}</div>
+        <div class="s">${porRevisar.length
+          ? 'Ninguna filtra nada —todas comprueban por dentro quién llama— pero convendría '
+            + 'cerrarles también la puerta de fuera. El detalle de abajo trae la orden exacta de cada una.'
+          : `Las ${fns.filter(f => f.veredicto === 'a_proposito').length} que quedan abiertas `
+            + 'las necesita la web pública.'}</div>
+      </div>
+    </div>`;
+
+  $('#tbFunciones').innerHTML = fns.length ? fns.map(f => {
+    const v = VEREDICTO_FN[f.veredicto] || { etiqueta: f.veredicto, tono: 'neutral' };
+    return `<tr>
+      <td class="wrap"><code class="tiny">${esc(f.funcion)}</code></td>
+      <td>${chip(v.etiqueta, v.tono)}</td>
+      <td class="wrap tiny">${esc(f.explicacion)}</td></tr>`;
+  }).join('') : emptyRow(3, 'Ninguna función queda abierta.');
 }
 </script>
 </body>
