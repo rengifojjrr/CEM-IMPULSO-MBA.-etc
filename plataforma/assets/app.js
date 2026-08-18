@@ -898,6 +898,7 @@ const ADMIN_NAV = [
     ['cursos.html', 'school', 'Cursos'],
     ['cohortes.html', 'groups', 'Cohortes'],
     ['contenido.html', 'import_contacts', 'Contenidos'],
+    ['videos.html', 'smart_display', 'Vídeos del curso'],
     ['revision.html', 'fact_check', 'Revisión'],
     ['multimedia.html', 'perm_media', 'Biblioteca'],
     ['profesores.html', 'psychology', 'Profesores'],

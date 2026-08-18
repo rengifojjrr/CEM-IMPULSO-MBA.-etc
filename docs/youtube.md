@@ -185,3 +185,73 @@ subir el archivo directamente.
 | Canjear el permiso | Edge Function `cem-youtube-oauth-exchange` | Cambia el código de Google por un permiso duradero |
 | Permiso para subir | Edge Function `cem-youtube-upload-token` | Da un permiso de minutos al navegador, para que el video no pase por nuestro servidor |
 | Credenciales | Tabla `cem_integraciones`, filas `youtube_oauth_app` y `youtube` | Sólo alcanzables con la cuenta de servicio |
+
+
+---
+
+## Las listas de reproducción
+
+Ten los vídeos de cada programa en su propia lista de reproducción de YouTube y
+la plataforma los empareja con las lecciones.
+
+En **Contenidos → Vídeos del curso**: eliges el programa, pegas la dirección de
+la lista y la plataforma se trae sus vídeos con título y miniatura. A la derecha
+salen los módulos y las lecciones. Pones cada vídeo en la suya, o pulsas
+*«Emparejar por título los que se parezcan»* — que propone, no decide: enseña la
+lista de parejas y espera tu visto bueno, porque un vídeo en la lección
+equivocada no da ningún error, simplemente está mal y se entera el alumno.
+
+Lo que más sirve del día a día: si subes seis vídeos nuevos a la lista, la
+pantalla avisa de que hay **seis vídeos sin asignar**. Enterarse por ahí y no
+por la queja de alguien es toda la diferencia.
+
+De la lista sólo se guarda a qué lección corresponde cada vídeo. Los vídeos
+siguen viviendo en YouTube.
+
+---
+
+## Qué protege el vídeo, y qué no
+
+Conviene tenerlo claro antes de prometer nada a nadie.
+
+**Lo que NO se puede hacer, aquí ni en ninguna web:**
+
+- **Esconder el enlace del vídeo.** Para reproducirlo, el navegador tiene que
+  pedirlo; quien abra las herramientas del navegador lo ve. Pasa igual en
+  Netflix, Udemy y Hotmart.
+- **Impedir que graben la pantalla.** No existe forma de bloquearlo desde una
+  página, y aunque existiera, ahí está el teléfono apuntando a la pantalla.
+
+Con YouTube hay además un agujero concreto: **un vídeo «no listado» lo puede ver
+cualquiera que tenga el identificador**, entrando directo a youtube.com. YouTube
+no permite restringir la reproducción a un dominio. El identificador es la
+llave, y si se filtra, se filtró para siempre.
+
+**Lo que sí se hace, de más a menos eficaz:**
+
+| | Qué es | Contra qué sirve |
+|---|---|---|
+| **Marca de agua** | El nombre y el documento del alumno, encima del vídeo, cambiando de sitio cada 8 segundos | Lo único que frena de verdad: la grabación filtrada lleva el nombre de quien la hizo |
+| **Registro de reproducción** | Quién vio qué, cuándo y desde qué IP | Delata contraseñas compartidas: una cuenta desde seis IPs en un día no es una persona estudiando |
+| **El muro de pago** | El identificador del vídeo sólo se entrega a quien pagó, y a nivel de columna en la base | Que el material no salga antes de la puerta |
+| **Reproductor endurecido** | Dominio sin cookies, sin sugerencias al terminar, sin clic derecho, tapadas las esquinas que llevan a YouTube | El despiste del 90% que no es técnico. Contra alguien decidido, nada |
+
+La marca de agua va sobre el reproductor, no dentro, así que **desaparece a
+pantalla completa** — es una limitación real del `<iframe>` de YouTube. Por eso
+el registro de reproducción no es un extra: es lo que cubre ese hueco.
+
+En **Auditoría** está la lista de cuentas con reproducción sospechosa: las que
+aparecen desde tres o más direcciones distintas en el último mes.
+
+### Si algún día hace falta más
+
+La salida es dejar YouTube por **Cloudflare Stream**: enlaces firmados que
+caducan en minutos y DRM de verdad. Cuesta dinero — del orden de $5 por cada
+1.000 minutos almacenados al mes y $1 por cada 1.000 servidos; un curso de 10
+horas con 100 alumnos viéndolo entero anda por los $60-70 al mes, frente a $0
+ahora.
+
+**Recomendación: no antes de ver que se está filtrando.** El DRM impide
+descargar pero no impide una cámara, y se paga todos los meses desde el primer
+día. La marca de agua ataca el problema real —alguien que reparte el curso— y
+sale gratis.

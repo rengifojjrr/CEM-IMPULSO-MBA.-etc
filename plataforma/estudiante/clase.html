@@ -20,8 +20,25 @@
   .les-item.on{background:var(--secondary-container);color:var(--secondary);font-weight:600;}
   .les-item .material-symbols-outlined{font-size:var(--t-md);}
   .player{aspect-ratio:16/9;background:#000;border-radius:var(--r);overflow:hidden;display:flex;
-    align-items:center;justify-content:center;color:#fff;}
+    align-items:center;justify-content:center;color:#fff;position:relative;}
   .player iframe{width:100%;height:100%;border:0;}
+
+  /* Tapa la esquina donde YouTube pone «Ver en YouTube» y el título con enlace.
+     No esconde el enlace de quien abra las herramientas del navegador —eso no
+     se puede— pero evita que salir del aula sea un clic accidental. */
+  .tapa-yt{position:absolute;top:0;right:0;height:62px;width:190px;z-index:2;cursor:default;}
+  .tapa-yt.izq{left:0;right:auto;width:150px;}
+
+  /* La marca de agua. No estorba para ver la clase y sí sale en cualquier
+     grabación. Cambia de sitio cada pocos segundos: recortarla obligaría a
+     recortar el vídeo entero. `pointer-events:none` para que no se coma los
+     clics del reproductor. */
+  .agua{position:absolute;z-index:3;pointer-events:none;user-select:none;
+    font-size:12px;line-height:1.35;letter-spacing:.02em;
+    color:rgba(255,255,255,.42);text-shadow:0 1px 3px rgba(0,0,0,.85);
+    transition:top .9s ease, left .9s ease;white-space:nowrap;}
+  @media(max-width:700px){ .agua{font-size:10px;} .tapa-yt{width:120px;height:48px;} }
+  @media print{ .player{display:none!important;} }
 </style>
 </head>
 <body>
@@ -123,6 +140,7 @@ async function load(){
     mods.forEach(m=>m.cem_lessons.forEach(l=>{
       const x = material?.[l.id];
       l.url = x?.url ?? null;
+      l.video_id = x?.video_id ?? null;
       l.contenido = x?.contenido ?? null;
     }));
   }
@@ -132,6 +150,104 @@ async function load(){
   const all = mods.flatMap(m=>m.cem_lessons);
   actual = all.find(l=>!progreso[l.id]?.completado) || all[0];
   render();
+}
+
+/* ── El reproductor ────────────────────────────────────────────────────────
+   Tres cosas que no son lo mismo y conviene no confundir:
+
+   · Se usa `youtube-nocookie.com`, que no deja rastro publicitario en quien ve
+     la clase. Es lo correcto con menores y con datos de alumnos.
+   · `rel=0` evita que al terminar salgan vídeos de otros canales, y
+     `modestbranding=1` + la tapa de la esquina quitan los caminos de vuelta a
+     YouTube. Esto para a quien se despista, no a quien busca.
+   · La dirección se arma aquí con el identificador, en vez de guardar la URL
+     entera en la base. No esconde nada más —quien tiene el identificador tiene
+     el vídeo— pero deja que sea la plataforma quien decida cómo se ve.
+
+   Lo que NO hace, y conviene decirlo: esto no impide sacar el enlace ni grabar
+   la pantalla. Nada en una página web puede. Lo que sí hace es que cualquier
+   grabación salga con el nombre de quien la hizo encima. */
+function reproductor(l){
+  if (l.tipo !== 'video') return '';
+  if (l.video_id) {
+    const params = new URLSearchParams({
+      rel: '0', modestbranding: '1', iv_load_policy: '3',
+      playsinline: '1', enablejsapi: '1', origin: location.origin,
+    });
+    return `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(l.video_id)}?${params}"
+        allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen"
+        allowfullscreen title="${esc(l.titulo)}" referrerpolicy="strict-origin"></iframe>
+      <div class="tapa-yt" aria-hidden="true"></div>
+      <div class="tapa-yt izq" aria-hidden="true"></div>`;
+  }
+  // Material antiguo, con la URL entera guardada. Se sigue viendo.
+  return l.url ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>` : '';
+}
+
+/* ── La marca de agua ──────────────────────────────────────────────────────
+   Quien reparta la clase reparte su propio nombre con ella. Es lo único de
+   todo esto que de verdad frena una filtración: no porque sea imposible, sino
+   porque deja de ser anónima.
+
+   Va sobre el <div>, no dentro del <iframe> —ahí no se puede escribir— así que
+   desaparece a pantalla completa. Por eso también se registra quién ve qué:
+   las dos cosas juntas cubren lo que cada una deja fuera. */
+const QUIEN = [
+  [me.nombre, me.apellido].filter(Boolean).join(' ').trim() || me.email,
+  me.documento ? `${me.documento_tipo || 'CI'} ${me.documento}` : me.email,
+].filter(Boolean);
+
+let aguaReloj = null;
+function marcaDeAgua(){
+  clearInterval(aguaReloj);
+  const host = $('#reproductor');
+  if (!host || !host.querySelector('iframe')) return;
+
+  const el = document.createElement('div');
+  el.className = 'agua';
+  el.textContent = QUIEN.join('  ·  ');
+  host.appendChild(el);
+
+  /* Se mueve entre nueve posiciones, saltando el centro para no taparle la
+     cara a quien da la clase y las esquinas de los controles. */
+  const sitios = [[8,6],[8,42],[8,80],[46,6],[46,80],[84,6],[84,42],[84,80]];
+  let i = Math.floor(Math.random() * sitios.length);
+  const mover = () => {
+    const [top, left] = sitios[i % sitios.length];
+    el.style.top = top + '%';
+    el.style.left = left + '%';
+    i += 3;   // salto de tres para que no recorra el borde en orden
+  };
+  mover();
+  aguaReloj = setInterval(mover, 8000);
+}
+
+/* ── El registro ───────────────────────────────────────────────────────────
+   Cada medio minuto mientras la lección está abierta. La IP la pone el
+   servidor: pedírsela al navegador sería pedirle a quien se investiga que
+   rellene el informe. */
+let verReloj = null, verSegundos = 0, verLeccion = null;
+function registrarQueSeVe(l){
+  clearInterval(verReloj);
+  if (!l || l.tipo !== 'video' || !(l.video_id || l.url)) return;
+  if (verLeccion !== l.id) { verLeccion = l.id; verSegundos = 0; }
+  /* El `.then()` no es decorativo: lo que devuelve `sb.rpc()` es perezoso y no
+     sale a la red hasta que alguien lo espera. Sin esto, la llamada quedaba
+     montada y nunca se enviaba — y como nadie mira el valor de vuelta, el fallo
+     habría pasado desapercibido hasta que alguien preguntara por el registro.
+     Los errores se tragan a propósito: que no se pueda anotar quién vio la
+     clase no es razón para estropearle la clase a nadie. */
+  const anotar = (segundos) =>
+    sb.rpc('cem_registrar_reproduccion', { p_lesson_id: l.id, p_segundos: segundos })
+      .then(() => {}, () => {});
+
+  const latir = () => {
+    if (document.hidden) return;          // pestaña de fondo no es ver clase
+    verSegundos += 30;
+    anotar(verSegundos);
+  };
+  anotar(verSegundos);
+  verReloj = setInterval(latir, 30000);
 }
 
 function render(){
@@ -162,9 +278,8 @@ function render(){
 
   const l = actual;
   $('#visor').innerHTML = l ? `
-    <div class="player">${l.tipo==='video'&&l.url
-      ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>`
-      : `<div style="text-align:center;padding:30px">
+    <div class="player" id="reproductor">${reproductor(l)
+      || `<div style="text-align:center;padding:30px">
           <span class="material-symbols-outlined" style="font-size:44px">${l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
           <div class="sep-poco">${esc(l.titulo)}</div></div>`}</div>
     <div class="card sep">
@@ -231,6 +346,14 @@ function cierreDelCurso(){
   };
   const irEvals = $('#irEvals');
   if (irEvals) irEvals.onclick = () => $('[data-t="evaluaciones"]').click();
+
+  /* El reproductor se repinta entero en cada render, así que la marca de agua y
+     el registro se reenganchan aquí y no una sola vez al cargar. */
+  marcaDeAgua();
+  registrarQueSeVe(l);
+  const caja = $('#reproductor');
+  if (caja) caja.oncontextmenu = (ev) => { ev.preventDefault(); };
+
   tab($('#tabs button.active')?.dataset.t || 'tablon');
 }
 
