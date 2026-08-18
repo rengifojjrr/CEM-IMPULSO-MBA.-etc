@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Formas de pago</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-20">
+<style>
+  .met{border:1px solid var(--filete);border-radius:var(--r);padding:var(--e3);margin-bottom:var(--e2);}
+  .met.sin-destino{border-left:3px solid var(--warn);}
+  .met .cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .met .cab b{font-size:var(--t-md);}
+  .campos-extra{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;}
+  @media(max-width:640px){ .campos-extra{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Formas de pago</h1>
+      <p>A dónde manda el dinero el estudiante en cada forma de pago. Lo que escribas aquí
+         es exactamente lo que él ve cuando va a pagar.</p></div>
+    <div class="actions">
+      <a class="btn outline" href="configuracion.html">
+        <span class="material-symbols-outlined">arrow_back</span> Configuración</a>
+    </div>
+  </div>
+
+  <div class="nota">
+    <b>Esto es dinero.</b> Quien cambia una cuenta aquí cambia a dónde llega lo que pagan
+    los estudiantes. Cada cambio queda registrado en la auditoría con la cuenta anterior y
+    la nueva. Revisa dos veces antes de guardar.
+  </div>
+
+  <div id="cuerpo"><span class="cargando"></span></div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, ok, fail, avisar, mensajeError,
+         confirmDialog } from '../assets/app.js?v=2026-08-20';
+await mount({ require:['admin','superadmin'], area:'admin' });
+
+let metodos = [];
+
+async function cargar(){
+  const { data, error } = await sb.from('cem_metodos_pago').select('*').order('orden');
+  if (error) { avisar('#cuerpo', mensajeError(error)); return; }
+  metodos = data || [];
+  pintar();
+}
+
+function pintar(){
+  const sinDestino = metodos.filter(m => m.activo && !String(m.destino || '').trim());
+
+  $('#cuerpo').innerHTML = `
+    ${sinDestino.length ? `<div class="nota warn">
+      <b>${sinDestino.length} forma(s) de pago sin cuenta: ${
+        sinDestino.map(m => esc(m.metodo)).join(', ')}.</b>
+      Están activas pero el estudiante no puede usarlas — no tiene a dónde mandar el dinero,
+      así que la plataforma se las esconde. Ponles la cuenta aquí abajo o desactívalas.
+    </div>` : ''}
+
+    ${metodos.map((m) => `
+      <div class="met ${String(m.destino || '').trim() ? '' : 'sin-destino'}">
+        <div class="cab">
+          <b>${esc(m.metodo)}</b>
+          <span class="chip neutral">${esc(m.moneda)}</span>
+          ${m.regla === 'uno_a_uno' ? '<span class="chip gold">a la par del euro</span>' : ''}
+          ${m.regla === 'tasa_bcv' ? '<span class="chip teal">a tasa BCV</span>' : ''}
+          ${chip(m.activo ? 'activa' : 'desactivada', m.activo ? 'ok' : 'neutral')}
+          ${String(m.destino || '').trim() ? '' : '<span class="chip warn">sin cuenta</span>'}
+        </div>
+        ${m.nota ? `<p class="tiny muted sep-poco">${esc(m.nota)}</p>` : ''}
+
+        <form class="stack sep" data-m="${esc(m.metodo)}">
+          <div class="row" style="gap:10px">
+            <div class="field" style="flex:1;min-width:200px;margin:0">
+              <label>Titular</label>
+              <input name="titular" value="${esc(m.titular || '')}"
+                placeholder="A nombre de quién llega el dinero"></div>
+            <div class="field" style="flex:1;min-width:180px;margin:0">
+              <label>Cómo se llama el dato</label>
+              <input name="etiqueta" value="${esc(m.destino_etiqueta || '')}"
+                placeholder="${esc(sugerencia(m).etiqueta)}"></div>
+          </div>
+          <div class="field" style="margin:0">
+            <label>A dónde se paga</label>
+            <input name="destino" value="${esc(m.destino || '')}"
+              placeholder="${esc(sugerencia(m).destino)}">
+            <span class="pista">Es lo que el estudiante copia y pega. Déjalo vacío para
+              retirar esta forma de pago sin desactivarla.</span></div>
+          <div class="field" style="margin:0">
+            <label>Qué debe saber antes de pagar (opcional)</label>
+            <input name="instrucciones" value="${esc(m.instrucciones || '')}"
+              placeholder="${esc(sugerencia(m).instrucciones)}"></div>
+
+          <details class="filtros-plegables">
+            <summary><span class="material-symbols-outlined">list_alt</span>
+              Otros datos que se le enseñan (${Object.keys(m.datos || {}).length})</summary>
+            <div class="stack sep" data-extras>
+              ${Object.entries(m.datos || {}).map(([k, v]) => filaExtra(k, v)).join('')}
+              ${filaExtra('', '')}
+            </div>
+            <p class="pista">Por ejemplo: banco, RIF, red de la criptomoneda, teléfono
+              del pago móvil. Se enseñan encima de la cuenta, en el orden en que estén.</p>
+          </details>
+
+          <div class="row">
+            <button class="btn" type="submit">
+              <span class="material-symbols-outlined">save</span> Guardar</button>
+            <button class="btn ghost" type="button" data-activar="${esc(m.metodo)}"
+              data-a="${m.activo ? '0' : '1'}">
+              <span class="material-symbols-outlined">${m.activo ? 'toggle_on' : 'toggle_off'}</span>
+              ${m.activo ? 'Desactivar' : 'Activar'}</button>
+          </div>
+          <div data-msg></div>
+        </form>
+      </div>`).join('')}`;
+}
+
+const filaExtra = (k, v) => `<div class="campos-extra">
+  <div class="field" style="margin:0"><label>Nombre</label>
+    <input data-k value="${esc(k)}" placeholder="Banco"></div>
+  <div class="field" style="margin:0"><label>Valor</label>
+    <input data-v value="${esc(String(v ?? ''))}" placeholder="Bancaribe"></div>
+  <button class="btn ghost sm" type="button" data-mas title="Añadir otro">
+    <span class="material-symbols-outlined">add</span></button>
+</div>`;
+
+/* Qué poner en cada una. No es decoración: sin esto, quien configure Zelle
+   escribe un número de cuenta porque es lo que pone el campo de al lado. */
+function sugerencia(m){
+  const s = {
+    'Zelle': { etiqueta:'Correo de Zelle', destino:'pagos@tudominio.com',
+      instrucciones:'Manda el pago como «enviar dinero a alguien que conoces».' },
+    'PayPal': { etiqueta:'Correo de PayPal', destino:'pagos@tudominio.com',
+      instrucciones:'Elige «enviar a un amigo» o la comisión se descuenta de tu cuota.' },
+    'Tarjeta de crédito/débito': { etiqueta:'Enlace de pago', destino:'https://…',
+      instrucciones:'Se cobra en dólares, a la par del euro.' },
+    'Pago móvil': { etiqueta:'Teléfono', destino:'0412-0000000',
+      instrucciones:'Después de pagar, repórtalo aquí con su referencia.' },
+    'Transferencia bancaria': { etiqueta:'Cuenta corriente', destino:'0000-0000-0000-0000-0000',
+      instrucciones:'Después de transferir, repórtalo aquí con su referencia.' },
+    'Efectivo': { etiqueta:'Dónde entregarlo', destino:'En la sede, de 9 a 5',
+      instrucciones:'Pide siempre tu recibo al entregarlo.' },
+    'Efectivo en euros': { etiqueta:'Dónde entregarlo', destino:'En la sede, de 9 a 5',
+      instrucciones:'Pide siempre tu recibo al entregarlo.' },
+  }[m.metodo];
+  return s || { etiqueta:'Cuenta', destino:'A dónde se manda el dinero', instrucciones:'' };
+}
+
+document.addEventListener('click', async (ev) => {
+  const mas = ev.target.closest('[data-mas]');
+  if (mas) {
+    const caja = mas.closest('[data-extras]');
+    caja.insertAdjacentHTML('beforeend', filaExtra('', ''));
+    return;
+  }
+  const act = ev.target.closest('[data-activar]');
+  if (act) {
+    const encender = act.dataset.a === '1';
+    if (!encender && !await confirmDialog(
+      'Los estudiantes dejan de ver esta forma de pago. Los pagos que ya se reportaron con '
+      + 'ella no se tocan.', `Desactivar ${act.dataset.activar}`)) return;
+    const { error } = await sb.rpc('cem_metodo_pago_guardar',
+      { p_metodo: act.dataset.activar, p_activo: encender });
+    if (error) return fail(mensajeError(error, 'No se pudo cambiar.'));
+    await cargar();
+    ok(encender ? 'Activada: ya la ven los estudiantes.' : 'Desactivada.');
+  }
+});
+
+document.addEventListener('submit', async (ev) => {
+  const f = ev.target.closest('form[data-m]');
+  if (!f) return;
+  ev.preventDefault();
+
+  const datos = {};
+  for (const fila of f.querySelectorAll('.campos-extra')) {
+    const k = fila.querySelector('[data-k]').value.trim();
+    const v = fila.querySelector('[data-v]').value.trim();
+    if (k && v) datos[k] = v;
+  }
+
+  const destino = f.querySelector('[name=destino]').value.trim();
+  const antes = metodos.find(m => m.metodo === f.dataset.m);
+  /* Cambiar una cuenta que ya estaba puesta se confirma. Poner la primera no:
+     ahí no se está pisando nada. */
+  if (antes?.destino && destino && destino !== antes.destino) {
+    if (!await confirmDialog(
+      `La cuenta pasa de «${antes.destino}» a «${destino}». A partir de ahora los estudiantes `
+      + 'van a mandar el dinero a la nueva. Queda registrado quién lo cambió.',
+      `Cambiar la cuenta de ${f.dataset.m}`)) return;
+  }
+
+  const { error } = await sb.rpc('cem_metodo_pago_guardar', {
+    p_metodo: f.dataset.m,
+    p_titular: f.querySelector('[name=titular]').value.trim() || null,
+    p_destino: destino,
+    p_destino_etiqueta: f.querySelector('[name=etiqueta]').value.trim() || null,
+    p_datos: datos,
+    p_instrucciones: f.querySelector('[name=instrucciones]').value.trim(),
+  });
+  if (error) return avisar(f.querySelector('[data-msg]'), mensajeError(error, 'No se pudo guardar.'));
+  await cargar();
+  ok('Guardado. Es lo que van a ver los estudiantes.');
+});
+
+cargar();
+</script>
+</body>
+</html>

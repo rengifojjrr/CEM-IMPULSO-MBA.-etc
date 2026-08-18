@@ -187,8 +187,24 @@ $('#btnConfirmar').onclick = () => ocupado('#btnConfirmar', 'Registrando tu insc
     }),'No se pudo completar la inscripción');
 
     await audit('inscripcion_estudiante','cem_enrollments',enr?.id,'medio',{curso:curso.nombre, plan});
-    ok('¡Inscripción registrada! Revisa tu panel.');
-    setTimeout(()=>location.href='panel.html', 1100);
+
+    /* Al terminar se va A PAGAR, no al panel. Antes decía «revisa tu panel» y
+       dejaba a quien acababa de decidir comprar buscando por su cuenta dónde
+       se paga — que es el momento exacto en que se pierde una venta. El curso
+       no se abre hasta que el pago se confirme, así que llevarlo al panel era
+       además llevarlo a una pantalla donde no puede hacer nada todavía.
+
+       Si el programa fuera gratuito o ya estuviera pagado, `cem_mi_acceso`
+       dice que la puerta está abierta y entonces sí se va al aula. */
+    const { data: acceso } = await sb.rpc('cem_mi_acceso');
+    const abierto = acceso?.[enr?.id]?.abierto === true;
+    if (abierto) {
+      ok('¡Listo! Ya puedes empezar.');
+      setTimeout(()=>location.href=`clase.html?curso=${cursoId}`, 1100);
+    } else {
+      ok('Inscripción registrada. Ahora el pago para abrir el curso.');
+      setTimeout(()=>location.href=`pagos.html?enr=${enr?.id||''}`, 1100);
+    }
   } catch(e){ /* `run` ya explicó qué pasó; el botón vuelve solo */ }
 });
 </script>

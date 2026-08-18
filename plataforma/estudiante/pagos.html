@@ -37,20 +37,21 @@
 
   <div class="kpis" id="kpis"></div>
 
+  <!-- Antes esta tarjeta traía UNA cuenta escrita a mano en el código: la de
+       Bancaribe en bolívares. Quien quería pagar por Zelle, PayPal o tarjeta
+       —tres de las siete formas que se ofrecen— no tenía a dónde mandar el
+       dinero. Ahora los destinos salen de la base y los cambia el equipo desde
+       Configuración, sin tocar código ni volver a publicar. -->
   <div class="card">
     <h2 class="sec">Dónde pagar</h2>
-    <p class="tiny muted">Haz el pago a esta cuenta y después repórtalo abajo con su número de referencia,
-      para que podamos verificarlo y abonarlo a tu cuota.</p>
-    <div class="datos-pago">
-      <dl>
-        <dt>Banco</dt><dd>Bancaribe</dd>
-        <dt>Titular</dt><dd>Centro Educativo Multigeneracional</dd>
-        <dt>RIF</dt><dd>J-50786761-7</dd>
-        <dt>Cuenta corriente</dt><dd>0114-0190-2319-0003-4284</dd>
-      </dl>
-    </div>
+    <p class="tiny muted">Elige cómo quieres pagar y te decimos exactamente a dónde.
+      Después repórtalo abajo con su número de referencia, para que podamos verificarlo
+      y abonarlo a tu cuota.</p>
+    <div id="dondePagar"><span class="cargando"></span></div>
     <div id="avisoTasa"></div>
   </div>
+
+  <div id="focoCuota"></div>
 
   <div class="card">
     <h2 class="sec">Mis cuotas <button type="button" class="ayuda-btn" data-ayuda="Cada cuota tiene su fecha límite. Al pagar, repórtalo aquí con su referencia: hasta que alguien lo verifique, la cuota sigue apareciendo como pendiente.">?</button></h2>
@@ -68,7 +69,8 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, modal,
+import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, toast, modal, qs,
+         SUPABASE_URL, SUPABASE_KEY,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
          metodosDePago, explicaConversion, MONEDA_BASE,
          imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-20';
@@ -80,19 +82,24 @@ let cuotas = [], pagos = [], tasa = null;
    con esto la pantalla puede decir «esto salda X euros» mientras se escribe,
    sin ir al servidor en cada tecla. El número que vale, de todas formas, es el
    que calcula el servidor al guardar. */
-let METODOS = [], TASAS = {};
+let METODOS = [], TASAS = {}, DESTINOS = [], STRIPE = false;
 const NOMBRE_MONEDA = { EUR:'euros', USD:'dólares', VES:'bolívares' };
 
 if (p) cargar();
 
 async function cargar(){
-  const [eur, usd, mets] = await Promise.all([
+  const [eur, usd, mets, { data: dest }, { data: stripe }] = await Promise.all([
     tasaVigente('EUR'), tasaVigente('USD'), metodosDePago(),
+    sb.rpc('cem_donde_pagar'),
+    sb.rpc('cem_stripe_estado'),
   ]);
+  STRIPE = stripe?.listo === true;
   TASAS = { EUR: eur, USD: usd };
   METODOS = mets;
+  DESTINOS = dest || [];
   tasa = eur;
   renderAvisoTasa();
+  renderDondePagar();
 
   // RLS ya limita esto a las inscripciones propias: no hace falta filtrar por perfil aquí.
   const { data: cs } = await sb.from('cem_installments')
@@ -104,6 +111,90 @@ async function cargar(){
   pagos = ps || [];
 
   renderKpis(); renderCuotas(); renderPagos();
+  avisarVueltaDeStripe();
+}
+
+/* Al volver de la pasarela. El aviso es deliberadamente prudente: quien
+   confirma el cobro es Stripe avisando al servidor, no esta pantalla, y ese
+   aviso puede tardar unos segundos. Decir «ya está pagado» aquí sería
+   afirmarlo antes de saberlo. */
+function avisarVueltaDeStripe(){
+  const r = qs('pago');
+  if (!r) return;
+  if (r === 'ok') {
+    ok('Pago recibido. En unos segundos verás la cuota saldada.');
+    // Se vuelve a mirar una vez, cuando al aviso de Stripe le ha dado tiempo.
+    setTimeout(() => cargar(), 6000);
+  } else if (r === 'cancelado') {
+    toast('No se completó el pago. No se te cobró nada.');
+  }
+  history.replaceState(null, '', location.pathname);
+}
+
+/* ── Dónde pagar ───────────────────────────────────────────────────────────
+   Sólo se ofrece lo que está completo. Un método sin destino se enseña
+   apagado y diciendo que hay que escribir a la escuela: es preferible a
+   ofrecerlo y dejar a la persona con el dinero en la mano y sin saber a dónde
+   mandarlo — que es lo que pasaba con Zelle, PayPal y tarjeta. */
+function renderDondePagar(){
+  const host = $('#dondePagar');
+  if (!host) return;
+  const listos = DESTINOS.filter(d => d.listo);
+  const faltan = DESTINOS.filter(d => !d.listo);
+
+  if (!DESTINOS.length) {
+    host.innerHTML = `<p class="nota warn">Todavía no hay ninguna forma de pago configurada.
+      Escríbenos y te decimos cómo pagar mientras tanto.</p>`;
+    return;
+  }
+
+  host.innerHTML = `
+    ${listos.length ? `
+      <div class="field" style="max-width:420px">
+        <label for="dMetodo">¿Cómo quieres pagar?</label>
+        <select id="dMetodo">${listos.map((d, i) =>
+          `<option value="${i}">${esc(d.metodo)} — en ${esc(NOMBRE_MONEDA[d.moneda] || d.moneda)}</option>`
+        ).join('')}</select>
+      </div>
+      <div id="detalleDestino"></div>`
+      : `<p class="nota warn">Ninguna de las formas de pago tiene todavía una cuenta configurada.
+          Escríbenos y te decimos a dónde pagar.</p>`}
+    ${faltan.length ? `<p class="tiny muted sep">
+      Por ahora no puedes pagar por ${faltan.map(d => esc(d.metodo)).join(', ')} desde aquí.
+      Si es la única forma que tienes, escríbenos.</p>` : ''}`;
+
+  const pintarUno = () => {
+    const d = listos[Number($('#dMetodo').value) || 0];
+    if (!d) return;
+    const extras = Object.entries(d.datos || {});
+    $('#detalleDestino').innerHTML = `
+      <div class="datos-pago sep">
+        <dl>
+          ${d.titular ? `<dt>Titular</dt><dd>${esc(d.titular)}</dd>` : ''}
+          ${extras.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(String(v))}</dd>`).join('')}
+          <dt>${esc(d.destino_etiqueta || 'Cuenta')}</dt>
+          <dd><span id="elDestino">${esc(d.destino)}</span>
+            <button class="btn ghost sm" type="button" id="btnCopiarDestino"
+              title="Copiar" style="margin-left:6px">
+              <span class="material-symbols-outlined">content_copy</span></button></dd>
+        </dl>
+      </div>
+      ${d.instrucciones ? `<p class="tiny muted sep-poco">${esc(d.instrucciones)}</p>` : ''}
+      ${d.regla === 'uno_a_uno' ? `<p class="tiny muted sep-poco">
+        En esta forma de pago, <b>un dólar salda un euro</b>: pagas el mismo número que ves en tu cuota.</p>` : ''}`;
+
+    $('#btnCopiarDestino').onclick = async () => {
+      try { await navigator.clipboard.writeText(d.destino); ok('Copiado.'); }
+      catch {
+        /* Sin permiso de portapapeles no se pierde el dato: se selecciona para
+           que baste con Ctrl+C. */
+        const r = document.createRange(); r.selectNodeContents($('#elDestino'));
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        ok('Seleccionado: cópialo con Ctrl+C.');
+      }
+    };
+  };
+  if (listos.length) { $('#dMetodo').onchange = pintarUno; pintarUno(); mejorarSelects(); }
 }
 
 function renderAvisoTasa(){
@@ -128,9 +219,61 @@ function renderKpis(){
   ].join('');
 }
 
+/* ── Pagar con tarjeta ─────────────────────────────────────────────────────
+   No se le pide a Stripe desde aquí el importe: se le pide al servidor que
+   abra el cobro DE ESTA CUOTA, y es él quien mira en la base cuánto se debe.
+   Si el importe saliera del navegador, cualquiera podría pedir un cobro de un
+   euro por una cuota de mil. */
+async function pagarConTarjeta(c, boton){
+  const original = boton.innerHTML;
+  boton.disabled = true;
+  boton.innerHTML = '<span class="material-symbols-outlined">hourglass_top</span> Abriendo…';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-stripe-checkout`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session?.access_token}`,
+        apikey: SUPABASE_KEY, 'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ installment_id: c.id, volver_a: location.href.split('?')[0] }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.url) throw new Error(json.error || 'No se pudo abrir el cobro.');
+    location.href = json.url;
+  } catch (e) {
+    fail(e.message);
+    boton.disabled = false; boton.innerHTML = original;
+  }
+}
+
 function renderCuotas(){
   const lista = cuotas.filter(c => c.estado !== 'anulada');
   if(!lista.length){ $('#cuotas').innerHTML = '<p class="muted tiny">Todavía no tienes cuotas asignadas.</p>'; return; }
+
+  /* Quien acaba de inscribirse llega aquí con su inscripción en la dirección.
+     Sin esto vería la lista de TODAS sus cuotas y tendría que adivinar cuál es
+     la que abre el curso que acaba de elegir. */
+  const suya = qs('enr');
+  const pendienteDeEsa = suya
+    ? lista.find(c => c.enrollment_id === suya && c.estado !== 'pagada')
+    : null;
+  if (pendienteDeEsa) {
+    const saldo = Number(pendienteDeEsa.saldo ?? pendienteDeEsa.monto ?? 0);
+    $('#focoCuota').innerHTML = `<div class="nota ok">
+      <b>Ya casi.</b> Para abrir
+      «${esc(pendienteDeEsa.cem_enrollments?.cem_courses?.nombre || 'tu programa')}»
+      falta pagar <b>${money(saldo, pendienteDeEsa.moneda || MONEDA_BASE)}</b>.
+      Arriba tienes a dónde; cuando lo hagas, repórtalo aquí.
+      <button class="btn sm" id="btnPagarEsa" style="margin-top:8px">
+        <span class="material-symbols-outlined">receipt_long</span> Reportar este pago</button>
+    </div>`;
+    const b = $('#btnPagarEsa');
+    if (b) b.onclick = () => abrirReporte(pendienteDeEsa);
+  } else {
+    $('#focoCuota').innerHTML = '';
+  }
+
   $('#cuotas').innerHTML = lista.map(c => {
     const saldo = Number(c.saldo ?? c.monto ?? 0);
     const pagada = c.estado === 'pagada';
@@ -154,12 +297,18 @@ function renderCuotas(){
         ${chip(pagada ? 'pagada' : vencida ? 'vencida' : c.estado,
                pagada ? 'ok' : vencida ? 'err' : c.estado === 'parcial' ? 'warn' : 'neutral')}
         ${enRevision ? chip('tienes un pago en revisión', 'warn') : ''}
-        ${pagada ? '' : `<button class="btn" data-reportar="${c.id}">
-          <span class="material-symbols-outlined">receipt_long</span> Reportar pago</button>`}
+        ${pagada ? '' : `
+          ${STRIPE ? `<button class="btn" data-tarjeta="${c.id}">
+            <span class="material-symbols-outlined">credit_card</span> Pagar con tarjeta</button>` : ''}
+          <button class="btn ${STRIPE ? 'outline' : ''}" data-reportar="${c.id}">
+            <span class="material-symbols-outlined">receipt_long</span>
+            ${STRIPE ? 'Ya pagué por otra vía' : 'Reportar pago'}</button>`}
       </div>
     </div>`;
   }).join('');
   $$('[data-reportar]').forEach(b => b.onclick = () => abrirReporte(cuotas.find(c => c.id === b.dataset.reportar)));
+  $$('[data-tarjeta]').forEach(b => b.onclick = () =>
+    pagarConTarjeta(cuotas.find(c => c.id === b.dataset.tarjeta), b));
 }
 
 function renderPagos(){
@@ -213,7 +362,11 @@ function abrirReporte(c){
       ? ` (≈ ${money(saldo * Number(tasa.valor), 'VES')} a la tasa de hoy)` : ''}.
       Puedes abonar una parte: se descuenta de tu saldo.</p>
     <div class="field"><label>¿Cómo pagaste?</label>
-      <select id="rMetodo">${METODOS.map(m =>
+      <!-- Sólo las formas que tienen a dónde pagar. Si alguien pagó por una que
+           todavía no está configurada, el equipo puede registrarlo desde su
+           lado; ofrecerla aquí sería invitar a un pago que nadie va a recibir. -->
+      <select id="rMetodo">${METODOS.filter(m =>
+        DESTINOS.some(d => d.metodo === m.metodo && d.listo)).map(m =>
         `<option value="${esc(m.metodo)}">${esc(m.metodo)} — ${esc(NOMBRE_MONEDA[m.moneda] || m.moneda)}</option>`).join('')}</select></div>
     <div class="field"><label>Monto que pagaste <span id="rUnidad" class="tiny muted"></span></label>
       <input type="number" step="0.01" min="0.01" id="rMonto" placeholder="0,00"></div>

@@ -933,6 +933,8 @@ const ADMIN_NAV = [
     ['permisos.html', 'admin_panel_settings', 'Matriz de permisos'],
     ['auditoria.html', 'history', 'Auditoría'],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
+    ['formas-de-pago.html', 'account_balance', 'Formas de pago'],
+    ['stripe.html', 'credit_card', 'Cobros con tarjeta'],
     ['configuracion.html', 'settings', 'Configuración'],
   ]},
 ];
