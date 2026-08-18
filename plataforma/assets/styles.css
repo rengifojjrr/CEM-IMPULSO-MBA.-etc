@@ -1060,7 +1060,14 @@ tr.marcada{background:var(--primary-suave);}
     margin-bottom:var(--e1);padding:var(--e2);background:var(--papel);}
   table.tarjetas tr:hover{background:var(--papel);}
   table.tarjetas td{border:0;padding:3px 0;display:flex;justify-content:space-between;
-    align-items:center;gap:var(--e2);text-align:right;}
+    align-items:center;gap:var(--e2);text-align:right;
+    /* Las celdas de una tabla llevan `white-space:nowrap` para que las columnas
+       no se deshagan al estrecharlas. Apiladas como tarjeta eso es justo lo
+       contrario de lo que hace falta: cada fila ocupa el ancho de la pantalla y
+       el texto tiene que partirse. Sin esto, una frase larga en una celda
+       ensanchaba la tarjeta entera y había que arrastrar de lado —que es
+       exactamente lo que apilar venía a evitar. */
+    white-space:normal;overflow-wrap:anywhere;min-width:0;}
   table.tarjetas td::before{content:attr(data-col);font-size:var(--t-xs);
     font-weight:var(--peso-fuerte);color:var(--tinta-3);text-align:left;flex:none;}
   table.tarjetas td:first-child{display:block;text-align:left;
@@ -2337,3 +2344,12 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
 .pendiente.warn .n{color:var(--warn);}
 .pendiente.err .n{color:var(--error);}
 .pendiente.info .n{color:var(--info);}
+
+/* El botón de exportar que se le pone sola a cada tabla (mejora 29). Cuando la
+   tarjeta no tiene fila de título donde colgarlo, va arriba a la derecha y en
+   gris: es una salida, no la acción de la pantalla. */
+.card.con-exportar{position:relative;}
+.card.con-exportar > .exportar-tabla{position:absolute;top:var(--e1);right:var(--e1);
+  z-index:2;color:var(--tinta-3);}
+.card.con-exportar > .exportar-tabla:hover{color:var(--tinta);}
+@media print{ .exportar-tabla{display:none!important;} }

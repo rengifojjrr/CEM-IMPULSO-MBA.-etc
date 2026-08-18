@@ -10,7 +10,7 @@
    estaba. Es que haya un sitio donde el profesor diga «mañana no hay clase»
    y alguien pueda preguntar. */
 
-import { sb, $, $$, esc, fdate, fdatetime, num, modal, ok, fail, mensajeError,
+import { sb, $, $$, esc, fdate, fdatetime, num, modal, ok, okDeshacer, fail, mensajeError,
          avisar, ocupado, initials, confirmarBorrado } from './app.js?v=2026-08-20';
 
 /** Segundos a «12:04». Se usa en las dudas y al retomar un vídeo. */
@@ -299,9 +299,25 @@ export async function pintarNotas(host, cohortId) {
         fail(mensajeError(error));
         return;
       }
+      const previo = inp.dataset.antes;
       inp.dataset.antes = v;
       inp.closest('td').classList.add('guardada');
       setTimeout(() => inp.closest('td')?.classList.remove('guardada'), 1200);
+
+      /* Poner una nota en la casilla de al lado pasa todos los días: son
+         treinta filas de números y la vista se desliza una línea. Deshacer
+         devuelve la que había —incluido «ninguna»—, y lo hace por el mismo
+         camino, así que también queda asentado. */
+      okDeshacer(v === '' ? 'Nota borrada.' : `Nota ${v} guardada.`, async () => {
+        const { error: e2 } = await sb.rpc('cem_poner_nota', {
+          p_assessment_id: inp.dataset.ev,
+          p_enrollment_id: inp.dataset.ins,
+          p_puntaje: previo === '' ? null : Number(previo),
+        });
+        if (e2) { fail(mensajeError(e2)); return; }
+        inp.value = previo;
+        inp.dataset.antes = previo;
+      });
     };
   });
 }

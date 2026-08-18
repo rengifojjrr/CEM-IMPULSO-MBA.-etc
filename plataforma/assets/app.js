@@ -1062,6 +1062,7 @@ export async function mount(opts = {}) {
   botonesConNombre();
   montarAyudas(document);
   tablasLegiblesEnElTelefono();
+  tablasExportables();
   buscadorDePantallaCompleta();
   esqueletosDeTabla();
   return p;
@@ -1206,7 +1207,32 @@ function esqueletosDeTabla() {
    (`th.num`), sus celdas también, así las cifras quedan a la derecha y con
    ancho fijo sin repetirlo fila por fila. */
 function tablasLegiblesEnElTelefono(raiz = document) {
-  $$('table', raiz).forEach((tabla) => {
+  $$('table', raiz).forEach(prepararTabla);
+
+  /* Hay pantallas que no tienen ninguna tabla al montar porque se construyen
+     enteras con JavaScript un momento después —el generador de certificados,
+     sin ir más lejos— y esas se quedaban sin apilar para siempre: la regla se
+     aplicaba una vez, al arrancar, sobre lo que hubiera. Ahora se vigila el
+     contenido y cualquier tabla que nazca después recibe el mismo trato. */
+  const contenido = $('#cemContent') || document.body;
+  if (contenido && !contenido.dataset.cemVigilaTablas) {
+    contenido.dataset.cemVigilaTablas = '1';
+    new MutationObserver((cambios) => {
+      for (const c of cambios) {
+        for (const n of c.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          if (n.tagName === 'TABLE') prepararTabla(n);
+          else $$('table', n).forEach(prepararTabla);
+        }
+      }
+    }).observe(contenido, { childList: true, subtree: true });
+  }
+}
+
+function prepararTabla(tabla) {
+  if (tabla.dataset.cemPreparada) return;
+  tabla.dataset.cemPreparada = '1';
+  {
     const marcar = (ths) => {
       const etiquetas = ths.map((th) => th.textContent.trim());
       const numericas = ths.map((th) => th.classList.contains('num'));
@@ -1230,8 +1256,10 @@ function tablasLegiblesEnElTelefono(raiz = document) {
     const sellar = () => {
       obs?.disconnect();
       const ths = $$('thead th', tabla);
-      // Una tabla de dos columnas ya se lee de frente; apilarla sólo estorba.
-      if (ths.length >= 4) {
+      /* Dos columnas se leen de frente y apilarlas sólo estorba. Tres ya no:
+         medido en un teléfono de 390 puntos, una tabla de tres columnas con
+         texto de verdad sigue obligando a arrastrar de lado. */
+      if (ths.length >= 3) {
         tabla.classList.add('tarjetas');
         marcar(ths);
         monedaAlEncabezado(tabla, ths);
@@ -1241,7 +1269,76 @@ function tablasLegiblesEnElTelefono(raiz = document) {
     };
     obs = new MutationObserver(sellar);
     sellar();
+  }
+}
+
+/* ============ que toda tabla se pueda sacar a Excel (mejora 29) ============
+   La mitad de las tablas de la plataforma no se podían exportar, y esa mitad
+   acababa copiada a mano. Poner un botón en cada pantalla era escribir veinte
+   veces lo mismo y olvidarse en la veintiuna, así que se hace una vez y para
+   todas: cualquier tabla con encabezado y datos gana su botón.
+
+   Exporta LO QUE SE ESTÁ VIENDO, con los filtros puestos. Es lo que la gente
+   espera —«sácame esta lista»— y además hace innecesario reimplementar en el
+   servidor cada combinación de filtros. Lo que no está en pantalla, como una
+   segunda página sin cargar, no sale: por eso el nombre del archivo lleva la
+   fecha y no promete ser «todo». */
+function tablasExportables(raiz = document) {
+  /* Si la pantalla ya trae su propio botón de exportar, no se le añade
+     ninguno: quien la escribió ya decidió qué se saca y cómo, y dos botones
+     que hacen cosas parecidas obligan a averiguar en qué se diferencian. */
+  if ($('#page [id*="xport"]')) return;
+
+  $$('table', raiz).forEach((tabla) => {
+    if (tabla.dataset.cemExportable) return;
+    const caja = tabla.closest('.card');
+    if (!caja) return;
+    if ($('[data-exportar]', caja)) return;
+    if ($$('thead th', tabla).length < 2) return;
+    tabla.dataset.cemExportable = '1';
+
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'btn ghost sm exportar-tabla';
+    boton.dataset.exportar = '1';
+    boton.title = 'Descargar esta tabla como CSV, con los filtros puestos';
+    boton.setAttribute('aria-label', boton.title);
+    boton.innerHTML = '<span class="material-symbols-outlined">download</span>';
+    boton.onclick = () => bajarTabla(tabla, caja);
+
+    // Al lado del título de la tarjeta si lo hay; si no, flotando sobre ella.
+    const cabecera = $('.row.between', caja) || $('.card-head', caja);
+    if (cabecera) cabecera.appendChild(boton);
+    else { caja.classList.add('con-exportar'); caja.appendChild(boton); }
   });
+}
+
+function bajarTabla(tabla, caja) {
+  const cols = $$('thead th', tabla).map((th) => {
+    const copia = th.cloneNode(true);
+    $$('.unidad', copia).forEach((u) => u.remove());
+    return copia.textContent.trim();
+  });
+  const filas = $$('tbody tr', tabla)
+    .filter((tr) => !tr.querySelector('td[colspan]') && !tr.classList.contains('esqueleto-fila'))
+    .map((tr) => {
+      const o = {};
+      [...tr.children].forEach((td, i) => {
+        if (!cols[i]) return;
+        // Los botones de acción no son datos; se van del CSV.
+        const copia = td.cloneNode(true);
+        $$('button, .btn, input[type=checkbox]', copia).forEach((b) => b.remove());
+        o[cols[i]] = copia.textContent.replace(/\s+/g, ' ').trim();
+      });
+      return o;
+    });
+  if (!filas.length) { toast('No hay nada que exportar con estos filtros.'); return; }
+
+  const titulo = ($('h1', document) || $('h2', caja) || {}).textContent || 'tabla';
+  const nombre = titulo.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'tabla';
+  download(`${nombre}-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(filas));
 }
 
 /* ============ la moneda, una vez, en el encabezado (item 41) ============

@@ -353,7 +353,19 @@ async function matricular(){
       fecha_vencimiento:new Date(Date.now()+k*30*86400000).toISOString().slice(0,10), estado:'pendiente'
     }))),'No se pudieron crear las cuotas');
     await audit('matricula_manual','cem_enrollments',enr.id,'medio',{estudiante:stu.email});
-    m.close(); ok('Estudiante matriculado'); load();
+    m.close();
+    /* Matricular en el programa de al lado pasa: la lista está ordenada por
+       nombre y dos maestrías se llaman casi igual. Deshacer cancela la
+       inscripción recién creada —todavía sin un solo pago— y anula sus cuotas,
+       que es exactamente lo que hace `cem_cancelar_inscripcion`. */
+    okDeshacer(`${stu.nombre} matriculado.`, async () => {
+      const { error } = await sb.rpc('cem_cancelar_inscripcion', {
+        p_enrollment_id: enr.id,
+        p_motivo: 'Se deshizo la matrícula recién hecha.' });
+      if (error) { fail(mensajeError(error)); return; }
+      load();
+    });
+    load();
   };
 }
 /* ============ el expediente, en gráficos ============

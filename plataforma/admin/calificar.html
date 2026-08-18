@@ -38,7 +38,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, fail, run, qs, audit, modal, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-20';
+import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, okDeshacer, fail, run, qs, audit, modal, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'calificar.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let subs=[], filtro='pend', sel=null;
@@ -252,7 +252,27 @@ function detalle(){
       await audit('entrega_calificada','cem_submissions',s.id,'medio',{puntaje:v});
       return true;
     };
-    $('#btnG').onclick = async () => { if (await guardar()){ ok('Calificación guardada'); await fetchSubs(); } };
+    $('#btnG').onclick = async () => {
+      const previo = s.puntaje, previoF = s.feedback;
+      if (!await guardar()) return;
+      /* Calificar la entrega de la fila de abajo pasa todos los días: la lista
+         se reordena al guardar y el siguiente clic cae en otra persona.
+         Deshacer devuelve la nota anterior, o deja la entrega sin calificar si
+         no tenía ninguna. */
+      okDeshacer('Calificación guardada.', async () => {
+        if (previo == null) {
+          const { error } = await sb.rpc('cem_reabrir_entrega', {
+            p_submission_id: s.id, p_motivo: 'Se deshizo la calificación recién puesta.' });
+          if (error) { fail(mensajeError(error)); return; }
+        } else {
+          await run(sb.rpc('cem_grade_submission', {
+            p_submission_id: s.id, p_puntaje: previo, p_feedback: previoF || null }),
+            'No se pudo deshacer');
+        }
+        await fetchSubs();
+      });
+      await fetchSubs();
+    };
 
     /* Devolver una entrega para que la corrijan. Antes esto sólo se podía
        hacer tocando la base a mano, así que en la práctica no se hacía.

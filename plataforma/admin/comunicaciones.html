@@ -36,7 +36,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog, opciones, chipEstado, accionVacio } from '../assets/app.js?v=2026-08-20';
+import { sb, mount, $, $$, esc, chip, num, fdate, fdatetime, emptyRow, match, kpi, modal, ok, fail, run, audit, confirmDialog, opciones, chipEstado, accionVacio, mensajeError } from '../assets/app.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'comunicaciones.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cohortes=[], cursos=[], perfiles={}, filtro='';
@@ -105,9 +105,23 @@ accionVacio('vacioAnuncio', () => form(null));
 
 function form(r){
   const isNew=!r;
+  // Se carga en cuanto se abre: son cinco filas y no merecen otro clic.
+  setTimeout(() => montarPlantillas(), 0);
   const m = modal({ title:isNew?'Nuevo anuncio':'Editar anuncio', wide:true, body:`
+    <!-- Mejora 27: los mismos cinco mensajes se reescribían cada vez, y cada
+         vez distinto. Una plantilla no obliga a nada —se pega y se edita— pero
+         hace que el punto de partida sea siempre el mismo. -->
+    <div class="row between sep-poco" id="filaPlantillas">
+      <span class="tiny muted">Plantillas</span>
+      <button type="button" class="btn ghost sm" id="btnGuardarPlantilla" hidden>
+        <span class="material-symbols-outlined">bookmark_add</span> Guardar esto como plantilla</button>
+    </div>
+    <div class="row sep-poco" style="gap:6px;flex-wrap:wrap" id="plantillas"></div>
+
     <div class="field"><label>Título *</label><input id="aT" value="${esc(r?.titulo||'')}" required></div>
-    <div class="field"><label>Mensaje</label><textarea id="aB" style="min-height:120px">${esc(r?.cuerpo||'')}</textarea></div>
+    <div class="field"><label>Mensaje</label><textarea id="aB" style="min-height:120px">${esc(r?.cuerpo||'')}</textarea>
+      <span class="tiny muted">Lo que va entre llaves —{nombre}, {programa}, {fecha}— hay que
+        cambiarlo a mano antes de enviar: la plataforma no lo rellena sola.</span></div>
     <div class="row">
       <div class="field medio"><label>Audiencia</label><select id="aA">
         ${opciones(['todos','estudiantes','profesores','administrativos'], r?.audiencia)}</select></div>
@@ -145,6 +159,49 @@ function form(r){
   };
   $('[data-draft]',m).onclick=()=>guardar('borrador');
   $('[data-send]',m).onclick=()=>guardar('enviado');
+}
+
+/* ============ plantillas de comunicación (mejora 27) ============
+   Se ordenan por uso, así que a los dos meses las tres primeras son las tres
+   que de verdad se mandan. Pegar una NO envía nada: rellena el título y el
+   cuerpo para que se editen. */
+async function montarPlantillas(){
+  const host = $('#plantillas');
+  if (!host) return;
+  const { data } = await sb.from('cem_plantillas_mensaje')
+    .select('id,nombre,asunto,cuerpo,usos').order('usos', { ascending:false }).limit(12);
+  const lista = data || [];
+  host.innerHTML = lista.length
+    ? lista.map(t => `<button type="button" class="chip chip-btn" data-plantilla="${esc(t.id)}"
+        title="Pegar esta plantilla en el título y el mensaje">${esc(t.nombre)}</button>`).join('')
+    : '<span class="tiny muted">Todavía no hay ninguna guardada.</span>';
+
+  $$('[data-plantilla]', host).forEach(b => b.onclick = () => {
+    const t = lista.find(x => x.id === b.dataset.plantilla);
+    if (!t) return;
+    const hayTexto = $('#aT').value.trim() || $('#aB').value.trim();
+    if (hayTexto && !confirm('Vas a reemplazar lo que hay escrito. ¿Seguimos?')) return;
+    $('#aT').value = t.asunto;
+    $('#aB').value = t.cuerpo;
+    sb.rpc('cem_plantilla_usada', { p_id: t.id }).then(() => {}, () => {});
+    ok('Plantilla pegada. Cambia lo que va entre llaves antes de enviar.');
+  });
+
+  const guardar = $('#btnGuardarPlantilla');
+  if (guardar && puede) {
+    guardar.hidden = false;
+    guardar.onclick = async () => {
+      const asunto = $('#aT').value.trim(), cuerpo = $('#aB').value.trim();
+      if (!asunto || !cuerpo) { fail('Escribe primero el título y el mensaje.'); return; }
+      const nombre = prompt('¿Cómo se llama esta plantilla?', asunto.slice(0, 40));
+      if (!nombre) return;
+      const { error } = await sb.from('cem_plantillas_mensaje')
+        .insert({ nombre: nombre.trim(), asunto, cuerpo, creada_por: p.id });
+      if (error) { fail(mensajeError(error)); return; }
+      ok('Guardada. Sale en la lista la próxima vez.');
+      montarPlantillas();
+    };
+  }
 }
 </script>
 </body>
