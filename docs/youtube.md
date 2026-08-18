@@ -255,3 +255,47 @@ ahora.
 descargar pero no impide una cámara, y se paga todos los meses desde el primer
 día. La marca de agua ataca el problema real —alguien que reparte el curso— y
 sale gratis.
+
+
+---
+
+## Aprendizaje express (shorts verticales)
+
+Vídeos de uno o dos minutos, verticales, uno detrás de otro. Para repasar antes
+de un examen, refrescar una definición o picar algo suelto sin abrir una clase
+de cuarenta minutos.
+
+**Cómo se sube.** Subes el short a YouTube como **no listado**, igual que las
+clases. En **Contenidos → Vídeos del curso**, al final de la pantalla, pegas su
+dirección —la de `youtube.com/shorts/…`, tal cual la copia el teléfono— y le
+pones un título. El título importa: es lo único que se lee antes de darle al
+play.
+
+Desde ahí se ordenan (las flechas), se retiran sin borrarlos —«retirado» deja de
+verse pero no se pierde— y se quitan del curso. Quitar uno del curso **no** lo
+borra de YouTube.
+
+**Cómo lo ve el alumno.** Un botón «Repaso express» en su aula, que sólo aparece
+si el curso tiene alguno. Se desliza como en el teléfono, o con las flechas, o
+con el teclado.
+
+### Por qué no son lecciones
+
+Van en su propia tabla, no en `cem_lessons`. Son cosas distintas: una lección
+pertenece a un módulo, cuenta para el progreso y puede tener evaluación; un
+short es material suelto que se ve en cualquier orden y no cuenta para aprobar
+nada. Meterlos en `cem_lessons` habría obligado a llenar de excepciones todo lo
+que recorre lecciones — el progreso, el temario, el certificado.
+
+### Dos decisiones que se notan en el teléfono
+
+**No se montan todos los reproductores a la vez.** Con veinte shorts, veinte
+`<iframe>` de YouTube son medio minuto de espera y varios cientos de megas de
+memoria. Se monta el que se está viendo y el siguiente —para que pasar no espere
+a que cargue— y se suelta el resto.
+
+**Llevan la misma marca de agua que las clases.** Un short es *más* fácil de
+repartir que una clase de cuarenta minutos, no menos.
+
+Y el muro de pago es el mismo: sin haber pagado no se ve ninguno, ni pidiéndole
+la tabla a la base directamente.

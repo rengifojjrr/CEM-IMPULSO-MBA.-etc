@@ -145,5 +145,86 @@ export default async function correr(navegador) {
 
   a.comprobar(D.errores.length === 0, `El aula del profesor no lanza errores ${JSON.stringify(D.errores.slice(0, 2))}`);
   a.comprobar(E.errores.length === 0, `Ni la del estudiante ${JSON.stringify(E.errores.slice(0, 2))}`);
+  await D.close();
+
+  /* ============ el panel del estudiante empieza por sus cursos ============ */
+  /* Antes esta pantalla abría con cuatro cifras y dos gráficos, y los cursos
+     quedaban a media pantalla de distancia. Pero un estudiante entra aquí a
+     hacer una cosa: seguir por donde iba. El resumen no se quita —se pliega—,
+     así que hay que comprobar las dos mitades: que los cursos van primero y
+     que lo plegado sigue funcionando cuando se abre. */
+  const P = await nuevaPestana(navegador, { ancho: 1400, alto: 1000 });
+  await entrar(P, 'estudiante', 'estudiante/panel.html');
+  await P.waitForSelector('#cursos .card', { timeout: 40000 });
+  await P.waitForTimeout(2500);
+
+  const arriba = await P.evaluate(() => {
+    const cursos = document.querySelector('#cursos');
+    const resumen = document.querySelector('#resumen');
+    return {
+      yCursos: cursos?.getBoundingClientRect().top ?? -1,
+      yResumen: resumen?.getBoundingClientRect().top ?? -1,
+      resumenAbierto: !!resumen?.open,
+      // Las cifras y los gráficos tienen que seguir existiendo, sólo plegados.
+      kpisDentro: !!resumen?.querySelector('#kpis'),
+      graficosDentro: !!resumen?.querySelector('#graficos'),
+      elevables: !!cursos?.classList.contains('tarjetas-elevables'),
+    };
+  });
+  a.comprobar(arriba.yCursos > 0 && arriba.yCursos < arriba.yResumen,
+    `Lo primero que se ve son los cursos, no las estadísticas (cursos en ${
+      Math.round(arriba.yCursos)}px, resumen en ${Math.round(arriba.yResumen)}px)`);
+  a.comprobar(arriba.resumenAbierto === false,
+    'Y el resumen arranca plegado: se abre cuando alguien quiera mirarlo');
+  a.comprobar(arriba.kpisDentro && arriba.graficosDentro,
+    'Las cifras y los gráficos no se quitaron, sólo se plegaron');
+
+  /* El botón de abrir el curso es la acción principal de la pantalla y era del
+     mismo tamaño que «Ver programa», que no lo es. */
+  const alto = await P.evaluate(() => {
+    const abrir = document.querySelector('#cursos .btn.abrir-curso');
+    const otro = document.querySelector('#cursos .btn.outline');
+    return {
+      abrir: abrir ? Math.round(abrir.getBoundingClientRect().height) : 0,
+      otro: otro ? Math.round(otro.getBoundingClientRect().height) : 0,
+    };
+  });
+  a.comprobar(alto.abrir >= 44,
+    `El botón de entrar al curso es grande de verdad (${alto.abrir}px de alto)`);
+  a.comprobar(alto.abrir > alto.otro,
+    `Y más grande que el secundario, que es lo que lo hace la acción principal (${alto.abrir} vs ${alto.otro})`);
+
+  /* La animación al pasar por encima. Se comprueba el `transform` calculado y
+     no una clase: una clase puede estar puesta y no mover nada. */
+  const quieto = await P.evaluate(() =>
+    getComputedStyle(document.querySelector('#cursos > .card')).transform);
+  await P.hover('#cursos > .card');
+  await P.waitForTimeout(600);
+  const movido = await P.evaluate(() =>
+    getComputedStyle(document.querySelector('#cursos > .card')).transform);
+  a.comprobar(quieto === 'none' && movido !== 'none' && movido.includes('matrix3d'),
+    `La tarjeta se levanta al pasar el ratón, en tres dimensiones (${movido.slice(0, 30)}…)`);
+
+  /* Y al abrir el resumen, lo de dentro se pinta: los gráficos viven en un
+     <details> cerrado, y algo que mide su propio ancho al arrancar se habría
+     quedado en cero sin que nadie lo notara. */
+  await P.click('#resumen summary');
+  await P.waitForTimeout(1500);
+  const dentro = await P.evaluate(() => ({
+    abierto: !!document.querySelector('#resumen')?.open,
+    kpis: document.querySelectorAll('#kpis .kpi').length,
+    svgs: document.querySelectorAll('#graficos svg').length,
+    filas: document.querySelectorAll('#tbDesempeno tr').length,
+  }));
+  a.comprobar(dentro.abierto && dentro.kpis === 4,
+    `Al abrirlo salen las cuatro cifras (${dentro.kpis})`);
+  a.comprobar(dentro.svgs > 0,
+    `Y los gráficos se dibujan aunque nacieran dentro de algo cerrado (${dentro.svgs})`);
+  a.comprobar(dentro.filas > 0,
+    `Y la tabla de «cómo voy» trae filas (${dentro.filas})`);
+
+  a.comprobar(P.errores.length === 0,
+    `El panel del estudiante no lanza errores ${JSON.stringify(P.errores.slice(0, 2))}`);
+  await P.close();
   return a;
 }

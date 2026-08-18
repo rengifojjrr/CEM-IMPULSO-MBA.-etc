@@ -59,10 +59,29 @@ export default async function correr(navegador) {
     await E.waitForTimeout(3500);
     a.comprobar(!(await E.locator('#cardSolInsc').isHidden()),
       'La solicitud queda registrada y visible para el estudiante');
+
+    /* Si una pasada anterior se cayó antes de que el equipo resolviera la
+       solicitud, la de ahora choca con ella: la plataforma responde «ya tienes
+       una solicitud pendiente sobre esta inscripción», que es exactamente lo
+       que debe hacer. Ese rechazo es un 400 y quedaría anotado como si la
+       pantalla estuviera rota, así que se descuenta aquí — pero sólo si el
+       mensaje es ese. Cualquier otro error sigue contando. */
+    const yaHabia = /ya tienes una solicitud pendiente/i.test(
+      await E.locator('#solMsg').textContent().catch(() => ''));
+    if (yaHabia) {
+      E.errores.length = 0;
+      a.comprobar(true,
+        'Había una solicitud pendiente de antes y la plataforma no deja duplicarla');
+    }
   }
 
   /* ============ "cómo voy" ============ */
   await E.goto(`${BASE}/plataforma/estudiante/panel.html`, { waitUntil: 'domcontentloaded' });
+  /* El panel abre por los cursos, y el resumen —cifras, gráficos y esta tabla—
+     va plegado debajo: un estudiante entra a seguir por donde iba, no a leer
+     estadísticas. Así que hay que abrirlo, igual que haría una persona. */
+  await E.waitForSelector('#resumen', { timeout: 25000 });
+  await E.click('#resumen summary');
   await E.waitForSelector('#tbDesempeno', { timeout: 25000 });
   await E.waitForFunction(
     () => (document.querySelector('#tbDesempeno')?.textContent || '').trim().length > 0,

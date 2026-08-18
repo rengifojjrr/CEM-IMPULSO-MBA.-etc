@@ -23,6 +23,12 @@
   .lec.vacia{border-style:dashed;}
   .lec .t{flex:1;min-width:0;font-size:var(--t-sm);overflow-wrap:anywhere;}
   .mod-t{font-weight:600;margin:14px 0 8px;font-size:var(--t-sm);color:var(--tinta-2);}
+  .corto-fila{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r);
+    border:1px solid var(--filete);margin-bottom:8px;}
+  .corto-fila img{width:38px;height:66px;object-fit:cover;border-radius:var(--r-sm);
+    flex-shrink:0;background:var(--hueco);}
+  .corto-fila .t{flex:1;min-width:0;font-size:var(--t-sm);overflow-wrap:anywhere;}
+  .corto-fila.retirado{opacity:.55;}
 </style>
 </head>
 <body>
@@ -48,7 +54,7 @@ import { sb, mount, $, $$, esc, chip, num, ok, fail, avisar, mensajeError,
          confirmDialog, qs, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-20';
 await mount({ require:['coordinador','admin','superadmin'], area:'admin' });
 
-let cursos = [], curso = null, datos = null, videos = null, errorVideos = null;
+let cursos = [], curso = null, datos = null, videos = null, errorVideos = null, shorts = [];
 
 /* El token para hablar con YouTube es el mismo que usa la subida: se pide a la
    función del servidor, que lo saca del permiso guardado. La clave del canal no
@@ -107,11 +113,15 @@ async function cargarCursos(){
 
 async function elegir(id){
   curso = cursos.find((c) => c.id === id) || null;
-  datos = null; videos = null; errorVideos = null;
+  datos = null; videos = null; errorVideos = null; shorts = [];
   if (!curso) { pintar(); return; }
-  const { data, error } = await sb.rpc('cem_curso_lecciones_de_video', { p_course_id: id });
+  const [{ data, error }, { data: cs }] = await Promise.all([
+    sb.rpc('cem_curso_lecciones_de_video', { p_course_id: id }),
+    sb.rpc('cem_shorts_del_curso', { p_course_id: id }),
+  ]);
   if (error) { avisar('#cuerpo', mensajeError(error)); return; }
   datos = data || {};
+  shorts = cs || [];
   pintar();
   if (datos.playlist) await traerVideos();
 }
@@ -202,6 +212,57 @@ function pintar(){
           }).join('') : '<p class="muted tiny" style="margin:0 0 10px">Este módulo no tiene lecciones.</p>'}
         `).join('') : '<p class="muted tiny">Este programa todavía no tiene módulos. Créalos en Contenido.</p>'}
       </div>
+    </div>
+
+    <div class="card">
+      <div class="row between"><h2 class="sec">Aprendizaje express</h2>
+        <span class="tiny muted">${num(shorts.length)} vídeo(s) cortos</span></div>
+      <p class="tiny muted">Vídeos verticales de uno o dos minutos —los shorts que subes a
+        YouTube— para repasar rápido. No son lecciones: no cuentan para el progreso ni para
+        aprobar, y el alumno los ve en cualquier orden, uno detrás de otro como en el teléfono.
+        Súbelos a YouTube como <b>no listados</b> y pega aquí su dirección.</p>
+
+      <form id="formCorto" class="stack sep">
+        <div class="row" style="gap:10px;align-items:flex-end">
+          <div class="field" style="flex:2;min-width:220px;margin:0">
+            <label for="sVideo">Dirección del short</label>
+            <input type="text" id="sVideo" placeholder="https://www.youtube.com/shorts/…">
+          </div>
+          <div class="field" style="flex:3;min-width:220px;margin:0">
+            <label for="sTitulo">Título</label>
+            <input type="text" id="sTitulo" placeholder="Qué se repasa en este minuto">
+          </div>
+          <button class="btn" type="submit">
+            <span class="material-symbols-outlined">add</span> Añadir</button>
+        </div>
+        <div class="field" style="margin:0"><label for="sDesc">Descripción (opcional)</label>
+          <input type="text" id="sDesc" placeholder="Una línea, la que se lee debajo del vídeo"></div>
+      </form>
+      <div id="msgCorto"></div>
+
+      <div class="sep">
+        ${shorts.length ? shorts.map((c, i) => `
+          <div class="corto-fila ${c.publicado ? '' : 'retirado'}">
+            <img loading="lazy" alt=""
+              src="https://i.ytimg.com/vi/${esc(c.video_id)}/default.jpg"
+              onerror="this.style.visibility='hidden'">
+            <div class="t"><b>${esc(c.titulo)}</b>
+              <div class="tiny muted">${c.descripcion ? esc(c.descripcion) + ' · ' : ''}${
+                c.publicado ? 'publicado' : 'retirado, no lo ven los alumnos'}</div></div>
+            <button class="btn ghost sm" data-sube="${c.id}" title="Subir en el orden"
+              ${i === 0 ? 'disabled' : ''}>
+              <span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+            <button class="btn ghost sm" data-baja="${c.id}" title="Bajar en el orden"
+              ${i === shorts.length - 1 ? 'disabled' : ''}>
+              <span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+            <button class="btn ghost sm" data-pub="${c.id}" data-a="${c.publicado ? '0' : '1'}"
+              title="${c.publicado ? 'Retirar' : 'Publicar'}">
+              <span class="material-symbols-outlined">${c.publicado ? 'visibility_off' : 'visibility'}</span></button>
+            <button class="btn ghost sm" data-borra="${c.id}" data-t="${esc(c.titulo)}" title="Borrar">
+              <span class="material-symbols-outlined">delete</span></button>
+          </div>`).join('')
+          : '<p class="muted tiny">Todavía no hay ninguno. Pega arriba la dirección del primero.</p>'}
+      </div>
     </div>`;
 }
 
@@ -223,7 +284,41 @@ function parecido(a, b){
   return comunes / Math.min(A.size, B.size);
 }
 
+async function recargarShorts(){
+  const { data } = await sb.rpc('cem_shorts_del_curso', { p_course_id: curso.id });
+  shorts = data || [];
+  pintar();
+}
+
+/* Reordenar mandando la lista entera, no «sube uno». Mover de a uno deja
+   huecos y empates si dos personas tocan a la vez, y entonces el orden que se
+   guarda deja de ser el que se ve en pantalla. */
+async function mover(id, salto){
+  const i = shorts.findIndex((c) => c.id === id);
+  const j = i + salto;
+  if (i < 0 || j < 0 || j >= shorts.length) return;
+  const orden = shorts.map((c) => c.id);
+  [orden[i], orden[j]] = [orden[j], orden[i]];
+  const { error } = await sb.rpc('cem_shorts_ordenar', { p_course_id: curso.id, p_ids: orden });
+  if (error) return fail(mensajeError(error, 'No se pudo reordenar.'));
+  await recargarShorts();
+}
+
 document.addEventListener('submit', async (ev) => {
+  if (ev.target.id === 'formCorto') {
+    ev.preventDefault();
+    const video = $('#sVideo').value.trim(), titulo = $('#sTitulo').value.trim();
+    if (!video) return avisar('#msgCorto', 'Pega la dirección del short de YouTube.');
+    if (!titulo) return avisar('#msgCorto', 'Ponle un título: es lo único que se lee antes de darle al play.');
+    const { error } = await sb.rpc('cem_short_guardar', {
+      p_course_id: curso.id, p_video: video, p_titulo: titulo,
+      p_descripcion: $('#sDesc').value.trim() || null,
+    });
+    if (error) return avisar('#msgCorto', mensajeError(error, 'No se pudo guardar.'));
+    await recargarShorts();
+    ok('Vídeo express añadido.');
+    return;
+  }
   if (ev.target.id !== 'formLista') return;
   ev.preventDefault();
   const { data, error } = await sb.rpc('cem_guardar_playlist',
@@ -236,6 +331,33 @@ document.addEventListener('submit', async (ev) => {
 });
 
 document.addEventListener('click', async (ev) => {
+  const sube = ev.target.closest('[data-sube]');
+  if (sube) return mover(sube.dataset.sube, -1);
+  const baja = ev.target.closest('[data-baja]');
+  if (baja) return mover(baja.dataset.baja, +1);
+
+  const pub = ev.target.closest('[data-pub]');
+  if (pub) {
+    const { error } = await sb.rpc('cem_short_publicar',
+      { p_id: pub.dataset.pub, p_publicado: pub.dataset.a === '1' });
+    if (error) return fail(mensajeError(error, 'No se pudo cambiar.'));
+    await recargarShorts();
+    ok(pub.dataset.a === '1' ? 'Publicado: ya lo ven los alumnos.' : 'Retirado: deja de verse.');
+    return;
+  }
+
+  const borra = ev.target.closest('[data-borra]');
+  if (borra) {
+    if (!await confirmDialog(
+      `Se quita «${borra.dataset.t}» del aprendizaje express. El vídeo sigue en YouTube: `
+      + 'esto sólo lo saca del curso.', 'Quitar el vídeo express')) return;
+    const { error } = await sb.rpc('cem_short_borrar', { p_id: borra.dataset.borra });
+    if (error) return fail(mensajeError(error, 'No se pudo quitar.'));
+    await recargarShorts();
+    ok('Quitado del curso.');
+    return;
+  }
+
   const recargar = ev.target.closest('#btnRecargar');
   if (recargar) { videos = null; pintar(); await traerVideos(); return; }
 

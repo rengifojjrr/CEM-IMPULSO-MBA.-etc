@@ -41,7 +41,15 @@ export async function abrirNavegador() {
     proxy: process.env.CEM_PROXY
       ? { server: process.env.CEM_PROXY, bypass: 'localhost,127.0.0.1' }
       : undefined,
-    args: process.env.CEM_PROXY ? ['--ignore-certificate-errors'] : [],
+    args: [
+      /* Sin esto no se puede probar que un vídeo se reproduce. Chromium exige
+         un gesto de la persona antes de arrancar cualquier reproducción, y
+         desde fuera de un <iframe> de otro dominio no hay forma de pulsar su
+         botón de play. No cambia lo que se prueba: sólo permite pedirle al
+         reproductor que arranque, que es lo que hace un alumno con el ratón. */
+      '--autoplay-policy=no-user-gesture-required',
+      ...(process.env.CEM_PROXY ? ['--ignore-certificate-errors'] : []),
+    ],
   });
 }
 

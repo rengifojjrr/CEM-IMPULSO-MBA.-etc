@@ -960,6 +960,10 @@ th.num.ordenable::after{margin-left:2px;}
   color:var(--on-primary);border-radius:var(--r-full);padding:0 var(--e0);font-size:var(--t-xs);}
 .filtros-plegables{flex:none;}
 .filtros-plegables[open]{flex-basis:100%;}
+/* Cuando lo que se pliega es un bloque entero —tarjetas, gráficos, una tabla—
+   y no una fila de filtros, hace falta aire entre el resumen y el contenido.
+   Las reglas de abajo sólo cubren `.campos` y `.filters`, que es lo que había. */
+.filtros-plegables.bloque[open] > summary{margin-bottom:var(--e3);}
 .filtros-plegables[open] .campos,
 .filtros-plegables[open] > .filters{margin-top:var(--e2);padding-top:var(--e2);
   border-top:1px solid var(--filete);}
@@ -2209,3 +2213,47 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
 .card.con-portada{padding:0;overflow:hidden;}
 .card.con-portada > .dentro{padding:var(--e3);}
 @media (max-width:720px){ .portada{height:112px;} }
+
+/* ── La tarjeta del curso se levanta al pasar por encima ───────────────────
+   Los cursos son lo único de esta pantalla en lo que se hace clic, y hasta
+   ahora no lo parecían: se veían igual que las tarjetas de dato, que no llevan
+   a ninguna parte. Levantarlas un poco es la forma más barata de decir «esto
+   se abre» sin escribirlo.
+
+   `perspective` en el contenedor y no en cada tarjeta: si va en cada una, el
+   punto de fuga se recalcula por tarjeta y las de los extremos se inclinan
+   hacia lados distintos. Puesto en el padre, todas comparten el mismo punto y
+   el conjunto se lee como una sola superficie.
+
+   `will-change` no se pone: sobre una rejilla de tarjetas obliga al navegador
+   a mantener una capa por cada una, y en un teléfono eso se nota más que la
+   animación que pretende suavizar. */
+.tarjetas-elevables{perspective:1100px;}
+.tarjetas-elevables > .card.con-portada{
+  transition:transform var(--entra) ease, box-shadow var(--entra) ease;
+  transform-style:preserve-3d;}
+.tarjetas-elevables > .card.con-portada:hover,
+.tarjetas-elevables > .card.con-portada:focus-within{
+  transform:translateY(-6px) rotateX(1.6deg) scale(1.014);
+  box-shadow:0 18px 34px -18px rgba(0,0,0,.32), 0 3px 10px -4px rgba(0,0,0,.16);}
+/* La portada acompaña con un acercamiento mínimo. Más que esto y se ve el
+   recorte moverse, que parece un fallo en vez de un detalle. */
+.tarjetas-elevables > .card.con-portada .portada{
+  transition:transform var(--entra) ease;}
+.tarjetas-elevables > .card.con-portada:hover .portada{transform:scale(1.045);}
+
+/* Quien pidió que no le muevan la pantalla no se la movemos. No es un extra:
+   para algunas personas el movimiento marea de verdad. */
+@media (prefers-reduced-motion:reduce){
+  .tarjetas-elevables > .card.con-portada,
+  .tarjetas-elevables > .card.con-portada .portada{transition:none;}
+  .tarjetas-elevables > .card.con-portada:hover,
+  .tarjetas-elevables > .card.con-portada:focus-within{
+    transform:none;box-shadow:var(--sombra);}
+  .tarjetas-elevables > .card.con-portada:hover .portada{transform:none;}
+}
+
+/* El botón que abre el curso. Es la acción principal de la pantalla y estaba
+   del mismo tamaño que «Ver programa», que no lo es. */
+.btn.abrir-curso{min-height:44px;padding:var(--e2) var(--e3);font-size:var(--t-md);flex:1;}
+.btn.abrir-curso .material-symbols-outlined{font-size:20px;}

@@ -21,7 +21,11 @@
   .les-item .material-symbols-outlined{font-size:var(--t-md);}
   .player{aspect-ratio:16/9;background:#000;border-radius:var(--r);overflow:hidden;display:flex;
     align-items:center;justify-content:center;color:#fff;position:relative;}
-  .player iframe{width:100%;height:100%;border:0;}
+  /* !important a propósito: la API de YouTube reemplaza el <div id="ytHost">
+     por su propio <iframe> con width/height puestos por ella (640×390 si no
+     se le dice nada), y eso pisa una regla normal de la hoja de estilos. */
+  .player iframe{width:100%!important;height:100%!important;border:0;}
+  .yt-host{width:100%;height:100%;}
 
   /* Tapa la esquina donde YouTube pone «Ver en YouTube» y el título con enlace.
      No esconde el enlace de quien abra las herramientas del navegador —eso no
@@ -49,6 +53,7 @@
       <p class="tiny muted" style="margin:3px 0 0">Ve la lección, márcala como completada y así avanza tu progreso.
         A la izquierda están todas las lecciones del programa.</p>
       <div class="tiny muted" id="tProg" style="margin-top:3px"></div></div>
+    <div class="actions" id="accionesAula"></div>
   </div>
 
   <div class="aula">
@@ -78,6 +83,7 @@ import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, 
 import { pintarMuro } from '../assets/aula.js?v=2026-08-20';
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
+let hayExpress = false;
 if (me) load();
 
 async function load(){
@@ -145,6 +151,13 @@ async function load(){
     }));
   }
 
+  /* ¿Este curso tiene vídeos express? Se pregunta aparte y sin bloquear: si
+     fallara, el aula tiene que abrir igual — es un atajo, no la clase. */
+  sb.rpc('cem_shorts_del_curso', { p_course_id: enr.course_id }).then(({ data }) => {
+    hayExpress = (data || []).length > 0;
+    if (hayExpress && $('#accionesAula')) render();
+  }, () => {});
+
   (lp||[]).forEach(x=>progreso[x.lesson_id]=x);
   clases = cls||[]; media = md||[]; evals = evs||[]; entregas = subs||[];
   const all = mods.flatMap(m=>m.cem_lessons);
@@ -170,17 +183,22 @@ async function load(){
 function reproductor(l){
   if (l.tipo !== 'video') return '';
   if (l.video_id) {
-    const params = new URLSearchParams({
-      rel: '0', modestbranding: '1', iv_load_policy: '3',
-      playsinline: '1', enablejsapi: '1', origin: location.origin,
-    });
-    return `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(l.video_id)}?${params}"
-        allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen"
-        allowfullscreen title="${esc(l.titulo)}" referrerpolicy="strict-origin"></iframe>
+    /* No se arma un <iframe> con la dirección puesta a mano: se deja el hueco para que lo
+       llene la API de YouTube, montada después en montarReproductor().
+
+       La razón es el fallo que se vio en producción: un identificador que no
+       corresponde a ningún vídeo (borrado, privado, o todavía sin emparejar)
+       no da un error DENTRO de un <iframe> normal. YouTube responde con su
+       propia página de aviso, y esa página sí bloquea que se enmarque —
+       termina en la pantalla de Chrome «youtube.com rechazó la conexión», que
+       es la de Google, no la nuestra. Con la API real se recibe un evento
+       `onError` en su lugar, y se puede mostrar un aviso propio. */
+    return `<div id="ytHost" class="yt-host"></div>
       <div class="tapa-yt" aria-hidden="true"></div>
       <div class="tapa-yt izq" aria-hidden="true"></div>`;
   }
-  // Material antiguo, con la URL entera guardada. Se sigue viendo.
+  // Material antiguo, con la URL entera guardada y sin identificador. Se sigue
+  // viendo tal cual, sin la API: no hay manera de saber si es de YouTube.
   return l.url ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>` : '';
 }
 
@@ -223,14 +241,20 @@ function marcaDeAgua(){
 }
 
 /* ── El registro ───────────────────────────────────────────────────────────
-   Cada medio minuto mientras la lección está abierta. La IP la pone el
-   servidor: pedírsela al navegador sería pedirle a quien se investiga que
-   rellene el informe. */
-let verReloj = null, verSegundos = 0, verLeccion = null;
-function registrarQueSeVe(l){
+   Cada medio minuto mientras la lección está abierta y el vídeo REPRODUCIÉNDOSE
+   —no basta con tenerlo abierto en pausa—. La IP la pone el servidor: pedírsela
+   al navegador sería pedirle a quien se investiga que rellene el informe.
+
+   Con material antiguo (sólo `url`, sin identificador) no hay API y por tanto
+   no hay forma de saber si está en pausa; ahí se cuenta como siempre se contó,
+   mientras la pestaña esté visible. */
+let verReloj = null, verSegundos = 0, verLeccion = null, jugando = false;
+function registrarQueSeVe(l, conAPI){
   clearInterval(verReloj);
   if (!l || l.tipo !== 'video' || !(l.video_id || l.url)) return;
   if (verLeccion !== l.id) { verLeccion = l.id; verSegundos = 0; }
+  jugando = !conAPI;
+
   /* El `.then()` no es decorativo: lo que devuelve `sb.rpc()` es perezoso y no
      sale a la red hasta que alguien lo espera. Sin esto, la llamada quedaba
      montada y nunca se enviaba — y como nadie mira el valor de vuelta, el fallo
@@ -243,6 +267,7 @@ function registrarQueSeVe(l){
 
   const latir = () => {
     if (document.hidden) return;          // pestaña de fondo no es ver clase
+    if (!jugando) return;                 // en pausa tampoco
     verSegundos += 30;
     anotar(verSegundos);
   };
@@ -250,8 +275,122 @@ function registrarQueSeVe(l){
   verReloj = setInterval(latir, 30000);
 }
 
+/* ── La API de YouTube, cargada una sola vez ────────────────────────────────
+   El script se pide siempre al mismo dominio (`youtube.com`, no el de
+   `-nocookie`): es la librería que controla al reproductor, no el propio
+   reproductor, y Google no la sirve desde el dominio sin cookies. El vídeo en
+   sí se sigue pidiendo con `host: 'https://www.youtube-nocookie.com'` al
+   crear el reproductor, así que la persona que ve la clase no deja rastro. */
+let promesaYT = null;
+function cargarYoutubeAPI(){
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (promesaYT) return promesaYT;
+  promesaYT = new Promise((resolve, reject) => {
+    const anterior = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { anterior?.(); resolve(window.YT); };
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => reject(new Error('No se pudo cargar la librería de YouTube.'));
+    document.head.appendChild(s);
+  });
+  return promesaYT;
+}
+
+/* El aviso propio que sustituye a la pantalla de Google. Los códigos de error
+   de la API están documentados por YouTube: 100 es «no existe o es privado»,
+   101 y 150 son el mismo caso —el dueño bloqueó reproducirlo fuera de
+   YouTube— con dos números distintos según la versión de la API. */
+function avisoSinVideo(codigo){
+  // Si onError llegó DESPUÉS de que ya se hubieran arrancado los relojes, hay
+  // que apagarlos: nadie está viendo nada.
+  clearInterval(aguaReloj); aguaReloj = null;
+  clearInterval(verReloj); verReloj = null;
+  const host = $('#reproductor');
+  if (!host) return;
+  /* Un identificador inventado no siempre vuelve como «100 · no existe»: en la
+     práctica YouTube a veces lo trata como si el dueño hubiera bloqueado la
+     reproducción externa (101/150). No conviene afirmar una causa con más
+     certeza de la que se tiene, así que sólo el caso inequívoco —100— lleva un
+     motivo concreto; el resto comparte un mensaje honesto. */
+  const porque = codigo === 100
+    ? 'El vídeo se borró, o quien lo subió lo puso como privado.'
+    : 'Puede que este vídeo todavía no se haya emparejado con la lección, o que su reproducción esté restringida.';
+  host.innerHTML = `<div style="text-align:center;padding:30px;max-width:360px">
+    <span class="material-symbols-outlined" style="font-size:44px;opacity:.65">videocam_off</span>
+    <div class="sep-poco" style="font-weight:600">Este vídeo no se puede reproducir todavía</div>
+    <div class="tiny" style="opacity:.7;margin-top:4px">${esc(porque)} Avísale a tu profesor o a soporte.</div>
+  </div>`;
+}
+
+/* ── Montar el reproductor de verdad ─────────────────────────────────────── 
+   Aparte de reproductor(), que sólo pinta el hueco: instanciarlo es asíncrono
+   —la API tarda en cargar— y mientras carga la persona puede haber cambiado de
+   lección, así que se comprueba antes de montar nada encima. */
+let ytPlayer = null;
+function limpiarReproductor(){
+  clearInterval(aguaReloj); aguaReloj = null;
+  clearInterval(verReloj); verReloj = null;
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch { /* ya no había nada que destruir */ } }
+  ytPlayer = null;
+}
+
+async function montarReproductor(l){
+  limpiarReproductor();
+  if (!l || l.tipo !== 'video') return;
+
+  if (l.video_id) {
+    let YT;
+    try { YT = await cargarYoutubeAPI(); }
+    catch { avisoSinVideo(null); return; }
+    if (actual?.id !== l.id) return;   // se cambió de lección mientras cargaba
+    const host = $('#ytHost');
+    if (!host) return;
+    /* Cuándo se anota que alguien vio la clase.
+       ────────────────────────────────────────
+       Antes se anotaba en `onReady`, y estaba mal por dos razones distintas:
+
+       · `onReady` sólo dice que el REPRODUCTOR cargó, no que el vídeo exista.
+         Con un identificador inventado dispara igual, y `onError` llega un
+         instante después — así que quedaba registrada como vista una clase que
+         nunca se reprodujo. Lo encontró la propia prueba automática.
+       · Y abrir la página no es ver la clase. Quien entra, mira el título y se
+         va no ha visto nada, y contarlo ensucia justamente el dato que sirve
+         para detectar una contraseña compartida.
+
+       Así que se anota al primer PLAYING de verdad. La bandera `fallo` corta
+       el registro si `onError` dispara, llegue antes o después. */
+    let registrado = false, fallo = false;
+    ytPlayer = new YT.Player(host, {
+      videoId: l.video_id,
+      host: 'https://www.youtube-nocookie.com',
+      width: '100%', height: '100%',
+      playerVars: { rel: 0, modestbranding: 1, iv_load_policy: 3, playsinline: 1, origin: location.origin },
+      events: {
+        // El <iframe> de verdad no existe hasta este momento: la marca de agua
+        // se arranca aquí, no al instanciar el reproductor.
+        onReady: () => marcaDeAgua(),
+        onStateChange: (ev) => {
+          if (fallo) return;
+          jugando = ev.data === YT.PlayerState.PLAYING;
+          if (jugando && !registrado) { registrado = true; registrarQueSeVe(l, true); }
+        },
+        onError: (ev) => { fallo = true; avisoSinVideo(ev.data); },
+      },
+    });
+  } else if (l.url) {
+    marcaDeAgua();
+    registrarQueSeVe(l, false);
+  }
+}
+
 function render(){
+  limpiarReproductor();
   $('#tCurso').textContent = curso?.nombre||'';
+  /* El acceso al repaso rápido. Sólo si el curso tiene alguno: un botón que
+     lleva a una pantalla vacía es peor que no tenerlo. */
+  $('#accionesAula').innerHTML = hayExpress
+    ? `<a class="btn outline" href="express.html?curso=${esc(curso?.id || '')}">
+        <span class="material-symbols-outlined">bolt</span> Repaso express</a>` : '';
   $('#tProg').innerHTML = `${esc(enr.cem_cohorts?.nombre||'')} · ${pct(enr.progreso)} completado`;
   /* item 41 · el rastro dice de dónde vienes y en qué lección estás; el botón
      «Mi panel» de antes no decía nada de eso. */
@@ -347,10 +486,9 @@ function cierreDelCurso(){
   const irEvals = $('#irEvals');
   if (irEvals) irEvals.onclick = () => $('[data-t="evaluaciones"]').click();
 
-  /* El reproductor se repinta entero en cada render, así que la marca de agua y
-     el registro se reenganchan aquí y no una sola vez al cargar. */
-  marcaDeAgua();
-  registrarQueSeVe(l);
+  /* El reproductor se repinta entero en cada render, así que se vuelve a
+     montar aquí y no una sola vez al cargar. */
+  montarReproductor(l);
   const caja = $('#reproductor');
   if (caja) caja.oncontextmenu = (ev) => { ev.preventDefault(); };
 

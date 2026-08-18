@@ -13,33 +13,49 @@
 </head>
 <body>
 <div id="page" class="hidden">
-  <div class="page-head"><div><h1 id="saludo">Hola</h1><p>Este es el resumen de tu actividad académica.</p></div></div>
+  <!-- ── El orden de esta pantalla ────────────────────────────────────────
+       Antes empezaba con cuatro cifras, dos gráficos y la próxima clase, y los
+       cursos quedaban a media pantalla de distancia. Pero un estudiante entra
+       aquí a hacer una cosa: seguir por donde iba. Las cifras y el avance
+       importan —no se quitan— pero importan DESPUÉS, cuando ya se decidió qué
+       abrir; puestas primero convierten «continuar mi curso» en algo que hay
+       que buscar.
+
+       Así que los cursos van arriba, y el resumen debajo y plegado. Plegado y
+       no escondido: se abre de un clic y recuerda si se dejó abierto. -->
+  <div class="page-head"><div><h1 id="saludo">Hola</h1>
+    <p>Sigue por donde ibas. Abajo tienes tu avance y tus pagos.</p></div></div>
 
   <div class="card" id="proxima" style="background:linear-gradient(120deg,color-mix(in oklab, var(--primary) 88%, #000),color-mix(in oklab, var(--primary) 62%, var(--secondary)));color:var(--on-primary);border:none"></div>
 
-  <div class="kpis" id="kpis"></div>
+  <h2 class="sec">Mis cursos</h2>
+  <div class="grid g2 tarjetas-elevables" id="cursos"></div>
 
-  <!-- Aquí un gráfico no es para analizar: es para dar ganas de seguir. -->
-  <div class="grid graficos" id="graficos"></div>
+  <details class="filtros-plegables bloque sep-mucho" id="resumen">
+    <summary><span class="material-symbols-outlined">insights</span>
+      Mi avance, mis notas y mis pagos</summary>
 
-  <h2 class="sec sep-mucho">Cursos activos</h2>
-  <div class="grid g2" id="cursos"></div>
+    <div class="kpis" id="kpis"></div>
 
-  <!-- "Así voy": antes se veían los cursos y las evaluaciones sueltas, pero
-       en ninguna parte el promedio ni qué faltaba por presentar. -->
-  <div class="card">
-    <div class="row between"><h2 class="sec">Cómo voy</h2>
-      <span class="tiny muted">promedio, entregas y lo que falta</span></div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Programa</th><th>Avance</th><th>Promedio</th>
-        <th>Evaluaciones</th><th>Lo próximo</th></tr></thead>
-      <tbody id="tbDesempeno"></tbody></table></div>
-  </div>
+    <!-- Aquí un gráfico no es para analizar: es para dar ganas de seguir. -->
+    <div class="grid graficos" id="graficos"></div>
 
-  <div class="grid g2 sep-mucho">
-    <div class="card"><h2 class="sec">Mis evaluaciones</h2><div id="entregas"></div></div>
-    <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
-  </div>
+    <!-- "Así voy": antes se veían los cursos y las evaluaciones sueltas, pero
+         en ninguna parte el promedio ni qué faltaba por presentar. -->
+    <div class="card">
+      <div class="row between"><h2 class="sec">Cómo voy</h2>
+        <span class="tiny muted">promedio, entregas y lo que falta</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Programa</th><th>Avance</th><th>Promedio</th>
+          <th>Evaluaciones</th><th>Lo próximo</th></tr></thead>
+        <tbody id="tbDesempeno"></tbody></table></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card"><h2 class="sec">Mis evaluaciones</h2><div id="entregas"></div></div>
+      <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
+    </div>
+  </details>
 
   <div class="card"><h2 class="sec">Anuncios</h2><div id="anuncios"></div></div>
 </div>
@@ -48,6 +64,19 @@ import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, kpi, nu
          chipNota, vacio, etiqueta, confirmDialog, ok, avisar, mensajeError } from '../assets/app.js?v=2026-08-20';
 import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-20';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+
+/* El resumen arranca plegado, pero si alguien lo abre se queda abierto la
+   próxima vez. Quien mira sus notas todos los días no tiene que abrirlo cada
+   día, y quien sólo entra a ver clase no lo tiene estorbando. */
+const RESUMEN_ABIERTO = 'cemPanelResumen';
+const resumen = $('#resumen');
+if (resumen) {
+  resumen.open = localStorage.getItem(RESUMEN_ABIERTO) === '1';
+  resumen.addEventListener('toggle', () => {
+    localStorage.setItem(RESUMEN_ABIERTO, resumen.open ? '1' : '0');
+  });
+}
+
 if (p) init();
 
 async function init(){
@@ -129,10 +158,11 @@ async function init(){
       </div>
       <div class="row sep">
         ${puertas[e.id]?.abierto === false
-          ? `<a class="btn sm" href="pagos.html?enr=${e.id}">
+          ? `<a class="btn abrir-curso" href="pagos.html?enr=${e.id}">
                <span class="material-symbols-outlined">lock_open</span> Pagar para empezar</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`
-          : `<a class="btn sm" href="clase.html?curso=${e.cem_courses?.id}">Continuar</a>
+          : `<a class="btn abrir-curso" href="clase.html?curso=${e.cem_courses?.id}">
+               <span class="material-symbols-outlined">play_arrow</span> Continuar</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`}
       </div>
       ${puertas[e.id]?.abierto === false ? `<p class="tiny muted sep-poco">
