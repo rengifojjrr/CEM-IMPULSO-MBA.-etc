@@ -63,6 +63,9 @@ La revisión automática falla si alguna pantalla queda con una marca distinta.
   función nueva sin abrir un agujero.
 - [Quién puede ver y tocar qué](docs/politicas-de-acceso.md) — los roles y cómo
   se revisan las políticas de acceso desde la propia plataforma.
+- [Los vídeos y quién puede copiarlos](docs/videos-y-copia.md) — qué impide el
+  reproductor de la casa, qué **no** impide mientras los vídeos vivan en
+  YouTube, y qué haría falta para que un enlace filtrado no sirviera de nada.
 - [Respaldo y restauración](docs/respaldo-y-restauracion.md) — cómo se respalda,
   cómo se restaura y **cómo se comprueba** que la restauración quedó completa.
 - [El entorno de pruebas](docs/entorno-de-pruebas.md) — cómo dejar los datos en

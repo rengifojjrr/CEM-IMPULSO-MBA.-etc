@@ -53,8 +53,11 @@ export default async function correr(navegador) {
     const inicio = await E.evaluate(() => ({
       cortos: document.querySelectorAll('.corto').length,
       iframes: document.querySelectorAll('.corto iframe').length,
+      laminas: document.querySelectorAll('.corto .repro-lamina').length,
+      sinControles: [...document.querySelectorAll('.corto iframe')]
+        .every((f) => (f.src || '').includes('controls=0')),
       contador: document.querySelector('#contador')?.textContent || '',
-      agua: document.querySelector('.agua-corto')?.textContent || '',
+      agua: document.querySelector('.repro-agua')?.textContent || '',
       antes: document.querySelector('#antes')?.disabled,
       luego: document.querySelector('#luego')?.disabled,
     }));
@@ -82,6 +85,15 @@ export default async function correr(navegador) {
     a.comprobar(inicio.agua.includes(yo.nombre) || inicio.agua.includes(yo.email),
       `El vídeo lleva encima quién lo está viendo («${inicio.agua.slice(0, 40)}»)`);
 
+    /* Un corto es MÁS fácil de repartir que una clase larga, así que aquí la
+       interfaz de YouTube estorba todavía más: en la captura que motivó esto
+       se veía el título, el canal y un botón de «Mirar en YouTube» encima de
+       un vídeo por el que alguien había pagado. */
+    a.comprobar(inicio.sinControles,
+      'YouTube va sin sus controles: no enseña el título, el canal ni el botón de irse allí');
+    a.comprobar(inicio.laminas === inicio.iframes && inicio.laminas > 0,
+      `Cada corto lleva su lámina que se come los clics (${inicio.laminas} de ${inicio.iframes})`);
+
     /* Pasar al siguiente. */
     if (donde.cuantos > 1) {
       await E.click('#luego');
@@ -89,6 +101,9 @@ export default async function correr(navegador) {
       const tras = await E.evaluate(() => ({
         contador: document.querySelector('#contador')?.textContent || '',
         iframes: document.querySelectorAll('.corto iframe').length,
+      laminas: document.querySelectorAll('.corto .repro-lamina').length,
+      sinControles: [...document.querySelectorAll('.corto iframe')]
+        .every((f) => (f.src || '').includes('controls=0')),
         antes: document.querySelector('#antes')?.disabled,
       }));
       a.comprobar(tras.contador === `2 de ${donde.cuantos}`,

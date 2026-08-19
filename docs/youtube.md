@@ -234,11 +234,15 @@ llave, y si se filtra, se filtró para siempre.
 | **Marca de agua** | El nombre y el documento del alumno, encima del vídeo, cambiando de sitio cada 8 segundos | Lo único que frena de verdad: la grabación filtrada lleva el nombre de quien la hizo |
 | **Registro de reproducción** | Quién vio qué, cuándo y desde qué IP | Delata contraseñas compartidas: una cuenta desde seis IPs en un día no es una persona estudiando |
 | **El muro de pago** | El identificador del vídeo sólo se entrega a quien pagó, y a nivel de columna en la base | Que el material no salga antes de la puerta |
-| **Reproductor endurecido** | Dominio sin cookies, sin sugerencias al terminar, sin clic derecho, tapadas las esquinas que llevan a YouTube | El despiste del 90% que no es técnico. Contra alguien decidido, nada |
+| **Reproductor de la casa** | A YouTube se le quitan todos los controles y se le pone encima una lámina que se come el ratón: sin ratón encima, YouTube no llega a dibujar su título, su canal ni su «Mirar en YouTube». Los mandos son nuestros | El despiste del 90% que no es técnico. Contra alguien decidido, nada |
 
-La marca de agua va sobre el reproductor, no dentro, así que **desaparece a
-pantalla completa** — es una limitación real del `<iframe>` de YouTube. Por eso
-el registro de reproducción no es un extra: es lo que cubre ese hueco.
+La marca de agua **sigue puesta a pantalla completa**, porque el que se pone a
+pantalla completa es nuestro recuadro y no el `<iframe>` de YouTube. Eso importa:
+el momento de más riesgo —vídeo grande, alguien grabando— era justo el único que
+antes quedaba sin firmar.
+
+Cómo está hecho por dentro y hasta dónde llega, con nombres y archivos, está en
+[Los vídeos y quién puede copiarlos](videos-y-copia.md).
 
 En **Auditoría** está la lista de cuentas con reproducción sospechosa: las que
 aparecen desde tres o más direcciones distintas en el último mes.
@@ -255,6 +259,11 @@ ahora.
 descargar pero no impide una cámara, y se paga todos los meses desde el primer
 día. La marca de agua ataca el problema real —alguien que reparte el curso— y
 sale gratis.
+
+Cloudflare no es la única salida ni la más barata: **Bunny Stream** cobra por GB
+en vez de por minuto y sale en céntimos para este volumen. La comparación de las
+tres opciones, con números y con lo que costaría el cambio en trabajo, está en
+[Los vídeos y quién puede copiarlos](videos-y-copia.md).
 
 
 ---

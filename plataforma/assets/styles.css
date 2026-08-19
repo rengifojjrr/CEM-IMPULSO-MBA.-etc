@@ -2353,3 +2353,85 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
   z-index:2;color:var(--tinta-3);}
 .card.con-exportar > .exportar-tabla:hover{color:var(--tinta);}
 @media print{ .exportar-tabla{display:none!important;} }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL REPRODUCTOR DE LA CASA
+   ═══════════════════════════════════════════════════════════════════════════
+   El <iframe> de YouTube va debajo del todo y sin recibir un solo evento: la
+   lámina de encima se los come, y sin ratón encima YouTube no llega a dibujar
+   su título, su canal ni su botón de «Mirar en YouTube». No los tapamos —no
+   aparecen. */
+.repro{position:relative;width:100%;height:100%;background:#000;overflow:hidden;
+  border-radius:inherit;outline:none;}
+.repro:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.repro-video{position:absolute;inset:0;}
+.repro-video iframe{width:100%!important;height:100%!important;border:0;display:block;}
+.repro-hueco{width:100%;height:100%;}
+
+/* La lámina. Cubre el vídeo entero menos la franja de los mandos, para que la
+   barra se pueda arrastrar sin pelearse con ella. */
+.repro-lamina{position:absolute;inset:0 0 var(--repro-mandos, 52px) 0;z-index:2;
+  cursor:pointer;background:transparent;}
+.repro.compacto{--repro-mandos:44px;}
+
+/* La marca de agua, encima de todo lo del vídeo y por debajo de los mandos.
+   `pointer-events:none` para que no se coma los clics. Va sobre NUESTRO
+   recuadro, así que a pantalla completa sigue puesta. */
+.repro-agua{position:absolute;z-index:3;pointer-events:none;user-select:none;
+  font-size:12px;line-height:1.35;letter-spacing:.02em;
+  color:rgba(255,255,255,.42);text-shadow:0 1px 3px rgba(0,0,0,.85);
+  transition:top .9s ease, left .9s ease;white-space:nowrap;}
+.repro.compacto .repro-agua{font-size:11px;}
+@media(max-width:700px){ .repro-agua{font-size:10px;} }
+
+/* El botón grande del centro: sólo mientras está en pausa. Es el gesto que
+   todo el mundo busca al abrir un vídeo. */
+.repro-grande{position:absolute;z-index:4;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:68px;height:68px;border-radius:var(--r-full);border:none;cursor:pointer;
+  background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;
+  transition:opacity var(--rapido), transform var(--rapido);}
+.repro-grande .material-symbols-outlined{font-size:38px;}
+.repro-grande:hover{background:rgba(0,0,0,.75);transform:translate(-50%,-50%) scale(1.06);}
+.repro.sonando .repro-grande{opacity:0;pointer-events:none;}
+
+/* Los mandos. Siempre visibles: esconderlos y hacer que aparezcan al pasar el
+   ratón obliga a mover el ratón para saber por dónde va el vídeo, y en una
+   tableta directamente no hay ratón que pasar. */
+.repro-mandos{position:absolute;z-index:5;left:0;right:0;bottom:0;
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:linear-gradient(to top, rgba(0,0,0,.86), rgba(0,0,0,.35) 70%, transparent);}
+.repro-btn{border:none;background:transparent;color:#fff;cursor:pointer;
+  width:34px;height:34px;border-radius:var(--r-full);display:grid;place-items:center;flex:none;}
+.repro-btn:hover{background:rgba(255,255,255,.16);}
+.repro-btn:focus-visible{outline:2px solid #fff;outline-offset:1px;}
+.repro-btn .material-symbols-outlined{font-size:21px;}
+.repro.compacto .repro-btn.sec{display:none;}
+.repro.compacto .repro-mandos{padding:6px 8px;gap:6px;}
+
+.repro-barra{position:relative;flex:1;min-width:40px;height:16px;cursor:pointer;
+  display:flex;align-items:center;touch-action:none;}
+.repro-barra::before{content:'';position:absolute;left:0;right:0;height:4px;
+  border-radius:2px;background:rgba(255,255,255,.32);}
+.repro-visto{position:absolute;left:0;height:4px;border-radius:2px;
+  background:var(--primary);width:0;}
+.repro-punto{position:absolute;width:12px;height:12px;border-radius:var(--r-full);
+  background:var(--primary);left:0;transform:translateX(-50%);
+  box-shadow:0 0 0 3px rgba(0,0,0,.35);}
+.repro-barra:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px;}
+
+.repro-tiempo{color:#fff;font-size:var(--t-xs);font-variant-numeric:tabular-nums;
+  flex:none;opacity:.9;}
+.repro.compacto .repro-tiempo{font-size:10px;}
+
+/* A pantalla completa manda nuestro recuadro, no el <iframe>: por eso la marca
+   de agua y los mandos siguen ahí. */
+.repro:fullscreen{width:100vw;height:100vh;border-radius:0;}
+.repro:fullscreen .repro-agua{font-size:15px;}
+
+.repro-sin{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;height:100%;padding:30px;text-align:center;color:#fff;background:#000;}
+.repro-sin .material-symbols-outlined{font-size:44px;opacity:.65;}
+.repro-sin b{font-size:var(--t-sm);}
+.repro-sin span:not(.material-symbols-outlined){font-size:var(--t-xs);opacity:.7;max-width:38ch;}
+
+@media print{ .repro{display:none!important;} }

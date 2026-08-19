@@ -112,7 +112,7 @@ export default async function correr(navegador) {
 
       if (hayVideo) {
         /* La marca de agua: tiene que estar, y tiene que decir quién es. */
-        const agua = await E.locator('#reproductor .agua').first();
+        const agua = await E.locator('#reproductor .repro-agua').first();
         const texto = (await agua.textContent()).trim();
         a.comprobar(texto.length > 3,
           `La clase lleva encima quién la está viendo («${texto.slice(0, 44)}»)`);
@@ -129,7 +129,7 @@ export default async function correr(navegador) {
         /* Que se mueva. Si se quedara quieta, recortarla sería trivial. */
         const sitio1 = await agua.evaluate((el) => el.style.top + '|' + el.style.left);
         const posiciones = await E.evaluate(() => {
-          const el = document.querySelector('#reproductor .agua');
+          const el = document.querySelector('#reproductor .repro-agua');
           const vistas = new Set();
           for (let i = 0; i < 6; i++) {
             el.dispatchEvent(new Event('x'));
@@ -153,8 +153,41 @@ export default async function correr(navegador) {
           'Al terminar no ofrece vídeos de otros canales');
         a.comprobar(src.includes('modestbranding=1'),
           'Y va sin el reclamo de YouTube encima');
-        a.comprobar(await E.locator('#reproductor .tapa-yt').count() === 2,
-          'Las dos esquinas que llevan a YouTube están tapadas');
+
+        /* ── La interfaz de YouTube no llega a dibujarse ──────────────────
+           Es lo que impide que la clase por la que alguien pagó lleve encima
+           un botón para irse a verla gratis. `controls=0` quita su barra, y la
+           lámina de encima se come el ratón, así que YouTube nunca enseña el
+           título, el canal ni «Mirar en YouTube»: no es que se tapen, es que
+           no se dibujan. */
+        a.comprobar(src.includes('controls=0'),
+          'YouTube va sin sus propios controles: los pone la plataforma');
+        a.comprobar(src.includes('disablekb=1'),
+          'Y sin sus atajos de teclado, que incluyen el que abre el vídeo en YouTube');
+        a.comprobar(await E.locator('#reproductor .repro-lamina').count() === 1,
+          'Hay una lámina que se come los clics antes de que lleguen al <iframe>');
+
+        /* Y que los mandos de la casa estén de verdad: quitarle los controles
+           a YouTube sin poner otros dejaría un vídeo que no se puede pausar. */
+        const mandos = await E.evaluate(() =>
+          [...document.querySelectorAll('#reproductor .repro-mandos button')]
+            .map((b) => b.getAttribute('aria-label')));
+        a.comprobar(mandos.length >= 4,
+          `Y en su lugar están los nuestros: ${mandos.join(', ')}`);
+        a.comprobar(await E.locator('#reproductor .repro-barra').count() === 1,
+          'Con su barra para adelantar y retroceder');
+
+        /* La marca de agua tiene que estar POR ENCIMA del vídeo y dentro del
+           recuadro que se va a pantalla completa. Si viviera dentro del
+           <iframe> —donde no se puede escribir— o fuera del recuadro,
+           desaparecería justo cuando más falta hace. */
+        const dentro = await E.evaluate(() => {
+          const rep = document.querySelector('#reproductor .repro');
+          const ag = document.querySelector('#reproductor .repro-agua');
+          return !!(rep && ag && rep.contains(ag));
+        });
+        a.comprobar(dentro,
+          'La marca de agua vive dentro del recuadro que se va a pantalla completa');
 
         /* ── El registro, y por qué aquí no se puede probar del todo ──────
            Se anota al primer PLAYING de verdad, no al abrir la página: entrar,
@@ -222,14 +255,20 @@ export default async function correr(navegador) {
              llamaría el reproductor y se comprueba que quede la fila con la IP
              que pone el servidor. Así el registro no se queda sin probar por
              una limitación del entorno. */
+          /* Se mira la fila de HOY, no «la única fila». El registro guarda una
+             por persona, lección y día —a propósito: así se ve quién ve la
+             misma clase varios días seguidos— y exigir que hubiera una sola
+             hacía que la prueba pasara ayer y fallara hoy sin que nada
+             cambiara. Fallar por el paso de un día no es encontrar un fallo. */
           const aMano = await E.evaluate(async (id) => {
             const m = await import('/plataforma/assets/app.js?v=2026-08-20');
             const { error } = await m.sb.rpc('cem_registrar_reproduccion',
               { p_lesson_id: id, p_segundos: 30 });
             if (error) return { error: error.message };
+            const hoy = new Date().toISOString().slice(0, 10);
             const { data } = await m.sb.from('cem_reproducciones')
-              .select('segundos,ip').eq('lesson_id', id);
-            return { filas: data || [] };
+              .select('segundos,ip,dia').eq('lesson_id', id).eq('dia', hoy);
+            return { filas: data || [], hoy };
           }, real.id);
           a.comprobar(aMano.filas?.length === 1 && aMano.filas[0].segundos >= 30,
             `La función que anota lo visto funciona y guarda los segundos (${
