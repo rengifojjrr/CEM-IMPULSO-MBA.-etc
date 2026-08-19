@@ -31,6 +31,14 @@ derecho no llega hasta él.
 Encima va además una lámina transparente, pero ya sólo para recoger el clic de
 reproducir y pausar.
 
+Queda un momento que nada de eso cubre: **antes del primer play**. Ahí el
+`<iframe>` dibuja su portada —título, canal, botón rojo, «Mirar en YouTube»— sin
+que nadie haya movido el ratón, porque ése es su estado de partida; y es justo
+cuando la pantalla está quieta y todo el mundo la mira. Así que la portada la
+ponemos nosotros, con la imagen del propio vídeo y sin una letra encima. Se
+retira al sonar y vuelve al terminar, que es cuando YouTube sacaría su pantalla
+de final con su logo y su invitación a seguir allí.
+
 > **Cómo se aprendió esto.** Al principio la defensa era la lámina, y se paraba
 > justo antes de la franja de los mandos para no pelearse con la barra de
 > tiempo. Entre su borde y el de los mandos quedaba **un píxel** de vídeo al

@@ -23,7 +23,16 @@
    cruzaba cada vez que se bajaba el ratón a los controles. Un píxel bastaba
    para que saliera todo. Tapar con un rectángulo es un argumento de geometría,
    y la geometría se rompe sola en cuanto alguien cambia un alto.
-   Y sobre esa lámina van los mandos de la casa —reproducir, barra, saltar,
+
+   Queda un momento que nada de eso cubre: ANTES del primer play. Ahí el
+   <iframe> dibuja su portada —título, canal, botón rojo, «Mirar en YouTube»—
+   sin que nadie haya movido el ratón, porque ése es su estado de partida. Y es
+   justo cuando la pantalla está quieta y todo el mundo la mira. Así que la
+   portada la ponemos nosotros, con la imagen del propio vídeo y sin una letra
+   encima; se quita al sonar y vuelve al terminar, que es cuando YouTube sacaría
+   su pantalla de final.
+
+   Y sobre todo eso van los mandos de la casa —reproducir, barra, saltar,
    volumen, pantalla completa y una rueda con velocidad, calidad y subtítulos—
    hablando con el reproductor por su API. Lo que se quitó con los controles de
    YouTube hay que devolverlo: un curso sin poder ir a 1,25× o sin poder subir
@@ -31,7 +40,8 @@
    a YouTube, no la calidad.
 
    ── Lo que esto SÍ consigue ────────────────────────────────────────────────
-   · No se ve el título ni el canal ni el botón de YouTube.
+   · No se ve el título ni el canal ni el botón de YouTube, ni reproduciendo, ni
+     antes de empezar, ni al terminar.
    · No hay menú de compartir ni de copiar el enlace.
    · El clic derecho no ofrece nada.
    · A pantalla completa la marca de agua sigue puesta, porque el que se pone a
@@ -49,7 +59,7 @@
    docs/videos-y-copia.md.
 */
 
-import { $, $$, esc } from './app.js?v=2026-08-21';
+import { $, $$, esc } from './app.js?v=2026-08-21-2';
 
 /* ── La librería de YouTube, una sola vez ─────────────────────────────────
    Se pide siempre a `youtube.com`, no al dominio sin cookies: es la librería
@@ -116,6 +126,7 @@ export async function crearReproductor(host, {
   caja.innerHTML = `
     <div class="repro${compacto ? ' compacto' : ''}" tabindex="0">
       <div class="repro-video"><div class="repro-hueco"></div></div>
+      <img class="repro-tapa" alt="" aria-hidden="true">
       <div class="repro-lamina" aria-hidden="true"></div>
       <div class="repro-agua" aria-hidden="true">${esc(marca)}</div>
       <button type="button" class="repro-grande" data-play aria-label="Reproducir">
@@ -154,12 +165,40 @@ export async function crearReproductor(host, {
      enlace lo saca de otra forma— pero quita el camino de un solo clic. */
   el.oncontextmenu = (ev) => ev.preventDefault();
 
+  /* ── La portada ───────────────────────────────────────────────────────────
+     Quitarle a YouTube los eventos de ratón impide que dibuje su interfaz…
+     mientras reproduce. ANTES del primer play no hace falta ratón ninguno: el
+     <iframe> enseña su portada con el título, el canal, su botón rojo y «Mirar
+     en YouTube» porque ése es su estado inicial, no una reacción a nada. Y ése
+     es justo el momento en que todo el mundo mira la pantalla.
+
+     Así que la portada la ponemos nosotros: la misma imagen del vídeo, sin una
+     letra encima. Se quita en cuanto suena de verdad y vuelve al terminar, que
+     es cuando YouTube sacaría su pantalla de final. */
+  const tapa = $('.repro-tapa', caja);
+  /* La portada tapa desde el primer instante con su propio negro, sin pedir
+     nada. La imagen del vídeo llega después, y sólo si el vídeo existe: pedirla
+     a ciegas dejaba un 404 en la consola por cada lección del catálogo de
+     ejemplo, que llevan identificadores de mentira a la espera del material
+     real. Un error en la consola que se sabe que va a estar es un error que
+     enseña a no mirar la consola. */
+  function ponerImagen() {
+    if (fallo) return;
+    /* `hqdefault` y no `maxresdefault`: la grande sólo existe para los vídeos
+       subidos en alta, y probar primero con ella dejaba un 404 en la consola
+       por cada vídeo antiguo. Se pide una vez, la que siempre está.
+       Viene en 4:3 con bandas negras arriba y abajo; `object-fit:cover` las
+       recorta y deja la imagen llenando el recuadro. */
+    tapa.onerror = () => tapa.removeAttribute('src');   // queda el negro
+    tapa.src = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+  }
+
   let YT;
   try { YT = await cargarYoutubeAPI(); }
   catch { avisar(caja, 'No se pudo cargar el reproductor. Comprueba tu conexión.'); alFallar(null); return null; }
 
   let player = null, sono = false, fallo = false, jugando = false;
-  let relojBarra = null, relojAgua = null, relojLatido = null;
+  let relojBarra = null, relojAgua = null, relojLatido = null, relojPanel = null;
 
   const seguro = (fn, porDefecto = 0) => {
     try { return fn(); } catch { return porDefecto; }
@@ -193,6 +232,9 @@ export async function crearReproductor(host, {
         pintarTiempo();
         pintarMudo();
         aplicarPreferencias();
+        /* Un margen antes de pedir la imagen: si el vídeo no se puede ver,
+           `onError` llega justo después de `onReady` y así no se pide nada. */
+        setTimeout(ponerImagen, 700);
         moverAgua();
         relojAgua = setInterval(moverAgua, 8000);
       },
@@ -201,6 +243,8 @@ export async function crearReproductor(host, {
         jugando = ev.data === YT.PlayerState.PLAYING;
         pintarBoton();
         if (jugando) {
+          /* Ya hay imagen de verdad debajo: fuera la portada. */
+          el.classList.add('arrancado');
           if (!sono) { sono = true; alSonar(); aplicarPreferencias(); }
           clearInterval(relojBarra);
           relojBarra = setInterval(pintarTiempo, 250);
@@ -212,6 +256,9 @@ export async function crearReproductor(host, {
           pintarTiempo();
         }
         if (ev.data === YT.PlayerState.ENDED && repetir) seguro(() => player.playVideo());
+        /* Al terminar, YouTube saca su pantalla de final —con su logo y su
+           invitación a seguir en YouTube—. Vuelve la portada por encima. */
+        else if (ev.data === YT.PlayerState.ENDED) el.classList.remove('arrancado');
       },
       onError: (ev) => {
         fallo = true;
@@ -354,6 +401,11 @@ export async function crearReproductor(host, {
     if (pref.volumen != null) seguro(() => player.setVolume(Number(pref.volumen)));
   }
 
+  /* Cuántas calidades había la última vez que se pintó. Sirve para repintar el
+     panel solo cuando de verdad cambia algo: si se repintara cada segundo a
+     ciegas, arrastrar el volumen sería imposible. */
+  let ultimasCalidades = [];
+
   const grupo = (titulo, clave, ops) => `
     <div class="repro-grupo"><h4>${esc(titulo)}</h4>
       ${ops.map((o) => `<button type="button" class="repro-op${o.on ? ' on' : ''}"
@@ -376,7 +428,13 @@ export async function crearReproductor(host, {
       }))));
     }
 
-    const niveles = (seguro(() => player.getAvailableQualityLevels(), []) || [])
+    /* La calidad SIEMPRE tiene su sitio, aunque todavía no haya nada que
+       elegir. YouTube no dice qué calidades tiene hasta que el vídeo empieza a
+       cargar, y la primera versión de esto se limitaba a no dibujar la sección:
+       quien abría los ajustes antes de darle al play no veía la calidad por
+       ningún lado y concluía, con razón, que no estaba. Decir «todavía no» es
+       información; callar parece una falta. */
+    const niveles = ultimasCalidades = (seguro(() => player.getAvailableQualityLevels(), []) || [])
       .filter((q) => q !== 'auto' && NOMBRE_CALIDAD[q]);
     if (niveles.length) {
       const real = seguro(() => player.getPlaybackQuality(), '') || '';
@@ -387,6 +445,9 @@ export async function crearReproductor(host, {
         ...niveles.map((q) => ({ v: q, t: NOMBRE_CALIDAD[q], on: pedida === q })),
       ]));
       partes.push('<p class="repro-nota">YouTube tiene la última palabra: si tu conexión no da, la baja por su cuenta.</p>');
+    } else {
+      partes.push(`<div class="repro-grupo"><h4>Calidad</h4>
+        <p class="repro-espera">Dale al play y aquí aparecen las calidades de este vídeo.</p></div>`);
     }
 
     partes.push(grupo('Subtítulos', 'subtitulos', [
@@ -428,14 +489,25 @@ export async function crearReproductor(host, {
   const cerrarPanel = () => {
     panel.hidden = true;
     gear.setAttribute('aria-expanded', 'false');
+    clearInterval(relojPanel); relojPanel = null;
   };
   gear.onclick = (ev) => {
     ev.stopPropagation();
-    if (panel.hidden) {
-      panel.hidden = false;
-      gear.setAttribute('aria-expanded', 'true');
-      pintarPanel();
-    } else cerrarPanel();
+    if (!panel.hidden) { cerrarPanel(); return; }
+    panel.hidden = false;
+    gear.setAttribute('aria-expanded', 'true');
+    pintarPanel();
+    /* Con el panel abierto se vigila la lista de calidades: si alguien abre los
+       ajustes y desde ahí le da al play, la sección se rellena sola en cuanto
+       YouTube contesta, sin tener que cerrar y volver a abrir. Sólo se repinta
+       cuando la lista cambia de verdad. */
+    clearInterval(relojPanel);
+    relojPanel = setInterval(() => {
+      if (panel.hidden) { clearInterval(relojPanel); relojPanel = null; return; }
+      const ahora = (seguro(() => player.getAvailableQualityLevels(), []) || [])
+        .filter((q) => q !== 'auto' && NOMBRE_CALIDAD[q]);
+      if (ahora.length !== ultimasCalidades.length) pintarPanel();
+    }, 900);
   };
   panel.addEventListener('click', (ev) => ev.stopPropagation());
   el.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') cerrarPanel(); });
@@ -494,6 +566,7 @@ export async function crearReproductor(host, {
     clearInterval(relojBarra); relojBarra = null;
     clearInterval(relojAgua); relojAgua = null;
     clearInterval(relojLatido); relojLatido = null;
+    clearInterval(relojPanel); relojPanel = null;
   }
 
   return {

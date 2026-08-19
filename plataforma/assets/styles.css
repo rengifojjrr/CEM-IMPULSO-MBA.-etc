@@ -2376,6 +2376,16 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
 .repro-video iframe{width:100%!important;height:100%!important;border:0;display:block;}
 .repro-hueco{width:100%;height:100%;}
 
+/* La portada, encima del <iframe> y debajo de todo lo demás. Existe porque
+   `pointer-events:none` no llega al momento anterior al primer play: ahí el
+   <iframe> dibuja SU portada —título, canal, botón rojo, «Mirar en YouTube»—
+   sin que nadie haya movido el ratón, porque ése es su estado de partida. Y es
+   justo el momento en que todo el mundo está mirando. Así que se tapa con la
+   misma imagen del vídeo, sin una letra encima. */
+.repro-tapa{position:absolute;inset:0;z-index:1;width:100%;height:100%;
+  object-fit:cover;background:#000;display:block;pointer-events:none;}
+.repro.arrancado .repro-tapa{display:none;}
+
 /* La lámina, que ahora sólo sirve para recoger el clic de reproducir y pausar.
    Cubre el recuadro ENTERO. Antes se paraba antes de la franja de los mandos
    —para no pelearse con la barra— y ese hueco era justo el fallo: al pasar el
@@ -2456,6 +2466,8 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
 .repro-op.on{background:rgba(255,255,255,.1);font-weight:600;}
 .repro-op .material-symbols-outlined{font-size:15px;width:15px;flex:none;}
 .repro-nota{margin:6px 2px 0;font-size:10px;line-height:1.35;color:rgba(255,255,255,.55);}
+.repro-espera{margin:0;padding:5px 6px;font-size:11px;line-height:1.35;
+  color:rgba(255,255,255,.6);}
 .repro-vol{padding:2px 6px 4px;}
 .repro-vol input{width:100%;accent-color:#fff;}
 

@@ -74,14 +74,6 @@ const CARPETAS = [
 
 const argumento = process.argv[2] || '';
 const soloRevisar = argumento === '--revisar';
-const version = soloRevisar || !argumento
-  ? new Date().toISOString().slice(0, 10)
-  : argumento;
-
-if (!/^\d{4}-\d{2}-\d{2}$/.test(version)) {
-  console.error(`"${version}" no tiene la forma AAAA-MM-DD.`);
-  process.exit(1);
-}
 
 const paginas = [];
 for (const patron of CARPETAS) {
@@ -89,18 +81,18 @@ for (const patron of CARPETAS) {
 }
 paginas.sort();
 
+/* Primero se LEE todo, y después se decide la marca. Al revés no se puede:
+   para elegir una marca que sirva hay que saber cuál está puesta. */
 const marcas = new Map();   // marca encontrada -> páginas que la usan
 const sinMarca = [];
-let conCompartidos = 0;
-let tocadas = 0;
-
+const archivos = [];
 for (const pagina of paginas) {
   const ruta = join(RAIZ, pagina);
   const original = await readFile(ruta, 'utf8');
   let referencias = 0;
-
-  const nuevo = original.replace(COMPARTIDOS, (_, archivo, marca) => {
+  for (const trozo of original.matchAll(COMPARTIDOS)) {
     referencias++;
+    const marca = trozo[2];
     if (marca) {
       const v = marca.slice(3);
       if (!marcas.has(v)) marcas.set(v, []);
@@ -108,14 +100,44 @@ for (const pagina of paginas) {
     } else {
       sinMarca.push(pagina);
     }
-    return `${archivo}?v=${version}`;
-  });
+  }
+  if (referencias) archivos.push({ ruta, original });   // el resto no usa los compartidos
+}
+const conCompartidos = archivos.length;
 
-  if (!referencias) continue;   // una pantalla que no usa los compartidos
-  conCompartidos++;
-  if (!soloRevisar && nuevo !== original) {
-    await writeFile(ruta, nuevo);
-    tocadas++;
+/* La marca es la fecha de hoy, pero tiene que ser distinta de la que ya está o
+   no sirve para nada: publicar dos veces el mismo día dejaba la misma dirección
+   y el navegador se quedaba tan tranquilo con la copia vieja — que es
+   exactamente lo que esta herramienta viene a impedir. Cuando la fecha ya está
+   usada se le añade un contador: 2026-08-19-2.
+
+   Y nunca se retrocede: si la marca puesta es de una fecha posterior a hoy
+   —porque se marcó a mano, o porque el reloj de la máquina va atrasado—, se
+   parte de ella. Una marca «más vieja» funcionaría igual, pero leer el
+   historial al revés confunde a cualquiera. */
+function marcaLibre() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const puestas = [...marcas.keys()].sort();
+  const mayor = (puestas[puestas.length - 1] || '').slice(0, 10);
+  const base = mayor > hoy ? mayor : hoy;
+  const usadas = new Set(puestas);
+  if (!usadas.has(base)) return base;
+  for (let n = 2; n < 1000; n++) if (!usadas.has(`${base}-${n}`)) return `${base}-${n}`;
+  return `${base}-${Date.now() % 100000}`;
+}
+
+const version = soloRevisar ? '' : (argumento || marcaLibre());
+
+if (!soloRevisar && !/^\d{4}-\d{2}-\d{2}(-\d+)?$/.test(version)) {
+  console.error(`"${version}" no tiene la forma AAAA-MM-DD (o AAAA-MM-DD-N).`);
+  process.exit(1);
+}
+
+let tocadas = 0;
+if (!soloRevisar) {
+  for (const { ruta, original } of archivos) {
+    const nuevo = original.replace(COMPARTIDOS, (_, archivo) => `${archivo}?v=${version}`);
+    if (nuevo !== original) { await writeFile(ruta, nuevo); tocadas++; }
   }
 }
 
