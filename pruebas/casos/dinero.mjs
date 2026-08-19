@@ -145,7 +145,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-4');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -306,6 +306,50 @@ export default async function correr(navegador) {
   const vuelto = await leerSaldo();
   a.comprobar(vuelto === antes,
     `Mandarlo a la papelera devuelve el saldo a como estaba (${vuelto.trim()})`);
+
+  /* ============ el catálogo reflejado en Stripe ============
+     Cada programa se refleja como PRODUCTO en Stripe al guardarlo. Producto y
+     no precio: lo que alguien debe sale de aquí —descuentos, cuotas, lo ya
+     abonado, la tasa BCV— y un precio en Stripe sería una segunda verdad sobre
+     el dinero. Lo que se comprueba entonces no es que los importes coincidan
+     (no tienen por qué) sino que el reflejo exista y no se haya quedado a
+     medias. */
+  const stripe = await A.evaluate(async () => {
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+    const { data, error } = await m.sb.from('cem_courses')
+      .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
+      .limit(200);
+    if (error) return { error: error.message };
+    const pub = (data || []).filter((c) => c.estado === 'publicado');
+    return {
+      publicados: pub.length,
+      sinProducto: pub.filter((c) => !c.stripe_product_id).map((c) => c.nombre),
+      conError: (data || []).filter((c) => c.stripe_sync_error)
+        .map((c) => `${c.nombre}: ${c.stripe_sync_error}`),
+    };
+  });
+  a.comprobar(!stripe.error && stripe.publicados > 0,
+    `Hay programas publicados que reflejar (${stripe.publicados ?? stripe.error})`);
+  a.comprobar(stripe.sinProducto?.length === 0,
+    `Todo programa publicado tiene su producto en Stripe${
+      stripe.sinProducto?.length ? `: falta ${stripe.sinProducto.slice(0, 3).join(', ')}` : ''}`);
+  /* El error se enseña, no se traga: si Stripe rechazó algo —una imagen que no
+     es pública, un nombre vacío— tiene que salir por aquí y no descubrirse el
+     día que alguien intente cobrar. */
+  a.comprobar(stripe.conError?.length === 0,
+    `Y ninguno se quedó con un error de Stripe sin resolver${
+      stripe.conError?.length ? `: ${stripe.conError.slice(0, 2).join(' · ')}` : ''}`);
+
+  /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
+     Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
+  const fiscales = await A.evaluate(async () => {
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+    const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
+    return { data, error: error?.message };
+  });
+  a.comprobar(fiscales.data === 'txcd_20060045',
+    `Una clase en vivo se declara como formación en directo, no como curso grabado (${
+      fiscales.data ?? fiscales.error})`);
 
   a.comprobar(A.errores.length === 0,
     `La bandeja de pagos no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);

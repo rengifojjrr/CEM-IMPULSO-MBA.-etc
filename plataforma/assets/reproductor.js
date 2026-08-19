@@ -59,7 +59,7 @@
    docs/videos-y-copia.md.
 */
 
-import { $, $$, esc } from './app.js?v=2026-08-21-4';
+import { $, $$, esc } from './app.js?v=2026-08-21-6';
 
 /* ── La librería de YouTube, una sola vez ─────────────────────────────────
    Se pide siempre a `youtube.com`, no al dominio sin cookies: es la librería
@@ -185,7 +185,14 @@ export async function crearReproductor(host, {
      enseña a no mirar la consola. */
   const miniatura = (cual) => `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/${cual}.jpg`;
   function ponerImagen() {
-    if (fallo) return;
+    if (fallo || tapa.getAttribute('src')) return;
+    /* No se pide la miniatura hasta saber que el vídeo EXISTE, y eso se sabe
+       porque YouTube ya dio su título. Antes se esperaba un plazo fijo y se
+       pedía; con los identificadores de relleno del catálogo de ejemplo, el
+       plazo se agotaba antes de que llegara el error y quedaba un 404 en la
+       consola por cada lección sin vídeo real. Un plazo es una carrera, no una
+       comprobación. */
+    if (!seguro(() => player.getVideoData()?.title, '')) return;
     /* Se pide `oardefault`, que es la miniatura con la proporción ORIGINAL del
        vídeo. Importa para el vídeo vertical: `hqdefault` viene siempre en 4:3
        con el vertical encajado en una columna estrecha entre dos franjas
@@ -210,7 +217,13 @@ export async function crearReproductor(host, {
       tapa.dataset.respaldo = '1';
       tapa.src = miniatura('hqdefault');
     };
-    tapa.src = miniatura('oardefault');
+    /* `oardefault` sólo en el marco vertical, que es donde hace falta.
+       Se creía que existía siempre —devolviendo un sello de 120×90 para los
+       apaisados— y no: para muchos vídeos de 16:9 contesta 404. Pedirla a todos
+       dejaba un error en la consola por cada clase normal, y un error que se
+       sabe que va a estar es un error que enseña a no mirar la consola.
+       `hqdefault` existe para todos, y en un marco 16:9 recorta bien. */
+    tapa.src = miniatura(compacto ? 'oardefault' : 'hqdefault');
   }
 
   let YT;
@@ -260,6 +273,9 @@ export async function crearReproductor(host, {
       },
       onStateChange: (ev) => {
         if (fallo) return;
+        // En cuanto YouTube da señales de vida sabe ya el título, así que es el
+        // momento de poner la portada — y no antes, a ciegas y con un plazo.
+        ponerImagen();
         jugando = ev.data === YT.PlayerState.PLAYING;
         pintarBoton();
         if (jugando) {

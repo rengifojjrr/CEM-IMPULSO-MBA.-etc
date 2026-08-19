@@ -2,7 +2,7 @@
 
    Tres cosas que se rompieron antes y no queremos que vuelvan a romperse:
 
-   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-4) y lo montan
+   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-6) y lo montan
       dos pantallas distintas. Si alguien toca una y no la otra, se separan.
    2. Los fondos ya no viajan incrustados en la configuración (eran 15 MB por
       abrir la pantalla): están en el almacenamiento y se piden con CORS. Sin

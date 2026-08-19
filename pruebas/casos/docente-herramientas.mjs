@@ -171,9 +171,17 @@ export default async function correr(navegador) {
   a.comprobar(cajon.usos === 2, `Se cuenta cuántas veces se usa, para ordenar el cajón (${cajon.usos})`);
 
   /* ============ 5 · la vista previa del aula (mejora 20) ============ */
+  /* Un programa que TENGA temario. Antes se cogía el primero que devolviera la
+     base, sin ordenar, y el día que ese primero resultó ser un programa con
+     módulos pero sin lecciones la prueba dijo que la vista previa no enseñaba
+     el temario. La vista previa estaba bien; el programa estaba vacío.
+     Elegir a ciegas la fila que toque es pedirle a la prueba que adivine. */
   const curso = await conLaBase(D, async (sb) => {
-    const { data } = await sb.from('cem_courses').select('id,nombre').limit(1).maybeSingle();
-    return data;
+    const { data } = await sb.from('cem_modules')
+      .select('course_id, cem_lessons(id), cem_courses(id,nombre)')
+      .limit(200);
+    const conTemario = (data || []).find((m) => (m.cem_lessons || []).length > 0);
+    return conTemario?.cem_courses || null;
   });
 
   if (curso) {

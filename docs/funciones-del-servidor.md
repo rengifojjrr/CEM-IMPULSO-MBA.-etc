@@ -62,6 +62,9 @@ como las demás funciones. Son el vocabulario de permisos de todo el sistema:
 | Función | Qué decide |
 |---|---|
 | `cem_reportar_pago(...)` | El estudiante avisa que pagó. Rechaza una referencia repetida: dos reportes del mismo pago abonarían dos veces la cuota. |
+| `cem_stripe_producto_reflejar(curso)` | Manda el curso a Stripe como **producto**, no como precio. Se llama sola al guardar el curso. El identificador lo elegimos nosotros (`cem_<uuid>`), así no hay que esperar la respuesta para saber qué producto es cada curso. |
+| `cem_stripe_sync_revisar()` | Recoge lo que Stripe contestó a cada reflejo, cada minuto. Sin esto la pantalla diría «sincronizado» por haber mandado la petición. Se cura sola: si crear falló porque ya existía, lo apunta; si actualizar falló porque no existe, lo vuelve a crear. |
+| `cem_stripe_codigo_fiscal(modalidad)` | El código fiscal que Stripe exige, deducido de la modalidad. Un desplegable más es un desplegable que se rellena mal. |
 | `cem_aprobar_pago(pago, nota)` | Da el pago por bueno y abona la cuota. Sólo cobranza para arriba. |
 | `cem_aprobar_pago_multi(pago, nota)` | Igual, cuando el pago cubre varias cuotas. |
 | `cem_rechazar_pago(pago, motivo)` | Exige motivo: el estudiante lo va a leer. |

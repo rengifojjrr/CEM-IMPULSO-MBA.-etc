@@ -65,6 +65,15 @@ Y cuando se vaya a cobrar de verdad: claves `pk_live_`/`sk_live_`, un webhook
 nuevo en modo real —el secreto es distinto— y pasar el modo a `real` desde la
 pantalla, que comprueba que la clave y el modo coincidan.
 
+**Ojo con el catálogo al pasar a real:** los productos de Stripe viven en un
+modo o en el otro. Los ocho de ahora son de prueba; en real hay que volver a
+reflejarlos. Se hace de una vez:
+
+```sql
+update cem_courses set stripe_product_id = null;   -- olvida los de prueba
+select cem_stripe_producto_reflejar(id) from cem_courses;
+```
+
 ### 1.4 · 17 lecciones con vídeo de mentira
 
 De las 53 lecciones que hay, **17 llevan identificadores de relleno** (`DEMO…`)

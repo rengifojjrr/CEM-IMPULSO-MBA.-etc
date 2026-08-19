@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     // pagar un euro por una de mil.
     const { data: cuota } = await admin
       .from('cem_installments')
-      .select('id, monto, saldo, moneda, estado, numero, enrollment_id, cem_enrollments(profile_id, cem_courses(nombre))')
+      .select('id, monto, saldo, moneda, estado, numero, enrollment_id, cem_enrollments(profile_id, cem_courses(nombre, stripe_product_id))')
       .eq('id', installment_id)
       .maybeSingle();
 
@@ -68,8 +68,26 @@ Deno.serve(async (req) => {
     // en dos sitios distintos es como se cuela un céntimo que nadie encuentra.
     const centimos = Math.round(saldo * 100);
     const moneda = String(cuota.moneda || 'EUR').toLowerCase();
-    const curso = (cuota as Record<string, any>).cem_enrollments?.cem_courses?.nombre || 'Programa';
+    const cursoFila = (cuota as Record<string, any>).cem_enrollments?.cem_courses;
+    const curso = cursoFila?.nombre || 'Programa';
     const origen = volver_a || req.headers.get('origin') || '';
+
+    // El curso tiene su propio producto en Stripe, reflejado desde la base. Al
+    // cobrar contra ÉL —y no contra un nombre suelto— Stripe informa por curso
+    // en vez de por una lista de líneas de texto, la página de pago enseña la
+    // imagen y la descripción del programa, y el código fiscal viaja puesto.
+    //
+    // El importe lo sigue poniendo la plataforma: el producto no lleva precio, y
+    // aquí se cobra el saldo de ESTA cuota. Es a propósito — un precio en Stripe
+    // sería una segunda verdad sobre el dinero, y la primera es la de aquí.
+    //
+    // Y si el curso todavía no tiene producto —porque se acaba de crear y el
+    // reflejo va por libre— se cae al nombre de siempre. Un cobro no se pierde
+    // por un adorno de catálogo.
+    const producto: string | null = cursoFila?.stripe_product_id || null;
+    const linea = producto
+      ? { 'line_items[0][price_data][product]': producto }
+      : { 'line_items[0][price_data][product_data][name]': `${curso} — cuota ${cuota.numero ?? ''}`.trim() };
 
     const cuerpo = new URLSearchParams({
       mode: 'payment',
@@ -88,7 +106,11 @@ Deno.serve(async (req) => {
       'line_items[0][quantity]': '1',
       'line_items[0][price_data][currency]': moneda,
       'line_items[0][price_data][unit_amount]': String(centimos),
-      'line_items[0][price_data][product_data][name]': `${curso} — cuota ${cuota.numero ?? ''}`.trim(),
+      ...linea,
+      // Qué cuota es, para quien mire el cobro en Stripe y no tenga la base
+      // delante. Va en la descripción del cobro y no en el nombre del producto,
+      // que ahora es el del curso y es el que agrupa el informe.
+      'payment_intent_data[description]': `${curso} — cuota ${cuota.numero ?? ''}`.trim(),
       success_url: `${origen}?pago=ok`,
       cancel_url: `${origen}?pago=cancelado`,
       client_reference_id: String(cuota.id),

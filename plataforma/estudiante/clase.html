@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-6">
 <style>
   .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:var(--aire);}
   .aula > *{min-width:0;}
@@ -79,10 +79,10 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota, money,
          mensajeError, modal, avisar, ocupado, download, imprimirDocumento,
-         idDeYoutube } from '../assets/app.js?v=2026-08-21-4';
-import { profile } from '../assets/app.js?v=2026-08-21-4';
-import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-21-4';
-import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-4';
+         idDeYoutube } from '../assets/app.js?v=2026-08-21-6';
+import { profile } from '../assets/app.js?v=2026-08-21-6';
+import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-21-6';
+import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-6';
 
 /* ── quién está mirando ────────────────────────────────────────────────────
    Esta pantalla la abren dos personas distintas. Un estudiante viene a dar su
@@ -288,8 +288,19 @@ function pintarIndice(){
       }).join('')}
     </div>`;
   }).join('');
+  /* «No hay lecciones» y «tu filtro no encuentra ninguna» son dos cosas
+     distintas y hasta ahora decían lo mismo: a quien entraba en un programa
+     todavía sin temario se le contestaba «ninguna lección coincide con eso»,
+     sin que hubiera buscado nada. Se queda mirando una página vacía sin saber
+     si le falta algo a él o al curso. */
   const aviso = $('#sinResultados');
-  if (aviso) aviso.hidden = visibles > 0;
+  if (aviso) {
+    const hayTemario = mods.some((m) => m.cem_lessons.length > 0);
+    aviso.hidden = visibles > 0;
+    aviso.textContent = hayTemario
+      ? 'Ninguna lección coincide con eso.'
+      : 'Este programa todavía no tiene lecciones publicadas. En cuanto se suban, aparecen aquí.';
+  }
   $$('#indice [data-l]').forEach(el=>el.onclick=()=>{
     actual = mods.flatMap(m=>m.cem_lessons).find(l=>l.id===el.dataset.l); render();
   });

@@ -50,14 +50,26 @@ export default async function correr(navegador) {
     'El aviso aparece en el tablón al momento');
 
   /* ============ el estudiante lo ve y responde ============ */
+  /* A qué curso hay que mandar al estudiante: al del grupo donde ACABA de
+     publicar el profesor, no al primero que aparezca en su panel.
+
+     Antes se cogía el primer enlace a `clase.html` del panel, y eso funcionaba
+     mientras el alumno de prueba tuviera un solo curso. Con varios —y con uno
+     de ellos sin lecciones— el enlace caía en otro sitio, el tablón salía vacío
+     y la prueba acusaba al tablón de un fallo que era suyo. */
+  const cursoDelAviso = await D.evaluate(() => {
+    const sel = document.querySelector('#selCurso');
+    return sel?.selectedOptions?.[0]?.dataset?.curso || null;
+  });
+  a.comprobar(!!cursoDelAviso,
+    `Se sabe de qué programa es el grupo donde se publicó (${cursoDelAviso || 'NO SE PUDO LEER'})`);
+
   const E = await nuevaPestana(navegador, { ancho: 1300, alto: 1000 });
   await entrar(E, 'estudiante', 'estudiante/panel.html');
   await E.waitForTimeout(2500);
-  const enlace = await E.evaluate(() =>
-    document.querySelector('a[href*="clase.html"]')?.getAttribute('href'));
 
-  if (enlace) {
-    await E.goto(`${BASE}/plataforma/estudiante/${enlace.replace(/^\.\//, '')}`,
+  if (cursoDelAviso) {
+    await E.goto(`${BASE}/plataforma/estudiante/clase.html?curso=${cursoDelAviso}`,
       { waitUntil: 'domcontentloaded' });
     await E.waitForSelector('#tabs button', { timeout: 25000 });
     /* El aula abre por la pestaña de dudas —que es de la lección que se está
