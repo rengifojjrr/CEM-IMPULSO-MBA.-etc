@@ -177,6 +177,48 @@ export default async function correr(navegador) {
         a.comprobar(await E.locator('#reproductor .repro-barra').count() === 1,
           'Con su barra para adelantar y retroceder');
 
+        /* ── La rueda de ajustes ──────────────────────────────────────────
+           Al quitarle sus controles a YouTube se le quitó también la calidad y
+           la velocidad, que son cosas que se usan para estudiar. Vuelven en un
+           panel propio.
+
+           Lo que NO se puede medir aquí es la CALIDAD. YouTube rechaza el
+           «embed» desde localhost, el vídeo nunca carga y
+           `getAvailableQualityLevels()` devuelve la lista vacía — igual que le
+           pasaría a cualquiera antes de darle al play. Que esa sección no
+           aparezca cuando no hay nada que ofrecer es justamente lo que se
+           quiere: un selector de calidad vacío sería un mando que miente.
+
+           Lo demás sí se mide, y con el nombre puesto: si mañana alguien
+           quitara la velocidad sin querer, esto lo dice. */
+        await E.click('#reproductor [data-ajustes]');
+        await E.waitForTimeout(400);
+        const panel = await E.evaluate(() => {
+          const p = document.querySelector('#reproductor .repro-panel');
+          return {
+            abierto: !!p && !p.hidden,
+            titulos: [...(p?.querySelectorAll('.repro-grupo h4') || [])].map((h) => h.textContent.trim()),
+            volumen: !!p?.querySelector('[data-vol]'),
+            dentro: !!(p && document.querySelector('#reproductor .repro')?.contains(p)),
+          };
+        });
+        a.comprobar(panel.abierto,
+          'La rueda de ajustes abre su panel');
+        a.comprobar(['Velocidad', 'Subtítulos', 'Volumen'].every((t) => panel.titulos.includes(t)),
+          `Con velocidad, subtítulos y volumen (${panel.titulos.join(', ') || 'nada'})`);
+        a.comprobar(!panel.titulos.includes('Calidad'),
+          'Y sin sección de calidad, porque aquí el vídeo no llega a cargar y YouTube no ofrece ninguna: un selector vacío sería un mando que miente');
+        a.comprobar(panel.dentro,
+          'Y vive dentro del recuadro, así que a pantalla completa sigue estando');
+
+        /* Tocar el vídeo cierra el panel. Antes de esto, el mismo clic lo
+           cerraba Y pausaba, que es castigar el gesto de descartar un menú. */
+        await E.click('#reproductor .repro-lamina', { position: { x: 40, y: 40 } });
+        await E.waitForTimeout(300);
+        a.comprobar(await E.evaluate(() =>
+          !!document.querySelector('#reproductor .repro-panel')?.hidden),
+        'Y se cierra al tocar el vídeo');
+
         /* La marca de agua tiene que estar POR ENCIMA del vídeo y dentro del
            recuadro que se va a pantalla completa. Si viviera dentro del
            <iframe> —donde no se puede escribir— o fuera del recuadro,

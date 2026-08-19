@@ -28,9 +28,33 @@ No es que la tapemos con un parche que se pueda quitar; es que no se llega a
 dibujar.
 
 Encima de la lámina van los mandos de la casa —reproducir, barra de tiempo,
-±10 segundos, silenciar, pantalla completa— hablando con el reproductor por su
-API. Para quien mira, el vídeo se comporta como cualquier reproductor. Lo que no
-aparece por ningún lado es el camino a YouTube.
+±10 segundos, silenciar, ajustes y pantalla completa— hablando con el
+reproductor por su API. Para quien mira, el vídeo se comporta como cualquier
+reproductor. Lo que no aparece por ningún lado es el camino a YouTube.
+
+Detrás de la rueda dentada están **velocidad** (de 0,25× a 2×), **calidad**,
+**subtítulos** y **volumen**. Estaban en el menú de YouTube que se quitó, y
+quitarlos no era el objetivo: el objetivo era el botón que llevaba a YouTube.
+Lo que se elige se recuerda en el navegador, así que quien estudia a 1,25× no
+tiene que volver a ponerlo en cada lección.
+
+Dos decisiones ahí que conviene saber:
+
+- **La calidad es una petición, no una orden.** YouTube sirve el vídeo por
+  tramos y elige el tramo según la conexión de cada uno; si no da, la baja por
+  su cuenta y no avisa. Por eso el panel enseña la calidad que hay puesta de
+  verdad y no la que se pidió, y lo dice con palabras. Un selector que jurara
+  «1080p» mientras se ve 480p sería peor que no tener selector. Si YouTube no
+  ofrece ninguna calidad todavía —porque el vídeo aún no ha empezado a
+  cargar—, la sección no aparece en vez de aparecer vacía.
+- **Los subtítulos no se apagan solos.** Quien los lleva puestos en YouTube
+  puede necesitarlos, y apagárselos de oficio sería quitarle una ayuda sin
+  preguntarle. Hay tres opciones —como los tenga en YouTube, activados,
+  desactivados— y sólo mandamos sobre YouTube cuando alguien elige.
+
+En los cortos del Aprendizaje Express los mandos van reducidos —sólo
+reproducir, barra y tiempo— igual que ya iban sin silenciar ni pantalla
+completa: son clips de un minuto en vertical y la barra no da para más.
 
 Resultado, punto por punto:
 

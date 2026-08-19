@@ -14,7 +14,11 @@
    cualquier clic y cualquier paso del ratón. Sin ratón encima, YouTube no
    enseña nunca su interfaz: no es que la tapemos, es que no llega a dibujarla.
    Y sobre esa lámina van los mandos de la casa —reproducir, barra, saltar,
-   volumen, pantalla completa— hablando con el reproductor por su API.
+   volumen, pantalla completa y una rueda con velocidad, calidad y subtítulos—
+   hablando con el reproductor por su API. Lo que se quitó con los controles de
+   YouTube hay que devolverlo: un curso sin poder ir a 1,25× o sin poder subir
+   la calidad es peor curso, y el motivo para quitarlos era el botón que llevaba
+   a YouTube, no la calidad.
 
    ── Lo que esto SÍ consigue ────────────────────────────────────────────────
    · No se ve el título ni el canal ni el botón de YouTube.
@@ -120,9 +124,13 @@ export async function crearReproductor(host, {
         <span class="repro-tiempo">0:00 / 0:00</span>
         <button type="button" class="repro-btn sec" data-mudo aria-label="Silenciar">
           <span class="material-symbols-outlined">volume_up</span></button>
+        <button type="button" class="repro-btn sec" data-ajustes aria-label="Ajustes"
+                aria-haspopup="dialog" aria-expanded="false">
+          <span class="material-symbols-outlined">settings</span></button>
         <button type="button" class="repro-btn sec" data-pantalla aria-label="Pantalla completa">
           <span class="material-symbols-outlined">fullscreen</span></button>
       </div>
+      <div class="repro-panel" role="dialog" aria-label="Ajustes del vídeo" hidden></div>
     </div>`;
 
   const el = $('.repro', caja);
@@ -173,6 +181,8 @@ export async function crearReproductor(host, {
       onReady: () => {
         if (empezarEn > 0) seguro(() => player.seekTo(empezarEn, true));
         pintarTiempo();
+        pintarMudo();
+        aplicarPreferencias();
         moverAgua();
         relojAgua = setInterval(moverAgua, 8000);
       },
@@ -181,7 +191,7 @@ export async function crearReproductor(host, {
         jugando = ev.data === YT.PlayerState.PLAYING;
         pintarBoton();
         if (jugando) {
-          if (!sono) { sono = true; alSonar(); }
+          if (!sono) { sono = true; alSonar(); aplicarPreferencias(); }
           clearInterval(relojBarra);
           relojBarra = setInterval(pintarTiempo, 250);
           clearInterval(relojLatido);
@@ -243,14 +253,23 @@ export async function crearReproductor(host, {
   /* La lámina también reproduce y pausa: es lo que se espera al pulsar sobre
      un vídeo, y como se come el clic antes de que llegue a YouTube, ese gesto
      no abre nada. */
-  $('.repro-lamina', caja).onclick = alternar;
+  $('.repro-lamina', caja).onclick = () => {
+    /* Con el panel de ajustes abierto, tocar el vídeo lo cierra y nada más:
+       pausar además sería castigar el gesto de descartar un menú. */
+    if (!panel.hidden) { cerrarPanel(); return; }
+    alternar();
+  };
 
   const mudo = $('[data-mudo]', caja);
+  function pintarMudo() {
+    const callado = seguro(() => player.isMuted(), false) || seguro(() => player.getVolume(), 100) === 0;
+    mudo.querySelector('.material-symbols-outlined').textContent = callado ? 'volume_off' : 'volume_up';
+    mudo.setAttribute('aria-label', callado ? 'Quitar el silencio' : 'Silenciar');
+  }
   mudo.onclick = () => {
     const callado = seguro(() => player.isMuted(), false);
     seguro(() => (callado ? player.unMute() : player.mute()));
-    mudo.querySelector('.material-symbols-outlined').textContent = callado ? 'volume_up' : 'volume_off';
-    mudo.setAttribute('aria-label', callado ? 'Silenciar' : 'Quitar el silencio');
+    pintarMudo();
   };
 
   /* Pantalla completa la pide NUESTRO recuadro, no el <iframe>. Es la
@@ -267,6 +286,149 @@ export async function crearReproductor(host, {
       dentro ? 'fullscreen_exit' : 'fullscreen';
     pantalla.setAttribute('aria-label', dentro ? 'Salir de pantalla completa' : 'Pantalla completa');
   });
+
+  /* ── ajustes: velocidad, calidad, subtítulos y volumen ──────────────────
+     Al quitarle a YouTube sus controles se le quitó también su rueda dentada,
+     y con ella la calidad y la velocidad. Aquí vuelven, pero puestas por
+     nosotros y sin la puerta a YouTube que traía aquel menú.
+
+     Una advertencia sobre la calidad, porque es la que se malinterpreta:
+     `setPlaybackQuality` es una PETICIÓN, no una orden. YouTube sirve el vídeo
+     por tramos y decide el tramo según la conexión de cada uno; si no da, baja
+     la calidad por su cuenta y no avisa. Por eso el panel no enseña lo que se
+     pidió sino lo que hay puesto de verdad (`getPlaybackQuality`), y lo dice
+     con palabras. Un selector que jurara «1080p» mientras se está viendo 480p
+     sería peor que no tenerlo.
+
+     La lista de calidades tampoco existe hasta que el vídeo ha empezado a
+     cargar, así que el panel se construye cada vez que se abre y no una sola
+     vez al montar. */
+  const panel = $('.repro-panel', caja);
+  const gear = $('[data-ajustes]', caja);
+
+  const NOMBRE_CALIDAD = {
+    highres: 'Máxima', hd2160: '2160p', hd1440: '1440p', hd1080: '1080p',
+    hd720: '720p', large: '480p', medium: '360p', small: '240p', tiny: '144p',
+  };
+
+  /* Las preferencias se recuerdan en este navegador: quien estudia a 1,25×
+     no quiere volver a ponerlo en cada lección. */
+  const CLAVE_PREFS = 'cem.repro.prefs';
+  const leerPrefs = () => {
+    try { return JSON.parse(localStorage.getItem(CLAVE_PREFS)) || {}; } catch { return {}; }
+  };
+  const guardarPref = (k, v) => {
+    try { localStorage.setItem(CLAVE_PREFS, JSON.stringify({ ...leerPrefs(), [k]: v })); }
+    catch { /* sin sitio o en modo privado: se pierde la preferencia, nada más */ }
+  };
+
+  /* Los subtítulos NO se apagan por defecto a propósito. Quien los lleva
+     puestos en YouTube puede necesitarlos, y decidir por él sería quitarle una
+     ayuda sin preguntarle. Se ofrecen las tres opciones y sólo mandamos sobre
+     YouTube cuando alguien elige. */
+  const ponerSubtitulos = (v) => {
+    if (v === 'si') seguro(() => player.loadModule('captions'));
+    if (v === 'no') seguro(() => player.unloadModule('captions'));
+  };
+
+  /* Lo que se eligió la última vez se vuelve a poner al abrir la siguiente
+     lección. La velocidad y el volumen agarran en cuanto el reproductor está
+     listo; la calidad y los subtítulos hay que repetirlos cuando el vídeo
+     empieza a sonar, porque antes de eso YouTube todavía no tiene ni la lista
+     de calidades ni el módulo de subtítulos cargado. */
+  function aplicarPreferencias() {
+    const pref = leerPrefs();
+    if (pref.velocidad) seguro(() => player.setPlaybackRate(Number(pref.velocidad)));
+    if (pref.calidad && pref.calidad !== 'default') seguro(() => player.setPlaybackQuality(pref.calidad));
+    if (pref.subtitulos) ponerSubtitulos(pref.subtitulos);
+    if (pref.volumen != null) seguro(() => player.setVolume(Number(pref.volumen)));
+  }
+
+  const grupo = (titulo, clave, ops) => `
+    <div class="repro-grupo"><h4>${esc(titulo)}</h4>
+      ${ops.map((o) => `<button type="button" class="repro-op${o.on ? ' on' : ''}"
+          data-clave="${esc(clave)}" data-valor="${esc(o.v)}">
+          <span class="material-symbols-outlined">${o.on ? 'check' : ''}</span>
+          <span>${esc(o.t)}</span></button>`).join('')}
+    </div>`;
+
+  function pintarPanel() {
+    if (panel.hidden) return;
+    const pref = leerPrefs();
+    const partes = [];
+
+    const ritmos = seguro(() => player.getAvailablePlaybackRates(), []) || [];
+    if (ritmos.length > 1) {
+      const ahora = seguro(() => player.getPlaybackRate(), 1);
+      partes.push(grupo('Velocidad', 'velocidad', ritmos.map((r) => ({
+        v: String(r), t: r === 1 ? 'Normal' : `${String(r).replace('.', ',')}×`,
+        on: Math.abs(r - ahora) < 0.001,
+      }))));
+    }
+
+    const niveles = (seguro(() => player.getAvailableQualityLevels(), []) || [])
+      .filter((q) => q !== 'auto' && NOMBRE_CALIDAD[q]);
+    if (niveles.length) {
+      const real = seguro(() => player.getPlaybackQuality(), '') || '';
+      const pedida = pref.calidad || 'default';
+      partes.push(grupo('Calidad', 'calidad', [
+        { v: 'default', on: pedida === 'default',
+          t: `Automática${NOMBRE_CALIDAD[real] ? ` (${NOMBRE_CALIDAD[real]} ahora)` : ''}` },
+        ...niveles.map((q) => ({ v: q, t: NOMBRE_CALIDAD[q], on: pedida === q })),
+      ]));
+      partes.push('<p class="repro-nota">YouTube tiene la última palabra: si tu conexión no da, la baja por su cuenta.</p>');
+    }
+
+    partes.push(grupo('Subtítulos', 'subtitulos', [
+      { v: 'youtube', t: 'Como los tengas en YouTube', on: !pref.subtitulos || pref.subtitulos === 'youtube' },
+      { v: 'si', t: 'Activados', on: pref.subtitulos === 'si' },
+      { v: 'no', t: 'Desactivados', on: pref.subtitulos === 'no' },
+    ]));
+
+    const vol = seguro(() => Math.round(player.getVolume()), 100);
+    partes.push(`<div class="repro-grupo"><h4>Volumen</h4>
+      <div class="repro-vol"><input type="range" min="0" max="100" value="${vol}"
+        aria-label="Volumen" data-vol></div></div>`);
+
+    panel.innerHTML = partes.join('');
+    $$('.repro-op', panel).forEach((b) => {
+      b.onclick = () => aplicar(b.dataset.clave, b.dataset.valor);
+    });
+    const rango = $('[data-vol]', panel);
+    if (rango) rango.oninput = () => {
+      const v = Number(rango.value);
+      seguro(() => player.setVolume(v));
+      seguro(() => (v === 0 ? player.mute() : player.unMute()));
+      guardarPref('volumen', v);
+      pintarMudo();
+    };
+  }
+
+  function aplicar(clave, valor) {
+    if (clave === 'velocidad') seguro(() => player.setPlaybackRate(Number(valor)));
+    if (clave === 'calidad') seguro(() => player.setPlaybackQuality(valor));
+    if (clave === 'subtitulos') ponerSubtitulos(valor);
+    guardarPref(clave, valor);
+    /* La calidad se repinta un momento después: YouTube tarda en cambiar de
+       tramo, y preguntarle en el acto devolvería todavía la de antes. */
+    if (clave === 'calidad') setTimeout(pintarPanel, 900);
+    else pintarPanel();
+  }
+
+  const cerrarPanel = () => {
+    panel.hidden = true;
+    gear.setAttribute('aria-expanded', 'false');
+  };
+  gear.onclick = (ev) => {
+    ev.stopPropagation();
+    if (panel.hidden) {
+      panel.hidden = false;
+      gear.setAttribute('aria-expanded', 'true');
+      pintarPanel();
+    } else cerrarPanel();
+  };
+  panel.addEventListener('click', (ev) => ev.stopPropagation());
+  el.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') cerrarPanel(); });
 
   /* La barra: pulsar en un punto salta ahí, y arrastrar también. */
   const desdeElRaton = (ev) => {
