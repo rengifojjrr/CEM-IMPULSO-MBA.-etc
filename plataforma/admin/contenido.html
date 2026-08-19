@@ -48,7 +48,8 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, modal, ok, fail, run, audit, qs, confirmDialog,
          abrirSubidaVideo, subirImagenCurso, subirDocumentoLeccion, campoArchivo, opciones,
-         etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, migas } from '../assets/app.js?v=2026-08-20';
+         etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, migas,
+         idDeYoutube } from '../assets/app.js?v=2026-08-20';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'contenido.html', area:'admin' });
 let cursos=[], cursoId=null, mods=[], sel=null, docs=[];
 const ICO_DOC = t => t==='pdf'?'picture_as_pdf':t==='excel'?'table_chart':t==='video'?'play_circle':t==='imagen'?'image':'attach_file';
@@ -88,6 +89,10 @@ async function loadMods(){
     const { data: material } = await sb.rpc('cem_material_lecciones',{ p_ids: ids });
     mods.forEach(m=>m.cem_lessons.forEach(l=>{
       l.url = material?.[l.id]?.url ?? null;
+      /* El vídeo asignado desde «Vídeos del curso» se lee AQUÍ también. Sin
+         esto el editor no sabía que existía: enseñaba el campo del enlace
+         vacío, y al guardar escribía ese vacío encima del enlace bueno. */
+      l.video_id = material?.[l.id]?.video_id ?? null;
       l.contenido = material?.[l.id]?.contenido ?? null;
     }));
   }
@@ -136,6 +141,37 @@ async function cargarDocs(){
   docs = data || [];
 }
 
+/* Una lección puede tener el vídeo por dos caminos: el enlace que se pega aquí
+   y el vídeo que se le asigna en «Vídeos del curso». El aula reproduce el
+   asignado si lo hay, así que cuando los dos no dicen lo mismo hay que decirlo
+   en voz alta: callarlo es lo que hacía que alguien pegara un enlace, viera
+   «Lección guardada» y en el aula saliera otro vídeo. */
+function notaDelVideo(videoAsignado, urlActual){
+  const asignado = videoAsignado || null;
+  const pegado = idDeYoutube(urlActual);
+  if (!asignado) {
+    return pegado ? `<p class="tiny muted" style="margin:6px 0 0">
+      El aula reproducirá el vídeo <code>${esc(pegado)}</code>, sacado de este enlace.</p>` : '';
+  }
+  if (asignado === pegado) {
+    return `<p class="tiny muted" style="margin:6px 0 0">
+      <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;color:var(--ok)">check_circle</span>
+      Vídeo <code>${esc(asignado)}</code>, asignado desde
+      <a href="videos.html?curso=${encodeURIComponent(cursoId)}">Vídeos del curso</a>.</p>`;
+  }
+  if (!pegado) {
+    return `<p class="tiny muted" style="margin:6px 0 0">
+      Esta lección ya tiene el vídeo <code>${esc(asignado)}</code>, asignado desde
+      <a href="videos.html?curso=${encodeURIComponent(cursoId)}">Vídeos del curso</a>.
+      El campo de arriba puede quedarse vacío: el aula usa el asignado.</p>`;
+  }
+  return `<span class="nota warn tiny">
+    El enlace de arriba apunta a <code>${esc(pegado)}</code>, pero la lección tiene
+    asignado <code>${esc(asignado)}</code>. <b>El aula reproduce el asignado.</b>
+    Al guardar se quedará con el enlace de arriba; si el bueno es el asignado,
+    borra el enlace antes de guardar.</span>`;
+}
+
 function renderEditor(){
   if (!sel){ $('#editor').innerHTML = `<div class="card" style="text-align:center;padding:44px">
     <span class="material-symbols-outlined" style="font-size:42px;color:var(--outline)">edit_document</span>
@@ -160,7 +196,8 @@ function renderEditor(){
       <div class="row" style="gap:8px">
         <input id="lUrl" value="${esc(l.url||'')}" placeholder="https://…" style="flex:1">
         <button class="btn outline sm" id="btnSubirVideo" type="button"><span class="material-symbols-outlined">cloud_upload</span> Subir video</button>
-      </div></div>
+      </div>
+      <div id="notaVideo">${notaDelVideo(l.video_id, l.url)}</div></div>
     <div class="field"><label>Documentos adjuntos</label>
       <div id="lDocs" class="stack" style="margin-bottom:8px">${docs.length ? docs.map(d=>`
         <div class="row between" style="padding:6px 8px;border:1px solid var(--outline-variant);border-radius:8px">
@@ -178,11 +215,19 @@ function renderEditor(){
       <button class="btn outline sm" id="btnRev"><span class="material-symbols-outlined">fact_check</span> Enviar a revisión</button>
     </div></div>`;
 
+  /* La nota se rehace mientras se escribe: quien pega un enlace ve en el acto
+     qué va a reproducir el aula, en vez de enterarse después de guardar. */
+  const refrescarNota = () => {
+    const n = $('#notaVideo');
+    if (n) n.innerHTML = notaDelVideo(l.video_id, $('#lUrl').value.trim());
+  };
+  $('#lUrl').oninput = refrescarNota;
   $('#btnSubirVideo').onclick = async () => {
     const resultado = await abrirSubidaVideo({ tituloDefault: l.titulo });
     if (!resultado) return;
     $('#lUrl').value = resultado.embedUrl;
     $('#lTipo').value = 'video';
+    refrescarNota();
     ok('Video subido. Revisa y guarda la lección.');
   };
   $('#btnSubirDoc').onclick = () => $('#lDocArchivo').click();
@@ -205,10 +250,21 @@ function renderEditor(){
     ok('Documento eliminado'); await cargarDocs(); renderEditor();
   });
   $('#btnSave').onclick = async () => {
+    const urlNueva = $('#lUrl').value.trim();
+    /* El enlace y el vídeo asignado se escriben JUNTOS, en la misma sentencia.
+       Separados es como se quedaban en desacuerdo: se pegaba un enlace nuevo,
+       el `video_id` viejo seguía ahí, y el aula reproducía el viejo sin que
+       nadie lo hubiera pedido. Si el enlace no es de YouTube —un PDF, otra
+       plataforma—, `idDeYoutube` devuelve null y el vídeo asignado se quita,
+       que es justo lo que significa cambiar el recurso.
+       Sólo se toca cuando el campo se editó: si no, mandaría el editor sobre
+       lo que se asignó en «Vídeos del curso» con sólo abrir la lección. */
+    const cambio = urlNueva !== (l.url || '');
     await run(sb.from('cem_lessons').update({
       titulo:$('#lT').value.trim(), tipo:$('#lTipo').value, duracion_min:Number($('#lDur').value)||0,
       orden:Number($('#lOrd').value)||0, estado:$('#lEstado').value, descripcion:$('#lDesc').value.trim(),
-      url:$('#lUrl').value.trim()||null, contenido:$('#lCont').value, obligatorio:$('#lObl').checked,
+      url:urlNueva||null, contenido:$('#lCont').value, obligatorio:$('#lObl').checked,
+      ...(cambio ? { video_id: idDeYoutube(urlNueva) } : {}),
     }).eq('id',l.id),'No se pudo guardar');
     await audit('leccion_actualizada','cem_lessons',l.id,'bajo',{titulo:$('#lT').value});
     ok('Lección guardada'); await loadMods();
@@ -294,9 +350,13 @@ function nuevaLeccion(moduleId){
   $('[data-x]',dlg).onclick=dlg.close;
   $('[data-s]',dlg).onclick=async()=>{
     if (!$('#nT',dlg).value.trim()) { fail('Ponle un título a la lección.'); return; }
+    const urlNueva = recurso.valor() || null;
     await run(sb.from('cem_lessons').insert({ module_id:moduleId, titulo:$('#nT',dlg).value.trim(),
       tipo:$('#nTipo',dlg).value, duracion_min:Number($('#nDur',dlg).value)||0,
-      url:recurso.valor()||null, orden:(mod.cem_lessons.length+1), estado:'borrador' }),'No se pudo crear');
+      // Igual que al editar: si el material es un vídeo de YouTube, la lección
+      // nace ya con su identificador y no con el enlace a medias.
+      url:urlNueva, video_id: idDeYoutube(urlNueva),
+      orden:(mod.cem_lessons.length+1), estado:'borrador' }),'No se pudo crear');
     dlg.close(); ok('Lección creada'); loadMods();
   };
 }

@@ -37,7 +37,13 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
  * de verdad la dirección de un `import`, un `href` o un `src`. Si no, el mismo
  * nombre escrito de pasada dentro de un comentario también terminaría con un
  * `?v=…` pegado. */
-const MODULOS = 'app|temas|aula|preguntas';
+/* Todos los módulos que se comparten entre pantallas. Que falte uno no da
+   error: da algo peor. La marca se sube en los que están en esta lista y el que
+   falta se queda con la vieja, así que el navegador baja el app.js nuevo y
+   sigue usando el graficos.js de antes — dos versiones conviviendo, que es
+   justo lo que esta herramienta existe para impedir. Y `--revisar` tampoco lo
+   ve, porque mira con esta misma lista. */
+const MODULOS = 'app|temas|aula|preguntas|apariencia|graficos|reproductor';
 const COMPARTIDOS = new RegExp(
   `(?<=["'(])(` +
     // desde una pantalla: ../assets/app.js, ./assets/styles.css

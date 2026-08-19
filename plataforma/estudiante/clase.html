@@ -78,7 +78,8 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota, money,
-         mensajeError, modal, avisar, ocupado, download, imprimirDocumento } from '../assets/app.js?v=2026-08-20';
+         mensajeError, modal, avisar, ocupado, download, imprimirDocumento,
+         idDeYoutube } from '../assets/app.js?v=2026-08-20';
 import { profile } from '../assets/app.js?v=2026-08-20';
 import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-20';
 import { crearReproductor } from '../assets/reproductor.js?v=2026-08-20';
@@ -325,16 +326,13 @@ async function marcarParaDespues(l){
    Lo que NO hace, y conviene decirlo: esto no impide sacar el enlace ni grabar
    la pantalla. Nada en una página web puede. Lo que sí hace es que cualquier
    grabación salga con el nombre de quien la hizo encima. */
-/* El identificador escondido dentro de un enlace de YouTube pegado a mano.
-   Hace falta porque quien crea una lección pega la dirección que copió del
-   navegador —`youtu.be/…`, `youtube.com/shorts/…`, `watch?v=…`— y ninguna de
-   esas se puede meter dentro de un marco: YouTube lo prohíbe con
-   `X-Frame-Options`, así que la clase se quedaba en negro sin decir por qué.
-   Con el identificador suelto sí se puede, por la misma vía que el resto. */
-function idDeYoutube(url){
-  const m = /(?:youtu\.be\/|\/shorts\/|\/embed\/|[?&]v=)([A-Za-z0-9_-]{11})/.exec(String(url || ''));
-  return m ? m[1] : null;
-}
+/* `idDeYoutube` saca el identificador de un enlace pegado a mano. Hace falta
+   porque quien crea una lección pega la dirección que copió del navegador
+   —`youtu.be/…`, `youtube.com/shorts/…`, `watch?v=…`— y ninguna de esas se
+   puede meter dentro de un marco: YouTube lo prohíbe con `X-Frame-Options`, así
+   que la clase se quedaba en negro sin decir por qué. Con el identificador
+   suelto sí se puede. Vive en app.js porque el editor de contenidos decide con
+   la misma regla. */
 
 function reproductor(l){
   if (l.tipo !== 'video') return '';

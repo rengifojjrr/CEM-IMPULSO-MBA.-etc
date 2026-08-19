@@ -396,6 +396,118 @@ export default async function correr(navegador) {
     `El equipo puede pedir las cuentas con reproducción sospechosa (${anomalias.error || 'sin error'})`);
   await A.close();
 
+  /* ============ 3b · el editor de contenidos no pierde el enlace ============
+     El fallo que esto vigila fue real y silencioso: `cem_material_lecciones`
+     escondía la URL en cuanto la lección tenía un vídeo asignado, y lo hacía
+     también para quien coordina. En Contenidos el campo «URL del recurso»
+     salía vacío aunque en la base hubiera un enlace, y el botón Guardar
+     escribía ese vacío encima. Decía «Lección guardada» mientras borraba.
+
+     Se monta un módulo propio y se borra al terminar: esto no se prueba sobre
+     el contenido de verdad de la casa, que es material que alguien pagó. */
+  const C = await nuevaPestana(navegador, { ancho: 1400, alto: 980 });
+  await entrar(C, 'admin', 'admin/contenido.html');
+  await C.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
+  await C.waitForTimeout(2500);
+
+  const MARCA = '· prueba del editor de vídeo';
+  const URL_PEGADA = 'https://www.youtube.com/watch?v=GOS_HP_F-FY&list=PLtest';
+  const ID_PEGADO = 'GOS_HP_F-FY';
+  const ID_ASIGNADO = 'M7lc1UVf-VE';
+
+  const fixture = await C.evaluate(async ({ marca, url, asignado }) => {
+    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    /* Restos de una pasada anterior: si quedaran, el árbol tendría dos módulos
+       iguales y el clic caería en el que no es. */
+    const { data: viejos } = await m.sb.from('cem_modules').select('id,cem_lessons(id)').eq('titulo', marca);
+    for (const v of viejos || []) {
+      for (const l of v.cem_lessons || []) await m.sb.from('cem_lessons').delete().eq('id', l.id);
+      await m.sb.from('cem_modules').delete().eq('id', v.id);
+    }
+    const { data: cursos } = await m.sb.from('cem_courses').select('id,nombre').limit(1);
+    const cursoId = cursos?.[0]?.id;
+    if (!cursoId) return { sirve: false, motivo: 'no hay ningún programa' };
+    const { data: mod, error: eMod } = await m.sb.from('cem_modules')
+      .insert({ course_id: cursoId, titulo: marca, orden: 999 }).select('id').single();
+    if (eMod) return { sirve: false, motivo: eMod.message };
+    /* La lección nace como está la de verdad que dio el aviso: con un enlace
+       pegado a mano Y con un vídeo asignado por otro camino. */
+    const { data: les, error: eLes } = await m.sb.from('cem_lessons')
+      .insert({ module_id: mod.id, titulo: 'Clase de prueba', tipo: 'video',
+                url, video_id: asignado, orden: 1, estado: 'borrador' })
+      .select('id').single();
+    if (eLes) { await m.sb.from('cem_modules').delete().eq('id', mod.id); return { sirve: false, motivo: eLes.message }; }
+    const { data: mat } = await m.sb.rpc('cem_material_lecciones', { p_ids: [les.id] });
+    return { sirve: true, cursoId, modId: mod.id, lesId: les.id,
+             urlQueLlega: mat?.[les.id]?.url ?? null, videoQueLlega: mat?.[les.id]?.video_id ?? null };
+  }, { marca: MARCA, url: URL_PEGADA, asignado: ID_ASIGNADO });
+
+  if (!fixture.sirve) {
+    a.comprobar(false, `No se pudo montar la lección de prueba, así que esto no se midió: ${fixture.motivo}`);
+  } else {
+    a.comprobar(fixture.urlQueLlega === URL_PEGADA,
+      `A quien edita le llega el enlace aunque la lección tenga vídeo asignado (${fixture.urlQueLlega ?? 'NO LLEGÓ — se estaría borrando al guardar'})`);
+    a.comprobar(fixture.videoQueLlega === ID_ASIGNADO,
+      `Y también el vídeo asignado, que es lo que el aula reproduce (${fixture.videoQueLlega})`);
+
+    await C.goto(`${BASE}/plataforma/admin/contenido.html?curso=${fixture.cursoId}`, { waitUntil: 'domcontentloaded' });
+    await C.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
+    await C.waitForTimeout(2500);
+    await C.click(`[data-les="${fixture.lesId}"]`);
+    await C.waitForTimeout(800);
+
+    const enPantalla = await C.evaluate(() => ({
+      url: document.querySelector('#lUrl')?.value ?? null,
+      nota: document.querySelector('#notaVideo')?.textContent?.trim() || '',
+    }));
+    a.comprobar(enPantalla.url === URL_PEGADA,
+      `El campo del enlace enseña lo que hay guardado (${enPantalla.url === '' ? 'VACÍO' : enPantalla.url})`);
+    a.comprobar(enPantalla.nota.includes(ID_ASIGNADO) && enPantalla.nota.includes(ID_PEGADO),
+      `Y avisa de que el enlace y el vídeo asignado no son el mismo (${enPantalla.nota.slice(0, 90) || 'no dice nada'})`);
+
+    /* Guardar sin tocar nada no puede cambiar nada. Ese era el daño: abrir la
+       lección y pulsar Guardar bastaba para perder el enlace. */
+    await C.click('#btnSave');
+    await C.waitForTimeout(2500);
+    const trasGuardar = await C.evaluate(async (id) => {
+      /* Por la RPC y no por consulta directa: `url` y `video_id` no están
+         concedidas al SELECT abierto —de eso va media pantalla— y pedirlas a
+         pelo devuelve 403 en vez de datos. */
+      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      const { data } = await m.sb.rpc('cem_material_lecciones', { p_ids: [id] });
+      return data?.[id] || {};
+    }, fixture.lesId);
+    a.comprobar(trasGuardar.url === URL_PEGADA,
+      `Guardar sin tocar el enlace no lo borra (${trasGuardar.url ?? 'SE BORRÓ'})`);
+    a.comprobar(trasGuardar.video_id === ID_ASIGNADO,
+      `Ni se lleva por delante el vídeo asignado (${trasGuardar.video_id})`);
+
+    /* Y ahora al revés: cambiar el enlace SÍ tiene que mover el vídeo, o el
+       aula seguiría reproduciendo el de antes sin que nadie lo pidiera. */
+    await C.fill('#lUrl', `https://youtu.be/${ID_PEGADO}`);
+    await C.click('#btnSave');
+    await C.waitForTimeout(2500);
+    const trasCambiar = await C.evaluate(async (id) => {
+      /* Por la RPC y no por consulta directa: `url` y `video_id` no están
+         concedidas al SELECT abierto —de eso va media pantalla— y pedirlas a
+         pelo devuelve 403 en vez de datos. */
+      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      const { data } = await m.sb.rpc('cem_material_lecciones', { p_ids: [id] });
+      return data?.[id] || {};
+    }, fixture.lesId);
+    a.comprobar(trasCambiar.video_id === ID_PEGADO,
+      `Cambiar el enlace cambia el vídeo que reproduce el aula (${trasCambiar.video_id})`);
+
+    await C.evaluate(async ({ modId, lesId }) => {
+      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      await m.sb.from('cem_lessons').delete().eq('id', lesId);
+      await m.sb.from('cem_modules').delete().eq('id', modId);
+    }, { modId: fixture.modId, lesId: fixture.lesId });
+  }
+  a.comprobar(C.errores.length === 0,
+    `El editor de contenidos trabaja sin errores ${JSON.stringify(C.errores.slice(0, 2))}`);
+  await C.close();
+
   /* ============ 4 · esto no lo toca un alumno ============ */
   const S = await nuevaPestana(navegador, { ancho: 1200, alto: 800 });
   await entrar(S, 'estudiante', 'estudiante/panel.html');

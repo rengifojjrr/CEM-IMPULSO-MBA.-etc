@@ -672,6 +672,21 @@ export async function audit(accion, entidad, entidad_id, riesgo = 'bajo', detall
  * directo con la API de subida resumible de YouTube. */
 export class YoutubeNoConectadoError extends Error {}
 
+/**
+ * El identificador de 11 caracteres dentro de cualquier forma de enlace de
+ * YouTube: `youtu.be/…`, `/shorts/…`, `/embed/…`, `watch?v=…`. Devuelve null si
+ * no hay ninguno, y eso también es información: el enlace no es de YouTube.
+ *
+ * Vive aquí y no en cada pantalla porque hay dos sitios que deciden con esto
+ * —el aula, para saber qué reproducir, y el editor de contenidos, para saber si
+ * lo que se pegó y lo que se asignó son el mismo vídeo— y dos copias de una
+ * expresión regular acaban siempre siendo dos reglas distintas.
+ */
+export function idDeYoutube(url) {
+  const m = /(?:youtu\.be\/|\/shorts\/|\/embed\/|[?&]v=)([A-Za-z0-9_-]{11})/.exec(String(url || ''));
+  return m ? m[1] : null;
+}
+
 async function youtubeAccessToken() {
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-youtube-upload-token`, {

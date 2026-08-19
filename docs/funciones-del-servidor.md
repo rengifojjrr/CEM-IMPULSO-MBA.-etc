@@ -85,7 +85,7 @@ función**, para que la clase, el examen y el progreso no puedan opinar distinto
 |---|---|
 | `cem_acceso_abierto(inscripcion)` | La única definición de «tiene acceso»: es del equipo, o el curso es gratis, o la inscripción está activa o finalizada, o hay un pago confirmado. Todo lo demás la consulta; nadie la reimplementa. |
 | `cem_mi_acceso()` | Para cada inscripción de quien pregunta: si está abierta, su estado, y cuánto es la primera cuota. Es lo que deja a la pantalla explicar por qué está bloqueada en vez de dejar chocar contra un error en cada clic. Las canceladas no salen. |
-| `cem_material_lecciones(ids[])` | El enlace y el cuerpo de las lecciones pedidas, sólo para el equipo, el docente del curso, o quien pagó. Existe porque `cem_lessons.url` y `.contenido` ya no se leen por consulta directa — ver [politicas-de-acceso.md](politicas-de-acceso.md). |
+| `cem_material_lecciones(ids[])` | El enlace y el cuerpo de las lecciones pedidas, sólo para el equipo, el docente del curso, o quien pagó. Existe porque `cem_lessons.url` y `.contenido` ya no se leen por consulta directa — ver [politicas-de-acceso.md](politicas-de-acceso.md). Al **estudiante**, si la lección tiene vídeo asignado, se le entrega el identificador y no la URL entera; a **quien edita** se le entrega siempre la URL, que para eso la escribió. Esconderla también al que edita fue un fallo real: el editor enseñaba el campo vacío y al guardar escribía el vacío encima. |
 
 Dos disparadores lo sostienen sin que nadie tenga que acordarse:
 `cem_tg_activar_al_pagar` pone la inscripción en activa cuando un pago pasa a
