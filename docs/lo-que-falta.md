@@ -23,7 +23,7 @@ proveedor, es un motor girando en vacío.
 
 → **Hablar con la gente → Envío de correo**, dar de alta Resend y pegar la clave.
 
-### 1.2 · Tres formas de pago activas sin dónde pagar
+### 1.2 · Dos formas de pago activas sin dónde pagar
 
 Se le ofrecen al estudiante y no le dicen a dónde mandar el dinero:
 
@@ -31,20 +31,39 @@ Se le ofrecen al estudiante y no le dicen a dónde mandar el dinero:
 |---|---|
 | **Zelle** | titular y correo/teléfono de destino |
 | **PayPal** | la cuenta de destino |
-| **Tarjeta de crédito/débito** | no hay pasarela: falta Stripe (§1.3) |
 
-Las otras cuatro —efectivo en dólares, efectivo en euros, pago móvil y
-transferencia— sí están completas, con cuenta, RIF y titular.
+Las otras cinco —efectivo en dólares, efectivo en euros, pago móvil,
+transferencia y tarjeta— están completas.
 
 → **Cobrar → Formas de pago**. Un método sin destino es peor que un método
 apagado: el estudiante lo elige y se queda parado.
 
-### 1.3 · Stripe
+### 1.3 · Stripe — falta un despliegue
 
-El sitio está preparado, pero no hay cuenta conectada. Mientras no la haya,
-«Tarjeta de crédito/débito» no puede cobrar nada.
+**Hecho el 19 de agosto de 2026:** cuenta activada (`charges_enabled`), claves
+de **prueba** guardadas en `cem_integraciones`, webhook creado
+(`we_1U6FEZFkx2xaEpJdWfRom5u4` → `checkout.session.completed`) y su secreto
+guardado. La verificación de firma se comprobó de punta a punta: acepta la firma
+buena y rechaza la falsificada, la ausente y una legítima reenviada una hora
+después.
 
-→ **Operación → Cobros con tarjeta**, pegar las dos claves.
+**Lo que falta, y bloquea el primer cobro:**
+
+```bash
+supabase functions deploy cem-stripe-checkout --project-ref vajbsfgojtunamhrzrpf
+```
+
+La función viva es la versión 1 y envía `payment_method_types`, que las cuentas
+con **Managed Payments** —activado por defecto en las nuevas— rechazan en vez de
+ignorar. El primer «pagar con tarjeta» daría un 502. La corrección está en el
+repositorio desde el commit `a36bcf4`, sin desplegar.
+
+Después: un cobro de prueba de punta a punta con la tarjeta
+`4242 4242 4242 4242`, y comprobar que la cuota queda pagada sola.
+
+Y cuando se vaya a cobrar de verdad: claves `pk_live_`/`sk_live_`, un webhook
+nuevo en modo real —el secreto es distinto— y pasar el modo a `real` desde la
+pantalla, que comprueba que la clave y el modo coincidan.
 
 ### 1.4 · 17 lecciones con vídeo de mentira
 
