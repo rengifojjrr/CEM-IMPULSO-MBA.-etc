@@ -73,6 +73,17 @@ Deno.serve(async (req) => {
 
     const cuerpo = new URLSearchParams({
       mode: 'payment',
+      // Stripe activa «Managed Payments» por defecto en las cuentas nuevas, y con
+      // eso puesto RECHAZA `payment_method_types` en vez de ignorarlo: el cobro
+      // fallaba con un 502 antes de existir. Se apaga por petición.
+      //
+      // La alternativa —dejar que Stripe elija los métodos— no es sólo quitar
+      // esta línea: pide además un código fiscal en cada producto, y cambiaría
+      // lo que significa el método «Tarjeta de crédito/débito», que aquí tiene
+      // su propia cartera y su propio informe por canal. Si algún día se quiere
+      // ofrecer más formas de pago desde Stripe, hay que decidir antes cómo se
+      // apunta cada una, no sólo quitar el parámetro.
+      'managed_payments[enabled]': 'false',
       'payment_method_types[0]': 'card',
       'line_items[0][quantity]': '1',
       'line_items[0][price_data][currency]': moneda,
