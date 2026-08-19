@@ -35,7 +35,7 @@ export default async function correr(navegador) {
      mejor probar la mitad que no probar nada—, pero se intenta lo completo
      primero para que esta prueba no dependa de con cuál curso le tocó. */
   const aDonde = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21');
     const { data: ins } = await m.sb.from('cem_enrollments').select('id,course_id,estado');
     let conVideo = null;
     for (const e of ins || []) {
@@ -93,7 +93,7 @@ export default async function correr(navegador) {
        usa en su propia documentación de esta misma API— y el resto con
        identificadores de mentira, a la espera del material real. */
     const idsDelCurso = await E.evaluate(async () => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21');
       const ids = [...document.querySelectorAll('[data-l]')].map((el) => el.dataset.l);
       const { data } = await m.sb.rpc('cem_material_lecciones', { p_ids: ids });
       return ids.map((id) => ({ id, video_id: data?.[id]?.video_id || null }));
@@ -118,7 +118,7 @@ export default async function correr(navegador) {
           `La clase lleva encima quién la está viendo («${texto.slice(0, 44)}»)`);
 
         const yo = await E.evaluate(async () => {
-          const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+          const m = await import('/plataforma/assets/app.js?v=2026-08-21');
           const { data } = await m.sb.rpc('cem_my_profile');
           const p = Array.isArray(data) ? data[0] : data;
           return { nombre: p?.nombre, email: p?.email };
@@ -166,6 +166,52 @@ export default async function correr(navegador) {
           'Y sin sus atajos de teclado, que incluyen el que abre el vídeo en YouTube');
         a.comprobar(await E.locator('#reproductor .repro-lamina').count() === 1,
           'Hay una lámina que se come los clics antes de que lleguen al <iframe>');
+
+        /* ── Que el <iframe> no reciba UN SOLO evento ─────────────────────
+           Esto se comprueba aparte de la lámina y por un fallo que pasó de
+           verdad: la lámina se paraba antes de la franja de los mandos —para
+           no pelearse con la barra— y entre su borde y el borde de los mandos
+           quedaba una banda de dos píxeles. Dos píxeles bastan: al bajar el
+           ratón hacia los controles se cruza esa banda, YouTube se entera de
+           que hay ratón encima y saca su interfaz entera —título, canal,
+           «Mirar en YouTube»— y ahí el clic derecho ya ofrece «Copiar vínculo».
+
+           Por eso la defensa de verdad no es un rectángulo que tape a otro
+           —eso es un argumento de geometría, y la geometría se rompe sola en
+           cuanto alguien cambia un alto— sino `pointer-events:none` en el
+           marco: no depende de ninguna medida. */
+        const marco = await E.evaluate(() =>
+          getComputedStyle(document.querySelector('#reproductor .repro-video')).pointerEvents);
+        a.comprobar(marco === 'none',
+          `El <iframe> no recibe eventos de ratón en ningún punto (pointer-events: ${marco})`);
+
+        /* Y el rastreo, PÍXEL A PÍXEL. Va así y no por muestreo en rejilla
+           porque el hueco que hubo era de dos píxeles de alto: una rejilla
+           cómoda pasa por encima sin verlo y devuelve verde. Se recorre cada
+           fila y cada columna de unas cuantas líneas, de modo que cualquier
+           banda de un solo píxel deja rastro. */
+        const fugas = await E.evaluate(() => {
+          const r = document.querySelector('#reproductor .repro').getBoundingClientRect();
+          const malos = [];
+          const mirar = (x, y, donde) => {
+            const el = document.elementFromPoint(x, y);
+            if (el && (el.tagName === 'IFRAME' || el.closest('.repro-video'))) malos.push(donde);
+          };
+          // columnas enteras, píxel a píxel de arriba abajo
+          for (const fx of [0.05, 0.25, 0.5, 0.75, 0.95]) {
+            const x = r.left + r.width * fx;
+            for (let y = r.top + 1; y < r.bottom - 1; y++) mirar(x, y, `x${Math.round(fx * 100)}% y${Math.round(y - r.top)}px`);
+          }
+          // y filas enteras, por si el hueco fuera vertical
+          for (const fy of [0.25, 0.5, 0.75, 0.97]) {
+            const y = r.top + r.height * fy;
+            for (let x = r.left + 1; x < r.right - 1; x++) mirar(x, y, `y${Math.round(fy * 100)}% x${Math.round(x - r.left)}px`);
+          }
+          return malos;
+        });
+        a.comprobar(fugas.length === 0,
+          `Y rastreando el recuadro entero no hay un punto por el que se llegue a YouTube${
+            fugas.length ? ` (se llega en ${fugas.length}: ${fugas.slice(0, 4).join(' ')}…)` : ''}`);
 
         /* Y que los mandos de la casa estén de verdad: quitarle los controles
            a YouTube sin poner otros dejaría un vídeo que no se puede pausar. */
@@ -260,7 +306,7 @@ export default async function correr(navegador) {
            de una pasada anterior haría fallar la prueba por algo que no es un
            fallo. Lo que importa es si esta pasada añadió una. */
         const contar = (id) => E.evaluate(async (x) => {
-          const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+          const m = await import('/plataforma/assets/app.js?v=2026-08-21');
           const { data } = await m.sb.from('cem_reproducciones')
             .select('lesson_id,segundos,ip').eq('lesson_id', x);
           return data || [];
@@ -303,7 +349,7 @@ export default async function correr(navegador) {
              hacía que la prueba pasara ayer y fallara hoy sin que nada
              cambiara. Fallar por el paso de un día no es encontrar un fallo. */
           const aMano = await E.evaluate(async (id) => {
-            const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+            const m = await import('/plataforma/assets/app.js?v=2026-08-21');
             const { error } = await m.sb.rpc('cem_registrar_reproduccion',
               { p_lesson_id: id, p_segundos: 30 });
             if (error) return { error: error.message };
@@ -343,7 +389,7 @@ export default async function correr(navegador) {
       /* Sin `onReady` no se llama a registrarQueSeVe(): comprobar que no queda
          una fila de «se vio» para algo que nunca llegó a reproducirse. */
       const sinRegistro = await E.evaluate(async (id) => {
-        const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+        const m = await import('/plataforma/assets/app.js?v=2026-08-21');
         const { data } = await m.sb.from('cem_reproducciones').select('id').eq('lesson_id', id);
         return (data || []).length;
       }, falso.id);
@@ -358,7 +404,7 @@ export default async function correr(navegador) {
        No es más secreto —quien tiene el identificador tiene el vídeo— pero deja
        que sea la plataforma quien decida con qué reproductor se ve. */
     const material = await E.evaluate(async () => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21');
       const { data: mods } = await m.sb.from('cem_modules').select('cem_lessons(id)').limit(20);
       const ids = (mods || []).flatMap((x) => (x.cem_lessons || []).map((l) => l.id)).slice(0, 40);
       if (!ids.length) return {};
@@ -379,7 +425,7 @@ export default async function correr(navegador) {
   await F.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
   await F.waitForTimeout(2000);
   const sinSesion = await F.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21');
     const { data: mods } = await m.sb.from('cem_modules').select('cem_lessons(id)').limit(10);
     const ids = (mods || []).flatMap((x) => (x.cem_lessons || []).map((l) => l.id)).slice(0, 20);
     const { data } = await m.sb.rpc('cem_material_lecciones', { p_ids: ids });
@@ -412,7 +458,7 @@ export default async function correr(navegador) {
 
   /* La validación: pegar cualquier cosa no puede pasar por una lista. */
   const validacion = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21');
     const { data: c } = await m.sb.from('cem_courses').select('id').limit(1);
     const cursoId = c?.[0]?.id;
     const mala = await m.sb.rpc('cem_guardar_playlist', { p_course_id: cursoId, p_playlist: 'hola' });
@@ -430,7 +476,7 @@ export default async function correr(navegador) {
 
   /* Y el registro de anomalías, que es lo que delata una contraseña compartida. */
   const anomalias = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21');
     const { data, error } = await m.sb.rpc('cem_reproducciones_sospechosas', { p_dias: 30 });
     return { error: error?.message || null, esLista: Array.isArray(data) };
   });
@@ -458,7 +504,7 @@ export default async function correr(navegador) {
   const ID_ASIGNADO = 'M7lc1UVf-VE';
 
   const fixture = await C.evaluate(async ({ marca, url, asignado }) => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21');
     /* Restos de una pasada anterior: si quedaran, el árbol tendría dos módulos
        iguales y el clic caería en el que no es. */
     const { data: viejos } = await m.sb.from('cem_modules').select('id,cem_lessons(id)').eq('titulo', marca);
@@ -515,7 +561,7 @@ export default async function correr(navegador) {
       /* Por la RPC y no por consulta directa: `url` y `video_id` no están
          concedidas al SELECT abierto —de eso va media pantalla— y pedirlas a
          pelo devuelve 403 en vez de datos. */
-      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21');
       const { data } = await m.sb.rpc('cem_material_lecciones', { p_ids: [id] });
       return data?.[id] || {};
     }, fixture.lesId);
@@ -533,7 +579,7 @@ export default async function correr(navegador) {
       /* Por la RPC y no por consulta directa: `url` y `video_id` no están
          concedidas al SELECT abierto —de eso va media pantalla— y pedirlas a
          pelo devuelve 403 en vez de datos. */
-      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21');
       const { data } = await m.sb.rpc('cem_material_lecciones', { p_ids: [id] });
       return data?.[id] || {};
     }, fixture.lesId);
@@ -541,7 +587,7 @@ export default async function correr(navegador) {
       `Cambiar el enlace cambia el vídeo que reproduce el aula (${trasCambiar.video_id})`);
 
     await C.evaluate(async ({ modId, lesId }) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21');
       await m.sb.from('cem_lessons').delete().eq('id', lesId);
       await m.sb.from('cem_modules').delete().eq('id', modId);
     }, { modId: fixture.modId, lesId: fixture.lesId });
@@ -555,7 +601,7 @@ export default async function correr(navegador) {
   await entrar(S, 'estudiante', 'estudiante/panel.html');
   await S.waitForTimeout(2500);
   const alumno = await S.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-20');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21');
     const { data: c } = await m.sb.from('cem_courses').select('id').limit(1);
     const r = {};
     const g = await m.sb.rpc('cem_guardar_playlist', { p_course_id: c?.[0]?.id, p_playlist: 'PLcolado' });

@@ -61,7 +61,19 @@ export default async function correr(navegador) {
   const sinExportar = [];
   for (const f of ['leads.html', 'profesores.html', 'carteras.html', 'insignias.html', 'cohortes.html']) {
     await A.goto(`${BASE}/plataforma/admin/${f}`, { waitUntil: 'domcontentloaded' });
-    await A.waitForTimeout(2400);
+    /* Se espera a que la cosa ESTÉ, no a que pasen 2,4 segundos. Con la máquina
+       cargada —la suite entera corriendo— ese plazo no llegaba y la prueba
+       señalaba carteras.html como pantalla sin exportar cuando el botón sí
+       aparecía, medio segundo más tarde. Una prueba que falla a veces es una
+       prueba que se deja de creer, y entonces ya no protege nada.
+       Los `catch` son a propósito: si algo no llega, la comprobación de abajo
+       lo dice con su propio mensaje, que explica mejor que un plantón. */
+    await A.waitForFunction(() => [...document.querySelectorAll('#page .card table')]
+      .some((t) => t.querySelectorAll('thead th').length >= 2), null, { timeout: 20000 })
+      .catch(() => {});
+    await A.waitForFunction(() =>
+      document.querySelectorAll('[data-exportar], #page [id*="xport"]').length > 0,
+    null, { timeout: 8000 }).catch(() => {});
     const r = await A.evaluate(() => ({
       tablas: [...document.querySelectorAll('#page .card table')]
         .filter((t) => t.querySelectorAll('thead th').length >= 2).length,

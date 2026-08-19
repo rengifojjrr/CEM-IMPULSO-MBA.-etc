@@ -20,12 +20,27 @@ Google, a salirse de la plataforma. Y fuera de la plataforma no hay marca de
 agua, no hay registro de quién vio qué, y no hay ninguna razón para haber pagado.
 
 `plataforma/assets/reproductor.js` hace lo contrario. Le quita a YouTube todos
-sus controles (`controls: 0`, `disablekb: 1`, `fs: 0`, `modestbranding: 1`) y le
-pone encima una lámina transparente que se come cualquier clic y cualquier paso
-del ratón. Ese segundo detalle es el que importa: **YouTube dibuja su interfaz
-cuando detecta el ratón encima del vídeo**, y con la lámina el ratón nunca llega.
-No es que la tapemos con un parche que se pueda quitar; es que no se llega a
-dibujar.
+sus controles (`controls: 0`, `disablekb: 1`, `fs: 0`, `modestbranding: 1`) y
+—esto es lo que de verdad importa— deja su marco **sin recibir un solo evento de
+ratón** (`pointer-events: none`). YouTube dibuja su interfaz cuando detecta el
+ratón encima del vídeo; si no le llega ningún evento, no se entera de que hay
+nadie y no dibuja nada. No es un parche que tape: es que no llega a existir. Y su
+menú del clic derecho —el que ofrece «Copiar vínculo»— tampoco, porque el clic
+derecho no llega hasta él.
+
+Encima va además una lámina transparente, pero ya sólo para recoger el clic de
+reproducir y pausar.
+
+> **Cómo se aprendió esto.** Al principio la defensa era la lámina, y se paraba
+> justo antes de la franja de los mandos para no pelearse con la barra de
+> tiempo. Entre su borde y el de los mandos quedaba **un píxel** de vídeo al
+> descubierto, a todo lo ancho — y se cruzaba cada vez que alguien bajaba el
+> ratón hacia los controles. Un píxel bastaba para que saliera el título, el
+> canal, el logo de YouTube y el menú de copiar el enlace. Tapar con un
+> rectángulo es un argumento de geometría, y la geometría se rompe sola en
+> cuanto alguien cambia un alto. La prueba de `pruebas/casos/video.mjs` recorre
+> ahora el recuadro **píxel a píxel**, precisamente porque un muestreo cómodo
+> pasaba por encima de esa fila y devolvía verde.
 
 Encima de la lámina van los mandos de la casa —reproducir, barra de tiempo,
 ±10 segundos, silenciar, ajustes y pantalla completa— hablando con el

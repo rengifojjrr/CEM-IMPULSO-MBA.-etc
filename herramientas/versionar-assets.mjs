@@ -51,14 +51,26 @@ const COMPARTIDOS = new RegExp(
     `|(?:\\.\\.\\/)*(?:\\.\\/)?assets\\/styles\\.css` +
     // desde dentro de assets, donde son vecinos: ./app.js
     `|\\.\\/(?:${MODULOS})\\.js` +
+    // desde las pruebas, que hablan con el navegador en absoluto
+    `|\\/plataforma\\/assets\\/(?:${MODULOS})\\.js` +
     `|(?:\\.\\.\\/)*(?:\\.\\/)?certificados\\/generador\\.js|generador\\.js` +
   `)(\\?v=[0-9-]+)?`, 'g');
 
 /** Dónde buscar. Los módulos compartidos se importan entre ellos, así que
     también hay que marcar los `import` que hay DENTRO de assets: si sólo se
     marcan los HTML, la página baja el app.js nuevo pero preguntas.js sigue
-    pidiendo el viejo y conviven dos copias distintas del mismo módulo. */
-const CARPETAS = ['plataforma/**/*.html', 'plataforma/assets/*.js', 'certificados/*.html'];
+    pidiendo el viejo y conviven dos copias distintas del mismo módulo.
+
+    Las pruebas van también. Hacen `import('/plataforma/assets/app.js?v=…')`
+    dentro del navegador para hablar con la base con la sesión que ya hay
+    abierta, y eso sólo funciona si piden EXACTAMENTE la misma dirección que
+    pidió la pantalla: con una marca distinta el navegador carga un segundo
+    módulo, con su propio cliente, y la prueba deja de mirar lo que mira el
+    usuario sin que nada falle a la vista. */
+const CARPETAS = [
+  'plataforma/**/*.html', 'plataforma/assets/*.js', 'certificados/*.html',
+  'pruebas/*.mjs', 'pruebas/casos/*.mjs',
+];
 
 const argumento = process.argv[2] || '';
 const soloRevisar = argumento === '--revisar';

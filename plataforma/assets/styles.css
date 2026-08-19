@@ -2362,15 +2362,27 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
    su título, su canal ni su botón de «Mirar en YouTube». No los tapamos —no
    aparecen. */
 .repro{position:relative;width:100%;height:100%;background:#000;overflow:hidden;
-  border-radius:inherit;outline:none;}
+  border-radius:inherit;outline:none;user-select:none;-webkit-user-select:none;}
 .repro:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
-.repro-video{position:absolute;inset:0;}
+/* `pointer-events:none` en el marco es la defensa de verdad, y va aquí y no en
+   la lámina por un motivo: la lámina es un argumento de geometría —«este
+   rectángulo tapa aquel»— y los argumentos de geometría se rompen solos en
+   cuanto alguien cambia un alto. Esto no depende de ninguna medida: el
+   <iframe> no recibe un solo evento de ratón, esté donde esté. Sin eventos,
+   YouTube no dibuja su título ni su canal ni su «Mirar en YouTube», y su menú
+   del clic derecho —el que ofrece «Copiar vínculo»— no llega a existir.
+   La API sigue funcionando: habla por `postMessage`, no por el ratón. */
+.repro-video{position:absolute;inset:0;pointer-events:none;}
 .repro-video iframe{width:100%!important;height:100%!important;border:0;display:block;}
 .repro-hueco{width:100%;height:100%;}
 
-/* La lámina. Cubre el vídeo entero menos la franja de los mandos, para que la
-   barra se pueda arrastrar sin pelearse con ella. */
-.repro-lamina{position:absolute;inset:0 0 var(--repro-mandos, 52px) 0;z-index:2;
+/* La lámina, que ahora sólo sirve para recoger el clic de reproducir y pausar.
+   Cubre el recuadro ENTERO. Antes se paraba antes de la franja de los mandos
+   —para no pelearse con la barra— y ese hueco era justo el fallo: al pasar el
+   ratón por ahí llegaba al <iframe> y YouTube sacaba toda su interfaz. No hacía
+   falta el hueco: los mandos van en z-index 5, por encima de la lámina, así que
+   reciben sus clics igual. */
+.repro-lamina{position:absolute;inset:0;z-index:2;
   cursor:pointer;background:transparent;}
 .repro.compacto{--repro-mandos:44px;}
 

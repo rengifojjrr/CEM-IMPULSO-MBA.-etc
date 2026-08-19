@@ -10,9 +10,19 @@
    qué, y no hay razón para haber pagado.
 
    Así que se hace lo contrario: se le quitan a YouTube TODOS los controles
-   (`controls: 0`) y se le pone encima una lámina transparente que se come
-   cualquier clic y cualquier paso del ratón. Sin ratón encima, YouTube no
-   enseña nunca su interfaz: no es que la tapemos, es que no llega a dibujarla.
+   (`controls: 0`) y se deja su marco SIN recibir un solo evento de ratón
+   (`pointer-events: none`, en styles.css). Sin eventos, YouTube no se entera de
+   que hay nadie encima y no llega a dibujar su interfaz: no es que la tapemos,
+   es que no existe. Y su menú del clic derecho —el que ofrece «Copiar
+   vínculo»— tampoco, porque el clic derecho nunca llega hasta él.
+
+   Encima va además una lámina transparente, pero ya sólo para recoger el clic
+   de reproducir y pausar. Al principio era ella la defensa, y se paraba antes
+   de la franja de los mandos para no pelearse con la barra: entre su borde y el
+   de los mandos quedaba UN PÍXEL de vídeo al descubierto, a todo lo ancho, y se
+   cruzaba cada vez que se bajaba el ratón a los controles. Un píxel bastaba
+   para que saliera todo. Tapar con un rectángulo es un argumento de geometría,
+   y la geometría se rompe sola en cuanto alguien cambia un alto.
    Y sobre esa lámina van los mandos de la casa —reproducir, barra, saltar,
    volumen, pantalla completa y una rueda con velocidad, calidad y subtítulos—
    hablando con el reproductor por su API. Lo que se quitó con los controles de
@@ -39,7 +49,7 @@
    docs/videos-y-copia.md.
 */
 
-import { $, $$, esc } from './app.js?v=2026-08-20';
+import { $, $$, esc } from './app.js?v=2026-08-21';
 
 /* ── La librería de YouTube, una sola vez ─────────────────────────────────
    Se pide siempre a `youtube.com`, no al dominio sin cookies: es la librería
