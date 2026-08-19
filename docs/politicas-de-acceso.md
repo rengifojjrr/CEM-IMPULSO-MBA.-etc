@@ -150,3 +150,45 @@ alguien escriba una función nueva sin acordarse.
 Se ve en **Gobierno → Seguridad de mi cuenta**, debajo de las políticas de las
 tablas, con la orden exacta de cada una. Se revisa sola cada vez que se abre esa
 pantalla, igual que las tablas.
+
+## Entrar y existir no son lo mismo
+
+`auth.users` guarda quién puede iniciar sesión. `cem_profiles` guarda quién es
+cada quien para la plataforma: su nombre, su rol y si está activo. **Son dos
+tablas distintas, y pueden desincronizarse.**
+
+Una cuenta con fila en `auth.users` y sin ficha en `cem_profiles` es invisible.
+No sale en Usuarios y roles, ni en la matriz de permisos, ni en ninguna lista —
+porque todas esas pantallas leen las fichas. Pero puede iniciar sesión.
+
+Pasó de verdad. El 19 de agosto de 2026 aparecieron tres cuentas de una siembra
+de julio —`supervisor@demo.local`, `administrador@demo.local`,
+`registrador@demo.local`— sin ficha, con contraseña, con el correo confirmado y
+sin bloquear. Una de ellas había iniciado sesión seis días antes. Se encontraron
+de casualidad, mirando otra cosa, y ése es el dato importante: **no había forma
+de enterarse desde la plataforma.**
+
+Qué alcanzaban de verdad: sin ficha, `cem_role()` no devuelve nada y casi todo
+les dice que no. No eran administradoras de nada. Lo que sí eran es sesiones
+autenticadas que nadie vigilaba, y eso alcanza cualquier política o función
+abierta a «quien haya entrado».
+
+Se bloquearon —no se borraron, por si algún día hace falta el rastro— y se les
+cerraron las siete sesiones que tenían abiertas. Esto último importa y es fácil
+de olvidar: **bloquear una cuenta corta los inicios de sesión nuevos, pero no
+las sesiones ya abiertas**, que siguen renovándose con su token hasta que se
+revocan.
+
+```sql
+-- bloquear
+update auth.users set banned_until = '2099-12-31' where id = …;
+-- y además cerrar lo que ya estaba abierto, o no sirve de nada
+update auth.refresh_tokens set revoked = true where user_id::uuid = … ;
+delete from auth.sessions where user_id = … ;
+```
+
+Desde entonces lo vigila la propia plataforma: `cem_cuentas_sin_ficha()` las
+lista, y salen en **Gobierno → Seguridad de mi cuenta**, separando «bloqueada»
+de «puede entrar», que no son el mismo problema. La prueba `roles` no exige que
+la lista esté vacía —las que quedan están bloqueadas a propósito— sino que
+**ninguna pueda entrar**.

@@ -110,6 +110,34 @@ export default async function correr(navegador) {
   a.comprobar(/Ninguna tabla queda abierta/.test(await Ad.locator('#resumenPoliticas').textContent()),
     'Y hoy ninguna tabla queda abierta a cualquiera');
 
+  /* ── Cuentas que pueden entrar y no aparecen en ninguna pantalla ─────────
+     Esto vigila un fallo que ya pasó: tres cuentas de una siembra vieja
+     seguían en `auth.users` sin ficha en `cem_profiles`. Usuarios y roles y la
+     matriz leen las fichas, así que no salían por ningún lado — y podían
+     iniciar sesión. Una lo hizo seis días antes de que se descubriera, de
+     casualidad, mirando otra cosa.
+
+     Lo que se comprueba no es que la lista esté vacía —las que hay quedaron
+     bloqueadas a propósito, y borrarlas es decisión de la casa— sino que
+     NINGUNA pueda entrar todavía. Exigir la lista vacía convertiría un resto
+     inofensivo en una prueba en rojo, y una prueba que llora sin motivo se
+     acaba ignorando. */
+  a.comprobar(!(await Ad.locator('#cardHuerfanas').isHidden()),
+    'El administrador ve si hay cuentas que pueden entrar sin ficha');
+  const huerfanas = await conLaBase(Ad, async (sb) => {
+    const { data, error } = await sb.rpc('cem_cuentas_sin_ficha');
+    if (error) return { error: error.message };
+    return {
+      total: (data || []).length,
+      pueden: (data || []).filter((c) => !c.bloqueada || c.sesiones_vivas > 0)
+        .map((c) => c.correo),
+    };
+  });
+  a.comprobar(!huerfanas.error && huerfanas.pueden?.length === 0,
+    `Y ninguna de las que hay puede entrar${
+      huerfanas.pueden?.length ? `: ${huerfanas.pueden.join(', ')}` : ''} (${
+      huerfanas.total ?? '?'} sin ficha, todas bloqueadas)`);
+
   await C.goto(`${BASE}/plataforma/admin/seguridad.html`, { waitUntil: 'domcontentloaded' });
   await C.waitForSelector('#estado', { timeout: 25000 });
   await C.waitForTimeout(3000);
@@ -125,6 +153,14 @@ export default async function correr(navegador) {
     });
     a.comprobar(/administrador|auditor/i.test(r),
       'Ni pidiéndosela a la base directamente la consigue');
+
+    // Lo mismo con la lista de cuentas sin ficha: son correos de gente.
+    const h = await conLaBase(C, async (sb) => {
+      const { error } = await sb.rpc('cem_cuentas_sin_ficha');
+      return error?.message || 'LA DEVOLVIÓ';
+    });
+    a.comprobar(/administrador|auditor/i.test(h),
+      'Ni la lista de cuentas sin ficha, que son correos de personas');
   });
 
   for (const [nombre, pagina] of [['cobranza', C], ['auditor', A], ['coordinador', Co], ['administrador', Ad]]) {

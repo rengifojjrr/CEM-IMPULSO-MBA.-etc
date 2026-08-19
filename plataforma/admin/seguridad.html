@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-3">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-4">
 <style>
   .qr-caja{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
   .qr-caja img{width:190px;height:190px;border:1px solid var(--filete);border-radius:var(--r);background:#fff;padding:8px;}
@@ -93,6 +93,24 @@
     </details>
   </div>
 
+  <!-- Cuentas que existen para entrar pero no para la plataforma. Pasó de
+       verdad: tres de una siembra vieja llevaban un mes pudiendo iniciar sesión
+       y no salían en Usuarios y roles ni en la matriz, porque esas pantallas
+       leen las fichas y ellas no tenían ficha. Se descubrió de casualidad. -->
+  <div class="card" id="cardHuerfanas" hidden>
+    <h2 class="sec">Cuentas que pueden entrar y no aparecen en ninguna pantalla</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Usuarios y roles enseña las fichas. Una cuenta puede existir para iniciar
+      sesión sin tener ficha —restos de una prueba, una invitación a medias— y
+      entonces no sale en ninguna lista, así que nadie puede quitarla desde aquí.
+      Sin ficha no es administradora de nada, pero sí es una sesión de alguien
+      que ha entrado, y eso ya alcanza lo que esté abierto a cualquiera.</p>
+    <div id="resumenHuerfanas"><p class="muted">Revisando…</p></div>
+    <div class="table-wrap sep" id="tablaHuerfanas" hidden><table>
+      <thead><tr><th>Cuenta</th><th>Última entrada</th><th>Estado</th><th>Qué hacer</th></tr></thead>
+      <tbody id="tbHuerfanas"></tbody></table></div>
+  </div>
+
   <div class="card" id="cardPoliticas" hidden>
     <h2 class="sec">Políticas de acceso de la base</h2>
     <p class="tiny muted" style="margin-top:-6px">
@@ -112,7 +130,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError, chipEstado, avisar } from '../assets/app.js?v=2026-08-21-3';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError, chipEstado, avisar, fdate } from '../assets/app.js?v=2026-08-21-4';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'],
                         active:'seguridad.html', area:'admin' });
@@ -138,7 +156,7 @@ async function cargar(){
   factores = data?.totp || [];
   pintarEstado();
   pintarPersonal();
-  if (PUEDEN_REVISAR_LA_BASE.includes(p.rol)) { revisarPoliticas(); revisarFunciones(); }
+  if (PUEDEN_REVISAR_LA_BASE.includes(p.rol)) { revisarPoliticas(); revisarFunciones(); revisarHuerfanas(); }
 }
 
 function pintarEstado(){
@@ -371,6 +389,45 @@ async function revisarFunciones(){
       <td>${chip(v.etiqueta, v.tono)}</td>
       <td class="wrap tiny">${esc(f.explicacion)}</td></tr>`;
   }).join('') : emptyRow(3, 'Ninguna función queda abierta.');
+}
+
+/* Las cuentas sin ficha. Se separa «puede entrar» de «está bloqueada» porque no
+   son el mismo problema: una bloqueada es un resto que conviene limpiar algún
+   día; una que puede entrar es algo que hay que mirar hoy. */
+async function revisarHuerfanas(){
+  const { data, error } = await sb.rpc('cem_cuentas_sin_ficha');
+  if (error) { document.getElementById('cardHuerfanas')?.remove(); return; }
+  $('#cardHuerfanas').hidden = false;
+
+  const cuentas = data || [];
+  const abiertas = cuentas.filter(c => !c.bloqueada || c.sesiones_vivas > 0);
+
+  $('#resumenHuerfanas').innerHTML = `
+    <div class="list-item">
+      <span class="material-symbols-outlined"
+        style="color:${abiertas.length ? 'var(--error)' : cuentas.length ? 'var(--warn)' : 'var(--ok)'}">
+        ${abiertas.length ? 'gpp_bad' : cuentas.length ? 'gpp_maybe' : 'verified_user'}</span>
+      <div class="grow">
+        <div class="t">${abiertas.length
+          ? `${abiertas.length} cuenta(s) pueden entrar ahora mismo sin que nadie las vea`
+          : cuentas.length
+            ? `${cuentas.length} cuenta(s) sin ficha, todas bloqueadas`
+            : 'Todas las cuentas que pueden entrar tienen su ficha'}</div>
+        <div class="s">${abiertas.length
+          ? 'Hay que bloquearlas, o darles ficha para poder gestionarlas desde Usuarios y roles.'
+          : cuentas.length
+            ? 'No pueden entrar ni les quedan sesiones abiertas. Se pueden borrar cuando quieras.'
+            : 'Nada que aparezca aquí significa que no falta nadie por revisar.'}</div>
+      </div>
+    </div>`;
+
+  $('#tablaHuerfanas').hidden = !cuentas.length;
+  $('#tbHuerfanas').innerHTML = cuentas.map(c => `<tr>
+    <td class="wrap"><code class="tiny">${esc(c.correo)}</code></td>
+    <td class="tiny">${c.ultima_entrada ? fdate(c.ultima_entrada) : 'nunca'}</td>
+    <td>${chip(c.bloqueada ? 'bloqueada' : 'puede entrar', c.bloqueada ? 'ok' : 'error')}${
+      c.sesiones_vivas > 0 ? ' ' + chip(`${c.sesiones_vivas} sesión(es) abiertas`, 'warn') : ''}</td>
+    <td class="wrap tiny">${esc(c.que_hacer)}</td></tr>`).join('');
 }
 </script>
 </body>
