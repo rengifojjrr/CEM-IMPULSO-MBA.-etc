@@ -59,7 +59,7 @@
    docs/videos-y-copia.md.
 */
 
-import { $, $$, esc } from './app.js?v=2026-08-21-2';
+import { $, $$, esc } from './app.js?v=2026-08-21-3';
 
 /* ── La librería de YouTube, una sola vez ─────────────────────────────────
    Se pide siempre a `youtube.com`, no al dominio sin cookies: es la librería
@@ -128,6 +128,7 @@ export async function crearReproductor(host, {
       <div class="repro-video"><div class="repro-hueco"></div></div>
       <img class="repro-tapa" alt="" aria-hidden="true">
       <div class="repro-lamina" aria-hidden="true"></div>
+      <div class="repro-velo" aria-hidden="true"></div>
       <div class="repro-agua" aria-hidden="true">${esc(marca)}</div>
       <button type="button" class="repro-grande" data-play aria-label="Reproducir">
         <span class="material-symbols-outlined">play_arrow</span></button>
@@ -182,15 +183,34 @@ export async function crearReproductor(host, {
      ejemplo, que llevan identificadores de mentira a la espera del material
      real. Un error en la consola que se sabe que va a estar es un error que
      enseña a no mirar la consola. */
+  const miniatura = (cual) => `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/${cual}.jpg`;
   function ponerImagen() {
     if (fallo) return;
-    /* `hqdefault` y no `maxresdefault`: la grande sólo existe para los vídeos
-       subidos en alta, y probar primero con ella dejaba un 404 en la consola
-       por cada vídeo antiguo. Se pide una vez, la que siempre está.
-       Viene en 4:3 con bandas negras arriba y abajo; `object-fit:cover` las
-       recorta y deja la imagen llenando el recuadro. */
-    tapa.onerror = () => tapa.removeAttribute('src');   // queda el negro
-    tapa.src = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+    /* Se pide `oardefault`, que es la miniatura con la proporción ORIGINAL del
+       vídeo. Importa para el vídeo vertical: `hqdefault` viene siempre en 4:3
+       con el vertical encajado en una columna estrecha entre dos franjas
+       negras, y recortar ESO para llenar un marco 9:16 deja la columna
+       ampliada hasta que sólo se ve un trozo del centro. Cortado, y mal.
+
+       Para un vídeo apaisado YouTube contesta a `oardefault` con un sello de
+       120×90 en vez de la imagen: por eso no basta con mirar si la petición
+       falló, hay que mirar el tamaño de lo que llegó.
+
+       Y `hqdefault` como respaldo, no `maxresdefault`: la grande sólo existe
+       para los vídeos subidos en alta, y pedirla dejaba un 404 en la consola
+       por cada vídeo antiguo. */
+    tapa.onload = () => {
+      if (tapa.dataset.respaldo) return;
+      if (tapa.naturalWidth >= 200) return;      // la buena, con su proporción
+      tapa.dataset.respaldo = '1';
+      tapa.src = miniatura('hqdefault');
+    };
+    tapa.onerror = () => {
+      if (tapa.dataset.respaldo) { tapa.removeAttribute('src'); return; }   // queda el negro
+      tapa.dataset.respaldo = '1';
+      tapa.src = miniatura('hqdefault');
+    };
+    tapa.src = miniatura('oardefault');
   }
 
   let YT;

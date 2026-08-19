@@ -2396,6 +2396,20 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
   cursor:pointer;background:transparent;}
 .repro.compacto{--repro-mandos:44px;}
 
+/* El velo de la pausa. Al PAUSAR, YouTube saca su cartel —título, canal,
+   compartir— aunque nadie tenga el ratón encima: es su estado de pausa, no una
+   reacción a nada, así que `pointer-events` tampoco llega aquí. Se le pone una
+   banda opaca por encima.
+
+   Sólo la banda de arriba, y no la portada entera: quien pausa una clase suele
+   estar mirando el fotograma —una fórmula, una diapositiva— y taparlo para
+   esconder un logotipo sería cambiar un problema por otro peor. Abajo no hace
+   falta banda: los mandos ya son opacos. */
+.repro-velo{position:absolute;z-index:3;left:0;right:0;top:0;height:16%;min-height:52px;
+  background:linear-gradient(to bottom, rgba(0,0,0,.97) 62%, rgba(0,0,0,0));
+  opacity:0;transition:opacity var(--rapido);pointer-events:none;}
+.repro.arrancado:not(.sonando) .repro-velo{opacity:1;}
+
 /* La marca de agua, encima de todo lo del vídeo y por debajo de los mandos.
    `pointer-events:none` para que no se coma los clics. Va sobre NUESTRO
    recuadro, así que a pantalla completa sigue puesta. */
@@ -2419,9 +2433,12 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
 /* Los mandos. Siempre visibles: esconderlos y hacer que aparezcan al pasar el
    ratón obliga a mover el ratón para saber por dónde va el vídeo, y en una
    tableta directamente no hay ratón que pasar. */
+/* Opacos, no en degradado. El degradado dejaba ver a través de su parte de
+   arriba justo la esquina donde YouTube pone su logotipo, así que la barra
+   escondía a medias lo que venía a esconder. */
 .repro-mandos{position:absolute;z-index:5;left:0;right:0;bottom:0;
   display:flex;align-items:center;gap:8px;padding:8px 10px;
-  background:linear-gradient(to top, rgba(0,0,0,.86), rgba(0,0,0,.35) 70%, transparent);}
+  background:rgba(0,0,0,.94);}
 .repro-btn{border:none;background:transparent;color:#fff;cursor:pointer;
   width:34px;height:34px;border-radius:var(--r-full);display:grid;place-items:center;flex:none;}
 .repro-btn:hover{background:rgba(255,255,255,.16);}

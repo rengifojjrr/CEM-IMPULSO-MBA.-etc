@@ -117,13 +117,17 @@ const conCompartidos = archivos.length;
    historial al revés confunde a cualquiera. */
 function marcaLibre() {
   const hoy = new Date().toISOString().slice(0, 10);
-  const puestas = [...marcas.keys()].sort();
-  const mayor = (puestas[puestas.length - 1] || '').slice(0, 10);
-  const base = mayor > hoy ? mayor : hoy;
-  const usadas = new Set(puestas);
-  if (!usadas.has(base)) return base;
-  for (let n = 2; n < 1000; n++) if (!usadas.has(`${base}-${n}`)) return `${base}-${n}`;
-  return `${base}-${Date.now() % 100000}`;
+  /* El contador se lee como NÚMERO y no como texto. Comparándolo como texto,
+     «-10» va antes que «-2» y «2026-08-21» va antes que «2026-08-21-2»: la
+     segunda publicación del día devolvía la marca a la fecha pelada, que ya
+     estaba usada, y el navegador se quedaba otra vez con la copia vieja. */
+  const puestas = [...marcas.keys()].map((v) => {
+    const m = /^(\d{4}-\d{2}-\d{2})(?:-(\d+))?$/.exec(v);
+    return m ? { dia: m[1], n: Number(m[2] || 1) } : { dia: '', n: 0 };
+  });
+  const dia = puestas.reduce((a, t) => (t.dia > a ? t.dia : a), hoy);
+  const n = puestas.filter((t) => t.dia === dia).reduce((a, t) => Math.max(a, t.n), 0);
+  return n ? `${dia}-${n + 1}` : dia;
 }
 
 const version = soloRevisar ? '' : (argumento || marcaLibre());
