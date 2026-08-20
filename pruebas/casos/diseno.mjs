@@ -206,7 +206,7 @@ export default async function correr(navegador) {
      hacía la prueba se ponía roja por una función nueva que estaba bien. Lo que
      importa es que el panel ofrezca TODO lo que hay, no que haya siete. */
   const cuantos = await P.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-21');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-22');
     return { paletas: Object.keys(t.PALETAS).length, estilos: Object.keys(t.ESTILOS).length,
              formas: Object.keys(t.FORMAS).length, densidades: Object.keys(t.DENSIDADES).length };
   });
@@ -226,7 +226,7 @@ export default async function correr(navegador) {
      más. También la tipografía: un manual de marca son los colores Y la letra, y
      dejar los colores oficiales con la letra de otra identidad no es aplicarlo.  */
   const marca = await P.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-21');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-22');
     const antes = { paleta: t.paletaActual(), tema: t.temaActual() };
     t.aplicarApariencia({ paleta: 'cemMarca', tema: 'claro' });
     const cs = getComputedStyle(document.documentElement);
@@ -329,7 +329,7 @@ export default async function correr(navegador) {
      Ahora se llama a aplicarApariencia() —el camino real— y se recorre el
      catálogo entero, así que una paleta nueva entra sola en la prueba. */
   const contraste = await P.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-21');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-22');
     const canal = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const lum = ([r, g, b]) => 0.2126 * canal(r / 255) + 0.7152 * canal(g / 255) + 0.0722 * canal(b / 255);
     const leer = (txt) => {

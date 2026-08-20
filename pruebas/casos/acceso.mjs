@@ -57,6 +57,23 @@ export default async function correr(navegador) {
   a.comprobar(/venció por inactividad/i.test(await P.locator('#loginMsg').textContent()),
     'Al rebotar por vencimiento explica por qué');
 
+  /* Y cabe donde va. El aviso estaba metido en un `.chip`, que lleva
+     `white-space:nowrap` porque es una etiqueta de estado —«Al día», «3
+     cuotas»—. Una frase de setenta y ocho caracteres ahí dentro no se parte:
+     se salía de la tarjeta por los dos lados. Se mide contra la caja que lo
+     contiene, que es lo que se veía mal en la captura. */
+  const cabe = await P.evaluate(() => {
+    const aviso = document.querySelector('#loginMsg > *');
+    const caja = aviso?.closest('.card') || aviso?.parentElement;
+    if (!aviso || !caja) return null;
+    const a = aviso.getBoundingClientRect(), c = caja.getBoundingClientRect();
+    return { desborde: Math.round(Math.max(0, c.left - a.left) + Math.max(0, a.right - c.right)),
+             ancho: Math.round(a.width), caja: Math.round(c.width) };
+  });
+  a.comprobar(cabe && cabe.desborde === 0,
+    `Y el aviso cabe dentro de la tarjeta, sin asomar por los lados (${
+      cabe ? `${cabe.ancho}px en ${cabe.caja}px, desborde ${cabe.desborde}px` : 'no se encontró'})`);
+
   await P.fill('#email', 'admin@cem.demo');
   await P.fill('#pass', CLAVE);
   await P.click('#formLogin button[type=submit]');

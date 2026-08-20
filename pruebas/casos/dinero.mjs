@@ -17,6 +17,20 @@ export default async function correr(navegador) {
   a.comprobar((await A.locator('#tasaActual').textContent()).length > 0,
     'La bandeja muestra la tasa vigente');
 
+  /* ── lo que esta prueba pisa, y que hay que devolver ──────────────────────
+     Esto escribe una tasa a mano en la tabla de verdad. Durante meses no la
+     devolvió, y como la tasa cargada a mano manda sobre la del banco, la
+     plataforma se quedó cobrando a 48,90 Bs/€ cuando el BCV publicaba 906,83:
+     un factor de casi veinte, puesto ahí por la suite de pruebas y por nadie
+     más. Una prueba que deja el sistema peor de como lo encontró no es una
+     prueba, es un fallo con horario.
+
+     Se apunta lo que había y al final se devuelve. */
+  const tasaPrevia = await conLaBase(A, async (sb) => {
+    const leer = async (m) => (await sb.rpc('cem_tasa_vigente', { p_moneda: m })).data?.[0] || null;
+    return { EUR: await leer('EUR'), USD: await leer('USD') };
+  });
+
   /* Son dos tasas y hacen cosas distintas: la del EURO convierte los bolívares
      que entran —es la que cobra— y la del DÓLAR es de referencia. Si se
      confundieran, cada pago en bolívares se cobraría con el número equivocado
@@ -145,7 +159,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-21');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-22');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -364,7 +378,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-21');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-22');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -392,7 +406,7 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-21');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-22');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });
@@ -581,6 +595,54 @@ export default async function correr(navegador) {
       { p_enrollment_id: enrId, p_motivo: 'Limpieza de la prueba de invitaciones.' }),
       despues.ins[0]?.id);
   }
+
+  /* ============ la tasa se trae sola del BCV ============
+     Hasta ahora la tabla de tasas sólo tenía filas cargadas a mano: la columna
+     que dice de dónde viene cada una nunca dijo otra cosa. */
+  await A.goto(`${BASE}/plataforma/admin/pagos-verificar.html`);
+  await A.waitForSelector('#btnTraerBcv', { timeout: 25000 });
+  await A.waitForTimeout(2500);
+
+  await A.click('#btnTraerBcv');
+  await A.waitForTimeout(7000);
+  const traida = await conLaBase(A, async (sb) => {
+    const { data } = await sb.from('cem_tasas_bcv')
+      .select('moneda,valor,fecha,id_tasa').eq('id_tasa', 'BCV')
+      .order('fecha', { ascending: false }).limit(4);
+    return data || [];
+  });
+  a.comprobar(traida.length > 0 && traida.every((t) => Number(t.valor) > 0),
+    `La tasa se trae del BCV sin que nadie la escriba (${traida.map((t) => `${t.moneda} ${t.valor}`).join(' · ') || 'ninguna'})`);
+
+  /* La jerarquía: lo que escribió la casa manda sobre lo que trajo el banco.
+     Sin esto, la tarea automática pisaría en silencio la decisión del dueño a
+     la mañana siguiente — que es justo el sistema en el que se deja de confiar. */
+  const mandaLaDeLaCasa = await conLaBase(A, async (sb) => {
+    const { data } = await sb.rpc('cem_tasa_vigente', { p_moneda: 'EUR' });
+    return data?.[0] || null;
+  });
+  const hayBcvEur = traida.some((t) => t.moneda === 'EUR');
+  a.comprobar(!hayBcvEur || mandaLaDeLaCasa?.id_tasa === 'MANUAL',
+    `Con las dos puestas el mismo día, manda la cargada a mano (${mandaLaDeLaCasa?.id_tasa} ${mandaLaDeLaCasa?.valor})`);
+
+  /* Y la pantalla lo dice, en vez de dejar que una tasa escrita por error tape
+     la del banco todo el día sin que nadie se entere. */
+  const avisa = await A.locator('#avisoTasa').textContent();
+  a.comprobar(!hayBcvEur || /cargada a mano/i.test(avisa || ''),
+    'Y la pantalla avisa de que una tasa a mano está tapando la del BCV');
+
+  /* ── devolver la tasa a como estaba ──────────────────────────────────── */
+  await conLaBase(A, async (sb, previa) => {
+    for (const m of ['EUR', 'USD']) {
+      // Se quita la que puso esta prueba…
+      await sb.rpc('cem_tasa_soltar_manual', { p_moneda: m });
+      // …y si antes había una a mano de hoy, se vuelve a poner tal cual.
+      const antes = previa[m];
+      if (antes && antes.id_tasa === 'MANUAL' && antes.fecha === new Date().toISOString().slice(0, 10)) {
+        await sb.rpc('cem_guardar_tasa_manual', { p_valor: antes.valor, p_moneda: m });
+      }
+    }
+  }, tasaPrevia);
 
   a.comprobar(A.errores.length === 0,
     `La bandeja de pagos no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);

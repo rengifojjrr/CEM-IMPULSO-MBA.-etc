@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-21">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-22">
 <style>
   .tasa-box{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
   /* La tasa vigente es una cifra: se escribe con la letra de las cifras y
@@ -39,11 +39,21 @@
   <div class="grid graficos" id="graficos"></div>
 
   <div class="card">
-    <h2 class="sec">Tasas del BCV</h2>
+    <div class="row between" style="align-items:flex-start">
+      <h2 class="sec">Tasas del BCV</h2>
+      <button class="btn outline sm" id="btnTraerBcv" title="Pedirle ahora mismo la tasa oficial al BCV">
+        <span class="material-symbols-outlined">cloud_download</span> Traer la del BCV</button>
+    </div>
     <p class="tiny muted">La casa cobra en <b>euros</b>. La tasa del <b>euro</b> es la que convierte los
       pagos en bolívares: es la que cobra. La del <b>dólar</b> no convierte nada — sirve para los
       reportes y para cuadrar contra el banco. El efectivo en dólares se recibe a la par del euro y no
-      usa ninguna de las dos. Cuando Bancaribe habilite el servicio se actualizarán solas.</p>
+      usa ninguna de las dos.</p>
+    <!-- La jerarquía, dicha donde se decide: lo que escribe la casa manda sobre
+         lo que trae el banco, y sólo por ese día. Sin decirlo, guardar una tasa
+         a mano y ver que al día siguiente cambió sola parece un fallo. -->
+    <p class="tiny muted">Se traen solas del BCV dos veces al día. Si escribes una a mano, esa manda
+      —pero sólo para hoy; mañana vuelve a mandar la del banco.</p>
+    <div id="avisoTasa"></div>
     <div class="grid g2 sep-poco">
       <div class="tasa-box">
         <div>
@@ -96,8 +106,8 @@ import { sb, mount, MONEDA_BASE, $, $$, esc, chip, num, money, fdate, fdatetime,
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa, run,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY, cargarEn, contarFilas,
          etiqueta, montoPagado, enDolares, saldo as saldoCelda,
-         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-21-21';
-import { barras, apiladas, anillo } from '../assets/graficos.js?v=2026-08-21-21';
+         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-21-22';
+import { barras, apiladas, anillo } from '../assets/graficos.js?v=2026-08-21-22';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -116,6 +126,7 @@ async function cargar(){
   };
   pintarTasa(eur, '#tasaActual', '#tasaOrigen', '€');
   pintarTasa(usd, '#tasaActualUsd', '#tasaOrigenUsd', 'US$');
+  pintarEstadoTasa();
 
   // cem_enrollments apunta dos veces a cem_profiles (el estudiante y el
   // vendedor), así que hay que nombrar la clave foránea o PostgREST no sabe
@@ -310,7 +321,7 @@ async function verDetalle(x){
       });
       const r = await res.json();
       if (!res.ok || r.error || r.ok === false) {
-        caja.innerHTML = `<div class="chip warn" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
+        caja.innerHTML = `<div class="nota warn">
           No se pudo consultar: ${esc(r.error || (typeof r.datos === 'string' ? r.datos.slice(0,160) : 'el banco respondió ' + (r.status || res.status)))}.
           ${/900908|subscription/i.test(JSON.stringify(r))
             ? 'Bancaribe todavía no habilitó la suscripción a este servicio para nuestra aplicación.'
@@ -323,14 +334,14 @@ async function verDetalle(x){
       const ops = d.listaOperaciones || d.operaciones || d.transacciones ||
                   (Array.isArray(d) ? d : []);
       caja.innerHTML = ops.length
-        ? `<div class="chip ok" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
+        ? `<div class="nota ok">
              El banco confirma ${ops.length} operación(es) con esa referencia.</div>
            <pre class="tiny" style="max-height:150px;overflow:auto;margin-top:8px">${esc(JSON.stringify(ops, null, 2))}</pre>`
-        : `<div class="chip warn" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
+        : `<div class="nota warn">
              El banco no encontró ninguna operación con esa referencia. Puede que
              todavía no esté procesada, o que la referencia esté mal escrita.</div>`;
     } catch (e) {
-      caja.innerHTML = `<div class="chip err">${esc(mensajeError(e, 'No se pudo hablar con el banco.'))}</div>`;
+      caja.innerHTML = `<div class="nota err">${esc(mensajeError(e, 'No se pudo hablar con el banco.'))}</div>`;
     }
   };
 }
@@ -413,6 +424,74 @@ const guardarTasa = (campo, moneda, comoSeLlama) => async () => {
 };
 $('#btnTasa').onclick = guardarTasa('#inpTasa', 'EUR', 'euro');
 $('#btnTasaUsd').onclick = guardarTasa('#inpTasaUsd', 'USD', 'dólar');
+
+/* ============ la tasa que se trae sola ============
+   Antes la tabla sólo tenía filas cargadas a mano: la columna que dice de dónde
+   viene cada tasa nunca dijo otra cosa que «MANUAL». Ahora el BCV entra solo dos
+   veces al día, y esto es para no tener que esperarlo.
+
+   La respuesta del proveedor no llega en el acto: `pg_net` deja la petición
+   puesta y otra tarea la recoge. Por eso se pide, se espera un momento y se
+   recoge aquí mismo, en vez de decir «traída» sin haberla visto llegar. */
+$('#btnTraerBcv').onclick = async () => {
+  const b = $('#btnTraerBcv');
+  b.disabled = true;
+  try {
+    const r = await run(sb.rpc('cem_tasa_bcv_pedir', { p_forzar: true }), 'No se pudo pedir la tasa');
+    if (r?.en_pausa) { avisar('#msgTasa', r.motivo || 'La actualización automática está apagada.', 'err'); return; }
+    await new Promise((r2) => setTimeout(r2, 2500));
+    const g = await run(sb.rpc('cem_tasa_bcv_recoger'), 'No se pudo leer la respuesta del BCV');
+    olvidarTasa();
+    if (Number(g?.guardadas)) {
+      avisar('#msgTasa', `${g.guardadas} tasa(s) traída(s) del BCV.`, 'ok');
+    } else {
+      /* «No se guardó nada» tiene dos causas muy distintas y no da lo mismo
+         cuál sea: o el proveedor falló, o simplemente todavía no ha contestado. */
+      const est = await sb.rpc('cem_tasa_estado');
+      const ult = est.data?.ultimo_intento;
+      avisar('#msgTasa', ult?.estado === 'fallo'
+        ? `El BCV no contestó bien: ${ult.error || 'sin detalle'}`
+        : 'Pedida al BCV. Todavía no ha contestado; se guardará sola en cuanto llegue.',
+        ult?.estado === 'fallo' ? 'err' : 'ok');
+    }
+    cargar();
+  } finally { b.disabled = false; }
+};
+
+/* Cuando hoy hay tasa del banco Y alguien cargó una a mano, manda la de la casa
+   —eso es lo correcto— pero tiene que verse. Es también lo que pasa cuando el
+   número se escribió mal: se queda tapando al BCV todo el día sin que nadie lo
+   note. */
+async function pintarEstadoTasa(){
+  const host = $('#avisoTasa');
+  if (!host) return;
+  const { data, error } = await sb.rpc('cem_tasa_estado');
+  if (error || !data) { host.innerHTML = ''; return; }
+
+  const tapadas = Object.entries(data.monedas || {}).filter(([, m]) =>
+    m.origen === 'MANUAL' && m.bcv_hoy != null && Number(m.bcv_hoy) !== Number(m.valor));
+
+  host.innerHTML = tapadas.length ? `<div class="nota warn">
+      ${tapadas.map(([mon, m]) => `<div>La tasa del <b>${mon === 'EUR' ? 'euro' : 'dólar'}</b> que manda
+        es la cargada a mano (<b>${esc(String(m.valor))} Bs</b>). El BCV publicó
+        <b>${esc(String(m.bcv_hoy))} Bs</b> el ${esc(String(m.bcv_fecha))}.
+        ${puedeOperar ? `<button class="btn ghost sm" data-soltar="${esc(mon)}">Volver a la del BCV</button>` : ''}</div>`).join('')}
+    </div>` : '';
+
+  $$('[data-soltar]', host).forEach((b) => {
+    b.onclick = async () => {
+      const mon = b.dataset.soltar;
+      if (!await confirmDialog(
+        `Se quita la tasa del ${mon === 'EUR' ? 'euro' : 'dólar'} que se cargó a mano hoy y vuelve a mandar `
+        + 'la del BCV. Los pagos ya aprobados no se tocan: cada uno guardó la tasa con la que se convirtió.',
+        'Volver a la tasa del BCV')) return;
+      await run(sb.rpc('cem_tasa_soltar_manual', { p_moneda: mon }), 'No se pudo soltar la tasa');
+      olvidarTasa();
+      ok('Vuelve a mandar la tasa del BCV.');
+      cargar();
+    };
+  });
+}
 
 mejorarSelects();
 /* ============ los gráficos de cobranza ============

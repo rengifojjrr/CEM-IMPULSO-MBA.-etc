@@ -63,6 +63,9 @@ La revisión automática falla si alguna pantalla queda con una marca distinta.
   función nueva sin abrir un agujero.
 - [Quién puede ver y tocar qué](docs/politicas-de-acceso.md) — los roles y cómo
   se revisan las políticas de acceso desde la propia plataforma.
+- [El dinero](docs/el-dinero.md) — un precio en una sola moneda, qué tasa manda
+  y por qué, y qué se congela al cobrar. Con el fallo que tuvo la plataforma
+  durante meses por no cumplir la última regla.
 - [Lo que falta](docs/lo-que-falta.md) — qué queda por hacer, qué depende de
   abrir una cuenta y qué es trabajo de código, con las cifras de la base.
 - [Las 42 notas de las capturas](docs/mejoras-de-las-capturas.md) — lo que se

@@ -11,7 +11,7 @@
    y alguien pueda preguntar. */
 
 import { sb, $, $$, esc, fdate, fdatetime, num, modal, ok, okDeshacer, fail, mensajeError,
-         avisar, ocupado, initials, confirmarBorrado } from './app.js?v=2026-08-21-21';
+         avisar, ocupado, initials, confirmarBorrado } from './app.js?v=2026-08-21-22';
 
 /** Segundos a «12:04». Se usa en las dudas y al retomar un vídeo. */
 export const reloj = (s) => {

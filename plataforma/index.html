@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-21">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-22">
 </head>
 <body>
 <div class="auth-wrap">
@@ -178,7 +178,7 @@
 
 <script type="module">
 import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave } from './assets/app.js?v=2026-08-21-21';
+         medidorDeClave } from './assets/app.js?v=2026-08-21-22';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');
@@ -233,7 +233,7 @@ const veniaDeUnEnlaceRoto = quejaDelCorreo();
 
 // Cuando llega rebotado por vencimiento, se dice por qué en vez de dejarlo adivinando.
 if (qs('motivo') === 'vencida') {
-  loginMsg.innerHTML = '<div class="chip warn sep">Tu sesión venció por inactividad. Vuelve a entrar y seguimos donde ibas.</div>';
+  loginMsg.innerHTML = '<div class="nota warn">Tu sesión venció por inactividad. Vuelve a entrar y seguimos donde ibas.</div>';
 }
 
 if (qs('registro')) mostrar('cardReg');
@@ -258,7 +258,7 @@ $('#formOlvide').onsubmit = async (e) => {
   olvideMsg.innerHTML = '';
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) {
-    olvideMsg.innerHTML = '<div class="chip err sep">Revisa la dirección: no parece un correo válido.</div>';
+    olvideMsg.innerHTML = '<div class="nota err">Revisa la dirección: no parece un correo válido.</div>';
     return;
   }
 
@@ -268,7 +268,7 @@ $('#formOlvide').onsubmit = async (e) => {
   btn.disabled = false;
 
   if (error && /invalid|not valid/i.test(error.message) && /email/i.test(error.message)) {
-    olvideMsg.innerHTML = '<div class="chip err sep">Esa dirección no puede recibir correo. Revísala o escríbenos por otro medio.</div>';
+    olvideMsg.innerHTML = '<div class="nota err">Esa dirección no puede recibir correo. Revísala o escríbenos por otro medio.</div>';
     return;
   }
   // Cualquier otro tropiezo (límite de envíos, caída momentánea) se responde
@@ -403,12 +403,12 @@ $('#btnReenviar').onclick = async () => {
   /* Si el límite de envíos está por medio, se dice cuánto esperar en vez de un
      «error» a secas: el reintento inmediato vuelve a fallar igual. */
   if (error && /rate|seconds|limit/i.test(error.message)) {
-    revisaMsg.innerHTML = `<div class="chip warn sep">Espera un momento antes de pedir otro:
+    revisaMsg.innerHTML = `<div class="nota warn">Espera un momento antes de pedir otro:
       el servidor de correo limita los envíos seguidos.</div>`;
     return;
   }
   if (error && /already|confirm/i.test(error.message)) {
-    revisaMsg.innerHTML = `<div class="chip ok sep">Esa cuenta ya está confirmada.
+    revisaMsg.innerHTML = `<div class="nota ok">Esa cuenta ya está confirmada.
       Puedes entrar directamente.</div>`;
     return;
   }

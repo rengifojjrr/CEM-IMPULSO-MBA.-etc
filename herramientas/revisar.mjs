@@ -252,6 +252,34 @@ if (!entradasNav.length) mal('plataforma/assets/app.js', 'No se pudo leer ADMIN_
 else if (desacuerdos.length) desacuerdos.forEach((d) => mal('plataforma/assets/app.js', d));
 else bien(`Las ${entradasNav.length} entradas del menú coinciden con lo que exige cada pantalla`);
 
+/* ══════════ 9. Ningún chip lleva una frase dentro ══════════
+   Un chip es una etiqueta de estado —«Al día», «3 cuotas»— y por eso lleva
+   `white-space:nowrap`: una columna de estados no puede partirse de línea.
+
+   Metido dentro de un chip, un mensaje de dos frases no se parte tampoco: se
+   sale de la tarjeta por los dos lados y empuja la página a lo ancho. Pasó en
+   la portada, con el aviso de sesión vencida asomando fuera del recuadro
+   blanco, y estaba igual en otros cinco sitios.
+
+   Para eso está `.nota`, que es de bloque y parte donde toque. Aquí sólo se
+   comprueba que nadie vuelva a confundirlas. */
+titulo('Ningún chip lleva una frase dentro');
+
+const LARGO_DE_CHIP = 40;   // «inscripciones_abiertas» son 22; una frase pasa de 40
+const chiposos = [];
+for (const f of paginas) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  for (const m of html.matchAll(/class="chip[^"]*"[^>]*>([^<]+)</g)) {
+    // Lo que se arma con datos de la base no se puede medir aquí.
+    const texto = m[1].replace(/\$\{[^}]*\}/g, '').trim();
+    if (texto.length <= LARGO_DE_CHIP) continue;
+    const linea = html.slice(0, m.index).split('\n').length;
+    chiposos.push(`${f}:${linea} mete ${texto.length} caracteres en un chip: «${texto.slice(0, 46)}…». Un mensaje va en .nota`);
+  }
+}
+if (chiposos.length) chiposos.forEach((c) => mal(c.split(':')[0], c));
+else bien(`Ninguno de los chips de las ${paginas.length} pantallas lleva un mensaje dentro`);
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

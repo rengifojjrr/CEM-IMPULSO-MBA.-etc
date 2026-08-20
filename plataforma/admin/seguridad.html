@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-21">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-22">
 <style>
   .qr-caja{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
   .qr-caja img{width:190px;height:190px;border:1px solid var(--filete);border-radius:var(--r);background:#fff;padding:8px;}
@@ -130,7 +130,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError, chipEstado, avisar, fdate } from '../assets/app.js?v=2026-08-21-21';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError, chipEstado, avisar, fdate } from '../assets/app.js?v=2026-08-21-22';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'],
                         active:'seguridad.html', area:'admin' });
@@ -214,17 +214,17 @@ $('#btnVerificar').onclick = async () => {
   const codigo = $('#codigo').value.replace(/\D/g, '');
   const msg = $('#msgAlta');
   if (codigo.length !== 6) {
-    msg.innerHTML = '<div class="chip err sep-poco">El código son seis dígitos.</div>';
+    msg.innerHTML = '<div class="nota err">El código son seis dígitos.</div>';
     return;
   }
   const { data: reto, error: eReto } = await sb.auth.mfa.challenge({ factorId: enAlta.id });
-  if (eReto) { msg.innerHTML = `<div class="chip err sep-poco">${esc(mensajeError(eReto))}</div>`; return; }
+  if (eReto) { msg.innerHTML = `<div class="nota err">${esc(mensajeError(eReto))}</div>`; return; }
 
   const { error } = await sb.auth.mfa.verify({
     factorId: enAlta.id, challengeId: reto.id, code: codigo,
   });
   if (error) {
-    msg.innerHTML = `<div class="chip err sep-poco">
+    msg.innerHTML = `<div class="nota err">
       Ese código no coincide. Fíjate que sea el actual: cambian cada 30 segundos.</div>`;
     return;
   }

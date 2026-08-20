@@ -74,8 +74,12 @@ como las demás funciones. Son el vocabulario de permisos de todo el sistema:
 | `cem_estado_de_cuenta(inscripcion)` | Cuotas, pagos y saldo de una inscripción. |
 | `cem_cartera_por_cobrar()` | Lo que falta cobrar, para conciliar. |
 | `cem_cierre_de_mes(mes)` | Las cuatro cifras del cierre —facturado, cobrado, vencido y por revisar— con su detalle. Se calculan aquí, en un solo sitio, para que no dependan de qué pantalla se mire. |
-| `cem_tasa_vigente()` | La última tasa cargada. |
-| `cem_guardar_tasa_manual(valor, fecha)` | Cargar la tasa a mano. Sólo cobranza para arriba. |
+| `cem_tasa_vigente(moneda)` | La tasa que manda. **Primero el día más nuevo; dentro del mismo día, la que escribió la casa.** Esa segunda parte es la jerarquía entera: si el dueño puso un número, ese número manda hasta el día siguiente. Un sistema que corrige al dueño con la API cada mañana es un sistema en el que el dueño deja de confiar. |
+| `cem_guardar_tasa_manual(valor, fecha, moneda)` | Cargar la tasa a mano. Sólo cobranza para arriba. Vale para el día en que se pone; al siguiente vuelve a mandar el banco. |
+| `cem_tasa_bcv_pedir(forzar)` | Le pide al proveedor la tasa oficial. No trae dos veces lo mismo el mismo día salvo que se fuerce. La dirección de dónde se pide vive en `cem_settings.tasa_automatica`, no dentro de la función: cambiar de proveedor no debería necesitar una migración. |
+| `cem_tasa_bcv_recoger()` | Guarda lo que contestó, como `id_tasa='BCV'`. Descarta un cero o un negativo antes de guardarlo: una respuesta rara del proveedor no puede convertirse en el precio que se le cobra a alguien. La fecha la pone el proveedor, no el reloj de la casa, para que una tasa de anteayer no parezca de hoy. |
+| `cem_tasa_estado()` | Lo que la pantalla enseña: la vigente de cada moneda, de dónde vino, y **si hay una cargada a mano tapando la del BCV**. Eso último es correcto por diseño y por eso mismo hay que verlo: es también lo que pasa cuando alguien escribe un número mal. |
+| `cem_tasa_soltar_manual(moneda, fecha)` | Quita la tasa que se puso a mano ese día y deja mandar otra vez a la del banco. Nunca borra la del BCV: sólo se puede deshacer la mano propia. |
 | `cem_self_enroll(...)` | La inscripción por cuenta propia. **El precio lo pone el servidor**, no el formulario: si viniera del navegador, cualquiera se inscribiría por un dólar. |
 | `cem_cancelar_inscripcion(inscripcion, motivo)` | Dar de baja lo que nunca se pagó, a petición del propio estudiante o del equipo. Con un solo pago confirmado se niega: eso ya no es cancelar, es devolver, y lo decide quien cobra. |
 | `cem_invitar_a_curso(persona, curso, cohorte, descuento, cuotas, mensaje, vence)` | La casa **propone** un precio. No crea inscripción ni cuotas: sólo la oferta y el aviso. Sólo equipo. Aplica el mismo recargo por plan que `cem_self_enroll` —si no, invitar sería una tarifa paralela— y rechaza el programa sin publicar, la cohorte de otro curso y a quien ya está inscrito. |
@@ -200,19 +204,26 @@ este repositorio ni llegan nunca al navegador.
 
 ---
 
-## 3. La tarea programada
+## 3. Las tareas programadas
 
-Una sola, con `pg_cron`:
+Con `pg_cron`. Las horas son **UTC**; Venezuela va cuatro horas por detrás.
 
-```
-cem_revisar_cuotas_diario   ·   0 11 * * *   ·   select public.cem_revisar_cuotas(3);
-```
+| Tarea | Cuándo | Qué hace |
+|---|---|---|
+| `cem_revisar_cuotas_diario` | `0 11 * * *` | Avisa de las cuotas que vencen en los próximos 3 días y marca vencidas las que ya pasaron. Es lo que hace que un estudiante se entere antes y no después. |
+| `cem_alertas_gobierno_diario` | `30 11 * * *` | Las anomalías de gobierno del día. |
+| `cem_informe_mensual` | `0 8 1 * *` | El informe del mes, el día 1. |
+| `cem-correo-empujar` | cada minuto | Saca de la cola los correos pendientes. |
+| `cem-correo-recoger` | cada minuto | Recoge lo que contestó el proveedor. |
+| `cem-stripe-sync-recoger` | cada minuto | Recoge lo que contestó Stripe. |
+| `cem-tasa-bcv-pedir` | `15 11,23 * * *` | Le pide al BCV la tasa del euro y la del dólar. Dos veces al día: si la de la mañana falla, la de la noche lo arregla sin que nadie mire. |
+| `cem-tasa-bcv-recoger` | cada minuto | Guarda la respuesta del BCV cuando llega. |
 
-Todos los días a las 11:00 UTC avisa de las cuotas que vencen en los próximos 3
-días y marca como vencidas las que ya pasaron. Es lo que hace que un estudiante
-se entere antes y no después.
+Las tres parejas de «pedir» y «recoger» son el mismo patrón: `pg_net` es
+asíncrono —deja la petición puesta y la respuesta aparece luego en
+`net._http_response`—, así que no se puede hacer de un tirón.
 
-Para verla o cambiarla:
+Para verlas o cambiarlas:
 
 ```sql
 select jobid, jobname, schedule, command, active from cron.job;
