@@ -1711,18 +1711,30 @@ html:root:not([data-estilo="plano"]){
   opacity:calc(var(--ambiente-base, 1) * var(--ambiente-fuerza, 1));
 }
 :root[data-animacion="si"] body::before{
-  animation:cem-ambiente var(--ambiente-ciclo, 62s) ease-in-out infinite;
+  /* En propiedades sueltas y no en el atajo `animation`. El atajo con una
+     variable dentro para la duración lo interpretan mal algunos navegadores, y
+     ahí el fondo se queda quieto sin que nada lo explique. */
+  animation-name:cem-ambiente;
+  animation-duration:var(--ambiente-ciclo, 62s);
+  animation-timing-function:ease-in-out;
+  animation-iteration-count:infinite;
   will-change:transform;
 }
 
-/* Quien pidió menos movimiento en su sistema lo pidió por algo, y esto está
-   por debajo de lo que elija nadie en el panel: el ajuste enciende la
-   animación, esta regla la apaga igual. Para alguien con trastorno
-   vestibular no es una preferencia estética. */
+/* Quien pidió menos movimiento en su sistema lo pidió por algo, y por eso el
+   fondo le viene APAGADO: esa decisión la toma `animacionActual()` al arrancar,
+   leyendo la preferencia del sistema.
+
+   Pero si esa persona entra al panel y lo enciende, ya dijo lo que quiere. Sin
+   estas dos líneas no habría forma: arriba del todo hay un reinicio global con
+   `!important` sobre `*, *::before, *::after` que deja toda animación en
+   0,01 ms y una sola vuelta. Encendido y quieto, y encima con el mando de la
+   intensidad funcionando —porque la opacidad no es una animación— que es la
+   peor combinación posible: parece que el ajuste hace algo a medias. */
 @media (prefers-reduced-motion:reduce){
   :root[data-animacion="si"] body::before{
-    animation:none;
-    will-change:auto;
+    animation-duration:var(--ambiente-ciclo, 62s) !important;
+    animation-iteration-count:infinite !important;
   }
 }
 

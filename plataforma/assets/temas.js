@@ -417,7 +417,25 @@ export const vidrioActual = () => estiloActual() !== 'plano';
    Quien haya pedido menos movimiento en su sistema no lo ve, y eso NO es
    negociable ni depende de este ajuste: está en la hoja, en un
    `prefers-reduced-motion`, por debajo de lo que elija nadie. */
-export const animacionActual = () => leer(LLAVE.animacion, 'si') !== 'no';
+/* El sistema pone el valor POR OMISIÓN; la persona manda por encima.
+   ----------------------------------------------------------------------
+   Es el patrón correcto y además arregla un fallo real. `prefers-reduced-
+   motion` significa «no me pongas movimiento decorativo por tu cuenta», no
+   «prohíbeme encenderlo». Quien entra al panel y pulsa «Fondo con movimiento»
+   ya dijo lo que quiere, y seguir apagándoselo es no hacerle caso.
+
+   Antes esto se decidía sólo en la hoja, y encima había un reinicio global con
+   `!important` sobre `*` que mataba toda animación. Resultado para quien tiene
+   la opción activada en su sistema: el mando de la intensidad funcionaba —no
+   es una animación— y el de la velocidad no hacía nada. Encendido y quieto,
+   sin una explicación a la vista. */
+export const animacionActual = () => {
+  const guardado = leer(LLAVE.animacion, null);
+  if (guardado === 'si' || guardado === 'no') return guardado === 'si';
+  try {
+    return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  } catch { return true; }
+};
 
 /* ── cuánto color y a qué ritmo ──────────────────────────────────────────
    Dos números que elige cada quien, porque «bonito» no es lo mismo en un

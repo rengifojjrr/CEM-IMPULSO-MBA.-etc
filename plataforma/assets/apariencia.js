@@ -16,13 +16,13 @@
    «Guardar»: el cambio se ve en el acto, que es la única forma de elegir un
    aspecto con criterio. */
 
-import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-34';
+import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-36';
 import {
   PALETAS, ESTILOS, FORMAS, DENSIDADES,
   aplicarApariencia, aparienciaDeFabrica,
   paletaActual, temaActual, estiloActual, formaActual, densidadActual, animacionActual,
   AMBIENTE, fuerzaActual, ritmoActual,
-} from './temas.js?v=2026-08-21-34';
+} from './temas.js?v=2026-08-21-36';
 
 /** El HTML del panel. `compacto` quita las explicaciones largas: en una ventana no caben. */
 function armazon(compacto) {
@@ -134,14 +134,16 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
     ].map(([v, txt, ico]) => `<button type="button" class="btn sm ${animada === v ? '' : 'outline'}"
         data-animacion="${v ? 'si' : 'no'}" aria-pressed="${animada === v}">
         <span class="material-symbols-outlined">${ico}</span> ${txt}</button>`).join('');
-    /* Si el sistema pide menos movimiento, la hoja apaga la animación por
-       encima de este interruptor. Decirlo aquí evita la única conversación
-       que si no es inevitable: «lo activo y no se mueve». */
+    /* Quien pide «reducir movimiento» en su sistema lo pide por algo, así que
+       eso decide cómo llega esto de fábrica: apagado. Pero decidir por alguien
+       que ya vino aquí a darle al interruptor es otra cosa —y era el defecto
+       de la versión anterior: encendías y no pasaba nada, sin explicación—.
+       Ahora el sistema pone el valor de partida y tu elección lo cambia. */
     const sistemaQuieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    dentro('animacionNota').textContent = sistemaQuieto
-      ? 'Tu sistema tiene activado «reducir movimiento», así que el fondo no se moverá aunque lo enciendas aquí. Se respeta a propósito.'
-      : animada
-        ? 'Las manchas de color se desplazan despacio, un ciclo cada 52 segundos. Funciona con cualquier estilo, también con «Plano», donde va más tenue.'
+    dentro('animacionNota').textContent = animada
+      ? 'Las manchas de color se desplazan despacio. Funciona con cualquier estilo, también con «Plano», donde va más tenue.'
+      : sistemaQuieto
+        ? 'Tu sistema pide «reducir movimiento», así que viene apagado. Si lo enciendes aquí, se mueve: mandas tú.'
         : 'El fondo se queda como está.';
 
     /* Los dos números que faltaban: cuánta luz y a qué ritmo. Son continuos,
