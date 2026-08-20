@@ -1625,6 +1625,48 @@ html:root:not([data-estilo="plano"]){
 :root[data-densidad="amplia"] .list-item{padding:var(--e2) 0;}
 :root[data-densidad="amplia"] .kpi{padding:var(--e3);}
 
+/* ── el ambiente, moviéndose ──────────────────────────────────────────────
+   Las cuatro manchas de color estaban quietas. Girándolas y respirándolas muy
+   despacio, las de los bordes se desplazan bastante y las del centro casi
+   nada, y el fondo deja de parecer una imagen para parecer luz.
+
+   POR QUÉ SÓLO `transform`. Es lo único que el navegador puede componer sin
+   volver a pintar. Animar `background-position` sobre cuatro degradados a
+   pantalla completa repinta toda la ventana en cada fotograma, y eso sí se
+   nota en un portátil con una tabla de trescientas filas abierta. Con una
+   transformación sobre una capa fija y aislada, el coste es de la tarjeta
+   gráfica y no se nota en ninguno.
+
+   POR QUÉ `scale(1.06)` Y NO `scale(1)`. Al girar un rectángulo, sus esquinas
+   dejan de tapar las de la ventana: hace falta ampliarlo al menos
+   `cos θ + sen θ` para que siga cubriéndola. Con θ = 1,6° eso es 1,028, así
+   que 1,06 cubre con margen de sobra y además da el «respirar» al variar
+   hasta 1,10. Sin esa cuenta se ve una cuña del fondo pelado asomando por una
+   esquina cada pocos segundos, que es el error clásico de esta animación.
+
+   Y noventa segundos por vuelta. Bastante lento como para que nadie lo mire:
+   se nota que la pantalla está viva y no se nota qué se está moviendo. */
+@keyframes cem-ambiente {
+  0%   { transform:rotate(-1.6deg) scale(1.06); }
+  50%  { transform:rotate( 1.6deg) scale(1.10); }
+  100% { transform:rotate(-1.6deg) scale(1.06); }
+}
+:root[data-animacion="si"]:not([data-estilo="plano"]) body::before{
+  animation:cem-ambiente 90s ease-in-out infinite;
+  will-change:transform;
+}
+
+/* Quien pidió menos movimiento en su sistema lo pidió por algo, y esto está
+   por debajo de lo que elija nadie en el panel: el ajuste enciende la
+   animación, esta regla la apaga igual. Para alguien con trastorno
+   vestibular no es una preferencia estética. */
+@media (prefers-reduced-motion:reduce){
+  :root[data-animacion="si"]:not([data-estilo="plano"]) body::before{
+    animation:none;
+    will-change:auto;
+  }
+}
+
 /* ── cuándo NO ponerlo, aunque esté elegido ───────────────────────────────
    Quien pidió menos transparencia en su sistema lo pidió por algo, y en el
    papel un fondo difuminado es tinta gastada. */

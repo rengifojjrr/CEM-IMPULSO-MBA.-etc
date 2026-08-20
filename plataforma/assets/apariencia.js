@@ -16,12 +16,12 @@
    «Guardar»: el cambio se ve en el acto, que es la única forma de elegir un
    aspecto con criterio. */
 
-import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-25';
+import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-26';
 import {
   PALETAS, ESTILOS, FORMAS, DENSIDADES,
   aplicarApariencia, aparienciaDeFabrica,
-  paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-} from './temas.js?v=2026-08-21-25';
+  paletaActual, temaActual, estiloActual, formaActual, densidadActual, animacionActual,
+} from './temas.js?v=2026-08-21-26';
 
 /** El HTML del panel. `compacto` quita las explicaciones largas: en una ventana no caben. */
 function armazon(compacto) {
@@ -51,6 +51,10 @@ function armazon(compacto) {
         <div class="row sep-poco" data-ap="densidades"></div>
         <p class="tiny muted sep-poco" data-ap="densidadNota"></p></div>
     </div>
+
+    <h3 class="sub-ap sep">Efectos</h3>
+    <div class="row sep-poco" data-ap="animacion"></div>
+    <p class="tiny muted sep-poco" data-ap="animacionNota"></p>
 
     <div class="row sep">
       <button type="button" class="btn outline sm" data-ap="fabrica">
@@ -115,6 +119,24 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
         data-densidad="${esc(clave)}" aria-pressed="${clave === densidad}">${esc(d.nombre)}</button>`).join('');
     dentro('densidadNota').textContent = DENSIDADES[densidad].resumen;
 
+    /* item · «que el fondo de colores se vaya moviendo lentamente». El fondo
+       de colores sólo existe si el estilo no es el plano, así que con «Plano»
+       elegido el interruptor no tendría nada que mover: se dice, en vez de
+       dejar que alguien lo encienda y no vea nada. */
+    const animada = animacionActual();
+    const hayFondo = estiloActual() !== 'plano';
+    dentro('animacion').innerHTML = [
+      [true, 'Fondo con movimiento', 'animation'],
+      [false, 'Fondo quieto', 'block'],
+    ].map(([v, txt, ico]) => `<button type="button" class="btn sm ${animada === v ? '' : 'outline'}"
+        data-animacion="${v ? 'si' : 'no'}" aria-pressed="${animada === v}">
+        <span class="material-symbols-outlined">${ico}</span> ${txt}</button>`).join('');
+    dentro('animacionNota').textContent = !hayFondo
+      ? 'Con el estilo «Plano» no hay fondo de color, así que no hay nada que mover: elige otro estilo para verlo.'
+      : animada
+        ? 'Las manchas de color giran muy despacio, un ciclo cada minuto y medio. Si en tu sistema pediste menos movimiento, no se mueve.'
+        : 'El fondo se queda como está.';
+
     const cambiar = (ajuste, aviso) => {
       aplicarApariencia(ajuste);
       pintar();
@@ -128,12 +150,14 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
     $$('[data-tema]', raiz).forEach((b) => b.onclick = () => cambiar({ tema: b.dataset.tema }));
     $$('[data-forma]', raiz).forEach((b) => b.onclick = () => cambiar({ forma: b.dataset.forma }));
     $$('[data-densidad]', raiz).forEach((b) => b.onclick = () => cambiar({ densidad: b.dataset.densidad }));
+    $$('[data-animacion]', raiz).forEach((b) => b.onclick = () =>
+      cambiar({ animacion: b.dataset.animacion === 'si' }));
 
     dentro('fabrica').onclick = () => {
       aparienciaDeFabrica();
       pintar();
       alCambiar({});
-      ok('Aspecto restablecido: paleta de la casa, sin vidrio, esquinas suaves.');
+      ok('Aspecto restablecido: paleta de la casa, sin vidrio, esquinas suaves y fondo con movimiento.');
     };
   }
 

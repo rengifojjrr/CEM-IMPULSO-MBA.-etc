@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -166,7 +166,7 @@ export default async function correr(navegador) {
     await C.waitForTimeout(2500);
 
     const r = await C.evaluate(async () => {
-      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
+      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
       const cajas = [...document.querySelectorAll('.card, .caja, .kpi')]
         .filter((e) => e.offsetParent !== null).slice(0, 40);
       if (!cajas.length) return { n: 0, sordas: 0 };
@@ -189,9 +189,73 @@ export default async function correr(navegador) {
     await C.close();
   }
 
+  /* ============ el fondo con movimiento ============
+     Un interruptor para que las manchas de color se muevan muy despacio. Tres
+     cosas tienen que cumplirse, y la tercera no es opcional. */
+  const M = await nuevaPestana(navegador, { ancho: 1300, alto: 850 });
+  await entrar(M, 'estudiante', 'estudiante/panel.html');
+  await M.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
+
+  const ambiente = () => M.evaluate(() => {
+    const cs = getComputedStyle(document.body, '::before');
+    return { anim: cs.animationName, transform: cs.transform };
+  });
+
+  await M.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
+  });
+  await M.waitForTimeout(600);
+  const t0 = await ambiente();
+  a.comprobar(t0.anim === 'cem-ambiente', `Encendido, el fondo se anima (${t0.anim})`);
+
+  /* Que la regla exista no prueba que algo se mueva: se mira dos veces. */
+  await M.waitForTimeout(3500);
+  const t1 = await ambiente();
+  a.comprobar(t0.transform !== t1.transform && t1.transform !== 'none',
+    'Y se mueve de verdad: la transformación no es la misma tres segundos después');
+
+  /* La cuenta que evita el fallo clásico de esta animación: al girar un
+     rectángulo sus esquinas dejan de tapar las de la ventana, y asoma una cuña
+     del fondo pelado. Hace falta ampliarlo al menos `cos θ + sen θ`. */
+  const cubre = await M.evaluate(() => {
+    const cs = getComputedStyle(document.body, '::before');
+    const m = cs.transform.match(/matrix\(([-\d.]+),\s*([-\d.]+)/);
+    if (!m) return null;
+    const [, a1, b1] = m.map(Number);
+    const escala = Math.hypot(a1, b1);
+    const giro = Math.abs(Math.atan2(b1, a1));
+    return { escala, necesaria: Math.cos(giro) + Math.sin(giro) };
+  });
+  a.comprobar(cubre && cubre.escala >= cubre.necesaria,
+    `La capa sigue tapando la ventana mientras gira (escala ${cubre?.escala.toFixed(4)} ≥ ${cubre?.necesaria.toFixed(4)})`);
+
+  await M.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    t.aplicarApariencia({ animacion: false });
+  });
+  await M.waitForTimeout(500);
+  a.comprobar((await ambiente()).anim === 'none', 'Y el botón la apaga');
+  await M.close();
+
+  /* Lo que NO es negociable: quien pidió menos movimiento en su sistema no lo
+     ve, esté el interruptor como esté. Para alguien con trastorno vestibular
+     esto no es una preferencia estética. */
+  const Q = await navegador.newContext({ reducedMotion: 'reduce', viewport: { width: 1200, height: 800 } });
+  const QP = await Q.newPage();
+  await QP.goto(`${BASE}/plataforma/index.html`, { waitUntil: 'domcontentloaded' });
+  await QP.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
+  });
+  await QP.waitForTimeout(600);
+  a.comprobar(await QP.evaluate(() => getComputedStyle(document.body, '::before').animationName) === 'none',
+    'Con «menos movimiento» pedido en el sistema no se mueve, aunque esté encendida');
+  await Q.close();
+
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

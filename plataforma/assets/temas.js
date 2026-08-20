@@ -365,7 +365,7 @@ export const DENSIDAD_POR_DEFECTO = 'normal';
    va en el navegador de cada quien y no toca la base. */
 const LLAVE = {
   paleta: 'cemPaleta', tema: 'cemTema', estilo: 'cemEstilo',
-  forma: 'cemForma', densidad: 'cemDensidad',
+  forma: 'cemForma', densidad: 'cemDensidad', animacion: 'cemAnimacion',
   vidrio: 'cemVidrio',   // sólo para leer lo que quedó guardado antes
 };
 const leer = (k, porDefecto) => {
@@ -401,6 +401,22 @@ export const estiloActual = () => {
 };
 /** Sigue habiendo vidrio si el estilo no es el plano. */
 export const vidrioActual = () => estiloActual() !== 'plano';
+
+/* ── el fondo, moviéndose ────────────────────────────────────────────────
+   La capa de ambiente ya existía y estaba quieta. Esto la hace girar y
+   respirar muy despacio —un ciclo entero de minuto y medio— para que las
+   manchas de color se desplacen unas respecto de otras.
+
+   Se mueve con `transform`, y sólo con `transform`, porque es lo único que el
+   navegador puede componer sin volver a pintar: animar `background-position`
+   sobre cuatro degradados a pantalla completa repinta la pantalla entera
+   sesenta veces por segundo, y eso se nota en un portátil con una tabla larga
+   abierta. Así no se nota en ninguno.
+
+   Quien haya pedido menos movimiento en su sistema no lo ve, y eso NO es
+   negociable ni depende de este ajuste: está en la hoja, en un
+   `prefers-reduced-motion`, por debajo de lo que elija nadie. */
+export const animacionActual = () => leer(LLAVE.animacion, 'si') !== 'no';
 
 const declaraciones = (tokens) =>
   Object.entries(tokens).map(([k, v]) => `${k}:${v};`).join('');
@@ -442,7 +458,7 @@ function pedirLaLetra(familia) {
  * Deja la página con la apariencia que toque. Se llama sola al cargar y cada
  * vez que se cambia algo en Configuración.
  */
-export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidrio } = {}) {
+export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, animacion, vidrio } = {}) {
   const raiz = document.documentElement;
 
   if (paleta !== undefined) guardar(LLAVE.paleta, PALETAS[paleta] ? paleta : PALETA_POR_DEFECTO);
@@ -452,6 +468,7 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidri
   if (densidad !== undefined) guardar(LLAVE.densidad, DENSIDADES[densidad] ? densidad : DENSIDAD_POR_DEFECTO);
   // El sí/no de antes sigue funcionando para quien lo llame así.
   if (vidrio !== undefined) guardar(LLAVE.estilo, vidrio ? 'escarcha' : 'plano');
+  if (animacion !== undefined) guardar(LLAVE.animacion, animacion ? 'si' : 'no');
 
   const clave = paletaActual();
   let hoja = document.getElementById('cemPaletaHoja');
@@ -476,9 +493,11 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidri
   raiz.dataset.estilo = estiloActual();
   raiz.dataset.forma = formaActual();
   raiz.dataset.densidad = densidadActual();
+  raiz.dataset.animacion = animacionActual() ? 'si' : 'no';
   return {
     paleta: clave, tema: t, estilo: estiloActual(),
     forma: formaActual(), densidad: densidadActual(),
+    animacion: animacionActual(),
   };
 }
 
@@ -486,7 +505,7 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, vidri
 export function aparienciaDeFabrica() {
   return aplicarApariencia({
     paleta: PALETA_POR_DEFECTO, tema: 'auto', estilo: ESTILO_POR_DEFECTO,
-    forma: FORMA_POR_DEFECTO, densidad: DENSIDAD_POR_DEFECTO,
+    forma: FORMA_POR_DEFECTO, densidad: DENSIDAD_POR_DEFECTO, animacion: true,
   });
 }
 
