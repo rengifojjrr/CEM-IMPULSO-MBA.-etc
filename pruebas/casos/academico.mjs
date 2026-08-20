@@ -145,6 +145,71 @@ export default async function correr(navegador) {
     a.comprobar(true, 'No hay inscripciones elegibles en este momento');
   }
 
+  /* ============ saber a quién se está evaluando ============
+     La cola de corrección llegaba mezclada: varios programas, varias cohortes
+     y las notas que puso otra persona, todo en la misma lista. */
+  await A.goto(`${BASE}/plataforma/admin/calificar.html`, { waitUntil: 'domcontentloaded' });
+  await A.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
+  await A.waitForTimeout(2500);
+
+  const acota = await A.evaluate(() => ({
+    cohortes: document.querySelectorAll('#fCohorte option').length,
+    cursos: document.querySelectorAll('#fCurso option').length,
+    correctores: document.querySelectorAll('#fCorrector option').length,
+    /* Dos programas pueden tener una «Cohorte 25A» cada uno: si el desplegable
+       no dice de cuál es cada una, elegir es adivinar. */
+    cohortesDistinguibles: (() => {
+      const t = [...document.querySelectorAll('#fCohorte option')].map((o) => o.textContent);
+      return new Set(t).size === t.length;
+    })(),
+    diceLaCohorte: /Cohorte|Sin cohorte/.test(document.querySelector('.sub-item')?.textContent || ''),
+  }));
+  a.comprobar(acota.cohortes > 1 && acota.cursos > 1,
+    `La cola se acota por programa y por cohorte (${acota.cursos - 1} programa(s), ${acota.cohortes - 1} cohorte(s))`);
+  a.comprobar(acota.cohortesDistinguibles,
+    'Y dos cohortes con el mismo nombre se distinguen por su programa');
+  a.comprobar(acota.diceLaCohorte, 'Cada entrega dice de qué cohorte viene, sin tener que abrirla');
+
+  if (acota.correctores > 1) {
+    const antes = await A.locator('.sub-item').count();
+    await A.click('[data-f=done]');
+    await A.waitForTimeout(500);
+    const quien = await A.$$eval('#fCorrector option', (o) => o.map((x) => x.value).filter(Boolean));
+    await A.selectOption('#fCorrector', quien[0]);
+    await A.waitForTimeout(700);
+    const nombres = await A.$$eval('.sub-item', (n) => n.map((x) => x.textContent));
+    a.comprobar(nombres.length > 0 && nombres.every((t) => /la puso /.test(t)),
+      `Se puede ver cómo está calificando una persona: ${nombres.length} entrega(s) suyas (de ${antes})`);
+    await A.selectOption('#fCorrector', '');
+  } else {
+    a.comprobar(true, 'Todavía no hay dos personas corrigiendo que comparar');
+  }
+
+  /* ============ la cola de revisión, por autor ============ */
+  await A.goto(`${BASE}/plataforma/admin/revision.html`, { waitUntil: 'domcontentloaded' });
+  await A.waitForSelector('#tb tr', { timeout: 30000 });
+  await A.waitForTimeout(1500);
+  const autores = await A.$$eval('#fAutor option', (o) => o.map((x) => x.value).filter(Boolean));
+  if (autores.length) {
+    await A.selectOption('#fAutor', autores[0]);
+    await A.waitForTimeout(600);
+    const unSolo = await A.$$eval('#tb tr td:nth-child(3)',
+      (t) => [...new Set(t.map((x) => x.textContent.trim()))]);
+    a.comprobar(unSolo.length === 1,
+      `La bandeja de revisión se filtra por quién subió el contenido (${unSolo.join(', ')})`);
+
+    // El filtro queda en la dirección: «la cola de Elena» se puede pegar en
+    // un mensaje y le llega al otro ya filtrada.
+    const conFiltro = A.url();
+    await A.goto(conFiltro, { waitUntil: 'domcontentloaded' });
+    await A.waitForSelector('#tb tr', { timeout: 30000 });
+    await A.waitForTimeout(1800);
+    a.comprobar(await A.inputValue('#fAutor') === autores[0],
+      'Y el enlace se puede pasar: al abrirlo llega ya filtrada');
+  } else {
+    a.comprobar(true, 'No hay contenido en la bandeja de revisión que filtrar');
+  }
+
   a.comprobar(E.errores.length === 0,
     `Las pantallas del estudiante no lanzan errores ${JSON.stringify(E.errores.slice(0, 2))}`);
   a.comprobar(A.errores.length === 0,

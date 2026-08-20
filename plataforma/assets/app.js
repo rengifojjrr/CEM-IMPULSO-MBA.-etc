@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-21-8';
+         vidrioActual } from './temas.js?v=2026-08-21-9';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1506,9 +1506,24 @@ function buscadorDeVerdad(caja) {
 /* ============ un solo buscador por pantalla (item 27) ============
    Había dos cajas de búsqueda a la vez —la de la barra de arriba y la de cada
    tabla— con reglas distintas: una te mandaba a otra pantalla y la otra
-   filtraba lo que estabas mirando. Ahora, cuando la pantalla tiene su propio
-   buscador, la de arriba filtra ése y el de la tabla se retira; cuando no lo
-   tiene, la de arriba sigue llevándote a buscar donde corresponda. */
+   filtraba lo que estabas mirando. Sigue habiendo un solo filtro por pantalla;
+   lo que cambió es que ya no se esconde ninguna caja.
+
+   Por qué se deshizo lo de esconderla
+   ------------------------------------------------------------------------
+   Se retiraba la de la tabla y mandaba la de arriba. Sobre el papel es una
+   caja menos; en la práctica el filtro acababa a cuatrocientos píxeles de la
+   lista que filtra, arriba a la izquierda, fuera del recuadro y pegado a la
+   campana de avisos. El resultado se repitió en cinco pantallas distintas:
+   «aquí hace falta una barra de búsqueda» —dicho de pantallas que la tenían—.
+   Un control que la gente no encuentra no existe, por muy bien colocado que
+   esté en el diagrama.
+
+   Ahora las dos se ven y son la misma: escribir en cualquiera de ellas mueve
+   la otra y filtra la lista. Lo que aquel comentario quería evitar —dos cajas
+   con dos reglas— no vuelve, porque no hay dos reglas: hay un filtro con dos
+   sitios donde escribirlo. La de arriba sigue heredando la pista de qué se
+   puede buscar, que la sabe mejor la pantalla. */
 function unSoloBuscador(area) {
   const global = $('#cemGlobalSearch');
   if (!global) return;
@@ -1534,14 +1549,25 @@ function unSoloBuscador(area) {
   const desdeLaUrl = new URLSearchParams(location.search).get('q');
   global.value = local.value || desdeLaUrl || '';
 
-  const campo = local.closest('.field') || local;
-  campo.hidden = true;
-
+  /* Las dos son la misma caja: cada una copia a la otra y sólo la de la tabla
+     dispara el filtrado, para que no haya dos caminos hacia el mismo sitio.
+     El guardia `copiando` corta el rebote —arriba escribe abajo, abajo
+     escribiría arriba, y así sin parar—. */
+  let copiando = false;
   const propagar = () => {
+    if (copiando) return;
+    copiando = true;
     local.value = global.value;
     local.dispatchEvent(new Event('input', { bubbles: true }));
+    copiando = false;
   };
   global.addEventListener('input', propagar);
+  local.addEventListener('input', () => {
+    if (copiando) return;
+    copiando = true;
+    global.value = local.value;
+    copiando = false;
+  });
   /* Llegar con `?q=` desde otra pantalla dejaba el texto escrito arriba y la
      tabla sin filtrar: se veía la palabra en la caja y la lista entera debajo.
      Se propaga una vez al montar, que es lo que la persona esperaba al pulsar
@@ -1668,7 +1694,7 @@ function renderShell(p, area, active) {
         <button class="btn ghost sm block" id="cemApariencia"
                 title="Colores, estilo de los recuadros, claro u oscuro">
           <span class="material-symbols-outlined">palette</span> <span>Apariencia</span></button>
-        <button class="btn outline sm block" id="cemLogout">
+        <button class="btn outline sm block" id="cemLogout" title="Cerrar sesión">
           <span class="material-symbols-outlined">logout</span> <span>Cerrar sesión</span></button>
       </div>
     </aside>
@@ -1721,7 +1747,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-21-8');
+    const m = await import('./apariencia.js?v=2026-08-21-9');
 
     m.abrirApariencia();
 

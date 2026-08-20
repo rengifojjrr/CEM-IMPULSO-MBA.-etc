@@ -145,7 +145,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-8');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-9');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -364,7 +364,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-8');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-9');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -392,13 +392,52 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-8');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-9');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });
   a.comprobar(fiscales.data === 'txcd_20060045',
     `Una clase en vivo se declara como formación en directo, no como curso grabado (${
       fiscales.data ?? fiscales.error})`);
+
+  /* ============ acotar cien pagos ============
+     Una lista de cien pagos seguidos no se lee. Se busca por cuándo entró el
+     dinero y por cómo entró —«las transferencias de octubre»—, y desde la
+     fila se entra a la persona a ver todo lo suyo. */
+  await A.goto(`${BASE}/plataforma/admin/inscripciones.html`, { waitUntil: 'domcontentloaded' });
+  await A.waitForSelector('#tb tr', { timeout: 40000 });
+  await A.click('[data-t=pagos]');
+  await A.waitForTimeout(900);
+  await A.evaluate(() => { document.querySelector('#masFiltros').open = true; });
+
+  const todos = await A.locator('#tb tr').count();
+  const metodos = await A.$$eval('#fMetodo option', (o) => o.map((x) => x.value).filter(Boolean));
+  await A.selectOption('#fMetodo', metodos[0]);
+  await A.waitForTimeout(700);
+  const unMetodo = await A.$$eval('#tb tr td[data-col="Método"]',
+    (t) => [...new Set(t.map((x) => x.textContent.trim()))]);
+  a.comprobar(metodos.length > 1 && unMetodo.length === 1,
+    `Filtrar por método deja sólo ese método (${unMetodo.join(', ')} de ${metodos.length} posibles)`);
+
+  await A.selectOption('#fMetodo', '');
+  await A.fill('#fDesde', '2026-10-01');
+  await A.waitForTimeout(700);
+  const acotado = await A.locator('#tb tr').count();
+  const fueraDeRango = await A.$$eval('#tb tr td[data-col="Fecha"]',
+    (t) => t.map((x) => x.textContent.trim()).filter((f) => !/oct|nov|dic/.test(f)).length);
+  a.comprobar(acotado < todos && fueraDeRango === 0,
+    `Y una fecha desde deja fuera lo anterior (${acotado} de ${todos}, ${fueraDeRango} fuera de rango)`);
+
+  const aLaFicha = await A.getAttribute('#tb tr a[href^="estudiante.html"]', 'href');
+  a.comprobar(/estudiante\.html\?id=[0-9a-f-]{36}/.test(aLaFicha || ''),
+    `Desde un pago se entra a la ficha de quien lo hizo (${aLaFicha})`);
+
+  // «Limpiar» tiene que limpiar también los que están plegados, o la lista
+  // sigue acotada y nadie entiende por qué.
+  await A.click('#btnClear');
+  await A.waitForTimeout(700);
+  a.comprobar(await A.locator('#tb tr').count() === todos,
+    'Y «Limpiar» devuelve la lista entera, también lo que estaba plegado');
 
   a.comprobar(A.errores.length === 0,
     `La bandeja de pagos no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-8">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-9">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -45,6 +45,17 @@
       <div class="field"><label>Estado <button type="button" class="ayuda-btn" data-ayuda="El de la inscripción: activa si está estudiando, congelada si pidió pausa, cancelada si se retiró. Las cuotas tienen su propio estado, aparte.">?</button></label><select id="fEstado"><option value="">Todos</option></select></div>
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
+    <!-- Cien pagos seguidos no se leen. Se acota por cuándo y por cómo entró el
+         dinero, que es como se busca de verdad: «las transferencias de octubre». -->
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> <span id="lblMas">Filtrar por fecha o método</span>
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Desde</label><input type="date" id="fDesde"></div>
+        <div class="field"><label>Hasta</label><input type="date" id="fHasta"></div>
+        <div class="field" id="campoMetodo"><label>Método</label><select id="fMetodo"><option value="">Todos</option></select></div>
+      </div>
+    </details>
     <div class="table-wrap"><table id="tabla" class="tarjetas"><thead id="th"></thead><tbody id="tb"></tbody></table></div>
   </div>
 </div>
@@ -52,7 +63,7 @@
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, money, num, fdate, fdateCorta, fdatetime, emptyRow, match, kpi, modal, ok, fail,
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
-         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion } from '../assets/app.js?v=2026-08-21-8';
+         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion } from '../assets/app.js?v=2026-08-21-9';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
 const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
 let ens=[], insts=[], pays=[], sols=[], tab='ins';
@@ -159,9 +170,78 @@ function ponerTotales(celdas){
   tabla.insertAdjacentHTML('beforeend', filaTotales(celdas));
 }
 
-function render(){
+/* ============ los filtros, en un solo sitio ============
+   La pantalla los usa dos veces: para pintar y para exportar. Escritos dos
+   veces se separan —ya pasó una vez, y el Excel salía con filas que la tabla
+   no enseñaba—, así que cada pestaña arma su lista aquí y las dos la piden.
+
+   Las fechas se comparan como texto porque en la base son `YYYY-MM-DD`: en ese
+   formato el orden alfabético y el cronológico son el mismo, y así no hay que
+   construir un `Date` por fila ni preocuparse de husos horarios. */
+const pasaFecha = (valor) => {
+  const d = $('#fDesde').value, h = $('#fHasta').value;
+  if (!d && !h) return true;
+  const v = String(valor || '').slice(0,10);
+  if (!v) return false;
+  return (!d || v >= d) && (!h || v <= h);
+};
+
+/** Cuántos filtros de los plegados están puestos, para el contador del resumen. */
+function contarFiltros(){
+  const n = ['#fDesde','#fHasta', tab==='pagos' ? '#fMetodo' : null]
+    .filter(Boolean).filter(s => $(s).value).length;
+  const chip = $('#nFiltros');
+  chip.hidden = n === 0;
+  chip.textContent = `${n} puesto${n===1?'':'s'}`;
+  if (n) $('#masFiltros').open = true;
+}
+
+function listaIns(){
   const q=$('#q').value.trim(), f=$('#fEstado').value;
+  return ens.filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre'])
+      && (!f||r.estado===f) && pasaFecha(r.fecha_inscripcion))
+    .map(r=>({ ...r,
+      _alumno: `${r.cem_profiles?.nombre||''} ${r.cem_profiles?.apellido||''}`.trim(),
+      _pagado: pays.filter(x=>x.enrollment_id===r.id && x.estado!=='rechazado' && x.estado!=='anulado')
+                   .reduce((a,x)=>a+enDolares(x),0),
+      _saldo: insts.filter(i=>i.enrollment_id===r.id && i.estado!=='pagada' && i.estado!=='anulada')
+                   .reduce((a,i)=>a+Number(i.saldo||0),0),
+    }));
+}
+
+function listaCuotas(){
+  const q=$('#q').value.trim(), f=$('#fEstado').value;
+  return insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
+    .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
+      && (!f||i.estado===f) && pasaFecha(i.fecha_vencimiento))
+    .map(i=>({ ...i,
+      _alumno: `${i._e.cem_profiles?.nombre||''} ${i._e.cem_profiles?.apellido||''}`.trim(),
+      _curso: i._e.cem_courses?.nombre||'' }));
+}
+
+function listaPagos(){
+  const q=$('#q').value.trim(), f=$('#fEstado').value, m=$('#fMetodo').value;
+  return pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
+    .filter(x=>x._e && match(x._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
+      && (f===''||String(x.conciliado?1:0)===f)
+      && (!m||x.metodo===m) && pasaFecha(x.fecha))
+    .map(x=>({ ...x,
+      _alumno: `${x._e.cem_profiles?.nombre||''} ${x._e.cem_profiles?.apellido||''}`.trim(),
+      _curso: x._e.cem_courses?.nombre||'' }));
+}
+
+function render(){
   $('#tabla').classList.add('tarjetas');   // en el teléfono, cada fila una tarjeta
+
+  /* El método sólo existe en los pagos: en las otras dos pestañas se retira
+     en vez de quedarse ahí sin hacer nada. */
+  $('#campoMetodo').hidden = tab !== 'pagos';
+  $('#lblMas').textContent = tab==='pagos' ? 'Filtrar por fecha o método'
+    : tab==='cuotas' ? 'Filtrar por fecha de vencimiento' : 'Filtrar por fecha de inscripción';
+  $('#fMetodo').innerHTML = '<option value="">Todos</option>'
+    + opciones([...new Set(pays.map(x=>x.metodo).filter(Boolean))].sort(), $('#fMetodo').value);
+  contarFiltros();
+  const f=$('#fEstado').value;
 
   if (tab==='ins'){
     $('#fEstado').innerHTML = '<option value="">Todos</option>'
@@ -170,15 +250,7 @@ function render(){
       <th>Cohorte</th><th class="num" data-ord="precio_final">Precio</th>
       <th class="num" data-ord="_pagado">Pagado</th><th class="num" data-ord="_saldo">Saldo</th>
       <th data-ord="estado">Estado</th><th data-ord="fecha_inscripcion">Fecha</th><th></th></tr>`;
-    const list = ordenarPor(ens
-      .filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre']) && (!f||r.estado===f))
-      .map(r=>({ ...r,
-        _alumno: `${r.cem_profiles?.nombre||''} ${r.cem_profiles?.apellido||''}`.trim(),
-        _pagado: pays.filter(x=>x.enrollment_id===r.id && x.estado!=='rechazado' && x.estado!=='anulado')
-                     .reduce((a,x)=>a+enDolares(x),0),
-        _saldo: insts.filter(i=>i.enrollment_id===r.id && i.estado!=='pagada' && i.estado!=='anulada')
-                     .reduce((a,i)=>a+Number(i.saldo||0),0),
-      })), orden.ins);
+    const list = ordenarPor(listaIns(), orden.ins);
 
     $('#tb').innerHTML = list.length? list.map(r=>`<tr>
         <td data-col="Estudiante"><b>${esc(r._alumno)}</b></td>
@@ -208,11 +280,7 @@ function render(){
       <th class="num" data-ord="saldo">Saldo</th><th data-ord="fecha_vencimiento">Vence</th>
       <th data-ord="estado">Estado</th><th></th></tr>`;
     const hoy = new Date().toISOString().slice(0,10);
-    const rows = ordenarPor(insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
-      .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre']) && (!f||i.estado===f))
-      .map(i=>({ ...i,
-        _alumno: `${i._e.cem_profiles?.nombre||''} ${i._e.cem_profiles?.apellido||''}`.trim(),
-        _curso: i._e.cem_courses?.nombre||'' })), orden.cuotas);
+    const rows = ordenarPor(listaCuotas(), orden.cuotas);
 
     $('#tb').innerHTML = rows.length? rows.map(i=>{
       const venc = i.estado!=='pagada' && i.fecha_vencimiento < hoy;
@@ -226,10 +294,12 @@ function render(){
         <td class="${venc?'':'muted'}" data-col="Vence">${fdate(i.fecha_vencimiento)}
           ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
         <td data-col="Estado">${chipEstado(i.estado)}</td>
-        <td data-col="">
+        <td data-col=""><span class="acciones">
           <button class="btn ghost sm" data-hist="${i.id}" title="Ver la historia de esta cuota"><span class="material-symbols-outlined">history</span></button>
+          <a class="btn ghost sm" href="estudiante.html?id=${i._e.profile_id}"
+             title="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined">visibility</span></a>
           ${editable && i.estado!=='pagada'
-          ?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
+          ?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</span></td></tr>`;
     }).join('') : emptyRow(8, 'No hay cuotas que coincidan con el filtro.');
     ponerTotales(['', 'Totales', '', {num:true,html:money(suma(rows,i=>i.monto))},
       {num:true,html:money(suma(rows,i=>i.saldo))}, '', '', '']);
@@ -244,12 +314,7 @@ function render(){
       <th data-ord="_curso">Programa</th><th class="num" data-ord="monto">Monto</th>
       <th data-ord="metodo">Método</th><th data-ord="referencia">Referencia</th>
       <th data-ord="conciliado">Conciliado</th><th></th></tr>`;
-    const rows = ordenarPor(pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
-      .filter(x=>x._e && match(x._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
-        && (f===''||String(x.conciliado?1:0)===f))
-      .map(x=>({ ...x,
-        _alumno: `${x._e.cem_profiles?.nombre||''} ${x._e.cem_profiles?.apellido||''}`.trim(),
-        _curso: x._e.cem_courses?.nombre||'' })), orden.pagos);
+    const rows = ordenarPor(listaPagos(), orden.pagos);
 
     $('#tb').innerHTML = rows.length? rows.map(x=>`<tr>
       <td class="muted" data-col="Fecha">${fdate(x.fecha)}</td>
@@ -259,7 +324,11 @@ function render(){
       <td data-col="Método">${esc(etiqueta(x.metodo))}</td>
       <td data-col="Referencia">${esc(x.referencia||'—')}</td>
       <td data-col="Conciliado">${x.conciliado?chip('Sí','ok'):chip('Pendiente','warn')}</td>
-      <td data-col="">${editable && !x.conciliado?`<button class="btn outline sm" data-conc="${x.id}">Conciliar</button>`:''}</td></tr>`).join('')
+      <td data-col=""><span class="acciones">
+        ${editable && !x.conciliado?`<button class="btn outline sm" data-conc="${x.id}">Conciliar</button>`:''}
+        <a class="btn ghost sm" href="estudiante.html?id=${x._e.profile_id}"
+           title="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined">visibility</span></a>
+      </span></td></tr>`).join('')
       : emptyRow(8, 'No hay pagos registrados que coincidan.');
     ponerTotales(['', '', 'Total en dólares', {num:true,html:money(suma(rows,enDolares))}, '', '', '', '']);
     ordenable('#tabla', orden.pagos, render);
@@ -269,38 +338,35 @@ function render(){
     });
   }
 }
-filtrosEnLaDireccion({ q:'#q', est:'#fEstado' }, render);
-['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
-$('#btnClear').onclick=()=>{$('#q').value='';$('#fEstado').value='';render();};
+filtrosEnLaDireccion({ q:'#q', est:'#fEstado', desde:'#fDesde', hasta:'#fHasta', metodo:'#fMetodo' }, render);
+['#q','#fEstado','#fDesde','#fHasta','#fMetodo'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{
+  ['#q','#fEstado','#fDesde','#fHasta','#fMetodo'].forEach(s=>$(s).value='');
+  render();
+};
 $('#btnExport').onclick=()=>{
   /* Saca lo que se está viendo, no todo: antes exportaba la tabla entera
      dijera lo que dijera el filtro, y no avisaba de cuántas filas iban a
      salir — se abría el Excel para descubrirlo. */
-  const q = $('#q').value.trim(), f = $('#fEstado').value;
   const nombreHoja = { ins:'inscripciones', cuotas:'cuotas', pagos:'pagos' }[tab];
+  const hayFiltro = ['#q','#fEstado','#fDesde','#fHasta','#fMetodo'].some(s=>$(s).value);
   let filas;
   if (tab==='ins'){
-    filas = ens.filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre']) && (!f||r.estado===f))
-      .map(r=>({ estudiante:`${r.cem_profiles?.nombre||''} ${r.cem_profiles?.apellido||''}`.trim(),
-        email:r.cem_profiles?.email, programa:r.cem_courses?.nombre, cohorte:r.cem_cohorts?.nombre,
-        precio:r.precio_final, estado:etiqueta(r.estado), fecha:r.fecha_inscripcion }));
+    filas = listaIns().map(r=>({ estudiante:r._alumno,
+      email:r.cem_profiles?.email, programa:r.cem_courses?.nombre, cohorte:r.cem_cohorts?.nombre,
+      precio:r.precio_final, estado:etiqueta(r.estado), fecha:r.fecha_inscripcion }));
   } else if (tab==='cuotas'){
-    filas = insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
-      .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre']) && (!f||i.estado===f))
-      .map(i=>({ estudiante:`${i._e.cem_profiles?.nombre||''} ${i._e.cem_profiles?.apellido||''}`.trim(),
-        programa:i._e.cem_courses?.nombre, cuota:i.numero, monto:i.monto, saldo:i.saldo,
-        vence:i.fecha_vencimiento, estado:etiqueta(i.estado) }));
+    filas = listaCuotas().map(i=>({ estudiante:i._alumno,
+      programa:i._curso, cuota:i.numero, monto:i.monto, saldo:i.saldo,
+      vence:i.fecha_vencimiento, estado:etiqueta(i.estado) }));
   } else {
-    filas = pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
-      .filter(x=>x._e && match(x._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
-        && (f===''||String(x.conciliado?1:0)===f))
-      .map(x=>({ fecha:x.fecha, estudiante:`${x._e.cem_profiles?.nombre||''} ${x._e.cem_profiles?.apellido||''}`.trim(),
-        programa:x._e.cem_courses?.nombre, monto:x.monto, moneda:x.moneda, tasa:x.tasa,
-        en_dolares:enDolares(x), metodo:etiqueta(x.metodo), referencia:x.referencia,
-        conciliado:x.conciliado?'Sí':'No' }));
+    filas = listaPagos().map(x=>({ fecha:x.fecha, estudiante:x._alumno,
+      programa:x._curso, monto:x.monto, moneda:x.moneda, tasa:x.tasa,
+      en_dolares:enDolares(x), metodo:etiqueta(x.metodo), referencia:x.referencia,
+      conciliado:x.conciliado?'Sí':'No' }));
   }
   download(`${nombreHoja}_cem.csv`, toCSV(filas));
-  ok(`${filas.length} fila(s) exportadas${q||f ? ' — las que deja ver el filtro' : ''}`);
+  ok(`${filas.length} fila(s) exportadas${hayFiltro ? ' — las que deja ver el filtro' : ''}`);
 };
 
 /* ============ item 55 · la historia de una cuota ============

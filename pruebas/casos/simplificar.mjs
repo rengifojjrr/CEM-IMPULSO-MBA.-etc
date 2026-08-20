@@ -45,14 +45,16 @@ export default async function correr(navegador) {
     const local = document.querySelector('#page .filters input#q');
     const campo = local?.closest('.field');
     return {
-      localOculto: !!campo?.hidden,
+      /* El filtro tiene que estar donde está la lista que filtra. Esconderlo y
+         gobernarlo desde la barra de arriba dejaba el control fuera del
+         recuadro y a media pantalla de distancia: se pidió «una barra de
+         búsqueda» en cinco pantallas que ya la tenían. */
+      localALaVista: !!(campo && !campo.hidden && local.offsetParent !== null),
       pistaHeredada: document.querySelector('#cemGlobalSearch')?.placeholder || '',
-      visibles: [...document.querySelectorAll('input[type="search"]')]
-        .filter((i) => i.offsetParent !== null).length,
     };
   });
-  a.comprobar(buscadores.visibles === 1, 'Sólo queda un buscador a la vista, no dos');
-  a.comprobar(buscadores.localOculto, 'El de la tabla se retira en favor del de arriba');
+  a.comprobar(buscadores.localALaVista,
+    'El filtro de la tabla se ve, y se ve junto a la tabla que filtra');
   a.comprobar(/documento/i.test(buscadores.pistaHeredada),
     'Y el de arriba hereda la pista de qué se puede buscar ahí');
 
@@ -65,7 +67,16 @@ export default async function correr(navegador) {
     'Escribir en el buscador de arriba filtra la tabla que estás mirando');
   a.comprobar(/no coincide|Ningún/i.test(await A.locator('#tb').textContent()),
     'Y cuando no hay nada lo dice con palabras, no con una tabla en blanco');
-  await A.fill('#cemGlobalSearch', '');
+  a.comprobar(await A.inputValue('#page .filters input#q') === 'zzzzzznoexiste',
+    'Las dos cajas son la misma: lo escrito arriba aparece también abajo');
+
+  // Y al revés: escribir abajo filtra igual y arrastra la de arriba.
+  await A.fill('#page .filters input#q', 'zzzzzztampoco');
+  await A.waitForTimeout(700);
+  a.comprobar(await A.inputValue('#cemGlobalSearch') === 'zzzzzztampoco'
+    && (await A.locator('#tb .empty').count()) === 1,
+    'Y escribir abajo filtra igual, sin que las dos se contradigan');
+  await A.fill('#page .filters input#q', '');
   await A.waitForTimeout(600);
 
   /* ============ cada quien elige qué columnas ve ============ */

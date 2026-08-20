@@ -206,7 +206,7 @@ export default async function correr(navegador) {
      hacía la prueba se ponía roja por una función nueva que estaba bien. Lo que
      importa es que el panel ofrezca TODO lo que hay, no que haya siete. */
   const cuantos = await P.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-8');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-9');
     return { paletas: Object.keys(t.PALETAS).length, estilos: Object.keys(t.ESTILOS).length,
              formas: Object.keys(t.FORMAS).length, densidades: Object.keys(t.DENSIDADES).length };
   });
@@ -226,7 +226,7 @@ export default async function correr(navegador) {
      más. También la tipografía: un manual de marca son los colores Y la letra, y
      dejar los colores oficiales con la letra de otra identidad no es aplicarlo.  */
   const marca = await P.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-8');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-9');
     const antes = { paleta: t.paletaActual(), tema: t.temaActual() };
     t.aplicarApariencia({ paleta: 'cemMarca', tema: 'claro' });
     const cs = getComputedStyle(document.documentElement);
@@ -329,7 +329,7 @@ export default async function correr(navegador) {
      Ahora se llama a aplicarApariencia() —el camino real— y se recorre el
      catálogo entero, así que una paleta nueva entra sola en la prueba. */
   const contraste = await P.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-8');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-9');
     const canal = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
     const lum = ([r, g, b]) => 0.2126 * canal(r / 255) + 0.7152 * canal(g / 255) + 0.0722 * canal(b / 255);
     const leer = (txt) => {
@@ -409,6 +409,64 @@ export default async function correr(navegador) {
   });
   a.comprobar(aire.entre > aire.dentro,
     `Hay más aire entre cuadros que dentro de ellos (${aire.entre} entre · ${aire.dentro} dentro)`);
+
+  /* ============ el armazón, en sus dos anchos ============
+     Tres defectos que se veían a simple vista y que ninguna prueba miraba:
+     el menú estrechado partía las palabras de sus botones, la barra de
+     acciones dejaba los botones flotando por encima de la casilla de al lado,
+     y al llegar arriba del todo el rebote del navegador despegaba la
+     aplicación del borde de la ventana. */
+
+  /* Tab aparte a propósito: la comprobación de errores de `P` habla de la
+     pantalla de configuración, y `pagina.errores` se va acumulando. */
+  const S = await nuevaPestana(navegador, { ancho: 1440, alto: 950 });
+  await entrar(S, 'admin', 'admin/cierre-mes.html');
+  await S.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
+  await S.waitForTimeout(1200);
+
+  // Estrechado, el pie es una columna de iconos: nada se corta y ninguno se
+  // queda vacío. `scrollWidth > clientWidth` es exactamente «no cabe».
+  const menu = await S.evaluate(async () => {
+    const shell = document.querySelector('.shell');
+    const plegado = shell.classList.contains('plegado');
+    if (!plegado) document.querySelector('#cemPlegar').click();
+    await new Promise((r) => setTimeout(r, 500));
+    const pie = [...document.querySelectorAll('.sidebar .foot button')].map((b) => ({
+      que: (b.title || b.textContent).trim().slice(0, 22),
+      corta: b.scrollWidth > b.clientWidth + 1,
+      icono: Math.round(b.querySelector('.material-symbols-outlined')?.getBoundingClientRect().width || 0),
+      rotulo: !!b.title,
+    }));
+    if (!plegado) { document.querySelector('#cemPlegar').click(); await new Promise((r) => setTimeout(r, 500)); }
+    return pie;
+  });
+  a.comprobar(menu.length >= 3 && menu.every((b) => !b.corta),
+    `Con el menú estrechado no se parte ninguna palabra (${
+      menu.filter((b) => b.corta).map((b) => b.que).join(', ') || 'ninguna'})`);
+  a.comprobar(menu.every((b) => b.icono > 0),
+    `Y ningún botón se queda vacío: todos conservan su icono (${
+      menu.filter((b) => !b.icono).map((b) => b.que).join(', ') || 'todos lo tienen'})`);
+  a.comprobar(menu.every((b) => b.rotulo),
+    'El nombre que se esconde pasa al tooltip, que es lo único que queda para saber qué hace');
+
+  // Un campo con rótulo mide una etiqueta más que un botón. Si la fila se
+  // centra, los botones suben y parecen de otra fila.
+  const linea = await S.evaluate(() => {
+    const acciones = document.querySelector('.page-head .actions');
+    const campo = acciones.querySelector('.field input, .field select');
+    const boton = acciones.querySelector('button, .btn');
+    const fondo = (e) => Math.round(e.getBoundingClientRect().bottom);
+    return { hay: !!(campo && boton), dif: campo && boton ? Math.abs(fondo(campo) - fondo(boton)) : -1 };
+  });
+  a.comprobar(linea.hay && linea.dif <= 3,
+    `Los botones de la cabecera se apoyan en la misma línea que la casilla de al lado (${linea.dif} px)`);
+
+  const rebote = await S.evaluate(() =>
+    getComputedStyle(document.documentElement).overscrollBehaviorY);
+  a.comprobar(rebote === 'none',
+    `Al llegar arriba la aplicación no se despega del borde de la ventana (${rebote})`);
+
+  a.comprobar(S.errores.length === 0, `El armazón no lanza errores ${JSON.stringify(S.errores.slice(0, 2))}`);
 
 
   a.comprobar(P.errores.length === 0, `Configuración no lanza errores ${JSON.stringify(P.errores.slice(0, 2))}`);

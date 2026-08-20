@@ -158,6 +158,19 @@
    y el botón de entregar se iban con el desplazamiento justo cuando más falta
    hacían. `clip` recorta igual y no crea ese contenedor. */
 html,body{overflow-x:clip;}
+/* El rebote elástico de arriba, quitado.
+   ------------------------------------------------------------------------
+   Al llegar al principio de una pantalla larga, el navegador —en Mac sobre
+   todo— sigue arrastrando el documento hacia abajo unos cincuenta píxeles y
+   deja a la vista el lienzo que hay detrás. Como el fondo es una luz de color
+   y la aplicación es papel, lo que aparece es una franja lila sobre el menú y
+   la barra: el armazón entero parece despegado del borde de la ventana,
+   flotando. No es un hueco de maquetación —a desplazamiento cero no existe—,
+   es el rebote; por eso se va solo en cuanto uno vuelve a desplazar, y por eso
+   se arregla aquí y no moviendo nada de sitio.
+   De paso evita que el desplazamiento de un diálogo se contagie a la página
+   que hay debajo cuando la lista de dentro llega a su final. */
+html{overscroll-behavior-y:none;}
 /* El fondo son DOS capas: un color plano y, encima, una luz de color.
    ------------------------------------------------------------------------
    `--fondo` tiene que seguir siendo un color y no un degradado, porque se usa
@@ -294,11 +307,25 @@ button{cursor:pointer;}
 .shell.plegado .sidebar .brand b,
 .shell.plegado .sidebar .brand span,
 .shell.plegado .sidebar .nav-group .lbl,
-.shell.plegado .sidebar .who,
-.shell.plegado .sidebar-plegar span{display:none;}
+.shell.plegado .sidebar .who{display:none;}
 .shell.plegado .sidebar a.nav-item{justify-content:center;padding:var(--e1) 0;}
 .shell.plegado .sidebar a.nav-item span:not(.material-symbols-outlined){display:none;}
 .shell.plegado .sidebar-plegar .material-symbols-outlined{transform:rotate(180deg);}
+
+/* Plegado, el pie también es una columna de iconos.
+   ------------------------------------------------------------------------
+   Antes no lo era y se veía roto: `Apariencia` y `Cerrar sesión` seguían
+   llevando su rótulo dentro de un botón de 45 px, así que se leía «Aparienc»
+   y «Cerrar ses»; y el botón de plegar se quedaba sin nada dentro —una
+   píldora vacía— porque la regla que esconde el rótulo escondía también su
+   flecha. De ahí el `:not(.material-symbols-outlined)`: lo que se esconde al
+   plegar es la palabra, nunca el icono, que es justamente lo único que queda
+   para saber qué hace el botón. El nombre no se pierde, pasa al tooltip. */
+.shell.plegado .sidebar-plegar span:not(.material-symbols-outlined),
+.shell.plegado .sidebar .foot .btn > span:not(.material-symbols-outlined){display:none;}
+.shell.plegado .sidebar .foot{padding:var(--e0);}
+.shell.plegado .sidebar .foot .btn{padding:var(--e0) 0;gap:0;}
+.shell.plegado .sidebar-plegar{padding:var(--e1) 0;}
 
 .main{flex:1;min-width:0;display:flex;flex-direction:column;}
 .topbar{height:56px;background:var(--fondo);border-bottom:1px solid var(--filete);
@@ -350,7 +377,12 @@ button{cursor:pointer;}
 .page-head h1{font-size:var(--t-lg);font-weight:var(--peso-fuerte);margin:0 0 var(--e0);
   letter-spacing:-.01em;line-height:1.25;}
 .page-head p{margin:0;color:var(--tinta-2);font-size:var(--t-sm);max-width:68ch;}
-.page-head .actions{margin-left:auto;display:flex;gap:var(--e1);flex-wrap:wrap;align-items:center;}
+/* `flex-end` y no `center`: en cuanto la barra de acciones lleva un campo con
+   rótulo —«Mes», «Desde», «Curso»— el campo mide una etiqueta más que un
+   botón, y centrar deja los botones once píxeles por encima de la casilla,
+   como si estuvieran en otra fila. Alineados por abajo, todos los controles
+   se apoyan en la misma línea. Es la misma decisión que ya tomaba `.filters`. */
+.page-head .actions{margin-left:auto;display:flex;gap:var(--e1);flex-wrap:wrap;align-items:flex-end;}
 h2.sec{font-size:var(--t-sm);margin:0 0 var(--e2);font-weight:var(--peso-fuerte);
   display:flex;align-items:center;gap:var(--e0);}
 h3.sec{font-size:var(--t-sm);margin:0 0 var(--e1);font-weight:var(--peso-fuerte);color:var(--tinta-2);}

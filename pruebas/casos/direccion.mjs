@@ -115,6 +115,23 @@ export default async function correr(navegador) {
     !!document.querySelector('#alertas .card'));
   a.comprobar(alertas, 'Y lo que no debería pasar sale arriba, sin ir a buscarlo');
 
+  /* Un aviso que no lleva a ningún sitio es un aviso que nadie atiende.
+     La base guarda a dónde va cada uno («admin/usuarios.html») contada desde
+     `plataforma/`, que es donde vive el mapa; esta pantalla está una carpeta
+     más adentro, así que pegar la ruta tal cual daba
+     `plataforma/admin/admin/usuarios.html` y una página de error. Se comprueba
+     abriendo de verdad cada destino: sólo así se nota si vuelve a pasar. */
+  const destinos = await A.evaluate(async () => {
+    const enlaces = [...document.querySelectorAll('#alertas a.aviso')];
+    return Promise.all(enlaces.map(async (el) => {
+      const r = await fetch(el.href, { method: 'GET' }).catch(() => null);
+      return { texto: el.textContent.trim().slice(0, 32), href: el.getAttribute('href'), estado: r?.status ?? 0 };
+    }));
+  });
+  a.comprobar(destinos.length > 0 && destinos.every((d) => d.estado === 200),
+    `Cada aviso abre la pantalla donde se arregla (${destinos.length} aviso(s); ${
+      destinos.filter((d) => d.estado !== 200).map((d) => `${d.href}→${d.estado}`).join(', ') || 'todos bien'})`);
+
   /* ============ 4 · quien no dirige, no ve ============ */
   const E = await nuevaPestana(navegador, { ancho: 1200, alto: 900 });
   await entrar(E, 'estudiante');

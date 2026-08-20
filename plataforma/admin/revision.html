@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-8">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-9">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -23,6 +23,11 @@
       <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
         <option value="pendiente">Pendiente</option><option value="requiere_cambios">Requiere cambios</option>
         <option value="aprobado">Aprobado</option></select></div>
+      <!-- Quién lo subió es la primera pregunta de quien revisa: la cola de un
+           profesor se mira entera, no elemento a elemento. -->
+      <div class="field"><label>Autor</label><select id="fAutor"><option value="">Todos</option></select></div>
+      <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Elemento</th><th>Tipo</th><th>Autor</th><th>Revisor</th><th>Versión</th><th>Estado</th><th>Actualizado</th><th></th></tr></thead>
@@ -30,7 +35,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, chipEstado} from '../assets/app.js?v=2026-08-21-8';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, chipEstado, filtrosEnLaDireccion } from '../assets/app.js?v=2026-08-21-9';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'revision.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let rows=[], perfiles={};
@@ -66,9 +71,33 @@ async function load(){
   render();
 }
 
+/* Las opciones de autor y tipo no existen hasta que la bandeja está cargada,
+   y para entonces `filtrosEnLaDireccion` ya intentó poner lo que traía la
+   dirección en un desplegable vacío. Se guarda lo que pedía y se aplica en
+   cuanto hay dónde aplicarlo, una sola vez —después manda la persona. */
+let pedidoEnLaUrl = null, primeraVez = true;
+
 function render(){
-  const q=$('#q').value.trim(), e=$('#fEstado').value;
-  const list = rows.filter(r=>match({...r,_a:perfiles[r.autor_id]||''},q,['titulo','_a']) && (!e||r.estado===e));
+  /* Las dos listas salen de lo que hay en la bandeja, no de una lista escrita
+     a mano: si mañana sube contenido un profesor nuevo, aparece solo. */
+  const autores = [...new Set(rows.map(r=>r.autor_id).filter(Boolean))]
+    .map(id=>({ id, n: perfiles[id] || '—' })).sort((x,y)=>x.n.localeCompare(y.n));
+  const sel = (v, actual) => `<option value="${esc(v)}"${v===actual?' selected':''}>`;
+  const aAhora = $('#fAutor').value, tAhora = $('#fTipo').value;
+  $('#fAutor').innerHTML = '<option value="">Todos</option>'
+    + autores.map(x=>`${sel(x.id, aAhora)}${esc(x.n)}</option>`).join('');
+  $('#fTipo').innerHTML = '<option value="">Todos</option>'
+    + [...new Set(rows.map(r=>r.tipo).filter(Boolean))].sort()
+        .map(x=>`${sel(x, tAhora)}${esc(x)}</option>`).join('');
+  if (primeraVez && pedidoEnLaUrl && rows.length){
+    primeraVez = false;
+    if (pedidoEnLaUrl.autor) $('#fAutor').value = pedidoEnLaUrl.autor;
+    if (pedidoEnLaUrl.tipo) $('#fTipo').value = pedidoEnLaUrl.tipo;
+  }
+
+  const q=$('#q').value.trim(), e=$('#fEstado').value, a=$('#fAutor').value, t=$('#fTipo').value;
+  const list = rows.filter(r=>match({...r,_a:perfiles[r.autor_id]||''},q,['titulo','_a'])
+    && (!e||r.estado===e) && (!a||r.autor_id===a) && (!t||r.tipo===t));
   $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
     <td class="wrap"><b>${esc(r.titulo)}</b></td>
     <td>${chip(r.tipo,'neutral')}</td>
@@ -87,7 +116,12 @@ function render(){
   $$('[data-ap]').forEach(b=>b.onclick=()=>resolver(rows.find(r=>r.id===b.dataset.ap), true));
   $$('[data-dev]').forEach(b=>b.onclick=()=>resolver(rows.find(r=>r.id===b.dataset.dev), false));
 }
-['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+const CAMPOS = ['#q','#fEstado','#fAutor','#fTipo'];
+CAMPOS.forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{ CAMPOS.forEach(s=>$(s).value=''); render(); };
+/* Con el filtro en la dirección, «la cola de Elena» es un enlace que se pega
+   en un mensaje y le llega a alguien ya filtrada. */
+pedidoEnLaUrl = filtrosEnLaDireccion({ q:'#q', est:'#fEstado', autor:'#fAutor', tipo:'#fTipo' }, render);
 
 function ver(r){
   const l = r.cem_lessons;
