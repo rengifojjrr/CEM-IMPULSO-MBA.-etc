@@ -1637,22 +1637,31 @@ html:root:not([data-estilo="plano"]){
    transformación sobre una capa fija y aislada, el coste es de la tarjeta
    gráfica y no se nota en ninguno.
 
-   POR QUÉ `scale(1.06)` Y NO `scale(1)`. Al girar un rectángulo, sus esquinas
-   dejan de tapar las de la ventana: hace falta ampliarlo al menos
-   `cos θ + sen θ` para que siga cubriéndola. Con θ = 1,6° eso es 1,028, así
-   que 1,06 cubre con margen de sobra y además da el «respirar» al variar
-   hasta 1,10. Sin esa cuenta se ve una cuña del fondo pelado asomando por una
-   esquina cada pocos segundos, que es el error clásico de esta animación.
+   POR QUÉ SE AMPLÍA. Al girar un rectángulo, sus esquinas dejan de tapar las
+   de la ventana: hace falta ampliarlo al menos `cos θ + sen θ`. Con θ = 5° eso
+   es 1,084, así que 1,16 cubre con margen —también el que se llevan los
+   `translate3d` del 1,5%— y de paso el «respirar» sale de variar hasta 1,24.
+   Sin esa cuenta asoma una cuña del fondo pelado por una esquina cada pocos
+   segundos, que es el error clásico de esta animación.
 
-   Y noventa segundos por vuelta. Bastante lento como para que nadie lo mire:
-   se nota que la pantalla está viva y no se nota qué se está moviendo. */
+   POR QUÉ ESTAS CANTIDADES Y NO MENOS. El primer intento fue mucho más
+   discreto —1,6° y noventa segundos— y no se veía. Nada. Medido: las manchas
+   se desplazaban entre 0,5 y 1,3 píxeles por segundo, y algo grande, difuso y
+   de poco contraste no se percibe moviéndose por debajo de unos 2 a 4. O sea
+   que la animación funcionaba y era invisible, que para el caso es no
+   tenerla. Con 5°, un 1,5% de arrastre y 52 segundos de ciclo, las manchas de
+   los bordes van a unos 7 px/s y las del centro a 2,7: se nota que se mueve
+   sin que llegue a distraer.
+
+   La lección, que vale para más cosas: «la propiedad cambió» no es «se ve».
+   La prueba mide ahora el recorrido en píxeles de una mancha, no la matriz. */
 @keyframes cem-ambiente {
-  0%   { transform:rotate(-1.6deg) scale(1.06); }
-  50%  { transform:rotate( 1.6deg) scale(1.10); }
-  100% { transform:rotate(-1.6deg) scale(1.06); }
+  0%   { transform:translate3d(-1.5%, 1%, 0) rotate(-5deg) scale(1.16); }
+  50%  { transform:translate3d( 1.5%, -1%, 0) rotate( 5deg) scale(1.24); }
+  100% { transform:translate3d(-1.5%, 1%, 0) rotate(-5deg) scale(1.16); }
 }
 :root[data-animacion="si"]:not([data-estilo="plano"]) body::before{
-  animation:cem-ambiente 90s ease-in-out infinite;
+  animation:cem-ambiente 52s ease-in-out infinite;
   will-change:transform;
 }
 

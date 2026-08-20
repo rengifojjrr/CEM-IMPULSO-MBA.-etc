@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -166,7 +166,7 @@ export default async function correr(navegador) {
     await C.waitForTimeout(2500);
 
     const r = await C.evaluate(async () => {
-      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
       const cajas = [...document.querySelectorAll('.card, .caja, .kpi')]
         .filter((e) => e.offsetParent !== null).slice(0, 40);
       if (!cajas.length) return { n: 0, sordas: 0 };
@@ -202,18 +202,57 @@ export default async function correr(navegador) {
   });
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await M.waitForTimeout(600);
   const t0 = await ambiente();
   a.comprobar(t0.anim === 'cem-ambiente', `Encendido, el fondo se anima (${t0.anim})`);
 
-  /* Que la regla exista no prueba que algo se mueva: se mira dos veces. */
-  await M.waitForTimeout(3500);
-  const t1 = await ambiente();
-  a.comprobar(t0.transform !== t1.transform && t1.transform !== 'none',
-    'Y se mueve de verdad: la transformación no es la misma tres segundos después');
+  /* Y aquí está la comprobación que faltaba la primera vez.
+     ----------------------------------------------------------------------
+     La primera versión de esto comparaba la matriz antes y después: cambiaba,
+     así que pasaba en verde. Pero la animación era de 1,6 grados en noventa
+     segundos, o sea que las manchas se desplazaban entre 0,5 y 1,3 píxeles por
+     segundo — muy por debajo de lo que un ojo percibe en algo grande, difuso y
+     de poco contraste. La animación funcionaba y era invisible.
+
+     Así que ahora se mide lo que se ve: cuántos PÍXELES recorre de verdad una
+     mancha del fondo. Se toma una esquina de la capa, que es el punto que más
+     se mueve, y se calcula su recorrido con la matriz real del navegador. */
+  const recorrido = await M.evaluate(async () => {
+    const puntoDe = (m, x, y) => {
+      const n = (m.match(/matrix\(([^)]+)\)/)?.[1] || '').split(',').map(Number);
+      if (n.length < 6) return null;
+      const [a1, b1, c1, d1, e1, f1] = n;
+      return { x: a1 * x + c1 * y + e1, y: b1 * x + d1 * y + f1 };
+    };
+    // Una esquina de la ventana, medida desde su centro.
+    const px = window.innerWidth / 2, py = window.innerHeight / 2;
+    const leer = () => getComputedStyle(document.body, '::before').transform;
+    /* Se sigue el camino durante diez segundos en vez de comparar dos
+       instantes. Con una curva `ease-in-out` hay tramos del ciclo en los que
+       casi se detiene, y dos muestras que cayeran ahí darían casi cero: la
+       prueba fallaría sin que nada estuviera roto. Sumando el recorrido, dónde
+       empiece deja de importar. */
+    let total = 0, pico = 0, previo = puntoDe(leer(), px, py);
+    if (!previo) return null;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const ahora = puntoDe(leer(), px, py);
+      const d = Math.hypot(ahora.x - previo.x, ahora.y - previo.y);
+      total += d;
+      pico = Math.max(pico, d / 0.5);
+      previo = ahora;
+    }
+    return { px: total, segundos: 10, pico };
+  });
+  const velocidad = recorrido ? recorrido.px / recorrido.segundos : 0;
+  /* Dos píxeles por segundo es el suelo de lo perceptible; por debajo, la
+     animación existe sólo en las herramientas del navegador. */
+  a.comprobar(velocidad >= 2,
+    `Y se mueve lo bastante como para verse: ${velocidad.toFixed(1)} px/s de media, `
+    + `${(recorrido?.pico ?? 0).toFixed(1)} de pico (hace falta 2 o más)`);
 
   /* La cuenta que evita el fallo clásico de esta animación: al girar un
      rectángulo sus esquinas dejan de tapar las de la ventana, y asoma una cuña
@@ -231,7 +270,7 @@ export default async function correr(navegador) {
     `La capa sigue tapando la ventana mientras gira (escala ${cubre?.escala.toFixed(4)} ≥ ${cubre?.necesaria.toFixed(4)})`);
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
     t.aplicarApariencia({ animacion: false });
   });
   await M.waitForTimeout(500);
@@ -245,7 +284,7 @@ export default async function correr(navegador) {
   const QP = await Q.newPage();
   await QP.goto(`${BASE}/plataforma/index.html`, { waitUntil: 'domcontentloaded' });
   await QP.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await QP.waitForTimeout(600);
@@ -255,7 +294,7 @@ export default async function correr(navegador) {
 
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-26');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

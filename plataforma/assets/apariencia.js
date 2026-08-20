@@ -16,12 +16,12 @@
    «Guardar»: el cambio se ve en el acto, que es la única forma de elegir un
    aspecto con criterio. */
 
-import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-26';
+import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-27';
 import {
   PALETAS, ESTILOS, FORMAS, DENSIDADES,
   aplicarApariencia, aparienciaDeFabrica,
   paletaActual, temaActual, estiloActual, formaActual, densidadActual, animacionActual,
-} from './temas.js?v=2026-08-21-26';
+} from './temas.js?v=2026-08-21-27';
 
 /** El HTML del panel. `compacto` quita las explicaciones largas: en una ventana no caben. */
 function armazon(compacto) {
@@ -131,11 +131,17 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
     ].map(([v, txt, ico]) => `<button type="button" class="btn sm ${animada === v ? '' : 'outline'}"
         data-animacion="${v ? 'si' : 'no'}" aria-pressed="${animada === v}">
         <span class="material-symbols-outlined">${ico}</span> ${txt}</button>`).join('');
+    /* Si el sistema pide menos movimiento, la hoja apaga la animación por
+       encima de este interruptor. Decirlo aquí evita la única conversación
+       que si no es inevitable: «lo activo y no se mueve». */
+    const sistemaQuieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     dentro('animacionNota').textContent = !hayFondo
       ? 'Con el estilo «Plano» no hay fondo de color, así que no hay nada que mover: elige otro estilo para verlo.'
-      : animada
-        ? 'Las manchas de color giran muy despacio, un ciclo cada minuto y medio. Si en tu sistema pediste menos movimiento, no se mueve.'
-        : 'El fondo se queda como está.';
+      : sistemaQuieto
+        ? 'Tu sistema tiene activado «reducir movimiento», así que el fondo no se moverá aunque lo enciendas aquí. Se respeta a propósito.'
+        : animada
+          ? 'Las manchas de color se desplazan despacio, un ciclo cada 52 segundos. Se nota mirando un rato, no de un vistazo.'
+          : 'El fondo se queda como está.';
 
     const cambiar = (ajuste, aviso) => {
       aplicarApariencia(ajuste);
