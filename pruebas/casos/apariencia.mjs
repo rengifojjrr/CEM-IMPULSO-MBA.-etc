@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -166,7 +166,7 @@ export default async function correr(navegador) {
     await C.waitForTimeout(2500);
 
     const r = await C.evaluate(async () => {
-      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
+      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
       const cajas = [...document.querySelectorAll('.card, .caja, .kpi')]
         .filter((e) => e.offsetParent !== null).slice(0, 40);
       if (!cajas.length) return { n: 0, sordas: 0 };
@@ -201,13 +201,46 @@ export default async function correr(navegador) {
     return { anim: cs.animationName, transform: cs.transform };
   });
 
+  /* PRIMERO, COMO LA ABRE UNA PERSONA: sin tocar ningún ajuste.
+     ----------------------------------------------------------------------
+     Esto es lo que faltaba y por lo que la animación no se veía en la vida
+     real mientras la prueba pasaba en verde. La prueba forzaba el estilo
+     «escarcha» antes de mirar; nadie hace eso. De fábrica el estilo es
+     «plano», y toda la capa de ambiente colgaba de `:not([data-estilo=
+     "plano"])`: sin fondo de colores, no había nada que mover. El interruptor
+     estaba encendido y era imposible que pasara nada.
+
+     Ahora la capa existe siempre que la animación esté encendida —más tenue
+     en plano, que tiene que seguir siendo plano— y esto lo comprueba tal cual
+     se abre la pantalla. */
+  const deFabrica = await ambiente();
+  a.comprobar(deFabrica.anim === 'cem-ambiente',
+    `Recién abierta, sin tocar nada, el fondo ya se mueve (estilo de fábrica, ${deFabrica.anim})`);
+
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await M.waitForTimeout(600);
   const t0 = await ambiente();
-  a.comprobar(t0.anim === 'cem-ambiente', `Encendido, el fondo se anima (${t0.anim})`);
+  a.comprobar(t0.anim === 'cem-ambiente', `Y con vidrio también (${t0.anim})`);
+
+  /* Y en los ocho estilos, no en el que le venga bien a la prueba. */
+  const porEstilo = await M.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+    const antes = t.estiloActual();
+    const mudos = [];
+    for (const e of Object.keys(t.ESTILOS)) {
+      t.aplicarApariencia({ estilo: e, animacion: true });
+      await new Promise((r) => requestAnimationFrame(r));
+      const cs = getComputedStyle(document.body, '::before');
+      if (cs.animationName !== 'cem-ambiente' || cs.content === 'none') mudos.push(e);
+    }
+    t.aplicarApariencia({ estilo: antes });
+    return mudos;
+  });
+  a.comprobar(porEstilo.length === 0,
+    `El fondo se mueve con los ocho estilos${porEstilo.length ? ', menos ' + porEstilo.join(', ') : ''}`);
 
   /* Y aquí está la comprobación que faltaba la primera vez.
      ----------------------------------------------------------------------
@@ -270,7 +303,7 @@ export default async function correr(navegador) {
     `La capa sigue tapando la ventana mientras gira (escala ${cubre?.escala.toFixed(4)} ≥ ${cubre?.necesaria.toFixed(4)})`);
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
     t.aplicarApariencia({ animacion: false });
   });
   await M.waitForTimeout(500);
@@ -284,7 +317,7 @@ export default async function correr(navegador) {
   const QP = await Q.newPage();
   await QP.goto(`${BASE}/plataforma/index.html`, { waitUntil: 'domcontentloaded' });
   await QP.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await QP.waitForTimeout(600);
@@ -294,7 +327,7 @@ export default async function correr(navegador) {
 
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-27');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

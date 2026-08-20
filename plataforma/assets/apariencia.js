@@ -16,12 +16,12 @@
    «Guardar»: el cambio se ve en el acto, que es la única forma de elegir un
    aspecto con criterio. */
 
-import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-27';
+import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-29';
 import {
   PALETAS, ESTILOS, FORMAS, DENSIDADES,
   aplicarApariencia, aparienciaDeFabrica,
   paletaActual, temaActual, estiloActual, formaActual, densidadActual, animacionActual,
-} from './temas.js?v=2026-08-21-27';
+} from './temas.js?v=2026-08-21-29';
 
 /** El HTML del panel. `compacto` quita las explicaciones largas: en una ventana no caben. */
 function armazon(compacto) {
@@ -119,12 +119,13 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
         data-densidad="${esc(clave)}" aria-pressed="${clave === densidad}">${esc(d.nombre)}</button>`).join('');
     dentro('densidadNota').textContent = DENSIDADES[densidad].resumen;
 
-    /* item · «que el fondo de colores se vaya moviendo lentamente». El fondo
-       de colores sólo existe si el estilo no es el plano, así que con «Plano»
-       elegido el interruptor no tendría nada que mover: se dice, en vez de
-       dejar que alguien lo encienda y no vea nada. */
+    /* item · «que el fondo de colores se vaya moviendo lentamente».
+       La primera versión de esto no se veía nunca, y no por sutil: el fondo de
+       colores colgaba de que el estilo no fuera «Plano», que es justo el de
+       fábrica. Con el ajuste de serie, encender el interruptor no podía hacer
+       nada. Ahora la capa existe siempre que la animación esté encendida —más
+       tenue en plano, para que plano siga siendo plano—. */
     const animada = animacionActual();
-    const hayFondo = estiloActual() !== 'plano';
     dentro('animacion').innerHTML = [
       [true, 'Fondo con movimiento', 'animation'],
       [false, 'Fondo quieto', 'block'],
@@ -135,13 +136,11 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
        encima de este interruptor. Decirlo aquí evita la única conversación
        que si no es inevitable: «lo activo y no se mueve». */
     const sistemaQuieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    dentro('animacionNota').textContent = !hayFondo
-      ? 'Con el estilo «Plano» no hay fondo de color, así que no hay nada que mover: elige otro estilo para verlo.'
-      : sistemaQuieto
-        ? 'Tu sistema tiene activado «reducir movimiento», así que el fondo no se moverá aunque lo enciendas aquí. Se respeta a propósito.'
-        : animada
-          ? 'Las manchas de color se desplazan despacio, un ciclo cada 52 segundos. Se nota mirando un rato, no de un vistazo.'
-          : 'El fondo se queda como está.';
+    dentro('animacionNota').textContent = sistemaQuieto
+      ? 'Tu sistema tiene activado «reducir movimiento», así que el fondo no se moverá aunque lo enciendas aquí. Se respeta a propósito.'
+      : animada
+        ? 'Las manchas de color se desplazan despacio, un ciclo cada 52 segundos. Funciona con cualquier estilo, también con «Plano», donde va más tenue.'
+        : 'El fondo se queda como está.';
 
     const cambiar = (ajuste, aviso) => {
       aplicarApariencia(ajuste);

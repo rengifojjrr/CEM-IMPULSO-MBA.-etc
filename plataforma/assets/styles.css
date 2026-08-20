@@ -1319,7 +1319,8 @@ html:root:not([data-estilo="plano"]){
    nada: gris caro, exactamente lo que este comentario decía que había que
    evitar. Con `inset:0` los porcentajes son porcentajes de la ventana, que
    es lo que siempre quisieron decir, y el sangrado lo dan los radios. */
-:root:not([data-estilo="plano"]) body::before{
+:root:not([data-estilo="plano"]) body::before,
+:root[data-animacion="si"] body::before{
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
     radial-gradient(60vmax 55vmax at 8% -8%,
@@ -1660,7 +1661,12 @@ html:root:not([data-estilo="plano"]){
   50%  { transform:translate3d( 1.5%, -1%, 0) rotate( 5deg) scale(1.24); }
   100% { transform:translate3d(-1.5%, 1%, 0) rotate(-5deg) scale(1.16); }
 }
-:root[data-animacion="si"]:not([data-estilo="plano"]) body::before{
+/* Con «Plano» la capa existe SÓLO para esto, así que va mucho más tenue: el
+   estilo plano tiene que seguir siendo plano. Lo que se busca ahí es un
+   rastro de luz moviéndose, no una tarjeta de vidrio. */
+:root[data-animacion="si"][data-estilo="plano"] body::before{opacity:.34;}
+
+:root[data-animacion="si"] body::before{
   animation:cem-ambiente 52s ease-in-out infinite;
   will-change:transform;
 }
@@ -1670,7 +1676,7 @@ html:root:not([data-estilo="plano"]){
    animación, esta regla la apaga igual. Para alguien con trastorno
    vestibular no es una preferencia estética. */
 @media (prefers-reduced-motion:reduce){
-  :root[data-animacion="si"]:not([data-estilo="plano"]) body::before{
+  :root[data-animacion="si"] body::before{
     animation:none;
     will-change:auto;
   }
@@ -1680,7 +1686,8 @@ html:root:not([data-estilo="plano"]){
    Quien pidió menos transparencia en su sistema lo pidió por algo, y en el
    papel un fondo difuminado es tinta gastada. */
 @media (prefers-reduced-transparency:reduce), print{
-  :root:not([data-estilo="plano"]) body::before{display:none;}
+  :root:not([data-estilo="plano"]) body::before,
+  :root[data-animacion="si"] body::before{display:none;}
   :root:not([data-estilo="plano"]) .sidebar,
   :root:not([data-estilo="plano"]) .topbar,
   :root:not([data-estilo="plano"]) .bottomnav,
