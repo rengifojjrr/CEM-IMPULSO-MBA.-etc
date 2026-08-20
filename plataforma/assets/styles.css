@@ -2808,3 +2808,86 @@ details.card h3.sec{margin-top:var(--e3);}
   display:flex;align-items:center;justify-content:center;}
 .retrato-perfil img{width:100%;height:100%;object-fit:cover;display:block;}
 .retrato-perfil .material-symbols-outlined{font-size:44px;color:var(--filete-fuerte);}
+
+/* ── La cabecera de un perfil ───────────────────────────────────────────────
+   Un perfil que se reparte para que lo abra alguien que no te conoce necesita
+   una cara y un nombre antes que un formulario. «Mi perfil» abría con los
+   campos de la cédula y la foto estaba cuatro tarjetas más abajo: servía para
+   corregir datos, no para enseñárselo a nadie.
+
+   Se usa en dos sitios —el perfil propio y la página pública— y se ve igual en
+   los dos a propósito: es la misma persona, y quien publica tiene que poder
+   reconocer lo que va a ver el otro. Por eso vive aquí y no dentro de una
+   pantalla. */
+.perfil-cabeza{padding:0;overflow:hidden;}
+
+.perfil-portada{height:190px;position:relative;
+  /* Sin foto no se deja un hueco gris: un degradado de la casa ya es una
+     portada, y así el perfil se puede repartir desde el primer día. */
+  background:linear-gradient(115deg,var(--primary-suave),var(--secondary-container));}
+.perfil-portada img{width:100%;height:100%;object-fit:cover;display:block;}
+.perfil-portada .encima{position:absolute;right:var(--e2);bottom:var(--e2);
+  display:flex;gap:var(--e1);}
+@media (max-width:640px){
+  .perfil-portada{height:130px;}
+  /* En un teléfono «Poner una portada» no cabe y el recorte de la tarjeta le
+     comía la primera letra. El icono de la cámara ya lo dice; el nombre
+     completo se queda en el `aria-label` para quien no ve el icono. */
+  .perfil-portada .encima .solo-ancho{display:none;}
+}
+
+/* La foto pisa la portada, que es lo que hace que esto se lea como un perfil y
+   no como una tarjeta con una imagen arriba.
+
+   El desplazamiento hacia arriba va SÓLO en la foto, no en la fila entera. Con
+   la fila entera subida, el nombre quedaba dentro de la portada — y encima
+   debajo de ella: la portada lleva `position:relative` y eso la pinta por
+   encima de lo que no está posicionado, así que el nombre se veía cortado por
+   la mitad. Sube la foto; el nombre se queda donde se lee. */
+.perfil-identidad{display:flex;gap:var(--e2);align-items:flex-end;flex-wrap:wrap;
+  padding:var(--e2) var(--e3) var(--e3);position:relative;}
+.perfil-identidad .retrato-perfil{width:132px;height:132px;margin-top:-76px;
+  border:4px solid var(--papel);box-shadow:var(--sombra);background:var(--papel);}
+.perfil-identidad .quien{min-width:200px;flex:1 1 240px;padding-bottom:var(--e1);}
+.perfil-identidad h1,.perfil-identidad h2{margin:0;font-size:var(--t-2xl);
+  letter-spacing:-.03em;line-height:1.1;}
+.perfil-identidad .titular{color:var(--tinta-2);font-size:var(--t-sm);margin-top:2px;}
+.perfil-identidad .credenciales{display:inline-flex;align-items:center;gap:var(--e0);
+  color:var(--secondary);font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  margin-top:var(--e0);}
+.perfil-identidad .credenciales .material-symbols-outlined{font-size:16px;}
+.perfil-identidad .manos{display:flex;gap:var(--e1);flex-wrap:wrap;
+  padding-bottom:var(--e1);margin-left:auto;}
+
+/* Un botón encima de la foto: cambiarla es lo que todo el mundo intenta hacer
+   tocándola, y hasta ahora había que bajar a otra tarjeta a buscarlo. */
+.retrato-editable{position:relative;padding:0;cursor:pointer;}
+.retrato-editable .lapiz{position:absolute;right:2px;bottom:2px;width:34px;height:34px;
+  border-radius:var(--r-full);background:var(--primary);color:var(--on-primary);
+  display:flex;align-items:center;justify-content:center;border:3px solid var(--papel);}
+.retrato-editable .lapiz .material-symbols-outlined{font-size:17px;color:inherit;}
+
+@media (max-width:640px){
+  .perfil-identidad{justify-content:center;text-align:center;}
+  .perfil-identidad .retrato-perfil{width:104px;height:104px;margin-top:-62px;}
+  .perfil-identidad .quien{flex-basis:100%;}
+  .perfil-identidad .manos{margin-left:0;width:100%;justify-content:center;}
+  .perfil-identidad .credenciales{justify-content:center;}
+}
+
+/* Las cifras de debajo: cuántos títulos, cuántas insignias. Es lo primero que
+   mira quien está a punto de contratar. */
+.perfil-cifras{display:flex;gap:var(--e3);flex-wrap:wrap;
+  border-top:1px solid var(--filete);padding:var(--e2) var(--e3);}
+.perfil-cifras > div{display:flex;flex-direction:column;}
+.perfil-cifras b{font-family:var(--cifra);font-size:var(--t-lg);line-height:1.1;
+  font-variant-numeric:tabular-nums;}
+.perfil-cifras span{font-size:var(--t-xs);color:var(--tinta-2);}
+
+/* El enlace que se reparte, a la vista y en la letra de las cifras: se lee
+   carácter a carácter cuando alguien lo dicta o lo comprueba. El fondo y el
+   filete no se pintan aquí: los pone `caja`, y así el recuadro sigue el estilo
+   que la persona haya elegido en vez de quedarse en uno fijo. */
+.enlace-compartir{display:flex;align-items:center;gap:var(--e1);flex-wrap:wrap;
+  padding:var(--e1) var(--e2);font-family:var(--cifra);font-size:var(--t-sm);
+  word-break:break-all;}

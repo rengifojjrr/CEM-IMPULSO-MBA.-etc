@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-21-37';
+         vidrioActual } from './temas.js?v=2026-08-21-42';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1907,7 +1907,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-21-37');
+    const m = await import('./apariencia.js?v=2026-08-21-42');
 
     m.abrirApariencia();
 
@@ -2367,6 +2367,53 @@ export function filaTotales(celdas) {
   return `<tfoot><tr class="totales">${celdas.map((c) =>
     `<td${c && c.num ? ' class="num"' : ''}>${c ? (c.html ?? esc(c.texto ?? c)) : ''}</td>`).join('')}</tr></tfoot>`;
 }
+/* ============ repartir un enlace ============
+   Lo usan el perfil propio y la página pública, y por eso vive aquí.
+
+   En un teléfono, `navigator.share` abre la hoja del sistema: WhatsApp, el
+   correo, lo que cada quien tenga instalado. Es lo que espera quien va a
+   compartir algo y no hay forma de imitarlo desde una página. En un escritorio
+   casi nunca existe, así que hace falta la versión propia — y tiene que estar
+   igual de completa, porque un enlace se reparte más desde el ordenador que
+   desde el teléfono.
+
+   Cancelar no es fallar: si alguien abre la hoja del sistema y la cierra, no se
+   le pone otra cosa delante como si algo se hubiera roto. */
+export async function compartir({ url, titulo = '', texto = '' }) {
+  if (navigator.share) {
+    try { await navigator.share({ title: titulo, text: texto, url }); return 'sistema'; }
+    catch (e) { if (e?.name === 'AbortError') return 'cancelado'; }
+  }
+  return hojaDeCompartir({ url, titulo, texto });
+}
+
+/** La hoja propia: el enlace a la vista para copiarlo, y los sitios de siempre. */
+export function hojaDeCompartir({ url, titulo = '', texto = '' }) {
+  const conTexto = encodeURIComponent(`${texto || titulo} ${url}`.trim());
+  const soloUrl = encodeURIComponent(url);
+  const destinos = [
+    ['WhatsApp', 'chat', `https://wa.me/?text=${conTexto}`],
+    ['LinkedIn', 'work', `https://www.linkedin.com/sharing/share-offsite/?url=${soloUrl}`],
+    ['Facebook', 'public', `https://www.facebook.com/sharer/sharer.php?u=${soloUrl}`],
+    ['Correo', 'mail', `mailto:?subject=${encodeURIComponent(titulo)}&body=${conTexto}`],
+  ];
+  const m = modal({ title: 'Compartir', body: `
+    <p class="tiny muted sin-margen">Cualquiera puede abrir este enlace, sin tener cuenta.</p>
+    <div class="enlace-compartir caja sep"><span class="crece">${esc(url)}</span>
+      <button type="button" class="btn ghost sm" data-copiar>
+        <span class="material-symbols-outlined">content_copy</span> Copiar</button></div>
+    <div class="row sep">${destinos.map(([n, ico, href]) =>
+      `<a class="btn outline sm" href="${esc(href)}" target="_blank" rel="noopener">
+         <span class="material-symbols-outlined">${ico}</span> ${esc(n)}</a>`).join('')}</div>`,
+    footer: '<button class="btn outline" data-x>Cerrar</button>' });
+
+  $('[data-copiar]', m).onclick = async () => {
+    try { await navigator.clipboard.writeText(url); ok('Enlace copiado.'); }
+    catch { fail('No se pudo copiar. Selecciona el enlace y cópialo a mano.'); }
+  };
+  return 'hoja';
+}
+
 /** Descarga contenido como archivo (CSV/JSON). */
 export function download(filename, content, mime = 'text/csv;charset=utf-8') {
   const url = URL.createObjectURL(new Blob([content], { type: mime }));

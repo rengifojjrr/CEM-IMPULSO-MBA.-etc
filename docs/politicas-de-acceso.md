@@ -227,3 +227,38 @@ lista, y salen en **Gobierno → Seguridad de mi cuenta**, separando «bloqueada
 de «puede entrar», que no son el mismo problema. La prueba `roles` no exige que
 la lista esté vacía —las que quedan están bloqueadas a propósito— sino que
 **ninguna pueda entrar**.
+
+## El perfil que la persona reparte
+
+`plataforma/perfil-publico.html` abre **sin sesión**, a propósito: un enlace que
+exige darse de alta no lo abre nadie. Todo lo que sale de ahí lo decide quien lo
+publica, y lo filtra el servidor —`cem_perfil_publico`—, no el navegador.
+
+Nunca salen, y no hay interruptor que los saque: **cédula, teléfono, correo y
+cualquier cosa de dinero.** La prueba `expediente` lo comprueba con expresiones
+regulares contra el texto entero de la página, que es la única forma de que un
+campo nuevo no se escape sin que nadie se entere.
+
+Lo demás lo enciende la persona en *Mi perfil → Mi perfil público*:
+
+| Interruptor | Cómo viene | Por qué |
+|---|---|---|
+| Los programas que cursé | encendido | Es lo que se pone en un currículum. |
+| Mis insignias | encendido | Lo mismo. |
+| Mi trabajo | encendido | La página existe también para que le escriban. |
+| A qué me dedico | **apagado** | Se preguntó al registrarse, para saber quién estudia aquí. Publicarlo sin avisar sería usar para una cosa un dato que se dio para otra. |
+| Mis notas | **apagado** | Las notas son de quien las sacó y no tienen por qué ir en un enlace que se reparte. |
+
+Dos cosas que se arreglaron y conviene no volver a romper:
+
+- **Un interruptor tiene que hacer algo.** «Los programas que cursé» no lo leía
+  nadie: se podía apagar y el nombre del programa seguía saliendo debajo de cada
+  título. Un ajuste de privacidad que no hace nada es peor que no tenerlo,
+  porque la persona cree que apagó algo.
+- **Las dos mitades, o no vale.** Comprobar sólo que un dato apagado no sale
+  también lo cumple un campo que no se guarda nunca. La prueba mira las dos:
+  apagado no sale, encendido sí.
+
+Compartir sin haber publicado no reparte el enlace: ofrece publicar primero,
+diciendo antes qué se va a ver. Un enlace que le enseña al otro «este perfil no
+está publicado» es peor que no tener botón.
