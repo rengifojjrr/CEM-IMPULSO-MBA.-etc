@@ -9,13 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-22">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-25">
 <style>
   .tasa-box{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
   /* La tasa vigente es una cifra: se escribe con la letra de las cifras y
      con el tamaño que el sistema reserva para «un número que importa». */
   .tasa-actual{font-size:var(--t-xl);font-weight:var(--peso-fuerte);letter-spacing:-.025em;
     line-height:1.1;font-family:var(--cifra);font-variant-numeric:tabular-nums;}
+  /* sin-caja: es el marco de una imagen */
   .comprobante-img{max-width:100%;max-height:60vh;border-radius:var(--r);border:1px solid var(--filete);display:block;}
   td.ref{font-family:var(--cifra);font-size:var(--t-xs);}
 </style>
@@ -106,8 +107,8 @@ import { sb, mount, MONEDA_BASE, $, $$, esc, chip, num, money, fdate, fdatetime,
          confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa, run,
          toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY, cargarEn, contarFilas,
          etiqueta, montoPagado, enDolares, saldo as saldoCelda,
-         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-21-22';
-import { barras, apiladas, anillo } from '../assets/graficos.js?v=2026-08-21-22';
+         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-21-25';
+import { barras, apiladas, anillo } from '../assets/graficos.js?v=2026-08-21-25';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -443,7 +444,17 @@ $('#btnTraerBcv').onclick = async () => {
     const g = await run(sb.rpc('cem_tasa_bcv_recoger'), 'No se pudo leer la respuesta del BCV');
     olvidarTasa();
     if (Number(g?.guardadas)) {
-      avisar('#msgTasa', `${g.guardadas} tasa(s) traída(s) del BCV.`, 'ok');
+      /* «Traídas 2» era verdad y no servía de nada: si hay una tasa cargada a
+         mano ese día, sigue mandando ella y el número grande no se mueve. Lo
+         que hay que decir no es cuántas llegaron, sino cuál manda ahora. */
+      const est = await sb.rpc('cem_tasa_estado');
+      const tapadas = Object.entries(est.data?.monedas || {}).filter(([, m]) =>
+        m.origen === 'MANUAL' && m.bcv_hoy != null && Number(m.bcv_hoy) !== Number(m.valor));
+      avisar('#msgTasa', tapadas.length
+        ? `Traída${g.guardadas > 1 ? 's' : ''} del BCV, pero sigue mandando la que está cargada a mano.`
+          + ' Pulsa «Volver a la del BCV» ahí arriba para usarla.'
+        : `Listo: ahora manda la tasa del BCV.`,
+        tapadas.length ? 'warn' : 'ok');
     } else {
       /* «No se guardó nada» tiene dos causas muy distintas y no da lo mismo
          cuál sea: o el proveedor falló, o simplemente todavía no ha contestado. */

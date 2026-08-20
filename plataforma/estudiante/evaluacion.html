@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-22">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-25">
 <style>
   .qcard{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
     padding:var(--e3);margin-bottom:var(--aire);}
@@ -59,9 +59,9 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, qs, ok, fail, run, confirmDialog, modal, nota, chipNota,
-         mensajeError, avisar, ocupado, subirDocumentoLeccion } from '../assets/app.js?v=2026-08-21-22';
+         mensajeError, avisar, ocupado, subirDocumentoLeccion } from '../assets/app.js?v=2026-08-21-25';
 import { TIPOS, controlDeRespuesta, leerControl, estaRespondida, etiquetaTipo }
-  from '../assets/preguntas.js?v=2026-08-21-22';
+  from '../assets/preguntas.js?v=2026-08-21-25';
 
 const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 let assess, preguntas = [], sub, respuestas = {}, tLeft = null, tick = null;
@@ -146,7 +146,7 @@ function render(){
     const i = preguntas.indexOf(q);
     const cabecera = q.seccion ? `<div class="q-seccion"><h3>${esc(q.seccion)}</h3>
       ${q.seccion_desc?`<div class="tiny muted">${esc(q.seccion_desc)}</div>`:''}</div>` : '';
-    return cabecera + `<div class="qcard" data-tarjeta="${q.id}">
+    return cabecera + `<div class="qcard caja" data-tarjeta="${q.id}">
       <div class="row" style="gap:var(--e1);align-items:flex-start;flex-wrap:nowrap">
         <span class="qnum">${i+1}</span>
         <div class="crece">

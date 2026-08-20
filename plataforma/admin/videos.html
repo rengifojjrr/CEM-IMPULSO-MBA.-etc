@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-22">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-25">
 <style>
   .vid{display:flex;gap:10px;align-items:center;padding:8px;border-radius:var(--r);
     border:1px solid var(--filete);margin-bottom:8px;}
@@ -62,7 +62,7 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, num, ok, fail, avisar, mensajeError,
-         confirmDialog, qs, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-22';
+         confirmDialog, qs, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-25';
 await mount({ require:['coordinador','admin','superadmin'], area:'admin' });
 
 let cursos = [], curso = null, datos = null, videos = null, errorVideos = null, shorts = [];
@@ -207,7 +207,7 @@ function pintar(){
         <div class="mod-t">${esc(m.titulo)}</div>
         ${(m.lecciones || []).length ? m.lecciones.map((l) => {
           const v = (videos || []).find((x) => x.video_id === l.video_id);
-          return `<div class="lec ${l.video_id ? '' : 'vacia'}">
+          return `<div class="lec caja ${l.video_id ? '' : 'vacia'}">
             ${l.video_id
               ? `<img class="mini" loading="lazy" alt=""
                    src="https://i.ytimg.com/vi/${esc(l.video_id)}/default.jpg"
@@ -247,7 +247,7 @@ function pintar(){
       </form>
       <div id="msgLista"></div>
       ${videos && sueltos.length ? `<h3 class="sec" style="margin-top:var(--e3)">Vídeos que no están en ninguna lección</h3>
-        ${sueltos.map((v) => `<div class="vid">
+        ${sueltos.map((v) => `<div class="vid caja">
           <img loading="lazy" src="${esc(v.miniatura)}" alt="">
           <div class="t">${esc(v.titulo)}</div></div>`).join('')}` : ''}
     </details>
@@ -283,7 +283,7 @@ function pintar(){
 
       <div class="sep">
         ${shorts.length ? shorts.map((c, i) => `
-          <div class="corto-fila ${c.publicado ? '' : 'retirado'}">
+          <div class="corto-fila caja ${c.publicado ? '' : 'retirado'}">
             <img loading="lazy" alt=""
               src="https://i.ytimg.com/vi/${esc(c.video_id)}/default.jpg"
               onerror="this.style.visibility='hidden'">
@@ -482,7 +482,7 @@ function elegirVideo(libres, tituloLeccion){
     const pintarLista = (q) => {
       const f = q ? libres.filter((v) => limpiar(v.titulo).includes(limpiar(q))) : libres;
       lista.innerHTML = f.length
-        ? f.map((v) => `<button type="button" class="vid elegible" data-v="${esc(v.video_id)}">
+        ? f.map((v) => `<button type="button" class="vid caja elegible" data-v="${esc(v.video_id)}">
              <img loading="lazy" src="${esc(v.miniatura)}" alt="">
              <span class="t">${esc(v.titulo)}</span></button>`).join('')
         : '<p class="muted tiny">Ninguno de los vídeos sin usar se llama así.</p>';

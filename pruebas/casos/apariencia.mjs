@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-22');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-22');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -143,9 +143,55 @@ export default async function correr(navegador) {
     await U.close();
   }
 
+  /* ============ el estilo llega a TODOS los cuadros ============
+     Los ocho estilos son ocho juegos de cuatro variables en `:root`, y lo que
+     decide si algo cambia de aspecto no es en qué pantalla esté, sino si las
+     consume. Durante mucho tiempo sólo las consumían `.card` y `.kpi`, así que
+     una pantalla que se dibujara su propio recuadro quedaba fuera sin que nada
+     lo dijera: en Formas de pago, que no usa `.card` ni una vez, cambiar de
+     estilo no hacía absolutamente nada.
+
+     Esto lo mide donde duele: se recorren los ocho estilos y se cuentan los
+     cuadros VISIBLES que devuelven siempre el mismo aspecto. */
+  for (const [cuenta, ruta] of [
+    ['admin', 'admin/formas-de-pago.html'],
+    ['admin', 'admin/carteras.html'],
+    ['admin', 'admin/cierre-mes.html'],
+    ['estudiante', 'estudiante/pagos.html'],
+    ['estudiante', 'estudiante/certificados.html'],
+  ]) {
+    const C = await nuevaPestana(navegador, { ancho: 1440, alto: 1000 });
+    await entrar(C, cuenta, ruta);
+    await C.waitForSelector('#page:not(.hidden)', { timeout: 40000 }).catch(() => {});
+    await C.waitForTimeout(2500);
+
+    const r = await C.evaluate(async () => {
+      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
+      const cajas = [...document.querySelectorAll('.card, .caja, .kpi')]
+        .filter((e) => e.offsetParent !== null).slice(0, 40);
+      if (!cajas.length) return { n: 0, sordas: 0 };
+      const antes = m.estiloActual();
+      const vistas = cajas.map(() => new Set());
+      for (const e of Object.keys(m.ESTILOS)) {
+        m.aplicarApariencia({ estilo: e });
+        await new Promise((r2) => requestAnimationFrame(() => requestAnimationFrame(r2)));
+        cajas.forEach((el, i) => {
+          const c = getComputedStyle(el);
+          vistas[i].add([c.background, c.backdropFilter, c.boxShadow, c.borderRadius].join('|'));
+        });
+      }
+      m.aplicarApariencia({ estilo: antes });   // dejarla como estaba
+      return { n: cajas.length, sordas: vistas.filter((v) => v.size === 1).length };
+    });
+
+    a.comprobar(r.n > 0 && r.sordas === 0,
+      `Los ${r.n} cuadros de ${ruta} cambian con el estilo (${r.sordas} sordos)`);
+    await C.close();
+  }
+
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-22');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-25');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

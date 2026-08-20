@@ -1376,11 +1376,30 @@ html:root:not([data-estilo="plano"]){
   backdrop-filter:blur(4px);
 }
 
+/* ── `.caja`: el nombre público del contrato ──────────────────────────────
+   Los ocho estilos no son ocho hojas de CSS: son ocho juegos de estas cuatro
+   variables —`--caja-fondo`, `--caja-filtro`, `--caja-sombra`, `--r-caja`—
+   puestas en `:root`. Lo que decide si algo cambia de aspecto no es la
+   pantalla en la que esté, sino si CONSUME esas variables.
+
+   Durante mucho tiempo sólo las consumían `.card` y `.kpi`. Cualquier pantalla
+   que se dibujara su propio recuadro —y hay una veintena que lo hacen, con su
+   `<style>` local y su clase propia— quedaba fuera del sistema sin que nada lo
+   dijera: se cambiaba de estilo y esa pantalla no se enteraba. En Formas de
+   pago, que no usa `.card` ni una sola vez, no cambiaba absolutamente nada.
+
+   `.caja` es ese contrato con nombre. Un recuadro propio añade `caja` a su
+   clase y ya está dentro: no tiene que repetir fondo, filete ni esquinas, y
+   los ocho estilos le llegan solos. La comprobación estática nº 10 avisa de
+   los recuadros que se dibujan por su cuenta sin declararlo. */
+.caja{background:var(--papel);border:1px solid var(--filete);
+  border-radius:var(--r);}
+
 /* ── la caja: una sola regla, siete rellenos ──────────────────────────────
    `.card` y `.kpi` se pintan igual porque son lo mismo: un dato dentro de un
    recuadro. Los indicadores no tenían caja —una cifra grande no la
    necesita— y con vidrio la recuperan, que es justo lo que se pidió. */
-:root:not([data-estilo="plano"]) .card,
+:root:not([data-estilo="plano"]) :is(.card,.caja),
 :root:not([data-estilo="plano"]) .kpi{
   position:relative;
   border:var(--caja-borde);
@@ -1399,14 +1418,14 @@ html:root:not([data-estilo="plano"]){
 :root:not([data-estilo="plano"]) .kpis{border-bottom:0;padding-bottom:0;}
 /* Una tarjeta dentro de otra no se desenfoca dos veces: se vería un halo
    turbio en el borde interior. */
-:root:not([data-estilo="plano"]) .card .card{
+:root:not([data-estilo="plano"]) :is(.card,.caja) :is(.card,.caja){
   -webkit-backdrop-filter:none;backdrop-filter:none;
   background:color-mix(in srgb, var(--papel) 40%, transparent);
 }
 /* La tabla suelta dentro de una tarjeta ya se quita el marco; con vidrio hay
    que quitarle también el fondo, o queda un rectángulo opaco flotando. */
-:root:not([data-estilo="plano"]) .card > .table-wrap:only-child,
-:root:not([data-estilo="plano"]) .card.solo-tabla{
+:root:not([data-estilo="plano"]) :is(.card,.caja) > .table-wrap:only-child,
+:root:not([data-estilo="plano"]) :is(.card,.caja).solo-tabla{
   background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;}
 
 :root:not([data-estilo="plano"]) .inp,
@@ -1446,14 +1465,14 @@ html:root:not([data-estilo="plano"]){
                 inset 0 0 0 1px color-mix(in srgb, #fff 22%, transparent),
                 0 20px 44px -26px rgba(13,36,64,.55);
 }
-:root[data-estilo="marco"] .card,
+:root[data-estilo="marco"] :is(.card,.caja),
 :root[data-estilo="marco"] .kpi{padding:calc(var(--e2) + 7px);}
-:root[data-estilo="marco"] .card::before,
+:root[data-estilo="marco"] :is(.card,.caja)::before,
 :root[data-estilo="marco"] .kpi::before{
   content:'';position:absolute;inset:7px;border-radius:var(--r);z-index:0;
   background:color-mix(in srgb, #fff 26%, transparent);
   filter:blur(7px);pointer-events:none;}
-:root[data-estilo="marco"] .card > *,
+:root[data-estilo="marco"] :is(.card,.caja) > *,
 :root[data-estilo="marco"] .kpi > *{position:relative;z-index:1;}
 @media (prefers-color-scheme:dark){
   :root[data-estilo="marco"]:not([data-theme="light"]){
@@ -1461,7 +1480,7 @@ html:root:not([data-estilo="plano"]){
     --caja-sombra:inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent),
                   inset 0 0 0 1px color-mix(in srgb, #fff 8%, transparent),
                   0 20px 44px -26px rgba(0,0,0,.7);}
-  :root[data-estilo="marco"]:not([data-theme="light"]) .card::before,
+  :root[data-estilo="marco"]:not([data-theme="light"]) :is(.card,.caja)::before,
   :root[data-estilo="marco"]:not([data-theme="light"]) .kpi::before{
     background:color-mix(in srgb, #fff 9%, transparent);}
 }
@@ -1470,7 +1489,7 @@ html:root:not([data-estilo="plano"]){
   --caja-sombra:inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent),
                 inset 0 0 0 1px color-mix(in srgb, #fff 8%, transparent),
                 0 20px 44px -26px rgba(0,0,0,.7);}
-:root[data-estilo="marco"][data-theme="dark"] .card::before,
+:root[data-estilo="marco"][data-theme="dark"] :is(.card,.caja)::before,
 :root[data-estilo="marco"][data-theme="dark"] .kpi::before{
   background:color-mix(in srgb, #fff 9%, transparent);}
 
@@ -1522,7 +1541,7 @@ html:root:not([data-estilo="plano"]){
     color-mix(in srgb, var(--papel) 78%, transparent));
   --caja-sombra:0 14px 32px -22px rgba(13,36,64,.45);
 }
-:root[data-estilo="canto"] .card::after,
+:root[data-estilo="canto"] :is(.card,.caja)::after,
 :root[data-estilo="canto"] .kpi::after,
 :root[data-estilo="canto"] .table-wrap::after{
   content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;
@@ -1535,8 +1554,8 @@ html:root:not([data-estilo="plano"]){
   -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;}
 /* La tabla suelta se lleva su propio canto, que es lo que este estilo puede
    permitirse y los demás no. */
-:root[data-estilo="canto"] .card > .table-wrap:only-child,
-:root[data-estilo="canto"] .card.solo-tabla{
+:root[data-estilo="canto"] :is(.card,.caja) > .table-wrap:only-child,
+:root[data-estilo="canto"] :is(.card,.caja).solo-tabla{
   position:relative;border-radius:var(--r-caja);overflow:hidden;
   background:var(--caja-fondo);}
 
@@ -1617,13 +1636,13 @@ html:root:not([data-estilo="plano"]){
   :root:not([data-estilo="plano"]) .modal,
   :root:not([data-estilo="plano"]) .toast,
   :root:not([data-estilo="plano"]) .ayuda-globo,
-  :root:not([data-estilo="plano"]) .card,
+  :root:not([data-estilo="plano"]) :is(.card,.caja),
   :root:not([data-estilo="plano"]) .kpi,
   :root:not([data-estilo="plano"]) th{
     background:var(--papel);-webkit-backdrop-filter:none;backdrop-filter:none;
     box-shadow:none;}
-  :root:not([data-estilo="plano"]) .card::before,
-  :root:not([data-estilo="plano"]) .card::after,
+  :root:not([data-estilo="plano"]) :is(.card,.caja)::before,
+  :root:not([data-estilo="plano"]) :is(.card,.caja)::after,
   :root:not([data-estilo="plano"]) .kpi::before,
   :root:not([data-estilo="plano"]) .kpi::after{display:none;}
 }
@@ -2010,7 +2029,7 @@ tr.grupo-banco .tiny{margin-left:var(--e1);}
 /* El cero sigue siendo gris: es la buena noticia y no necesita color. */
 :root[data-estilo="panel"] .kpi .k-val.vacio{color:var(--tinta-3);}
 /* Los títulos de sección, con la misma voz de etiqueta. */
-:root[data-estilo="panel"] .card > .sec:first-child{
+:root[data-estilo="panel"] :is(.card,.caja) > .sec:first-child{
   font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--tinta-3);
 }
 
@@ -2308,7 +2327,7 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
    están aquí: llevan `backdrop-filter`, que desenfoca lo de detrás hasta
    volverlo textura. Ahí la transparencia es el efecto, no un descuido. */
 /* La especificidad importa aquí más que en ningún otro sitio. La regla del
-   vidrio es `:root:not([data-estilo="plano"]) .card` —(0,3,0)— y le pone
+   vidrio es `:root:not([data-estilo="plano"]) :is(.card,.caja)` —(0,3,0)— y le pone
    `position:relative` a toda tarjeta. Un `.pegajosa` a secas —(0,1,0)— pierde,
    así que la barra dejaba de ser pegajosa en cuanto se elegía cualquier estilo
    que no fuera el plano… pero el `top:70px` sobrevivía, y sobre un elemento
@@ -2317,8 +2336,8 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
    no se arreglaba con márgenes: no era un problema de aire. */
 :root .card.pegajosa,
 :root .pegajosa{position:sticky;z-index:20;}
-:root:not([data-estilo="plano"]) .card.pegajosa,
-:root:not([data-estilo="plano"]) .pegajosa > .card{
+:root:not([data-estilo="plano"]) :is(.card,.caja).pegajosa,
+:root:not([data-estilo="plano"]) .pegajosa > :is(.card,.caja){
   background:var(--papel);
   -webkit-backdrop-filter:var(--desenfoque);
   backdrop-filter:var(--desenfoque);

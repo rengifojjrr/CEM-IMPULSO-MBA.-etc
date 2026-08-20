@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Playfair+Display:wght@500;700&family=Lora:wght@400;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-22">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-25">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
   .ed{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:var(--aire);align-items:start;}
@@ -32,6 +32,7 @@
   .blk img{display:block;width:100%;height:auto;pointer-events:none;}
   /* El tirador se dibuja siempre y solo se muestra en el elemento elegido:
      asi arrastrar no obliga a reconstruir el lienzo. */
+  /* sin-caja: el tirador de 14px de un elemento del editor */
   .tirador{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:var(--r-full);
     background:var(--info);border:2px solid #fff;cursor:nwse-resize;box-shadow:0 1px 3px rgba(0,0,0,.3);
     display:none;}
@@ -46,6 +47,7 @@
   .g2 .field,.g4 .field{margin:0;}
   .field.mini label{font-size:var(--t-xs);}
   .field.mini input,.field.mini select{padding:6px 8px;}
+  /* sin-caja: una fila que se selecciona, no un panel */
   .lista-item{display:flex;gap:9px;align-items:center;padding:7px 9px;border-radius:var(--r);cursor:pointer;
     border:1px solid var(--filete);margin-bottom:6px;}
   .lista-item.sel{border-color:var(--info);background:var(--info-container);}
@@ -53,6 +55,7 @@
   .rango{display:flex;align-items:center;gap:9px;}
   .rango input[type=range]{flex:1;min-width:0;}
   .rango b{font-variant-numeric:tabular-nums;min-width:42px;text-align:right;font-size:var(--t-xs);}
+  /* sin-caja: su filete discontinuo significa donde soltar */
   .zona{border:2px dashed var(--filete);border-radius:var(--r);padding:16px;text-align:center;
     color:var(--tinta-2);font-size:var(--t-xs);cursor:pointer;}
   .zona.drag{border-color:var(--info);background:var(--info-container);}
@@ -239,7 +242,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, fail, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-21-22';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, fail, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-21-25';
 const p = await mount({ require:['coordinador','admin','superadmin'], active:'certificados.html', area:'admin' });
 
 const VARS = ['estudiante_nombre','estudiante_cedula','curso_nombre','fecha_emision',

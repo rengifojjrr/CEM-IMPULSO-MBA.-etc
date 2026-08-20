@@ -280,6 +280,52 @@ for (const f of paginas) {
 if (chiposos.length) chiposos.forEach((c) => mal(c.split(':')[0], c));
 else bien(`Ninguno de los chips de las ${paginas.length} pantallas lleva un mensaje dentro`);
 
+/* ══════════ 10. Ningún recuadro se dibuja por su cuenta ══════════
+   Los ocho estilos de la plataforma no son ocho hojas de CSS: son ocho juegos
+   de cuatro variables puestas en `:root`. Lo que decide si algo cambia de
+   aspecto al cambiar de estilo no es en qué pantalla esté, sino si consume
+   esas variables — o sea, si lleva `caja` o `card` en su clase.
+
+   Una pantalla que se dibuja su propio recuadro en su `<style>` local queda
+   fuera del sistema sin que nada lo diga: se cambia de estilo y esa pantalla
+   no se entera. Pasaba en Formas de pago, que no usaba `.card` ni una vez, y
+   en una docena más.
+
+   Aquí se busca lo que tiene forma de recuadro —filete y esquinas— y se
+   comprueba que en el HTML aparezca junto a `caja` o `card`. Las burbujas de
+   chat, los interruptores y los iconos redondos no llevan filete, así que no
+   entran solos en la cuenta. */
+titulo('Ningún recuadro se dibuja por su cuenta');
+
+const cajasSueltas = [];
+for (const f of paginas) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  /* Sólo las pantallas del portal. La portada suelta, el panel viejo y el
+     manual no cargan la hoja compartida: tienen su propio sistema de estilos
+     y el de la plataforma no les llega ni tiene por qué. */
+  if (!/assets\/styles\.css/.test(html)) continue;
+  const hoja = html.match(/<style>([\s\S]*?)<\/style>/)?.[1];
+  if (!hoja) continue;
+  for (const m of hoja.matchAll(/^\s*\.([a-z][\w-]*)\s*\{([^}]*)\}/gm)) {
+    const [, clase, cuerpo] = m;
+    if (!/border\s*:\s*[^;]*(solid|dashed)/.test(cuerpo)) continue;
+    if (!/border-radius\s*:/.test(cuerpo)) continue;
+    /* La salida, y hay que escribirla a mano: no todo lo que tiene filete y
+       esquinas es un panel. Una miniatura, una imagen enmarcada o el tirador
+       de un editor no deben cambiar con el estilo, y decirlo cuesta una línea
+       —`sin-caja: porque…`— que además explica por qué a quien lo lea. */
+    const antes = hoja.slice(Math.max(0, m.index - 220), m.index);
+    if (/sin-caja\s*:/.test(antes)) continue;
+    // ¿Se usa en el HTML junto a `caja` o `card`?
+    const usos = [...html.matchAll(new RegExp(`class="([^"]*\\b${clase}\\b[^"]*)"`, 'g'))];
+    if (!usos.length) continue;   // definida y no usada: no es asunto de esta regla
+    if (usos.some((u) => /\b(caja|card)\b/.test(u[1]))) continue;
+    cajasSueltas.push(`${f}: .${clase} dibuja un recuadro propio y no lleva «caja», así que ningún estilo le llega`);
+  }
+}
+if (cajasSueltas.length) cajasSueltas.forEach((s) => mal(s.split(':')[0], s));
+else bien(`Todos los recuadros propios de las ${paginas.length} pantallas declaran «caja»`);
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {
