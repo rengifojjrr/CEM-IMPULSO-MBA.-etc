@@ -203,6 +203,23 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .badge.revocado{background:#dc2626;}
   .badge.reemplazado{background:#6b7280;}
   tr.fila-marcada{background:rgba(27,127,118,.08);}
+
+  /* ---- el día como encabezado dentro de la tabla ----
+     Una tanda de graduación se emite de una sentada, así que la fecha es lo que
+     de verdad separa un grupo de otro. Es una fila y no una caja: meter cada día
+     en su propio recuadro rompería la alineación de las columnas. */
+  tr.grupo-fecha td{background:#eef2f6;border-bottom:1px solid var(--border);padding:7px 8px;}
+  tr.grupo-fecha .dia{font-weight:700;color:var(--navy);}
+  tr.grupo-fecha .row{margin-bottom:0;gap:8px;}
+  td.hora{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+
+  /* Cartel de «esto está tardando a propósito». Abajo a la derecha, sin tapar
+     la tabla y sin robar el foco: no hay nada que decidir mientras dura. */
+  .aviso-progreso{position:fixed;right:18px;bottom:18px;z-index:60;
+    background:var(--navy);color:#fff;border-radius:10px;padding:12px 16px;
+    box-shadow:0 8px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;gap:2px;
+    font-size:13px;}
+  .aviso-progreso .hint{color:#cfe0ea;}
   .badge.borrador{background:var(--dorado);color:#132743;}
   .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#eef2f6;color:var(--muted);margin-top:2px;}
 
@@ -450,6 +467,7 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
       <div class="panel-body" id="secEmitidosBody">
       <div class="row" style="align-items:center;">
         <input type="text" id="buscarEmitidos" placeholder="Buscar por cualquier dato (nombre, cédula, curso…)" style="flex:1;">
+        <button class="btn outline" id="btnDescargarFiltrados">⬇ Descargar los que se ven</button>
         <button class="btn outline" id="btnRefrescarLista">Refrescar</button>
         <button class="btn danger" id="btnBorrarHistorial">Borrar todo el historial</button>
         <button type="button" class="ayuda-btn" data-ayuda-texto="Marca uno o varios certificados con su casilla para editar sus datos (por ejemplo, corregir una cédula mal escrita) y volver a descargarlos listos para imprimir. Editar NO borra el certificado original: lo marca como «reemplazado» y crea uno nuevo con los datos corregidos y su propio código QR. También puedes descargar de nuevo sin cambiar nada, uno o varios a la vez.">?</button>
@@ -461,6 +479,51 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
     </div>
 
   </div>`;
+
+/* ── El día como criterio de agrupación ──────────────────────────────────────
+   Fuera del montaje para poder probarlas sueltas: con fechas inventadas se
+   comprueba que una tanda de varios días se parte bien, algo que contra la base
+   real no se puede ver porque todos los certificados emitidos hasta hoy salieron
+   el mismo día. */
+
+/** El día en la hora de quien mira, no en UTC: si no, un certificado emitido a
+    las nueve de la noche en Caracas se agrupa bajo el día siguiente y no
+    coincide con la hora que muestra su propia fila. */
+export function claveDelDia(iso){
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** «jueves, 14 de agosto de 2026». Se lee de un vistazo, que es de lo que se
+    trata cuando lo que buscas es «la tanda del jueves». */
+export function diaEnLetras(clave, hoyRef = new Date()){
+  const [a, m, d] = clave.split('-').map(Number);
+  const fecha = new Date(a, m - 1, d);
+  const hoy = new Date(hoyRef); hoy.setHours(0, 0, 0, 0);
+  const dias = Math.round((hoy - fecha) / 86400000);
+  const largo = fecha.toLocaleDateString('es-ES',
+    { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  /* En castellano el día de la semana va en minúscula, pero abre la línea, así
+     que sólo se levanta su primera letra. `text-transform:capitalize` no sirve:
+     pone mayúscula en cada palabra y deja «Viernes, 14 De Agosto De 2026». */
+  const conMayuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  if(dias === 0) return `Hoy · ${largo}`;
+  if(dias === 1) return `Ayer · ${largo}`;
+  return conMayuscula(largo);
+}
+
+/** Corta la lista cada vez que cambia el día. Da por hecho que viene ordenada
+    del más nuevo al más viejo, que es como la devuelve la base; así no hace
+    falta reordenar nada y el orden de la pantalla manda. */
+export function agruparPorDia(certs){
+  const dias = [];
+  for(const c of certs){
+    const clave = claveDelDia(c.created_at);
+    if(!dias.length || dias[dias.length - 1].clave !== clave) dias.push({ clave, certs: [] });
+    dias[dias.length - 1].certs.push(c);
+  }
+  return dias;
+}
 
 /**
  * Inyecta los controles del generador en `contenedor` y arranca el motor.
@@ -3890,40 +3953,68 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       <button class="btn outline small" id="btnDescargarSeleccionEmitidos">⬇ Descargar</button>
       <button class="btn outline small" id="btnCancelarSeleccionEmitidos">Cancelar selección</button>`;
     document.getElementById('btnEditarSeleccionEmitidos').addEventListener('click', editarCertificadosSeleccionados);
-    document.getElementById('btnDescargarSeleccionEmitidos').addEventListener('click', () => descargarCertificados([...issuedSeleccionados]));
+    document.getElementById('btnDescargarSeleccionEmitidos').addEventListener('click', () => descargarCertificados([...issuedSeleccionados], 'certificados_marcados'));
     document.getElementById('btnCancelarSeleccionEmitidos').addEventListener('click', () => {
       issuedSeleccionados.clear();
       renderIssuedTable();
     });
   }
 
-  function renderIssuedTable(){
-    const wrap = document.getElementById('listaEmitidosWrap');
+  /* Lo que se ve ahora mismo en la lista. Lo usan la tabla y el botón de
+     descargar en bloque: si cada uno filtrara por su cuenta, el botón podría
+     acabar bajando algo distinto de lo que hay en pantalla. */
+  function certificadosFiltrados(){
     const q = document.getElementById('buscarEmitidos').value.trim().toLowerCase();
-    const filtered = issued.filter(c => !q
+    return issued.filter(c => !q
       || Object.values(c.datos || {}).some(v => String(v).toLowerCase().includes(q))
       || (c.plantilla_nombre || '').toLowerCase().includes(q));
+  }
+
+  function renderIssuedTable(){
+    const wrap = document.getElementById('listaEmitidosWrap');
+    const filtered = certificadosFiltrados();
     actualizarBarraSeleccionEmitidos();
+    document.getElementById('btnDescargarFiltrados').disabled = !filtered.length;
+    document.getElementById('btnDescargarFiltrados').textContent =
+      filtered.length ? `⬇ Descargar los ${filtered.length} que se ven` : '⬇ Descargar los que se ven';
     if(!filtered.length){ wrap.innerHTML = '<p class="hint">Sin certificados que coincidan.</p>'; return; }
     const todosMarcados = filtered.every(c => issuedSeleccionados.has(c.id));
+
+    /* Agrupados por el día en que se emitieron. Una tanda de graduación sale de
+       una sentada, así que el día es lo que separa una promoción de la
+       siguiente; en una lista corrida de doscientas filas eso no se ve. */
+    const dias = agruparPorDia(filtered);
+
     wrap.innerHTML = `<table><thead><tr>
       <th><input type="checkbox" id="chkTodosEmitidos" ${todosMarcados ? 'checked' : ''}></th>
-      <th>Datos</th><th>Plantilla</th><th>Estado</th><th>Emitido</th><th>Acciones</th></tr></thead>
-    <tbody>${filtered.map(c => {
+      <th>Datos</th><th>Plantilla</th><th>Estado</th><th>Hora</th><th>Acciones</th></tr></thead>
+    <tbody>${dias.map(d => `
+    <tr class="grupo-fecha"><td colspan="6"><div class="row">
+      <span class="dia">${escapeHtml(diaEnLetras(d.clave))}</span>
+      <span class="hint">${d.certs.length} certificado${d.certs.length === 1 ? '' : 's'}</span>
+      <button class="btn outline small" data-descargar-dia="${d.clave}"
+        title="Descargar en un ZIP los ${d.certs.length} de este día">⬇ Descargar los ${d.certs.length}</button>
+    </div></td></tr>
+    ${d.certs.map(c => {
       const reemplazoPor = c.estado === 'reemplazado' ? issued.find(x => x.reemplaza_a === c.id) : null;
       return `<tr id="emitido-${c.id}" class="${issuedSeleccionados.has(c.id) ? 'fila-marcada' : ''}">
       <td><input type="checkbox" data-emitido-check="${c.id}" ${issuedSeleccionados.has(c.id) ? 'checked' : ''}></td>
       <td>${Object.entries(c.datos || {}).filter(([,v]) => v).map(([k,v]) => `<b>${escapeHtml(k)}:</b> ${escapeHtml(v)}`).join('<br>')}</td>
       <td>${escapeHtml(c.plantilla_nombre || '—')}</td>
       <td><span class="badge ${c.estado}">${c.estado}</span>${reemplazoPor ? `<br><a href="#" data-ir-a="${reemplazoPor.id}" class="hint">→ ver el que lo reemplaza</a>` : ''}</td>
-      <td>${new Date(c.created_at).toLocaleDateString('es-ES')}</td>
+      <td class="hora">${new Date(c.created_at).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</td>
       <td>
         <a href="verificar.html?c=${c.id}" target="_blank" class="hint">Ver</a>
         ${c.estado === 'vigente' ? ` · <button data-editar-emitido="${c.id}" class="btn outline small">Editar</button>` : ''}
         ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger small">Revocar</button>` : ''}
       </td>
     </tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('[data-descargar-dia]').forEach(b => b.addEventListener('click', () => {
+      const dia = dias.find(d => d.clave === b.dataset.descargarDia);
+      if(dia) descargarCertificados(dia.certs.map(c => c.id), `certificados_${dia.clave}`);
+    }));
 
     document.getElementById('chkTodosEmitidos').addEventListener('change', e => {
       filtered.forEach(c => { if(e.target.checked) issuedSeleccionados.add(c.id); else issuedSeleccionados.delete(c.id); });
@@ -3952,13 +4043,35 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   }
 
   /** Reconstruye y descarga uno o varios certificados ya emitidos, sin cambiar sus datos. */
-  async function descargarCertificados(ids){
+  async function descargarCertificados(ids, nombreZip = 'certificados'){
     const certs = ids.map(id => issued.find(c => c.id === id)).filter(Boolean);
     if(!certs.length) return;
+
+    /* Cada certificado se vuelve a dibujar entero, con sus tipografías y su
+       fondo. Doscientos de golpe son varios minutos con el navegador ocupado, y
+       si a mitad se cierra la pestaña no queda nada. Se avisa antes, con el
+       número delante, porque el botón dice «los 208» pero nadie calcula lo que
+       eso tarda hasta que ya está esperando. */
+    if(certs.length > 40 && !await preguntar({
+      titulo: `Descargar ${certs.length} certificados`,
+      cuerpo: `<p>Se van a volver a dibujar <b>${certs.length}</b> certificados, uno por uno, para
+        meterlos en un ZIP. Tardará un rato largo y conviene no cerrar ni recargar la pestaña
+        mientras tanto.</p>
+        <p class="hint">Si sólo querías los de un día, cierra esto y usa el botón de descargar que
+        hay en la línea de ese día.</p>`,
+      aceptar: `Sí, descargar los ${certs.length}`,
+    })) return;
+
     const { jsPDF } = window.jspdf;
     const listos = [];
     const sinPlantilla = [];
+    /* Cada certificado se vuelve a dibujar entero —lienzo, tipografías, QR— y a
+       treinta de golpe eso son varios segundos con la pantalla quieta. Sin este
+       aviso parece que el botón no hizo nada y se pulsa otra vez. */
+    const aviso = avisoDeProgreso(certs.length);
+    try{
     for(const c of certs){
+      await aviso.paso();
       const tpl = tplPorNombreEmitido(c.plantilla_nombre);
       if(!tpl){ sinPlantilla.push(c); continue; }
       await ensureFontsLoadedForConfig(tpl.config);
@@ -3972,6 +4085,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const nombrePersona = Object.values(c.datos || {}).find(v => v) || c.id.slice(0, 8);
       listos.push({ blob: pdf.output('blob'), filename: `${sanitizeName(tpl.nombre)}_${sanitizeName(String(nombrePersona))}_${c.id.slice(0,8)}.pdf` });
     }
+    } finally { aviso.cerrar(); }
     if(sinPlantilla.length) alert(`${sinPlantilla.length} certificado(s) no se pudieron regenerar: su plantilla («${sinPlantilla.map(c=>c.plantilla_nombre).join('», «')}») ya no existe.`);
     if(!listos.length) return;
     if(listos.length === 1){
@@ -3983,7 +4097,30 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     listos.forEach(l => zip.file(l.filename, l.blob));
     const blob = await zip.generateAsync({ type: 'blob' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'certificados_editados.zip'; a.click();
+    /* El nombre del ZIP dice qué trae: el día, o a quién se buscó. Antes todos
+       salían llamados «certificados_editados», que además era mentira cuando no
+       se había editado nada. */
+    a.href = URL.createObjectURL(blob); a.download = `${sanitizeName(nombreZip)}.zip`; a.click();
+  }
+
+  /** Un cartel fijo mientras se regeneran los PDF, con la cuenta a la vista. */
+  function avisoDeProgreso(total){
+    const caja = document.createElement('div');
+    caja.className = 'aviso-progreso';
+    caja.innerHTML = `<b>Preparando los certificados…</b>
+      <span class="hint" data-cuenta>0 de ${total}</span>`;
+    document.body.appendChild(caja);
+    let n = 0;
+    return {
+      paso(){
+        n++;
+        caja.querySelector('[data-cuenta]').textContent = `${n} de ${total}`;
+        /* Un respiro al navegador: sin él el contador se queda en «0 de 30»
+           hasta el final, porque el dibujo ocupa el hilo entero. */
+        return new Promise(r => setTimeout(r, 0));
+      },
+      cerrar(){ caja.remove(); },
+    };
   }
 
   /** Modal para editar los datos de UN certificado ya emitido y, si se quiere, descargarlo de una vez. */
@@ -4110,13 +4247,24 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     fondo.querySelector('[data-guardar-todos]').addEventListener('click', () => guardarTodos());
     fondo.querySelector('[data-guardar-descargar-todos]').addEventListener('click', async () => {
       const nuevos = await guardarTodos();
-      if(nuevos.length) await descargarCertificados(nuevos.map(n => n.id));
+      if(nuevos.length) await descargarCertificados(nuevos.map(n => n.id), 'certificados_corregidos');
       cerrar();
     });
   }
 
   document.getElementById('buscarEmitidos').addEventListener('input', renderIssuedTable);
   document.getElementById('btnRefrescarLista').addEventListener('click', loadIssued);
+
+  /* Descargar lo que hay filtrado en pantalla. Buscas «Orianny» y te llevas sus
+     ocho certificados de una vez, sin marcar ocho casillas; el ZIP se llama por
+     lo que se buscó, así que en la carpeta de descargas se sabe qué trae. */
+  document.getElementById('btnDescargarFiltrados').addEventListener('click', () => {
+    const q = document.getElementById('buscarEmitidos').value.trim();
+    const filtrados = certificadosFiltrados();
+    if(!filtrados.length) return;
+    descargarCertificados(filtrados.map(c => c.id),
+      q ? `certificados_${q}` : 'certificados_todos');
+  });
   document.getElementById('btnBorrarHistorial').addEventListener('click', async () => {
     if(!await preguntar({
       titulo: `Borrar los ${issued.length} certificados emitidos`,

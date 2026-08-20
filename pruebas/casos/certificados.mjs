@@ -2,7 +2,7 @@
 
    Tres cosas que se rompieron antes y no queremos que vuelvan a romperse:
 
-   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-44) y lo montan
+   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-48) y lo montan
       dos pantallas distintas. Si alguien toca una y no la otra, se separan.
    2. Los fondos ya no viajan incrustados en la configuración (eran 15 MB por
       abrir la pantalla): están en el almacenamiento y se piden con CORS. Sin
@@ -12,6 +12,7 @@
       conserva su número y cada PDF combinado, una página por estudiante. */
 
 import { acta, nuevaPestana, entrar, BASE, DESDE_MEMORIA } from '../entorno.mjs';
+import { agruparPorDia, claveDelDia, diaEnLetras } from '../../certificados/generador.js?v=2026-08-21-48';
 
 const ALUMNOS = ['Ana Prueba', 'Bruno Prueba', 'Carla Prueba', 'Diego Prueba'];
 
@@ -314,6 +315,127 @@ export default async function correr(navegador) {
   await abrirGenerador();
   a.comprobar(!(await P.locator('#carpetasBoard').textContent()).includes(CARPETA),
     'Y eliminarla también se guarda: tras recargar ya no está');
+
+  /* ============ 3b-bis) el agrupado, con fechas inventadas ============
+     Contra la base real esto no se puede ver: los 208 certificados emitidos
+     hasta hoy salieron todos el mismo día, así que la pantalla sólo enseña un
+     grupo y una tanda repartida en varios días quedaría sin probar. */
+  const unDia = (iso) => ({ id: iso, created_at: iso });
+  const grupos = agruparPorDia([
+    unDia('2026-08-20T15:00:00Z'), unDia('2026-08-20T09:00:00Z'),
+    unDia('2026-08-14T18:00:00Z'),
+    unDia('2026-07-02T10:00:00Z'), unDia('2026-07-02T09:30:00Z'), unDia('2026-07-02T08:00:00Z'),
+  ]);
+  a.comprobar(grupos.length === 3, `Seis certificados de tres días salen en tres grupos (${grupos.length})`);
+  a.comprobar(JSON.stringify(grupos.map((g) => g.certs.length)) === '[2,1,3]',
+    'Cada grupo se lleva los suyos, en el orden en que venían');
+  a.comprobar(grupos[0].clave > grupos[1].clave && grupos[1].clave > grupos[2].clave,
+    'Y los días salen del más nuevo al más viejo, como la lista');
+
+  /* Un mismo día no puede partirse en dos grupos aunque las horas salten. */
+  const revuelto = agruparPorDia([unDia('2026-08-14T23:30:00Z'), unDia('2026-08-14T00:10:00Z')]);
+  a.comprobar(revuelto.length === 1, 'Un mismo día no se parte, por lejos que estén las horas');
+
+  /* El día se calcula en la hora de quien mira. Si se tomara el texto ISO tal
+     cual, un certificado emitido de noche en Caracas —que en UTC ya es el día
+     siguiente— se agruparía bajo una fecha distinta de la que muestra su fila. */
+  const nocheEnCaracas = new Date('2026-08-14T21:00:00-04:00');
+  a.comprobar(claveDelDia(nocheEnCaracas.toISOString()) === claveDelDia(nocheEnCaracas),
+    'El día se calcula en la hora local, no en la del servidor');
+
+  const hoyRef = new Date(2026, 7, 20);
+  a.comprobar(/^Hoy · /.test(diaEnLetras('2026-08-20', hoyRef)), 'El día de hoy se llama «hoy»');
+  a.comprobar(/^Ayer · /.test(diaEnLetras('2026-08-19', hoyRef)), 'Y el anterior, «ayer»');
+  /* «Viernes, 14 de agosto», no «Viernes, 14 De Agosto De 2026»: sólo se
+     levanta la primera letra de la línea. */
+  a.comprobar(/^[A-ZÁÉÍÓÚ]/.test(diaEnLetras('2026-08-14', hoyRef))
+    && !/ De | Agosto/.test(diaEnLetras('2026-08-14', hoyRef)),
+    `La fecha va con mayúscula sólo al principio («${diaEnLetras('2026-08-14', hoyRef)}»)`);
+  a.comprobar(/agosto/.test(diaEnLetras('2026-08-14', hoyRef))
+    && !/hoy|ayer/.test(diaEnLetras('2026-08-14', hoyRef)),
+    'Los demás van con su fecha en letras, sin apodo');
+
+  /* ============ 3c) los emitidos, agrupados por día ============
+     Una tanda de graduación se emite de una sentada: veintitantos certificados
+     con la misma fecha, uno detrás de otro. En una lista corrida no se
+     distingue una promoción de la siguiente, y para llevarse los de un día
+     había que ir marcando casillas de una en una. */
+  await abrirGenerador();
+  await P.waitForTimeout(1500);
+
+  const lista = await P.evaluate(() => {
+    const filas = [...document.querySelectorAll('#listaEmitidosWrap tbody tr')];
+    const grupos = filas.filter((f) => f.classList.contains('grupo-fecha'));
+    return {
+      hayCertificados: filas.length > 0,
+      grupos: grupos.length,
+      /* Cada encabezado dice el día y trae su propio botón de descarga. */
+      conDia: grupos.filter((g) => /\d{4}|hoy|ayer/.test(g.textContent)).length,
+      conBoton: grupos.filter((g) => g.querySelector('[data-descargar-dia]')).length,
+      /* El día es el corte, así que dentro de un grupo la columna suelta la
+         fecha repetida y pasa a decir la hora, que sí distingue una fila de
+         otra dentro de la misma tanda. */
+      horas: filas.filter((f) => f.querySelector('td.hora')).length,
+      /* Un mismo día no puede salir en dos encabezados distintos: si eso pasa,
+         es que el agrupado se rompió al cambiar de página o de zona horaria. */
+      diasRepetidos: (() => {
+        const claves = grupos.map((g) => g.querySelector('[data-descargar-dia]')?.dataset.descargarDia);
+        return claves.length !== new Set(claves).size;
+      })(),
+    };
+  });
+
+  if (!lista.hayCertificados) {
+    a.comprobar(true, 'Esta base no tiene certificados emitidos que agrupar');
+  } else {
+    a.comprobar(lista.grupos > 0, `Los emitidos salen agrupados por día (${lista.grupos} grupos)`);
+    a.comprobar(lista.conDia === lista.grupos, 'Cada grupo dice de qué día es');
+    a.comprobar(lista.conBoton === lista.grupos,
+      'Y cada día trae su botón para descargarlos todos');
+    a.comprobar(!lista.diasRepetidos, 'Ningún día aparece partido en dos grupos');
+    a.comprobar(lista.horas > 0, 'Dentro del día, cada fila dice su hora en vez de repetir la fecha');
+  }
+
+  /* El botón de descargar lo filtrado tiene que contar lo mismo que la tabla.
+     Si contaran por su cuenta, buscar un nombre y pulsar descargar podría
+     llevarse otra cosa distinta de la que se está viendo. */
+  const coincide = async () => P.evaluate(() => {
+    const enPantalla = document.querySelectorAll('#listaEmitidosWrap tbody tr:not(.grupo-fecha)').length;
+    const dice = document.getElementById('btnDescargarFiltrados').textContent.match(/\d+/);
+    return { enPantalla, dice: dice ? Number(dice[0]) : null };
+  });
+
+  if (lista.hayCertificados) {
+    const todo = await coincide();
+    a.comprobar(todo.dice === todo.enPantalla,
+      `El botón de descargar cuenta lo mismo que la tabla (${todo.dice} y ${todo.enPantalla})`);
+
+    /* Y al buscar un nombre, se lleva sólo los de esa persona. */
+    const unNombre = await P.evaluate(() => {
+      const fila = document.querySelector('#listaEmitidosWrap tbody tr:not(.grupo-fecha) td:nth-child(2)');
+      return (fila?.textContent || '').split(':')[1]?.trim().split(' ')[0] || '';
+    });
+    if (unNombre) {
+      await P.fill('#buscarEmitidos', unNombre);
+      await P.waitForTimeout(800);
+      const filtrado = await coincide();
+      a.comprobar(filtrado.dice === filtrado.enPantalla && filtrado.dice > 0,
+        `Buscando «${unNombre}» el botón se ajusta a lo que queda (${filtrado.dice})`);
+      a.comprobar(filtrado.dice <= todo.dice,
+        'Buscar reduce lo que se descarga, nunca lo amplía');
+      await P.fill('#buscarEmitidos', '');
+      await P.waitForTimeout(600);
+    }
+
+    /* Sin resultados no se ofrece descargar nada: un ZIP vacío es peor que un
+       botón apagado, porque parece que funcionó. */
+    await P.fill('#buscarEmitidos', 'zzz-no-existe-' + Date.now());
+    await P.waitForTimeout(800);
+    a.comprobar(await P.locator('#btnDescargarFiltrados').isDisabled(),
+      'Sin resultados, el botón de descargar queda apagado');
+    await P.fill('#buscarEmitidos', '');
+    await P.waitForTimeout(600);
+  }
 
   /* ============ 4) la verificación pública ============ */
   const V = await nuevaPestana(navegador);

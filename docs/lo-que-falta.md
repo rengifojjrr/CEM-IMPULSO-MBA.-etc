@@ -228,6 +228,25 @@ cuando no coinciden y los escribe juntos al guardar, pero **las lecciones
 antiguas pueden seguir en desacuerdo** desde antes del arreglo. Se ven abriendo
 la lección: sale un aviso amarillo.
 
+### 3.4 · Los 208 certificados emitidos caen todos el mismo día
+
+La lista de **Certificados emitidos** ya sale agrupada por el día en que se
+emitió cada uno, con su cuenta y un botón para descargar los de esa jornada en
+un ZIP. Con los datos de hoy eso da **un solo grupo**: los 208 se cargaron de
+una sentada el 14 de agosto de 2026, así que el agrupado está bien hecho pero no
+se nota, y sigue siendo una lista de doscientas filas seguidas.
+
+Se arregla solo en cuanto se emita una segunda tanda. Si antes de eso hace falta
+partir esa lista, el corte natural no es la fecha sino **la persona**: cada
+graduado tiene sus ocho módulos seguidos, y buscar su nombre ya deja en pantalla
+—y en el botón de descargar— exactamente sus ocho.
+
+El agrupado en sí está probado aparte, con fechas inventadas
+(`agruparPorDia`, `claveDelDia` y `diaEnLetras` se exportan de
+`certificados/generador.js` justo para poder comprobarlo sin tocar los
+certificados reales): tres días, un día partido en horas lejanas, y el caso de
+la emisión nocturna en Caracas, que en UTC ya es el día siguiente.
+
 ---
 
 ## 4 · Lo que NO conviene hacer
