@@ -228,7 +228,34 @@ cuando no coinciden y los escribe juntos al guardar, pero **las lecciones
 antiguas pueden seguir en desacuerdo** desde antes del arreglo. Se ven abriendo
 la lección: sale un aviso amarillo.
 
-### 3.4 · Los 208 certificados emitidos caen todos el mismo día
+### 3.4 · Con «Plano», el fondo que se mueve casi no se ve — y no es culpa suya
+
+El fondo animado se subió mucho: en la franja donde asoma, la pantalla pasó de
+cambiar 16 sobre 765 a más de 100 en cuatro segundos. Pero hay un techo que no
+depende de la animación.
+
+Se midió la pantalla entera en `estudiante/perfil.html`, en una ventana de
+1280 px, restando dos fotos tomadas con cuatro segundos de diferencia y
+repartiendo el resultado en una rejilla de ocho por cinco. **Las cuatro filas de
+arriba dan 0,0 enteras.** Todo el cambio está en la fila de abajo.
+
+La razón está en las medidas: la barra ocupa de 0 a 236, la tarjeta de 276 a
+1240. De 1280 px de ancho, el fondo se ve en dos huecos de 40 px y en lo que
+quede por debajo del contenido. Con el estilo «Plano» —el de fábrica— las
+tarjetas y la barra son opacas, así que **no hay dónde ver el fondo**, por fuerte
+que se ponga.
+
+Las salidas, si algún día molesta:
+
+- **Que las tarjetas dejen pasar algo** en «Plano». Un 4 o 5 % basta para que el
+  color se mueva por debajo de toda la pantalla. «Plano» deja de ser del todo
+  plano.
+- **Usar un estilo de vidrio.** Los seis ya están hechos y ahí el fondo se ve a
+  través de las tarjetas, que es justo para lo que se diseñaron.
+
+Se preguntó y se eligió no tocar las tarjetas, así que queda anotado y no hecho.
+
+### 3.5 · Los 208 certificados emitidos caen todos el mismo día
 
 La lista de **Certificados emitidos** ya sale agrupada por el día en que se
 emitió cada uno, con su cuenta y un botón para descargar los de esa jornada en

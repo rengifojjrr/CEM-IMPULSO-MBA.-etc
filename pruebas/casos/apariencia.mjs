@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -166,7 +166,7 @@ export default async function correr(navegador) {
     await C.waitForTimeout(2500);
 
     const r = await C.evaluate(async () => {
-      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
       const cajas = [...document.querySelectorAll('.card, .caja, .kpi')]
         .filter((e) => e.offsetParent !== null).slice(0, 40);
       if (!cajas.length) return { n: 0, sordas: 0 };
@@ -197,7 +197,7 @@ export default async function correr(navegador) {
   await M.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
 
   const ambiente = () => M.evaluate(() => {
-    const cs = getComputedStyle(document.body, '::before');
+    const cs = getComputedStyle(document.body, '::after');
     return { anim: cs.animationName, transform: cs.transform };
   });
 
@@ -218,7 +218,7 @@ export default async function correr(navegador) {
     `Recién abierta, sin tocar nada, el fondo ya se mueve (estilo de fábrica, ${deFabrica.anim})`);
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await M.waitForTimeout(600);
@@ -227,13 +227,13 @@ export default async function correr(navegador) {
 
   /* Y en los ocho estilos, no en el que le venga bien a la prueba. */
   const porEstilo = await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     const antes = t.estiloActual();
     const mudos = [];
     for (const e of Object.keys(t.ESTILOS)) {
       t.aplicarApariencia({ estilo: e, animacion: true });
       await new Promise((r) => requestAnimationFrame(r));
-      const cs = getComputedStyle(document.body, '::before');
+      const cs = getComputedStyle(document.body, '::after');
       if (cs.animationName !== 'cem-ambiente' || cs.content === 'none') mudos.push(e);
     }
     t.aplicarApariencia({ estilo: antes });
@@ -262,7 +262,7 @@ export default async function correr(navegador) {
     };
     // Una esquina de la ventana, medida desde su centro.
     const px = window.innerWidth / 2, py = window.innerHeight / 2;
-    const leer = () => getComputedStyle(document.body, '::before').transform;
+    const leer = () => getComputedStyle(document.body, '::after').transform;
     /* Se sigue el camino durante diez segundos en vez de comparar dos
        instantes. Con una curva `ease-in-out` hay tramos del ciclo en los que
        casi se detiene, y dos muestras que cayeran ahí darían casi cero: la
@@ -287,11 +287,92 @@ export default async function correr(navegador) {
     `Y se mueve lo bastante como para verse: ${velocidad.toFixed(1)} px/s de media, `
     + `${(recorrido?.pico ?? 0).toFixed(1)} de pico (hace falta 2 o más)`);
 
+  /* ── y ahora la única medida que de verdad decide ──────────────────────
+     Todo lo de arriba mide la CAPA: cuántos píxeles recorre su transformación.
+     Se puede cumplir entero y no verse nada, y eso fue exactamente lo que
+     pasó durante cuatro intentos: la capa recorría sus píxeles y la pantalla
+     no cambiaba, porque lo que se movía eran manchas de 60vmax difuminadas
+     hasta el 66% —sin borde que seguir— y encima detrás de tarjetas opacas.
+
+     Así que esto no mira ninguna propiedad: fotografía la pantalla dos veces
+     y resta los píxeles. Es la diferencia entre «la propiedad cambió» y «se
+     ve», y es la comprobación que había que haber escrito la primera vez.
+
+     Se mide donde el fondo asoma de verdad —debajo de la última tarjeta—,
+     porque con el estilo «Plano» la barra y las tarjetas tapan el resto. */
+  const visible = await M.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
+    t.aplicarApariencia({ animacion: true, fuerza: t.AMBIENTE.fuerza.max, ritmo: t.AMBIENTE.ritmo.max });
+    /* La zona de fondo NO se supone: se busca. Preguntar por el rectángulo de
+       la última tarjeta daba una franja que caía dentro de otra tarjeta cuando
+       la página era larga, y entonces se medía el cambio de algo opaco —o sea,
+       cero— y la prueba culpaba a la animación.
+
+       Se recorre una rejilla preguntando qué hay en cada punto. Fondo es lo
+       que no está dentro de ninguna tarjeta, barra ni cabecera. */
+    window.scrollTo(0, document.body.scrollHeight);
+    await new Promise((r) => setTimeout(r, 600));
+    const esFondo = (x, y) => {
+      const e = document.elementFromPoint(x, y);
+      return e && !e.closest('.card, .kpi, .sidebar, .topbar, table, .caja');
+    };
+    const puntos = [];
+    for (let y = 10; y < innerHeight - 10; y += 10)
+      for (let x = 10; x < innerWidth - 10; x += 10)
+        if (esFondo(x, y)) puntos.push([x, y]);
+    if (puntos.length < 40) return null;
+    const xs = puntos.map((p) => p[0]), ys = puntos.map((p) => p[1]);
+    return { x: Math.min(...xs), y: Math.min(...ys),
+             width: Math.max(20, Math.max(...xs) - Math.min(...xs)),
+             height: Math.max(20, Math.max(...ys) - Math.min(...ys)),
+             cuantos: puntos.length };
+  });
+
+  let cambio = null;
+  if (visible && visible.y > 0) {
+    const foto = async () => (await M.screenshot({ clip: visible })).toString('base64');
+    const a1 = await foto();
+    await M.waitForTimeout(4000);
+    const a2 = await foto();
+    /* Comparar los PNG en crudo bastaría para saber si algo cambió, pero no
+       cuánto. Se descomprimen en el navegador, que ya tiene un decodificador
+       de imágenes, y se restan canal a canal. */
+    cambio = await M.evaluate(async ([u1, u2]) => {
+      const carga = (b64) => new Promise((r) => {
+        const i = new Image(); i.onload = () => r(i); i.src = 'data:image/png;base64,' + b64;
+      });
+      const [i1, i2] = await Promise.all([carga(u1), carga(u2)]);
+      const lienzo = (im) => {
+        const c = document.createElement('canvas');
+        c.width = im.width; c.height = im.height;
+        c.getContext('2d').drawImage(im, 0, 0);
+        return c.getContext('2d').getImageData(0, 0, im.width, im.height).data;
+      };
+      const [d1, d2] = [lienzo(i1), lienzo(i2)];
+      let suma = 0, max = 0;
+      for (let i = 0; i < d1.length; i += 4) {
+        const d = Math.abs(d1[i] - d2[i]) + Math.abs(d1[i + 1] - d2[i + 1]) + Math.abs(d1[i + 2] - d2[i + 2]);
+        suma += d; if (d > max) max = d;
+      }
+      return { medio: suma / (d1.length / 4), max };
+    }, [a1, a2]);
+  }
+
+  /* El listón: que algún píxel cambie al menos 30 sobre 765 —unos diez niveles
+     de 255 por canal— en cuatro segundos. Por debajo de eso el ojo no lo llama
+     movimiento. Antes de separar la capa que se mueve de la que hace de
+     vidrio, esta misma medida daba 16; ahora pasa de 100. */
+  a.comprobar(cambio !== null && cambio.max >= 30,
+    cambio === null
+      ? 'No se pudo medir: no se encontró suficiente fondo a la vista'
+      : `Y la pantalla cambia de verdad donde el fondo asoma: máximo ${cambio.max}/765 `
+        + `en 4 s, media ${cambio.medio.toFixed(2)} (hace falta 30 de máximo)`);
+
   /* La cuenta que evita el fallo clásico de esta animación: al girar un
      rectángulo sus esquinas dejan de tapar las de la ventana, y asoma una cuña
      del fondo pelado. Hace falta ampliarlo al menos `cos θ + sen θ`. */
   const cubre = await M.evaluate(() => {
-    const cs = getComputedStyle(document.body, '::before');
+    const cs = getComputedStyle(document.body, '::after');
     const m = cs.transform.match(/matrix\(([-\d.]+),\s*([-\d.]+)/);
     if (!m) return null;
     const [, a1, b1] = m.map(Number);
@@ -307,9 +388,9 @@ export default async function correr(navegador) {
      deslizadores. Se comprueba que muevan de verdad lo que dicen mover, en el
      estilo de fábrica y no en uno elegido a conveniencia. */
   const mandos = await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     const leer = () => {
-      const cs = getComputedStyle(document.body, '::before');
+      const cs = getComputedStyle(document.body, '::after');
       return { opacidad: Number(cs.opacity), ciclo: cs.animationDuration };
     };
     t.aplicarApariencia({ animacion: true, fuerza: t.AMBIENTE.fuerza.min, ritmo: t.AMBIENTE.ritmo.min });
@@ -349,7 +430,7 @@ export default async function correr(navegador) {
     `De fábrica los dos mandos vuelven a su sitio (${mandos.serie.fuerza} · ${mandos.serie.ciclo})`);
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     t.aplicarApariencia({ animacion: false });
   });
   await M.waitForTimeout(500);
@@ -368,13 +449,13 @@ export default async function correr(navegador) {
   const QP = await Q.newPage();
   await QP.goto(`${BASE}/plataforma/index.html`, { waitUntil: 'domcontentloaded' });
   const ambienteQ = () => QP.evaluate(() => {
-    const e = getComputedStyle(document.body, '::before');
+    const e = getComputedStyle(document.body, '::after');
     return { nombre: e.animationName, ciclo: e.animationDuration, vueltas: e.animationIterationCount };
   });
 
   // Sin nada elegido: el sistema decide y el fondo llega quieto.
   await QP.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     localStorage.removeItem('cemAnimacion');
     t.aplicarApariencia({ estilo: 'escarcha' });
   });
@@ -386,7 +467,7 @@ export default async function correr(navegador) {
 
   // Encendido a mano: la elección de la persona gana al valor de partida.
   await QP.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true, ritmo: 2 });
   });
   await QP.waitForTimeout(400);
@@ -401,7 +482,7 @@ export default async function correr(navegador) {
 
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-48');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-51');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

@@ -1745,9 +1745,9 @@ html:root:not([data-estilo="plano"]){
    La lección, que vale para más cosas: «la propiedad cambió» no es «se ve».
    La prueba mide ahora el recorrido en píxeles de una mancha, no la matriz. */
 @keyframes cem-ambiente {
-  0%   { transform:translate3d(-2.5%, 1.8%, 0) rotate(-8deg) scale(1.22); }
-  50%  { transform:translate3d( 2.5%, -1.8%, 0) rotate( 8deg) scale(1.32); }
-  100% { transform:translate3d(-2.5%, 1.8%, 0) rotate(-8deg) scale(1.22); }
+  0%   { transform:translate3d(-11%,  7%, 0) rotate(-14deg) scale(1.30); }
+  50%  { transform:translate3d( 11%, -7%, 0) rotate( 14deg) scale(1.55); }
+  100% { transform:translate3d(-11%,  7%, 0) rotate(-14deg) scale(1.30); }
 }
 /* Con «Plano» la capa existe SÓLO para esto, así que va más tenue: el estilo
    plano tiene que seguir siendo plano. Lo que se busca ahí es un rastro de luz
@@ -1763,7 +1763,35 @@ html:root:not([data-estilo="plano"]){
   /* `opacity` se recorta sola a [0,1], así que no hace falta un `clamp`. */
   opacity:calc(var(--ambiente-base, 1) * var(--ambiente-fuerza, 1));
 }
-:root[data-animacion="si"] body::before{
+
+/* ── la capa que se mueve, aparte de la que está quieta ───────────────────
+   Durante tres intentos esto animó la MISMA capa que hace de vidrio detrás de
+   las tarjetas, y por eso no se podía subir: tocarla cambiaba el aspecto de
+   los seis estilos de vidrio. El resultado fue un movimiento que existía y no
+   se veía. Medido, no supuesto: se fotografió la franja de fondo que asoma al
+   lado de las tarjetas y se restaron los píxeles. Con todo al máximo, la
+   pantalla cambiaba 8,26 de 765 en cinco segundos — menos de tres niveles de
+   255 por canal, repartidos en cinco segundos. Invisible, literalmente.
+
+   La causa no era la velocidad ni la intensidad: era QUÉ se movía. Manchas de
+   60vmax difuminadas hasta el 66% no tienen borde, y el ojo detecta movimiento
+   por bordes. Multiplicar por dos algo sin bordes sigue sin dar bordes.
+
+   Así que el movimiento se va a su propia capa, con manchas más pequeñas,
+   más apretadas y con más color, y con un recorrido mucho mayor. La capa
+   quieta —el vidrio— se queda exactamente como estaba. */
+:root[data-animacion="si"] body::after{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(26vmax 24vmax at 12% 18%,
+      color-mix(in srgb, var(--primary) 85%, transparent), transparent 52%),
+    radial-gradient(22vmax 20vmax at 88% 12%,
+      color-mix(in srgb, var(--secondary) 80%, transparent), transparent 50%),
+    radial-gradient(28vmax 25vmax at 72% 88%,
+      color-mix(in srgb, var(--primary) 70%, transparent), transparent 54%),
+    radial-gradient(20vmax 18vmax at 30% 82%,
+      color-mix(in srgb, var(--secondary) 62%, transparent), transparent 50%);
+  opacity:calc(var(--ambiente-movil, .42) * var(--ambiente-fuerza, 1));
   /* En propiedades sueltas y no en el atajo `animation`. El atajo con una
      variable dentro para la duración lo interpretan mal algunos navegadores, y
      ahí el fondo se queda quieto sin que nada lo explique. */
@@ -1773,6 +1801,13 @@ html:root:not([data-estilo="plano"]){
   animation-iteration-count:infinite;
   will-change:transform;
 }
+/* Con «Plano» esta capa es lo único que hay, así que puede permitirse algo más
+   sin dejar de ser plano: no hay vidrio debajo con el que competir. */
+:root[data-animacion="si"][data-estilo="plano"]{ --ambiente-movil:.5; }
+@media (prefers-color-scheme:dark){
+  :root[data-animacion="si"]:not([data-theme="light"]){ --ambiente-movil:.3; }
+}
+:root[data-animacion="si"][data-theme="dark"]{ --ambiente-movil:.3; }
 
 /* Quien pidió menos movimiento en su sistema lo pidió por algo, y por eso el
    fondo le viene APAGADO: esa decisión la toma `animacionActual()` al arrancar,
@@ -1785,7 +1820,7 @@ html:root:not([data-estilo="plano"]){
    intensidad funcionando —porque la opacidad no es una animación— que es la
    peor combinación posible: parece que el ajuste hace algo a medias. */
 @media (prefers-reduced-motion:reduce){
-  :root[data-animacion="si"] body::before{
+  :root[data-animacion="si"] body::after{
     animation-duration:var(--ambiente-ciclo, 62s) !important;
     animation-iteration-count:infinite !important;
   }
@@ -1796,7 +1831,8 @@ html:root:not([data-estilo="plano"]){
    papel un fondo difuminado es tinta gastada. */
 @media (prefers-reduced-transparency:reduce), print{
   :root:not([data-estilo="plano"]) body::before,
-  :root[data-animacion="si"] body::before{display:none;}
+  :root[data-animacion="si"] body::before,
+  :root[data-animacion="si"] body::after{display:none;}
   :root:not([data-estilo="plano"]) .sidebar,
   :root:not([data-estilo="plano"]) .topbar,
   :root:not([data-estilo="plano"]) .bottomnav,
