@@ -790,6 +790,29 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
    fondo de color — el panel ya tiene una tarjeta llena de color arriba. */
 .card.invitacion{border-left:3px solid var(--secondary);}
 
+/* ── el deslizador ────────────────────────────────────────────────────────
+   El de serie de cada navegador es distinto en los tres, y en el oscuro se
+   queda gris sobre gris. Con `appearance:none` se pinta la barra y el tirador
+   a mano, iguales en todos, y el foco se marca — se maneja con las flechas del
+   teclado tanto como con el ratón. */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;
+  background:transparent;cursor:pointer;padding:6px 0;}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:var(--r-full);
+  background:var(--hueco);border:1px solid var(--filete);}
+input[type=range]::-moz-range-track{height:5px;border-radius:var(--r-full);
+  background:var(--hueco);border:1px solid var(--filete);}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:17px;height:17px;margin-top:-7px;border-radius:var(--r-full);
+  background:var(--primary);border:2px solid var(--papel);
+  box-shadow:0 1px 3px rgba(0,0,0,.28);}
+input[type=range]::-moz-range-thumb{width:17px;height:17px;border:2px solid var(--papel);
+  border-radius:var(--r-full);background:var(--primary);box-shadow:0 1px 3px rgba(0,0,0,.28);}
+input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--primary);outline-offset:2px;}
+input[type=range]:focus-visible::-moz-range-thumb{outline:2px solid var(--primary);outline-offset:2px;}
+/* El número va pegado a su rótulo, no debajo: leyendo «Velocidad 31 s por
+   vuelta» de un tirón se entiende qué se está moviendo. */
+.field label b[data-eco]{margin-left:var(--e0);color:var(--tinta-2);font-variant-numeric:tabular-nums;}
+
 /* ── la columna de marcar, para repartir en lote ──────────────────────────
    Estrecha y centrada; no lleva rótulo porque no hay nada que rotular. */
 th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);padding-right:0;}
@@ -1300,10 +1323,23 @@ html:root:not([data-estilo="plano"]){
    aclara y la letra clara pierde el suelo. Medido, la fecha de una tabla
    bajaba a 4,1:1. Bajarle la intensidad al ambiente devuelve el contraste sin
    apagar el efecto. */
+/* ── cuánta luz, y quién decide cuánta ───────────────────────────────────
+   Dos cosas distintas multiplicándose, y por eso son dos variables:
+
+   · `--ambiente-base` la decide el tema. De noche baja a la mitad, y no por
+     gusto: las manchas claras sobre fondo oscuro aclaran las tarjetas
+     translúcidas y la letra clara pierde el suelo. Medido en su día, la fecha
+     de una tabla bajaba a 4,1:1.
+   · `--ambiente-fuerza` la elige cada quien en el panel, entre 0,3 y 1,6.
+
+   Juntarlas en una sola declaración de `opacity` evita el enredo de reglas
+   pisándose que había antes, donde «plano» y «oscuro» a la vez dejaban un
+   valor u otro según cuál se hubiera escrito después. */
+:root{ --ambiente-base:1; }
 @media (prefers-color-scheme:dark){
-  :root:not([data-estilo="plano"],[data-theme="light"]) body::before{opacity:.5;}
+  :root:not([data-theme="light"]){ --ambiente-base:.5; }
 }
-:root:not([data-estilo="plano"])[data-theme="dark"] body::before{opacity:.5;}
+:root[data-theme="dark"]{ --ambiente-base:.5; }
 
 /* ── el ambiente ────────────────────────────────────────────────────────
    Fijo detrás de todo y sin capturar el ratón. Es lo único que da al vidrio
@@ -1324,13 +1360,13 @@ html:root:not([data-estilo="plano"]){
   content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:
     radial-gradient(60vmax 55vmax at 8% -8%,
-      color-mix(in srgb, var(--primary) 42%, transparent), transparent 66%),
+      color-mix(in srgb, var(--primary) 58%, transparent), transparent 66%),
     radial-gradient(52vmax 48vmax at 100% 4%,
-      color-mix(in srgb, var(--secondary) 38%, transparent), transparent 64%),
+      color-mix(in srgb, var(--secondary) 54%, transparent), transparent 64%),
     radial-gradient(65vmax 60vmax at 58% 108%,
-      color-mix(in srgb, var(--primary) 28%, transparent), transparent 68%),
+      color-mix(in srgb, var(--primary) 40%, transparent), transparent 68%),
     radial-gradient(40vmax 38vmax at 28% 54%,
-      color-mix(in srgb, var(--secondary) 16%, transparent), transparent 64%);
+      color-mix(in srgb, var(--secondary) 26%, transparent), transparent 64%);
 }
 /* `background` a secas aquí borraba la capa de luz, porque la forma corta
    reinicia background-image. Se toca sólo el color. */
@@ -1650,24 +1686,32 @@ html:root:not([data-estilo="plano"]){
    se desplazaban entre 0,5 y 1,3 píxeles por segundo, y algo grande, difuso y
    de poco contraste no se percibe moviéndose por debajo de unos 2 a 4. O sea
    que la animación funcionaba y era invisible, que para el caso es no
-   tenerla. Con 5°, un 1,5% de arrastre y 52 segundos de ciclo, las manchas de
-   los bordes van a unos 7 px/s y las del centro a 2,7: se nota que se mueve
-   sin que llegue a distraer.
+   tenerla. Con 8°, un 2,5% de arrastre y 62 segundos de ciclo va a unos 12
+   px/s de media —el doble que antes—: se ve moverse sin quedarse mirando.
 
    La lección, que vale para más cosas: «la propiedad cambió» no es «se ve».
    La prueba mide ahora el recorrido en píxeles de una mancha, no la matriz. */
 @keyframes cem-ambiente {
-  0%   { transform:translate3d(-1.5%, 1%, 0) rotate(-5deg) scale(1.16); }
-  50%  { transform:translate3d( 1.5%, -1%, 0) rotate( 5deg) scale(1.24); }
-  100% { transform:translate3d(-1.5%, 1%, 0) rotate(-5deg) scale(1.16); }
+  0%   { transform:translate3d(-2.5%, 1.8%, 0) rotate(-8deg) scale(1.22); }
+  50%  { transform:translate3d( 2.5%, -1.8%, 0) rotate( 8deg) scale(1.32); }
+  100% { transform:translate3d(-2.5%, 1.8%, 0) rotate(-8deg) scale(1.22); }
 }
-/* Con «Plano» la capa existe SÓLO para esto, así que va mucho más tenue: el
-   estilo plano tiene que seguir siendo plano. Lo que se busca ahí es un
-   rastro de luz moviéndose, no una tarjeta de vidrio. */
-:root[data-animacion="si"][data-estilo="plano"] body::before{opacity:.34;}
+/* Con «Plano» la capa existe SÓLO para esto, así que va más tenue: el estilo
+   plano tiene que seguir siendo plano. Lo que se busca ahí es un rastro de luz
+   moviéndose, no una tarjeta de vidrio. */
+:root[data-animacion="si"][data-estilo="plano"]{ --ambiente-base:.55; }
+@media (prefers-color-scheme:dark){
+  :root[data-animacion="si"][data-estilo="plano"]:not([data-theme="light"]){ --ambiente-base:.3; }
+}
+:root[data-animacion="si"][data-estilo="plano"][data-theme="dark"]{ --ambiente-base:.3; }
 
+:root:not([data-estilo="plano"]) body::before,
 :root[data-animacion="si"] body::before{
-  animation:cem-ambiente 52s ease-in-out infinite;
+  /* `opacity` se recorta sola a [0,1], así que no hace falta un `clamp`. */
+  opacity:calc(var(--ambiente-base, 1) * var(--ambiente-fuerza, 1));
+}
+:root[data-animacion="si"] body::before{
+  animation:cem-ambiente var(--ambiente-ciclo, 62s) ease-in-out infinite;
   will-change:transform;
 }
 

@@ -16,12 +16,13 @@
    «Guardar»: el cambio se ve en el acto, que es la única forma de elegir un
    aspecto con criterio. */
 
-import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-29';
+import { $, $$, esc, ok, modal } from './app.js?v=2026-08-21-34';
 import {
   PALETAS, ESTILOS, FORMAS, DENSIDADES,
   aplicarApariencia, aparienciaDeFabrica,
   paletaActual, temaActual, estiloActual, formaActual, densidadActual, animacionActual,
-} from './temas.js?v=2026-08-21-29';
+  AMBIENTE, fuerzaActual, ritmoActual,
+} from './temas.js?v=2026-08-21-34';
 
 /** El HTML del panel. `compacto` quita las explicaciones largas: en una ventana no caben. */
 function armazon(compacto) {
@@ -55,6 +56,7 @@ function armazon(compacto) {
     <h3 class="sub-ap sep">Efectos</h3>
     <div class="row sep-poco" data-ap="animacion"></div>
     <p class="tiny muted sep-poco" data-ap="animacionNota"></p>
+    <div class="grid g2 sep-poco" data-ap="mandos"></div>
 
     <div class="row sep">
       <button type="button" class="btn outline sm" data-ap="fabrica">
@@ -142,6 +144,29 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
         ? 'Las manchas de color se desplazan despacio, un ciclo cada 52 segundos. Funciona con cualquier estilo, también con «Plano», donde va más tenue.'
         : 'El fondo se queda como está.';
 
+    /* Los dos números que faltaban: cuánta luz y a qué ritmo. Son continuos,
+       así que van en deslizadores y no en botones — y se aplican mientras se
+       arrastra, que es la única forma de elegir una intensidad con criterio.
+
+       El techo de la intensidad no lo pone el contraste —se midió y la capa,
+       al ir detrás de una tarjeta que ya tapa el 74%, apenas lo mueve— sino
+       que por encima del doble el fondo empieza a competir con lo que hay que
+       leer. Ver el comentario largo en `temas.js`. */
+    const mando = (clave, etiqueta, r, valor, formato) => `
+      <div class="field sin-margen">
+        <label for="ap${clave}">${esc(etiqueta)}
+          <b class="tiny" data-eco="${clave}">${esc(formato(valor))}</b></label>
+        <input type="range" id="ap${clave}" data-mando="${clave}"
+          min="${r.min}" max="${r.max}" step="${r.paso}" value="${valor}"
+          aria-valuetext="${esc(formato(valor))}">
+      </div>`;
+    const comoPorciento = (v) => Math.round(v * 100) + ' %';
+    const comoSegundos = (v) => Math.round(AMBIENTE.ritmo.cicloBase / v) + ' s por vuelta';
+    dentro('mandos').innerHTML = animada
+      ? mando('fuerza', 'Intensidad del color', AMBIENTE.fuerza, fuerzaActual(), comoPorciento)
+        + mando('ritmo', 'Velocidad', AMBIENTE.ritmo, ritmoActual(), comoSegundos)
+      : '';
+
     const cambiar = (ajuste, aviso) => {
       aplicarApariencia(ajuste);
       pintar();
@@ -158,11 +183,29 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
     $$('[data-animacion]', raiz).forEach((b) => b.onclick = () =>
       cambiar({ animacion: b.dataset.animacion === 'si' }));
 
+    /* Al arrastrar se aplica pero NO se repinta el panel: repintarlo sustituye
+       el propio deslizador que se está arrastrando y el dedo se queda sin nada
+       debajo. Se aplica y se actualiza sólo el número de al lado. */
+    $$('[data-mando]', raiz).forEach((sl) => {
+      const clave = sl.dataset.mando;
+      const formato = clave === 'fuerza'
+        ? (v) => Math.round(v * 100) + ' %'
+        : (v) => Math.round(AMBIENTE.ritmo.cicloBase / v) + ' s por vuelta';
+      sl.oninput = () => {
+        const v = Number(sl.value);
+        aplicarApariencia({ [clave]: v });
+        const eco = $(`[data-eco="${clave}"]`, raiz);
+        if (eco) eco.textContent = formato(v);
+        sl.setAttribute('aria-valuetext', formato(v));
+        alCambiar({ [clave]: v });
+      };
+    });
+
     dentro('fabrica').onclick = () => {
       aparienciaDeFabrica();
       pintar();
       alCambiar({});
-      ok('Aspecto restablecido: paleta de la casa, sin vidrio, esquinas suaves y fondo con movimiento.');
+      ok('Aspecto restablecido: paleta de la casa, sin vidrio, esquinas suaves y el fondo con su movimiento de serie.');
     };
   }
 

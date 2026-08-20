@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -166,7 +166,7 @@ export default async function correr(navegador) {
     await C.waitForTimeout(2500);
 
     const r = await C.evaluate(async () => {
-      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+      const m = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
       const cajas = [...document.querySelectorAll('.card, .caja, .kpi')]
         .filter((e) => e.offsetParent !== null).slice(0, 40);
       if (!cajas.length) return { n: 0, sordas: 0 };
@@ -218,7 +218,7 @@ export default async function correr(navegador) {
     `Recién abierta, sin tocar nada, el fondo ya se mueve (estilo de fábrica, ${deFabrica.anim})`);
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await M.waitForTimeout(600);
@@ -227,7 +227,7 @@ export default async function correr(navegador) {
 
   /* Y en los ocho estilos, no en el que le venga bien a la prueba. */
   const porEstilo = await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
     const antes = t.estiloActual();
     const mudos = [];
     for (const e of Object.keys(t.ESTILOS)) {
@@ -302,8 +302,54 @@ export default async function correr(navegador) {
   a.comprobar(cubre && cubre.escala >= cubre.necesaria,
     `La capa sigue tapando la ventana mientras gira (escala ${cubre?.escala.toFixed(4)} ≥ ${cubre?.necesaria.toFixed(4)})`);
 
+  /* ── los dos mandos ──────────────────────────────────────────────────
+     Elegir la intensidad y la velocidad es de cada quien, así que hay dos
+     deslizadores. Se comprueba que muevan de verdad lo que dicen mover, en el
+     estilo de fábrica y no en uno elegido a conveniencia. */
+  const mandos = await M.evaluate(async () => {
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
+    const leer = () => {
+      const cs = getComputedStyle(document.body, '::before');
+      return { opacidad: Number(cs.opacity), ciclo: cs.animationDuration };
+    };
+    t.aplicarApariencia({ animacion: true, fuerza: t.AMBIENTE.fuerza.min, ritmo: t.AMBIENTE.ritmo.min });
+    await new Promise((r) => requestAnimationFrame(r));
+    const flojo = leer();
+    t.aplicarApariencia({ fuerza: t.AMBIENTE.fuerza.max, ritmo: t.AMBIENTE.ritmo.max });
+    await new Promise((r) => requestAnimationFrame(r));
+    const fuerte = leer();
+    /* «De fábrica» cambia también el ESTILO, y el estilo aporta su propio
+       factor a la opacidad —plano va al 55% para seguir siendo plano—. Así que
+       mirar la opacidad resultante mezcla dos cosas. Lo que tienen que volver
+       a su sitio son los dos valores que controlan los mandos, y esos están en
+       las variables. */
+    t.aplicarApariencia(t.aparienciaDeFabrica());
+    await new Promise((r) => requestAnimationFrame(r));
+    const raiz = getComputedStyle(document.documentElement);
+    return { flojo, fuerte, serie: {
+      fuerza: Number(raiz.getPropertyValue('--ambiente-fuerza')),
+      ciclo: raiz.getPropertyValue('--ambiente-ciclo').trim(),
+      esperado: { fuerza: t.AMBIENTE.fuerza.porOmision,
+                  ciclo: (t.AMBIENTE.ritmo.cicloBase / t.AMBIENTE.ritmo.porOmision).toFixed(1) + 's' },
+    } };
+  });
+  a.comprobar(mandos.fuerte.opacidad > mandos.flojo.opacidad,
+    `La intensidad sube el color de verdad (${mandos.flojo.opacidad.toFixed(2)} → ${mandos.fuerte.opacidad.toFixed(2)})`);
+  a.comprobar(parseFloat(mandos.fuerte.ciclo) < parseFloat(mandos.flojo.ciclo),
+    `Y la velocidad acorta el ciclo (${mandos.flojo.ciclo} → ${mandos.fuerte.ciclo})`);
+
+  /* Ni en el extremo flojo la capa desaparece —eso ya es apagarla, y para eso
+     está el botón— ni en el fuerte se sale de lo que `opacity` admite. */
+  a.comprobar(mandos.flojo.opacidad > 0.05 && mandos.fuerte.opacidad <= 1,
+    `Los extremos siguen siendo usables (${mandos.flojo.opacidad.toFixed(2)} y ${mandos.fuerte.opacidad.toFixed(2)})`);
+
+  /* Y que «volver a como viene de fábrica» los devuelva también a ellos. */
+  a.comprobar(mandos.serie.fuerza === mandos.serie.esperado.fuerza
+    && mandos.serie.ciclo === mandos.serie.esperado.ciclo,
+    `De fábrica los dos mandos vuelven a su sitio (${mandos.serie.fuerza} · ${mandos.serie.ciclo})`);
+
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
     t.aplicarApariencia({ animacion: false });
   });
   await M.waitForTimeout(500);
@@ -317,7 +363,7 @@ export default async function correr(navegador) {
   const QP = await Q.newPage();
   await QP.goto(`${BASE}/plataforma/index.html`, { waitUntil: 'domcontentloaded' });
   await QP.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await QP.waitForTimeout(600);
@@ -327,7 +373,7 @@ export default async function correr(navegador) {
 
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-29');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-34');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

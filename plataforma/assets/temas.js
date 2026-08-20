@@ -366,6 +366,7 @@ export const DENSIDAD_POR_DEFECTO = 'normal';
 const LLAVE = {
   paleta: 'cemPaleta', tema: 'cemTema', estilo: 'cemEstilo',
   forma: 'cemForma', densidad: 'cemDensidad', animacion: 'cemAnimacion',
+  fuerza: 'cemAmbienteFuerza', ritmo: 'cemAmbienteRitmo',
   vidrio: 'cemVidrio',   // sólo para leer lo que quedó guardado antes
 };
 const leer = (k, porDefecto) => {
@@ -418,6 +419,36 @@ export const vidrioActual = () => estiloActual() !== 'plano';
    `prefers-reduced-motion`, por debajo de lo que elija nadie. */
 export const animacionActual = () => leer(LLAVE.animacion, 'si') !== 'no';
 
+/* ── cuánto color y a qué ritmo ──────────────────────────────────────────
+   Dos números que elige cada quien, porque «bonito» no es lo mismo en un
+   portátil al sol que en una pantalla grande de noche.
+
+   `fuerza` multiplica la opacidad de la capa: 1 es lo de siempre.
+
+   Sobre el techo, y conviene contar cómo se llegó a él. Primero se puso en 1,6
+   dando por hecho que más arriba el color se comería el contraste del texto.
+   Al medirlo —capturando la pantalla y leyendo los píxeles, que es lo único
+   que ve a través de una tarjeta translúcida— resultó que no: de 0,3 a 2,4 el
+   contraste de la tinta más tenue se movía entre 4,19 y 4,12. Casi nada, y por
+   una razón que en cuanto se ve es obvia: la capa va DETRÁS de una tarjeta que
+   ya tapa el 74%, así que aclara u oscurece la tinta y el papel a la vez.
+
+   O sea que el contraste no era el límite. El techo es 2 y el motivo es otro,
+   más honesto: por encima de ahí el fondo compite con lo que hay que leer.
+
+   `ritmo` multiplica la velocidad: el ciclo base son 62 segundos, así que 2×
+   son 31 y 0,4× son 155. */
+export const AMBIENTE = {
+  fuerza: { min: 0.3, max: 2, paso: 0.1, porOmision: 1 },
+  ritmo:  { min: 0.4, max: 2.5, paso: 0.1, porOmision: 1, cicloBase: 62 },
+};
+const numeroEntre = (clave, r) => {
+  const v = Number(leer(clave, r.porOmision));
+  return Number.isFinite(v) ? Math.min(Math.max(v, r.min), r.max) : r.porOmision;
+};
+export const fuerzaActual = () => numeroEntre(LLAVE.fuerza, AMBIENTE.fuerza);
+export const ritmoActual  = () => numeroEntre(LLAVE.ritmo,  AMBIENTE.ritmo);
+
 const declaraciones = (tokens) =>
   Object.entries(tokens).map(([k, v]) => `${k}:${v};`).join('');
 
@@ -458,7 +489,8 @@ function pedirLaLetra(familia) {
  * Deja la página con la apariencia que toque. Se llama sola al cargar y cada
  * vez que se cambia algo en Configuración.
  */
-export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, animacion, vidrio } = {}) {
+export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, animacion,
+                                    fuerza, ritmo, vidrio } = {}) {
   const raiz = document.documentElement;
 
   if (paleta !== undefined) guardar(LLAVE.paleta, PALETAS[paleta] ? paleta : PALETA_POR_DEFECTO);
@@ -469,6 +501,8 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, anima
   // El sí/no de antes sigue funcionando para quien lo llame así.
   if (vidrio !== undefined) guardar(LLAVE.estilo, vidrio ? 'escarcha' : 'plano');
   if (animacion !== undefined) guardar(LLAVE.animacion, animacion ? 'si' : 'no');
+  if (fuerza !== undefined) guardar(LLAVE.fuerza, String(fuerza));
+  if (ritmo !== undefined) guardar(LLAVE.ritmo, String(ritmo));
 
   const clave = paletaActual();
   let hoja = document.getElementById('cemPaletaHoja');
@@ -494,10 +528,15 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, anima
   raiz.dataset.forma = formaActual();
   raiz.dataset.densidad = densidadActual();
   raiz.dataset.animacion = animacionActual() ? 'si' : 'no';
+  /* Los dos números van como variables y no como clases: son continuos, y una
+     clase por cada paso sería trece clases que además habría que inventar. */
+  raiz.style.setProperty('--ambiente-fuerza', String(fuerzaActual()));
+  raiz.style.setProperty('--ambiente-ciclo',
+    (AMBIENTE.ritmo.cicloBase / ritmoActual()).toFixed(1) + 's');
   return {
     paleta: clave, tema: t, estilo: estiloActual(),
     forma: formaActual(), densidad: densidadActual(),
-    animacion: animacionActual(),
+    animacion: animacionActual(), fuerza: fuerzaActual(), ritmo: ritmoActual(),
   };
 }
 
@@ -506,6 +545,7 @@ export function aparienciaDeFabrica() {
   return aplicarApariencia({
     paleta: PALETA_POR_DEFECTO, tema: 'auto', estilo: ESTILO_POR_DEFECTO,
     forma: FORMA_POR_DEFECTO, densidad: DENSIDAD_POR_DEFECTO, animacion: true,
+    fuerza: AMBIENTE.fuerza.porOmision, ritmo: AMBIENTE.ritmo.porOmision,
   });
 }
 
