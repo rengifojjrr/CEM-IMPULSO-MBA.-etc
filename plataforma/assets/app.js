@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-21-12';
+         vidrioActual } from './temas.js?v=2026-08-21-14';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1002,56 +1002,80 @@ export function base() {
    se la busca: «Formas de pago» estaba en Gobierno con la configuración, y es
    lo primero que abre quien cobra. Ninguna pantalla desaparece; lo único que
    cambia es en qué cajón está. */
+/* El menú del portal institucional, con quién puede abrir cada cosa.
+   ═══════════════════════════════════════════════════════════════════════════
+   El cuarto elemento de cada entrada son los roles que la pueden abrir, y es
+   EXACTAMENTE la lista que esa pantalla le pasa a `mount({ require })`.
+
+   Por qué está aquí repetida, y por qué no pasa nada
+   ---------------------------------------------------------------------------
+   El menú se dibuja antes de abrir ninguna otra pantalla, así que no hay forma
+   de preguntarle a cada archivo qué exige sin descargarlos los cuarenta. La
+   copia es inevitable; lo que no es inevitable es que se separen. Hay una
+   comprobación en `herramientas/revisar.mjs` que abre cada pantalla, le lee el
+   `require` y lo compara con esta lista: si alguien cambia uno y no el otro, se
+   pone roja y dice cuál.
+
+   Por qué se esconde en vez de dejarlo y que rebote
+   ---------------------------------------------------------------------------
+   Un coordinador veía «Banco», «Formas de pago» y «Cobros con tarjeta» en su
+   menú, pulsaba, y la pantalla le decía que no. Ofrecer y luego negar es peor
+   que no ofrecer: hace dudar de si es un fallo, invita a pedir permisos que no
+   necesita y ensucia el menú con siete entradas que nunca va a usar. Esconderlo
+   no es seguridad —la seguridad está en `mount()` y en las políticas de la
+   base, y ahí sigue—, es no mentir sobre lo que se puede hacer. */
+const TODOS = null;   // sin restricción propia: vale con estar en esta área
+
 const ADMIN_NAV = [
   { lbl: 'Hoy', items: [
-    ['index.html', 'dashboard', 'Qué hay que hacer'],
-    ['calendario.html', 'calendar_today', 'Calendario'],
+    ['index.html', 'dashboard', 'Qué hay que hacer', ['coordinador','admin','superadmin','auditor']],
+    ['calendario.html', 'calendar_today', 'Calendario', ['coordinador','admin','superadmin','auditor']],
   ]},
   { lbl: 'Matricular', items: [
-    ['leads.html', 'contact_phone', 'Contactos de la web'],
-    ['estudiantes.html', 'person', 'Estudiantes'],
-    ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
-    ['cohortes.html', 'groups', 'Cohortes'],
+    ['leads.html', 'contact_phone', 'Contactos de la web', ['cobranza','coordinador','admin','superadmin']],
+    ['estudiantes.html', 'person', 'Estudiantes', ['cobranza','coordinador','admin','superadmin','auditor']],
+    ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas', ['cobranza','coordinador','admin','superadmin','auditor']],
+    ['cohortes.html', 'groups', 'Cohortes', ['coordinador','admin','superadmin','auditor']],
   ]},
   { lbl: 'Cobrar', items: [
-    ['pagos-verificar.html', 'fact_check', 'Verificar pagos'],
-    ['carteras.html', 'account_balance_wallet', 'Carteras'],
-    ['cierre-mes.html', 'event_available', 'Cierre de mes'],
-    ['bancaribe.html', 'account_balance', 'Banco (Bancaribe)'],
-    ['formas-de-pago.html', 'payments', 'Formas de pago'],
-    ['stripe.html', 'credit_card', 'Cobros con tarjeta'],
+    ['pagos-verificar.html', 'fact_check', 'Verificar pagos', ['cobranza','coordinador','admin','superadmin','auditor']],
+    ['carteras.html', 'account_balance_wallet', 'Carteras', ['cobranza','coordinador','admin','superadmin','auditor']],
+    ['cierre-mes.html', 'event_available', 'Cierre de mes', ['cobranza','coordinador','admin','superadmin','auditor']],
+    ['bancaribe.html', 'account_balance', 'Banco (Bancaribe)', ['cobranza','admin','superadmin']],
+    ['formas-de-pago.html', 'payments', 'Formas de pago', ['admin','superadmin']],
+    ['stripe.html', 'credit_card', 'Cobros con tarjeta', ['admin','superadmin']],
   ]},
   { lbl: 'Dar clase', items: [
-    ['cursos.html', 'school', 'Cursos'],
-    ['contenido.html', 'import_contacts', 'Contenidos'],
-    ['videos.html', 'smart_display', 'Vídeos del curso'],
-    ['multimedia.html', 'perm_media', 'Biblioteca'],
-    ['profesores.html', 'psychology', 'Profesores'],
-    ['revision.html', 'fact_check', 'Revisión de contenido'],
+    ['cursos.html', 'school', 'Cursos', ['coordinador','admin','superadmin','auditor']],
+    ['contenido.html', 'import_contacts', 'Contenidos', ['coordinador','admin','superadmin','profesor']],
+    ['videos.html', 'smart_display', 'Vídeos del curso', ['coordinador','admin','superadmin']],
+    ['multimedia.html', 'perm_media', 'Biblioteca', ['coordinador','admin','superadmin','profesor','auditor']],
+    ['profesores.html', 'psychology', 'Profesores', ['coordinador','admin','superadmin','auditor']],
+    ['revision.html', 'fact_check', 'Revisión de contenido', ['coordinador','admin','superadmin','profesor','auditor']],
   ]},
   { lbl: 'Evaluar', items: [
-    ['calificar.html', 'grade', 'Calificar'],
-    ['evaluaciones.html', 'quiz', 'Evaluaciones'],
-    ['preguntas.html', 'help_center', 'Banco de preguntas'],
-    ['apelaciones.html', 'gavel', 'Apelaciones'],
+    ['calificar.html', 'grade', 'Calificar', ['coordinador','admin','superadmin','profesor','auditor']],
+    ['evaluaciones.html', 'quiz', 'Evaluaciones', ['coordinador','admin','superadmin','profesor','auditor']],
+    ['preguntas.html', 'help_center', 'Banco de preguntas', ['coordinador','admin','superadmin','profesor','auditor']],
+    ['apelaciones.html', 'gavel', 'Apelaciones', ['coordinador','admin','superadmin','profesor','auditor']],
   ]},
   { lbl: 'Certificar', items: [
-    ['certificados.html', 'workspace_premium', 'Certificados'],
-    ['certificados-plantillas.html', 'design_services', 'Plantillas'],
-    ['insignias.html', 'military_tech', 'Insignias'],
+    ['certificados.html', 'workspace_premium', 'Certificados', ['coordinador','admin','superadmin','auditor']],
+    ['certificados-plantillas.html', 'design_services', 'Plantillas', ['coordinador','admin','superadmin']],
+    ['insignias.html', 'military_tech', 'Insignias', ['coordinador','admin','superadmin','auditor']],
   ]},
   { lbl: 'Hablar con la gente', items: [
-    ['comunicaciones.html', 'mail', 'Comunicaciones'],
-    ['correo.html', 'outgoing_mail', 'Envío de correo'],
-    ['soporte.html', 'support_agent', 'Soporte'],
+    ['comunicaciones.html', 'mail', 'Comunicaciones', ['coordinador','admin','superadmin','profesor','auditor']],
+    ['correo.html', 'outgoing_mail', 'Envío de correo', ['admin','superadmin']],
+    ['soporte.html', 'support_agent', 'Soporte', ['coordinador','admin','superadmin','auditor']],
   ]},
   { lbl: 'Gobierno', items: [
-    ['reportes.html', 'analytics', 'Reportes'],
-    ['auditoria.html', 'history', 'Auditoría'],
-    ['usuarios.html', 'manage_accounts', 'Usuarios y roles'],
-    ['permisos.html', 'admin_panel_settings', 'Matriz de permisos'],
-    ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
-    ['configuracion.html', 'settings', 'Configuración'],
+    ['reportes.html', 'analytics', 'Reportes', ['coordinador','admin','superadmin','auditor']],
+    ['auditoria.html', 'history', 'Auditoría', ['admin','superadmin','auditor']],
+    ['usuarios.html', 'manage_accounts', 'Usuarios y roles', ['admin','superadmin','auditor']],
+    ['permisos.html', 'admin_panel_settings', 'Matriz de permisos', ['admin','superadmin','auditor']],
+    ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta', ['cobranza','coordinador','admin','superadmin','auditor']],
+    ['configuracion.html', 'settings', 'Configuración', ['admin','superadmin']],
   ]},
 ];
 /* Las evaluaciones y la ayuda no estaban en el menú.
@@ -1142,7 +1166,33 @@ const COBRANZA_NAV = [
  * detiene ahí — sin error y sin efectos raros. */
 const DETENER_LA_PAGINA = new Promise(() => {});
 
+/* Las opciones que `mount()` entiende.
+   ------------------------------------------------------------------------
+   Existe esta lista porque una pantalla escribió `roles:` donde iba `require:`
+   y estuvo meses abierta a cualquiera con sesión: la opción con el nombre
+   equivocado no daba error, simplemente no hacía nada, y «no hacer nada» aquí
+   quiere decir «no comprobar el rol». Un guardia que se desactiva con una
+   errata y no se queja es peor que no tener guardia, porque se cree que está.
+
+   Ahora una opción desconocida detiene la pantalla. Cortar es deliberado: la
+   alternativa —seguir y avisar por consola— es exactamente lo que dejó pasar
+   el fallo anterior. */
+const OPCIONES_DE_MOUNT = new Set(['require', 'active', 'area', 'pub']);
+
 export async function mount(opts = {}) {
+  const desconocidas = Object.keys(opts).filter((k) => !OPCIONES_DE_MOUNT.has(k));
+  if (desconocidas.length) {
+    const aviso = `mount() no conoce ${desconocidas.map((k) => `«${k}»`).join(', ')}.`
+      + ` Las opciones son: ${[...OPCIONES_DE_MOUNT].join(', ')}.`
+      + ' Si era el control de acceso, esta pantalla estaría abierta a cualquiera.';
+    document.body.innerHTML = `<div style="max-width:640px;margin:12vh auto;padding:24px;
+      font-family:system-ui,sans-serif;line-height:1.6">
+      <h1 style="font-size:20px">Esta pantalla está mal configurada</h1>
+      <p>${esc(aviso)}</p>
+      <p style="color:#666;font-size:14px">Se detuvo a propósito: es más seguro no abrirla.</p></div>`;
+    throw new Error(aviso);
+  }
+
   vigilarSesion();
   vigilarErrores();
   const p = await profile();
@@ -1741,11 +1791,10 @@ export function homeForRoot(rol) {
 }
 
 function renderShell(p, area, active) {
-  const nav = area === 'admin'
+  let nav = area === 'admin'
     ? (p.rol === 'cobranza' ? COBRANZA_NAV : p.rol === 'auditor' ? AUDITOR_NAV : ADMIN_NAV)
     : area === 'docente' ? [{ lbl: '', items: TEACHER_NAV }]
     : [{ lbl: '', items: STUDENT_NAV }];
-  const flat = nav.flatMap(g => g.items);
   const areaLabel = area === 'admin'
     ? (p.rol === 'cobranza' ? 'Cobranza' : p.rol === 'auditor' ? 'Auditoría' : 'Portal institucional')
     : area === 'docente' ? 'Portal docente' : 'Portal del estudiante';
@@ -1756,6 +1805,15 @@ function renderShell(p, area, active) {
      en la que estás; los demás se abren al pulsarlos y se recuerda cuáles. */
   let abiertosGuardados = [];
   try { abiertosGuardados = JSON.parse(localStorage.getItem('cemNavAbiertos') || '[]'); } catch {}
+  /* Sólo lo que esta persona puede abrir de verdad. Un grupo que se queda sin
+     entradas —«Cobrar» para quien no cobra— desaparece entero: un encabezado
+     solo, sin nada debajo, se lee como un fallo. */
+  const puedeAbrir = ([, , , roles]) => !roles || roles.includes(p.rol);
+  nav = nav
+    .map((g) => ({ ...g, items: g.items.filter(puedeAbrir) }))
+    .filter((g) => g.items.length);
+
+  const flat = nav.flatMap(g => g.items);
   const conVariosGrupos = nav.filter(g => g.lbl).length > 1;
 
   const sideHtml = nav.map((g, gi) => {
@@ -1844,7 +1902,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-21-12');
+    const m = await import('./apariencia.js?v=2026-08-21-14');
 
     m.abrirApariencia();
 

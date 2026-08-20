@@ -65,6 +65,10 @@ La revisión automática falla si alguna pantalla queda con una marca distinta.
   se revisan las políticas de acceso desde la propia plataforma.
 - [Lo que falta](docs/lo-que-falta.md) — qué queda por hacer, qué depende de
   abrir una cuenta y qué es trabajo de código, con las cifras de la base.
+- [Las 42 notas de las capturas](docs/mejoras-de-las-capturas.md) — lo que se
+  pidió pantalla por pantalla, qué se hizo con cada cosa y, cuando no se hizo
+  tal cual, por qué. Incluye las tres cosas que aparecieron por el camino y no
+  estaban en la lista.
 - [Los vídeos y quién puede copiarlos](docs/videos-y-copia.md) — qué impide el
   reproductor de la casa, qué **no** impide mientras los vídeos vivan en
   YouTube, y qué haría falta para que un enlace filtrado no sirviera de nada.

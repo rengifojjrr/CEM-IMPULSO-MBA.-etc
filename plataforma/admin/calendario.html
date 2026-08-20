@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-14">
 <!-- La rejilla del mes vive en la hoja compartida: el estudiante tiene su
      propio calendario y las dos vistas tienen que enseñar la misma semana. -->
 </head>
@@ -46,19 +46,22 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, qs, confirmDialog,
          campoArchivo, subirDocumentoLeccion, opciones, etiqueta, chipEstado, ayuda, montarAyudas,
-         mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-21-12';
+         mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-21-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'calendario.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
-let cur = new Date(), clases = [], cohortes = [], profes = [];
+let cur = new Date(), clases = [], cohortes = [], profes = [], titular = {};
 if (p) load();
 
 async function load(){
-  const [{ data: cos }, { data: ps }] = await Promise.all([
+  const [{ data: cos }, { data: ps }, { data: tas }] = await Promise.all([
     sb.from('cem_cohorts').select('id,nombre,codigo,course_id,cem_courses(nombre)').order('nombre'),
     sb.from('cem_profiles').select('id,nombre,apellido').eq('rol','profesor').limit(500),
+    sb.from('cem_teacher_assignments').select('cohort_id,teacher_id'),
   ]);
   cohortes = cos||[]; profes = ps||[];
+  // Quién es el titular de cada cohorte, para proponerlo en las clases nuevas.
+  titular = {}; (tas||[]).forEach(t => { titular[t.cohort_id] = t.teacher_id; });
   $('#fCohorte').innerHTML = '<option value="">Todas las cohortes</option>' +
     cohortes.map(c=>`<option value="${c.id}">${esc(c.nombre)} — ${esc(c.cem_courses?.nombre||'')}</option>`).join('');
   if (qs('cohorte')) $('#fCohorte').value = qs('cohorte');
@@ -143,19 +146,48 @@ function form(c, fecha){
     <div class="row">
       <div class="field medio"><label>Modalidad</label><select id="sMod">
         ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
-      <div class="field medio"><label>Salón</label><input id="sSalon" value="${esc(c?.salon||'')}"></div>
+      <div class="field medio" id="campoSalon"><label>Salón</label>
+        <input id="sSalon" value="${esc(c?.salon||'')}" placeholder="Sede Caracas · Aula 4"></div>
       <div class="field medio"><label>Estado</label><select id="sEstado">
         ${opciones(['programada','dictada','cancelada','reprogramada'], c?.estado)}</select></div>
     </div>
     <div class="field"><label>Profesor</label><select id="sProf"><option value="">Sin asignar</option>
       ${profes.map(x=>`<option value="${x.id}" ${c&&c.teacher_id===x.id?'selected':''}>${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>
-    <div class="field"><label>Enlace de sesión</label><input id="sUrl" value="${esc(c?.url_sesion||'')}" placeholder="https://meet.google.com/…"></div>
+    <div class="field" id="campoEnlace"><label>Enlace de sesión</label>
+      <input id="sUrl" value="${esc(c?.url_sesion||'')}" placeholder="https://meet.google.com/…"></div>
     <div class="field"><label>Grabación de la clase</label>${grabacion.html}</div>`,
     footer:`${isNew?'':'<button class="btn danger" data-del>Eliminar</button>'}
       <button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar la sesión</button>` });
   grabacion.conectar(m);
   montarAyudas(m);
   mejorarSelects(m);
+
+  /* A una clase en línea no se le pone salón, y a una presencial no se le pone
+     enlace. Dejar los dos campos siempre a la vista no es neutral: invita a
+     rellenar el que sobra, y entonces el estudiante ve «Sede Caracas · Aula 4»
+     en una clase que se da por videollamada. Se esconde el que no aplica, y
+     además se limpia al guardar, para que un cambio de modalidad no deje
+     detrás el dato viejo. */
+  /* Una clase nueva arranca con el titular de la cohorte puesto: es lo que
+     pasa el 90% de las veces, y las otras se cambia aquí mismo. Si se cambia
+     de cohorte antes de guardar, la propuesta cambia con ella —pero sólo
+     mientras nadie haya elegido a mano, o sería pisarle la elección—. */
+  let profeTocado = false;
+  $('#sProf',m).addEventListener('change', () => { profeTocado = true; });
+  const proponerProfesor = () => {
+    if (!isNew || profeTocado) return;
+    $('#sProf',m).value = titular[$('#sCoh',m).value] || '';
+  };
+  $('#sCoh',m).addEventListener('change', proponerProfesor);
+  proponerProfesor();
+
+  const segunModalidad = () => {
+    const mod = $('#sMod',m).value;
+    $('#campoSalon',m).hidden = mod === 'online' || mod === 'en_vivo';
+    $('#campoEnlace',m).hidden = mod === 'presencial';
+  };
+  $('#sMod',m).addEventListener('change', segunModalidad);
+  segunModalidad();
   $('[data-c]',m).onclick = m.close;
   const delBtn = $('[data-del]',m);
   if (delBtn) delBtn.onclick = async () => {
@@ -168,8 +200,12 @@ function form(c, fecha){
     const payload = {
       cohort_id:$('#sCoh',m).value, titulo:$('#sTit',m).value.trim(), fecha:$('#sFecha',m).value,
       hora_inicio:$('#sIni',m).value||null, hora_fin:$('#sFin',m).value||null, modalidad:$('#sMod',m).value,
-      salon:$('#sSalon',m).value.trim(), estado:$('#sEstado',m).value,
-      teacher_id:$('#sProf',m).value||null, url_sesion:$('#sUrl',m).value.trim()||null,
+      // Lo que la modalidad no admite se guarda vacío, no con lo que quedó
+      // escrito antes de cambiarla.
+      salon: $('#campoSalon',m).hidden ? null : ($('#sSalon',m).value.trim() || null),
+      estado:$('#sEstado',m).value,
+      teacher_id:$('#sProf',m).value||null,
+      url_sesion: $('#campoEnlace',m).hidden ? null : ($('#sUrl',m).value.trim() || null),
       grabacion_url:grabacion.valor()||null,
     };
     if (!payload.titulo || !payload.fecha) return;

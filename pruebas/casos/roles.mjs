@@ -163,6 +163,53 @@ export default async function correr(navegador) {
       'Ni la lista de cuentas sin ficha, que son correos de personas');
   });
 
+  /* ============ el menú no ofrece lo que luego rebota ============
+     Un coordinador veía «Banco», «Formas de pago» y «Cobros con tarjeta» en su
+     menú, pulsaba, y la pantalla le decía que no. Ofrecer y negar hace dudar de
+     si es un fallo y ensucia el menú con lo que nunca va a usar. Se comprueba
+     abriendo de verdad cada entrada que el menú le ofrece. */
+  /* Se vuelve a una pantalla con menú antes de leerlo: las comprobaciones de
+     arriba dejan esta pestaña donde les hizo falta, y un menú vacío haría que
+     «no ofrece nada prohibido» pasara sin comprobar nada. */
+  await Co.goto(`${BASE}/plataforma/admin/index.html`, { waitUntil: 'domcontentloaded' });
+  await Co.waitForSelector('.sidebar a.nav-item', { timeout: 30000 });
+  const suMenu = await Co.evaluate(() =>
+    [...document.querySelectorAll('.sidebar a.nav-item')].map((x) => x.getAttribute('href')));
+  const PROHIBIDAS = ['bancaribe.html', 'formas-de-pago.html', 'stripe.html',
+    'auditoria.html', 'usuarios.html', 'permisos.html', 'configuracion.html', 'correo.html'];
+  const ofrecidas = PROHIBIDAS.filter((h) => suMenu.includes(h));
+  a.comprobar(suMenu.length > 10 && ofrecidas.length === 0,
+    `El menú del coordinador no ofrece lo que no puede abrir (${ofrecidas.join(', ') || 'ninguna'} de ${suMenu.length} entradas)`);
+
+  // Y lo que sí ofrece, se abre: un menú que esconde de más deja pantallas a
+  // las que se tiene derecho y nadie encuentra.
+  const aMedias = [];
+  for (const href of suMenu.slice(0, 6)) {
+    await Co.goto(`${BASE}/plataforma/admin/${href}`, { waitUntil: 'domcontentloaded' });
+    await Co.waitForTimeout(2200);
+    if (/Sin acceso/i.test(await Co.textContent('body'))) aMedias.push(href);
+  }
+  a.comprobar(aMedias.length === 0,
+    `Y lo que ofrece se abre de verdad (${aMedias.join(', ') || 'las seis primeras, sin rebotes'})`);
+
+  /* Una opción con el nombre equivocado no puede volver a desactivar el
+     control de acceso en silencio: así estuvo abierta la pantalla del correo.
+     Se comprueba con el estudiante, que es quien nunca debería entrar. */
+  const E2 = await nuevaPestana(navegador);
+  await entrar(E2, 'estudiante');
+  await E2.goto(`${BASE}/plataforma/admin/correo.html`, { waitUntil: 'domcontentloaded' });
+  await E2.waitForTimeout(2500);
+  a.comprobar(/Sin acceso/i.test(await E2.textContent('body')),
+    'Un estudiante no entra a la pantalla del correo de la institución');
+
+  const seQueja = await E2.evaluate(async () => {
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-14');
+    try { await m.mount({ roles: ['admin'] }); return 'NO SE QUEJÓ'; }
+    catch (e) { return e.message; }
+  });
+  a.comprobar(/no conoce/i.test(seQueja),
+    `Y una opción con el nombre equivocado detiene la pantalla en vez de dejarla abierta (${seQueja.slice(0, 60)})`);
+
   for (const [nombre, pagina] of [['cobranza', C], ['auditor', A], ['coordinador', Co], ['administrador', Ad]]) {
     a.comprobar(pagina.errores.length === 0,
       `Las pantallas de ${nombre} no lanzan errores ${JSON.stringify(pagina.errores.slice(0, 2))}`);

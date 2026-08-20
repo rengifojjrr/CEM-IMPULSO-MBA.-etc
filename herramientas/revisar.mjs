@@ -217,6 +217,41 @@ for (const f of await archivos('plataforma/**/*.html')) {
 if (sinControl.length) sinControl.forEach((f) => mal(f, `${f} no llama a mount(): no comprueba el rol`));
 else bien('Todas las pantallas privadas llaman a mount() antes de mostrar nada');
 
+/* ══════════ 7. El menú ofrece lo que se puede abrir, ni más ni menos ══════════
+   El menú del portal lleva, en cada entrada, los roles que la pueden abrir; la
+   pantalla lleva los suyos en `mount({ require })`. Son dos listas que dicen lo
+   mismo y viven en archivos distintos, así que se separan solas en cuanto
+   alguien cambia una. Aquí se comparan.
+
+   Que sobre en el menú es lo que se pidió arreglar: un coordinador veía siete
+   pantallas que le rebotaban. Que falte es peor y más silencioso: una pantalla
+   a la que se tiene derecho y que nadie encuentra. Se avisa de las dos. */
+titulo('El menú no ofrece pantallas que luego rebotan');
+
+const NAV_ADMIN = (await readFile(join(RAIZ, 'plataforma/assets/app.js'), 'utf8'))
+  .match(/const ADMIN_NAV = \[[\s\S]*?\n\];/)?.[0] || '';
+const entradasNav = [...NAV_ADMIN.matchAll(/\['([\w.-]+\.html)',\s*'[^']*',\s*'[^']*',\s*\[([^\]]*)\]\]/g)]
+  .map((m) => [m[1], m[2].split(',').map((r) => r.trim().replace(/'/g, '')).filter(Boolean).sort()]);
+
+const desacuerdos = [];
+for (const [pagina, rolesMenu] of entradasNav) {
+  const ruta = `plataforma/admin/${pagina}`;
+  let texto;
+  try { texto = await readFile(join(RAIZ, ruta), 'utf8'); }
+  catch { desacuerdos.push(`El menú ofrece ${pagina}, que no existe`); continue; }
+  const crudo = texto.match(/require:\s*\[([^\]]*)\]/)?.[1];
+  if (!crudo) { desacuerdos.push(`${pagina} no declara require: el menú no puede saber quién la abre`); continue; }
+  const rolesPagina = crudo.split(',').map((r) => r.trim().replace(/['"]/g, '')).filter(Boolean).sort();
+  const sobran = rolesMenu.filter((r) => !rolesPagina.includes(r));
+  const faltan = rolesPagina.filter((r) => !rolesMenu.includes(r));
+  if (sobran.length) desacuerdos.push(`${pagina}: el menú se la ofrece a ${sobran.join(', ')} y la pantalla los rechaza`);
+  if (faltan.length) desacuerdos.push(`${pagina}: ${faltan.join(', ')} puede abrirla pero no la ve en el menú`);
+}
+
+if (!entradasNav.length) mal('plataforma/assets/app.js', 'No se pudo leer ADMIN_NAV con sus roles');
+else if (desacuerdos.length) desacuerdos.forEach((d) => mal('plataforma/assets/app.js', d));
+else bien(`Las ${entradasNav.length} entradas del menú coinciden con lo que exige cada pantalla`);
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

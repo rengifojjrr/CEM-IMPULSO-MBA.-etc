@@ -72,7 +72,7 @@ export default async function correr(navegador) {
 
   // Paleta violeta: si la barra estuviera pintada a mano, no se movería.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-12');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-14');
     t.aplicarApariencia({ paleta: 'violeta' });
   });
   await D.waitForTimeout(700);
@@ -82,7 +82,7 @@ export default async function correr(navegador) {
 
   // Modo noche: mismo asunto, otra dimensión.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-12');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-14');
     t.aplicarApariencia({ tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -92,14 +92,14 @@ export default async function correr(navegador) {
 
   // La forma manda en las esquinas de las barras.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-12');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-14');
     t.aplicarApariencia({ forma: 'recta' });
   });
   await D.waitForTimeout(500);
   const recto = await D.evaluate(() =>
     getComputedStyle(document.querySelector('#graficos .gr-relleno')).borderTopLeftRadius);
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-12');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-14');
     t.aplicarApariencia({ forma: 'redonda' });
   });
   await D.waitForTimeout(500);
@@ -111,7 +111,7 @@ export default async function correr(navegador) {
   // Dejarlo como estaba: si esta prueba le cambia la apariencia a la siguiente,
   // la siguiente falla por algo que no es suyo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-12');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-14');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   await D.waitForTimeout(400);

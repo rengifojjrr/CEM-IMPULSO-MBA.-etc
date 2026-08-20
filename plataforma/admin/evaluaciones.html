@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-14">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -39,7 +39,7 @@
           <option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="archivado">Archivado</option></select></div>
       </div>
     </details>
-    <div class="table-wrap"><table id="tabla">
+    <div class="table-wrap"><table id="tabla" class="tarjetas">
       <!-- De diez columnas a seis. Intentos, tiempo y tipo casi nunca deciden
            qué vas a hacer con una evaluación: viven en su ficha. -->
       <thead><tr><th data-ord="nombre">Evaluación</th><th data-ord="_curso">Programa</th>
@@ -49,7 +49,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, fail, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, mensajeError, modal } from '../assets/app.js?v=2026-08-21-12';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, fail, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, mensajeError, modal } from '../assets/app.js?v=2026-08-21-14';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
 accionVacio('vacioEval', () => location.href = 'evaluacion-nueva.html');
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
@@ -90,13 +90,18 @@ function render(){
     .map(r=>({ ...r, _curso: r.cem_courses?.nombre||'' })), ordenEvals);
   const puestos = [c,t,e].filter(Boolean).length;
   $('#nFiltros').hidden = !puestos; $('#nFiltros').textContent = puestos;
+  /* `tarjetas` + `data-col`: en un teléfono la fila se apila y cada celda dice
+     de qué columna es. Sin eso, con el botón de vista previa la tabla ya no
+     cabía en 390 puntos y había que arrastrarla de lado. */
   $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
-    <td class="wrap"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}
+    <td class="wrap" data-col="Evaluación"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}
       <div class="tiny muted">${esc(etiqueta(r.tipo))} · ${r.intentos||1} intento(s) · ${r.tiempo_min?r.tiempo_min+' min':'sin límite de tiempo'}</div></td>
-    <td class="wrap">${esc(r._curso)}</td>
-    <td class="num">${num(r._nq)}</td>
-    <td class="num">${num(r._subs)}</td><td class="num">${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chipEstado(r.estado)}</td>
-    <td class="nowrap">
+    <td class="wrap" data-col="Programa">${esc(r._curso)}</td>
+    <td class="num" data-col="Preguntas">${num(r._nq)}</td>
+    <td class="num" data-col="Entregas">${num(r._subs)}</td>
+    <td class="num" data-col="Promedio">${r._avg!=null?r._avg.toFixed(1):'—'}</td>
+    <td data-col="Estado">${chipEstado(r.estado)}</td>
+    <td class="nowrap" data-col="">
       <button class="btn ghost sm" data-previa="${r.id}" title="Verla como la ve el estudiante"><span class="material-symbols-outlined">visibility</span></button>
       <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar las preguntas"><span class="material-symbols-outlined">edit</span></a>
       <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}#respuestas" title="Ver las respuestas y sus métricas"><span class="material-symbols-outlined">insights</span></a>

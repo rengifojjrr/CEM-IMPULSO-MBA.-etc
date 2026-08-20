@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-14">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -38,7 +38,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, montarAyudas } from '../assets/app.js?v=2026-08-21-12';
+import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, montarAyudas } from '../assets/app.js?v=2026-08-21-14';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cohortes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -132,7 +132,14 @@ function form(c){
     <div class="field"><label>Horario</label><div id="cHorarioPicker"></div></div>
 
     <h3 class="sec sep-mucho">Quién la dicta</h3>
-    <div class="field"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
+    <!-- Un titular no quiere decir que dé todas las clases: en un diplomado es
+         normal que un módulo lo lleve otro. Esa asignación por sesión ya existe
+         —cada clase del calendario tiene su profesor— pero desde aquí parecía
+         que la cohorte tenía un profesor y ya, así que se dice. -->
+    <p class="tiny muted sin-margen">Es quien responde por la cohorte y quien sale por omisión en las
+      clases nuevas. Cada sesión puede tener otro: se elige en el
+      <a href="calendario.html">calendario</a>, clase por clase.</p>
+    <div class="field sep-poco"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
       ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>
 
     <details class="filtros-plegables sep">

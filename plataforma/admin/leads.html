@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-14">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -55,8 +55,8 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, fdate, fdatetime, kpi, num, emptyRow, match, modal,
-         ok, chipEstado, etiqueta, mensajeError, montarAyudas } from '../assets/app.js?v=2026-08-21-12';
-import { barras } from '../assets/graficos.js?v=2026-08-21-12';
+         ok, chipEstado, etiqueta, mensajeError, montarAyudas } from '../assets/app.js?v=2026-08-21-14';
+import { barras } from '../assets/graficos.js?v=2026-08-21-14';
 const p = await mount({ require: ['cobranza', 'coordinador', 'admin', 'superadmin'],
                         active: 'leads.html', area: 'admin' });
 let filas = [];
@@ -173,8 +173,38 @@ function ficha(x) {
       ${x.atendido_en ? `<p class="tiny muted sep">Última vez que alguien lo movió: ${
         fdatetime(x.atendido_en)}.</p>` : ''}
 
+      <!-- Contestarle desde aquí.
+           ───────────────────────────────────────────────────────────────
+           (Sin comillas invertidas en este comentario: vive dentro de una
+           plantilla de JavaScript, y una sola cierra la cadena y convierte el
+           resto del texto en código.)
+
+           El correo estaba como un enlace de «mailto»: se salía a Gmail, se
+           escribía allí, y lo que se le dijo no quedaba en ningún sitio. El siguiente
+           que abría la ficha veía «sin contactar» y volvía a escribirle — o no
+           le escribía nadie, porque cada uno suponía que ya lo había hecho el
+           otro. Ahora sale por la misma cola que el resto del correo, se
+           apunta en la ficha y el contacto pasa a «contactado» solo. -->
+      ${x.email ? `
+      <details class="card sep" style="background:var(--hueco);box-shadow:none" id="cajaResponder">
+        <summary style="cursor:pointer;font-weight:var(--peso-fuerte)">
+          <span class="material-symbols-outlined">reply</span> Contestarle por correo</summary>
+        <div class="field sep-poco"><label for="rAsunto">Asunto</label>
+          <input id="rAsunto" maxlength="140"
+            value="Sobre tu consulta en CEM International"></div>
+        <div class="field"><label for="rCuerpo">Mensaje</label>
+          <textarea id="rCuerpo" rows="5" placeholder="Hola ${esc((x.nombre||'').split(' ')[0])}, gracias por escribirnos…">${
+            esc(`Hola ${(x.nombre||'').split(' ')[0]}:\n\nGracias por escribirnos${
+              x.interes ? ` sobre ${x.interes}` : ''}. `)}</textarea></div>
+        <div id="rMsg"></div>
+        <button class="btn" id="btnResponder">
+          <span class="material-symbols-outlined">send</span> Enviar</button>
+        <p class="tiny muted sep-poco">Sale a <b>${esc(x.email)}</b> por la cola de correo de la
+          plataforma, con sus reintentos. Queda apuntado abajo.</p>
+      </details>` : `<p class="tiny muted sep">No dejó correo: a este hay que llamarle.</p>`}
+
       <div class="field sep"><label for="nota">Nota interna</label>
-        <textarea id="nota" rows="2"
+        <textarea id="nota" rows="3"
           placeholder="Qué se habló, qué quedó pendiente…">${esc(x.nota_interna || '')}</textarea>
         <span class="tiny muted">Esto no lo ve la persona: es para el equipo.</span></div>
 
@@ -187,6 +217,23 @@ function ficha(x) {
              <button class="btn" data-g>Guardar</button>`,
   });
   $('[data-x]', m).onclick = m.close;
+
+  const btnResp = $('#btnResponder', m);
+  if (btnResp) btnResp.onclick = async () => {
+    const cuerpo = $('#rCuerpo', m).value.trim();
+    if (cuerpo.length < 20) {
+      avisar($('#rMsg', m), 'Escríbele algo más: con dos líneas sueltas no se contesta una consulta.', 'err');
+      return;
+    }
+    const fin = ocupado(btnResp);
+    const { error } = await sb.rpc('cem_lead_responder', {
+      p_id: x.id, p_asunto: $('#rAsunto', m).value.trim(), p_cuerpo: cuerpo,
+    });
+    fin();
+    if (error) { avisar($('#rMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Respuesta encolada. Sale con el próximo envío.'); cargar();
+  };
+
   $('[data-g]', m).onclick = async () => {
     const { error } = await sb.rpc('cem_lead_atender', {
       p_id: x.id, p_estado: $('#nuevoEstado', m).value, p_nota: $('#nota', m).value.trim() || null,
