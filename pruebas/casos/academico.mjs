@@ -210,6 +210,54 @@ export default async function correr(navegador) {
     a.comprobar(true, 'No hay contenido en la bandeja de revisión que filtrar');
   }
 
+  /* Aprobar a ciegas era el riesgo real de esta pantalla: «Ver» enseñaba un
+     cuadrado gris con el icono de imagen rota, porque metía la dirección de
+     «ver en YouTube» dentro de un <iframe>, que no se deja enmarcar. */
+  await A.click('#tb [data-ver]');
+  await A.waitForSelector('.modal', { timeout: 10000 });
+  await A.waitForTimeout(2500);
+  const previa = await A.evaluate(() => {
+    const m = document.querySelector('.modal');
+    const rotas = [...m.querySelectorAll('img')]
+      .filter((i) => i.complete && i.naturalWidth === 0).length;
+    return {
+      // Nunca un <iframe> a pelo: el vídeo va por el reproductor de la casa.
+      ifamesSueltos: [...m.querySelectorAll('iframe')].filter((f) => !f.closest('.repro')).length,
+      rotas,
+      hayAlgo: !!m.querySelector('.repro, .previa, p, a[href]'),
+    };
+  });
+  a.comprobar(previa.ifamesSueltos === 0 && previa.rotas === 0,
+    `Ver un contenido enseña algo, no un icono de imagen rota (${previa.rotas} rota(s), ${
+      previa.ifamesSueltos} marco(s) suelto(s))`);
+  a.comprobar(previa.hayAlgo, 'Y quien aprueba ve lo mismo que va a ver el estudiante');
+  await A.click('.modal [data-x]').catch(() => A.keyboard.press('Escape'));
+  await A.waitForTimeout(500);
+
+  /* ============ leer la evaluación antes de publicarla ============
+     El constructor enseña cajas de edición y casillas de «correcta», que es
+     justo lo que el alumno no ve. */
+  await A.goto(`${BASE}/plataforma/admin/evaluaciones.html`, { waitUntil: 'domcontentloaded' });
+  await A.waitForSelector('#tb tr', { timeout: 30000 });
+  await A.waitForTimeout(1500);
+  await A.click('#tb [data-previa]');
+  await A.waitForTimeout(2500);
+  const examen = await A.evaluate(() => {
+    const m = document.querySelector('.modal');
+    const t = (m?.textContent || '').replace(/\s+/g, ' ');
+    return {
+      preguntas: m?.querySelectorAll('ol li').length || 0,
+      // Las opciones se ven, pero sin decir cuál es la buena.
+      opciones: m?.querySelectorAll('ol li .check').length || 0,
+      marcaLaCorrecta: !!m?.querySelector('ol li input:checked'),
+      dice: /Total: \d+ punto/.test(t),
+    };
+  });
+  a.comprobar(examen.preguntas > 0 && examen.dice,
+    `La evaluación se lee como la lee el estudiante (${examen.preguntas} pregunta(s))`);
+  a.comprobar(!examen.marcaLaCorrecta,
+    `Sin chivar cuál es la respuesta buena (${examen.opciones} opción(es) a la vista)`);
+
   a.comprobar(E.errores.length === 0,
     `Las pantallas del estudiante no lanzan errores ${JSON.stringify(E.errores.slice(0, 2))}`);
   a.comprobar(A.errores.length === 0,

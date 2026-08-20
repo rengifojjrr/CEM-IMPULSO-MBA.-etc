@@ -2,7 +2,7 @@
 
    Tres cosas que se rompieron antes y no queremos que vuelvan a romperse:
 
-   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-9) y lo montan
+   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-10) y lo montan
       dos pantallas distintas. Si alguien toca una y no la otra, se separan.
    2. Los fondos ya no viajan incrustados en la configuración (eran 15 MB por
       abrir la pantalla): están en el almacenamiento y se piden con CORS. Sin
@@ -338,6 +338,41 @@ export default async function correr(navegador) {
     'Un código inventado no verifica nada');
   a.comprobar(!/undefined|null|PGRST|JWT/i.test(respuesta),
     'Y lo dice en castellano, sin filtrar el error crudo');
+
+  /* ============ el diploma se ve sin pedirlo ============
+     Estaba dibujado desde el principio, pero detrás de un botón que decía
+     «Descargar»: nadie pulsa descargar para ver algo. Y la miniatura tiene que
+     ser LA lámina, no un dibujo parecido, o acabará enseñando un certificado
+     que ya no es el que se imprime. */
+  const E2 = await nuevaPestana(navegador, { ancho: 1300, alto: 950 });
+  await entrar(E2, 'estudiante', 'estudiante/certificados.html');
+  await E2.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
+  await E2.waitForTimeout(2500);
+
+  const enLaFicha = await E2.evaluate(() => {
+    const mini = document.querySelector('.cert .cert-mini');
+    if (!mini) return { hay: document.querySelectorAll('.cert').length === 0 ? 'sin certificados' : 'falta' };
+    const t = mini.textContent.replace(/\s+/g, ' ');
+    return { hay: 'si', texto: t, alto: Math.round(mini.getBoundingClientRect().height) };
+  });
+  if (enLaFicha.hay === 'sin certificados') {
+    a.comprobar(true, 'Esta cuenta no tiene certificados emitidos que previsualizar');
+  } else {
+    a.comprobar(enLaFicha.hay === 'si' && /Certificado de finalización/.test(enLaFicha.texto || ''),
+      `El certificado se ve en su ficha, sin tener que descargarlo (${enLaFicha.alto} px de alto)`);
+
+    // Abrirla enseña lo mismo, en grande: una lámina, no dos.
+    await E2.click('.cert .cert-mini');
+    await E2.waitForSelector('#lienzo', { timeout: 10000 });
+    const igual = await E2.evaluate(() => {
+      const limpia = (s) => s.replace(/\s+/g, ' ').trim();
+      return limpia(document.querySelector('#lienzo').textContent)
+        === limpia(document.querySelector('.cert .cert-mini > div').textContent);
+    });
+    a.comprobar(igual, 'Y al abrirla es exactamente la misma lámina, no una parecida');
+  }
+  a.comprobar(E2.errores.length === 0,
+    `Mis logros no lanza errores ${JSON.stringify(E2.errores.slice(0, 2))}`);
 
   a.comprobar(P.errores.length === 0,
     `El generador no lanza errores ${JSON.stringify(P.errores.slice(0, 2))}`);

@@ -210,9 +210,39 @@ export default async function correr(navegador) {
     a.comprobar(notas.caja && notas.aviso, 'Los apuntes están y dicen que nadie más los lee');
 
     await E.click('#tabs button[data-t="recursos"]');
-    await E.waitForTimeout(400);
+    await E.waitForTimeout(700);
     const recursos = await E.evaluate(() => !!document.querySelector('#btnTemario'));
     a.comprobar(recursos, 'El temario se puede imprimir para estudiar sin conexión');
+
+    /* Un archivo, una ficha. Salía dos veces —una por ser del curso y otra por
+       colgar de una lección—, que es la misma fila de `cem_media` contada dos
+       veces, y al ver el nombre repetido uno se baja las dos por si acaso. */
+    const material = await E.evaluate(() => {
+      const fichas = [...document.querySelectorAll('.rejilla-material .card')];
+      const enlaces = fichas.map((c) => c.querySelector('a[download]')?.getAttribute('href')).filter(Boolean);
+      return {
+        fichas: fichas.length,
+        nombres: fichas.map((c) => c.querySelector('.negrita')?.textContent.trim()),
+        repetidos: enlaces.length - new Set(enlaces).size,
+        conPrevia: fichas.filter((c) => c.querySelector('.previa')).length,
+        conImagen: fichas.filter((c) => c.querySelector('.previa img')).length,
+        // Si no hay ni cuadrícula ni el aviso de que no hay nada, es que la
+        // pestaña se rompió — y entonces «cero repetidos» no prueba nada.
+        loDiceVacia: /todavía no tiene material/i.test(document.querySelector('#panelTab')?.textContent
+          || document.body.textContent),
+      };
+    });
+    a.comprobar(material.fichas > 0 || material.loDiceVacia,
+      'La pestaña de recursos enseña el material, o dice que no hay');
+    if (material.fichas) {
+      a.comprobar(material.repetidos === 0,
+        `Cada material sale una sola vez (${material.fichas} ficha(s), ${material.repetidos} repetida(s): ${
+          material.nombres.join(' · ')})`);
+      a.comprobar(material.conPrevia === material.fichas && material.conImagen > 0,
+        `Y cada uno se ve antes de bajarlo (${material.conImagen} con imagen de ${material.fichas})`);
+    } else {
+      a.comprobar(true, 'Este curso no tiene material que listar');
+    }
   }
 
   /* ============ 5 · recoger ============ */

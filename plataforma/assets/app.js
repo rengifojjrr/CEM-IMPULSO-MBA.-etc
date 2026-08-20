@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-21-9';
+         vidrioActual } from './temas.js?v=2026-08-21-10';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -685,6 +685,91 @@ export class YoutubeNoConectadoError extends Error {}
 export function idDeYoutube(url) {
   const m = /(?:youtu\.be\/|\/shorts\/|\/embed\/|[?&]v=)([A-Za-z0-9_-]{11})/.exec(String(url || ''));
   return m ? m[1] : null;
+}
+
+/* ============ ver el material antes de abrirlo ============
+ * Una biblioteca de fichas con el mismo icono repetido no es un catálogo: es
+ * una lista de nombres de archivo. Se pidió previsualización en cinco sitios
+ * distintos —la biblioteca del estudiante, la del equipo, los recursos de la
+ * lección, las plantillas de certificado y el catálogo de programas— y todos
+ * quieren lo mismo: enseñar el material, no describirlo.
+ *
+ * Qué se puede enseñar de verdad, y qué no:
+ *   · una imagen           → la imagen;
+ *   · un vídeo de YouTube  → su miniatura, con el triángulo encima;
+ *   · todo lo demás        → el icono de su tipo sobre un fondo tenue.
+ *
+ * Por qué el PDF no enseña su primera página
+ * ------------------------------------------------------------------------
+ * Se probó: un <iframe> con el PDF y `#page=1&view=Fit`. Suelto en una página
+ * de prueba se ve bien; dentro de la ficha de verdad sale un rectángulo gris.
+ * El visor de PDF del navegador decide su escala cuando carga, y en una
+ * cuadrícula la ficha todavía no tiene su tamaño definitivo en ese momento —
+ * así que unas veces sale la página y otras un trozo enorme o nada. Ajustarlo
+ * a base de tanteo deja una miniatura que depende de la versión del navegador
+ * y del orden en que se pinte la pantalla, que es peor que no tenerla.
+ *
+ * La forma correcta es generar la miniatura UNA vez, al subir el archivo, y
+ * guardarla como imagen junto al documento: la ficha entonces sólo enseña un
+ * <img>, igual que las demás, sin visores incrustados ni sorpresas. Está
+ * apuntado en `docs/lo-que-falta.md`; hasta entonces, un PDF se anuncia como
+ * lo que es y no se finge una vista previa que no lo es.
+ *
+ * La regla de fondo: si no hay nada que enseñar, no se pinta un marco vacío
+ * que parezca roto — se pinta el icono del tipo sobre un fondo tenue, que es
+ * una respuesta honesta y mantiene la cuadrícula legible.
+ */
+const ICONO_DE = {
+  pdf: 'picture_as_pdf', excel: 'table_chart', hoja: 'table_chart',
+  video: 'play_circle', imagen: 'image', audio: 'graphic_eq',
+  documento: 'description', enlace: 'link',
+};
+
+/** El icono que le toca a un material, por su tipo o por su extensión. */
+export function iconoDeMaterial(tipo, url) {
+  if (ICONO_DE[tipo]) return ICONO_DE[tipo];
+  const ext = /\.([a-z0-9]{2,5})(?:[?#]|$)/i.exec(String(url || ''))?.[1]?.toLowerCase();
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'].includes(ext)) return 'image';
+  if (ext === 'pdf') return 'picture_as_pdf';
+  if (['xls', 'xlsx', 'csv'].includes(ext)) return 'table_chart';
+  if (['doc', 'docx', 'txt', 'md'].includes(ext)) return 'description';
+  if (['mp4', 'mov', 'webm', 'm4v'].includes(ext)) return 'play_circle';
+  if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) return 'graphic_eq';
+  return 'draft';
+}
+
+/** ¿De qué se puede sacar una imagen de verdad? */
+function claseDePrevia(tipo, url) {
+  const u = String(url || '');
+  if (!u) return 'nada';
+  if (idDeYoutube(u)) return 'youtube';
+  if (iconoDeMaterial(tipo, u) === 'image') return 'imagen';
+  return 'nada';
+}
+
+/**
+ * Devuelve el HTML de la previsualización de un material.
+ * `alto` es la altura del marco en píxeles; el contenido se recorta dentro.
+ */
+export function previaDeMaterial({ tipo, url, nombre = '', alto = 132 } = {}) {
+  const clase = claseDePrevia(tipo, url);
+  const marco = (dentro, extra = '') =>
+    `<div class="previa ${extra}" style="height:${Number(alto)}px">${dentro}</div>`;
+
+  if (clase === 'youtube') {
+    const id = idDeYoutube(url);
+    return marco(`
+      <img src="https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg" alt="" loading="lazy"
+           onerror="this.closest('.previa').classList.add('sin-previa');this.remove()">
+      <span class="previa-play"><span class="material-symbols-outlined">play_arrow</span></span>`);
+  }
+  if (clase === 'imagen') {
+    return marco(`<img src="${esc(url)}" alt="${esc(nombre)}" loading="lazy"
+      onerror="this.closest('.previa').classList.add('sin-previa');this.remove()">`);
+  }
+  return marco(
+    `<span class="material-symbols-outlined">${iconoDeMaterial(tipo, url)}</span>`,
+    'sin-previa');
 }
 
 async function youtubeAccessToken() {
@@ -1747,7 +1832,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-21-9');
+    const m = await import('./apariencia.js?v=2026-08-21-10');
 
     m.abrirApariencia();
 

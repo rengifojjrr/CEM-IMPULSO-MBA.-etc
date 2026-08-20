@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-9">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-10">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -49,7 +49,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, fail, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, mensajeError } from '../assets/app.js?v=2026-08-21-9';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, fail, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, mensajeError, modal } from '../assets/app.js?v=2026-08-21-10';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
 accionVacio('vacioEval', () => location.href = 'evaluacion-nueva.html');
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
@@ -97,6 +97,7 @@ function render(){
     <td class="num">${num(r._nq)}</td>
     <td class="num">${num(r._subs)}</td><td class="num">${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chipEstado(r.estado)}</td>
     <td class="nowrap">
+      <button class="btn ghost sm" data-previa="${r.id}" title="Verla como la ve el estudiante"><span class="material-symbols-outlined">visibility</span></button>
       <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar las preguntas"><span class="material-symbols-outlined">edit</span></a>
       <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}#respuestas" title="Ver las respuestas y sus métricas"><span class="material-symbols-outlined">insights</span></a>
       <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>
@@ -104,6 +105,7 @@ function render(){
         <span class="material-symbols-outlined">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
     </td></tr>`).join('') : emptyRow(7, 'Todavía no hay evaluaciones.', {texto:'Crear la primera evaluación', id:'vacioEval', icono:'quiz'});
   ordenable('#tabla', ordenEvals, render);
+  $$('[data-previa]').forEach(b=>b.onclick=()=>previa(rows.find(x=>x.id===b.dataset.previa)));
   $$('[data-pub]').forEach(b=>b.onclick=async()=>{
     const r=rows.find(x=>x.id===b.dataset.pub);
     const nuevo = r.estado==='publicado'?'borrador':'publicado';
@@ -128,6 +130,71 @@ $('#btnClear').onclick=()=>{['#q','#fCurso','#fTipo','#fEstado'].forEach(s=>$(s)
 $('#btnExport').onclick=()=>download('evaluaciones_cem.csv', toCSV(rows.map(r=>({
   nombre:r.nombre, curso:r.cem_courses?.nombre, tipo:r.tipo, preguntas:r._nq,
   intentos:r.intentos, tiempo_min:r.tiempo_min, entregas:r._subs, promedio:r._avg, estado:r.estado }))));
+
+/* ============ verla antes de publicarla ============
+   Se podía editar una evaluación y se podían mirar sus métricas, pero no
+   había forma de LEERLA como la lee el estudiante: el constructor enseña
+   cajas de edición, casillas de «correcta» y puntajes, que es justo lo que
+   el alumno no ve. Publicar sin haberla leído en su forma final es cómo se
+   publican enunciados a medias y opciones repetidas.
+
+   Aquí se ve el examen, no su ficha: enunciado, ayuda y opciones, sin marcar
+   cuál es la buena. Sólo se añade, al margen, el puntaje de cada pregunta y
+   el total, porque quien mira esto sí tiene que cuadrarlo. */
+async function previa(r){
+  if (!r) return;
+  const m = modal({ title:`Vista previa · ${r.nombre}`, wide:true,
+    body:'<p class="muted tiny">Cargando las preguntas…</p>' });
+  const cuerpo = $('.modal-b', m) || m;
+
+  const { data, error } = await sb.from('cem_assessment_questions')
+    .select('puntaje,orden,seccion,seccion_desc,cem_questions(enunciado,ayuda,tipo,opciones)')
+    .eq('assessment_id', r.id).order('orden');
+  if (error){ cuerpo.innerHTML = `<p class="tiny" style="color:var(--error)">${esc(mensajeError(error))}</p>`; return; }
+
+  const preguntas = (data||[]).filter(x=>x.cem_questions);
+  if (!preguntas.length){
+    cuerpo.innerHTML = `<p class="muted">Esta evaluación todavía no tiene preguntas.
+      <a href="evaluacion-nueva.html?id=${r.id}">Añádele las primeras</a>.</p>`;
+    return;
+  }
+  const total = preguntas.reduce((a,x)=>a+(Number(x.puntaje)||0), 0);
+  let seccion = null;
+
+  cuerpo.innerHTML = `
+    <p class="tiny muted">${esc(etiqueta(r.tipo))} · ${preguntas.length} pregunta(s) ·
+      ${r.intentos||1} intento(s)${r.tiempo_min?` · ${r.tiempo_min} min`:''} ·
+      se aprueba con ${r.nota_aprobatoria ?? 70}</p>
+    ${total !== Number(r.puntaje_max || 100)
+      ? `<div class="chip warn" style="white-space:normal;height:auto;line-height:1.5;padding:8px 12px;margin:8px 0">
+          Los puntajes suman ${total} y la evaluación es sobre ${r.puntaje_max ?? 100}: no cuadra, y así no deja publicarse.</div>`
+      : ''}
+    <ol class="stack sep" style="padding-left:18px">
+      ${preguntas.map((x,i)=>{
+        const p = x.cem_questions;
+        const opciones = Array.isArray(p.opciones) ? p.opciones : [];
+        const cabecera = x.seccion && x.seccion !== seccion
+          ? (seccion = x.seccion, `<h3 class="sec" style="margin-left:-18px">${esc(x.seccion)}${
+              x.seccion_desc?`<span class="tiny muted"> — ${esc(x.seccion_desc)}</span>`:''}</h3>`)
+          : '';
+        return `${cabecera}<li style="margin-bottom:14px">
+          <div class="row between" style="gap:12px;align-items:flex-start">
+            <b style="font-weight:600">${esc(p.enunciado||'(sin enunciado)')}</b>
+            <span class="tiny muted nowrap">${Number(x.puntaje)||0} pt</span>
+          </div>
+          ${p.ayuda?`<div class="tiny muted">${esc(p.ayuda)}</div>`:''}
+          ${opciones.length
+            ? `<div class="stack sep-poco">${opciones.map(o=>`
+                <label class="check"><input type="radio" disabled>
+                  <span>${esc(typeof o === 'string' ? o : (o?.texto ?? ''))}</span></label>`).join('')}</div>`
+            : `<div class="tiny muted sep-poco">${p.tipo==='abierta'
+                ? 'Respuesta escrita: el estudiante ve una caja de texto.'
+                : 'Sin opciones cargadas.'}</div>`}
+        </li>`;
+      }).join('')}
+    </ol>
+    <p class="tiny muted">Total: ${total} punto(s) de ${r.puntaje_max ?? 100}.</p>`;
+}
 </script>
 </body>
 </html>

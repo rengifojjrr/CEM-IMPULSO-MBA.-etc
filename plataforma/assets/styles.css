@@ -822,6 +822,36 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 .contacto{display:grid;gap:var(--aire);grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   align-items:start;}
 @media(max-width:820px){ .contacto{grid-template-columns:1fr;} }
+/* ── ver el material antes de abrirlo ─────────────────────────────────────
+   El marco de una previsualización. Es siempre del mismo alto aunque dentro
+   quepa una imagen apaisada, la primera página de un PDF o sólo un icono: una
+   cuadrícula de fichas de alturas distintas se lee como una avería.
+
+   `pointer-events:none` sobre lo de dentro es lo que hace que el conjunto se
+   comporte como una imagen y no como una ventana: el clic lo recibe la ficha,
+   que es la que sabe qué abrir. */
+.previa{position:relative;overflow:hidden;background:var(--hueco);
+  border-bottom:1px solid var(--filete);display:flex;align-items:center;justify-content:center;}
+.previa > *{pointer-events:none;}
+.previa img{width:100%;height:100%;object-fit:cover;display:block;}
+.previa.sin-previa{background:var(--primary-suave);}
+.previa.sin-previa .material-symbols-outlined{font-size:var(--t-2xl);color:var(--primary);opacity:.62;}
+/* El triángulo de reproducir, encima de la miniatura: sin él una miniatura de
+   vídeo se lee como una foto cualquiera. */
+.previa-play{position:absolute;width:42px;height:42px;border-radius:var(--r-full);
+  background:rgba(0,0,0,.6);color:#fff;display:flex;align-items:center;justify-content:center;}
+.previa-play .material-symbols-outlined{font-size:26px;color:#fff;}
+/* Dentro de una tarjeta con relleno, la previa lo desborda para tocar los
+   bordes: media pulgada de papel alrededor de una foto la convierte en sello. */
+.card > .previa:first-child{margin:calc(var(--e2) * -1) calc(var(--e2) * -1) var(--e2);
+  border-radius:var(--r) var(--r) 0 0;}
+
+/* Una cuadrícula de material que se estrecha sola: en el aula convive con el
+   panel de dudas y con la lista de lecciones, así que no puede pedir un ancho
+   fijo. */
+.rejilla-material{display:grid;gap:var(--e2);
+  grid-template-columns:repeat(auto-fill,minmax(190px,1fr));}
+
 .course-card{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
   overflow:hidden;display:flex;flex-direction:column;transition:border-color var(--rapido);}
 .course-card:hover{border-color:var(--filete-fuerte);}

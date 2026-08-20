@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-9">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-10">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -45,8 +45,21 @@
           <button class="btn ghost" id="btnClear">Limpiar</button>
         </div>
       </details>
+      <!-- Los programas se venden por su portada, y en la lista no se veía
+           ninguna: había que abrir la ficha para saber si un curso tenía
+           imagen o si la que tenía era la buena. En «Catálogo» se ven como los
+           ve quien va a pagar. La elección se recuerda. -->
+      <div class="row" style="gap:0;margin-left:auto" role="group" aria-label="Cómo ver la lista">
+        <button class="btn ghost sm" id="btnTabla" title="Ver como tabla" aria-pressed="true">
+          <span class="material-symbols-outlined">view_list</span></button>
+        <button class="btn ghost sm" id="btnCatalogo" title="Ver como catálogo, con las portadas" aria-pressed="false">
+          <span class="material-symbols-outlined">grid_view</span></button>
+      </div>
     </div>
-    <div class="table-wrap">
+
+    <div id="catalogo" hidden></div>
+
+    <div class="table-wrap" id="zonaTabla">
       <!-- De diez columnas a cinco. Nivel, modalidad y horas casi nunca deciden
            lo que vas a hacer con un curso: viven en su ficha, no en la lista. -->
       <table id="tabla" class="tarjetas"><thead><tr>
@@ -63,7 +76,7 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toCSV, download, ok, fail,
          modal, confirmDialog, run, audit, mejorarSelects, subirImagenCurso, campoArchivo, opciones,
-         etiqueta, chipEstado, ayuda, montarAyudas, ordenable, ordenarPor, accionVacio } from '../assets/app.js?v=2026-08-21-9';
+         etiqueta, chipEstado, ayuda, montarAyudas, ordenable, ordenarPor, accionVacio } from '../assets/app.js?v=2026-08-21-10';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cursos.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -118,6 +131,36 @@ function render(){
     </td></tr>`).join('')
     : emptyRow(6, q||t||m||n||e ? 'Ningún programa coincide con lo que buscas.' : 'Todavía no hay programas.',
                editable && !(q||t||m||n||e) ? {texto:'Crear el primero', id:'vacioNuevo', icono:'add'} : null);
+  /* El mismo listado, con cara. Un programa sin portada no se disimula con un
+     degradado bonito: se dice, porque es justo lo que hay que arreglar antes
+     de publicarlo. */
+  $('#catalogo').innerHTML = list.length ? `<div class="grid g3">${list.map(r => `
+    <div class="course-card">
+      ${r.imagen_url
+        ? `<img src="${esc(r.imagen_url)}" alt="Portada de ${esc(r.nombre)}" loading="lazy">`
+        : `<div class="previa sin-previa" style="height:148px">
+             <span class="material-symbols-outlined">add_photo_alternate</span></div>`}
+      <div class="body">
+        <div class="row between" style="gap:8px">
+          ${chipEstado(r.estado)}${estadoStripe(r)}
+          ${r.imagen_url ? '' : '<span class="chip warn">Sin portada</span>'}
+        </div>
+        <h3>${esc(r.nombre)}</h3>
+        <div class="tiny muted">${esc(r.codigo||'')}${r.categoria?' · '+esc(r.categoria):''}
+          · ${esc(etiqueta(r.tipo))} · ${esc(etiqueta(r.modalidad))}</div>
+        <div class="row between" style="margin-top:auto">
+          <b>${money(r.precio)}</b>
+          <span class="tiny muted">${num(r._alumnos)} alumno(s)${r._alumnos?` · ${pct(r._avance)}`:''}</span>
+        </div>
+        <div class="row">
+          <a class="btn ghost sm" href="contenido.html?curso=${r.id}" title="Ver y editar sus contenidos"><span class="material-symbols-outlined">import_contacts</span></a>
+          <a class="btn ghost sm" href="cohortes.html?curso=${r.id}" title="Ver sus cohortes"><span class="material-symbols-outlined">groups</span></a>
+          ${editable?`<button class="btn ghost sm" data-edit="${r.id}" title="Editar los datos del programa"><span class="material-symbols-outlined">edit</span></button>`:''}
+        </div>
+      </div>
+    </div>`).join('')}</div>`
+    : `<p class="muted tiny">${q||t||m||n||e ? 'Ningún programa coincide con lo que buscas.' : 'Todavía no hay programas.'}</p>`;
+
   $$('[data-edit]').forEach(b => b.onclick = () => edit(rows.find(x => x.id === b.dataset.edit)));
 
   // Cuántos filtros hay puestos, para saberlo sin desplegarlos.
@@ -133,6 +176,20 @@ function render(){
 const ordenCursos = { campo:null, asc:true };
 
 ['#q','#fTipo','#fMod','#fNivel','#fEstado'].forEach(s => { const el=$(s); el.oninput = render; el.onchange = render; });
+
+/* Tabla o catálogo. Se guarda la elección: quien trabaja con el contenido casi
+   siempre quiere lo mismo cada vez que entra. */
+function ponerVista(cual){
+  const catalogo = cual === 'catalogo';
+  $('#catalogo').hidden = !catalogo;
+  $('#zonaTabla').hidden = catalogo;
+  $('#btnCatalogo').setAttribute('aria-pressed', String(catalogo));
+  $('#btnTabla').setAttribute('aria-pressed', String(!catalogo));
+  localStorage.setItem('cemVistaCursos', cual);
+}
+$('#btnTabla').onclick = () => ponerVista('tabla');
+$('#btnCatalogo').onclick = () => ponerVista('catalogo');
+ponerVista(localStorage.getItem('cemVistaCursos') === 'catalogo' ? 'catalogo' : 'tabla');
 $('#btnClear').onclick = () => { ['#q','#fTipo','#fMod','#fNivel','#fEstado'].forEach(s=>$(s).value=''); render(); };
 $('#btnExport').onclick = () => {
   // Antes sacaba TODO, dijera lo que dijera el filtro puesto, y no avisaba de

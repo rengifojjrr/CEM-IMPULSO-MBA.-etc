@@ -154,6 +154,30 @@ Se arregla publicando el entorno de pruebas en un dominio de verdad, o
 autorizando `localhost` en el canal. No es gratis ni inmediato, pero es el
 agujero de cobertura más grande que hay.
 
+### 2.6 · Un PDF no enseña su primera página
+
+La biblioteca ya es un catálogo: una imagen enseña la imagen y un vídeo enseña
+su miniatura con el triángulo encima. **Un PDF y una hoja de cálculo no**: salen
+con el icono de su tipo sobre un fondo tenue.
+
+Se intentó incrustar el PDF en la ficha y dejar que lo pintara el navegador.
+Suelto funciona; dentro de la cuadrícula sale un rectángulo gris. El visor de
+PDF fija su escala en el momento en que carga, y ahí la ficha todavía no tiene
+su tamaño final, así que el resultado depende de la versión del navegador y del
+orden en que se pinte la pantalla. Una miniatura que sale bien unas veces y no
+otras es peor que ninguna, así que se quitó.
+
+La forma correcta es **generar la miniatura una sola vez, al subir el archivo**:
+se dibuja la primera página en un lienzo, se guarda como imagen junto al
+documento y la ficha pasa a enseñar un `<img>` como todas las demás. Sale más
+rápido —no hay un visor por ficha—, se ve igual en todos los navegadores y
+funciona también en el móvil.
+
+Qué haría falta: una columna `miniatura_url` en `cem_media`, la generación en el
+navegador al subir (con `pdf.js`, que es la única dependencia nueva) y un repaso
+de los PDF que ya están subidos. De las hojas de cálculo no hay forma sin un
+servidor que las convierta, y ahí el icono es la respuesta correcta.
+
 ---
 
 ## 3 · Deuda que conviene mirar, aunque hoy no duela

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-9">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-10">
 <style>
   .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:var(--aire);}
   .aula > *{min-width:0;}
@@ -79,10 +79,10 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota, money,
          mensajeError, modal, avisar, ocupado, download, imprimirDocumento,
-         idDeYoutube } from '../assets/app.js?v=2026-08-21-9';
-import { profile } from '../assets/app.js?v=2026-08-21-9';
-import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-21-9';
-import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-9';
+         idDeYoutube, previaDeMaterial } from '../assets/app.js?v=2026-08-21-10';
+import { profile } from '../assets/app.js?v=2026-08-21-10';
+import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-21-10';
+import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-10';
 
 /* ── quién está mirando ────────────────────────────────────────────────────
    Esta pantalla la abren dos personas distintas. Un estudiante viene a dar su
@@ -745,21 +745,27 @@ function tab(t){
     /* Todo lo descargable del curso en un sitio: lo del curso entero y lo que
        cuelga de cada lección. Antes había que abrir las treinta lecciones para
        saber si había algo que bajarse (mejora 7). */
+    /* Un archivo, una ficha.
+       ------------------------------------------------------------------
+       Salía dos veces: una por ser del curso y otra por colgar de una
+       lección. Y no era un adorno —al ver el mismo nombre repetido uno se
+       pregunta si son dos versiones distintas y acaba bajándose las dos—.
+       Son la misma tabla: `cem_media` con `lesson_id` puesto es material de
+       una lección, y sin él es del curso entero. Así que lo del curso deja
+       fuera lo que ya tiene lección, y por si acaso se descarta también lo
+       que repita dirección. */
     const deLecciones = mods.flatMap(m => m.cem_lessons.flatMap(l =>
       (l.adjuntos||[]).map(a => ({ ...a, leccion: l.titulo }))));
-    const filaCurso = media.map(m=>`<div class="list-item">
-      <span class="material-symbols-outlined">${m.tipo==='pdf'?'picture_as_pdf':m.tipo==='video'?'play_circle':'dataset'}</span>
-      <div class="grow"><div class="t">${esc(m.nombre)}</div>
-        <div class="s">${esc(m.tipo)} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div></div>
-      ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank" download><span class="material-symbols-outlined">download</span></a>`:''}
-      </div>`).join('');
-    const filaLecciones = deLecciones.map(a=>`<div class="list-item">
-      <span class="material-symbols-outlined">${a.tipo==='pdf'?'picture_as_pdf':a.tipo==='hoja'?'table_view':'attach_file'}</span>
-      <div class="grow"><div class="t">${esc(a.nombre||'Material')}</div>
-        <div class="s">${esc(a.leccion)}</div></div>
-      <a class="btn outline sm" href="${esc(a.url)}" target="_blank" download
-        aria-label="Descargar ${esc(a.nombre||'material')}"><span class="material-symbols-outlined">download</span></a>
-      </div>`).join('');
+    const todos = [];
+    const vistas = new Set();
+    for (const x of [...deLecciones, ...media.filter(m => !m.lesson_id)]) {
+      const clave = x.url || `${x.nombre}·${x.bytes ?? x.tamano_bytes ?? ''}`;
+      if (vistas.has(clave)) continue;
+      vistas.add(clave);
+      todos.push({ nombre: x.nombre || 'Material', tipo: x.tipo, url: x.url,
+        bytes: Number(x.bytes ?? x.tamano_bytes ?? 0),
+        de: x.leccion || 'Todo el programa' });
+    }
 
     P.innerHTML = `
       <div class="row between sep-poco">
@@ -767,8 +773,15 @@ function tab(t){
         <button class="btn ghost sm" id="btnTemario">
           <span class="material-symbols-outlined">print</span> Imprimir el temario</button>
       </div>
-      ${(filaCurso || filaLecciones)
-        ? filaCurso + filaLecciones
+      ${todos.length ? `<div class="rejilla-material">${todos.map(x=>`
+        <div class="card sin-margen">
+          ${previaDeMaterial({ tipo:x.tipo, url:x.url, nombre:x.nombre, alto:120 })}
+          <div class="negrita" style="font-size:13.5px">${esc(x.nombre)}</div>
+          <div class="tiny muted">${esc(x.de)}${x.bytes?` · ${(x.bytes/1048576).toFixed(1)} MB`:''}</div>
+          ${x.url ? `<a class="btn outline sm sep-poco" href="${esc(x.url)}" target="_blank" download
+            aria-label="Descargar ${esc(x.nombre)}">
+            <span class="material-symbols-outlined">download</span> Descargar</a>` : ''}
+        </div>`).join('')}</div>`
         : '<p class="muted tiny">Este curso todavía no tiene material para descargar.</p>'}`;
 
     $('#btnTemario').onclick = () => imprimirDocumento(

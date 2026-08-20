@@ -9,11 +9,32 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-9">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-10">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
   .cert{background:var(--papel);border:1px solid var(--filete);
     border-radius:var(--r);padding:18px;display:flex;gap:14px;align-items:flex-start;}
+
+  /* El certificado, a la vista.
+     ----------------------------------------------------------------------
+     Estaba dibujado desde el principio, pero detrás de un botón que decía
+     «Descargar»: nadie pulsa descargar para ver algo. Ahora se ve la lámina
+     de verdad —la misma, no un dibujo parecido— reducida dentro de un marco.
+
+     Se reduce con `transform:scale`, no cambiando los tamaños de letra, para
+     que sea literalmente el mismo trozo de página en pequeño: si mañana se
+     cambia el diseño de la lámina, la miniatura cambia sola. El marco tiene
+     alto fijo y `overflow:hidden` porque un elemento escalado sigue ocupando
+     su tamaño original en la maquetación. */
+  .cert-mini{width:210px;flex:none;border:1px solid var(--filete);border-radius:var(--r);
+    overflow:hidden;background:#fff;cursor:zoom-in;padding:0;display:block;
+    height:150px;position:relative;}
+  .cert-mini:hover{border-color:var(--primary);}
+  .cert-mini > div{transform:scale(.34);transform-origin:top left;width:618px;pointer-events:none;}
+  .cert-mini .lupa{position:absolute;inset:auto 6px 6px auto;background:rgba(0,0,0,.62);color:#fff;
+    border-radius:var(--r-full);width:26px;height:26px;display:flex;align-items:center;justify-content:center;}
+  .cert-mini .lupa .material-symbols-outlined{font-size:16px;}
+  @media(max-width:560px){ .cert{flex-direction:column;} .cert-mini{width:100%;} }
   .badge-card{text-align:center;padding:18px;}
   .badge-ico{width:62px;height:62px;border-radius:var(--r-full);background:var(--gold-suave);color:var(--gold);
     display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px;}
@@ -36,7 +57,7 @@
   <div class="grid g4" id="badges"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-21-9';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-21-10';
 const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
 if (me) load();
 
@@ -51,14 +72,18 @@ async function load(){
 
   $('#certs').innerHTML = (certs||[]).length ? certs.map(c=>`
     <div class="cert">
-      <span class="material-symbols-outlined" style="font-size:40px;color:var(--tertiary-container)">workspace_premium</span>
+      <button type="button" class="cert-mini" data-ver="${c.id}"
+              title="Ver el certificado en grande" aria-label="Ver en grande el certificado de ${esc(c.titulo)}">
+        ${lienzo(c)}
+        <span class="lupa"><span class="material-symbols-outlined">zoom_in</span></span>
+      </button>
       <div class="crece">
         <span class="chip ok">Completado · ${fdate(c.emitido_en)}</span>
         <h3 style="margin:8px 0 4px;font-size:16px">${esc(c.titulo)}</h3>
         <div class="tiny muted">Otorgado por CEM International Education System</div>
         <div class="tiny muted">ID: <code>${esc(c.codigo)}</code></div>
         <div class="row sep">
-          <button class="btn sm" data-pdf="${c.id}"><span class="material-symbols-outlined">download</span> Descargar</button>
+          <button class="btn sm" data-pdf="${c.id}"><span class="material-symbols-outlined">visibility</span> Ver y descargar</button>
           <a class="btn outline sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank">
             <span class="material-symbols-outlined">verified</span> Verificar</a>
         </div>
@@ -68,6 +93,7 @@ async function load(){
         texto:'Al terminar un programa, aprobar sus evaluaciones y quedar sin deuda, tu certificado aparece aquí para descargar.' })}</div>`;
 
   $$('[data-pdf]').forEach(b=>b.onclick=()=>verCertificado((certs||[]).find(c=>c.id===b.dataset.pdf)));
+  $$('[data-ver]').forEach(b=>b.onclick=()=>verCertificado((certs||[]).find(c=>c.id===b.dataset.ver)));
 
   /* item 58 · antes esto decía «necesitas el 80%» y mostraba una barra. Los
      requisitos de verdad son tres —no deber nada, aprobar las evaluaciones y
@@ -123,11 +149,16 @@ async function load(){
   }).join('') || '<div class="card">Sin insignias configuradas.</div>';
 }
 
-function verCertificado(c){
+/* La lámina, escrita una sola vez.
+   ------------------------------------------------------------------------
+   La miniatura de la tarjeta y la vista grande son el mismo HTML: si fueran
+   dos, la miniatura acabaría enseñando un certificado que ya no es el que se
+   imprime, y eso es peor que no enseñar ninguno. Sólo cambia el marco que lo
+   contiene. */
+function lienzo(c, { id = '' } = {}){
   const url = new URL('../verificar.html', location.href).href + '?codigo=' + encodeURIComponent(c.codigo);
   const qr = qrcode(0,'M'); qr.addData(url); qr.make();
-  const m = modal({ title:'Certificado', wide:true, body:`
-    <div id="lienzo" style="border:8px double var(--tertiary-container);padding:32px;text-align:center;background:#fff">
+  return `<div ${id ? `id="${id}"` : ''} style="border:8px double var(--tertiary-container);padding:32px;text-align:center;background:#fff">
       <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
       <h2 style="margin:14px 0 6px;font-size:24px;color:var(--primary)">Certificado de finalización</h2>
       <p class="tiny muted sin-margen">Se otorga el presente certificado a</p>
@@ -140,7 +171,11 @@ function verCertificado(c){
           Dirección Académica</div></div>
       </div>
       <div class="tiny muted sep-mucho">Código: ${esc(c.codigo)} · Emitido el ${fdate(c.emitido_en)}</div>
-    </div>`,
+    </div>`;
+}
+
+function verCertificado(c){
+  const m = modal({ title:'Certificado', wide:true, body: lienzo(c, { id:'lienzo' }),
     footer:`<button class="btn outline" data-x2>Cerrar</button><button class="btn" data-print>
       <span class="material-symbols-outlined">print</span> Imprimir / Guardar PDF</button>` });
   $('[data-x2]',m).onclick=m.close;
