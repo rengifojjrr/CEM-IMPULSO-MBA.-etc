@@ -43,7 +43,7 @@ Esa es la mitad útil de este documento.
 | 23 | image8 | Búsqueda, filtros por fecha y método, y entrar a la persona | **Hecho.** Fechas, método, y desde cada pago se entra a la ficha. Los tres listados arman su lista en un sitio para que el Excel no se separe de lo que se ve. |
 | 24 | image1 | Botones descuadrados | **Hecho.** La barra de acciones centraba sus hijos; ahora se apoyan por abajo, como la franja de filtros. |
 | 25 | image36 | Previsualización, como el catálogo de los estudiantes | **Hecho.** Vista de catálogo con las portadas — que destapó que siete de nueve programas no tienen ninguna. |
-| 26 | image17 | Simplificar esa pantalla, se ve confusa | **Pendiente.** |
+| 26 | image17 | Simplificar esa pantalla, se ve confusa | **Hecho.** Eran dos columnas —los vídeos de YouTube a un lado, las lecciones al otro— y juntarlas era trabajo de la cabeza de quien miraba. Ahora hay una sola lista, la de las lecciones, y el vídeo se elige desde la lección que lo necesita. La lista de reproducción y el aprendizaje express quedan plegados: se tocan una vez, no cada día. Y arriba, una línea que contesta «¿me falta algo aquí?». |
 | 27 | image2 | Previsualizaciones y barra de búsqueda | **Hecho.** |
 | 28 | image31 | Entrar a la ficha del profesor con sus métricas | **Hecho.** Y de paso se corrigió «Por calificar», que repartía el total de la institución entre los profesores y le atribuía a cada uno un número inventado. |
 | 29 | image32 | Filtros y búsqueda; por ejemplo qué profesor subió el contenido | **Hecho.** Por autor y por tipo, con el filtro en la dirección para poder pasar el enlace. |
@@ -70,7 +70,7 @@ Esa es la mitad útil de este documento.
 
 ## Lo que apareció por el camino
 
-Ninguna de estas cuatro estaba en la lista. Salieron al arreglar lo que sí.
+Ninguna de estas cinco estaba en la lista. Salieron al arreglar lo que sí.
 
 **Una nota interna que no era interna.** La política de la base dejaba a cada
 persona leer todos los mensajes de su ticket, incluidas las que el equipo marca
@@ -96,6 +96,20 @@ con la fecha y el estado: una cuota cobrada a la que nadie le cambió el estado
 salía con sus «días de mora» aunque no debiera un céntimo. Ahora hace falta
 además que quede saldo. Se vio al ordenar los programas por urgencia: uno sin
 importe y sin deuda se colaba delante de los que sí deben.
+
+**Poner un vídeo en una lección no funcionaba. Nunca.** `cem_asignar_video`
+escribía el nombre del tipo de la columna en inglés —`cem_lesson_tipo`— cuando
+se llama `cem_leccion_tipo`. PostgreSQL resuelve ese nombre al ejecutar, no al
+crear la función, así que se guardó sin una queja y fallaba en cada llamada con
+«type cem_lesson_tipo does not exist». La pantalla decía «No se pudo guardar» y
+ahí se acababa: el emparejador de vídeos, entero, no servía para nada.
+
+Lo peor es por qué no lo vio ninguna prueba. Había una que llamaba a esa misma
+función — con una lección inexistente, para comprobar que un identificador
+inválido se rechaza. Ese error se levanta **antes** del `UPDATE`, así que la
+línea rota no llegaba a ejecutarse jamás. Una prueba verde sobre una función
+muerta. Ahora hay una de ida y vuelta sobre una lección de verdad, que asigna,
+relee y deja la lección como estaba.
 
 **Y el documento de las notas apuntaba a 42 imágenes que no existen.** Las
 capturas nunca se subieron al repositorio —que es público, así que mejor
@@ -123,6 +137,9 @@ Cada cosa de arriba que se podía romper otra vez tiene su comprobación:
 - **académico** — los filtros de la cola de corrección y de la bandeja de
   revisión, y que «Ver» no enseñe una imagen rota.
 - **lección** — que cada material salga una sola vez y con su previsualización.
+- **vídeo** — que poner un vídeo en una lección lo guarde **de verdad**: se
+  asigna sobre una lección real, se relee y se deja como estaba. Y que la
+  pantalla haya dejado de ser dos columnas.
 - **acompañar** — las tres entradas nuevas del menú del estudiante, y que una
   nota interna no le llegue (preguntándoselo a la base, no al HTML).
 - **roles** — que el menú del coordinador no ofrezca lo que rebota, y que una

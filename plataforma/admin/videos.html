@@ -3,25 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>CEM Admin · Vídeos del curso</title>
+<title>CEM Admin · Vídeo de cada lección</title>
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-17">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-18">
 <style>
-  .dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--aire);align-items:start;}
-  @media(max-width:980px){ .dos{grid-template-columns:minmax(0,1fr);} }
   .vid{display:flex;gap:10px;align-items:center;padding:8px;border-radius:var(--r);
     border:1px solid var(--filete);margin-bottom:8px;}
   .vid img{width:88px;height:50px;object-fit:cover;border-radius:var(--r-sm);flex-shrink:0;background:var(--hueco);}
   .vid .t{flex:1;min-width:0;font-size:var(--t-sm);overflow-wrap:anywhere;}
-  .vid.usado{opacity:.5;}
   .lec{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r);
     border:1px solid var(--filete);margin-bottom:8px;}
   .lec.vacia{border-style:dashed;}
   .lec .t{flex:1;min-width:0;font-size:var(--t-sm);overflow-wrap:anywhere;}
+  .lec .mini{width:64px;height:36px;object-fit:cover;border-radius:var(--r);
+    flex-shrink:0;background:var(--hueco);}
+  .lec .hueco-mini{width:64px;height:36px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;border-radius:var(--r);background:var(--hueco);color:var(--tinta-3);font-size:19px;}
+  /* En el diálogo, cada vídeo es un botón: se pulsa el vídeo, no se elige en un
+     desplegable y luego se confirma. */
+  .vid.elegible{width:100%;text-align:left;background:none;cursor:pointer;font:inherit;color:inherit;}
+  .vid.elegible:hover,.vid.elegible:focus-visible{background:var(--hueco);}
   .mod-t{font-weight:600;margin:14px 0 8px;font-size:var(--t-sm);color:var(--tinta-2);}
   .corto-fila{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r);
     border:1px solid var(--filete);margin-bottom:8px;}
@@ -33,16 +38,22 @@
 </head>
 <body>
 <div id="page" class="hidden">
+  <!-- item 26 · esta pantalla enseñaba dos columnas —los vídeos de YouTube a la
+       izquierda, las lecciones a la derecha— y dejaba el trabajo de juntarlas
+       en la cabeza de quien miraba. Pero sólo se viene aquí a hacer una cosa:
+       que cada lección tenga su vídeo. Así que ahora hay una sola lista, la de
+       las lecciones, y el vídeo se elige desde la lección que lo necesita. Lo
+       demás —la lista de reproducción y los vídeos de repaso— sigue estando,
+       plegado, porque se toca una vez y no cada día. -->
   <div class="page-head">
-    <div><h1>Vídeos del curso</h1>
-      <p>Enlaza la lista de reproducción de YouTube donde tienes los vídeos de este programa y
-         pon cada uno en su lección. Así el material queda ordenado igual en los dos sitios.</p></div>
+    <div><h1>Vídeo de cada lección</h1>
+      <p id="bajada">Elige un programa y pon el vídeo de YouTube que le toca a cada lección.</p></div>
     <div class="actions">
-      <a class="btn outline" href="contenido.html"><span class="material-symbols-outlined">arrow_back</span> Contenido</a>
+      <a class="btn outline" id="btnVolver" href="contenido.html"><span class="material-symbols-outlined">arrow_back</span> Contenido</a>
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="cardCurso">
     <div class="field"><label for="fCurso">Curso</label>
       <select id="fCurso"><option value="">Elige un programa…</option></select></div>
   </div>
@@ -50,8 +61,8 @@
   <div id="cuerpo"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, ok, fail, avisar, mensajeError,
-         confirmDialog, qs, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-17';
+import { sb, mount, $, $$, esc, chip, bar, num, ok, fail, avisar, mensajeError,
+         confirmDialog, qs, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-18';
 await mount({ require:['coordinador','admin','superadmin'], area:'admin' });
 
 let cursos = [], curso = null, datos = null, videos = null, errorVideos = null, shorts = [];
@@ -108,7 +119,15 @@ async function cargarCursos(){
   $('#fCurso').innerHTML = '<option value="">Elige un programa…</option>' +
     cursos.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
   const pedido = qs('curso');
-  if (pedido && cursos.some((c) => c.id === pedido)) { $('#fCurso').value = pedido; await elegir(pedido); }
+  if (pedido && cursos.some((c) => c.id === pedido)) {
+    $('#fCurso').value = pedido;
+    /* Quien llega desde Contenido ya eligió el programa allí. Volver a
+       enseñarle el desplegable es pedirle que lo elija dos veces, y deja la
+       duda de si el de arriba manda sobre el de abajo. */
+    $('#cardCurso').hidden = true;
+    $('#btnVolver').href = `contenido.html?curso=${encodeURIComponent(pedido)}`;
+    await elegir(pedido);
+  }
 }
 
 async function elegir(id){
@@ -136,6 +155,9 @@ const lecciones = () => (datos?.modulos || []).flatMap((m) => m.lecciones || [])
 const usados = () => new Set(lecciones().map((l) => l.video_id).filter(Boolean));
 
 function pintar(){
+  $('#bajada').textContent = curso
+    ? `${curso.nombre} · pon el vídeo de YouTube que le toca a cada lección.`
+    : 'Elige un programa y pon el vídeo de YouTube que le toca a cada lección.';
   if (!curso) {
     $('#cuerpo').innerHTML = `<div class="card"><p class="muted tiny">
       Elige un programa arriba para ver sus vídeos y sus lecciones.</p></div>`;
@@ -144,11 +166,76 @@ function pintar(){
 
   const yaPuestos = usados();
   const sueltos = (videos || []).filter((v) => !yaPuestos.has(v.video_id));
-  const sinVideo = lecciones().filter((l) => !l.video_id);
+  const todas = lecciones();
+  const sinVideo = todas.filter((l) => !l.video_id);
+  const conVideo = todas.length - sinVideo.length;
 
   $('#cuerpo').innerHTML = `
+    ${errorVideos ? `<div class="nota err">${esc(errorVideos)}</div>` : ''}
+
+    <!-- Una sola frase que contesta «¿me queda algo por hacer aquí?». Antes eso
+         se sacaba comparando dos columnas a ojo. -->
     <div class="card">
-      <h2 class="sec">La lista de reproducción</h2>
+      <div class="row between" style="align-items:flex-end">
+        <div class="grow" style="min-width:200px">
+          <h2 class="sec" style="margin-bottom:4px">${todas.length
+            ? `${num(conVideo)} de ${num(todas.length)} lecciones tienen vídeo`
+            : 'Este programa todavía no tiene lecciones'}</h2>
+          <div style="max-width:340px">${todas.length ? bar(100 * conVideo / todas.length) : ''}</div>
+          <p class="tiny muted" style="margin:6px 0 0">${
+            !datos?.playlist ? 'Todavía no has enlazado la lista de reproducción de este programa: ábrela abajo.'
+            : !videos && !errorVideos ? 'Leyendo la lista de YouTube…'
+            : !todas.length ? 'Crea sus módulos y lecciones en Contenido y vuelve aquí.'
+            : !sinVideo.length ? 'No queda ninguna lección esperando vídeo.'
+            : `Faltan ${num(sinVideo.length)}. `
+              + (sueltos.length
+                  ? `Hay ${num(sueltos.length)} vídeo(s) de la lista sin usar.`
+                  : 'La lista no tiene ningún vídeo libre: sube los que faltan a YouTube.')}</p>
+        </div>
+        <div class="row" style="gap:8px">
+          ${sueltos.length && sinVideo.length ? `<button class="btn outline sm" id="btnAuto">
+            <span class="material-symbols-outlined">auto_fix_high</span> Emparejar por título</button>` : ''}
+          ${datos?.playlist ? `<button class="btn ghost sm" type="button" id="btnRecargar"
+            title="Volver a leer la lista de YouTube">
+            <span class="material-symbols-outlined">refresh</span></button>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      ${(datos?.modulos || []).length ? (datos.modulos).map((m) => `
+        <div class="mod-t">${esc(m.titulo)}</div>
+        ${(m.lecciones || []).length ? m.lecciones.map((l) => {
+          const v = (videos || []).find((x) => x.video_id === l.video_id);
+          return `<div class="lec ${l.video_id ? '' : 'vacia'}">
+            ${l.video_id
+              ? `<img class="mini" loading="lazy" alt=""
+                   src="https://i.ytimg.com/vi/${esc(l.video_id)}/default.jpg"
+                   onerror="this.style.visibility='hidden'">`
+              : '<span class="material-symbols-outlined hueco-mini">videocam_off</span>'}
+            <div class="t"><b>${esc(l.titulo)}</b>
+              <div class="tiny muted">${l.video_id
+                ? esc(v?.titulo || l.video_id)
+                : 'sin vídeo'}</div></div>
+            ${l.video_id
+              ? `<button class="btn ghost sm" data-quitar="${l.id}" title="Quitarle el vídeo">
+                   <span class="material-symbols-outlined">link_off</span></button>`
+              : `<button class="btn outline sm" data-elegir="${l.id}" data-t="${esc(l.titulo)}"
+                   ${datos?.playlist ? '' : 'disabled title="Enlaza primero la lista de reproducción"'}>
+                   Poner vídeo</button>`}
+          </div>`;
+        }).join('') : '<p class="muted tiny" style="margin:0 0 10px">Este módulo no tiene lecciones.</p>'}
+      `).join('') : '<p class="muted tiny">Este programa todavía no tiene módulos. Créalos en Contenido.</p>'}
+    </div>
+
+    <!-- La lista de reproducción se pega una vez y no se vuelve a tocar. Antes
+         ocupaba lo alto de la pantalla todos los días. -->
+    <details class="card" id="cardLista"${datos?.playlist ? '' : ' open'}>
+      <summary><span class="material-symbols-outlined">expand_more</span>
+        <b>La lista de reproducción de este programa</b>
+        <span class="tiny muted">${datos?.playlist
+          ? (videos ? `${num(videos.length)} vídeo(s) en YouTube` : 'enlazada')
+          : 'sin enlazar'}</span></summary>
       <p class="tiny muted">Pega la dirección de la lista tal como sale en la barra del navegador,
         o su identificador. Los vídeos siguen viviendo en YouTube: aquí sólo se guarda a cuál
         corresponde cada lección.</p>
@@ -157,66 +244,20 @@ function pintar(){
           <input type="text" id="cLista" placeholder="https://www.youtube.com/playlist?list=PL…"
             value="${esc(datos?.playlist || '')}"></div>
         <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
-        ${datos?.playlist ? `<button class="btn outline" type="button" id="btnRecargar">
-          <span class="material-symbols-outlined">refresh</span> Volver a leerla</button>` : ''}
       </form>
       <div id="msgLista"></div>
-    </div>
+      ${videos && sueltos.length ? `<h3 class="sec" style="margin-top:var(--e3)">Vídeos que no están en ninguna lección</h3>
+        ${sueltos.map((v) => `<div class="vid">
+          <img loading="lazy" src="${esc(v.miniatura)}" alt="">
+          <div class="t">${esc(v.titulo)}</div></div>`).join('')}` : ''}
+    </details>
 
-    ${errorVideos ? `<div class="nota err">${esc(errorVideos)}</div>` : ''}
-
-    ${datos?.playlist && videos && sueltos.length ? `<div class="nota warn">
-      <b>${num(sueltos.length)} vídeo(s) de la lista no están puestos en ninguna lección.</b>
-      Si acabas de subirlos, arrástralos… o mejor, pulsa el botón de cada uno.
-      ${sinVideo.length ? `Y hay ${num(sinVideo.length)} lección(es) esperando vídeo.` : ''}
-      ${sueltos.length && sinVideo.length ? `<button class="btn ghost sm" id="btnAuto" style="margin-top:8px">
-        <span class="material-symbols-outlined">auto_fix_high</span>
-        Emparejar por título los que se parezcan</button>` : ''}
-    </div>` : ''}
-
-    <div class="dos">
-      <div class="card">
-        <h2 class="sec">Vídeos en YouTube ${videos ? `<span class="tiny muted">· ${num(videos.length)}</span>` : ''}</h2>
-        ${!datos?.playlist
-          ? '<p class="muted tiny">Guarda arriba la lista para verlos aquí.</p>'
-          : !videos && !errorVideos ? '<span class="cargando"></span>'
-          : !videos ? ''
-          : videos.length ? videos.map((v) => `
-            <div class="vid ${yaPuestos.has(v.video_id) ? 'usado' : ''}">
-              <img loading="lazy" src="${esc(v.miniatura)}" alt="">
-              <div class="t">${esc(v.titulo)}
-                <div class="tiny muted">${yaPuestos.has(v.video_id) ? 'ya está en una lección' : 'sin asignar'}</div></div>
-              ${yaPuestos.has(v.video_id) ? '' : `<button class="btn outline sm" data-poner="${esc(v.video_id)}"
-                 title="Ponerlo en una lección">
-                 <span class="material-symbols-outlined">arrow_forward</span></button>`}
-            </div>`).join('')
-          : '<p class="muted tiny">Esa lista no tiene vídeos, o son privados.</p>'}
-      </div>
-
-      <div class="card">
-        <h2 class="sec">Lecciones del programa</h2>
-        ${(datos?.modulos || []).length ? (datos.modulos).map((m) => `
-          <div class="mod-t">${esc(m.titulo)}</div>
-          ${(m.lecciones || []).length ? m.lecciones.map((l) => {
-            const v = (videos || []).find((x) => x.video_id === l.video_id);
-            return `<div class="lec ${l.video_id ? '' : 'vacia'}">
-              <span class="material-symbols-outlined" style="color:var(--${l.video_id ? 'ok' : 'outline'})">
-                ${l.video_id ? 'check_circle' : 'radio_button_unchecked'}</span>
-              <div class="t">${esc(l.titulo)}
-                <div class="tiny muted">${l.video_id
-                  ? esc(v?.titulo || l.video_id)
-                  : 'sin vídeo'}</div></div>
-              ${l.video_id ? `<button class="btn ghost sm" data-quitar="${l.id}" title="Quitarle el vídeo">
-                <span class="material-symbols-outlined">link_off</span></button>` : ''}
-            </div>`;
-          }).join('') : '<p class="muted tiny" style="margin:0 0 10px">Este módulo no tiene lecciones.</p>'}
-        `).join('') : '<p class="muted tiny">Este programa todavía no tiene módulos. Créalos en Contenido.</p>'}
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="row between"><h2 class="sec">Aprendizaje express</h2>
-        <span class="tiny muted">${num(shorts.length)} vídeo(s) cortos</span></div>
+    <!-- El aprendizaje express no es esto: son vídeos de repaso que no cuentan
+         para nada. Compartían pantalla y se leían como si fueran lo mismo. -->
+    <details class="card" id="cardExpress">
+      <summary><span class="material-symbols-outlined">expand_more</span>
+        <b>Aprendizaje express</b>
+        <span class="tiny muted">${num(shorts.length)} vídeo(s) cortos de repaso</span></summary>
       <p class="tiny muted">Vídeos verticales de uno o dos minutos —los shorts que subes a
         YouTube— para repasar rápido. No son lecciones: no cuentan para el progreso ni para
         aprobar, y el alumno los ve en cualquier orden, uno detrás de otro como en el teléfono.
@@ -263,7 +304,7 @@ function pintar(){
           </div>`).join('')
           : '<p class="muted tiny">Todavía no hay ninguno. Pega arriba la dirección del primero.</p>'}
       </div>
-    </div>`;
+    </details>`;
 }
 
 /* ── Emparejar por título ──────────────────────────────────────────────────
@@ -361,15 +402,14 @@ document.addEventListener('click', async (ev) => {
   const recargar = ev.target.closest('#btnRecargar');
   if (recargar) { videos = null; pintar(); await traerVideos(); return; }
 
-  const poner = ev.target.closest('[data-poner]');
-  if (poner) {
-    const vid = poner.dataset.poner;
-    const libres = lecciones().filter((l) => !l.video_id);
-    if (!libres.length) return fail('No queda ninguna lección sin vídeo. Créala primero en Contenido.');
-    const v = (videos || []).find((x) => x.video_id === vid);
-    const cual = await elegirLeccion(libres, v?.titulo || vid);
+  const elegirEn = ev.target.closest('[data-elegir]');
+  if (elegirEn) {
+    const libres = (videos || []).filter((v) => !usados().has(v.video_id));
+    if (!videos) return fail('Todavía no se han leído los vídeos de la lista. Espera un momento o pulsa recargar.');
+    if (!libres.length) return fail('No queda ningún vídeo de la lista sin usar. Súbelo primero a YouTube y vuelve a leer la lista.');
+    const cual = await elegirVideo(libres, elegirEn.dataset.t);
     if (!cual) return;
-    await asignar(cual, vid);
+    await asignar(elegirEn.dataset.elegir, cual);
     return;
   }
 
@@ -420,29 +460,45 @@ async function asignar(lessonId, videoId){
   ok(videoId ? 'Vídeo puesto en la lección.' : 'Vídeo quitado de la lección.');
 }
 
-/* Un desplegable en un diálogo, en vez de arrastrar: arrastrar en el móvil es
-   una pelea y esta pantalla se usa desde donde toque. */
-function elegirLeccion(libres, tituloVideo){
+/* El diálogo va en la dirección en que se trabaja: se está en una lección y se
+   busca su vídeo, no al revés. Con miniatura y con buscador, porque un curso
+   largo tiene cuarenta vídeos y sus títulos se parecen entre sí. */
+function elegirVideo(libres, tituloLeccion){
   return new Promise((res) => {
     const dlg = document.createElement('div');
     dlg.className = 'modal-bg';
     dlg.innerHTML = `<div class="modal">
-      <div class="modal-h"><h3>¿En qué lección va este vídeo?</h3>
-        <button class="icon-btn" data-x><span class="material-symbols-outlined">close</span></button></div>
+      <div class="modal-h"><h3>¿Qué vídeo va en esta lección?</h3>
+        <button class="icon-btn" data-x aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button></div>
       <div class="modal-b">
-        <p class="tiny muted">${esc(tituloVideo)}</p>
-        <div class="field"><label for="qLec">Lección</label><select id="qLec">
-          ${libres.map((l) => `<option value="${l.id}">${esc(l.titulo)}</option>`).join('')}
-        </select></div>
+        <p class="tiny muted" style="margin-top:0">${esc(tituloLeccion)}</p>
+        <div class="field"><label for="qVid">Buscar entre los ${libres.length} sin usar</label>
+          <input type="search" id="qVid" autocomplete="off" placeholder="Parte del título del vídeo"></div>
+        <div id="qLista"></div>
       </div>
-      <div class="modal-f">
-        <button class="btn outline" data-x>Cancelar</button>
-        <button class="btn" data-ok>Ponerlo ahí</button></div></div>`;
+      <div class="modal-f"><button class="btn outline" data-x>Cancelar</button></div></div>`;
+
+    const lista = dlg.querySelector('#qLista');
+    const pintarLista = (q) => {
+      const f = q ? libres.filter((v) => limpiar(v.titulo).includes(limpiar(q))) : libres;
+      lista.innerHTML = f.length
+        ? f.map((v) => `<button type="button" class="vid elegible" data-v="${esc(v.video_id)}">
+             <img loading="lazy" src="${esc(v.miniatura)}" alt="">
+             <span class="t">${esc(v.titulo)}</span></button>`).join('')
+        : '<p class="muted tiny">Ninguno de los vídeos sin usar se llama así.</p>';
+    };
+    pintarLista('');
+
     const cerrar = (v) => { dlg.remove(); res(v); };
     dlg.querySelectorAll('[data-x]').forEach((b) => { b.onclick = () => cerrar(null); });
-    dlg.querySelector('[data-ok]').onclick = () => cerrar(dlg.querySelector('#qLec').value);
+    dlg.querySelector('#qVid').addEventListener('input', (e) => pintarLista(e.target.value));
+    lista.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-v]');
+      if (b) cerrar(b.dataset.v);
+    });
     dlg.onclick = (e) => { if (e.target === dlg) cerrar(null); };
     document.body.appendChild(dlg);
+    dlg.querySelector('#qVid').focus();
   });
 }
 
