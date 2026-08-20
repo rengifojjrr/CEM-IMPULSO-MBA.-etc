@@ -2601,6 +2601,24 @@ details.card > summary .material-symbols-outlined{color:var(--tinta-3);
   transition:transform var(--rapido);}
 details.card[open] > summary .material-symbols-outlined{transform:rotate(180deg);}
 
+/* ── el cobro de un programa, plegado ─────────────────────────────────────
+   La línea cerrada tiene que contestar sola las dos preguntas que trae quien
+   cobra: cuánto lleva pagado de esto y si hay algo vencido. Por eso la barra
+   y el chip van en la cabecera, no dentro. */
+.resumen-programa{display:flex;align-items:center;gap:var(--e2);flex-wrap:wrap;}
+.resumen-programa .t{font-weight:var(--peso-fuerte);}
+.resumen-programa .s{font-size:var(--t-xs);color:var(--tinta-3);margin-top:2px;}
+.avance-programa{flex:none;width:190px;}
+.avance-programa .bar{margin-bottom:4px;}
+details.card > summary + .table-wrap{margin-top:var(--e2);}
+details.card h3.sec{margin-top:var(--e3);}
+@media (max-width:720px){
+  /* En un teléfono la barra debajo del nombre, a lo ancho: al lado se queda
+     en ochenta píxeles y deja de decir nada. */
+  .avance-programa{width:100%;order:3;}
+  .resumen-programa .grow{flex:1 1 60%;}
+}
+
 /* El retrato del perfil: redondo, con el hueco marcado cuando todavía no hay
    foto —un círculo vacío se lee como «falta algo», que es la verdad—. */
 .retrato-perfil{width:96px;height:96px;border-radius:var(--r-full);flex:none;overflow:hidden;

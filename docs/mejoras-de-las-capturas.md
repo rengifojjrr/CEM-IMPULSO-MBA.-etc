@@ -60,17 +60,17 @@ Esa es la mitad útil de este documento.
 | # | Captura | Lo que se pidió | Qué pasó |
 |---|---------|-----------------|----------|
 | 37 | image23 | Contestar los contactos de la web | **Hecho.** La respuesta sale por la cola de correo de la plataforma, queda apuntada en la ficha y el contacto pasa a «contactado». |
-| 38 | image27 | Los pagos como catálogo por curso, y el detalle al entrar | **Pendiente.** |
+| 38 | image27 | Los pagos como catálogo por curso, y el detalle al entrar | **Hecho.** Cada programa es una línea con su porcentaje pagado, y se abre para ver sus cuotas y sus pagos. Lo vencido sale primero. |
 | 39 | image6 | Si el coordinador no tiene acceso, que ni se le muestre | **Hecho.** El menú lleva ahora los roles de cada pantalla y esconde lo que rebota. |
 | 40 | — | Aplicar lo mismo a las demás cuentas que comparten pantalla | **Hecho** por construcción: los arreglos están en las pantallas y en la hoja compartida, no en un rol. |
-| 41 | image30 | Cobranza entra a los perfiles y ve los pagos por módulo | **Parcial.** Desde cada pago y cada cuota se entra a la ficha del estudiante. El desglose por módulo sigue pendiente. |
+| 41 | image30 | Cobranza entra a los perfiles y ve los pagos por módulo | **Hecho.** Es la misma pantalla que la 38: desde cada pago y cada cuota se entra a la ficha, y allí el dinero está partido por programa. |
 | 42 | — | Buscar más sitios donde aplicar mejoras como éstas | **En marcha.** Lo encontrado por el camino está abajo. |
 
 ---
 
 ## Lo que apareció por el camino
 
-Ninguna de estas tres estaba en la lista. Salieron al arreglar lo que sí.
+Ninguna de estas cuatro estaba en la lista. Salieron al arreglar lo que sí.
 
 **Una nota interna que no era interna.** La política de la base dejaba a cada
 persona leer todos los mensajes de su ticket, incluidas las que el equipo marca
@@ -91,6 +91,18 @@ el total de la institución dividido entre el número de profesores. Con una
 entrega pendiente y dos profesores, los dos salían con «1». Ahora cuenta lo
 suyo.
 
+**Cuotas saldadas que seguían contando como mora.** «Vencida» se decidía sólo
+con la fecha y el estado: una cuota cobrada a la que nadie le cambió el estado
+salía con sus «días de mora» aunque no debiera un céntimo. Ahora hace falta
+además que quede saldo. Se vio al ordenar los programas por urgencia: uno sin
+importe y sin deuda se colaba delante de los que sí deben.
+
+**Y el documento de las notas apuntaba a 42 imágenes que no existen.** Las
+capturas nunca se subieron al repositorio —que es público, así que mejor
+así—, pero `mejorasparaelCEM.html` seguía enlazándolas y dejaba la revisión
+automática en rojo con 37 enlaces rotos. Cada imagen se sustituyó por el
+nombre de su captura, que es lo que hace falta para volver a la nota.
+
 ---
 
 ## Cómo se comprueba que no vuelvan
@@ -102,7 +114,9 @@ Cada cosa de arriba que se podía romper otra vez tiene su comprobación:
   por buenas.
 - **dirección** — que cada aviso de la auditoría abra la pantalla donde se
   arregla, pidiéndosela de verdad al servidor.
-- **dinero** — los filtros de los pagos y el enlace a la ficha.
+- **dinero** — los filtros de los pagos, el enlace a la ficha, y que allí el
+  dinero salga partido por programa, con lo vencido arriba y sin llamar «al
+  día» a un programa por el que no ha entrado nada.
 - **académico** — los filtros de la cola de corrección y de la bandeja de
   revisión, y que «Ver» no enseñe una imagen rota.
 - **lección** — que cada material salga una sola vez y con su previsualización.

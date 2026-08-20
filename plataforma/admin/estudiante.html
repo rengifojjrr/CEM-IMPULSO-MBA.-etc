@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-15">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-16">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -28,8 +28,8 @@
 <script type="module">
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
          modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
-         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, mensajeError, saldo as saldoCelda } from '../assets/app.js?v=2026-08-21-15';
-import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-21-15';
+         etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, mensajeError, saldo as saldoCelda } from '../assets/app.js?v=2026-08-21-16';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-21-16';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -227,39 +227,134 @@ function tab(t){
         <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"><span class="material-symbols-outlined">verified</span></a></td>
       </tr>`).join('') : emptyRow(6, 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>`;
   }
-  if (t==='pagos'){
-    const saldo = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
-    P.innerHTML = `<div class="card"><div class="row between"><h2 class="sec">Plan de cuotas</h2>
-      <span class="chip ${saldo>0?'warn':'ok'}">Saldo: ${money(saldo)}</span></div>
-      <div class="table-wrap"><table>
-      <thead><tr><th class="num">#</th><th>Programa</th><th class="num">Monto</th><th>Vence</th><th class="num">Saldo</th><th>Estado</th><th></th></tr></thead>
-      <tbody>${insts.length? insts.map(i=>{
-        const e = ens.find(x=>x.id===i.enrollment_id);
-        const hoy = new Date().toISOString().slice(0,10);
-        const venc = i.estado!=='pagada' && i.fecha_vencimiento < hoy;
+  if (t==='pagos') pintarPagos(P);
+}
+
+/* items 38 y 41 · las dos notas piden lo mismo desde dos sitios: quien cobra
+   quiere ver «cuánto lleva pagado de este programa», y aquí las cuotas de
+   todos los programas caían en una sola lista ordenada por número de cuota.
+   Con dos inscripciones, la cuota 1 de una salía pegada a la cuota 1 de la
+   otra y había que ir leyendo la columna «Programa» fila por fila para
+   separarlas; el porcentaje pagado de cada uno no salía por ningún lado.
+
+   Ahora cada programa es su propia línea con su avance, y se abre para ver sus
+   cuotas y sus pagos. Lo de arriba sigue siendo el total de la persona, que es
+   lo que se mira primero. */
+function pintarPagos(P){
+  const hoy = new Date().toISOString().slice(0,10);
+  const grupos = ens.map(e => {
+    const cuotas = insts.filter(i => i.enrollment_id === e.id);
+    const pagos  = pays.filter(x => x.enrollment_id === e.id);
+    /* Un programa con cuotas vale lo que suman sus cuotas; uno sin plan vale
+       su precio, y lo pagado son sus pagos confirmados. No se mezclan las dos
+       cuentas: sumar cuotas y pagos a la vez cuenta el mismo dinero dos veces. */
+    const mezcla = new Set(cuotas.map(i => i.moneda || MONEDA_BASE)).size > 1;
+    const confirmado = pagos.filter(x => x.estado === 'confirmado').reduce((a,x)=>a+enDolares(x),0);
+    const total = cuotas.length
+      ? cuotas.reduce((a,i)=>a+Number(i.monto||0),0)
+      : Number(e.precio_final||0);
+    const pendiente = cuotas.length
+      ? cuotas.reduce((a,i)=>a+Number(i.saldo||0),0)
+      : Math.max(0, Number(e.precio_final||0) - confirmado);
+    const pagado = Math.max(0, total - pendiente);
+    /* Con cuotas en dos monedas distintas el porcentaje sería una cifra sin
+       significado. Antes de inventarla, no se enseña. */
+    const avance = (mezcla || !total) ? null : 100 * pagado / total;
+    /* Vencida es la que se pasó de fecha **y** todavía debe algo. Sin el saldo
+       en la cuenta, una cuota saldada a la que nadie le cambió el estado se
+       cuela como deuda y manda el programa a lo alto de la lista. */
+    const vencidas = cuotas.filter(i => i.estado !== 'pagada' && Number(i.saldo||0) > 0 && i.fecha_vencimiento < hoy);
+    return { e, cuotas, pagos, total, pendiente, pagado, avance, vencidas, mezcla };
+  }).sort((a,b) =>
+    /* Primero lo vencido, que es a lo que hay que llamar hoy; después lo que
+       más falta por cobrar. Lo saldado se va al fondo: ya no hay nada que
+       hacer con ello. */
+    (b.vencidas.length - a.vencidas.length) || (b.pendiente - a.pendiente) || (b.total - a.total));
+
+  const total = grupos.reduce((a,g)=>a+g.total,0);
+  const debe  = grupos.reduce((a,g)=>a+g.pendiente,0);
+  const puesto = Math.max(0, total - debe);
+  const conMora = grupos.filter(g => g.vencidas.length).length;
+
+  P.innerHTML = `<div class="card"><div class="kpis">
+      ${kpi('Contratado', money(total), 'shopping_bag', `${grupos.length} programa(s)`)}
+      ${kpi('Pagado', money(puesto), 'payments', total ? pct(100*puesto/total) + ' del total' : '')}
+      ${kpi('Pendiente', money(debe), 'account_balance_wallet',
+            conMora ? `${conMora} programa(s) con cuotas vencidas` : 'nada vencido', conMora ? 'malo' : '')}
+    </div></div>
+    ${grupos.length ? grupos.map((g,n)=>tarjetaPrograma(g,n)).join('')
+      : `<div class="card"><p class="muted tiny">Este estudiante no está inscrito en ningún programa, así que no hay nada que cobrar.</p></div>`}`;
+
+  $$('[data-pay]').forEach(b=>b.onclick=()=>registrarPago(insts.find(i=>i.id===b.dataset.pay)));
+  /* Recordar cuál estaba abierto: quien revisa una cobranza vuelve a la misma
+     pestaña varias veces y no tiene por qué volver a buscar su programa. */
+  $$('details[data-prog]').forEach(d=>d.addEventListener('toggle',()=>{
+    localStorage.setItem('cemPagosAbierto', d.open ? d.dataset.prog : '');
+  }));
+}
+
+function tarjetaPrograma(g, n){
+  const { e, cuotas, pagos, total, pendiente, pagado, avance, vencidas, mezcla } = g;
+  const hoy = new Date().toISOString().slice(0,10);
+  const abierto = localStorage.getItem('cemPagosAbierto') === e.id || (n === 0 && !localStorage.getItem('cemPagosAbierto'));
+  /* «Al día» sólo si de verdad va pagando. Un programa por el que no ha
+     entrado un céntimo tampoco tiene nada vencido todavía, y llamarlo «al día»
+     lo esconde justo de quien lo está buscando. */
+  const estadoCobro = !total ? chip('sin importe', 'neutral')
+    : pendiente <= 0 ? chip('pagado', 'ok')
+    : vencidas.length ? chip(`${vencidas.length} cuota(s) vencida(s)`, 'err')
+    : pagado > 0 ? chip('al día', 'warn')
+    : chip('sin pagos', 'warn');
+
+  return `<details class="card" data-prog="${esc(e.id)}"${abierto ? ' open' : ''}>
+    <summary><div class="resumen-programa">
+      <div class="grow">
+        <div class="t">${esc(e.cem_courses?.nombre || 'Programa sin nombre')}</div>
+        <div class="s">${esc(e.cem_cohorts?.nombre || 'sin cohorte')} · ${esc(e.cem_courses?.tipo || '')}
+          ${cuotas.length ? ` · ${cuotas.length} cuota(s)` : ' · pago único'}</div>
+      </div>
+      <div class="avance-programa">
+        ${avance == null
+          ? `<span class="tiny muted">${mezcla ? 'cuotas en varias monedas' : 'sin importe'}</span>`
+          : `${bar(avance)}<div class="tiny muted">${money(pagado)} de ${money(total)} · <b>${pct(avance)}</b></div>`}
+      </div>
+      ${estadoCobro}
+      <span class="material-symbols-outlined">expand_more</span>
+    </div></summary>
+
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th class="num">#</th><th class="num">Monto</th><th>Vence</th><th class="num">Saldo</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${cuotas.length ? cuotas.map(i=>{
+        const venc = i.estado!=='pagada' && Number(i.saldo||0) > 0 && i.fecha_vencimiento < hoy;
         const mora = venc ? Math.round((new Date(hoy) - new Date(i.fecha_vencimiento))/86400000) : 0;
-        return `<tr class="${venc?'vencida':''}"><td class="num">${i.numero}</td><td class="wrap">${esc(e?.cem_courses?.nombre||'')}</td>
-        <td class="num">${money(i.monto, i.moneda || MONEDA_BASE)}</td>
-        <td class="${venc?'':'muted'}">${fdate(i.fecha_vencimiento)}
+        return `<tr class="${venc?'vencida':''}"><td class="num" data-col="#">${i.numero}</td>
+        <td class="num" data-col="Monto">${money(i.monto, i.moneda || MONEDA_BASE)}</td>
+        <td class="${venc?'':'muted'}" data-col="Vence">${fdate(i.fecha_vencimiento)}
           ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
-        <td class="num">${saldoCelda(i.saldo)}</td><td>${chipEstado(i.estado)}</td>
-        <td>${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
-      }).join('') : emptyRow(7, 'Este estudiante no tiene cuotas: su inscripción se pagó de una vez o todavía no tiene plan.')}</tbody>
-      ${insts.length ? filaTotales(['', 'Totales',
-        {num:true, html: money(insts.reduce((a,i)=>a+Number(i.monto||0),0))}, '',
-        {num:true, html: money(insts.reduce((a,i)=>a+Number(i.saldo||0),0))}, '', '']) : ''}
-      </table></div></div>
-      <div class="card"><h2 class="sec">Pagos registrados</h2><div class="table-wrap"><table>
+        <td class="num" data-col="Saldo">${saldoCelda(i.saldo)}</td>
+        <td data-col="Estado">${chipEstado(i.estado)}</td>
+        <td data-col="">${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
+      }).join('') : emptyRow(6, 'Sin plan de cuotas: este programa se paga de una vez.')}</tbody>
+      ${cuotas.length ? filaTotales(['Totales',
+        {num:true, html: money(cuotas.reduce((a,i)=>a+Number(i.monto||0),0))}, '',
+        {num:true, html: money(pendiente)}, '', '']) : ''}
+    </table></div>
+
+    <h3 class="sec sep">Pagos de este programa</h3>
+    <div class="table-wrap"><table class="tarjetas">
       <thead><tr><th>Fecha</th><th class="num">Monto</th><th>Método</th><th>Referencia</th><th>Conciliado</th></tr></thead>
-      <tbody>${pays.length? pays.map(x=>`<tr><td class="muted">${fdate(x.fecha)}</td><td class="num"><b>${montoPagado(x)}</b></td>
-        <td>${esc(etiqueta(x.metodo||'—'))}</td><td>${esc(x.referencia||'—')}</td>
-        <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('') : emptyRow(5, 'Todavía no ha hecho ningún pago.')}</tbody>
-      ${pays.length ? filaTotales([`Aprobado (${pays.filter(x=>x.estado==='confirmado').length} de ${pays.length} pagos)`,
-        {num:true, html: money(pays.filter(x=>x.estado==='confirmado').reduce((a,x)=>a+enDolares(x),0))},
+      <tbody>${pagos.length ? pagos.map(x=>`<tr>
+        <td class="muted" data-col="Fecha">${fdate(x.fecha)}</td>
+        <td class="num" data-col="Monto"><b>${montoPagado(x)}</b></td>
+        <td data-col="Método">${esc(etiqueta(x.metodo||'—'))}</td>
+        <td data-col="Referencia">${esc(x.referencia||'—')}</td>
+        <td data-col="Conciliado">${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td></tr>`).join('')
+        : emptyRow(5, 'Todavía no ha pagado nada de este programa.')}</tbody>
+      ${pagos.length ? filaTotales([`Aprobado (${pagos.filter(x=>x.estado==='confirmado').length} de ${pagos.length} pagos)`,
+        {num:true, html: money(pagos.filter(x=>x.estado==='confirmado').reduce((a,x)=>a+enDolares(x),0))},
         '', '', '']) : ''}
-      </table></div></div>`;
-    $$('[data-pay]').forEach(b=>b.onclick=()=>registrarPago(insts.find(i=>i.id===b.dataset.pay)));
-  }
+    </table></div>
+  </details>`;
 }
 
 function cambiarEstado(e){

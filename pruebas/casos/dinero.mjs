@@ -145,7 +145,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-15');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -364,7 +364,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-15');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -392,7 +392,7 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-15');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });
@@ -438,6 +438,45 @@ export default async function correr(navegador) {
   await A.waitForTimeout(700);
   a.comprobar(await A.locator('#tb tr').count() === todos,
     'Y «Limpiar» devuelve la lista entera, también lo que estaba plegado');
+
+  /* ============ los pagos de la ficha, por programa ============ */
+  /* items 38 y 41 · quien cobra abre una ficha para preguntar «¿cuánto lleva
+     pagado de esto?». Con las cuotas de todos los programas en una sola lista
+     la respuesta había que sacarla contando filas. */
+  const idFicha = (aLaFicha || '').match(/id=([0-9a-f-]{36})/)?.[1];
+  await A.goto(`${BASE}/plataforma/admin/estudiante.html?id=${idFicha}`);
+  await A.waitForSelector('#hero h1', { timeout: 25000 });
+  await A.waitForSelector('#panel .kpi');
+  await A.click('#tabs button[data-t="pagos"]');
+  await A.waitForTimeout(1200);
+
+  const grupos = await A.$$eval('#panel details[data-prog]', (ds) => ds.map((d) => ({
+    programa: d.querySelector('.t')?.textContent.trim() || '',
+    avance: d.querySelector('.avance-programa')?.textContent.replace(/\s+/g, ' ').trim() || '',
+    estado: d.querySelector('summary .chip')?.textContent.trim() || '',
+    vencidas: /vencida/.test(d.querySelector('summary .chip')?.textContent || ''),
+    tablas: d.querySelectorAll('table').length,
+  })));
+  a.comprobar(grupos.length > 0 && grupos.every((g) => g.programa),
+    `Los pagos de la ficha van agrupados por programa (${grupos.length})`);
+
+  const conPorcentaje = grupos.filter((g) => /\d+%/.test(g.avance)).length;
+  a.comprobar(conPorcentaje > 0 && conPorcentaje === grupos.filter((g) => g.estado !== 'sin importe').length,
+    `Cada programa dice cuánto lleva pagado en porcentaje (${conPorcentaje} de ${grupos.length})`);
+
+  a.comprobar(grupos.every((g) => g.tablas === 2),
+    'Y al abrirlo están sus cuotas y sus pagos, sólo los suyos');
+
+  /* Lo vencido arriba: es la lista de a quién hay que llamar hoy. */
+  const primerAlDia = grupos.findIndex((g) => !g.vencidas);
+  const ultimoVencido = grupos.map((g) => g.vencidas).lastIndexOf(true);
+  a.comprobar(ultimoVencido === -1 || primerAlDia === -1 || ultimoVencido < primerAlDia,
+    'Lo que tiene cuotas vencidas sale primero');
+
+  /* Un programa sin un solo pago no puede llamarse «al día»: es justo el que
+     se está buscando. */
+  const mentira = grupos.filter((g) => g.estado === 'al día' && /^0[,.]/.test(g.avance)).length;
+  a.comprobar(mentira === 0, 'Un programa sin cobrar nada no se anuncia como «al día»');
 
   a.comprobar(A.errores.length === 0,
     `La bandeja de pagos no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);
