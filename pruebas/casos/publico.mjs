@@ -61,7 +61,7 @@ export default async function correr(navegador) {
      que lo que se comprueba es que la función responda y que si hay nota, se
      enseñe; no que exista un número concreto. */
   const valoraciones = await P.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
     const { data, error } = await m.sb.rpc('cem_valoracion_cursos', { p_minimo: 5 });
     return { error: error?.message || null, cuantas: Object.keys(data || {}).length };
   });
@@ -276,7 +276,7 @@ export default async function correr(navegador) {
   await entrar(E, 'estudiante', 'estudiante/panel.html');
   await E.waitForTimeout(2000);
   const fuga = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
     const directo = await m.sb.from('cem_leads').select('*').limit(5);
     const porFuncion = await m.sb.rpc('cem_leads_listar');
     return {

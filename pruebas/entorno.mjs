@@ -165,9 +165,23 @@ export async function nuevaPestana(navegador, { ancho = 1340, alto = 1050, oscur
   let silencio = false;
 
   pagina.on('pageerror', (e) => { if (!silencio) errores.push('ERROR DE PÁGINA: ' + e.message); });
+  /* Ruido que NO es nuestro y que no podemos quitar.
+     ─────────────────────────────────────────────────────────────────────────
+     `compute-pressure` lo emite Chromium por una política de permisos que pide
+     el reproductor de YouTube dentro de su propio <iframe>. No sale de nuestro
+     código, no hay nada que arreglar y aparece o no según la versión del
+     navegador: dejarlo puesto convierte la prueba en una que se pone roja sola
+     y a la que se deja de hacer caso.
+
+     La lista se queda corta a propósito. Cada línea de aquí es una cosa que la
+     suite ya no vigila, así que sólo entra lo que es de un tercero Y no
+     podemos cambiar. Ante la duda, no se añade. */
+  const RUIDO_AJENO = /compute-pressure|Permissions policy violation/i;
+
   pagina.on('console', (m) => {
     const url = m.location()?.url || '';
     if (silencio || m.type() !== 'error' || /favicon|fonts\.g/.test(url)) return;
+    if (RUIDO_AJENO.test(m.text())) return;
     errores.push('CONSOLA: ' + m.text().slice(0, 170));
   });
 
@@ -196,7 +210,7 @@ export async function entrar(pagina, cuenta, destino) {
 export function conLaBase(pagina, fn, ...args) {
   return pagina.evaluate(
     async ({ cuerpo, args }) => {
-      const modulo = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+      const modulo = await import('/plataforma/assets/app.js?v=2026-08-21-7');
       // eslint-disable-next-line no-new-func
       return new Function('sb', 'args', `return (${cuerpo})(sb, ...args)`)(modulo.sb, args);
     },

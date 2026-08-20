@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-6">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-7">
 <style>
   .cuota{border:1px solid var(--filete);border-radius:var(--r);padding:14px 16px;background:var(--papel);
     display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -80,7 +80,7 @@ import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail
          SUPABASE_URL, SUPABASE_KEY,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
          metodosDePago, explicaConversion, MONEDA_BASE,
-         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-21-6';
+         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-21-7';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
@@ -117,6 +117,9 @@ async function cargar(){
   const { data: ps } = await sb.from('cem_payments').select('*').order('fecha', { ascending: false }).limit(500);
   pagos = ps || [];
 
+  /* Otra vez, ahora que ya se sabe qué cuotas hay: la opción de tarjeta
+     necesita saber cuál es la próxima por pagar para ofrecer pagarla. */
+  renderDondePagar();
   renderKpis(); renderCuotas(); renderPagos();
   avisarVueltaDeStripe();
 }
@@ -143,11 +146,29 @@ function avisarVueltaDeStripe(){
    apagado y diciendo que hay que escribir a la escuela: es preferible a
    ofrecerlo y dejar a la persona con el dinero en la mano y sin saber a dónde
    mandarlo — que es lo que pasaba con Zelle, PayPal y tarjeta. */
+/* La tarjeta no tiene número de cuenta, y por eso se caía de la lista.
+   ─────────────────────────────────────────────────────────────────────────
+   El filtro de arriba descarta lo que no tenga «destino», que para una
+   transferencia es la cuenta y para el efectivo es la dirección de la sede.
+   La tarjeta no tiene ninguno de los dos: su destino es la pasarela. Así que
+   con Stripe conectado y funcionando, esta pantalla seguía descartándola —y
+   encima escribía «por ahora no puedes pagar por Tarjeta de crédito/débito
+   desde aquí», que era falso, mientras el botón de pagar existía más abajo,
+   fuera de la vista.
+
+   Decirle a alguien que no puede hacer justo lo único que sí puede hacer de un
+   clic es peor que no decirle nada. */
+const ES_TARJETA = (m) => /tarjeta/i.test(String(m || ''));
+
 function renderDondePagar(){
   const host = $('#dondePagar');
   if (!host) return;
-  const listos = DESTINOS.filter(d => d.listo);
-  const faltan = DESTINOS.filter(d => !d.listo);
+  /* Y va la primera de la lista. Es la única que se paga sin salir de aquí ni
+     esperar a que nadie verifique nada: en las demás la persona transfiere,
+     copia una referencia, la reporta y espera. */
+  const listos = DESTINOS.filter(d => d.listo || (STRIPE && ES_TARJETA(d.metodo)))
+    .sort((a, b) => (ES_TARJETA(b.metodo) ? 1 : 0) - (ES_TARJETA(a.metodo) ? 1 : 0));
+  const faltan = DESTINOS.filter(d => !d.listo && !(STRIPE && ES_TARJETA(d.metodo)));
 
   if (!DESTINOS.length) {
     host.innerHTML = `<p class="nota warn">Todavía no hay ninguna forma de pago configurada.
@@ -173,6 +194,37 @@ function renderDondePagar(){
   const pintarUno = () => {
     const d = listos[Number($('#dMetodo').value) || 0];
     if (!d) return;
+
+    /* Con tarjeta no hay «a dónde mandarlo»: se paga aquí mismo. Se ofrece la
+       cuota que toca —la más antigua sin saldar— porque pedirle a alguien que
+       elija entre nueve cuotas para pagar la primera es trabajo que puede
+       hacer la pantalla. Las demás siguen abajo, cada una con su botón. */
+    if (STRIPE && ES_TARJETA(d.metodo)) {
+      const porPagar = cuotas
+        .filter((c) => c.estado !== 'anulada' && c.estado !== 'pagada' && Number(c.saldo ?? c.monto) > 0)
+        .sort((a, b) => String(a.fecha_vencimiento).localeCompare(String(b.fecha_vencimiento)));
+      const c = porPagar[0];
+      $('#detalleDestino').innerHTML = c ? `
+        <div class="datos-pago sep">
+          <p class="sin-margen"><b>${esc(c.cem_enrollments?.cem_courses?.nombre || 'Tu programa')}</b>
+            · cuota ${c.numero ?? ''}</p>
+          <p class="tiny muted sin-margen">Vence el ${fdate(c.fecha_vencimiento)}</p>
+          <p style="font-size:var(--t-lg);font-weight:600;margin:8px 0 0">
+            ${money(Number(c.saldo ?? c.monto), c.moneda || MONEDA_BASE)}</p>
+        </div>
+        <button class="btn sep" id="btnTarjetaYa">
+          <span class="material-symbols-outlined">credit_card</span> Pagar esta cuota con tarjeta</button>
+        ${porPagar.length > 1 ? `<p class="tiny muted sep-poco">
+          Te quedan ${porPagar.length - 1} cuota(s) más. Cada una tiene su botón abajo,
+          en «Mis cuotas», y puedes pagarlas cuando quieras.</p>` : ''}
+        <p class="tiny muted sep-poco">Se abre la pasarela de Stripe. No guardamos tu tarjeta:
+          los datos se los das a Stripe, no a nosotros.</p>`
+        : `<p class="tiny muted sep">No tienes cuotas pendientes ahora mismo.</p>`;
+      const b = $('#btnTarjetaYa');
+      if (b) b.onclick = () => pagarConTarjeta(c, b);
+      return;
+    }
+
     const extras = Object.entries(d.datos || {});
     $('#detalleDestino').innerHTML = `
       <div class="datos-pago sep">

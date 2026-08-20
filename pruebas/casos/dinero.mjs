@@ -145,7 +145,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -307,6 +307,45 @@ export default async function correr(navegador) {
   a.comprobar(vuelto === antes,
     `Mandarlo a la papelera devuelve el saldo a como estaba (${vuelto.trim()})`);
 
+  /* ============ pagar con tarjeta se ofrece de verdad ============
+     El fallo que esto vigila fue real y desconcertante: Stripe estaba
+     conectado, las claves puestas y el webhook funcionando, y la pantalla del
+     estudiante le decía «por ahora no puedes pagar por Tarjeta de
+     crédito/débito desde aquí». Falso, y encima el botón de pagar existía más
+     abajo, fuera de la vista.
+
+     La causa: el selector de «¿cómo quieres pagar?» descarta lo que no tenga
+     destino —una cuenta, una dirección—, y la tarjeta no tiene ninguno de los
+     dos porque su destino es la pasarela. */
+  await E.goto(`${BASE}/plataforma/estudiante/pagos.html`, { waitUntil: 'domcontentloaded' });
+  await E.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
+  await E.waitForTimeout(4000);
+
+  const conTarjeta = await E.evaluate(() => {
+    const sel = document.querySelector('#dMetodo');
+    const opciones = [...(sel?.options || [])].map((o) => o.textContent.trim());
+    return {
+      listo: !!window,
+      opciones,
+      primera: opciones[0] || '',
+      /* Se mira SÓLO la frase del aviso, no el bloque entero: ahora la palabra
+         «tarjeta» aparece ahí porque la tarjeta sí se ofrece, y buscarla en
+         todo el texto daría por roto justo lo que se acaba de arreglar. */
+      dice_que_no: ((document.querySelector('#dondePagar')?.innerText || '')
+        .split('\n').find((l) => l.includes('no puedes pagar por')) || ''),
+    };
+  });
+  const hayTarjeta = conTarjeta.opciones.some((o) => /tarjeta/i.test(o));
+  a.comprobar(hayTarjeta,
+    `La tarjeta se ofrece entre las formas de pago (${conTarjeta.opciones.join(' · ') || 'ninguna'})`);
+  /* Y va la primera: es la única que se paga sin salir de la pantalla ni
+     esperar a que nadie verifique nada. */
+  a.comprobar(/tarjeta/i.test(conTarjeta.primera),
+    `Y es la primera, que es la que se cobra sola (${conTarjeta.primera})`);
+  a.comprobar(!/tarjeta/i.test(conTarjeta.dice_que_no),
+    `Y no se le dice que no puede pagar con tarjeta teniéndola disponible («${
+      conTarjeta.dice_que_no.trim().slice(0, 80) || 'no se le dice nada de eso'}»)`);
+
   /* ============ el catálogo reflejado en Stripe ============
      Cada programa se refleja como PRODUCTO en Stripe al guardarlo. Producto y
      no precio: lo que alguien debe sale de aquí —descuentos, cuotas, lo ya
@@ -315,7 +354,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -343,7 +382,7 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-6');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });
