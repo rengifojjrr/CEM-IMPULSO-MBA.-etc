@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-19">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-21">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
   .cert{background:var(--papel);border:1px solid var(--filete);
@@ -59,11 +59,21 @@
   <div class="grid g4" id="badges"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-21-19';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-21-21';
 const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
 if (me) load();
 
 async function load(){
+  /* item 33 · las reglas de las insignias estaban escritas en la base y no las
+     llamaba nadie: ni una pantalla, ni un disparador, ni la tarea programada.
+     O sea que ninguna se otorgaba sola, por bien definida que estuviera.
+
+     Se piden aquí, que es la pantalla donde se van a mirar, y sólo para uno
+     mismo — la función rechaza evaluar a otro si no eres del equipo. Si algo
+     falla, la pantalla sigue: no ver una insignia nueva es molesto, no poder
+     ver los certificados sería peor. */
+  try { await sb.rpc('cem_evaluar_insignias'); } catch { /* ver arriba */ }
+
   const [{data:certs},{data:ens},{data:all},{data:mine}] = await Promise.all([
     sb.from('cem_certificates').select('*,cem_courses(nombre)').eq('profile_id',me.id).order('emitido_en',{ascending:false}).limit(500),
     sb.from('cem_enrollments').select('*,cem_courses(nombre,certificado_nombre)').eq('profile_id',me.id).limit(500),

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-19">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-21">
 <style>
   .bg-ico{width:56px;height:56px;border-radius:var(--r-full);display:inline-flex;align-items:center;justify-content:center;}
   .bg-ico .material-symbols-outlined{font-size:var(--t-2xl);}
@@ -20,7 +20,15 @@
   <div class="page-head">
     <div><h1>Insignias y microcredenciales</h1>
       <p>Reconocimientos que se le dan a un estudiante además del certificado. Aquí se definen y se ve a quién se le dio cada una.</p></div>
-    <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Crear insignia</button></div>
+    <div class="actions">
+      <!-- item 33 · las reglas existían en la base y no las llamaba nadie: se
+           escribían y no se ejecutaban nunca. Esto las pasa por todo el mundo
+           de una vez, que es lo que hace falta el día que se cambia un
+           criterio — el resto de los días cada quien se evalúa solo al entrar. -->
+      <button class="btn outline" id="btnRepasar" title="Aplicar las reglas a todos los estudiantes">
+        <span class="material-symbols-outlined">rule</span> Repasar a todos</button>
+      <button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Crear insignia</button>
+    </div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="grid g3" id="lista"></div>
@@ -34,20 +42,57 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, kpi, modal, ok, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-21-19';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, kpi, modal, ok, fail, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-21-21';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'insignias.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const ICONOS = ['military_tech','insights','public','campaign','emoji_events','workspace_premium','psychology','verified','bolt','school'];
-let badges=[], awards=[];
+
+/* item 33 · el catálogo de reglas, escrito como se lee.
+   `criterio` era —y sigue siendo— texto libre para que la persona entienda por
+   qué se gana la insignia. `regla` es lo que la otorga sola, y hasta ahora no
+   se podía elegir desde ninguna pantalla: toda insignia creada aquí nacía sin
+   regla y no se otorgaba jamás por su cuenta.
+
+   El número de cada regla vive en la insignia, no en el código: cambiar
+   «promedio 90» por «promedio 85» es una decisión de la escuela, no un cambio
+   de programa. */
+const REGLAS = {
+  curso_completado:       { texto:'Termina un programa' },
+  primer_certificado:     { texto:'Recibe su primer certificado' },
+  al_dia_con_pagos:       { texto:'Está al día con los pagos' },
+  sin_entregas_tarde:     { texto:'Entrega siempre a tiempo',
+    valor:{ etiqueta:'Con cuántas entregas como mínimo', def:3, min:1, max:50, unidad:'entregas' } },
+  promedio_excelente:     { texto:'Mantiene un promedio alto',
+    valor:{ etiqueta:'Promedio mínimo', def:90, min:1, max:100, unidad:'puntos' } },
+  asistencia_alta:        { texto:'Asiste a casi todas las clases',
+    valor:{ etiqueta:'Asistencia mínima', def:90, min:1, max:100, unidad:'%' } },
+  evaluaciones_aprobadas: { texto:'Aprueba varias evaluaciones',
+    valor:{ etiqueta:'Cuántas aprobadas', def:5, min:1, max:100, unidad:'evaluaciones' } },
+};
+
+/** La regla de una insignia, en una frase. */
+function frase(b, cursos){
+  const r = REGLAS[b.regla];
+  if (!r) return null;
+  const n = b.regla_valor != null ? Number(b.regla_valor) : r.valor?.def;
+  const cuanto = r.valor ? ` (${n} ${r.valor.unidad})` : '';
+  const donde = b.regla_curso
+    ? ` · sólo en ${(cursos.find(c=>c.id===b.regla_curso)?.nombre) || 'un programa'}`
+    : '';
+  return r.texto + cuanto + donde;
+}
+
+let badges=[], awards=[], cursos=[];
 if (p) load();
 
 async function load(){
-  const [{data:bs},{data:aw}] = await Promise.all([
+  const [{data:bs},{data:aw},{data:cs}] = await Promise.all([
     sb.from('cem_badges').select('*').order('nombre'),
     sb.from('cem_badge_awards').select('*,cem_badges(nombre,competencia,icono,color),cem_profiles!cem_badge_awards_profile_id_fkey(nombre,apellido,email)')
       .order('otorgado_en',{ascending:false}).limit(60),
+    sb.from('cem_courses').select('id,nombre').order('nombre'),
   ]);
-  badges=bs||[]; awards=aw||[];
+  badges=bs||[]; awards=aw||[]; cursos=cs||[];
   const countByBadge={}; awards.forEach(a=>countByBadge[a.badge_id]=(countByBadge[a.badge_id]||0)+1);
   $('#kpis').innerHTML = [
     kpi('Insignias', num(badges.length),'military_tech',`${badges.filter(b=>b.activo).length} activas`),
@@ -70,6 +115,13 @@ async function load(){
       <p class="tiny muted" style="margin:8px 0 0">${esc(b.descripcion||'')}</p>
       ${b.competencia?`<div class="tiny sep-poco"><b>Competencia:</b> ${esc(b.competencia)}</div>`:''}
       ${b.criterio?`<div class="tiny muted sep-poco"><b>Criterio:</b> ${esc(b.criterio)}</div>`:''}
+      <!-- item 33 · el criterio es lo que lee la persona; la regla es lo que la
+           otorga sola. Que no se distinguieran era justo el problema: había
+           insignias con un criterio escrito y ninguna forma de ganarlas sin
+           que alguien las diera a mano. -->
+      <div class="tiny sep-poco">${frase(b, cursos)
+        ? `<span class="chip ok">automática</span> ${esc(frase(b, cursos))}`
+        : '<span class="chip neutral">sólo a mano</span> nadie la gana por su cuenta'}</div>
       ${puede?`<div class="row sep">
         <button class="btn outline sm" data-e="${b.id}"><span class="material-symbols-outlined">edit</span> Editar</button>
         <button class="btn ghost sm" data-t="${b.id}">${b.activo?'Desactivar':'Activar'}</button>
@@ -106,6 +158,25 @@ async function load(){
 }
 
 $('#btnNueva').onclick = () => form(null);
+
+/* Sin esto, cambiar un criterio no hacía nada visible: había que esperar a que
+   cada persona entrara a su panel. Y decir cuántas se otorgaron —incluido
+   «ninguna»— es la diferencia entre saber que se aplicó y suponerlo. */
+$('#btnRepasar').onclick = async () => {
+  const auts = badges.filter(b => b.activo && b.regla).length;
+  if (!auts) return fail('Ninguna insignia activa tiene regla: no hay nada que repasar. Ponle una regla a alguna primero.');
+  if (!await confirmDialog(
+    `Se aplican las reglas de ${auts} insignia(s) a todos los estudiantes. `
+    + 'A quien cumpla y no la tenga, se le otorga y se le avisa. No se le quita ninguna a nadie.',
+    'Repasar las insignias')) return;
+  const r = await run(sb.rpc('cem_evaluar_insignias_todos'), 'No se pudo repasar');
+  const f = Array.isArray(r) ? r[0] : r;
+  ok(Number(f?.otorgadas)
+    ? `${f.otorgadas} insignia(s) otorgada(s) al repasar ${f.personas} estudiante(s).`
+    : `Repasados ${f?.personas ?? 0} estudiante(s): nadie cumplía algo que no tuviera ya.`);
+  load();
+};
+
 function form(b){
   const isNew=!b;
   const m = modal({ title:isNew?'Crear insignia':`Editar: ${b.nombre}`, wide:true, body:`
@@ -117,7 +188,31 @@ function form(b){
       <div class="field medio"><label>Nivel</label>
         <input id="bL" value="${esc(b?.nivel||'')}" placeholder="Nivel II"></div>
     </div>
-    <div class="field"><label>Criterio de obtención</label><input id="bK" value="${esc(b?.criterio||'')}" placeholder="Aprobar el examen final con 90 o más"></div>
+    <div class="field"><label for="bK">Criterio de obtención</label>
+      <input id="bK" value="${esc(b?.criterio||'')}" placeholder="Aprobar el examen final con 90 o más">
+      <p class="tiny muted" style="margin:4px 0 0">Esto es lo que lee el estudiante. Debajo se elige lo que
+        de verdad se la otorga.</p></div>
+
+    <div class="card sin-margen" style="margin:var(--e2) 0">
+      <h3 class="sec">Cómo se gana sola</h3>
+      <div class="field"><label for="bRegla">Regla</label><select id="bRegla">
+        <option value="">Sólo a mano — nadie la gana por su cuenta</option>
+        ${Object.entries(REGLAS).map(([k,r])=>`<option value="${k}" ${b?.regla===k?'selected':''}>${esc(r.texto)}</option>`).join('')}
+      </select></div>
+      <div class="row">
+        <div class="field medio" id="campoValor" hidden><label for="bValor" id="lblValor">Número</label>
+          <input type="number" id="bValor" value="${b?.regla_valor ?? ''}"></div>
+        <div class="field largo" id="campoCurso" hidden><label for="bCurso">¿Sólo de un programa?</label>
+          <select id="bCurso"><option value="">Cualquier programa</option>
+            ${cursos.map(c=>`<option value="${c.id}" ${b?.regla_curso===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}
+          </select></div>
+      </div>
+      <!-- Bajar «promedio 90» a 85 puede otorgar la insignia a media
+           institución de golpe. Enseñar a cuántos alcanza cuesta una consulta
+           y evita el susto de enterarse después. -->
+      <p class="tiny muted" id="alcance" aria-live="polite"></p>
+    </div>
+
     <div class="field"><label>Icono</label><div class="row" id="icos">
       ${ICONOS.map(i=>`<button type="button" title="${i.replace(/_/g,' ')}" class="chip chip-btn ${((b?.icono)||'military_tech')===i?'on':''}" data-i="${i}">
         <span class="material-symbols-outlined">${i}</span></button>`).join('')}</div></div>
@@ -127,11 +222,53 @@ function form(b){
   let icono = b?.icono || 'military_tech';
   $$('[data-i]',m).forEach(el=>el.onclick=()=>{ icono=el.dataset.i;
     $$('[data-i]',m).forEach(x=>x.classList.toggle('on',x===el)); });
+
+  /* Cada regla enseña sólo el número que necesita, con su nombre y su unidad.
+     Un campo «Valor» a secas obliga a adivinar si 90 son puntos, por ciento o
+     entregas. */
+  let pidiendo = 0;
+  const refrescarRegla = async () => {
+    const k = $('#bRegla',m).value;
+    const r = REGLAS[k];
+    $('#campoCurso',m).hidden = !r;
+    $('#campoValor',m).hidden = !r?.valor;
+    if (r?.valor) {
+      $('#lblValor',m).textContent = `${r.valor.etiqueta} (${r.valor.unidad})`;
+      const v = $('#bValor',m);
+      v.min = r.valor.min; v.max = r.valor.max;
+      if (!v.value) v.value = r.valor.def;
+    }
+    const cartel = $('#alcance',m);
+    if (!r) { cartel.textContent = 'Esta insignia sólo se otorga a mano, desde «Otorgar insignia».'; return; }
+    cartel.textContent = 'Contando a cuántos alcanza…';
+    const mio = ++pidiendo;
+    const { data, error } = await sb.rpc('cem_insignia_alcance', {
+      p_regla: k,
+      p_valor: r.valor ? Number($('#bValor',m).value) || r.valor.def : null,
+      p_curso: $('#bCurso',m).value || null,
+    });
+    if (mio !== pidiendo) return;   // llegó tarde: manda la consulta más nueva
+    cartel.textContent = error
+      ? 'No se pudo contar a cuántos alcanza.'
+      : data === 0
+        ? 'Ahora mismo no la cumple nadie. Se otorgará cuando alguien llegue.'
+        : `Ahora mismo la cumplen ${data} estudiante(s): la recibirán en el próximo repaso.`;
+  };
+  $('#bRegla',m).onchange = () => { $('#bValor',m).value = ''; refrescarRegla(); };
+  $('#bValor',m).oninput = refrescarRegla;
+  $('#bCurso',m).onchange = refrescarRegla;
+  refrescarRegla();
+
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{
+    const k = $('#bRegla',m).value;
+    const r = REGLAS[k];
     const payload = { nombre:$('#bN',m).value.trim(), descripcion:$('#bD',m).value.trim(),
       competencia:$('#bC',m).value.trim(), nivel:$('#bL',m).value.trim(), criterio:$('#bK',m).value.trim(),
-      icono, color:$('#bColor',m).value, activo:$('#bA',m).checked };
+      icono, color:$('#bColor',m).value, activo:$('#bA',m).checked,
+      regla: k || null,
+      regla_valor: r?.valor ? (Number($('#bValor',m).value) || r.valor.def) : null,
+      regla_curso: k ? ($('#bCurso',m).value || null) : null };
     if (!payload.nombre) return;
     if (isNew) await run(sb.from('cem_badges').insert(payload),'No se pudo crear');
     else await run(sb.from('cem_badges').update(payload).eq('id',b.id),'No se pudo guardar');

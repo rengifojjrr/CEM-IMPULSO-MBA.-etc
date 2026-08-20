@@ -2,7 +2,7 @@
 
    Tres cosas que se rompieron antes y no queremos que vuelvan a romperse:
 
-   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-19) y lo montan
+   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-21-21) y lo montan
       dos pantallas distintas. Si alguien toca una y no la otra, se separan.
    2. Los fondos ya no viajan incrustados en la configuración (eran 15 MB por
       abrir la pantalla): están en el almacenamiento y se piden con CORS. Sin
@@ -373,6 +373,68 @@ export default async function correr(navegador) {
   }
   a.comprobar(E2.errores.length === 0,
     `Mis logros no lanza errores ${JSON.stringify(E2.errores.slice(0, 2))}`);
+
+  /* ============ los criterios de las insignias ============
+     item 33 · «mejorar los criterios de obtención, así podemos automatizar ese
+     proceso». Debajo de esa frase había dos cosas peores de lo que parecía: la
+     regla que otorga una insignia no se podía elegir desde ninguna pantalla —el
+     editor sólo guardaba el texto que lee la persona— y la función que las
+     aplica no la llamaba nadie, así que ninguna se otorgaba sola. */
+  const I = await nuevaPestana(navegador, { ancho: 1400, alto: 1000 });
+  await entrar(I, 'admin', 'admin/insignias.html');
+  await I.waitForSelector('#lista', { timeout: 30000 });
+  await I.waitForTimeout(2500);
+
+  const conRegla = await I.$$eval('#lista .card', (cs) =>
+    cs.filter((c) => /autom[aá]tica/i.test(c.textContent)).length);
+  const cuantas = await I.locator('#lista .card').count();
+  a.comprobar(cuantas > 0 && conRegla > 0,
+    `Cada insignia dice si se gana sola o sólo a mano (${conRegla} de ${cuantas} automáticas)`);
+
+  await I.click('#lista [data-e]');
+  await I.waitForSelector('#bRegla', { timeout: 10000 });
+  await I.waitForTimeout(1500);
+  const reglas = await I.locator('#bRegla option').count();
+  a.comprobar(reglas >= 6,
+    `La regla se elige desde la pantalla, no sólo desde la base (${reglas - 1} regla(s) + «sólo a mano»)`);
+
+  /* El número de la regla es de la escuela, no del código: «promedio 90» tiene
+     que poder ser 85 sin tocar un archivo. */
+  await I.selectOption('#bRegla', 'promedio_excelente');
+  await I.waitForTimeout(1800);
+  a.comprobar(!(await I.locator('#campoValor').isHidden())
+    && /promedio/i.test(await I.locator('#lblValor').textContent()),
+    'Y su número se ajusta aquí, con su nombre y su unidad');
+
+  /* Bajar un umbral puede otorgar la insignia a media institución de golpe.
+     Decir a cuántos alcanza antes de guardar cuesta una consulta. */
+  const alcance = (await I.locator('#alcance').textContent()).trim();
+  a.comprobar(/cumplen \d+ estudiante|no la cumple nadie/i.test(alcance),
+    `Antes de guardar dice a cuántos alcanzaría («${alcance.slice(0, 70)}»)`);
+
+  await I.selectOption('#bRegla', '');
+  await I.waitForTimeout(700);
+  a.comprobar(await I.locator('#campoValor').isHidden()
+    && /sólo se otorga a mano/i.test(await I.locator('#alcance').textContent()),
+    'Y «sólo a mano» se puede elegir, sin pedir números que no aplican');
+  await I.locator('.modal [data-x]').first().click();
+  await I.waitForTimeout(500);
+
+  /* Y que las reglas se apliquen de verdad, que era lo que no pasaba nunca. */
+  await I.click('#btnRepasar');
+  await I.waitForSelector('[data-si]', { timeout: 10000 });
+  await I.locator('.modal [data-si]').click();
+  /* El aviso se va solo a los pocos segundos: hay que leerlo cuando aparece,
+     no después de una espera fija. Con `waitForTimeout(6000)` la comprobación
+     fallaba por haber llegado tarde, no por estar mal la pantalla. */
+  await I.waitForSelector('.toast', { timeout: 20000 });
+  const repaso = await I.locator('.toast').first().textContent().catch(() => '');
+  a.comprobar(/Repasados \d+ estudiante|insignia\(s\) otorgada/i.test(repaso || ''),
+    `Repasar aplica las reglas a todos y dice qué pasó («${(repaso || '').replace(/\s+/g, ' ').trim().slice(0, 80)}»)`);
+
+  a.comprobar(I.errores.length === 0,
+    `La pantalla de insignias no lanza errores ${JSON.stringify(I.errores.slice(0, 2))}`);
+  await I.close();
 
   a.comprobar(P.errores.length === 0,
     `El generador no lanza errores ${JSON.stringify(P.errores.slice(0, 2))}`);

@@ -50,7 +50,7 @@ Esa es la mitad útil de este documento.
 | 30 | image21 | Aquí debería estar la previsualización | **Hecho.** Enseñaba un icono de imagen rota porque metía una dirección de «ver en YouTube» en un marco. Ahora monta el reproductor de la casa. |
 | 31 | image15 | Búsqueda y filtros; saber a quién se evalúa y cómo evalúa un profesor | **Hecho.** Por programa, cohorte y quién puso la nota. |
 | 32 | image11 | Previsualización más amigable | **Hecho.** Las evaluaciones se leen como las lee el estudiante, sin chivar la correcta. |
-| 33 | image24 | Mejorar los criterios de obtención de insignias | **Pendiente** (marcado como «no es prioridad»). |
+| 33 | image24 | Mejorar los criterios de obtención de insignias | **Hecho.** La regla que otorga una insignia ya se elige desde la pantalla —antes sólo se guardaba el texto que lee la persona, así que toda insignia creada aquí nacía sin forma de ganarse sola—, con su número y, si se quiere, acotada a un programa. Dos reglas nuevas: asistencia y evaluaciones aprobadas. Antes de guardar dice a cuántos alcanzaría. Y ahora **se aplican**: cada quien se evalúa al abrir sus logros, y el equipo puede repasar a todos de una vez. |
 | 34 | image7 | Cuadrar el proveedor de correo | **Es tuyo:** falta la clave de Resend. Ver `lo-que-falta.md` §1.1. |
 | 35 | image13 | El aviso de auditoría da error y no lleva a ningún lado | **Hecho.** La ruta se componía mal y daba una página de error. |
 | 36 | image5 | Barra de búsqueda y más filtros | **Hecho** (era la misma causa que la 2). |
@@ -70,7 +70,7 @@ Esa es la mitad útil de este documento.
 
 ## Lo que apareció por el camino
 
-Ninguna de estas cinco estaba en la lista. Salieron al arreglar lo que sí.
+Ninguna de estas seis estaba en la lista. Salieron al arreglar lo que sí.
 
 **Una nota interna que no era interna.** La política de la base dejaba a cada
 persona leer todos los mensajes de su ticket, incluidas las que el equipo marca
@@ -111,6 +111,14 @@ línea rota no llegaba a ejecutarse jamás. Una prueba verde sobre una función
 muerta. Ahora hay una de ida y vuelta sobre una lección de verdad, que asigna,
 relee y deja la lección como estaba.
 
+**Las reglas de las insignias no las llamaba nadie.** `cem_evaluar_insignias`
+estaba escrita, comprobada y sin usar: ni una pantalla, ni un disparador, ni la
+tarea programada la invocaban. Las cinco reglas que la escuela tenía definidas
+no se aplicaron jamás; toda insignia otorgada lo fue a mano. Y la insignia
+«Participación Destacada» llevaba escrito su criterio —«asistir a más del 90% de
+las sesiones»— sin ninguna regla detrás que lo mirara. Ahora se evalúa al abrir
+«Mis logros» y hay un «Repasar a todos» para el día que se cambia un criterio.
+
 **Y el documento de las notas apuntaba a 42 imágenes que no existen.** Las
 capturas nunca se subieron al repositorio —que es público, así que mejor
 así—, pero `mejorasparaelCEM.html` seguía enlazándolas y dejaba la revisión
@@ -142,6 +150,9 @@ Cada cosa de arriba que se podía romper otra vez tiene su comprobación:
 - **vídeo** — que poner un vídeo en una lección lo guarde **de verdad**: se
   asigna sobre una lección real, se relee y se deja como estaba. Y que la
   pantalla haya dejado de ser dos columnas.
+- **certificados** — que la regla de cada insignia se pueda elegir desde la
+  pantalla, que diga a cuántos alcanzaría antes de guardarla, y que «Repasar a
+  todos» las aplique de verdad y cuente qué pasó.
 - **acompañar** — las tres entradas nuevas del menú del estudiante, y que una
   nota interna no le llegue (preguntándoselo a la base, no al HTML).
 - **roles** — que el menú del coordinador no ofrezca lo que rebota, y que una

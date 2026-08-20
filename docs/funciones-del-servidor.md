@@ -82,6 +82,9 @@ como las demás funciones. Son el vocabulario de permisos de todo el sistema:
 | `cem_mis_invitaciones()` | Las que tiene sin contestar quien pregunta, ya sin las caducadas. |
 | `cem_responder_invitacion(invitación, aceptar)` | Aceptar crea la inscripción y emite el plan con el precio **de la invitación**, no con el que mande el navegador. Comprueba que la invitación sea de quien contesta: si no, contestar por otro sería inscribir a otro. |
 | `cem_invitaciones_listar()` / `cem_retirar_invitacion(id)` | Lo que el equipo mandó, y deshacerlo mientras nadie lo haya contestado. |
+| `cem_evaluar_insignias(persona)` | Aplica las reglas de las insignias activas a una persona. Cada quien puede evaluarse a sí misma; para evaluar a otra hace falta ser del equipo. Los números de cada regla —el promedio, el porcentaje de asistencia, cuántas entregas— salen de la propia insignia, no del código: cambiar «promedio 90» por «85» es una decisión de la escuela. |
+| `cem_evaluar_insignias_todos()` | Lo mismo para todo el mundo, y devuelve a cuántos alcanzó. Es lo que se pulsa el día que se cambia un criterio, para no esperar a que cada persona entre. Sólo equipo. |
+| `cem_insignia_alcance(regla, valor, curso)` | A cuántas personas alcanzaría una regla **antes** de guardarla. Bajar un umbral puede otorgar la insignia a media institución de golpe. |
 
 ### Primero se paga, después se entra
 
