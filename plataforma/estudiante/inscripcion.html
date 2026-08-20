@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-42">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-44">
 <style>
   .plan{border:2px solid var(--filete);border-radius:var(--r);padding:14px;cursor:pointer;flex:1;min-width:190px;}
   .plan.on{border-color:var(--primary);background:var(--primary-suave);}
@@ -52,7 +52,7 @@
           </div>
           <div class="row">
             <div class="field medio"><label>Teléfono</label><input id="dTel" placeholder="+58 412 1234567"></div>
-            <div class="field medio"><label>País</label><input id="dPais"></div>
+            <div class="field medio"><label for="dPais">País</label><select id="dPais"></select></div>
           </div>
         </div>
 
@@ -79,7 +79,8 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta, ocupado, avisar } from '../assets/app.js?v=2026-08-21-42';
+import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta, ocupado, avisar } from '../assets/app.js?v=2026-08-21-44';
+import { opcionesDePais } from '../assets/paises.js?v=2026-08-21-44';
 const me = await mount({ require:['estudiante','admin','superadmin','coordinador'], area:'estudiante', active:'catalogo.html' });
 const cursoId = qs('curso');
 let curso, cohortes=[], plan=1, descuento=0;
@@ -101,7 +102,7 @@ async function load(){
 
   $('#sub').textContent = `Estás a un paso de comenzar ${curso.nombre}.`;
   $('#dNombre').value=me.nombre||''; $('#dApellido').value=me.apellido||''; $('#dEmail').value=me.email||'';
-  $('#dDoc').value=me.documento||''; $('#dTel').value=me.telefono||''; $('#dPais').value=me.pais||'';
+  $('#dDoc').value=me.documento||''; $('#dTel').value=me.telefono||''; $('#dPais').innerHTML=opcionesDePais(me.pais||'');
   if (me.documento_tipo) $('#dDocTipo').value=me.documento_tipo;
 
   $('#cohorte').innerHTML = cohortes.length
@@ -178,7 +179,7 @@ $('#btnConfirmar').onclick = () => ocupado('#btnConfirmar', 'Registrando tu insc
     await sb.from('cem_profiles').update({
       nombre:$('#dNombre').value.trim(), apellido:$('#dApellido').value.trim(),
       documento_tipo:$('#dDocTipo').value, documento:$('#dDoc').value.trim(),
-      telefono:$('#dTel').value.trim(), pais:$('#dPais').value.trim(),
+      telefono:$('#dTel').value.trim(), pais:$('#dPais').value,
     }).eq('id',me.id);
 
     const enr = await run(sb.rpc('cem_self_enroll',{

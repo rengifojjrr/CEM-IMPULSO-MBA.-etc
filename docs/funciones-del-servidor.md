@@ -169,6 +169,7 @@ Hay dos familias y conviene no confundirlas:
 | `cem_revisar_politicas()` | Radiografía de las políticas de acceso de todas las tablas. Sólo admin, superadmin o auditor. Se ve en *Seguridad de mi cuenta*. |
 | `cem_rate_limit_consumir(...)` | El freno por intentos. Sólo el servidor: la usa el webhook del banco. |
 | `cem_rotar_clave_webhook(horas)` | Cambia la ApiKey del webhook dejando un período de gracia en el que valen la vieja y la nueva, para no cortarle el paso al banco en mitad del cambio. |
+| `cem_paises_de_la_portada()` | Los códigos de los países que enseña la portada. **La única de esta tabla que puede leer quien no tiene cuenta.** Se abre sólo esa clave y no `cem_settings` entera, que guarda además cosas que no son para enseñar. Se editan en *Configuración*. |
 
 ### El reparto a los socios
 

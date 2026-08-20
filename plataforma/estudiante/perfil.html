@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-42">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-44">
 <style>
   .sub-perfil{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
     margin-bottom:var(--e1);}
@@ -80,8 +80,8 @@
       <div class="row">
         <div class="field medio"><label>Teléfono</label>
           <input id="telefono" type="tel" placeholder="+58 412 1234567"></div>
-        <div class="field medio"><label>País</label>
-          <input id="pais"></div>
+        <div class="field medio"><label for="pais">País</label>
+          <select id="pais"></select></div>
         <div class="field medio"><label>Ciudad</label>
           <input id="ciudad"></div>
       </div>
@@ -164,7 +164,8 @@
 import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, confirmDialog, chipEstado, avisar, vacio, ocupado,
          campoArchivo, compartir, encogerImagen,
-         TIPOS_ARCHIVO } from '../assets/app.js?v=2026-08-21-42';
+         TIPOS_ARCHIVO } from '../assets/app.js?v=2026-08-21-44';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-21-44';
 
 const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
 const me = p;   // el portafolio y la foto son de quien entró
@@ -198,7 +199,7 @@ async function cargar(){
   cabecera = {
     nombre: perfil?.nombre || '', apellido: perfil?.apellido || '',
     avatar_url: perfil?.avatar_url || '', portada_url: perfil?.portada_url || '',
-    ocupacion: perfil?.ocupacion || '',
+    ocupacion: perfil?.ocupacion || '', pais: perfil?.pais || '',
     certs: vigentes || 0, insignias: medallas || 0, obras: cabecera.obras || 0,
   };
   pintarCabecera();
@@ -220,7 +221,7 @@ async function cargar(){
   $('#documento').value = originales.documento;
   $('#docTipo').value = originales.documento_tipo;
   $('#telefono').value = perfil?.telefono || '';
-  $('#pais').value = perfil?.pais || '';
+  $('#pais').innerHTML = opcionesDePais(perfil?.pais || '');
   $('#ciudad').value = perfil?.ciudad || '';
   $('#email').value = perfil?.email || '';
 
@@ -254,7 +255,7 @@ $('#fPerfil').onsubmit = async (e) => {
   const { data, error } = await sb.rpc('cem_actualizar_mi_perfil', { p_datos: {
     nombre: $('#nombre').value.trim(), apellido: $('#apellido').value.trim(),
     documento: $('#documento').value.trim(), documento_tipo: $('#docTipo').value,
-    telefono: $('#telefono').value.trim(), pais: $('#pais').value.trim(),
+    telefono: $('#telefono').value.trim(), pais: $('#pais').value,
     ciudad: $('#ciudad').value.trim(), motivo: $('#motivo').value.trim(),
   }});
   if (error) { msg.innerHTML = `<div class="chip err sep">${esc(mensajeError(error))}</div>`; return; }
@@ -513,10 +514,10 @@ function elegirImagen(ladoMax, alSubir){
    formulario: si alguien teclea un nombre y no lo guarda, la cabecera no puede
    decir que ése es su nombre. */
 let cabecera = { nombre:'', apellido:'', avatar_url:'', portada_url:'', ocupacion:'',
-                 certs:0, insignias:0, obras:0 };
+                 pais:'', certs:0, insignias:0, obras:0 };
 
 function pintarCabecera(){
-  const { avatar_url, portada_url, ocupacion, certs, insignias } = cabecera;
+  const { avatar_url, portada_url, ocupacion, pais, certs, insignias } = cabecera;
   const nombre = [cabecera.nombre, cabecera.apellido].filter(Boolean).join(' ') || 'Sin nombre';
 
   $('#portada').innerHTML = `
@@ -536,7 +537,12 @@ function pintarCabecera(){
     <span class="lapiz"><span class="material-symbols-outlined">photo_camera</span></span>`;
 
   $('#nombreGrande').textContent = nombre;
-  $('#titularPerfil').textContent = ocupacion || 'Estudiante de CEM';
+  /* Ocupación y país, separados por un punto, igual que en la página
+     pública. Si no hay ninguna de las dos cosas, «Estudiante de CEM», que es
+     verdad y evita un hueco debajo del nombre. */
+  $('#titularPerfil').textContent =
+    [ocupacion, pais ? paisConBandera(pais) : ''].filter(Boolean).join(' · ')
+    || 'Estudiante de CEM';
   $('#credencialesPerfil').hidden = !certs;
   $('#credencialesTxt').textContent = certs === 1
     ? '1 credencial verificada' : `${certs} credenciales verificadas`;

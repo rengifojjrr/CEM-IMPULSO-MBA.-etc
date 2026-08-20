@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-42">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-44">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -83,7 +83,16 @@
       <h2>Qué somos</h2>
       <p class="entrada">El Centro de Estudios de Marketing: formación estratégica en marketing,
         negocios, IA y tecnología para profesionales y emprendedores. Nacimos en Caracas y hoy
-        damos clase en nueve países.</p>
+        <span id="fraseAlcance">damos clase en varios países</span>.</p>
+
+      <!-- Dónde damos clase.
+           ─────────────────────────────────────────────────────────────────
+           La lista se edita en Configuración y la cuenta de la frase de
+           arriba sale de ella: si mañana se añade un país, el texto deja de
+           decir «nueve» solo. Una frase con un número escrito a mano encima
+           de una fila que enseña otra cantidad es peor que no poner nada. -->
+      <div class="paises-fila sep" id="paisesFila" hidden></div>
+
       <a class="btn outline" href="nosotros.html">
         Misión, visión y de dónde venimos <span class="material-symbols-outlined">arrow_forward</span></a>
     </div>
@@ -140,7 +149,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, qs } from './assets/app.js?v=2026-08-21-42';
+import { sb, mount, $, $$, esc, money, qs } from './assets/app.js?v=2026-08-21-44';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -260,6 +269,58 @@ $('#formLead').onsubmit = async (e) => {
   msg.innerHTML = `<div class="nota ok">Recibido. Te escribimos al ${
     correo ? 'correo' : 'teléfono'} que nos dejaste.</div>`;
 };
+
+/* ============ dónde damos clase ============
+   Los países los elige el CEM desde Configuración: es dónde ofrece, no de
+   dónde hay alumnos matriculados hoy. Se piden por una función que devuelve
+   sólo esa lista, porque la portada la abre gente sin cuenta y cem_settings
+   guarda además cosas que no son para enseñar.
+
+   Los contornos se piden aparte y sólo aquí: son noventa kilobytes de trazos
+   que ninguna otra pantalla necesita, y cargarlos con el resto retrasaría la
+   portada por un adorno. Si tardan o fallan, cada país se queda con su
+   bandera y su nombre, que es lo que de verdad hay que leer. */
+(async () => {
+  const { data: codigos, error } = await sb.rpc('cem_paises_de_la_portada');
+  if (error || !codigos?.length) return;
+
+  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-08-21-44');
+
+  /* La cuenta sale de la lista, no de un número escrito en el texto. */
+  const cuantos = codigos.length;
+  const enLetra = ['', 'un', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete',
+                   'ocho', 'nueve', 'diez', 'once', 'doce'][cuantos] || String(cuantos);
+  $('#fraseAlcance').textContent = cuantos === 1
+    ? `damos clase en ${enLetra} país`
+    : `damos clase en ${enLetra} países`;
+
+  const fila = $('#paisesFila');
+  fila.innerHTML = `
+    <div class="pais-intro">
+      <h3>Formación en línea, con el título que cada país reconoce.</h3>
+      <p>Estudias desde donde estés y te llevas un certificado con código
+         verificable por quien te lo pida.</p>
+    </div>` + codigos.map((c) => `
+    <div class="pais-tarjeta" data-pais="${esc(c)}">
+      <span class="bandera" aria-hidden="true">${esc(paisBandera(c))}</span>
+      <div class="hueco-mapa"></div>
+      <div class="nombre">${esc(paisNombre(c))}</div>
+    </div>`).join('');
+  fila.hidden = false;
+
+  try {
+    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-08-21-44');
+    for (const t of $$('.pais-tarjeta', fila)) {
+      const d = CONTORNOS[t.dataset.pais];
+      /* Los países muy pequeños no tienen contorno a esta resolución. Se
+         quedan con la bandera en vez de con un cuadro vacío. */
+      if (!d) { t.querySelector('.hueco-mapa').remove(); continue; }
+      t.querySelector('.hueco-mapa').outerHTML =
+        `<svg viewBox="0 0 100 100" role="img" aria-label="Mapa de ${esc(paisNombre(t.dataset.pais))}"
+           ><path d="${esc(d)}"/></svg>`;
+    }
+  } catch { $$('.hueco-mapa', fila).forEach((h) => h.remove()); }
+})();
 </script>
 </body>
 </html>

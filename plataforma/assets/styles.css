@@ -853,6 +853,59 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
   color:color-mix(in oklab, var(--tono) 62%, var(--tinta));
 }
 
+/* ── Dónde damos clase ─────────────────────────────────────────────────────
+   Una fila de países que se arrastra de lado, con la idea en la primera
+   tarjeta y cada país después: bandera, contorno y nombre.
+
+   Va de lado y no en rejilla a propósito. Una rejilla de nueve países ocupa
+   media portada y obliga a mirarlos todos; una fila que se desliza cabe en
+   una franja, se entiende de un vistazo y deja claro que hay más a la
+   derecha. En un teléfono es además el gesto natural. */
+.paises-fila{display:flex;gap:var(--aire);overflow-x:auto;padding-bottom:var(--e2);
+  /* Cada tarjeta se para en su sitio: arrastrar no deja medio país cortado. */
+  scroll-snap-type:x mandatory;scroll-padding-left:var(--e3);
+  /* La barra de desplazamiento sólo cuando se está usando, para que no le
+     cruce una línea gris por debajo a la franja. */
+  scrollbar-width:thin;}
+.paises-fila > *{scroll-snap-align:start;flex:none;}
+
+/* La primera tarjeta lleva el texto y va en color: es el enunciado, no un
+   país, y si fuera igual que las demás se leería como si el CEM estuviera en
+   un sitio llamado «Ensambla programas». */
+.pais-intro{width:min(300px,72vw);border-radius:var(--r-g);padding:var(--e3);
+  /* `primary` y no `secondary` porque de este color SÍ existe la pareja para
+     escribir encima. `--on-secondary` no está definido en ninguna paleta: al
+     usarlo, el texto se quedaba en la tinta heredada —casi negra— sobre un
+     morado fuerte, y no se leía. */
+  background:var(--primary);color:var(--on-primary);
+  display:flex;flex-direction:column;justify-content:center;gap:var(--e1);}
+/* Los títulos y los párrafos traen su propio color de más arriba; aquí manda
+   el de la tarjeta o vuelve la tinta oscura sobre el color. */
+.pais-intro h3,.pais-intro p{margin:0;color:inherit;}
+.pais-intro h3{font-size:var(--t-lg);line-height:1.2;}
+.pais-intro p{font-size:var(--t-sm);opacity:.92;line-height:1.6;}
+
+.pais-tarjeta{width:200px;border-radius:var(--r-g);padding:var(--e2);
+  background:var(--papel);border:1px solid var(--filete);
+  display:flex;flex-direction:column;align-items:center;gap:var(--e1);}
+.pais-tarjeta .bandera{align-self:flex-start;font-size:26px;line-height:1;
+  /* La bandera es un emoji, y en un sistema sin emojis de color salen las dos
+     letras del país: se sigue entendiendo, así que se le da sitio fijo para
+     que la tarjeta no cambie de alto según lo que sepa dibujar cada uno. */
+  min-height:30px;}
+.pais-tarjeta svg{width:100%;height:150px;display:block;}
+/* El contorno es un trazo, no una mancha: relleno no, y la línea lo bastante
+   fina para que un país pequeño no se convierta en un borrón. */
+.pais-tarjeta svg path{fill:none;stroke:var(--primary);stroke-width:.7;
+  stroke-linejoin:round;vector-effect:non-scaling-stroke;}
+.pais-tarjeta .nombre{font-weight:var(--peso-fuerte);font-size:var(--t-sm);
+  text-align:center;margin-top:auto;}
+
+@media (max-width:640px){
+  .pais-tarjeta{width:170px;}
+  .pais-tarjeta svg{height:120px;}
+}
+
 /* Un chip que va del color de su serie. Los ocho de «qué te llevas» del board
    salen cada uno de un color, como las etiquetas de sus redes sociales. */
 .chip-marca{display:inline-flex;align-items:center;gap:var(--e0);

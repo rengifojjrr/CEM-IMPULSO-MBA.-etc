@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-42">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-44">
 <style>
 </style>
 </head>
@@ -26,7 +26,7 @@
       <div class="field"><label>Nombre de la institución</label><input id="insNombre"></div>
       <div class="row">
         <div class="field corto"><label>Siglas</label><input id="insSiglas"></div>
-        <div class="field medio"><label>País</label><input id="insPais"></div>
+        <div class="field medio"><label for="insPais">País</label><select id="insPais"></select></div>
         <div class="field corto"><label>Moneda base</label>
           <select id="insMoneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
       </div>
@@ -49,6 +49,27 @@
         <div class="field medio"><label>Inicio</label><input type="date" id="perIni"></div>
         <div class="field medio"><label>Fin</label><input type="date" id="perFin"></div>
       </div>
+    </div>
+
+    <!-- Los países de la portada.
+         ───────────────────────────────────────────────────────────────────
+         Es una afirmación sobre el negocio, no un dato: son los países donde
+         el CEM ofrece, y por eso se eligen a mano y no se cuentan desde los
+         estudiantes matriculados. La portada dice «damos clase en N países»
+         con la cuenta de esta lista, así que quitar uno cambia también la
+         frase. -->
+    <div class="card">
+      <h2 class="sec">Países de la portada</h2>
+      <p class="tiny muted sin-margen">La portada los enseña con su bandera y su mapa, y dice
+        en cuántos países damos clase contando esta lista. Sale publicado: pon dónde ofreces
+        de verdad.</p>
+      <div class="row sep" style="align-items:flex-end">
+        <div class="field crece"><label for="ppNuevo">Añadir un país</label>
+          <select id="ppNuevo"></select></div>
+        <button type="button" class="btn outline" id="ppAnadir">
+          <span class="material-symbols-outlined">add</span> Añadir</button>
+      </div>
+      <div class="row sep-poco" id="ppLista"></div>
     </div>
 
     <div class="card">
@@ -120,9 +141,10 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, ok, run, audit, confirmDialog,
-         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-42';
-import { panelApariencia } from '../assets/apariencia.js?v=2026-08-21-42';
+import { sb, mount, $, $$, esc, ok, fail, run, audit, confirmDialog,
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-44';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-21-44';
+import { panelApariencia } from '../assets/apariencia.js?v=2026-08-21-44';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
 
 /* El panel de apariencia vive en assets/apariencia.js: el mismo que abre
@@ -182,9 +204,13 @@ async function load(){
   const get = k => all.find(x=>x.clave===k)?.valor || {};
   const ins = get('institucion'), es = get('escala_notas'), per = get('periodo_activo');
   $('#insNombre').value = ins.nombre||''; $('#insSiglas').value = ins.siglas||'';
-  $('#insPais').value = ins.pais||''; $('#insMoneda').value = ins.moneda_base||'USD';
+  $('#insPais').innerHTML = opcionesDePais(ins.pais||'', 'Sin indicar'); $('#insMoneda').value = ins.moneda_base||'USD';
   $('#esMin').value = es.minima??0; $('#esMax').value = es.maxima??100; $('#esApr').value = es.aprobatoria??70;
   $('#perNombre').value = per.nombre||''; $('#perIni').value = per.inicio||''; $('#perFin').value = per.fin||'';
+
+  paisesPortada = Array.isArray(get('portada_paises').codigos) ? [...get('portada_paises').codigos] : [];
+  $('#ppNuevo').innerHTML = opcionesDePais('', 'Elige un país…');
+  pintarPaisesPortada();
   $('#tbAll').innerHTML = all.map(s=>`<tr><td><b>${esc(s.clave)}</b></td>
     <td class="wrap"><code class="tiny">${esc(JSON.stringify(s.valor))}</code></td>
     <td class="wrap muted">${esc(s.descripcion||'')}</td></tr>`).join('');
@@ -193,15 +219,48 @@ async function load(){
 $('#btnSave').onclick = async () => {
   const rows = [
     { clave:'institucion', valor:{ nombre:$('#insNombre').value.trim(), siglas:$('#insSiglas').value.trim(),
-        pais:$('#insPais').value.trim(), moneda_base:$('#insMoneda').value }, descripcion:'Datos de la institucion' },
+        pais:$('#insPais').value, moneda_base:$('#insMoneda').value }, descripcion:'Datos de la institucion' },
     { clave:'escala_notas', valor:{ minima:Number($('#esMin').value), maxima:Number($('#esMax').value),
         aprobatoria:Number($('#esApr').value) }, descripcion:'Escala de calificacion' },
     { clave:'periodo_activo', valor:{ nombre:$('#perNombre').value.trim(), inicio:$('#perIni').value||null,
         fin:$('#perFin').value||null }, descripcion:'Periodo academico vigente' },
+    { clave:'portada_paises', valor:{ codigos:paisesPortada },
+      descripcion:'Paises que se enseñan en la franja de la portada' },
   ].map(r=>({ ...r, actualizado_en:new Date().toISOString() }));
   await run(sb.from('cem_settings').upsert(rows, { onConflict:'clave' }), 'No se pudo guardar');
   await audit('configuracion_actualizada','cem_settings',null,'alto',{claves:rows.map(r=>r.clave)});
   ok('Configuración guardada'); load();
+};
+
+/* ============ los países de la portada ============
+   Una lista de códigos y ya: el nombre, la bandera y el mapa salen de ellos.
+   Se guarda con el botón de siempre y no al tocar cada chip, para que quitar
+   un país por error se pueda deshacer sin guardar, como en cualquier otro
+   formulario de esta pantalla. */
+let paisesPortada = [];
+
+function pintarPaisesPortada(){
+  $('#ppLista').innerHTML = paisesPortada.length
+    ? paisesPortada.map((c, i) => `<span class="chip neutral"
+        style="display:inline-flex;align-items:center;gap:6px">${esc(paisConBandera(c))}
+        <button type="button" data-quitar="${i}" title="Quitar"
+          aria-label="Quitar ${esc(paisConBandera(c))}"
+          style="background:none;border:0;padding:0;cursor:pointer;color:var(--on-surface-variant);display:flex">
+          <span class="material-symbols-outlined" style="font-size:15px">close</span></button></span>`).join('')
+    : '<span class="tiny muted">Sin países: la portada no enseñará la franja.</span>';
+  $$('[data-quitar]', $('#ppLista')).forEach(b => b.onclick = () => {
+    paisesPortada.splice(Number(b.dataset.quitar), 1);
+    pintarPaisesPortada();
+  });
+}
+
+$('#ppAnadir').onclick = () => {
+  const c = $('#ppNuevo').value;
+  if (!c) return;
+  if (paisesPortada.includes(c)) { fail('Ese país ya está en la lista.'); return; }
+  paisesPortada.push(c);
+  $('#ppNuevo').value = '';
+  pintarPaisesPortada();
 };
 </script>
 </body>

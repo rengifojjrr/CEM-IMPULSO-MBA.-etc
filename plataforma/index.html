@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-42">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-44">
 </head>
 <body>
 <div class="auth-wrap">
@@ -86,7 +86,7 @@
             <input type="tel" id="rTel" name="telefono" autocomplete="tel"
               placeholder="+58 412 1234567"></div>
           <div class="field medio"><label for="rPais">País</label>
-            <input type="text" id="rPais" name="pais" autocomplete="country-name"></div>
+            <select id="rPais" name="pais" autocomplete="country"></select></div>
         </div>
         <div class="row">
           <div class="field medio"><label for="rCiudad">Ciudad</label>
@@ -178,10 +178,16 @@
 
 <script type="module">
 import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave } from './assets/app.js?v=2026-08-21-42';
+         medidorDeClave } from './assets/app.js?v=2026-08-21-44';
+import { opcionesDePais } from './assets/paises.js?v=2026-08-21-44';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');
+
+/* El país es una lista y no una casilla de texto: escrito a mano llegaban
+   «usa», «EEUU» y «Estados Unidos» como si fueran tres sitios, y así no hay
+   forma de saber de dónde son los estudiantes. */
+$('#rPais').innerHTML = opcionesDePais('');
 
 /* La dirección de esta misma carpeta, sin el archivo ni la consulta. Es la base
    de los enlaces que van al correo, y tiene que salir de aquí y no estar escrita
@@ -353,7 +359,7 @@ $('#formReg').onsubmit = async (e) => {
         cem_signup: 'true',
         nombre: $('#rNombre').value.trim(), apellido: $('#rApellido').value.trim(),
         documento_tipo: $('#rDocTipo').value, documento: $('#rDoc').value.trim(),
-        telefono: $('#rTel').value.trim(), pais: $('#rPais').value.trim(),
+        telefono: $('#rTel').value.trim(), pais: $('#rPais').value,
         ciudad: $('#rCiudad').value.trim(), fecha_nacimiento: $('#rNac').value,
         ocupacion: $('#rOcupacion').value.trim(), como_nos_conocio: $('#rComo').value,
       },

@@ -43,7 +43,9 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
    sigue usando el graficos.js de antes — dos versiones conviviendo, que es
    justo lo que esta herramienta existe para impedir. Y `--revisar` tampoco lo
    ve, porque mira con esta misma lista. */
-const MODULOS = 'app|temas|aula|preguntas|apariencia|graficos|reproductor';
+/* El más largo primero: con `paises` delante, «paises-contornos.js» empezaría
+   a casar por `paises` y el resto del nombre dejaría de encajar. */
+const MODULOS = 'app|temas|aula|preguntas|apariencia|graficos|reproductor|paises-contornos|paises';
 const COMPARTIDOS = new RegExp(
   `(?<=["'(])(` +
     // desde una pantalla: ../assets/app.js, ./assets/styles.css
