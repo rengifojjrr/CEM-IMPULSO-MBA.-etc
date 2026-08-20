@@ -101,6 +101,41 @@ La moraleja para el futuro: **revisar las tablas no alcanza**. Una función
 `security definer` se salta las políticas por diseño — para eso existe — así que
 la comprobación de quién llama tiene que estar escrita dentro de ella.
 
+## El segundo caso: una nota interna que no era interna
+
+Al construir el centro de ayuda del estudiante apareció otro, del mismo tipo
+pero al revés: la política estaba escrita, y estaba escrita de más.
+
+`cem_tkm_read` dejaba a cada persona leer **todos** los mensajes de su propio
+ticket. Suena correcto hasta que se mira lo que escribe el equipo: la pantalla
+de soporte tiene una casilla de «nota interna», y las notas internas se escriben
+dando por hecho que el otro lado no las ve — «este ya reclamó tres veces»,
+«revisar si el comprobante es suyo».
+
+No se había filtrado nada porque hasta ahora **ninguna pantalla del estudiante
+leía los mensajes**. Es decir: lo único que separaba esas notas del alumno era
+que todavía no le habíamos dado dónde mirarlas. En cuanto se le dio un sitio
+para seguir su consulta, se las habría llevado con ella.
+
+Se arregló en la política, no en la pantalla:
+
+```sql
+create policy cem_tkm_read on cem_ticket_messages
+for select using (
+  cem_can_read_all()
+  or (coalesce(interno, false) = false and <es su ticket>)
+);
+```
+
+Filtrarlo en el navegador no habría servido de nada: cualquiera con sesión puede
+pedirle los mensajes a la API sin pasar por la pantalla. Y hay una comprobación
+automática que lo vigila, en `pruebas/casos/acompanar.mjs`, que pregunta a la
+base —no al HTML— cuántas notas internas ve un estudiante. Tiene que ser cero.
+
+La moraleja, esta vez: **una política se juzga por lo que permitiría, no por lo
+que hoy se pide**. Que ninguna pantalla lea algo no es una defensa; es una
+casualidad que dura hasta la siguiente pantalla.
+
 ## Los roles
 
 | Rol | Qué puede |

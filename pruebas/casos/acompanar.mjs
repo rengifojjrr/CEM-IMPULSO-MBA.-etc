@@ -225,8 +225,101 @@ export default async function correr(navegador) {
       `La solicitud de prueba queda cerrada (${cerrada.error || cerrada.estado})`);
   }
 
+  /* ============ tres puertas que faltaban en el menú ============
+     Las evaluaciones vivían dentro del panel; el calendario no existía —había
+     que abrir cada curso para juntar las clases de cabeza—; y para preguntar
+     algo no había ningún sitio dentro de la plataforma. */
+  const N = await nuevaPestana(navegador, { ancho: 1340, alto: 1000 });
+  await entrar(N, 'estudiante');
+  // El armazón lo monta un módulo asíncrono: `entrar` vuelve con la página
+  // cargada, no con el menú puesto. Sin esperarlo se lee una lista vacía y la
+  // comprobación se pone roja por el arnés, no por la aplicación.
+  await N.waitForSelector('.sidebar a.nav-item', { timeout: 30000 });
+  const menu = await N.evaluate(() => [...document.querySelectorAll('.sidebar a.nav-item')]
+    .map((x) => x.getAttribute('href')));
+  ['evaluaciones.html', 'calendario.html', 'ayuda.html'].forEach((h) => {
+    a.comprobar(menu.includes(h), `El menú del estudiante lleva a ${h}`);
+  });
+
+  // Mis evaluaciones: todas, y lo urgente primero.
+  await N.goto(`${BASE}/plataforma/estudiante/evaluaciones.html`, { waitUntil: 'domcontentloaded' });
+  await N.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
+  await N.waitForTimeout(2500);
+  const evs = await N.evaluate(() => {
+    const filas = [...document.querySelectorAll('#lista .list-item')];
+    const estado = (t) => /a medias/.test(t) ? 0 : /sin empezar/.test(t) ? 1
+      : /en revisión/.test(t) ? 2 : 3;
+    const orden = filas.map((f) => estado(f.textContent));
+    return {
+      n: filas.length,
+      ordenadas: orden.every((v, i) => i === 0 || orden[i - 1] <= v),
+      // Cada una dice de qué programa es: la lista junta varios.
+      conPrograma: filas.filter((f) => f.querySelectorAll('.s').length >= 2).length,
+    };
+  });
+  a.comprobar(evs.n > 0, `Sus evaluaciones salen todas juntas (${evs.n})`);
+  a.comprobar(evs.ordenadas,
+    'Y en el orden en que hay que ocuparse de ellas: lo empezado, lo pendiente, lo entregado, lo calificado');
+  a.comprobar(evs.conPrograma === evs.n, 'Cada una dice a qué programa pertenece');
+
+  // El calendario: el mes, el día y la clase entera.
+  await N.goto(`${BASE}/plataforma/estudiante/calendario.html`, { waitUntil: 'domcontentloaded' });
+  await N.waitForSelector('#cal .day', { timeout: 30000 });
+  await N.waitForTimeout(2000);
+  const clases = await N.locator('#cal [data-clase]').count();
+  a.comprobar(await N.locator('#cal .day[data-dia]').count() >= 28,
+    'El calendario pinta el mes entero');
+  if (clases) {
+    await N.locator('#cal [data-clase]').first().click();
+    await N.waitForSelector('.modal', { timeout: 10000 });
+    await N.waitForTimeout(800);
+    const ficha = await N.evaluate(() => {
+      const t = document.querySelector('.modal').textContent.replace(/\s+/g, ' ');
+      return {
+        cuando: /Cuándo/.test(t), programa: /Programa/.test(t),
+        // A una presencial se va y a una en línea se entra: tiene que decir
+        // una de las dos cosas, o la clase no sirve para presentarse.
+        donde: /Dónde|Para entrar|Grabación/.test(t),
+      };
+    });
+    a.comprobar(ficha.cuando && ficha.programa && ficha.donde,
+      `Abrir una clase dice cuándo es, de qué programa y dónde o cómo entrar (${JSON.stringify(ficha)})`);
+    await N.evaluate(() => document.querySelectorAll('.modal-bg').forEach((x) => x.remove()));
+  } else {
+    a.comprobar(true, 'Esta cuenta no tiene clases programadas que abrir');
+  }
+
+  // La ayuda: preguntas frecuentes que se buscan, y un sitio donde escribir.
+  await N.goto(`${BASE}/plataforma/estudiante/ayuda.html`, { waitUntil: 'domcontentloaded' });
+  await N.waitForSelector('#faqs .faq', { timeout: 30000 });
+  await N.waitForTimeout(800);
+  const todas = await N.locator('#faqs .faq').count();
+  await N.fill('#q', 'certificado');
+  await N.waitForTimeout(400);
+  const filtradas = await N.locator('#faqs .faq').count();
+  a.comprobar(todas > 4 && filtradas > 0 && filtradas < todas,
+    `Las preguntas frecuentes se buscan (${filtradas} de ${todas} hablan de certificados)`);
+  a.comprobar(await N.locator('#fNuevo #tDesc').count() === 1,
+    'Y si eso no resuelve su caso, puede escribirnos sin salir de la plataforma');
+
+  /* Lo que el equipo se escribe entre sí NO llega al estudiante. La política de
+     la base dejaba leer todos los mensajes del ticket propio, incluidas las
+     notas marcadas «interno», y el equipo las escribe dando por hecho lo
+     contrario. Se comprueba contra la base, no contra la pantalla: esconderlo
+     en el navegador no serviría de nada. */
+  const notas = await conLaBase(N, async (sb) => {
+    const { data } = await sb.from('cem_ticket_messages').select('interno').limit(200);
+    return { total: (data || []).length, internas: (data || []).filter((x) => x.interno).length };
+  });
+  a.comprobar(notas.internas === 0,
+    `Una nota interna del equipo no la lee quien abrió la consulta (${notas.internas} de ${notas.total} visibles)`);
+
+  a.comprobar(N.errores.length === 0,
+    `Las pantallas nuevas del estudiante no lanzan errores ${JSON.stringify(N.errores.slice(0, 2))}`);
+
   a.comprobar(A.errores.length === 0, `Sin errores en administración ${JSON.stringify(A.errores.slice(0, 2))}`);
   await A.close();
   await E.close();
+  await N.close();
   return a;
 }

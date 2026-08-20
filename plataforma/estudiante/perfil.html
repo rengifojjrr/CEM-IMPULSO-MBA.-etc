@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-10">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
 <style>
   .sub-perfil{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
     margin-bottom:var(--e1);}
@@ -96,6 +96,32 @@
     </div>
   </div>
 
+  <!-- La foto y el trabajo.
+       ─────────────────────────────────────────────────────────────────────
+       Un perfil público con certificados pero sin cara y sin obra sirve para
+       el currículum y para poco más. Quien estudia aquí suele tener algo que
+       vender —fotografía, diseño, asesoría—, y el perfil es la página que ya
+       reparte. Así que además de lo que estudió, lo que hace. -->
+  <div class="card">
+    <h2 class="sec">Mi foto</h2>
+    <p class="tiny muted sin-margen">Sale en tu perfil público y junto a tus mensajes.
+      Se guarda reducida, así que una foto del teléfono va bien.</p>
+    <div class="row sep" style="gap:16px;align-items:center">
+      <div id="miFoto" class="retrato-perfil"></div>
+      <div class="crece" id="campoFoto"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Mi trabajo</h2>
+      <button class="btn outline sm" id="btnNuevaObra">
+        <span class="material-symbols-outlined">add</span> Añadir</button></div>
+    <p class="tiny muted sin-margen">Productos, servicios o cosas que hayas hecho. Se ven en tu
+      perfil público, con la foto y el enlace que pongas — así quien lo abra puede escribirte.
+      <b>Sólo se publica si tu perfil está publicado.</b></p>
+    <div id="portafolio" class="sep"></div>
+  </div>
+
   <div class="card">
     <h2 class="sec">Mis inscripciones</h2>
     <p class="tiny muted" style="margin-top:-6px">
@@ -103,19 +129,30 @@
     <div id="inscripciones"></div>
   </div>
 
-  <div class="card" id="cardSolInsc" hidden>
-    <h2 class="sec">Solicitudes sobre mis inscripciones</h2>
-    <div class="table-wrap"><table>
+  <!-- Plegado por omisión. Es un historial: crece con cada pausa que se pide y
+       cada plan que se cambia, y acaba siendo la mitad de la pantalla debajo de
+       los datos que uno viene a mirar. Se abre quien lo necesite, y el resumen
+       de la línea dice si hay algo esperando respuesta —que es la única razón
+       para abrirlo con prisa—. -->
+  <details class="card" id="cardSolInsc" hidden>
+    <summary class="sec" style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+      <span class="material-symbols-outlined">expand_more</span>
+      Solicitudes sobre mis inscripciones
+      <span class="chip neutral" id="contSolInsc"></span>
+    </summary>
+    <div class="table-wrap sep-poco"><table>
       <thead><tr><th>Pedido</th><th>Tipo</th><th>Motivo</th><th>Estado</th><th>Respuesta</th></tr></thead>
       <tbody id="tbSolInsc"></tbody></table></div>
-  </div>
+  </details>
 </div>
 
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, emptyRow, modal, ok, fail, run,
-         mensajeError, confirmDialog, chipEstado, avisar, vacio, ocupado } from '../assets/app.js?v=2026-08-21-10';
+         mensajeError, confirmDialog, chipEstado, avisar, vacio, ocupado,
+         campoArchivo } from '../assets/app.js?v=2026-08-21-12';
 
 const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
+const me = p;   // el portafolio y la foto son de quien entró
 let tieneCertificados = false;
 let originales = {};
 
@@ -159,6 +196,8 @@ async function cargar(){
   pintarSolicitudesPerfil(solP || []);
   pintarInscripciones(ens || []);
   pintarSolicitudesInscripcion(solI || []);
+  montarFoto(perfil?.avatar_url || '');
+  cargarPortafolio();
   vigilarCamposSensibles();
 }
 
@@ -280,6 +319,7 @@ let perfilPub = { publico:false, slug:null, muestra:{ programas:true, insignias:
 const OPCIONES_PERFIL = [
   ['programas', 'Los programas que cursé'],
   ['insignias', 'Mis insignias'],
+  ['trabajo',   'Mi trabajo'],
   ['notas',     'Mis notas'],
 ];
 
@@ -336,9 +376,137 @@ function pintarPerfilPublico(){
   });
 }
 
+/* ============ la foto y el trabajo ============
+   Las dos suben al mismo sitio: `perfiles/<mi uid>/…` dentro del almacén
+   compartido. Esa carpeta es la única donde un estudiante puede escribir —lo
+   dice la política del almacén, no esta pantalla—, así que nadie puede tocar
+   la de otro ni aunque se salte la interfaz. */
+async function subirMia(file){
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const ruta = `perfiles/${me.id}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('cem-assets')
+    .upload(ruta, file, { contentType: file.type || 'image/*' });
+  if (error) throw new Error(error.message || 'No se pudo subir la imagen.');
+  return sb.storage.from('cem-assets').getPublicUrl(ruta).data.publicUrl;
+}
+
+function pintarFoto(url){
+  $('#miFoto').innerHTML = url
+    ? `<img src="${esc(url)}" alt="Tu foto de perfil">`
+    : `<span class="material-symbols-outlined">person</span>`;
+}
+
+function montarFoto(urlActual){
+  pintarFoto(urlActual);
+  /* Aquí la foto es el formulario entero: no hay más campos ni un botón de
+     guardar al que acompañar, así que se guarda en cuanto está subida. */
+  const campo = campoArchivo({
+    id: 'foto', tipo: 'imagen', valor: urlActual || '',
+    subir: subirMia, etiquetaSubir: 'Elegir una foto', permitirEnlace: false,
+    alCambiar: async (url) => {
+      const { error } = await sb.from('cem_profiles').update({ avatar_url: url || null }).eq('id', me.id);
+      if (error) { fail(mensajeError(error)); return; }
+      pintarFoto(url);
+      ok(url ? 'Foto guardada.' : 'Foto quitada.');
+    },
+  });
+  $('#campoFoto').innerHTML = campo.html;
+  campo.conectar($('#campoFoto'));
+}
+
+let obras = [];
+async function cargarPortafolio(){
+  const { data, error } = await sb.from('cem_portafolio')
+    .select('*').eq('profile_id', me.id).order('orden').order('created_at');
+  if (error) { $('#portafolio').innerHTML = `<p class="tiny muted">${esc(mensajeError(error))}</p>`; return; }
+  obras = data || [];
+  pintarPortafolio();
+}
+
+function pintarPortafolio(){
+  if (!obras.length){
+    $('#portafolio').innerHTML = `<p class="tiny muted">Todavía no has añadido nada.
+      Empieza por lo que mejor te represente: una foto, un título corto y, si tienes, el enlace
+      donde se ve o se compra.</p>`;
+    return;
+  }
+  $('#portafolio').innerHTML = `<div class="rejilla-material">${obras.map(o => `
+    <div class="card sin-margen">
+      ${o.imagen_url
+        ? `<div class="previa" style="height:130px"><img src="${esc(o.imagen_url)}" alt="${esc(o.titulo)}" loading="lazy"></div>`
+        : `<div class="previa sin-previa" style="height:130px"><span class="material-symbols-outlined">work</span></div>`}
+      <div class="negrita" style="font-size:13.5px">${esc(o.titulo)}</div>
+      ${o.descripcion ? `<div class="tiny muted">${esc(o.descripcion)}</div>` : ''}
+      ${o.enlace ? `<div class="tiny muted recorta">${esc(o.enlace)}</div>` : ''}
+      <div class="row sep-poco">
+        <button class="btn ghost sm" data-obra="${esc(o.id)}" title="Editar">
+          <span class="material-symbols-outlined">edit</span></button>
+        <button class="btn ghost sm" data-borrar="${esc(o.id)}" style="color:var(--error)" title="Quitar">
+          <span class="material-symbols-outlined">delete</span></button>
+      </div>
+    </div>`).join('')}</div>`;
+
+  $$('[data-obra]').forEach(b => b.onclick = () => formObra(obras.find(o => o.id === b.dataset.obra)));
+  $$('[data-borrar]').forEach(b => b.onclick = async () => {
+    const o = obras.find(x => x.id === b.dataset.borrar);
+    if (!await confirmDialog(`¿Quitar «${o?.titulo || ''}» de tu perfil?`)) return;
+    const { error } = await sb.from('cem_portafolio').delete().eq('id', b.dataset.borrar);
+    if (error) { fail(mensajeError(error)); return; }
+    ok('Quitado.'); cargarPortafolio();
+  });
+}
+
+function formObra(o){
+  const nueva = !o;
+  const m = modal({ title: nueva ? 'Añadir a mi trabajo' : 'Editar', body: `
+    <div class="field"><label for="oTitulo">Qué es *</label>
+      <input id="oTitulo" required maxlength="90" value="${esc(o?.titulo || '')}"
+        placeholder="Sesión de fotos para marcas"></div>
+    <div class="field"><label for="oDesc">Cuéntalo en una línea o dos</label>
+      <textarea id="oDesc" rows="2" maxlength="280"
+        placeholder="Qué haces, para quién y qué incluye.">${esc(o?.descripcion || '')}</textarea></div>
+    <div class="field"><label for="oEnlace">Enlace (opcional)</label>
+      <input id="oEnlace" type="url" value="${esc(o?.enlace || '')}"
+        placeholder="https://…"></div>
+    <div class="field"><label>Foto</label><div id="oFoto"></div></div>
+    <div id="oMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" data-s>${nueva ? 'Añadir' : 'Guardar'}</button>` });
+
+  const campo = campoArchivo({ id: 'oImg', tipo: 'imagen', valor: o?.imagen_url || '',
+    subir: subirMia, etiquetaSubir: 'Elegir una foto', permitirEnlace: true });
+  $('#oFoto', m).innerHTML = campo.html;
+  campo.conectar($('#oFoto', m));
+
+  $('[data-s]', m).onclick = async () => {
+    const titulo = $('#oTitulo', m).value.trim();
+    if (titulo.length < 3){ avisar($('#oMsg', m), 'Ponle un título, aunque sea corto.', 'err'); return; }
+    const fila = { titulo, descripcion: $('#oDesc', m).value.trim() || null,
+      enlace: $('#oEnlace', m).value.trim() || null, imagen_url: campo.valor() || null };
+    const { error } = nueva
+      ? await sb.from('cem_portafolio').insert({ ...fila, profile_id: me.id, orden: obras.length })
+      : await sb.from('cem_portafolio').update(fila).eq('id', o.id);
+    if (error){ avisar($('#oMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok(nueva ? 'Añadido a tu perfil.' : 'Guardado.'); cargarPortafolio();
+  };
+}
+$('#btnNuevaObra').onclick = () => formObra(null);
+
 function pintarSolicitudesInscripcion(lista){
   $('#cardSolInsc').hidden = lista.length === 0;
   if (!lista.length) return;
+
+  /* Lo que espera respuesta se dice en la línea plegada y la abre sola: es la
+     única de las cinco filas que le importa a alguien hoy. Lo resuelto puede
+     quedarse guardado. */
+  const enEspera = lista.filter(s => s.estado === 'pendiente').length;
+  const señal = $('#contSolInsc');
+  señal.textContent = enEspera
+    ? `${enEspera} esperando respuesta`
+    : `${lista.length} en total`;
+  señal.className = enEspera ? 'chip warn' : 'chip neutral';
+  if (enEspera) $('#cardSolInsc').open = true;
+
   $('#tbSolInsc').innerHTML = lista.map(s => `<tr>
     <td class="muted">${fdate(s.created_at)}</td>
     <td>${esc(s.tipo)}</td>

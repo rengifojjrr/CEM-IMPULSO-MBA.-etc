@@ -178,6 +178,21 @@ navegador al subir (con `pdf.js`, que es la única dependencia nueva) y un repas
 de los PDF que ya están subidos. De las hojas de cálculo no hay forma sin un
 servidor que las convierta, y ahí el icono es la respuesta correcta.
 
+### 2.7 · Subrayar dentro de un documento
+
+Una lección que no es vídeo ya no se pinta dentro del marco negro del
+reproductor: se abre como documento, a una altura de lectura, con «abrir aparte»
+y «descargar», y con un recordatorio de que los apuntes van en la pestaña **Mis
+notas**.
+
+Lo que **no** está es subrayar dentro del PDF. Para eso hay que dejar de
+incrustar el archivo y pasar a dibujarlo con `pdf.js`: sólo así se puede saber
+sobre qué palabra cayó el ratón, guardar la marca (página, coordenadas, color) y
+volver a pintarla al abrirlo. Es una pieza aparte —visor propio, tabla de
+marcas, y decidir si se comparten o son privadas—, no un ajuste.
+
+Mientras tanto los apuntes por lección sí funcionan, y son privados.
+
 ---
 
 ## 3 · Deuda que conviene mirar, aunque hoy no duela

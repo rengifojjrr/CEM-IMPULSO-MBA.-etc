@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-10">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
 <style>
   .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:var(--aire);}
   .aula > *{min-width:0;}
@@ -29,7 +29,32 @@
   .player iframe{width:100%!important;height:100%!important;border:0;}
   .yt-host{width:100%;height:100%;}
 
-  @media print{ .player{display:none!important;} }
+  /* Un documento se lee: alto, no proporción de cine, y sobre papel claro.
+     La altura sale de la ventana para que quepa una página entera sin tener
+     que desplazar la página de fuera y la de dentro a la vez. */
+  .documento{border:1px solid var(--filete);border-radius:var(--r);overflow:hidden;
+    background:var(--papel);display:flex;flex-direction:column;}
+  .documento-barra{display:flex;align-items:center;gap:var(--e1);padding:var(--e1) var(--e2);
+    border-bottom:1px solid var(--filete);background:var(--hueco);}
+  .documento-barra > .material-symbols-outlined{color:var(--primary);}
+  .documento-hoja{width:100%;height:min(72vh,760px);border:0;background:#fff;display:block;}
+  .documento-vacio{display:flex;gap:var(--e2);align-items:center;padding:var(--e4) var(--e3);}
+  .documento-vacio .material-symbols-outlined{font-size:40px;color:var(--primary);opacity:.7;}
+  .documento-pie{display:flex;align-items:center;gap:var(--e1);padding:var(--e1) var(--e2);
+    border-top:1px solid var(--filete);}
+  .documento-pie .material-symbols-outlined{font-size:17px;}
+  @media(max-width:720px){ .documento-hoja{height:62vh;} }
+
+  /* Cinco caras, no cinco estrellas: una estrella pide contar y comparar; una
+     cara se elige de un vistazo. */
+  .valorar .caras{display:flex;gap:6px;}
+  .valorar .cara{width:40px;height:40px;border-radius:var(--r-full);border:1px solid var(--filete);
+    background:var(--papel);color:var(--tinta-3);display:flex;align-items:center;justify-content:center;}
+  .valorar .cara:hover{border-color:var(--primary);color:var(--primary);}
+  .valorar .cara.puesta{background:var(--primary);border-color:var(--primary);color:var(--on-primary);}
+  .valorar .cara .material-symbols-outlined{font-size:23px;}
+
+  @media print{ .player,.documento,.valorar{display:none!important;} }
 </style>
 </head>
 <body>
@@ -79,10 +104,10 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota, money,
          mensajeError, modal, avisar, ocupado, download, imprimirDocumento,
-         idDeYoutube, previaDeMaterial } from '../assets/app.js?v=2026-08-21-10';
-import { profile } from '../assets/app.js?v=2026-08-21-10';
-import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-21-10';
-import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-10';
+         idDeYoutube, previaDeMaterial } from '../assets/app.js?v=2026-08-21-12';
+import { profile } from '../assets/app.js?v=2026-08-21-12';
+import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-21-12';
+import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-12';
 
 /* ── quién está mirando ────────────────────────────────────────────────────
    Esta pantalla la abren dos personas distintas. Un estudiante viene a dar su
@@ -345,6 +370,131 @@ async function marcarParaDespues(l){
    suelto sí se puede. Vive en app.js porque el editor de contenidos decide con
    la misma regla. */
 
+/* ============ ¿te sirvió esta clase? ============
+   Al terminar el vídeo, una sola pregunta y cinco caras. Una, no tres: se ven
+   veinte lecciones en un programa, y una encuesta de tres escalas después de
+   cada una es una encuesta que nadie contesta. El comentario es opcional y
+   sólo aparece si la nota es baja, que es cuando de verdad hay algo que contar.
+
+   No se pregunta en modo vista previa —el profesor no valora su propia clase—
+   ni si ya se valoró: cambiar la nota se puede, que te la vuelvan a pedir cada
+   vez que abres la lección, no. */
+let valorada = new Set();
+
+async function pedirValoracion(l){
+  if (!soyEstudiante || !l || valorada.has(l.id)) return;
+  const host = $('#valoracion');
+  if (!host || actual?.id !== l.id) return;
+
+  const { data: ya } = await sb.from('cem_leccion_valoraciones')
+    .select('util').eq('lesson_id', l.id).eq('profile_id', yo.id).maybeSingle();
+  const puesta = ya?.util || 0;
+
+  host.innerHTML = `<div class="card sep-poco valorar">
+    <div class="row between" style="gap:12px;flex-wrap:wrap">
+      <div><b>¿Te sirvió esta clase?</b>
+        <div class="tiny muted">Nos dice qué clases hay que rehacer. Tu profesor ve el resumen, no quién lo dijo.</div></div>
+      <div class="caras" role="radiogroup" aria-label="¿Te sirvió esta clase?">
+        ${[[1,'sentiment_very_dissatisfied','Nada'],[2,'sentiment_dissatisfied','Poco'],
+           [3,'sentiment_neutral','Regular'],[4,'sentiment_satisfied','Bien'],
+           [5,'sentiment_very_satisfied','Mucho']].map(([n,ico,txt]) => `
+          <button type="button" class="cara${n===puesta?' puesta':''}" data-v="${n}"
+                  role="radio" aria-checked="${n===puesta}" title="${txt}" aria-label="${txt}">
+            <span class="material-symbols-outlined">${ico}</span></button>`).join('')}
+      </div>
+    </div>
+    <div id="porQue" hidden class="sep-poco">
+      <div class="field sin-margen"><label for="vCom">¿Qué le faltó? (opcional)</label>
+        <textarea id="vCom" rows="2" placeholder="Se oía mal, iba muy rápido, faltaba un ejemplo…"></textarea></div>
+      <button class="btn outline sm sep-poco" id="vEnviar">Enviar</button>
+    </div>
+  </div>`;
+
+  const guardar = async (util, comentario) => {
+    const { error } = await sb.from('cem_leccion_valoraciones').upsert({
+      lesson_id: l.id, profile_id: yo.id, util,
+      comentario: comentario || null, actualizado_en: new Date().toISOString(),
+    }, { onConflict: 'lesson_id,profile_id' });
+    if (error) { avisar(host, mensajeError(error), 'err'); return false; }
+    return true;
+  };
+
+  $$('.cara', host).forEach(b => b.onclick = async () => {
+    const util = Number(b.dataset.v);
+    $$('.cara', host).forEach(x => {
+      x.classList.toggle('puesta', x === b);
+      x.setAttribute('aria-checked', String(x === b));
+    });
+    if (!await guardar(util)) return;
+    // Sólo se pregunta el porqué cuando la nota dice que hubo un problema.
+    $('#porQue', host).hidden = util > 3;
+    if (util > 3) { valorada.add(l.id); ok('Gracias.'); }
+  });
+
+  const enviar = $('#vEnviar', host);
+  if (enviar) enviar.onclick = async () => {
+    const marcada = $$('.cara', host).find(x => x.classList.contains('puesta'));
+    if (!marcada) return;
+    if (!await guardar(Number(marcada.dataset.v), $('#vCom', host).value.trim())) return;
+    valorada.add(l.id);
+    host.innerHTML = '<p class="tiny muted">Gracias: se lo pasamos a quien la preparó.</p>';
+  };
+}
+
+/* ============ una lección que no es un vídeo ============
+   Todas las lecciones se pintaban dentro del mismo marco: un rectángulo negro
+   de 16:9. Con un vídeo eso está bien; con un PDF quedaba un cuadro negro
+   enorme con un iconito blanco en medio y el nombre del archivo debajo. Se veía
+   raro porque LO ERA: era el envase del vídeo puesto alrededor de algo que no
+   lo es.
+
+   Un documento se lee, y para leerlo hace falta alto, no proporción de cine.
+   Aquí se abre dentro de la página, a una altura de lectura, y con las dos
+   cosas que se hacen con un documento a mano: abrirlo aparte y bajárselo. Los
+   apuntes ya tienen su pestaña, y desde aquí se dice dónde están —que era la
+   otra mitad de lo que se pidió—.
+
+   Subrayar DENTRO del documento no está: hace falta pintar el PDF con una
+   librería y guardar las marcas, y eso es una pieza aparte. Queda escrito en
+   `docs/lo-que-falta.md` en vez de fingirse. */
+function documentoDeLaLeccion(l){
+  const esPdf = /\.pdf($|[?#])/i.test(l.url || '') || l.tipo === 'pdf';
+  const icono = l.tipo === 'quiz' ? 'quiz' : esPdf ? 'picture_as_pdf' : 'article';
+
+  if (!l.url) {
+    return `<div class="card sin-margen documento-vacio">
+      <span class="material-symbols-outlined">${icono}</span>
+      <div>
+        <b>${esc(l.titulo)}</b>
+        <div class="tiny muted">Esta lección todavía no tiene el archivo cargado.
+          ${l.contenido ? 'Lee abajo lo que dejó escrito tu profesor.' : 'Pregúntale a tu profesor.'}</div>
+      </div></div>`;
+  }
+
+  return `<div class="documento">
+    <div class="documento-barra">
+      <span class="material-symbols-outlined">${icono}</span>
+      <b class="crece recorta">${esc(l.titulo)}</b>
+      <a class="btn ghost sm" href="${esc(l.url)}" target="_blank" rel="noopener"
+         title="Abrirlo en otra pestaña"><span class="material-symbols-outlined">open_in_new</span></a>
+      <a class="btn outline sm" href="${esc(l.url)}" download
+         title="Descargarlo para leer sin conexión">
+        <span class="material-symbols-outlined">download</span> Descargar</a>
+    </div>
+    ${esPdf
+      ? `<iframe class="documento-hoja" src="${esc(l.url)}" title="${esc(l.titulo)}"></iframe>`
+      : `<div class="documento-vacio">
+           <span class="material-symbols-outlined">${icono}</span>
+           <div><b>Este material se abre fuera</b>
+             <div class="tiny muted">Pulsa «Descargar» o el icono de abrir en otra pestaña.</div></div>
+         </div>`}
+    <div class="tiny muted documento-pie">
+      <span class="material-symbols-outlined">edit_note</span>
+      Lo que apuntes mientras lees se guarda en la pestaña <b>Mis notas</b>, aquí abajo. Sólo las ves tú.
+    </div>
+  </div>`;
+}
+
 function reproductor(l){
   if (l.tipo !== 'video') return '';
   const id = l.video_id || idDeYoutube(l.url);
@@ -505,6 +655,9 @@ async function montarReproductor(l){
     empezarEn: 0,
     alSonar: () => registrarQueSeVe(l),
     alFallar: () => { clearInterval(verReloj); verReloj = null; },
+    /* Se pregunta al terminar y no antes: a mitad de vídeo nadie sabe todavía
+       si le sirvió, y preguntar dos veces por lo mismo es como no preguntar. */
+    alTerminar: () => pedirValoracion(l),
   });
 
   // Se cambió de lección mientras cargaba la librería: lo recién montado sobra.
@@ -533,11 +686,11 @@ function render(){
 
   const l = actual;
   $('#visor').innerHTML = l ? `
-    <div class="player" id="reproductor">${reproductor(l)
-      || `<div style="text-align:center;padding:30px">
-          <span class="material-symbols-outlined" style="font-size:44px">${l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
-          <div class="sep-poco">${esc(l.titulo)}</div></div>`}</div>
+    ${l.tipo === 'video'
+      ? `<div class="player" id="reproductor">${reproductor(l)}</div>`
+      : documentoDeLaLeccion(l)}
     <div id="retomar"></div>
+    <div id="valoracion"></div>
     <div class="card sep">
       <div class="row between">
         <div><h2 class="sec" style="margin:0 0 4px">${esc(l.titulo)}</h2>

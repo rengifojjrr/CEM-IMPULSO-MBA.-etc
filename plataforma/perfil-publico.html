@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-10">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-12">
 <style>
   /* La página es una credencial, no un panel: centrada, estrecha y sin menú.
      Quien llega aquí viene de escanear un papel y decide en diez segundos. */
@@ -41,6 +41,13 @@
   .cred .codigo{font-family:var(--cifra);font-size:var(--t-xs);color:var(--tinta-3);
     margin-top:var(--e0);}
   .insignias{display:flex;flex-wrap:wrap;gap:var(--e1);}
+  .obras{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));}
+  .obra{border:1px solid var(--filete,#dde3ea);border-radius:12px;overflow:hidden;
+    background:var(--papel,#fff);display:flex;flex-direction:column;}
+  .obra img{width:100%;height:150px;object-fit:cover;display:block;background:var(--hueco,#f3f5f7);}
+  .obra-txt{padding:12px;display:flex;flex-direction:column;gap:4px;}
+  .obra-txt a{color:var(--primary,#4338ca);font-size:13px;}
+
   .insignia{display:flex;align-items:center;gap:var(--e1);border:1px solid var(--filete);
     border-radius:var(--r-full);padding:var(--e0) var(--e2) var(--e0) var(--e1);
     font-size:var(--t-sm);}
@@ -65,7 +72,7 @@
 
    Abre sin sesión a propósito: un enlace que exige darse de alta no lo abre
    nadie. */
-import { sb, $, esc, fdate, initials, qs } from './assets/app.js?v=2026-08-21-10';
+import { sb, $, esc, fdate, initials, qs } from './assets/app.js?v=2026-08-21-12';
 
 const slug = qs('p') || location.pathname.split('/').filter(Boolean).pop();
 
@@ -89,6 +96,7 @@ async function cargar(){
 
   const certs = data.certificados || [];
   const insignias = data.insignias || [];
+  const trabajo = data.trabajo || [];
 
   $('#cont').innerHTML = `
     <div class="cabeza">
@@ -126,6 +134,23 @@ async function cargar(){
       <div class="insignias">${insignias.map(b => `
         <span class="insignia"><span class="material-symbols-outlined">${esc(b.icono || 'military_tech')}</span>
           ${esc(b.nombre)}${b.nivel ? ` · ${esc(b.nivel)}` : ''}</span>`).join('')}</div>` : ''}
+
+    ${/* Lo que hace, no sólo lo que estudió. Esta página ya se reparte —va en
+          el QR de cada título y en el currículum—, así que es donde tiene
+          sentido que se vea el trabajo de la persona y cómo contactarla.
+          `rel="nofollow noopener"` en los enlaces: son direcciones que escribe
+          cualquiera con cuenta, y esta página la publica la institución. */''}
+    ${trabajo.length ? `
+      <h2 class="titulo-seccion">Su trabajo</h2>
+      <div class="obras">${trabajo.map(o => `
+        <div class="obra">
+          ${o.imagen_url ? `<img src="${esc(o.imagen_url)}" alt="${esc(o.titulo)}" loading="lazy">` : ''}
+          <div class="obra-txt">
+            <b>${esc(o.titulo)}</b>
+            ${o.descripcion ? `<div class="meta">${esc(o.descripcion)}</div>` : ''}
+            ${o.enlace ? `<a href="${esc(o.enlace)}" target="_blank" rel="nofollow noopener">Ver más</a>` : ''}
+          </div>
+        </div>`).join('')}</div>` : ''}
 
     <div class="pie">
       Esta página la publica la propia persona desde su cuenta y muestra sólo lo que

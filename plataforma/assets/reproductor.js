@@ -59,7 +59,7 @@
    docs/videos-y-copia.md.
 */
 
-import { $, $$, esc } from './app.js?v=2026-08-21-10';
+import { $, $$, esc } from './app.js?v=2026-08-21-12';
 
 /* ── La librería de YouTube, una sola vez ─────────────────────────────────
    Se pide siempre a `youtube.com`, no al dominio sin cookies: es la librería
@@ -114,11 +114,12 @@ const PORQUE_NO = {
  * @param {Function} [o.alSonar]       se llama la primera vez que suena de verdad
  * @param {Function} [o.alFallar]      se llama con el motivo si no se puede ver
  * @param {Function} [o.alLatir]       cada segundo mientras suena, con el segundo actual
+ * @param {Function} [o.alTerminar]    se llama cuando el vídeo llega al final
  * @returns {{el:Element, segundo:Function, saltarA:Function, jugando:Function, destruir:Function}}
  */
 export async function crearReproductor(host, {
   videoId, marca = '', repetir = false, compacto = false, empezarEn = 0,
-  alSonar = () => {}, alFallar = () => {}, alLatir = () => {},
+  alSonar = () => {}, alFallar = () => {}, alLatir = () => {}, alTerminar = () => {},
 } = {}) {
   const caja = typeof host === 'string' ? $(host) : host;
   if (!caja) return null;
@@ -294,7 +295,7 @@ export async function crearReproductor(host, {
         if (ev.data === YT.PlayerState.ENDED && repetir) seguro(() => player.playVideo());
         /* Al terminar, YouTube saca su pantalla de final —con su logo y su
            invitación a seguir en YouTube—. Vuelve la portada por encima. */
-        else if (ev.data === YT.PlayerState.ENDED) el.classList.remove('arrancado');
+        else if (ev.data === YT.PlayerState.ENDED) { el.classList.remove('arrancado'); alTerminar(); }
       },
       onError: (ev) => {
         fallo = true;

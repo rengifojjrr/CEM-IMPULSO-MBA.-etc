@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mis evaluaciones</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Mis evaluaciones <button type="button" class="ayuda-btn" data-ayuda="Todo lo que tienes que entregar, de todos tus programas. Lo que está a medias sale primero; lo ya calificado, con su nota, al final.">?</button></h1>
+      <p id="sub">Todo lo que tienes que rendir o entregar, en un solo sitio.</p></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar</label>
+        <input type="search" id="q" placeholder="Nombre de la evaluación o del programa…"></div>
+      <div class="field"><label>Programa</label><select id="fCurso"><option value="">Todos</option></select></div>
+      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
+        <option value="en_progreso">A medias</option>
+        <option value="pendiente">Sin empezar</option>
+        <option value="entregada">En revisión</option>
+        <option value="calificada">Con nota</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
+    </div>
+    <div id="lista"></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, chipNota, fdate, kpi, num, match, vacio, qs } from '../assets/app.js?v=2026-08-21-12';
+
+/* ============ las evaluaciones, con su propia pantalla ============
+   Vivían dentro del panel, en una tarjeta que enseñaba seis y se perdía en
+   cuanto uno se desplazaba. Para volver a un examen empezado había que ir al
+   panel y buscarlo entre los cursos, los pagos y los anuncios. Es lo que más
+   urgencia tiene de todo lo que hace un alumno, así que aquí están todas, se
+   pueden filtrar, y el menú lleva directo.
+
+   El orden no es alfabético ni por fecha: primero lo que está a medias —hay
+   un intento abierto y se puede perder—, luego lo que no se ha empezado,
+   luego lo entregado esperando corrección, y al final lo ya calificado. Es
+   el orden en el que hay que ocuparse de ellas. */
+const me = await mount({ require:['estudiante'], active:'evaluaciones.html', area:'estudiante' });
+let tareas = [];
+if (me) load();
+
+const ORDEN = { en_progreso:0, pendiente:1, entregada:2, calificada:3 };
+
+async function load(){
+  const { data: ens } = await sb.from('cem_enrollments')
+    .select('id,course_id,cem_courses(nombre)').eq('profile_id', me.id).limit(500);
+  const cursos = (ens||[]).map(e=>e.course_id);
+  if (!cursos.length){
+    $('#lista').innerHTML = vacio({ icono:'task_alt', titulo:'Todavía no estás en ningún programa',
+      texto:'Cuando te inscribas en uno, sus evaluaciones aparecerán aquí.',
+      accion:{ texto:'Ver el catálogo', href:'catalogo.html' } });
+    return;
+  }
+
+  const [{ data: evals }, { data: subs }] = await Promise.all([
+    sb.from('cem_assessments').select('*,cem_courses(nombre)')
+      .in('course_id', cursos).eq('estado','publicado').order('nombre'),
+    sb.from('cem_submissions').select('*').limit(500),
+  ]);
+
+  const enrPorCurso = {}; (ens||[]).forEach(e=>{ enrPorCurso[e.course_id] = e.id; });
+  tareas = (evals||[]).map(a=>{
+    const mias = (subs||[]).filter(s=>s.assessment_id===a.id).sort((x,y)=>y.intento-x.intento);
+    const ult = mias[0];
+    const abierta = mias.find(s=>s.estado==='en_progreso');
+    return { a, ult, usados: mias.length, abierta, enr: enrPorCurso[a.course_id],
+      _estado: abierta ? 'en_progreso' : (ult?.estado || 'pendiente'),
+      _curso: a.cem_courses?.nombre || '' };
+  }).filter(t=>t.enr)
+    .sort((x,y)=>(ORDEN[x._estado]??9)-(ORDEN[y._estado]??9) || x.a.nombre.localeCompare(y.a.nombre));
+
+  $('#fCurso').innerHTML = '<option value="">Todos</option>' +
+    [...new Map((ens||[]).map(e=>[e.course_id, e.cem_courses?.nombre||''])).entries()]
+      .map(([id,n])=>`<option value="${esc(id)}">${esc(n)}</option>`).join('');
+  /* Se llega aquí desde «Te faltan 3 evaluaciones · ver cuáles son», y llegar
+     a la lista entera de todos los programas sería mandar a buscar otra vez. */
+  const pedido = qs('curso');
+  if (pedido && [...$('#fCurso').options].some(o=>o.value===pedido)) $('#fCurso').value = pedido;
+
+  const cuenta = (e) => tareas.filter(t=>t._estado===e).length;
+  $('#kpis').innerHTML = [
+    kpi('A medias', num(cuenta('en_progreso')), 'hourglass_top', 'con un intento abierto'),
+    kpi('Sin empezar', num(cuenta('pendiente')), 'assignment', 'esperándote'),
+    kpi('En revisión', num(cuenta('entregada')), 'hourglass_empty', 'las corrige tu profesor'),
+    kpi('Con nota', num(cuenta('calificada')), 'grade', 'ya calificadas'),
+  ].join('');
+  render();
+}
+
+function render(){
+  const q = $('#q').value.trim(), c = $('#fCurso').value, e = $('#fEstado').value;
+  const list = tareas.filter(t => match(t, q, ['a.nombre','_curso'])
+    && (!c || t.a.course_id === c) && (!e || t._estado === e));
+
+  $('#sub').textContent = list.length === tareas.length
+    ? `Tienes ${tareas.length} evaluación(es) en total.`
+    : `${list.length} de ${tareas.length} evaluación(es).`;
+
+  $('#lista').innerHTML = list.length ? list.map(({a,ult,usados,abierta,enr,_curso})=>{
+    const aprob = a.nota_aprobatoria || 70;
+    const sinIntentos = !abierta && usados >= (a.intentos||1);
+    let estado, accion;
+    if (abierta){
+      estado = chip('a medias','warn');
+      accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Continuar</a>`;
+    } else if (ult?.estado==='calificada'){
+      estado = chipNota(ult.puntaje, 100, aprob);
+      accion = sinIntentos
+        ? '<span class="tiny muted">sin más intentos</span>'
+        : `<a class="btn outline sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Reintentar</a>`;
+    } else if (ult?.estado==='entregada'){
+      estado = chip('en revisión','info'); accion = '';
+    } else {
+      estado = chip('sin empezar','warn');
+      accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Rendir</a>`;
+    }
+    return `<div class="list-item">
+      <span class="material-symbols-outlined" style="color:var(--on-surface-variant)">${a.tipo==='examen'?'quiz':'assignment'}</span>
+      <div class="grow">
+        <div class="t">${esc(a.nombre)}</div>
+        <div class="s">${esc(_curso)}</div>
+        <div class="s">${esc(a.tipo||'')} · nota mínima ${aprob} ·
+          ${a.tiempo_min ? `${a.tiempo_min} min · ` : ''}${a.intentos||1} intento(s)${
+          ult?.entregado_en ? ` · entregado el ${fdate(ult.entregado_en)}` : ''}</div>
+      </div>
+      ${estado}${accion}</div>`;
+  }).join('')
+    : (tareas.length
+      ? '<p class="muted tiny">Ninguna evaluación coincide con lo que has filtrado.</p>'
+      : vacio({ icono:'task_alt', titulo:'No tienes nada por entregar',
+          texto:'Cuando un profesor abra una evaluación de tus programas, te aparecerá aquí.' }));
+}
+
+const CAMPOS = ['#q','#fCurso','#fEstado'];
+CAMPOS.forEach(s=>{ const el=$(s); el.oninput=render; el.onchange=render; });
+$('#btnClear').onclick = () => { CAMPOS.forEach(s=>$(s).value=''); render(); };
+</script>
+</body>
+</html>

@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-21-10';
+         vidrioActual } from './temas.js?v=2026-08-21-12';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1054,13 +1054,25 @@ const ADMIN_NAV = [
     ['configuracion.html', 'settings', 'Configuración'],
   ]},
 ];
+/* Las evaluaciones y la ayuda no estaban en el menú.
+   ------------------------------------------------------------------------
+   Las evaluaciones vivían sólo dentro del panel, en una tarjeta que se
+   pierde en cuanto se desplaza la página: para volver a un examen a medias
+   había que ir al panel y buscarlo. Es lo que más urgencia tiene de todo lo
+   que hace un alumno, así que tiene su propia entrada.
+
+   El calendario y la ayuda son las otras dos cosas que un estudiante busca
+   con el menú y no encontraba. */
 const STUDENT_NAV = [
   ['panel.html', 'space_dashboard', 'Mi panel'],
   ['catalogo.html', 'menu_book', 'Catálogo'],
+  ['calendario.html', 'calendar_month', 'Mi calendario'],
+  ['evaluaciones.html', 'quiz', 'Mis evaluaciones'],
   ['pagos.html', 'payments', 'Mis pagos'],
   ['biblioteca.html', 'local_library', 'Biblioteca'],
   ['certificados.html', 'workspace_premium', 'Certificados'],
   ['perfil.html', 'account_circle', 'Mi perfil'],
+  ['ayuda.html', 'help', 'Ayuda'],
 ];
 const TEACHER_NAV = [
   ['panel.html', 'space_dashboard', 'Mi panel'],
@@ -1832,7 +1844,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-21-10');
+    const m = await import('./apariencia.js?v=2026-08-21-12');
 
     m.abrirApariencia();
 
@@ -2429,7 +2441,8 @@ export async function encogerImagen(file, ladoMax = 1600, calidad = 0.85) {
  * @param {boolean} o.permitirEnlace  si se ofrece pegar una dirección
  */
 export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
-                               etiquetaSubir = 'Elegir archivo', permitirEnlace = true }) {
+                               etiquetaSubir = 'Elegir archivo', permitirEnlace = true,
+                               alCambiar = null }) {
   const cfg = TIPOS_ARCHIVO[tipo] || TIPOS_ARCHIVO.imagen;
   const esImagen = tipo === 'imagen' || tipo === 'comprobante';
   let actual = valor || '';
@@ -2474,7 +2487,16 @@ export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
     const nombre = raiz.querySelector('#' + id + 'Nombre');
     const detalle = raiz.querySelector('#' + id + 'Detalle');
 
-    const pintar = (u, texto, sub) => {
+    /* `alCambiar` avisa cuando lo elegido ya está subido y firme.
+       ------------------------------------------------------------------
+       El resto de las pantallas leen `valor()` al pulsar Guardar, porque el
+       campo vive dentro de un formulario. Pero hay sitios donde el archivo
+       ES el formulario —la foto de perfil, sin más campos ni botón—, y ahí
+       obligar a pulsar Guardar por una sola cosa sobra. El aviso llega sólo
+       cuando hay dirección definitiva o cuando se quita: nunca con la
+       miniatura provisional que se pinta mientras sube, que apunta a un
+       `blob:` de este navegador y no sirve para guardarla en ningún sitio. */
+    const pintar = (u, texto, sub, provisional) => {
       actual = u || '';
       vacia.hidden = !!actual;
       hecha.hidden = !actual;
@@ -2482,8 +2504,9 @@ export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
       if (nombre) nombre.textContent = texto || 'Archivo cargado';
       if (detalle) detalle.textContent = sub || '';
       if (url) url.value = actual;
+      if (!provisional) alCambiar?.(actual);
     };
-    if (actual) pintar(actual, 'Archivo cargado');
+    if (actual) pintar(actual, 'Archivo cargado', '', true);
 
     async function tomar(file) {
       if (!file) return;
@@ -2495,8 +2518,8 @@ export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
       }
       // Miniatura al instante, antes de que termine la subida: así se ve qué se
       // eligió sin tener que guardar y recargar para comprobarlo.
-      if (mini) { pintar(URL.createObjectURL(listo), listo.name, 'subiendo…'); }
-      else pintar('pendiente', listo.name, 'subiendo…');
+      if (mini) { pintar(URL.createObjectURL(listo), listo.name, 'subiendo…', true); }
+      else pintar('pendiente', listo.name, 'subiendo…', true);
       avance.hidden = false; avance.removeAttribute('value');
       zona.classList.add('subiendo');
       try {
@@ -2504,7 +2527,7 @@ export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
         pintar(dir, listo.name, `${(listo.size / 1048576).toFixed(1)} MB`);
         ok('Archivo subido');
       } catch (e) {
-        pintar('', '', '');
+        pintar('', '', '', true);
         fail(mensajeError(e, 'No se pudo subir el archivo.'));
       } finally {
         avance.hidden = true;

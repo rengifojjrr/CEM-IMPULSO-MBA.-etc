@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-10">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-12">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
   .cert{background:var(--papel);border:1px solid var(--filete);
@@ -35,7 +35,9 @@
     border-radius:var(--r-full);width:26px;height:26px;display:flex;align-items:center;justify-content:center;}
   .cert-mini .lupa .material-symbols-outlined{font-size:16px;}
   @media(max-width:560px){ .cert{flex-direction:column;} .cert-mini{width:100%;} }
-  .badge-card{text-align:center;padding:18px;}
+  .badge-card{text-align:center;padding:18px;width:100%;border:1px solid var(--filete);
+    cursor:pointer;font:inherit;color:inherit;transition:border-color var(--rapido);}
+  .badge-card:hover{border-color:var(--primary);}
   .badge-ico{width:62px;height:62px;border-radius:var(--r-full);background:var(--gold-suave);color:var(--gold);
     display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px;}
   .badge-ico .material-symbols-outlined{font-size:var(--t-2xl);}
@@ -57,7 +59,7 @@
   <div class="grid g4" id="badges"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-21-10';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-21-12';
 const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
 if (me) load();
 
@@ -122,12 +124,18 @@ async function load(){
     return `<div class="list-item"><div class="grow">
       <div class="t">${nombre}</div>
       <div style="margin:6px 0">${bar(e.progreso, true)}</div>
+      ${/* Cada cosa que falta lleva al sitio donde se hace. Antes decía «te
+            faltan 3 evaluaciones» y ahí se acababa: había que salir, adivinar
+            en qué pantalla estaban y buscarlas. Enumerar deberes sin dar la
+            puerta es hacer trabajar a quien ya va retrasado. */''}
       ${punto(completo, completo
         ? 'Terminaste todas las lecciones.'
-        : `Te falta terminar el programa: vas en ${pct(r.avance)}.`)}
+        : `Te falta terminar el programa: vas en ${pct(r.avance)}.
+           <a href="clase.html?curso=${esc(e.course_id)}">Seguir donde lo dejaste</a>`)}
       ${punto(evalOk, evalOk
         ? `Aprobaste las ${r.evaluaciones_total} evaluación(es).`
-        : `Te faltan ${Number(r.evaluaciones_total) - Number(r.evaluaciones_aprobadas)} evaluación(es) de ${r.evaluaciones_total} por aprobar.`)}
+        : `Te faltan ${Number(r.evaluaciones_total) - Number(r.evaluaciones_aprobadas)} evaluación(es) de ${r.evaluaciones_total} por aprobar.
+           <a href="evaluaciones.html?curso=${esc(e.course_id)}">Ver cuáles son</a>`)}
       ${punto(sinDeuda, sinDeuda
         ? 'No tienes nada pendiente de pago.'
         : `Te quedan ${r.cuotas_pendientes} cuota(s) por pagar. <a href="pagos.html">Ver mis pagos</a>`)}
@@ -138,15 +146,45 @@ async function load(){
         texto:'Cuando te inscribas en uno, aquí verás qué te falta para certificarte.',
         accion:{ texto:'Ver el catálogo', href:'catalogo.html' } });
 
+  /* Las insignias se abren.
+     ----------------------------------------------------------------------
+     La ficha enseñaba el nombre, el nivel y el criterio recortado a dos
+     líneas, así que la mitad de las insignias decían algo como «Completa el
+     primer módu…». Una insignia que no explica qué significa ni por qué la
+     tienes no premia nada: es un icono bonito. Dentro está la descripción
+     entera, la competencia que reconoce, qué hay que hacer para ganarla y,
+     si ya la tienes, cuándo te la dieron. */
+  const cuando = {}; (mine||[]).forEach(x => { cuando[x.badge_id] = x.otorgado_en; });
   $('#badges').innerHTML = (all||[]).map(b=>{
     const has = got.has(b.id);
-    return `<div class="card badge-card ${has?'':'locked'} sin-margen">
+    return `<button type="button" class="card badge-card ${has?'':'locked'} sin-margen" data-insignia="${esc(b.id)}"
+              aria-label="Ver qué significa la insignia ${esc(b.nombre)}">
       <div class="badge-ico"><span class="material-symbols-outlined">${esc(b.icono||'military_tech')}</span></div>
       <div style="font-weight:600;font-size:13.5px">${esc(b.nombre)}</div>
       <div class="tiny muted">${esc(b.nivel||'')}</div>
-      <div class="tiny muted sep-poco">${esc(b.criterio||'')}</div>
-      <div class="sep-poco">${has?chip('obtenida','ok'):chip('bloqueada','neutral')}</div></div>`;
+      <div class="sep-poco">${has?chip('obtenida','ok'):chip('bloqueada','neutral')}</div></button>`;
   }).join('') || '<div class="card">Sin insignias configuradas.</div>';
+
+  $$('[data-insignia]').forEach(el => el.onclick = () => {
+    const b = (all||[]).find(x => x.id === el.dataset.insignia);
+    if (!b) return;
+    const has = got.has(b.id);
+    modal({ title: b.nombre, body: `
+      <div style="text-align:center;margin-bottom:14px">
+        <div class="badge-ico" style="${has?'':'opacity:.5'}">
+          <span class="material-symbols-outlined">${esc(b.icono||'military_tech')}</span></div>
+        <div>${has ? chip('la tienes','ok') : chip('todavía no la tienes','neutral')}</div>
+      </div>
+      ${b.descripcion ? `<p>${esc(b.descripcion)}</p>` : ''}
+      ${b.competencia ? `<p class="tiny muted"><b>Reconoce:</b> ${esc(b.competencia)}${
+        b.nivel ? ` · nivel ${esc(b.nivel)}` : ''}</p>` : ''}
+      ${b.criterio ? `<div class="card sep" style="background:var(--hueco);box-shadow:none">
+        <b class="tiny">${has ? 'Por qué la tienes' : 'Cómo se consigue'}</b>
+        <p class="tiny" style="margin:6px 0 0">${esc(b.criterio)}</p></div>` : ''}
+      ${has && cuando[b.id]
+        ? `<p class="tiny muted sep">Te la dieron el ${fdate(cuando[b.id])}.</p>` : ''}`,
+      footer: `<button class="btn outline" data-x>Cerrar</button>` });
+  });
 }
 
 /* La lámina, escrita una sola vez.
