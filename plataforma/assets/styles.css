@@ -1157,6 +1157,12 @@ tr.marcada{background:var(--primary-suave);}
   table.tarjetas td:first-child::before{display:none;}
   table.tarjetas td.sel{display:none;}
   table.tarjetas td .acciones{opacity:1;justify-content:flex-end;width:100%;}
+  /* La columna de acciones lleva `nowrap` para que en la tabla ancha los
+     botones no se partan de línea. Apilada como tarjeta eso es al revés: cinco
+     botones en una sola línea son 340 px dentro de una tarjeta de 342, y la
+     pantalla entera se arrastra de lado por catorce píxeles. Aquí se dejan
+     fluir a la línea siguiente, que es lo que hace un móvil. */
+  table.tarjetas td.nowrap{white-space:normal;flex-wrap:wrap;justify-content:flex-end;}
   table.tarjetas tfoot tr.totales{background:var(--hueco);}
   .table-wrap{overflow-x:visible;}
   .recorta{max-width:none;white-space:normal;}
