@@ -145,7 +145,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-8');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -322,12 +322,18 @@ export default async function correr(navegador) {
   await E.waitForTimeout(4000);
 
   const conTarjeta = await E.evaluate(() => {
-    const sel = document.querySelector('#dMetodo');
-    const opciones = [...(sel?.options || [])].map((o) => o.textContent.trim());
+    /* Las formas de pago son botones, no un desplegable: un desplegable las
+       iguala, y aquí no valen lo mismo —una cobra sola y las otras empiezan un
+       trámite—. */
+    const botones = [...document.querySelectorAll('.metodo')];
+    const opciones = botones.map((b) => b.innerText.replace(/\s+/g, ' ').trim());
     return {
-      listo: !!window,
       opciones,
       primera: opciones[0] || '',
+      /* Que se pueda recorrer con el teclado. Cambiar algo accesible por algo
+         bonito sería un mal negocio. */
+      conTeclado: botones.length > 0 && botones.every((b) => b.getAttribute('role') === 'radio'),
+      diceCuando: opciones[0]?.includes('Se cobra al momento') || false,
       /* Se mira SÓLO la frase del aviso, no el bloque entero: ahora la palabra
          «tarjeta» aparece ahí porque la tarjeta sí se ofrece, y buscarla en
          todo el texto daría por roto justo lo que se acaba de arreglar. */
@@ -342,6 +348,10 @@ export default async function correr(navegador) {
      esperar a que nadie verifique nada. */
   a.comprobar(/tarjeta/i.test(conTarjeta.primera),
     `Y es la primera, que es la que se cobra sola (${conTarjeta.primera})`);
+  a.comprobar(conTarjeta.conTeclado,
+    'Las formas de pago son botones que se recorren con el teclado, no un desplegable');
+  a.comprobar(conTarjeta.diceCuando,
+    'Y la tarjeta dice que se cobra al momento, que es lo que la distingue de las demás');
   a.comprobar(!/tarjeta/i.test(conTarjeta.dice_que_no),
     `Y no se le dice que no puede pagar con tarjeta teniéndola disponible («${
       conTarjeta.dice_que_no.trim().slice(0, 80) || 'no se le dice nada de eso'}»)`);
@@ -354,7 +364,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-8');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -382,7 +392,7 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-7');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-8');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });

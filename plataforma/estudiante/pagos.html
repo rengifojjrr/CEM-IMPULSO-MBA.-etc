@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-7">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-8">
 <style>
   .cuota{border:1px solid var(--filete);border-radius:var(--r);padding:14px 16px;background:var(--papel);
     display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -22,6 +22,28 @@
   .datos-pago dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0;font-size:var(--t-sm);}
   .datos-pago dt{color:var(--tinta-2);}
   .datos-pago dd{margin:0;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+
+  /* Elegir cómo pagar era un desplegable. Un desplegable esconde las opciones
+     detrás de un clic y las iguala: la tarjeta —que cobra sola, al momento— se
+     leía igual que una transferencia, que obliga a salir del banco, copiar una
+     referencia, volver, reportarla y esperar a que alguien la verifique. Aquí
+     esas dos cosas no valen lo mismo y la pantalla tiene que decirlo. */
+  .metodos{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    margin:0 0 var(--e2);}
+  .metodo{display:flex;gap:12px;align-items:flex-start;text-align:left;cursor:pointer;
+    padding:14px;border:1px solid var(--filete);border-radius:var(--r);background:var(--papel);
+    color:inherit;font:inherit;transition:border-color var(--rapido),background var(--rapido);}
+  .metodo:hover{border-color:var(--filete-fuerte);background:var(--hueco);}
+  .metodo[aria-checked="true"]{border-color:var(--primary);background:var(--primary-suave);
+    box-shadow:inset 0 0 0 1px var(--primary);}
+  .metodo:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  .metodo .material-symbols-outlined{font-size:22px;color:var(--primary);flex:none;margin-top:1px;}
+  .metodo b{display:block;font-size:var(--t-sm);line-height:1.25;}
+  .metodo .cuando{display:block;font-size:var(--t-xs);color:var(--tinta-2);margin-top:3px;line-height:1.35;}
+  /* La única que cobra en el momento va marcada. No es decoración: es la
+     diferencia entre pagar y empezar un trámite. */
+  .metodo .ya{display:inline-block;font-size:var(--t-xs);font-weight:600;color:var(--ok);
+    margin-top:5px;}
 </style>
 </head>
 <body>
@@ -80,7 +102,7 @@ import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail
          SUPABASE_URL, SUPABASE_KEY,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
          metodosDePago, explicaConversion, MONEDA_BASE,
-         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-21-7';
+         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-21-8';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
@@ -90,6 +112,10 @@ let cuotas = [], pagos = [], tasa = null;
    sin ir al servidor en cada tecla. El número que vale, de todas formas, es el
    que calcula el servidor al guardar. */
 let METODOS = [], TASAS = {}, DESTINOS = [], STRIPE = false;
+/* Cuál está elegida. Se guarda fuera de `renderDondePagar` porque esa función
+   se vuelve a llamar cuando llegan las cuotas, y sin esto la elección de quien
+   ya había pulsado se perdía sola a mitad de carga. */
+let elegido = 0;
 const NOMBRE_MONEDA = { EUR:'euros', USD:'dólares', VES:'bolívares' };
 
 if (p) cargar();
@@ -160,6 +186,19 @@ function avisarVueltaDeStripe(){
    clic es peor que no decirle nada. */
 const ES_TARJETA = (m) => /tarjeta/i.test(String(m || ''));
 
+/* Un icono por forma de pago. Sirve para reconocerla de un vistazo sin leer,
+   que es como se mira una lista de opciones cuando ya sabes cuál quieres. */
+const ICONO_METODO = (m) => {
+  const s = String(m || '').toLowerCase();
+  if (/tarjeta|crédito|credito/.test(s)) return 'credit_card';
+  if (/móvil|movil/.test(s)) return 'phone_iphone';
+  if (/transferencia|banc/.test(s)) return 'account_balance';
+  if (/efectivo/.test(s)) return 'payments';
+  if (/zelle|paypal/.test(s)) return 'send_to_mobile';
+  if (/cripto|usdt|bitcoin/.test(s)) return 'currency_bitcoin';
+  return 'account_balance_wallet';
+};
+
 function renderDondePagar(){
   const host = $('#dondePagar');
   if (!host) return;
@@ -178,11 +217,21 @@ function renderDondePagar(){
 
   host.innerHTML = `
     ${listos.length ? `
-      <div class="field" style="max-width:420px">
-        <label for="dMetodo">¿Cómo quieres pagar?</label>
-        <select id="dMetodo">${listos.map((d, i) =>
-          `<option value="${i}">${esc(d.metodo)} — en ${esc(NOMBRE_MONEDA[d.moneda] || d.moneda)}</option>`
-        ).join('')}</select>
+      <p class="tiny muted sin-margen" id="dMetodoLabel">¿Cómo quieres pagar?</p>
+      <div class="metodos sep-poco" role="radiogroup" aria-labelledby="dMetodoLabel">
+        ${listos.map((d, i) => {
+          const alMomento = STRIPE && ES_TARJETA(d.metodo);
+          return `<button type="button" class="metodo" role="radio" data-m="${i}"
+            aria-checked="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}">
+            <span class="material-symbols-outlined">${ICONO_METODO(d.metodo)}</span>
+            <span>
+              <b>${esc(d.metodo)}</b>
+              <span class="cuando">en ${esc(NOMBRE_MONEDA[d.moneda] || d.moneda)}</span>
+              ${alMomento
+                ? '<span class="ya">Se cobra al momento</span>'
+                : '<span class="cuando">Pagas por tu cuenta y lo reportas aquí</span>'}
+            </span></button>`;
+        }).join('')}
       </div>
       <div id="detalleDestino"></div>`
       : `<p class="nota warn">Ninguna de las formas de pago tiene todavía una cuenta configurada.
@@ -192,7 +241,7 @@ function renderDondePagar(){
       Si es la única forma que tienes, escríbenos.</p>` : ''}`;
 
   const pintarUno = () => {
-    const d = listos[Number($('#dMetodo').value) || 0];
+    const d = listos[elegido] || listos[0];
     if (!d) return;
 
     /* Con tarjeta no hay «a dónde mandarlo»: se paga aquí mismo. Se ofrece la
@@ -253,7 +302,33 @@ function renderDondePagar(){
       }
     };
   };
-  if (listos.length) { $('#dMetodo').onchange = pintarUno; pintarUno(); mejorarSelects(); }
+  if (listos.length) {
+    const tarjetas = $$('.metodo', host);
+    const marcar = (i) => {
+      elegido = i;
+      tarjetas.forEach((b, n) => {
+        b.setAttribute('aria-checked', String(n === i));
+        b.tabIndex = n === i ? 0 : -1;
+      });
+      pintarUno();
+    };
+    tarjetas.forEach((b, i) => {
+      b.onclick = () => marcar(i);
+      /* Un grupo de opciones se recorre con las flechas, no con el tabulador:
+         es lo que hace un lector de pantalla y lo que espera quien no usa
+         ratón. Sin esto, sustituir el desplegable por botones habría sido
+         cambiar algo accesible por algo bonito. */
+      b.onkeydown = (ev) => {
+        const paso = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+        if (!paso) return;
+        ev.preventDefault();
+        const n = (i + paso + tarjetas.length) % tarjetas.length;
+        tarjetas[n].focus();
+        marcar(n);
+      };
+    });
+    marcar(Math.min(elegido, listos.length - 1));
+  }
 }
 
 function renderAvisoTasa(){
