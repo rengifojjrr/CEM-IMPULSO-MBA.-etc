@@ -170,10 +170,30 @@ Hay dos familias y conviene no confundirlas:
 | `cem_rate_limit_consumir(...)` | El freno por intentos. Sólo el servidor: la usa el webhook del banco. |
 | `cem_rotar_clave_webhook(horas)` | Cambia la ApiKey del webhook dejando un período de gracia en el que valen la vieja y la nueva, para no cortarle el paso al banco en mitad del cambio. |
 
+### El reparto a los socios
+
+Ninguna guarda una ganancia: se recalcula entera cada vez que se pregunta.
+Lo largo está en [El reparto a los socios](el-reparto.md).
+
+| Función | Qué decide |
+|---|---|
+| `cem_reparto(ronda)` | El desglose completo —ingresos, gastos, porcentajes, pagado y pendiente, línea por línea—, no los totales. La pantalla tiene que poder enseñar de dónde sale cada cifra sin volver a preguntar: un socio acepta un número que puede abrir, no uno que sale de una columna. Sólo dirección y auditor. |
+| `cem_reparto_calc(ronda)` | El mismo cálculo sin la guardia, como en `cem_cierre_de_mes`. Existe para poder comprobar el número sin hacerse pasar por nadie, y por eso **no se le concede a nadie**. |
+| `cem_ronda_guardar(...)` | Abre o edita una ronda con sus partes. Al abrir una nueva **cierra la anterior el día antes**: dos rondas solapadas cuentan las mismas ventas dos veces y el reparto sale al doble. |
+| `cem_liquidacion_guardar(pagos, fecha, nota)` | Registra de una vez el pago a varios socios, con un `lote` que agrupa el evento. Devuelve avisos —se paga más de lo que se debe, hay un ajuste de cartera sospechosamente parecido— que no bloquean: son lo que el código no puede decidir y una persona sí. |
+| `cem_liquidacion_eliminar(id)` | Borrado en falso. Lo pendiente vuelve a subir solo, y queda el rastro de que alguien lo cargó mal. |
+| `cem_liquidaciones_listar(limite)` | El historial agrupado por evento. Doce filas sueltas no las revisa nadie. |
+| `cem_aporte_guardar(...)` | El capital que entra. Rechaza acreditarle una reinversión a un socio: esa plata ya era del negocio y no aumenta el capital de nadie. La tabla lo impide además por restricción. |
+| `cem_reparto_sin_clasificar()` | Los gastos sin línea y los pagos sin cartera. No se adivinan: se listan para que una persona los asigne. |
+| `cem_gasto_clasificar(id, linea, reparto)` | Le pone línea a un gasto ya cargado, o el mapa de división si de verdad es compartido. |
+| `cem_a_base(monto, moneda, fecha)` | Pasa un importe a euros con la tasa real del día, y dice de qué día era esa tasa. **Por moneda, no por método**: la paridad del dólar es una concesión de precio al cobrar, no una verdad contable, y aplicarla a un gasto lo abarataría en los libros. |
+
 ### Disparadores
 
 Corren solos al escribir en una tabla. No se llaman a mano:
 
+`cem_gastos_completar` (rellena el equivalente en euros del gasto con la tasa
+del día, congelada: sin él se restarían bolívares de euros),
 `cem_handle_new_user` (crea el perfil al nacer la cuenta),
 `cem_bloquear_cambio_rol_no_admin` (impide que alguien se ascienda, y que un
 administrador se degrade a sí mismo dejando el sistema sin administradores),

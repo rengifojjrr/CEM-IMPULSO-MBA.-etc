@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-36">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-37">
 <style>
   /* Una tarjeta por bolsillo, con el saldo grande: es la única pregunta que
      esta pantalla contesta, así que es lo único que se lee de lejos. */
@@ -87,8 +87,8 @@
 <script type="module">
 import { sb, mount, $, $$, esc, num, money, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, avisar, ocupado, montarAyudas, confirmarBorrado, cargarEn,
-         mejorarSelects, chip, MONEDA_BASE } from '../assets/app.js?v=2026-08-21-36';
-import { apiladas, barras } from '../assets/graficos.js?v=2026-08-21-36';
+         mejorarSelects, chip, MONEDA_BASE } from '../assets/app.js?v=2026-08-21-37';
+import { apiladas, barras } from '../assets/graficos.js?v=2026-08-21-37';
 
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'carteras.html', area:'admin' });
 const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);

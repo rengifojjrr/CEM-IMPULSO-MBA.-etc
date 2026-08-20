@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-21-36';
+         vidrioActual } from './temas.js?v=2026-08-21-37';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1071,6 +1071,11 @@ const ADMIN_NAV = [
   ]},
   { lbl: 'Gobierno', items: [
     ['reportes.html', 'analytics', 'Reportes', ['coordinador','admin','superadmin','auditor']],
+    /* Qué porcentaje tiene cada socio no es información de operación: quien
+       cobra y quien coordina no la necesitan para su trabajo, y verla les
+       cambia la relación con la casa. El auditor sí entra, porque auditar los
+       libros sin ver el reparto es auditar la mitad. */
+    ['inversionistas.html', 'handshake', 'Inversionistas', ['admin','superadmin','auditor']],
     ['auditoria.html', 'history', 'Auditoría', ['admin','superadmin','auditor']],
     ['usuarios.html', 'manage_accounts', 'Usuarios y roles', ['admin','superadmin','auditor']],
     ['permisos.html', 'admin_panel_settings', 'Matriz de permisos', ['admin','superadmin','auditor']],
@@ -1902,7 +1907,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-21-36');
+    const m = await import('./apariencia.js?v=2026-08-21-37');
 
     m.abrirApariencia();
 

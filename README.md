@@ -66,6 +66,9 @@ La revisión automática falla si alguna pantalla queda con una marca distinta.
 - [El dinero](docs/el-dinero.md) — un precio en una sola moneda, qué tasa manda
   y por qué, y qué se congela al cobrar. Con el fallo que tuvo la plataforma
   durante meses por no cumplir la última regla.
+- [El reparto a los socios](docs/el-reparto.md) — quién puso capital, qué
+  porcentaje le toca de cada línea y cuánto se le debe hoy. Por qué el reparto
+  se calcula y nunca se guarda, y por qué las líneas no se agrupan jamás.
 - [Lo que falta](docs/lo-que-falta.md) — qué queda por hacer, qué depende de
   abrir una cuenta y qué es trabajo de código, con las cifras de la base.
 - [Las 42 notas de las capturas](docs/mejoras-de-las-capturas.md) — lo que se
