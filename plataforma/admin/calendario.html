@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-18">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-19">
 <!-- La rejilla del mes vive en la hoja compartida: el estudiante tiene su
      propio calendario y las dos vistas tienen que enseñar la misma semana. -->
 </head>
@@ -30,27 +30,68 @@
         <h2 class="sec" id="mesLbl" style="margin:0;min-width:170px;text-align:center"></h2>
         <button class="icon-btn" id="next" title="Mes siguiente"><span class="material-symbols-outlined">chevron_right</span></button>
       </div>
-      <div class="field" style="margin:0;min-width:220px"><select id="fCohorte"><option value="">Todas las cohortes</option></select></div>
+      <span class="chip neutral" id="contMes"></span>
     </div>
+
+    <!-- item 1 · con una sola cohorte en el desplegable, «¿qué clases se han
+         quedado sin profesor?» había que sacarlo mirando el mes entero fila por
+         fila. Los cuatro filtros valen a la vez y mandan también sobre la
+         cuadrícula: lo de arriba y lo de abajo enseñan siempre lo mismo. -->
+    <div class="filters">
+      <div class="field grow"><label for="fCohorte">Cohorte</label>
+        <select id="fCohorte"><option value="">Todas</option></select></div>
+      <div class="field"><label for="fProf">Profesor</label>
+        <select id="fProf"><option value="">Todos</option><option value="_sin">Sin asignar</option></select></div>
+      <div class="field"><label for="fMod">Modalidad</label>
+        <select id="fMod"><option value="">Todas</option></select></div>
+      <div class="field"><label for="fEstado">Estado</label>
+        <select id="fEstado"><option value="">Todos</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar</button>
+    </div>
+
     <div class="cal" id="cal"></div>
   </div>
 
   <div class="card">
-    <h2 class="sec">Sesiones del mes</h2>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Fecha</th><th>Hora</th><th>Sesión</th><th>Cohorte</th><th>Modalidad</th><th>Salón</th><th>Profesor</th><th>Estado</th><th></th></tr></thead>
+    <div class="row between"><h2 class="sec">Sesiones del mes</h2>
+      <span class="tiny muted" id="pieTabla"></span></div>
+
+    <!-- item 1 · repartir un mes de clases entre dos profesores eran veinte
+         diálogos, uno por sesión. Se marcan las que van juntas y se asignan de
+         una vez; la barra sólo aparece cuando hay algo marcado. -->
+    <div class="nota info" id="barraLote" hidden>
+      <div class="row between" style="gap:var(--e2);flex-wrap:wrap">
+        <b id="loteCuenta"></b>
+        <div class="row" style="gap:var(--e1)">
+          <div class="field" style="margin:0;min-width:200px">
+            <label class="visually-hidden" for="loteProf">Profesor para las marcadas</label>
+            <select id="loteProf"><option value="">Sin asignar</option></select></div>
+          <button class="btn" id="btnLote">Asignar a las marcadas</button>
+          <button class="btn ghost" id="btnLoteNo">Desmarcar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr>
+        <th class="col-marca"><input type="checkbox" id="marcaTodas" title="Marcar todas las de la lista"
+          aria-label="Marcar todas las sesiones de la lista"></th>
+        <th>Fecha</th><th>Hora</th><th>Sesión</th><th>Cohorte</th><th>Modalidad</th><th>Salón</th><th>Profesor</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, run, audit, qs, confirmDialog,
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, okDeshacer, run, audit, qs, confirmDialog,
          campoArchivo, subirDocumentoLeccion, opciones, etiqueta, chipEstado, ayuda, montarAyudas,
-         mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-21-18';
+         mejorarSelects, accionVacio } from '../assets/app.js?v=2026-08-21-19';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'calendario.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let cur = new Date(), clases = [], cohortes = [], profes = [], titular = {};
+/* Lo marcado sobrevive a repintar la tabla, pero no a cambiar de mes ni a
+   recargar: son otras clases. */
+const marcadas = new Set();
 if (p) load();
 
 async function load(){
@@ -62,20 +103,44 @@ async function load(){
   cohortes = cos||[]; profes = ps||[];
   // Quién es el titular de cada cohorte, para proponerlo en las clases nuevas.
   titular = {}; (tas||[]).forEach(t => { titular[t.cohort_id] = t.teacher_id; });
-  $('#fCohorte').innerHTML = '<option value="">Todas las cohortes</option>' +
+  $('#fCohorte').innerHTML = '<option value="">Todas</option>' +
     cohortes.map(c=>`<option value="${c.id}">${esc(c.nombre)} — ${esc(c.cem_courses?.nombre||'')}</option>`).join('');
+  const comoSeLlama = (t) => `${t.nombre||''} ${t.apellido||''}`.trim() || 'Sin nombre';
+  $('#fProf').innerHTML = '<option value="">Todos</option><option value="_sin">Sin asignar</option>' +
+    profes.map(t=>`<option value="${t.id}">${esc(comoSeLlama(t))}</option>`).join('');
+  $('#loteProf').innerHTML = '<option value="">Sin asignar</option>' +
+    profes.map(t=>`<option value="${t.id}">${esc(comoSeLlama(t))}</option>`).join('');
+  $('#fMod').innerHTML = '<option value="">Todas</option>' +
+    ['online','en_vivo','presencial','hibrido'].map(x=>`<option value="${x}">${esc(etiqueta(x))}</option>`).join('');
+  $('#fEstado').innerHTML = '<option value="">Todos</option>' +
+    ['programada','dictada','cancelada','reprogramada'].map(x=>`<option value="${x}">${esc(etiqueta(x))}</option>`).join('');
   if (qs('cohorte')) $('#fCohorte').value = qs('cohorte');
+  mejorarSelects($('#page'));
   await fetchMonth();
 }
 
 async function fetchMonth(){
   const ini = new Date(cur.getFullYear(), cur.getMonth(), 1).toISOString().slice(0,10);
   const fin = new Date(cur.getFullYear(), cur.getMonth()+1, 0).toISOString().slice(0,10);
-  let q = sb.from('cem_classes').select('*,cem_cohorts(nombre,cem_courses(nombre))').gte('fecha',ini).lte('fecha',fin).order('fecha');
-  const coh = $('#fCohorte').value; if (coh) q = q.eq('cohort_id',coh);
-  const { data } = await q;
+  /* El mes entero se trae de una vez y los filtros se aplican aquí. Filtrar la
+     cohorte en el servidor y las otras tres en el navegador dejaba la
+     cuadrícula y la tabla contando cosas distintas. */
+  const { data } = await sb.from('cem_classes')
+    .select('*,cem_cohorts(nombre,cem_courses(nombre))')
+    .gte('fecha',ini).lte('fecha',fin).order('fecha').limit(500);
   clases = data||[];
+  marcadas.clear();
   render();
+}
+
+function visibles(){
+  const coh = $('#fCohorte').value, prof = $('#fProf').value;
+  const mod = $('#fMod').value, est = $('#fEstado').value;
+  return clases.filter(c =>
+    (!coh || c.cohort_id === coh) &&
+    (!prof || (prof === '_sin' ? !c.teacher_id : c.teacher_id === prof)) &&
+    (!mod || c.modalidad === mod) &&
+    (!est || c.estado === est));
 }
 
 function render(){
@@ -85,7 +150,15 @@ function render(){
   const daysInMonth = new Date(y,mo+1,0).getDate();
   const prevDays = new Date(y,mo,0).getDate();
   const today = new Date().toISOString().slice(0,10);
-  const byDay = {}; clases.forEach(c => (byDay[c.fecha] ||= []).push(c));
+  const lista = visibles();
+  const byDay = {}; lista.forEach(c => (byDay[c.fecha] ||= []).push(c));
+  $('#contMes').textContent = lista.length === clases.length
+    ? `${clases.length} sesión(es)`
+    : `${lista.length} de ${clases.length} sesión(es)`;
+  const sinProfe = lista.filter(c => !c.teacher_id).length;
+  $('#pieTabla').textContent = sinProfe
+    ? `${sinProfe} sin profesor asignado`
+    : lista.length ? 'todas con profesor' : '';
 
   let cells = '';
   ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(d => cells += `<div class="dow">${d}</div>`);
@@ -103,24 +176,119 @@ function render(){
   $$('[data-ev]').forEach(e => e.onclick = (ev) => { ev.stopPropagation(); form(clases.find(c=>c.id===e.dataset.ev)); });
   if (editable) $$('[data-day]').forEach(d => d.ondblclick = () => form(null, d.dataset.day));
 
-  $('#tb').innerHTML = clases.length ? clases.map(c => `<tr>
-    <td>${fdate(c.fecha)}</td><td>${(c.hora_inicio||'').slice(0,5)}–${(c.hora_fin||'').slice(0,5)}</td>
-    <td class="wrap"><b>${esc(c.titulo)}</b></td>
-    <td class="wrap">${esc(c.cem_cohorts?.nombre||'')}<div class="tiny muted">${esc(c.cem_cohorts?.cem_courses?.nombre||'')}</div></td>
-    <td>${esc(c.modalidad.replace('_',' '))}</td><td>${esc(c.salon||'—')}</td>
-    <td>${esc(profes.find(x=>x.id===c.teacher_id)?.nombre||'—')}</td>
-    <td>${chipEstado(c.estado)}</td>
-    <td class="nowrap">
+  const nombreDe = (id) => {
+    const t = profes.find(x => x.id === id);
+    return t ? `${t.nombre||''} ${t.apellido||''}`.trim() : '';
+  };
+  $('#tb').innerHTML = lista.length ? lista.map(c => `<tr>
+    <td class="col-marca" data-col="Marcar">${editable
+      ? `<input type="checkbox" data-marca="${c.id}" ${marcadas.has(c.id)?'checked':''}
+           aria-label="Marcar ${esc(c.titulo)}">` : ''}</td>
+    <td data-col="Fecha">${fdate(c.fecha)}</td>
+    <td data-col="Hora">${(c.hora_inicio||'').slice(0,5)}–${(c.hora_fin||'').slice(0,5)}</td>
+    <td class="wrap" data-col="Sesión"><b>${esc(c.titulo)}</b></td>
+    <td class="wrap" data-col="Cohorte">${esc(c.cem_cohorts?.nombre||'')}<div class="tiny muted">${esc(c.cem_cohorts?.cem_courses?.nombre||'')}</div></td>
+    <td data-col="Modalidad">${esc(c.modalidad.replace('_',' '))}</td>
+    <td data-col="Salón">${esc(c.salon||'—')}</td>
+    <td data-col="Profesor">${c.teacher_id
+      ? esc(nombreDe(c.teacher_id) || '—')
+      : '<span class="chip warn">sin asignar</span>'}</td>
+    <td data-col="Estado">${chipEstado(c.estado)}</td>
+    <td class="nowrap" data-col="">
       ${c.url_sesion?`<a class="btn ghost sm" href="${esc(c.url_sesion)}" target="_blank" title="Abrir sesión"><span class="material-symbols-outlined">videocam</span></a>`:''}
       ${editable?`<button class="btn ghost sm" data-edit="${c.id}" title="Editar la clase"><span class="material-symbols-outlined">edit</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(9, 'No hay clases programadas este mes.', {texto:'Programar una clase', id:'vacioClase', icono:'event'});
+    </td></tr>`).join('')
+    : emptyRow(10, clases.length
+        ? 'Ninguna sesión de este mes cumple los filtros.'
+        : 'No hay clases programadas este mes.',
+      clases.length ? null : {texto:'Programar una clase', id:'vacioClase', icono:'event'});
   $$('[data-edit]').forEach(b => b.onclick = () => form(clases.find(c=>c.id===b.dataset.edit)));
+  $$('[data-marca]').forEach(x => x.onchange = () => {
+    if (x.checked) marcadas.add(x.dataset.marca); else marcadas.delete(x.dataset.marca);
+    pintarLote();
+  });
+  pintarLote();
+}
+
+/* ── repartir en lote ─────────────────────────────────────────────────────
+   La barra sólo existe cuando hay algo marcado: una barra permanente pidiendo
+   un profesor invita a pulsarla sin haber marcado nada. */
+function pintarLote(){
+  const lista = visibles();
+  const marcadasVisibles = lista.filter(c => marcadas.has(c.id));
+  const todas = $('#marcaTodas');
+  if (todas) {
+    todas.checked = lista.length > 0 && marcadasVisibles.length === lista.length;
+    todas.indeterminate = marcadasVisibles.length > 0 && marcadasVisibles.length < lista.length;
+    todas.disabled = !editable || !lista.length;
+  }
+  const barra = $('#barraLote');
+  barra.hidden = !editable || marcadasVisibles.length === 0;
+  if (!barra.hidden) {
+    $('#loteCuenta').textContent = `${marcadasVisibles.length} sesión(es) marcada(s)`;
+  }
+}
+
+async function asignarEnLote(){
+  const ids = visibles().filter(c => marcadas.has(c.id)).map(c => c.id);
+  if (!ids.length) return;
+  const quien = $('#loteProf').value || null;
+  const comoSeLlama = quien
+    ? (profes.find(x => x.id === quien) || {})
+    : null;
+  const nombre = comoSeLlama ? `${comoSeLlama.nombre||''} ${comoSeLlama.apellido||''}`.trim() : null;
+
+  /* Lo de antes, para poder deshacer: un reparto en lote mal hecho toca veinte
+     clases y volver a ponerlas a mano una por una sería el mismo trabajo otra
+     vez. */
+  const antes = new Map(clases.filter(c => ids.includes(c.id)).map(c => [c.id, c.teacher_id || null]));
+  if (!await confirmDialog(
+    quien
+      ? `Se le asignan ${ids.length} sesión(es) a ${nombre}. Lo que tuvieran puesto se reemplaza.`
+      : `Se les quita el profesor a ${ids.length} sesión(es).`,
+    quien ? 'Asignar en lote' : 'Quitar el profesor')) return;
+
+  await run(sb.from('cem_classes').update({ teacher_id: quien }).in('id', ids),
+    'No se pudo repartir las clases');
+  await audit('clases_reparto','cem_classes', ids[0], 'medio',
+    { cuantas: ids.length, profesor: quien, ids });
+  marcadas.clear();
+  await fetchMonth();
+  okDeshacer(quien ? `${ids.length} sesión(es) para ${nombre}.` : `${ids.length} sesión(es) sin profesor.`,
+    async () => {
+      /* Deshacer no es «quitárselo a todas»: cada una vuelve a quien tuviera,
+         que casi nunca era el mismo. */
+      const porProfesor = new Map();
+      for (const [id, t] of antes) {
+        const k = t || '';
+        if (!porProfesor.has(k)) porProfesor.set(k, []);
+        porProfesor.get(k).push(id);
+      }
+      for (const [t, unos] of porProfesor) {
+        await run(sb.from('cem_classes').update({ teacher_id: t || null }).in('id', unos),
+          'No se pudo deshacer el reparto');
+      }
+      await audit('clases_reparto','cem_classes', ids[0], 'medio', { deshecho:true, cuantas: ids.length });
+      await fetchMonth();
+    });
 }
 
 $('#prev').onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth()-1, 1); fetchMonth(); };
 $('#next').onclick = () => { cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1); fetchMonth(); };
 $('#btnHoy').onclick = () => { cur = new Date(); fetchMonth(); };
-$('#fCohorte').onchange = fetchMonth;
+['#fCohorte','#fProf','#fMod','#fEstado'].forEach(s => { $(s).onchange = render; });
+$('#btnClear').onclick = () => {
+  ['#fCohorte','#fProf','#fMod','#fEstado'].forEach(s => { $(s).value = ''; });
+  marcadas.clear(); render();
+};
+$('#marcaTodas').onchange = (e) => {
+  const lista = visibles();
+  if (e.target.checked) lista.forEach(c => marcadas.add(c.id));
+  else lista.forEach(c => marcadas.delete(c.id));
+  render();
+};
+$('#btnLote').onclick = asignarEnLote;
+$('#btnLoteNo').onclick = () => { marcadas.clear(); render(); };
 $('#btnNueva').onclick = () => form(null);
 accionVacio('vacioClase', () => form(null));
 

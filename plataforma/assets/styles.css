@@ -790,6 +790,11 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
    fondo de color — el panel ya tiene una tarjeta llena de color arriba. */
 .card.invitacion{border-left:3px solid var(--secondary);}
 
+/* ── la columna de marcar, para repartir en lote ──────────────────────────
+   Estrecha y centrada; no lleva rótulo porque no hay nada que rotular. */
+th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);padding-right:0;}
+.col-marca input{width:17px;height:17px;accent-color:var(--primary);cursor:pointer;}
+
 /* Las cifras de la casa: 2.500 estudiantes, 9 países. Van juntas y grandes. */
 .cifras-casa{display:grid;gap:var(--e3);grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   text-align:center;}
@@ -1198,6 +1203,15 @@ tr.marcada{background:var(--primary-suave);}
      pantalla entera se arrastra de lado por catorce píxeles. Aquí se dejan
      fluir a la línea siguiente, que es lo que hace un móvil. */
   table.tarjetas td.nowrap{white-space:normal;flex-wrap:wrap;justify-content:flex-end;}
+  /* Con columna de marcar, la casilla no puede quedarse de título de la
+     tarjeta: se pone arriba en su propia línea, con su rótulo, y el título
+     vuelve a ser la celda siguiente, que es la que identifica la fila. */
+  table.tarjetas td.col-marca{display:flex;justify-content:flex-start;gap:var(--e1);
+    width:auto;text-align:left;padding:0 0 var(--e1);}
+  table.tarjetas td.col-marca::before{display:block;content:attr(data-col);}
+  table.tarjetas td.col-marca + td{display:block;text-align:left;
+    font-weight:var(--peso-fuerte);font-size:var(--t-md);margin-bottom:var(--e0);}
+  table.tarjetas td.col-marca + td::before{display:none;}
   table.tarjetas tfoot tr.totales{background:var(--hueco);}
   .table-wrap{overflow-x:visible;}
   .recorta{max-width:none;white-space:normal;}

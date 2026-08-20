@@ -258,6 +258,90 @@ export default async function correr(navegador) {
   a.comprobar(!examen.marcaLaCorrecta,
     `Sin chivar cuál es la respuesta buena (${examen.opciones} opción(es) a la vista)`);
 
+  /* ============ repartir las clases entre los profesores ============
+     item 1 · «más filtros, listas o formas de distribuirle a los profesores las
+     clases». Antes eran veinte diálogos, uno por sesión, y para saber cuáles
+     estaban sin profesor había que leer el mes fila por fila.
+
+     Se montan tres sesiones propias en un mes futuro para no depender de lo que
+     hubiera en el calendario, y se borran al terminar. */
+  const puesto = await A.evaluate(async () => {
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-19');
+    const { data: coh } = await m.sb.from('cem_cohorts').select('id').limit(1);
+    const { data: profes } = await m.sb.from('cem_profiles').select('id,nombre')
+      .eq('rol', 'profesor').limit(2);
+    if (!coh?.length || (profes || []).length < 1) return null;
+    const mes = new Date(); mes.setMonth(mes.getMonth() + 2);
+    const dia = (n) => `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}-0${n}`;
+    const filas = [1, 2, 3].map((n) => ({
+      cohort_id: coh[0].id, titulo: `PRUEBA reparto ${n}`, fecha: dia(n),
+      hora_inicio: '18:30', hora_fin: '20:30', modalidad: 'online',
+      estado: 'programada', teacher_id: null,
+    }));
+    const { data, error } = await m.sb.from('cem_classes').insert(filas).select('id');
+    return { error: error?.message || null, ids: (data || []).map((x) => x.id),
+             mes: `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`,
+             profesor: profes[0].id, comoSeLlama: profes[0].nombre };
+  });
+
+  if (!puesto || puesto.error) {
+    a.comprobar(false, `Se pudieron montar sesiones de prueba para el reparto (${puesto?.error || 'sin cohortes'})`);
+  } else {
+    await A.goto(`${BASE}/plataforma/admin/calendario.html`);
+    await A.waitForSelector('#page:not(.hidden)', { timeout: 30000 });
+    await A.waitForTimeout(2500);
+    // Ir al mes donde se dejaron.
+    for (let i = 0; i < 6; i++) {
+      if (await A.locator('#tb tr', { hasText: 'PRUEBA reparto' }).count() >= 3) break;
+      await A.click('#next');
+      await A.waitForTimeout(1200);
+    }
+
+    const total = await A.locator('#tb tr [data-marca]').count();
+    await A.selectOption('#fProf', '_sin');
+    await A.waitForTimeout(600);
+    const sinProfe = await A.locator('#tb tr [data-marca]').count();
+    a.comprobar(sinProfe >= 3 && sinProfe <= total,
+      `Se puede pedir «sin profesor asignado» y sale sólo eso (${sinProfe} de ${total})`);
+
+    /* El filtro manda también sobre la cuadrícula: si la tabla dijera una cosa
+       y el mes otra, habría que creerle a una de las dos sin saber a cuál. */
+    const enCuadricula = await A.locator('#cal .ev').count();
+    a.comprobar(enCuadricula === sinProfe,
+      `Y la cuadrícula del mes enseña lo mismo que la tabla (${enCuadricula} y ${sinProfe})`);
+
+    a.comprobar(!(await A.locator('#barraLote').isVisible()),
+      'Sin nada marcado no hay barra de reparto pidiendo un profesor');
+
+    await A.click('#marcaTodas');
+    await A.waitForTimeout(500);
+    a.comprobar(await A.locator('#barraLote').isVisible(),
+      `Al marcar, aparece («${(await A.locator('#loteCuenta').textContent()).trim()}»)`);
+
+    await A.selectOption('#loteProf', puesto.profesor);
+    await A.click('#btnLote');
+    await A.waitForSelector('[data-si]', { timeout: 10000 });
+    const aviso = await A.locator('.modal-b').textContent();
+    a.comprobar(/se reemplaza/i.test(aviso) && new RegExp(puesto.comoSeLlama).test(aviso),
+      'Antes de repartir dice a cuántas y a quién, y que lo anterior se reemplaza');
+    await A.locator('.modal [data-si]').click();
+    await A.waitForTimeout(4000);
+
+    const quedaron = await A.evaluate(async (arg) => {
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-19');
+      const { data } = await m.sb.from('cem_classes').select('id,teacher_id').in('id', arg.ids);
+      return (data || []).filter((x) => x.teacher_id === arg.profesor).length;
+    }, puesto);
+    a.comprobar(quedaron === puesto.ids.length,
+      `Las tres quedan asignadas de una vez (${quedaron} de ${puesto.ids.length})`);
+
+    // Y se limpia: estas sesiones son de la prueba, no del calendario de nadie.
+    await A.evaluate(async (ids) => {
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-19');
+      await m.sb.from('cem_classes').delete().in('id', ids);
+    }, puesto.ids);
+  }
+
   a.comprobar(E.errores.length === 0,
     `Las pantallas del estudiante no lanzan errores ${JSON.stringify(E.errores.slice(0, 2))}`);
   a.comprobar(A.errores.length === 0,

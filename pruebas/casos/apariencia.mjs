@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-18');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-19');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-18');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-21-19');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -145,7 +145,7 @@ export default async function correr(navegador) {
 
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-18');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-21-19');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

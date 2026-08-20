@@ -13,7 +13,7 @@ Esa es la mitad útil de este documento.
 
 | # | Captura | Lo que se pidió | Qué pasó |
 |---|---------|-----------------|----------|
-| 1 | image37 | Más filtros y formas de repartir las clases entre profesores | **Parcial.** Cada sesión ya podía tener su profesor; lo que faltaba era que se notara. La cohorte dice ahora que su titular es sólo el de por omisión, y una clase nueva lo propone solo. Un repartidor en lote sigue pendiente. |
+| 1 | image37 | Más filtros y formas de repartir las clases entre profesores | **Hecho.** Cuatro filtros que valen a la vez —cohorte, profesor (incluido «sin asignar»), modalidad y estado— y que mandan también sobre la cuadrícula del mes, para que arriba y abajo digan lo mismo. Y un repartidor: se marcan las sesiones que van juntas y se asignan de una vez, con deshacer que devuelve a cada una **su** profesor anterior, no el mismo a todas. |
 | 2 | image34 | Una lista de los usuarios con su información | **Ya estaba**, en Usuarios y roles. Lo que no se veía era el buscador: estaba escondido en la barra de arriba. Se devolvió a su sitio. |
 | 3 | image20 | A una cohorte le dan clase varios profesores | **Hecho.** El titular responde por la cohorte; cada sesión puede tener otro, y ahora la pantalla lo dice en vez de dar a entender que hay uno solo. |
 | 4 | image4 | Si la clase es en línea, que no pida salón | **Hecho.** El salón sale sólo en presencial e híbrido, el enlace sólo en línea, y lo que no aplica se guarda vacío para que un cambio de modalidad no deje el dato viejo. |
@@ -135,7 +135,9 @@ Cada cosa de arriba que se podía romper otra vez tiene su comprobación:
   comprobar que invitar **no** matricula a nadie, y que aceptar sí crea la
   inscripción con una cuota que suma exactamente el precio ofrecido.
 - **académico** — los filtros de la cola de corrección y de la bandeja de
-  revisión, y que «Ver» no enseñe una imagen rota.
+  revisión, que «Ver» no enseñe una imagen rota, y el reparto de clases en
+  lote: se montan tres sesiones propias, se filtran por «sin profesor», se
+  reparten de una vez y se borran al terminar.
 - **lección** — que cada material salga una sola vez y con su previsualización.
 - **vídeo** — que poner un vídeo en una lección lo guarde **de verdad**: se
   asigna sobre una lección real, se relee y se deja como estaba. Y que la
