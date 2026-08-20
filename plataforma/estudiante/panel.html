@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-16">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-17">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -31,6 +31,12 @@
        deducir por dónde empezar; ahí es donde se pierde la mitad de la gente
        que ya pagó. -->
   <div id="bienvenida"></div>
+
+  <!-- item 22 · antes, «meterte a otro curso» era una inscripción que aparecía
+       en tu panel sin que nadie te la hubiera propuesto, con sus cuotas ya
+       emitidas. Aquí la oferta está a la vista, con su precio, y no pasa nada
+       hasta que la contestes. -->
+  <div id="invitaciones"></div>
 
   <div class="card" id="proxima" style="background:linear-gradient(120deg,color-mix(in oklab, var(--primary) 88%, #000),color-mix(in oklab, var(--primary) 62%, var(--secondary)));color:var(--on-primary);border:none"></div>
 
@@ -67,8 +73,8 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado,
-         chipNota, vacio, etiqueta, confirmDialog, ok, avisar, mensajeError } from '../assets/app.js?v=2026-08-21-16';
-import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-21-16';
+         chipNota, vacio, etiqueta, confirmDialog, ok, avisar, mensajeError } from '../assets/app.js?v=2026-08-21-17';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-21-17';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 
 /* El resumen arranca plegado, pero si alguien lo abre se queda abierto la
@@ -245,6 +251,61 @@ async function init(){
 
   pintarBienvenida(ens || [], puertas);
   pintarPistas(ens || [], puertas);
+  pintarInvitaciones();
+}
+
+/* ============ una invitación a otro programa (item 22) ============
+   Es una oferta con precio, no una matrícula hecha. Se enseña lo que costaría,
+   en cuántas cuotas y hasta cuándo vale, y las dos respuestas pesan lo mismo:
+   aceptar crea la inscripción; decir que no la cierra y no vuelve a salir. */
+const PLAN_INV = { 1:'de una vez', 3:'en 3 cuotas', 6:'en 6 cuotas' };
+
+async function pintarInvitaciones(){
+  const host = $('#invitaciones');
+  if (!host) return;
+  const { data, error } = await sb.rpc('cem_mis_invitaciones');
+  if (error || !(data || []).length) { host.innerHTML = ''; return; }
+
+  host.innerHTML = data.map(i => `
+    <div class="card invitacion" data-inv="${esc(i.id)}">
+      <div class="row between" style="align-items:flex-start;gap:var(--e2)">
+        <div class="grow">
+          <span class="chip info">Invitación</span>
+          <h2 class="sec" style="margin:var(--e1) 0 4px">${esc(i.curso)}</h2>
+          <p class="tiny muted" style="margin:0">${esc(i.cohorte || 'sin grupo asignado')}
+            · ${esc(PLAN_INV[i.cuotas] || `en ${i.cuotas} cuotas`)}
+            ${i.vence ? ` · la oferta vale hasta el ${fdate(i.vence)}` : ''}</p>
+          ${i.mensaje ? `<p class="sep-poco" style="margin-bottom:0">${esc(i.mensaje)}</p>` : ''}
+        </div>
+        <div style="text-align:right;flex:none">
+          <div style="font-size:var(--t-xl);font-family:var(--cifra);font-variant-numeric:tabular-nums">
+            ${esc(money(i.precio_final, i.moneda))}</div>
+          ${Number(i.descuento) > 0 ? `<div class="tiny muted">
+            <s>${esc(money(i.precio_lista, i.moneda))}</s> · ${esc(money(i.descuento, i.moneda))} menos</div>` : ''}
+        </div>
+      </div>
+      <div class="row sep" style="justify-content:flex-end">
+        <button class="btn ghost" data-no="${esc(i.id)}">No, gracias</button>
+        <button class="btn" data-si="${esc(i.id)}">
+          <span class="material-symbols-outlined">check</span> Aceptar e inscribirme</button>
+      </div>
+    </div>`).join('');
+
+  $$('[data-si]', host).forEach(b => b.onclick = () => responder(b.dataset.si, true));
+  $$('[data-no]', host).forEach(b => b.onclick = async () => {
+    if (!await confirmDialog('¿Rechazar esta invitación? No volverá a aparecer.')) return;
+    responder(b.dataset.no, false);
+  });
+}
+
+async function responder(id, aceptar){
+  const { data, error } = await sb.rpc('cem_responder_invitacion', { p_id: id, p_aceptar: aceptar });
+  if (error) { avisar(mensajeError(error, 'No se pudo contestar la invitación.')); return; }
+  if (!aceptar) { ok('Invitación rechazada.'); pintarInvitaciones(); return; }
+  /* Aceptar deja una inscripción con sus cuotas pendientes: lo siguiente es
+     pagarlas, así que se lleva ahí en vez de dejar a la persona buscando. */
+  ok('Ya estás inscrito. Te llevamos a tus pagos para que elijas cómo pagarlo.');
+  setTimeout(() => { location.href = `pagos.html?enr=${encodeURIComponent(data?.id || '')}`; }, 900);
 }
 
 /* ============ la bienvenida del primer día (mejora 2) ============

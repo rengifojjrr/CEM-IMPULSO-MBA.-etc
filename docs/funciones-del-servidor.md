@@ -78,6 +78,10 @@ como las demás funciones. Son el vocabulario de permisos de todo el sistema:
 | `cem_guardar_tasa_manual(valor, fecha)` | Cargar la tasa a mano. Sólo cobranza para arriba. |
 | `cem_self_enroll(...)` | La inscripción por cuenta propia. **El precio lo pone el servidor**, no el formulario: si viniera del navegador, cualquiera se inscribiría por un dólar. |
 | `cem_cancelar_inscripcion(inscripcion, motivo)` | Dar de baja lo que nunca se pagó, a petición del propio estudiante o del equipo. Con un solo pago confirmado se niega: eso ya no es cancelar, es devolver, y lo decide quien cobra. |
+| `cem_invitar_a_curso(persona, curso, cohorte, descuento, cuotas, mensaje, vence)` | La casa **propone** un precio. No crea inscripción ni cuotas: sólo la oferta y el aviso. Sólo equipo. Aplica el mismo recargo por plan que `cem_self_enroll` —si no, invitar sería una tarifa paralela— y rechaza el programa sin publicar, la cohorte de otro curso y a quien ya está inscrito. |
+| `cem_mis_invitaciones()` | Las que tiene sin contestar quien pregunta, ya sin las caducadas. |
+| `cem_responder_invitacion(invitación, aceptar)` | Aceptar crea la inscripción y emite el plan con el precio **de la invitación**, no con el que mande el navegador. Comprueba que la invitación sea de quien contesta: si no, contestar por otro sería inscribir a otro. |
+| `cem_invitaciones_listar()` / `cem_retirar_invitacion(id)` | Lo que el equipo mandó, y deshacerlo mientras nadie lo haya contestado. |
 
 ### Primero se paga, después se entra
 

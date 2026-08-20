@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-21-16';
+         vidrioActual } from './temas.js?v=2026-08-21-17';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1902,7 +1902,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-21-16');
+    const m = await import('./apariencia.js?v=2026-08-21-17');
 
     m.abrirApariencia();
 
@@ -2619,6 +2619,178 @@ export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
   }
 
   const api = { html, conectar, valor: () => actual, fijar: () => {} };
+  return api;
+}
+
+/* ============ buscar a una persona, en vez de bajar por una lista ============
+   item 22 · «Nueva inscripción» empezaba con un desplegable de quinientos
+   nombres ordenados alfabéticamente. Con quinientas cuentas eso ya no es
+   elegir: es buscar a mano en una lista que no se puede buscar. Y el número
+   sólo crece.
+
+   Aquí se escribe y la base contesta. Se pregunta a partir de dos letras y con
+   un respiro de 220 ms, para no lanzar una consulta por tecla. Se devuelve el
+   mismo trato que `campoArchivo`: { html, conectar(raíz), valor(), fijar(x) }.
+
+   `buscar` recibe el texto y devuelve una lista de { id, titulo, sub }. Así
+   sirve igual para estudiantes, para profesores o para lo que haga falta. */
+export function campoBuscar({ id, etiqueta: etq = 'Buscar', ayudaTexto = 'Escribe dos letras del nombre o del correo',
+                              buscar, alElegir = null, minimo = 2 }) {
+  let elegido = null;
+
+  const html = `
+    <div class="field buscador" id="${id}Campo">
+      <label for="${id}">${esc(etq)}</label>
+      <input id="${id}" type="search" role="combobox" aria-expanded="false" aria-autocomplete="list"
+             aria-controls="${id}Lista" autocomplete="off" spellcheck="false"
+             placeholder="${esc(ayudaTexto)}">
+      <div class="buscador-elegido" id="${id}Elegido" hidden>
+        <span class="grow"></span>
+        <button type="button" class="btn ghost sm" id="${id}Quitar" aria-label="Elegir a otra persona">
+          <span class="material-symbols-outlined">close</span></button>
+      </div>
+      <ul class="buscador-lista" id="${id}Lista" role="listbox" hidden></ul>
+    </div>`;
+
+  function conectar(raiz = document) {
+    const input = raiz.querySelector('#' + id);
+    const lista = raiz.querySelector('#' + id + 'Lista');
+    const caja  = raiz.querySelector('#' + id + 'Elegido');
+    const quien = caja.querySelector('.grow');
+    let espera = null, resultados = [], marcado = -1, pedido = 0;
+
+    const cerrar = () => { lista.hidden = true; input.setAttribute('aria-expanded', 'false'); marcado = -1; };
+
+    const pintar = () => {
+      lista.innerHTML = resultados.length
+        ? resultados.map((r, k) => `<li role="option" id="${id}Op${k}" data-k="${k}"
+            aria-selected="${k === marcado}" class="${k === marcado ? 'marcada' : ''}">
+            <b>${esc(r.titulo)}</b>${r.sub ? `<span class="tiny muted">${esc(r.sub)}</span>` : ''}</li>`).join('')
+        : `<li class="vacia" aria-disabled="true">Nadie con ese nombre ni ese correo</li>`;
+      lista.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      input.setAttribute('aria-activedescendant', marcado >= 0 ? `${id}Op${marcado}` : '');
+    };
+
+    const elegir = (r) => {
+      elegido = r;
+      quien.innerHTML = `<b>${esc(r.titulo)}</b>${r.sub ? ` <span class="tiny muted">${esc(r.sub)}</span>` : ''}`;
+      caja.hidden = false;
+      input.hidden = true;
+      cerrar();
+      alElegir?.(r);
+    };
+
+    input.addEventListener('input', () => {
+      clearTimeout(espera);
+      const q = input.value.trim();
+      if (q.length < minimo) { resultados = []; cerrar(); return; }
+      espera = setTimeout(async () => {
+        /* Cada consulta lleva su número. Si vuelve una vieja después de una
+           nueva —pasa cuando se escribe rápido y la red va a saltos—, se tira:
+           pintar la respuesta de «ma» encima de la de «marta» es peor que no
+           pintar nada. */
+        const mio = ++pedido;
+        try {
+          const r = await buscar(q);
+          if (mio !== pedido) return;
+          resultados = r || []; marcado = -1; pintar();
+        } catch { if (mio === pedido) { resultados = []; pintar(); } }
+      }, 220);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (lista.hidden || !resultados.length) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); marcado = (marcado + 1) % resultados.length; pintar(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); marcado = (marcado - 1 + resultados.length) % resultados.length; pintar(); }
+      else if (e.key === 'Enter' && marcado >= 0) { e.preventDefault(); elegir(resultados[marcado]); }
+      else if (e.key === 'Escape') cerrar();
+    });
+
+    lista.addEventListener('mousedown', (e) => {
+      const li = e.target.closest('li[data-k]');
+      if (li) { e.preventDefault(); elegir(resultados[Number(li.dataset.k)]); }
+    });
+    input.addEventListener('blur', () => setTimeout(cerrar, 120));
+
+    raiz.querySelector('#' + id + 'Quitar').addEventListener('click', () => {
+      elegido = null; caja.hidden = true; input.hidden = false;
+      input.value = ''; input.focus(); alElegir?.(null);
+    });
+
+    return api;
+  }
+
+  const api = { html, conectar, valor: () => elegido, fijar: (r) => { elegido = r; } };
+  return api;
+}
+
+/* ============ un descuento, en porcentaje o en dinero ============
+   item 22 · el campo era un número suelto y nadie sabía si «10» eran diez
+   euros o el diez por ciento. Sobre un programa de 2.160 € la diferencia son
+   206 €, y se descubría al emitir las cuotas.
+
+   Se guarda siempre en dinero, que es lo que entiende la base; el porcentaje
+   es sólo la forma de escribirlo. Y debajo se enseña el precio que queda, que
+   es la única cifra que de verdad se está decidiendo. */
+export function campoDescuento({ id, precio = 0, moneda = MONEDA_BASE, alCambiar = null }) {
+  let base = Number(precio) || 0;
+
+  const html = `
+    <div class="field descuento" id="${id}Campo">
+      <label for="${id}">Descuento</label>
+      <div class="row descuento-fila">
+        <input type="number" step="0.01" min="0" id="${id}" value="0" aria-describedby="${id}Nota">
+        <div class="segmentado" role="radiogroup" aria-label="Cómo se expresa el descuento">
+          <button type="button" class="btn outline sm" id="${id}Pct" role="radio" aria-checked="false">%</button>
+          <button type="button" class="btn outline sm activo" id="${id}Eur" role="radio" aria-checked="true">${esc(moneda === 'EUR' ? '€' : moneda)}</button>
+        </div>
+      </div>
+      <p class="tiny muted" id="${id}Nota"></p>
+    </div>`;
+
+  function conectar(raiz = document) {
+    const input = raiz.querySelector('#' + id);
+    const bPct  = raiz.querySelector('#' + id + 'Pct');
+    const bEur  = raiz.querySelector('#' + id + 'Eur');
+    const nota  = raiz.querySelector('#' + id + 'Nota');
+    let enPct = false;
+
+    const enDinero = () => {
+      const v = Number(input.value) || 0;
+      if (!enPct) return Math.min(Math.max(v, 0), base);
+      return Math.round(base * Math.min(Math.max(v, 0), 100)) / 100;
+    };
+
+    const repintar = () => {
+      const d = enDinero();
+      const final = Math.max(base - d, 0);
+      nota.innerHTML = base
+        ? `Precio de lista ${esc(money(base, moneda))} · queda en <b>${esc(money(final, moneda))}</b>`
+          + (d > 0 ? ` (${enPct ? esc(money(d, moneda)) : Math.round(1000 * d / base) / 10 + ' %'})` : '')
+        : 'Este programa no tiene precio de lista, así que no hay nada que descontar.';
+      alCambiar?.({ descuento: d, final });
+    };
+
+    const modo = (pct) => {
+      enPct = pct;
+      bPct.classList.toggle('activo', pct);   bPct.setAttribute('aria-checked', String(pct));
+      bEur.classList.toggle('activo', !pct);  bEur.setAttribute('aria-checked', String(!pct));
+      input.max = pct ? 100 : (base || '');
+      repintar();
+    };
+
+    bPct.addEventListener('click', () => modo(true));
+    bEur.addEventListener('click', () => modo(false));
+    input.addEventListener('input', repintar);
+
+    api.fijarPrecio = (p) => { base = Number(p) || 0; input.max = enPct ? 100 : (base || ''); repintar(); };
+    api.valor = () => { const d = enDinero(); return { descuento: d, final: Math.max(base - d, 0), enPct }; };
+    repintar();
+    return api;
+  }
+
+  const api = { html, conectar, valor: () => ({ descuento: 0, final: base, enPct: false }), fijarPrecio: () => {} };
   return api;
 }
 

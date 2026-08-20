@@ -3,7 +3,7 @@
 
    Es el caso más delicado del sistema: un fallo aquí no se ve, se cobra mal. */
 
-import { acta, nuevaPestana, entrar, BASE } from '../entorno.mjs';
+import { acta, nuevaPestana, entrar, conLaBase, BASE } from '../entorno.mjs';
 
 export default async function correr(navegador) {
   const a = acta('dinero');
@@ -145,7 +145,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -364,7 +364,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -392,7 +392,7 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });
@@ -477,6 +477,110 @@ export default async function correr(navegador) {
      se está buscando. */
   const mentira = grupos.filter((g) => g.estado === 'al día' && /^0[,.]/.test(g.avance)).length;
   a.comprobar(mentira === 0, 'Un programa sin cobrar nada no se anuncia como «al día»');
+
+  /* ============ invitar a otro programa, en vez de matricular a la fuerza ============
+     item 22 · el buscador de personas, el descuento en % o en dinero, y que la
+     inscripción no exista hasta que la persona diga que sí. */
+  await A.goto(`${BASE}/plataforma/admin/inscripciones.html`);
+  await A.waitForSelector('#btnNueva', { timeout: 25000 });
+  await A.waitForTimeout(2500);
+
+  /* A qué programa se puede invitar: uno publicado donde el estudiante de
+     demostración no esté ya. Preguntándoselo a la base y no fijando un
+     identificador, que cambia con cada juego de datos. */
+  const destino = await conLaBase(A, async (sb) => {
+    const { data: yo } = await sb.from('cem_profiles').select('id').eq('email', 'estudiante@cem.demo').maybeSingle();
+    const { data: mios } = await sb.from('cem_enrollments').select('course_id')
+      .eq('profile_id', yo.id).not('estado', 'in', '("cancelada","finalizada")');
+    const tomados = new Set((mios || []).map((x) => x.course_id));
+    const { data: cursos } = await sb.from('cem_courses').select('id,nombre,precio')
+      .eq('estado', 'publicado').order('nombre');
+    const libre = (cursos || []).find((c) => !tomados.has(c.id) && Number(c.precio) > 0);
+    return { perfil: yo.id, curso: libre || null };
+  });
+
+  if (!destino.curso) {
+    a.comprobar(false, 'Hay algún programa publicado al que invitar al estudiante de prueba');
+  } else {
+    await A.click('#btnNueva');
+    await A.waitForSelector('#nEst', { timeout: 10000 });
+
+    await A.fill('#nEst', 'estudiante@cem');
+    await A.waitForTimeout(1500);
+    const encontrados = await A.$$eval('#nEstLista li[data-k]', (ls) => ls.length);
+    a.comprobar(encontrados >= 1,
+      `Se busca a la persona escribiendo, en vez de bajar por una lista (${encontrados} resultado(s))`);
+
+    await A.click('#nEstLista li[data-k="0"]');
+    await A.waitForTimeout(400);
+    a.comprobar(await A.locator('#nEstElegido').isVisible(),
+      'Al elegirla queda a la vista quién es, no un desplegable sin abrir');
+
+    await A.selectOption('#nCurso', destino.curso.id);
+    await A.selectOption('#nCuotas', '1');
+    await A.waitForTimeout(400);
+
+    /* El mismo «10» significa dos cosas distintas, y la pantalla tiene que
+       decir cuál. Sobre 162 € son 152 € o 145,80 €. */
+    await A.fill('#nDesc', '10');
+    await A.waitForTimeout(300);
+    const enDinero = (await A.locator('#nDescNota').textContent()).trim();
+    await A.click('#nDescPct');
+    await A.waitForTimeout(300);
+    const enPorciento = (await A.locator('#nDescNota').textContent()).trim();
+    a.comprobar(enDinero !== enPorciento && /queda en/.test(enDinero) && /queda en/.test(enPorciento),
+      `El descuento se dice en % o en dinero, y se ve el precio que queda (${enPorciento})`);
+
+    await A.click('[data-inv]');
+    await A.waitForTimeout(3500);
+
+    const enviadas = await A.$$eval('#tbInv tr', (rs) => rs.map((r) => r.innerText.replace(/\s+/g, ' ')));
+    a.comprobar(enviadas.some((t) => t.includes(destino.curso.nombre) && /endiente/.test(t)),
+      'La invitación queda a la vista del equipo, sin contestar');
+
+    /* Y lo que importa: todavía NO está inscrito. Invitar no es matricular. */
+    const antes = await conLaBase(A, async (sb, cursoId, perfil) => {
+      const { count } = await sb.from('cem_enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('profile_id', perfil).eq('course_id', cursoId)
+        .not('estado', 'in', '("cancelada","finalizada")');
+      return count;
+    }, destino.curso.id, destino.perfil);
+    a.comprobar(antes === 0, `Invitar no matricula a nadie: sigue sin inscripción (${antes})`);
+
+    // ── la persona la ve y la acepta
+    await E.goto(`${BASE}/plataforma/estudiante/panel.html`);
+    await E.waitForSelector('#cursos', { timeout: 25000 });
+    await E.waitForTimeout(3000);
+    const suya = await E.$$eval('#invitaciones .card.invitacion', (cs) =>
+      cs.map((c) => c.innerText.replace(/\s+/g, ' ')));
+    a.comprobar(suya.some((t) => t.includes(destino.curso.nombre)),
+      'Le llega a su panel, con el precio que se le ofreció');
+
+    await E.click('#invitaciones [data-si]');
+    await E.waitForTimeout(4000);
+
+    const despues = await conLaBase(E, async (sb, cursoId) => {
+      const { data } = await sb.from('cem_enrollments').select('id,precio_final,estado')
+        .eq('course_id', cursoId).not('estado', 'in', '("cancelada","finalizada")');
+      const { data: cuotas } = await sb.from('cem_installments').select('id,monto')
+        .in('enrollment_id', (data || []).map((x) => x.id));
+      return { ins: data || [], cuotas: cuotas || [] };
+    }, destino.curso.id);
+    a.comprobar(despues.ins.length === 1 && despues.cuotas.length === 1,
+      `Aceptar sí la crea, con su plan de pago (${despues.ins.length} inscripción, ${despues.cuotas.length} cuota)`);
+
+    const cuadra = despues.ins[0] && despues.cuotas[0] &&
+      Math.abs(Number(despues.cuotas[0].monto) - Number(despues.ins[0].precio_final)) < 0.01;
+    a.comprobar(!!cuadra,
+      `Y la cuota suma exactamente el precio aceptado (${despues.cuotas[0]?.monto} de ${despues.ins[0]?.precio_final})`);
+
+    /* Se deja el escenario como estaba: si no, la siguiente corrida encuentra
+       al estudiante ya inscrito y la prueba no vuelve a pasar nunca. */
+    await conLaBase(E, async (sb, enrId) => sb.rpc('cem_cancelar_inscripcion',
+      { p_enrollment_id: enrId, p_motivo: 'Limpieza de la prueba de invitaciones.' }),
+      despues.ins[0]?.id);
+  }
 
   a.comprobar(A.errores.length === 0,
     `La bandeja de pagos no lanza errores ${JSON.stringify(A.errores.slice(0, 2))}`);

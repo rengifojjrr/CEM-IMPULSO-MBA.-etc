@@ -755,6 +755,41 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
   border-radius:var(--r-full);}
 .atajos{display:flex;flex-wrap:wrap;gap:var(--e1);justify-content:center;margin-top:var(--e2);}
 
+/* ── escribir para encontrar a alguien ────────────────────────────────────
+   Sustituye al desplegable de quinientos nombres. La lista flota sobre lo
+   que haya debajo —dentro de un modal, sobre el resto del formulario— y no
+   empuja nada al abrirse: si empujara, el ratón perdería la fila que iba a
+   pulsar justo al pulsarla. */
+.field.buscador{position:relative;}
+.buscador-lista{position:absolute;left:0;right:0;top:100%;z-index:30;margin:4px 0 0;padding:4px;
+  list-style:none;max-height:260px;overflow-y:auto;
+  background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
+  box-shadow:var(--sombra);}
+.buscador-lista li{display:flex;flex-direction:column;gap:1px;padding:8px 10px;
+  border-radius:var(--r);cursor:pointer;}
+.buscador-lista li.marcada,.buscador-lista li:hover{background:var(--hueco);}
+.buscador-lista li.vacia{cursor:default;color:var(--tinta-3);font-size:var(--t-xs);}
+.buscador-lista li.vacia:hover{background:none;}
+.buscador-elegido{display:flex;align-items:center;gap:var(--e1);
+  padding:8px 8px 8px 12px;border:1px solid var(--filete);border-radius:var(--r);
+  background:var(--hueco);}
+
+/* ── un descuento en porcentaje o en dinero ───────────────────────────────
+   El número y la unidad van pegados: separados, se lee «10» y se olvida el
+   «%». Debajo, siempre, el precio que queda — que es lo que de verdad se
+   está decidiendo. */
+.descuento-fila{gap:var(--e1);align-items:stretch;flex-wrap:nowrap;}
+.descuento-fila input{flex:1;min-width:80px;}
+.segmentado{display:flex;gap:2px;flex:none;}
+.segmentado .btn{min-width:44px;justify-content:center;}
+.segmentado .btn.activo{background:var(--primary);color:var(--on-primary);
+  border-color:var(--primary);}
+
+/* Una invitación no es una tarjeta más del panel: es lo único de la pantalla
+   que espera una respuesta. Se marca con el filete del color de la casa, sin
+   fondo de color — el panel ya tiene una tarjeta llena de color arriba. */
+.card.invitacion{border-left:3px solid var(--secondary);}
+
 /* Las cifras de la casa: 2.500 estudiantes, 9 países. Van juntas y grandes. */
 .cifras-casa{display:grid;gap:var(--e3);grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   text-align:center;}

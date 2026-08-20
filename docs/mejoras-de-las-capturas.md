@@ -39,7 +39,7 @@ Esa es la mitad útil de este documento.
 
 | # | Captura | Lo que se pidió | Qué pasó |
 |---|---------|-----------------|----------|
-| 22 | image18 | Buscador de estudiantes, invitación y descuento en % o total | **Pendiente.** |
+| 22 | image18 | Buscador de estudiantes, invitación y descuento en % o total | **Hecho, las tres.** Se busca a la persona escribiendo en vez de bajar por un desplegable de quinientos nombres; el descuento se dice en % o en dinero y debajo se ve el precio que queda; y ahora se puede **invitar** en lugar de matricular: la oferta le llega a su panel con su precio y no hay inscripción ni cuotas hasta que acepte. |
 | 23 | image8 | Búsqueda, filtros por fecha y método, y entrar a la persona | **Hecho.** Fechas, método, y desde cada pago se entra a la ficha. Los tres listados arman su lista en un sitio para que el Excel no se separe de lo que se ve. |
 | 24 | image1 | Botones descuadrados | **Hecho.** La barra de acciones centraba sus hijos; ahora se apoyan por abajo, como la franja de filtros. |
 | 25 | image36 | Previsualización, como el catálogo de los estudiantes | **Hecho.** Vista de catálogo con las portadas — que destapó que siete de nueve programas no tienen ninguna. |
@@ -116,7 +116,10 @@ Cada cosa de arriba que se podía romper otra vez tiene su comprobación:
   arregla, pidiéndosela de verdad al servidor.
 - **dinero** — los filtros de los pagos, el enlace a la ficha, y que allí el
   dinero salga partido por programa, con lo vencido arriba y sin llamar «al
-  día» a un programa por el que no ha entrado nada.
+  día» a un programa por el que no ha entrado nada. También el camino entero de
+  una invitación: buscar a la persona, decir el descuento en las dos unidades,
+  comprobar que invitar **no** matricula a nadie, y que aceptar sí crea la
+  inscripción con una cuota que suma exactamente el precio ofrecido.
 - **académico** — los filtros de la cola de corrección y de la bandeja de
   revisión, y que «Ver» no enseñe una imagen rota.
 - **lección** — que cada material salga una sola vez y con su previsualización.

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-16">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-17">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -33,6 +33,17 @@
       <thead><tr><th>Estudiante</th><th>Programa</th><th>Pide</th><th>Motivo</th><th>Desde</th><th></th></tr></thead>
       <tbody id="tbSol"></tbody></table></div>
   </div>
+
+  <!-- item 22 · una invitación es una oferta con precio puesta por escrito.
+       Mientras nadie la conteste hay que poder verla y poder retirarla. -->
+  <details class="card" id="cardInvit" hidden>
+    <summary><span class="material-symbols-outlined">expand_more</span>
+      <b>Invitaciones enviadas</b> <span class="chip warn" id="contInv"></span></summary>
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>A quién</th><th>Programa</th><th class="num">Precio ofrecido</th><th>Plan</th>
+        <th>Estado</th><th>Enviada</th><th></th></tr></thead>
+      <tbody id="tbInv"></tbody></table></div>
+  </details>
 
   <div class="tabs" id="tabs">
     <button class="active" data-t="ins">Inscripciones</button>
@@ -63,14 +74,15 @@
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, money, num, fdate, fdateCorta, fdatetime, emptyRow, match, kpi, modal, ok, fail,
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
-         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion } from '../assets/app.js?v=2026-08-21-16';
+         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion,
+         campoBuscar, campoDescuento } from '../assets/app.js?v=2026-08-21-17';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
 const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
-let ens=[], insts=[], pays=[], sols=[], tab='ins';
+let ens=[], insts=[], pays=[], sols=[], invits=[], tab='ins';
 if (p) load();
 
 async function load(){
-  const [{data:e},{data:i},{data:y},{data:s}] = await Promise.all([
+  const [{data:e},{data:i},{data:y},{data:s},{data:inv}] = await Promise.all([
     sb.from('cem_enrollments').select('*,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email),cem_courses(nombre),cem_cohorts(nombre)').order('fecha_inscripcion',{ascending:false}).limit(500),
     sb.from('cem_installments').select('*').order('fecha_vencimiento').limit(500),
     sb.from('cem_payments').select('*').order('fecha',{ascending:false}).limit(500),
@@ -79,9 +91,11 @@ async function load(){
     sb.from('cem_solicitudes_inscripcion')
       .select('*,cem_profiles!cem_solicitudes_inscripcion_profile_id_fkey(nombre,apellido),cem_enrollments(cem_courses(nombre))')
       .eq('estado','pendiente').order('created_at'),
+    sb.rpc('cem_invitaciones_listar'),
   ]);
-  ens=e||[]; insts=i||[]; pays=y||[]; sols=s||[];
+  ens=e||[]; insts=i||[]; pays=y||[]; sols=s||[]; invits=inv||[];
   renderSolicitudes();
+  renderInvitaciones();
   const hoy = new Date().toISOString().slice(0,10);
   const vencidas = insts.filter(x=>['pendiente','parcial','vencida'].includes(x.estado) && x.fecha_vencimiento < hoy);
   $('#kpis').innerHTML = [
@@ -122,6 +136,39 @@ function renderSolicitudes(){
 
   $$('[data-sol-ok]').forEach(b => b.onclick = () => resolverSolicitud(b.dataset.solOk, true));
   $$('[data-sol-no]').forEach(b => b.onclick = () => resolverSolicitud(b.dataset.solNo, false));
+}
+
+const PLAN = { 1:'Pago único', 3:'3 cuotas', 6:'6 cuotas' };
+
+function renderInvitaciones(){
+  $('#cardInvit').hidden = invits.length === 0;
+  if (!invits.length) return;
+  const vivas = invits.filter(x => x.estado === 'pendiente');
+  /* La tarjeta se abre sola si hay algo esperando respuesta, y se queda
+     plegada si sólo guarda historia. */
+  $('#cardInvit').open = vivas.length > 0;
+  const cont = $('#contInv');
+  cont.textContent = vivas.length ? `${vivas.length} sin contestar` : `${invits.length} enviadas`;
+  cont.className = vivas.length ? 'chip warn' : 'chip neutral';
+
+  $('#tbInv').innerHTML = invits.map(x => `<tr>
+    <td class="wrap" data-col="A quién"><a href="estudiante.html?id=${esc(x.profile_id)}">${esc(x.quien || x.email)}</a>
+      <div class="tiny muted">${esc(x.email)}</div></td>
+    <td class="wrap" data-col="Programa">${esc(x.curso)}${x.cohorte ? `<div class="tiny muted">${esc(x.cohorte)}</div>` : ''}</td>
+    <td class="num" data-col="Precio ofrecido">${money(x.precio_final, x.moneda)}
+      ${Number(x.descuento) > 0 ? `<div class="tiny muted">${money(x.precio_lista, x.moneda)} − ${money(x.descuento, x.moneda)}</div>` : ''}</td>
+    <td data-col="Plan">${esc(PLAN[x.cuotas] || `${x.cuotas} cuotas`)}</td>
+    <td data-col="Estado">${chipEstado(x.estado)}${x.vence && x.estado === 'pendiente'
+      ? `<div class="tiny muted">vale hasta ${fdate(x.vence)}</div>` : ''}</td>
+    <td class="muted" data-col="Enviada">${fdate(x.created_at)}${x.invito ? `<div class="tiny muted">${esc(x.invito)}</div>` : ''}</td>
+    <td class="nowrap" data-col="">${editable && x.estado === 'pendiente'
+      ? `<button class="btn ghost sm" data-inv-no="${x.id}" title="Retirar la invitación"><span class="material-symbols-outlined">undo</span></button>`
+      : ''}</td></tr>`).join('');
+
+  $$('[data-inv-no]').forEach(b => b.onclick = async () => {
+    await run(sb.rpc('cem_retirar_invitacion', { p_id: b.dataset.invNo }), 'No se pudo retirar');
+    ok('Invitación retirada.'); load();
+  });
 }
 
 function resolverSolicitud(id, aprobar){
@@ -471,38 +518,121 @@ function pagar(i){
   };
 }
 
+/* item 22 · esto empezaba con un desplegable de quinientos nombres y un campo
+   de descuento que no decía si era en euros o en porcentaje. Y sólo sabía
+   hacer una cosa: matricular a alguien de golpe, con sus cuotas ya emitidas,
+   sin haberle preguntado.
+
+   Ahora se busca a la persona escribiendo, el descuento se dice en la unidad
+   que uno quiera y debajo se ve el precio que queda, y hay dos formas de
+   terminar: matricular —cuando ya está hablado— o mandarle una invitación,
+   que es la misma oferta pero esperando su respuesta. */
 $('#btnNueva').onclick = async () => {
-  const [{data:est},{data:cursos},{data:cohs}] = await Promise.all([
-    sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre').limit(500),
-    sb.from('cem_courses').select('id,nombre,precio').eq('estado','publicado').order('nombre'),
+  const [{data:cursos},{data:cohs}] = await Promise.all([
+    sb.from('cem_courses').select('id,nombre,precio,moneda').eq('estado','publicado').order('nombre'),
     sb.from('cem_cohorts').select('id,nombre,course_id'),
   ]);
-  const m = modal({ title:'Nueva inscripción', body:`
-    <div class="field"><label>Estudiante *</label><select id="nEst" required>
-      ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>
-    <div class="field"><label>Programa *</label><select id="nCurso" required>
+
+  const quien = campoBuscar({
+    id:'nEst', etiqueta:'Estudiante *',
+    ayudaTexto:'Escribe el nombre, el apellido o el correo',
+    buscar: async (q) => {
+      const patron = `%${q.replace(/[%_]/g,'')}%`;
+      const { data } = await sb.from('cem_profiles')
+        .select('id,nombre,apellido,email,rol')
+        .or(`nombre.ilike.${patron},apellido.ilike.${patron},email.ilike.${patron}`)
+        .eq('activo', true).order('nombre').limit(8);
+      return (data||[]).map(x=>({ id:x.id,
+        titulo:`${x.nombre||''} ${x.apellido||''}`.trim() || x.email,
+        sub:`${x.email}${x.rol && x.rol!=='estudiante' ? ' · '+etiqueta(x.rol) : ''}` }));
+    },
+  });
+  const desc = campoDescuento({ id:'nDesc', precio: Number(cursos?.[0]?.precio)||0,
+                                moneda: cursos?.[0]?.moneda || MONEDA_BASE });
+
+  const m = modal({ title:'Inscribir o invitar', body:`
+    ${quien.html}
+    <div class="field"><label for="nCurso">Programa *</label><select id="nCurso" required>
       ${(cursos||[]).map(c=>`<option value="${c.id}" data-p="${c.precio}">${esc(c.nombre)}</option>`).join('')}</select></div>
-    <div class="field"><label>Cohorte</label><select id="nCoh"></select></div>
-    <div class="row"><div class="field corto"><label>Cuotas</label>
+    <div class="field"><label for="nCoh">Cohorte</label><select id="nCoh"></select></div>
+    <div class="row"><div class="field corto"><label for="nCuotas">Cuotas</label>
       <select id="nCuotas"><option value="1">Pago único</option><option value="3" selected>3</option><option value="6">6</option></select></div>
-      <div class="field corto"><label>Descuento</label><input type="number" step="0.01" id="nDesc" value="0"></div></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Crear inscripción</button>` });
-  const fill=()=>{ const cid=$('#nCurso',m).value;
-    $('#nCoh',m).innerHTML='<option value="">Sin cohorte</option>'+(cohs||[]).filter(c=>c.course_id===cid).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join(''); };
-  fill(); $('#nCurso',m).onchange=fill;
-  $('[data-x]',m).onclick=m.close;
-  $('[data-s]',m).onclick=async()=>{
-    const precio=Number($('#nCurso',m).selectedOptions[0].dataset.p)||0, desc=Number($('#nDesc',m).value)||0;
-    const cuotas=Number($('#nCuotas',m).value)||1, final=Math.max(precio-desc,0);
-    const enr = await run(sb.from('cem_enrollments').insert({ profile_id:$('#nEst',m).value, course_id:$('#nCurso',m).value,
-      cohort_id:$('#nCoh',m).value||null, precio_lista:precio, descuento:desc, precio_final:final, estado:'pendiente' })
+      ${desc.html}</div>
+    <details class="card" id="nInvit" style="margin:var(--e2) 0 0">
+      <summary><span class="material-symbols-outlined">expand_more</span>
+        <b>Si prefieres invitarle en vez de matricularle</b></summary>
+      <div class="field"><label for="nMsg">Mensaje (opcional)</label>
+        <textarea id="nMsg" rows="2" placeholder="Por qué le viene bien este programa"></textarea></div>
+      <div class="field corto"><label for="nVence">La oferta vale hasta</label>
+        <input type="date" id="nVence"></div>
+      <p class="tiny muted">Le llega un aviso dentro de la plataforma y por correo. La
+        inscripción y las cuotas se crean cuando acepte, con este mismo precio.</p>
+    </details>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn outline" data-inv><span class="material-symbols-outlined">forward_to_inbox</span> Invitar</button>
+            <button class="btn" data-s>Matricular ya</button>` });
+
+  quien.conectar(m);
+  desc.conectar(m);
+
+  const cursoElegido = () => (cursos||[]).find(c => c.id === $('#nCurso',m).value);
+  /* El recargo del plan es el mismo que se le cobra a quien se inscribe solo.
+     Si aquí no se aplicara, matricular a mano sería una tarifa aparte. */
+  const factorPlan = (n) => n === 1 ? 0.9 : n === 6 ? 1.06 : 1;
+  const refrescar = () => {
+    const c = cursoElegido();
+    const cid = c?.id;
+    $('#nCoh',m).innerHTML = '<option value="">Sin cohorte</option>' +
+      (cohs||[]).filter(x=>x.course_id===cid).map(x=>`<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+    desc.fijarPrecio(Math.round((Number(c?.precio)||0) * factorPlan(Number($('#nCuotas',m).value)||1) * 100) / 100);
+  };
+  refrescar();
+  $('#nCurso',m).onchange = refrescar;
+  $('#nCuotas',m).onchange = refrescar;
+  $('[data-x]',m).onclick = m.close;
+
+  const validar = () => {
+    const r = quien.valor();
+    if (!r) { fail('Busca primero a la persona: escribe su nombre o su correo y elígela de la lista.'); return null; }
+    if (!$('#nCurso',m).value) { fail('Elige el programa.'); return null; }
+    return r;
+  };
+
+  $('[data-inv]',m).onclick = async () => {
+    const r = validar(); if (!r) return;
+    const inv = await run(sb.rpc('cem_invitar_a_curso', {
+      p_profile_id: r.id, p_course_id: $('#nCurso',m).value,
+      p_cohort_id: $('#nCoh',m).value || null,
+      p_descuento: desc.valor().descuento,
+      p_cuotas: Number($('#nCuotas',m).value) || 1,
+      p_mensaje: $('#nMsg',m).value.trim() || null,
+      p_vence: $('#nVence',m).value || null,
+    }), 'No se pudo mandar la invitación');
+    m.close();
+    ok(`Invitación enviada a ${r.titulo} por ${money(inv.precio_final, inv.moneda)}. Se inscribe cuando acepte.`);
+    load();
+  };
+
+  $('[data-s]',m).onclick = async () => {
+    const r = validar(); if (!r) return;
+    const c = cursoElegido();
+    const cuotas = Number($('#nCuotas',m).value) || 1;
+    const lista = Math.round((Number(c?.precio)||0) * factorPlan(cuotas) * 100) / 100;
+    const { descuento, final } = desc.valor();
+    const enr = await run(sb.from('cem_enrollments').insert({ profile_id:r.id, course_id:c.id,
+      cohort_id:$('#nCoh',m).value||null, precio_lista:lista, descuento, precio_final:final,
+      moneda: c?.moneda || MONEDA_BASE, estado:'pendiente' })
       .select().single(),'No se pudo crear');
-    const monto=Math.round((final/cuotas)*100)/100;
+    /* El mismo reparto exacto que usa la base: la última cuota absorbe el
+       céntimo del redondeo, o tres cuotas de 33,33 no suman los 100. */
+    const base = Math.round((final/cuotas)*100)/100;
+    const ultima = Math.round((final - base*(cuotas-1))*100)/100;
     await run(sb.from('cem_installments').insert(Array.from({length:cuotas},(_,k)=>({
-      enrollment_id:enr.id, numero:k+1, monto, saldo:monto,
+      enrollment_id:enr.id, numero:k+1, monto:k===cuotas-1?ultima:base, saldo:k===cuotas-1?ultima:base,
+      moneda: c?.moneda || MONEDA_BASE,
       fecha_vencimiento:new Date(Date.now()+k*30*86400000).toISOString().slice(0,10), estado:'pendiente'}))),'No se crearon las cuotas');
-    await audit('inscripcion_manual','cem_enrollments',enr.id,'medio',{});
-    m.close(); ok('Inscripción creada'); load();
+    await audit('inscripcion_manual','cem_enrollments',enr.id,'medio',{ estudiante:r.sub, total:final });
+    m.close(); ok(`${r.titulo} matriculado por ${money(final, c?.moneda || MONEDA_BASE)}.`); load();
   };
 };
 </script>

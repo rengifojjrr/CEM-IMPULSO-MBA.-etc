@@ -43,7 +43,7 @@ export default async function correr(navegador) {
 
   /* ============ 1 · lo primero de todo: ¿hay algo que se pueda romper? ====== */
   const estado = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
     const { data } = await m.sb.rpc('cem_youtube_app_estado');
     return data || {};
   });
@@ -66,7 +66,7 @@ export default async function correr(navegador) {
   /* Esto se comprueba SIEMPRE, haya app de verdad o no: es lo que más importa
      y no escribe nada. */
   const fuga = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
     const e = await m.sb.rpc('cem_youtube_app_estado');
     const directo = await m.sb.from('cem_integraciones').select('*').eq('id', 'youtube_oauth_app');
     return {
@@ -93,7 +93,7 @@ export default async function correr(navegador) {
      hay uno guardado, conserva el de antes y escribe. Por eso vive más abajo,
      dentro del bloque que sólo corre cuando no hay nada que estropear. */
   const malos = await A.evaluate(async (id) => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
     const probar = (args) => m.sb.rpc('cem_youtube_app_guardar', args)
       .then(({ error }) => error?.message || 'PASÓ');
     return {
@@ -117,7 +117,7 @@ export default async function correr(navegador) {
       + 'así que la prueba no la toca: borrarla obligaría a reconectar el canal a mano');
   } else {
     const sinSecreto = await A.evaluate(async (id) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
       const { error } = await m.sb.rpc('cem_youtube_app_guardar',
         { p_client_id: id, p_redirect_uri: 'https://ejemplo.com/y.html' });
       return error?.message || 'PASÓ';
@@ -126,7 +126,7 @@ export default async function correr(navegador) {
       'Sin nada guardado y sin secreto, no se guarda, y se dice dónde encontrarlo');
 
     const guardado = await A.evaluate(async (id) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
       const { data, error } = await m.sb.rpc('cem_youtube_app_guardar', {
         p_client_id: id,
         p_redirect_uri: location.origin + location.pathname,
@@ -154,7 +154,7 @@ export default async function correr(navegador) {
 
     /* Y se deja como estaba: sin app, que es como se encontró. */
     const quitado = await A.evaluate(async () => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
       const { data, error } = await m.sb.rpc('cem_youtube_app_quitar');
       return { configurada: data?.configurada, conectado: data?.conectado, error: error?.message };
     });
@@ -169,7 +169,7 @@ export default async function correr(navegador) {
   await E.waitForTimeout(2500);
 
   const alumno = await E.evaluate(async (id) => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-16');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-21-17');
     const r = {};
     for (const [que, llamada] of Object.entries({
       estado: () => m.sb.rpc('cem_youtube_app_estado'),
