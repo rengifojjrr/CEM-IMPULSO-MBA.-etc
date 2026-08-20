@@ -127,7 +127,21 @@ Deno.serve(async (req) => {
         // Si la persona pulsa dos veces, Stripe devuelve la MISMA sesión en vez
         // de abrir dos cobros. La clave incluye el saldo: si abona una parte por
         // otra vía, el importe cambia y entonces sí hace falta una sesión nueva.
-        'Idempotency-Key': `cem-${cuota.id}-${centimos}`,
+        //
+        // Y lleva además el cuarto de hora en que se pide, por algo que pasó de
+        // verdad: Stripe guarda la respuesta de cada clave durante 24 HORAS, y
+        // guarda también los errores. Un fallo de configuración —el nuestro fue
+        // un parámetro que la cuenta no aceptaba— dejaba esa cuota con el error
+        // en conserva: se arreglaba la causa y el estudiante seguía viendo el
+        // mismo mensaje al día siguiente, porque ya no se le preguntaba a
+        // Stripe, se le repetía lo de antes.
+        //
+        // Quince minutos es de sobra para lo que esta clave protege —dos clics
+        // seguidos, dos pestañas— y bastante menos que un día para poder
+        // reintentar. Y aunque llegaran a abrirse dos sesiones, una sesión no
+        // es un cobro: lo que impide pagar dos veces la misma cuota es el
+        // webhook, que rechaza la referencia repetida.
+        'Idempotency-Key': `cem-${cuota.id}-${centimos}-${Math.floor(Date.now() / 900000)}`,
       },
       body: cuerpo,
     });
