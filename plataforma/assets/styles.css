@@ -1728,26 +1728,49 @@ html:root:not([data-estilo="plano"]){
    gráfica y no se nota en ninguno.
 
    POR QUÉ SE AMPLÍA. Al girar un rectángulo, sus esquinas dejan de tapar las
-   de la ventana: hace falta ampliarlo al menos `cos θ + sen θ`. Con θ = 5° eso
-   es 1,084, así que 1,16 cubre con margen —también el que se llevan los
-   `translate3d` del 1,5%— y de paso el «respirar» sale de variar hasta 1,24.
-   Sin esa cuenta asoma una cuña del fondo pelado por una esquina cada pocos
-   segundos, que es el error clásico de esta animación.
+   de la ventana: hace falta ampliarlo al menos `cos θ + sen θ`. Con la vuelta
+   entera se pasa por 45° cuatro veces por ciclo, donde eso vale √2 ≈ 1,414; la
+   escala no baja de 1,70, así que cubre con holgura en el peor momento. Sin
+   esa cuenta asoma una cuña del fondo pelado por una esquina cada pocos
+   segundos, que es el error clásico de esta animación. La prueba ya no mira un
+   instante suelto: vigila el ciclo completo y se queda con el peor.
 
-   POR QUÉ ESTAS CANTIDADES Y NO MENOS. El primer intento fue mucho más
-   discreto —1,6° y noventa segundos— y no se veía. Nada. Medido: las manchas
-   se desplazaban entre 0,5 y 1,3 píxeles por segundo, y algo grande, difuso y
-   de poco contraste no se percibe moviéndose por debajo de unos 2 a 4. O sea
-   que la animación funcionaba y era invisible, que para el caso es no
-   tenerla. Con 8°, un 2,5% de arrastre y 62 segundos de ciclo va a unos 12
-   px/s de media —el doble que antes—: se ve moverse sin quedarse mirando.
+   POR QUÉ ESTAS CANTIDADES Y NO MENOS. Costó cuatro intentos, y los tres
+   primeros fallaron por el mismo motivo: medían que la PROPIEDAD cambiaba.
+   Pasaban en verde mientras la pantalla no se movía. Restando píxeles de dos
+   fotos, el vaivén de ±14° daba 8 de 765 en cinco segundos con todo al máximo
+   —menos de tres niveles de 255 por canal—, o sea invisible. La vuelta entera
+   da 143, y el recorrido pasó de 13,9 a 137 px/s.
 
-   La lección, que vale para más cosas: «la propiedad cambió» no es «se ve».
-   La prueba mide ahora el recorrido en píxeles de una mancha, no la matriz. */
+   La lección, que vale para más cosas: «la propiedad cambió» no es «se ve», y
+   la única forma de saberlo es fotografiar la pantalla y restar. */
+/* La vuelta entera, no un temblor.
+   ───────────────────────────────────────────────────────────────────────────
+   Antes esto iba y venía entre −14° y +14°. Con las manchas colocadas fuera del
+   centro, girar la capa entera 360° las hace ORBITAR: cada punto de la pantalla
+   pasa por todas ellas a lo largo del ciclo, en vez de ver siempre la misma
+   temblando un poco. Es la diferencia entre que algo vibre y que algo se mueva.
+
+   Dos cosas que cambian con la vuelta entera y no son opcionales:
+
+   1 · La escala. Al girar un rectángulo, sus esquinas dejan de tapar las de la
+       ventana y asoma una cuña de fondo pelado. Hace falta `cos θ + sen θ`,
+       que a 45° vale √2 ≈ 1,414 — y con la vuelta entera se pasa por 45° sí o
+       sí, cuatro veces por ciclo. Por eso la escala mínima es 1,70: cubre el
+       peor caso con margen de sobra. El vaivén de antes no llegaba nunca a 45°
+       y podía permitirse 1,30.
+
+   2 · El desplazamiento se va. Estaba ahí para compensar que el giro era
+       pequeño; con la vuelta entera sobra, y sumado al giro obligaría a
+       ampliar todavía más para no descubrir los bordes.
+
+   Y el reparto del tiempo tiene que ser `linear`. Con `ease-in-out`, una vuelta
+   completa acelera a mitad de ciclo y frena al llegar al final, así que en vez
+   de girar parecería que da tirones. */
 @keyframes cem-ambiente {
-  0%   { transform:translate3d(-11%,  7%, 0) rotate(-14deg) scale(1.30); }
-  50%  { transform:translate3d( 11%, -7%, 0) rotate( 14deg) scale(1.55); }
-  100% { transform:translate3d(-11%,  7%, 0) rotate(-14deg) scale(1.30); }
+  0%   { transform:rotate(0turn)    scale(1.70); }
+  50%  { transform:rotate(.5turn)   scale(1.88); }
+  100% { transform:rotate(1turn)    scale(1.70); }
 }
 /* Con «Plano» la capa existe SÓLO para esto, así que va más tenue: el estilo
    plano tiene que seguir siendo plano. Lo que se busca ahí es un rastro de luz
@@ -1797,7 +1820,9 @@ html:root:not([data-estilo="plano"]){
      ahí el fondo se queda quieto sin que nada lo explique. */
   animation-name:cem-ambiente;
   animation-duration:var(--ambiente-ciclo, 62s);
-  animation-timing-function:ease-in-out;
+  /* `linear` y no `ease-in-out`: ver la nota de los fotogramas. Una vuelta
+     completa con aceleración se ve dando tirones, no girando. */
+  animation-timing-function:linear;
   animation-iteration-count:infinite;
   will-change:transform;
 }
