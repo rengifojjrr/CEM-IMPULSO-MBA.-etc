@@ -130,7 +130,7 @@ function filaProyecto(row){
       <td>${escapeHtml(meta.cliente || '—')}</td>
       <td>${hechas}/${total} hechas</td>
       <td>${new Date(row.updated_at).toLocaleString('es-ES')}</td>
-      <td><a class="open-link" href="index.html?p=${row.id}" target="_blank" onclick="event.stopPropagation()">Abrir tablero →</a></td>
+      <td><a class="open-link" href="proyectos.html?p=${row.id}" target="_blank" onclick="event.stopPropagation()">Abrir tablero →</a></td>
     </tr>
     <tr class="hist" id="hist-${row.id}"><td colspan="5"><div class="hist-inner" id="hist-inner-${row.id}"></div></td></tr>`;
 }

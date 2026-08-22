@@ -109,6 +109,31 @@ export default async function correr(navegador) {
     'Con lo que se buscara ya escrito: el reenvío no pierde la consulta');
   await Q.close();
 
+  /* ============ 1b-bis · la raíz del dominio ============
+     Quien escribe `escuelacem.com` a secas viene a ver la escuela. En la raíz
+     vivía el tablero de proyectos, de cuando esto era un repositorio de
+     herramientas sueltas, así que al conectar el dominio la primera página que
+     veía cualquiera era una gestión de tareas vacía.
+
+     Esto no se nota trabajando: dentro de la plataforma nadie pasa por la raíz.
+     Sólo lo ve quien llega de fuera, que es justo la persona que importa. */
+  const RA = await nuevaPestana(navegador, { ancho: 1200, alto: 800 });
+  await RA.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  await RA.waitForTimeout(3000);
+  a.comprobar(/plataforma\/inicio\.html/.test(RA.url()),
+    `El dominio a secas lleva a la portada del CEM (${RA.url().replace(BASE, '') || '/'})`);
+  a.comprobar(/Educamos hoy/.test(await RA.locator('body').textContent()),
+    'Y llega con la portada de verdad cargada, no con una página de paso');
+
+  /* Y los tableros guardados no se pierden. El propio tablero dice «guarda esta
+     URL, es tu acceso directo», así que mandarlo todo a la portada rompería
+     cada enlace que alguien tenga apuntado. */
+  await RA.goto(`${BASE}/?p=prueba-de-tablero`, { waitUntil: 'domcontentloaded' });
+  await RA.waitForTimeout(2500);
+  a.comprobar(/proyectos\.html/.test(RA.url()) && RA.url().includes('p=prueba-de-tablero'),
+    `Un enlace guardado de un tablero sigue abriendo su tablero (${RA.url().replace(BASE, '')})`);
+  await RA.close();
+
   /* ============ 1c · la ficha del programa, sin haber entrado ============ */
   /* Es la página donde se decide comprar. Que exigiera sesión sería cerrar la
      puerta justo delante de quien iba a pagar. */
