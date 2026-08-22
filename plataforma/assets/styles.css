@@ -723,11 +723,40 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 .pub-brand{display:flex;align-items:center;gap:var(--e1);font-weight:var(--peso-fuerte);
   color:var(--tinta);white-space:nowrap;}
 .pub-cta{margin-left:auto;display:flex;gap:var(--e1);align-items:center;}
+/* El botón del menú: sólo existe en pantallas estrechas. */
+.pub-menu-btn{display:none;border:1px solid var(--filete);background:var(--papel);
+  color:var(--tinta);border-radius:var(--r);width:42px;height:42px;cursor:pointer;
+  align-items:center;justify-content:center;flex:none;}
+.pub-menu-btn:hover{border-color:var(--filete-fuerte);}
+
 @media(max-width:720px){
-  .pub-inner{padding:var(--e1) var(--e2);gap:var(--e1) var(--e2);}
-  .pub-inner nav{order:3;width:100%;gap:var(--e2);flex-wrap:nowrap;overflow-x:auto;
-    white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px;}
-  .pub-inner nav::-webkit-scrollbar{display:none;}
+  /* ── una sola fila, y lo demás cuando se pida ──────────────────────────
+     Esto eran TRES filas apiladas —la marca, los dos botones y los enlaces—
+     y los enlaces además se salían por la derecha: en un teléfono de 390 px
+     «Verificar certificado» aparecía cortado por la mitad. Ciento veinte
+     píxeles de los setecientos ochenta que hay, pegados arriba todo el rato
+     mientras se lee.
+
+     Ahora la fila mide lo que mide un botón. El menú se despliega debajo, se
+     cierra al elegir, con Escape y tocando fuera. */
+  .pub-inner{padding:var(--e1) var(--e2);gap:var(--e1);flex-wrap:wrap;min-height:0;}
+  .pub-menu-btn{display:inline-flex;order:2;margin-left:auto;}
+  .pub-brand{order:1;}
+
+  .pub-inner nav,
+  .pub-inner .pub-cta{display:none;order:3;width:100%;}
+  .pub-header.abierto nav{display:flex;flex-direction:column;gap:0;
+    border-top:1px solid var(--filete);padding-top:var(--e1);margin-top:var(--e1);}
+  .pub-header.abierto nav a{padding:var(--e2) 0;font-size:var(--t-md);}
+  .pub-header.abierto .pub-cta{display:flex;margin-left:0;gap:var(--e1);
+    padding:var(--e1) 0 var(--e2);}
+  /* Los dos botones, a mitad y mitad: en una columna estrecha, dos botones de
+     ancho distinto se leen como si uno importara más que el otro. */
+  .pub-header.abierto .pub-cta > .btn{flex:1;justify-content:center;}
+
+  /* Desplegado puede pasar de la pantalla: que se desplace él, no la página
+     de debajo, que si no se pierde el sitio donde se estaba leyendo. */
+  .pub-header.abierto .pub-inner{max-height:100dvh;overflow-y:auto;}
 }
 .pub-inner nav a.on{color:var(--primary);font-weight:var(--peso-fuerte);}
 .pub-main{max-width:1200px;margin:0 auto;padding:var(--e3) var(--e3) var(--e5);}

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-22-5">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-22-11">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -31,6 +31,14 @@
        deducir por dónde empezar; ahí es donde se pierde la mitad de la gente
        que ya pagó. -->
   <div id="bienvenida"></div>
+
+  <!-- Lo que falta para poder emitir el certificado.
+       ─────────────────────────────────────────────────────────────────────
+       Se pide aquí y no bloqueando la entrada: quien acaba de pagar entra a
+       estudiar, y esto le sale al lado sin cerrarle nada. Sólo aparece si de
+       verdad falta algo, y desaparece solo en cuanto está completo — un aviso
+       que sigue ahí cuando ya lo resolviste enseña a ignorar los avisos. -->
+  <div id="avisoDatos"></div>
 
   <!-- item 22 · antes, «meterte a otro curso» era una inscripción que aparecía
        en tu panel sin que nadie te la hubiera propuesto, con sus cuotas ya
@@ -73,8 +81,8 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado,
-         chipNota, vacio, etiqueta, confirmDialog, ok, avisar, mensajeError } from '../assets/app.js?v=2026-08-22-5';
-import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-22-5';
+         chipNota, vacio, etiqueta, confirmDialog, ok, avisar, mensajeError } from '../assets/app.js?v=2026-08-22-11';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-22-11';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
 
 /* El resumen arranca plegado, pero si alguien lo abre se queda abierto la
@@ -93,6 +101,7 @@ if (p) init();
 
 async function init(){
   $('#saludo').textContent = `Hola, ${p.nombre}`;
+  pintarAvisoDatos();
   const { data: ens } = await sb.from('cem_enrollments')
     .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)')
     .eq('profile_id',p.id).neq('estado','cancelada').limit(500);
@@ -492,6 +501,41 @@ async function pintarGraficos(ens){
         href: c.estado === 'pagada' ? null : `pagos.html?cuota=${c.id}` })) })}</div>`;
 }
 
+/* ── ¿falta algo del expediente? ──────────────────────────────────────────
+   Se pregunta por lo mismo que mide la pantalla de Mis datos, y con los
+   mismos nombres, para que las dos digan siempre lo mismo. Si esto contara
+   una cosa y allí saliera otra, nadie volvería a creerse ninguna de las dos. */
+async function pintarAvisoDatos() {
+  const [{ data: perf }, { data: iden }] = await Promise.all([
+    sb.from('cem_profiles').select('nombre,apellido,documento,pais,telefono').eq('id', p.id).single(),
+    sb.from('cem_identidad').select('frente_ruta,dorso_ruta,estado,motivo')
+      .eq('profile_id', p.id).maybeSingle(),
+  ]);
+  const faltan = [
+    [!!(perf?.nombre && perf?.apellido), 'tu nombre y apellido'],
+    [!!perf?.documento, 'el número de tu documento'],
+    [!!perf?.pais, 'tu país'],
+    [!!perf?.telefono, 'un teléfono'],
+    [!!iden?.frente_ruta, 'la foto de tu documento por delante'],
+    [!!iden?.dorso_ruta, 'la foto por detrás'],
+  ].filter(([si]) => !si).map(([, q]) => q);
+
+  const host = $('#avisoDatos');
+  /* Rechazado pesa más que incompleto: ahí ya hizo el trabajo y hay que
+     decirle qué salió mal, no volver a pedirle lo mismo. */
+  if (iden?.estado === 'rechazado') {
+    host.innerHTML = `<div class="card"><div class="nota err">
+      <b>Tu documento necesita una corrección.</b><br>${esc(iden.motivo || '')}
+      <br><a href="mis-datos.html">Volver a subirlo</a></div></div>`;
+    return;
+  }
+  if (!faltan.length) { host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="card"><div class="nota warn">
+    <b>Para poder emitirte el certificado nos falta ${esc(
+      faltan.join(', ').replace(/, ([^,]*)$/, ' y $1'))}.</b><br>
+    Puedes estudiar mientras tanto — esto no te bloquea nada.
+    <a href="mis-datos.html">Completar mis datos</a></div></div>`;
+}
 </script>
 </body>
 </html>

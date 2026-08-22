@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-22-5';
+         vidrioActual } from './temas.js?v=2026-08-22-11';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1101,6 +1101,12 @@ const STUDENT_NAV = [
   ['biblioteca.html', 'local_library', 'Biblioteca'],
   ['certificados.html', 'workspace_premium', 'Certificados'],
   ['perfil.html', 'account_circle', 'Mi perfil'],
+  /* Separado de «Mi perfil» a propósito: el perfil es lo que se enseña —foto,
+     trabajo, lo que se comparte— y esto es lo que hace falta para que el
+     certificado salga a nombre de quien estudió. Mezclarlos hacía que los
+     campos del documento parecieran opcionales, porque estaban entre cosas que
+     de verdad lo son. */
+  ['mis-datos.html', 'badge', 'Mis datos'],
   ['ayuda.html', 'help', 'Ayuda'],
 ];
 const TEACHER_NAV = [
@@ -1907,7 +1913,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-22-5');
+    const m = await import('./apariencia.js?v=2026-08-22-11');
 
     m.abrirApariencia();
 
@@ -2019,7 +2025,7 @@ function renderPublicHeader(p) {
   h.innerHTML = `<div class="pub-inner">
     <a class="pub-brand" href="${r}inicio.html">
       <span class="material-symbols-outlined">account_balance</span> CEM International</a>
-    <nav>
+    <nav id="pubNav">
       <a href="${r}inicio.html"${activa('inicio.html')}>Inicio</a>
       <!-- Una sola entrada, no dos.
            «Cursos» y «Programas» llevaban a la MISMA página: la segunda era el
@@ -2039,10 +2045,52 @@ function renderPublicHeader(p) {
              <div class="avatar" title="${esc(p.email)}">${initials(p.nombre, p.apellido)}</div>`
           : `<a class="btn outline sm" href="${r}index.html">Iniciar sesión</a>
              <a class="btn sm" href="${r}index.html?registro=1">Registrarse</a>`}
-    </div></div>`;
+    </div>
+    <!-- El botón del menú en el teléfono.
+         Va el último en el marcado y se coloca con «order», porque quien navega
+         con teclado o lector de pantalla debe encontrar primero la marca y los
+         enlaces; en la pantalla, en cambio, el botón va a la derecha. -->
+    <button type="button" class="pub-menu-btn" id="pubMenu"
+      aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
+      <span class="material-symbols-outlined">menu</span></button>
+  </div>`;
   document.body.insertBefore(h, document.body.firstChild);
+  conectarMenuPublico(h);
   const page = $('#page');
   if (page) page.classList.remove('hidden');
+}
+
+/* ── el menú del teléfono ──────────────────────────────────────────────────
+   En una pantalla de 390 px el encabezado ocupaba TRES filas apiladas —marca,
+   los dos botones, y los enlaces— y encima los enlaces se salían por la
+   derecha: «Verificar certificado» aparecía cortado. Eran ciento veinte píxeles
+   de los setecientos ochenta que hay, pegados arriba todo el rato.
+
+   Ahora es una sola fila con un botón, y lo demás se despliega debajo cuando
+   se pide. Tres cosas que un menú así tiene que hacer y casi nunca hace:
+
+   · cerrarse al elegir algo —si no, tapa la página a la que acabas de ir—;
+   · cerrarse con Escape y al tocar fuera, que es lo que todo el mundo intenta;
+   · devolver el foco al botón al cerrarse, para que quien va con el teclado no
+     se quede perdido al final del documento. */
+function conectarMenuPublico(cabecera) {
+  const btn = cabecera.querySelector('#pubMenu');
+  if (!btn) return;
+  const abrir = (si) => {
+    cabecera.classList.toggle('abierto', si);
+    btn.setAttribute('aria-expanded', si ? 'true' : 'false');
+    btn.setAttribute('aria-label', si ? 'Cerrar el menú' : 'Abrir el menú');
+    btn.querySelector('.material-symbols-outlined').textContent = si ? 'close' : 'menu';
+  };
+  btn.addEventListener('click', () => abrir(!cabecera.classList.contains('abierto')));
+  cabecera.querySelectorAll('nav a, .pub-cta a').forEach((a) =>
+    a.addEventListener('click', () => abrir(false)));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && cabecera.classList.contains('abierto')) { abrir(false); btn.focus(); }
+  });
+  document.addEventListener('click', (e) => {
+    if (cabecera.classList.contains('abierto') && !cabecera.contains(e.target)) abrir(false);
+  });
 }
 
 /* ============ helpers de render ============ */

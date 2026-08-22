@@ -30,7 +30,7 @@ export default async function correr(navegador) {
      el primero que aparezca dejaría la prueba en verde sin haber mirado el
      carrete, que es a lo que vino. */
   const donde = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
     const { data: ins } = await m.sb.from('cem_enrollments').select('id,course_id,estado');
     for (const e of ins || []) {
       const { data } = await m.sb.rpc('cem_shorts_del_curso', { p_course_id: e.course_id });
@@ -77,7 +77,7 @@ export default async function correr(navegador) {
 
     /* La marca de agua, igual que en el aula y por lo mismo. */
     const yo = await E.evaluate(async () => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
       const { data } = await m.sb.rpc('cem_my_profile');
       const p = Array.isArray(data) ? data[0] : data;
       return { nombre: p?.nombre, email: p?.email };
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
   await F.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
   await F.waitForTimeout(2000);
   const anonimo = await F.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
     const { data: cs } = await m.sb.from('cem_courses').select('id').limit(5);
     let total = 0;
     for (const c of cs || []) {
@@ -159,7 +159,7 @@ export default async function correr(navegador) {
 
   const cursoAdmin = donde?.course_id
     || await A.evaluate(async () => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
       const { data } = await m.sb.from('cem_courses').select('id').limit(1);
       return data?.[0]?.id;
     });
@@ -174,7 +174,7 @@ export default async function correr(navegador) {
   /* La validación. Pegar cualquier cosa no puede pasar por un vídeo, y un short
      sin título no sirve: el título es lo único que se lee antes del play. */
   const malos = await A.evaluate(async (cid) => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
     const probar = (args) => m.sb.rpc('cem_short_guardar', args)
       .then(({ error }) => error?.message || 'PASÓ');
     return {
@@ -191,7 +191,7 @@ export default async function correr(navegador) {
      esto, pegar el enlace de un short no funcionaba y no había forma de saber
      por qué. */
   const formaShorts = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
     const { data } = await m.sb.rpc('cem_youtube_id_de',
       { p_url: 'https://www.youtube.com/shorts/M7lc1UVf-VE' });
     return data;
@@ -206,7 +206,7 @@ export default async function correr(navegador) {
   await entrar(S, 'estudiante', 'estudiante/panel.html');
   await S.waitForTimeout(2500);
   const alumno = await S.evaluate(async (cid) => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
     const r = {};
     const g = await m.sb.rpc('cem_short_guardar',
       { p_course_id: cid, p_video: 'M7lc1UVf-VE', p_titulo: 'Colado' });

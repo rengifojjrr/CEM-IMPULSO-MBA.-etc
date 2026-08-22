@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mis datos</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-22-11">
+<style>
+  /* Cuánto falta, arriba del todo. Un formulario largo sin una barra que diga
+     dónde estás se abandona a la mitad. */
+  .avance-datos{display:flex;align-items:center;gap:var(--e2);flex-wrap:wrap;}
+  .avance-datos .barra{flex:1;min-width:180px;height:8px;border-radius:var(--r-full);
+    background:var(--hueco);overflow:hidden;}
+  .avance-datos .barra i{display:block;height:100%;background:var(--ok);
+    transition:width var(--entra);}
+
+  /* Las dos caras del documento, una al lado de la otra: se ve de un vistazo
+     cuál falta. */
+  .caras{display:grid;gap:var(--e2);grid-template-columns:repeat(auto-fit,minmax(240px,1fr));}
+  .sub-dato{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
+    margin-bottom:var(--e1);}
+
+  /* Los temas. Botones que se quedan pulsados, no un desplegable: quien elige
+     tres temas quiere verlos los tres a la vez. */
+  .temas{display:flex;flex-wrap:wrap;gap:var(--e1);}
+  /* sin-caja: es una píldora que se pulsa, no un recuadro de contenido */
+  .tema{border:1px solid var(--filete);background:var(--papel);color:var(--tinta);
+    border-radius:var(--r-full);padding:var(--e1) var(--e2);font-size:var(--t-sm);
+    font-weight:var(--peso-fuerte);cursor:pointer;}
+  .tema[aria-pressed="true"]{background:var(--primary);color:var(--on-primary);
+    border-color:var(--primary);}
+  .tema:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Mis datos</h1>
+      <p>Lo que hace falta para poder emitirte el certificado a tu nombre.
+        Puedes estudiar mientras tanto: esto no te bloquea el curso.</p></div>
+  </div>
+
+  <div class="card">
+    <div class="avance-datos">
+      <div class="barra"><i id="barraAvance" style="width:0%"></i></div>
+      <b id="textoAvance" class="tiny">…</b>
+    </div>
+    <p class="tiny muted sep-poco" id="queFalta"></p>
+  </div>
+
+  <!-- Quién eres.
+       ─────────────────────────────────────────────────────────────────────
+       Estos campos ya existían en el perfil, pero repartidos y sin decir para
+       qué servían. Aquí se piden juntos y con el motivo delante, que es lo que
+       hace que alguien los rellene en vez de saltárselos. -->
+  <div class="card">
+    <h2 class="sec">Quién eres</h2>
+    <p class="tiny muted" style="margin-top:-6px">Tu nombre y tu documento salen
+      <b>impresos</b> en el certificado, tal cual los escribas aquí.</p>
+    <form id="fDatos" class="sep">
+      <div class="row">
+        <div class="field medio"><label for="nombre">Nombre</label>
+          <input id="nombre" required autocomplete="given-name"></div>
+        <div class="field medio"><label for="apellido">Apellido</label>
+          <input id="apellido" required autocomplete="family-name"></div>
+      </div>
+      <div class="row">
+        <div class="field medio"><label for="docTipo">Tipo de documento</label>
+          <select id="docTipo">
+            <option>Cédula</option><option>DNI</option><option>Pasaporte</option>
+          </select></div>
+        <div class="field medio"><label for="documento">Número de documento</label>
+          <input id="documento" required></div>
+      </div>
+      <div class="row">
+        <div class="field medio"><label for="nacimiento">Fecha de nacimiento</label>
+          <input id="nacimiento" type="date" autocomplete="bday"></div>
+        <div class="field medio"><label for="telefono">Teléfono o WhatsApp</label>
+          <input id="telefono" type="tel" placeholder="+58 412 1234567" autocomplete="tel"></div>
+      </div>
+      <div class="row">
+        <div class="field medio"><label for="pais">País</label>
+          <select id="pais"></select></div>
+        <div class="field medio"><label for="ciudad">Ciudad</label>
+          <input id="ciudad" autocomplete="address-level2"></div>
+      </div>
+      <div class="field"><label for="email">Correo</label>
+        <input id="email" disabled>
+        <span class="tiny muted">Es tu forma de entrar. Para cambiarlo, escríbenos por soporte.</span></div>
+      <button class="btn" type="submit">
+        <span class="material-symbols-outlined">save</span> Guardar mis datos</button>
+      <div id="msgDatos"></div>
+    </form>
+  </div>
+
+  <!-- El documento.
+       ─────────────────────────────────────────────────────────────────────
+       Va a un depósito PRIVADO, no al de las fotos de los cursos, que es
+       público. Se guarda la ruta, no una dirección: para verlo hay que pedir un
+       enlace firmado que caduca, y esa petición queda registrada con el nombre
+       de quien la hizo. -->
+  <div class="card">
+    <div class="row between"><h2 class="sec">Tu documento</h2>
+      <span class="chip neutral" id="estadoDoc">…</span></div>
+    <p class="tiny muted sin-margen">Una foto de cada cara, donde se lean el nombre y el número.
+      Sirve para comprobar que el certificado va a nombre de quien estudió.
+      <b>No es público ni sale en tu perfil:</b> lo ve el equipo del CEM y nadie más.</p>
+    <div id="avisoDoc"></div>
+    <div class="caras sep">
+      <div>
+        <div class="sub-dato">Por delante</div>
+        <div id="campoFrente"></div>
+      </div>
+      <div>
+        <div class="sub-dato">Por detrás</div>
+        <div id="campoDorso"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Qué te interesa.
+       ─────────────────────────────────────────────────────────────────────
+       Es lo único de esta pantalla que no hace falta para el certificado: sirve
+       para saber a quién estamos enseñando. Por eso se dice para qué es y se
+       puede dejar en blanco sin consecuencias. -->
+  <div class="card">
+    <h2 class="sec">Qué te interesa</h2>
+    <p class="tiny muted" style="margin-top:-6px">Nos ayuda a saber qué programas hacen falta.
+      Elige los que quieras, o ninguno.</p>
+    <div class="temas sep" id="temas"></div>
+    <div id="msgTemas" class="sep-poco"></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, ok, fail, run, audit, mensajeError,
+         campoArchivo, encogerImagen } from '../assets/app.js?v=2026-08-22-11';
+import { opcionesDePais } from '../assets/paises.js?v=2026-08-22-11';
+
+const p = await mount({ require:['estudiante'], active:'mis-datos.html', area:'estudiante' });
+if (!p) throw new Error('sin sesión');
+
+let perfil = null, identidad = null;
+
+/* ── subir al depósito privado ────────────────────────────────────────────
+   La carpeta es el identificador de la persona, y la política del depósito no
+   deja escribir fuera de la propia: sin eso, cualquiera con cuenta podría
+   pisar el documento de otro.
+
+   Devuelve la RUTA, no una dirección. En un depósito privado una dirección o
+   no funciona o caduca; la ruta es lo que sirve para pedir un enlace firmado
+   cuando alguien con derecho quiera mirarlo. */
+async function subirDocumento(file, cara) {
+  const listo = await encogerImagen(file, 1800);
+  const ext = (listo.name?.split('.').pop() || 'jpg').toLowerCase();
+  const ruta = `${p.id}/${cara}-${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from('cem-identidad')
+    .upload(ruta, listo, { contentType: listo.type || 'image/jpeg', upsert: true });
+  if (error) throw new Error(error.message || 'No se pudo subir la imagen.');
+  return ruta;
+}
+
+async function guardarCara(cara, ruta) {
+  const fila = { profile_id: p.id, [cara === 'frente' ? 'frente_ruta' : 'dorso_ruta']: ruta };
+  const { error } = await sb.from('cem_identidad').upsert(fila, { onConflict: 'profile_id' });
+  if (error) { fail(mensajeError(error)); return; }
+  await audit('identidad_subida', 'cem_identidad', p.id, 'medio', { cara });
+  ok(cara === 'frente' ? 'Guardada la cara de delante.' : 'Guardada la cara de detrás.');
+  await cargar();
+}
+
+/* ── la pantalla ── */
+async function cargar() {
+  const [{ data: perf }, { data: iden }, { data: cats }] = await Promise.all([
+    sb.from('cem_profiles').select('*').eq('id', p.id).single(),
+    sb.from('cem_identidad').select('*').eq('profile_id', p.id).maybeSingle(),
+    sb.from('cem_courses').select('categoria').eq('estado', 'publicado'),
+  ]);
+  perfil = perf || {};
+  identidad = iden || null;
+
+  $('#pais').innerHTML = opcionesDePais(perfil.pais || '');
+  $('#nombre').value = perfil.nombre || '';
+  $('#apellido').value = perfil.apellido || '';
+  $('#docTipo').value = perfil.documento_tipo || 'Cédula';
+  $('#documento').value = perfil.documento || '';
+  $('#nacimiento').value = perfil.fecha_nacimiento || '';
+  $('#telefono').value = perfil.telefono || '';
+  $('#ciudad').value = perfil.ciudad || '';
+  $('#email').value = perfil.email || '';
+
+  pintarDocumento();
+  pintarTemas([...new Set((cats || []).map((c) => (c.categoria || '').trim()).filter(Boolean))]);
+  pintarAvance();
+}
+
+function pintarDocumento() {
+  const estado = identidad?.estado || 'sin subir';
+  const chip = $('#estadoDoc');
+  chip.textContent = { pendiente: 'esperando revisión', aprobado: 'verificado',
+                       rechazado: 'hay que corregirlo' }[estado] || 'sin subir';
+  chip.className = 'chip ' + ({ aprobado: 'ok', rechazado: 'err', pendiente: 'warn' }[estado] || 'neutral');
+
+  /* Si lo rechazaron, lo primero que hace falta es SABER POR QUÉ. Sin el
+     motivo delante, lo normal es volver a subir exactamente lo mismo. */
+  $('#avisoDoc').innerHTML = estado === 'rechazado' && identidad?.motivo
+    ? `<div class="nota err sep">${esc(identidad.motivo)}</div>`
+    : estado === 'aprobado'
+      ? '<div class="nota ok sep">Verificado. No hace falta que hagas nada más aquí.</div>'
+      : '';
+
+  for (const [cara, id] of [['frente', '#campoFrente'], ['dorso', '#campoDorso']]) {
+    const yaEsta = !!identidad?.[cara === 'frente' ? 'frente_ruta' : 'dorso_ruta'];
+    const campo = campoArchivo({
+      id: 'doc' + cara, tipo: 'imagen', permitirEnlace: false,
+      /* Nunca `valor`: pondría la ruta del depósito privado en un `src`, que no
+         carga y encima enseña dónde está guardado. Aquí se dice si está o no. */
+      valor: '',
+      etiquetaSubir: yaEsta ? 'Cambiar la foto' : 'Elegir la foto',
+      subir: (file) => subirDocumento(file, cara),
+      alCambiar: (ruta) => ruta && guardarCara(cara, ruta),
+    });
+    $(id).innerHTML = campo.html
+      + (yaEsta ? '<p class="tiny muted sep-poco"><span class="material-symbols-outlined"'
+        + ' style="font-size:15px;vertical-align:-3px;color:var(--ok)">check_circle</span>'
+        + ' Ya la tenemos.</p>' : '');
+    campo.conectar($(id));
+  }
+}
+
+function pintarTemas(categorias) {
+  const elegidos = new Set(perfil.intereses || []);
+  $('#temas').innerHTML = categorias.map((c) =>
+    `<button type="button" class="tema" data-tema="${esc(c)}"
+       aria-pressed="${elegidos.has(c)}">${esc(c)}</button>`).join('')
+    || '<span class="tiny muted">Todavía no hay temas que elegir.</span>';
+
+  $$('#temas .tema').forEach((b) => b.onclick = async () => {
+    const puesto = b.getAttribute('aria-pressed') === 'true';
+    b.setAttribute('aria-pressed', String(!puesto));
+    const ahora = $$('#temas .tema')
+      .filter((x) => x.getAttribute('aria-pressed') === 'true')
+      .map((x) => x.dataset.tema);
+    /* Se guarda al tocar, sin botón: es una preferencia, no un formulario, y
+       un «guardar» aparte aquí se queda sin pulsar la mitad de las veces. */
+    const { error } = await sb.from('cem_profiles').update({ intereses: ahora }).eq('id', p.id);
+    if (error) { b.setAttribute('aria-pressed', String(puesto)); fail(mensajeError(error)); return; }
+    perfil.intereses = ahora;
+    $('#msgTemas').innerHTML = '<div class="nota ok">Guardado.</div>';
+    pintarAvance();
+  });
+}
+
+function pintarAvance() {
+  /* Lo que de verdad hace falta para emitir un certificado. Los intereses no
+     entran: son para nosotros, no para el papel, y contarlos aquí sería
+     presionar por un dato que dijimos que era opcional. */
+  const partes = [
+    [!!(perfil.nombre && perfil.apellido), 'tu nombre y apellido'],
+    [!!perfil.documento, 'el número de tu documento'],
+    [!!perfil.pais, 'tu país'],
+    [!!perfil.telefono, 'un teléfono'],
+    [!!identidad?.frente_ruta, 'la foto del documento por delante'],
+    [!!identidad?.dorso_ruta, 'la foto por detrás'],
+  ];
+  const hechas = partes.filter(([si]) => si).length;
+  const pct = Math.round(hechas / partes.length * 100);
+  $('#barraAvance').style.width = pct + '%';
+  $('#textoAvance').textContent = `${hechas} de ${partes.length}`;
+
+  const faltan = partes.filter(([si]) => !si).map(([, q]) => q);
+  $('#queFalta').innerHTML = faltan.length
+    ? `Falta ${esc(faltan.join(', ').replace(/, ([^,]*)$/, ' y $1'))}.`
+    : '<b>Está todo.</b> En cuanto el equipo revise el documento, tu certificado puede emitirse.';
+}
+
+$('#fDatos').onsubmit = async (e) => {
+  e.preventDefault();
+  const datos = {
+    nombre: $('#nombre').value.trim(), apellido: $('#apellido').value.trim(),
+    documento_tipo: $('#docTipo').value, documento: $('#documento').value.trim(),
+    fecha_nacimiento: $('#nacimiento').value || null,
+    telefono: $('#telefono').value.trim(), pais: $('#pais').value,
+    ciudad: $('#ciudad').value.trim(),
+  };
+  /* El mismo camino que usa «Mi perfil»: si ya hay certificados emitidos, el
+     cambio de nombre o de documento pasa por aprobación en vez de aplicarse.
+     Dos caminos distintos para el mismo dato acabarían dando dos verdades. */
+  const { data, error } = await sb.rpc('cem_actualizar_mi_perfil', { p_datos: datos });
+  if (error) { $('#msgDatos').innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+  $('#msgDatos').innerHTML = data?.aviso
+    ? `<div class="nota warn">${esc(data.aviso)}</div>`
+    : '<div class="nota ok">Guardado.</div>';
+  await cargar();
+};
+
+await cargar();
+</script>
+</body>
+</html>

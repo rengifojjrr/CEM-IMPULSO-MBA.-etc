@@ -61,7 +61,7 @@ export default async function correr(navegador) {
      que lo que se comprueba es que la función responda y que si hay nota, se
      enseñe; no que exista un número concreto. */
   const valoraciones = await P.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
     const { data, error } = await m.sb.rpc('cem_valoracion_cursos', { p_minimo: 5 });
     return { error: error?.message || null, cuantas: Object.keys(data || {}).length };
   });
@@ -241,6 +241,69 @@ export default async function correr(navegador) {
     await H.close();
   }
 
+  /* ============ 4b · el encabezado en un teléfono ============
+     En 390 px eran TRES filas apiladas —la marca, los dos botones y los
+     enlaces— y los enlaces además se salían por la derecha: «Verificar
+     certificado» salía cortado. Ciento veinte píxeles de los setecientos
+     ochenta que tiene la pantalla, pegados arriba mientras se lee.
+
+     Se mide el alto de verdad, no si «existe el botón»: un menú plegable que
+     ocupe lo mismo que antes no ha arreglado nada. */
+  const T = await nuevaPestana(navegador, { ancho: 390, alto: 780 });
+  await T.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
+  await T.waitForSelector('.pub-header', { timeout: 30000 });
+  await T.waitForTimeout(2500);
+
+  const medir = () => T.evaluate(() => ({
+    alto: Math.round(document.querySelector('.pub-header').getBoundingClientRect().height),
+    /* Que la página no se vaya a lo ancho: un menú que desborda obliga a
+       desplazar de lado para leer, y eso no se nota en el escritorio. */
+    desborde: Math.round(document.documentElement.scrollWidth - innerWidth),
+  }));
+
+  const cerrado = await medir();
+  a.comprobar(cerrado.alto <= 70,
+    `En un teléfono el encabezado ocupa una sola fila (${cerrado.alto} px; eran 120)`);
+  a.comprobar(cerrado.desborde <= 0,
+    `Y no empuja la página a lo ancho (${cerrado.desborde} px de desborde)`);
+  a.comprobar(await T.locator('#pubMenu').isVisible(),
+    'Con un botón para abrir el menú');
+  a.comprobar(!(await T.locator('#pubNav').isVisible()),
+    'Y los enlaces recogidos hasta que se pidan');
+
+  await T.click('#pubMenu');
+  await T.waitForTimeout(500);
+  a.comprobar(await T.locator('#pubNav').isVisible()
+    && (await T.getAttribute('#pubMenu', 'aria-expanded')) === 'true',
+    'Al pulsarlo se abren, y lo dice también para quien no lo ve');
+  const abierto = await medir();
+  a.comprobar(abierto.desborde <= 0,
+    `Abierto tampoco desborda (${abierto.desborde} px)`);
+  /* Los cuatro enlaces enteros, no tres y medio: lo que se salía por la
+     derecha era justamente el último. */
+  a.comprobar(await T.evaluate(() => {
+    const caja = document.querySelector('.pub-header').getBoundingClientRect();
+    return [...document.querySelectorAll('#pubNav a')]
+      .every((a) => a.getBoundingClientRect().right <= caja.right + 1);
+  }), 'Y ninguno se sale por el lado, como hacía «Verificar certificado»');
+
+  /* Se cierra al elegir. Si no, tapa la página a la que acabas de ir. */
+  await T.click('#pubNav a[href*="catalogo"]');
+  await T.waitForTimeout(2500);
+  a.comprobar(/catalogo\.html/.test(T.url())
+    && (await T.getAttribute('#pubMenu', 'aria-expanded')) === 'false',
+    'Elegir una entrada navega y cierra el menú detrás de ti');
+
+  /* Y con Escape, que es lo que todo el mundo intenta. */
+  await T.click('#pubMenu');
+  await T.waitForTimeout(400);
+  await T.keyboard.press('Escape');
+  await T.waitForTimeout(400);
+  a.comprobar((await T.getAttribute('#pubMenu', 'aria-expanded')) === 'false',
+    'Escape también lo cierra');
+  a.comprobar(T.errores.length === 0, `Sin errores en el teléfono ${JSON.stringify(T.errores.slice(0, 2))}`);
+  await T.close();
+
   /* ============ 5 · dejar los datos ============ */
   const L = await nuevaPestana(navegador, { ancho: 1300, alto: 950 });
   await L.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
@@ -301,7 +364,7 @@ export default async function correr(navegador) {
   await entrar(E, 'estudiante', 'estudiante/panel.html');
   await E.waitForTimeout(2000);
   const fuga = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-5');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
     const directo = await m.sb.from('cem_leads').select('*').limit(5);
     const porFuncion = await m.sb.rpc('cem_leads_listar');
     return {
