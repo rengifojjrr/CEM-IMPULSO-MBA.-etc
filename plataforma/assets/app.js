@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-22-2';
+         vidrioActual } from './temas.js?v=2026-08-22-5';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1907,7 +1907,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-22-2');
+    const m = await import('./apariencia.js?v=2026-08-22-5');
 
     m.abrirApariencia();
 
@@ -2021,8 +2021,16 @@ function renderPublicHeader(p) {
       <span class="material-symbols-outlined">account_balance</span> CEM International</a>
     <nav>
       <a href="${r}inicio.html"${activa('inicio.html')}>Inicio</a>
-      <a href="${r}catalogo.html"${activa('catalogo.html')}>Cursos</a>
-      <a href="${r}catalogo.html?tipo=programa">Programas</a>
+      <!-- Una sola entrada, no dos.
+           «Cursos» y «Programas» llevaban a la MISMA página: la segunda era el
+           catálogo con el desplegable «Tipo» ya puesto en «programa». Y como de
+           los ocho cursos publicados sólo uno es de ese tipo, esa pestaña
+           enseñaba 1 de 8 — o sea que no sólo repetía, además escondía el
+           catálogo entero a quien entrara por ahí.
+
+           El filtro por tipo sigue existiendo dentro del catálogo, que es donde
+           tiene sentido: al lado de modalidad, nivel y orden. -->
+      <a href="${r}catalogo.html"${activa('catalogo.html')}>Programas</a>
       <a href="${r}nosotros.html"${activa('nosotros.html')}>Quiénes somos</a>
       <a href="${r}verificar.html"${activa('verificar.html')}>Verificar certificado</a>
     </nav>
@@ -2844,6 +2852,103 @@ export function campoDescuento({ id, precio = 0, moneda = MONEDA_BASE, alCambiar
 
   const api = { html, conectar, valor: () => ({ descuento: 0, final: base, enPct: false }), fijarPrecio: () => {} };
   return api;
+}
+
+/* ============ la portada de un curso ============
+   Seis de los ocho cursos publicados no tienen foto, y eso se notaba más que
+   ninguna otra cosa: en el catálogo salía un recuadro en blanco de 148 px y en
+   la portada, una inicial gigante sobre morado. Una ficha vacía no se lee como
+   «todavía sin foto», se lee como «esto no está terminado».
+
+   Así que cuando no hay foto se dibuja una. No es un relleno de color: cada
+   categoría tiene su propio motivo —las finanzas suben en escalones, la
+   tecnología es una red de nodos, el marketing son ondas que se expanden— y
+   sale del color que la persona tenga elegido, así que sigue el tema y la
+   paleta como todo lo demás.
+
+   Va en SVG y no en una imagen: pesa nada, se ve nítido en cualquier pantalla
+   y puede leer las variables de CSS. Y en cuanto alguien suba una foto de
+   verdad, la foto manda: esto no se guarda en ninguna parte.
+
+   El nombre del curso NO se dibuja dentro. En la ficha el título va ocho
+   píxeles más abajo, así que ponerlo también en la imagen es decir dos veces
+   lo mismo; lo que va es la categoría, que en la ficha no siempre está. */
+
+const MOTIVOS = {
+  /* Escalones que suben. La lectura es inmediata y no necesita etiqueta. */
+  finanzas: `<path d="M14 74 L14 60 L26 60 L26 74 Z" opacity=".55"/>
+    <path d="M32 74 L32 46 L44 46 L44 74 Z" opacity=".7"/>
+    <path d="M50 74 L50 32 L62 32 L62 74 Z" opacity=".85"/>
+    <path d="M68 74 L68 20 L80 20 L80 74 Z"/>
+    <path d="M14 52 L38 38 L56 26 L82 12" fill="none" stroke="currentColor"
+      stroke-width="2.2" stroke-linecap="round" opacity=".5"/>`,
+  /* Una red: nodos y las líneas que los unen. */
+  tecnologia: `<path d="M20 30 L48 18 M48 18 L76 34 M20 30 L34 60 M34 60 L66 66 M66 66 L76 34
+    M48 18 L34 60 M48 18 L66 66" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".45"/>
+    <circle cx="20" cy="30" r="5"/><circle cx="48" cy="18" r="6.5"/><circle cx="76" cy="34" r="5"/>
+    <circle cx="34" cy="60" r="5.5"/><circle cx="66" cy="66" r="6"/>`,
+  /* Ondas que se expanden desde un punto: alcance. */
+  marketing: `<circle cx="30" cy="46" r="6"/>
+    <path d="M44 30 A22 22 0 0 1 44 62" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round" opacity=".8"/>
+    <path d="M54 20 A34 34 0 0 1 54 72" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" opacity=".55"/>
+    <path d="M64 10 A46 46 0 0 1 64 82" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" opacity=".32"/>`,
+  /* Bloques que se apilan: una estructura. */
+  negocios: `<rect x="16" y="52" width="24" height="22" rx="2.5" opacity=".55"/>
+    <rect x="44" y="38" width="24" height="36" rx="2.5" opacity=".78"/>
+    <rect x="16" y="30" width="24" height="18" rx="2.5" opacity=".78"/>
+    <rect x="72" y="20" width="16" height="54" rx="2.5"/>`,
+  /* Una cima y el camino hasta ella. */
+  liderazgo: `<path d="M12 74 L40 30 L56 52 L70 34 L92 74 Z" opacity=".35"/>
+    <path d="M40 30 L56 52 L70 34 L92 74 L58 74 Z" opacity=".7"/>
+    <circle cx="40" cy="24" r="6.5"/>`,
+  /* Una puerta abierta: no cuesta nada entrar. */
+  gratuitas: `<path d="M24 74 L24 22 L60 14 L60 74 Z" opacity=".7"/>
+    <circle cx="53" cy="46" r="3.2"/>
+    <path d="M60 22 L82 22 L82 74 L60 74" fill="none" stroke="currentColor"
+      stroke-width="2.4" stroke-linejoin="round" opacity=".45"/>`,
+};
+/* Bandas en diagonal para lo que no encaje en ninguna: sigue siendo de la casa
+   y no finge decir algo que no sabe. */
+const MOTIVO_POR_OMISION = `<path d="M-10 60 L40 10 L58 10 L8 60 Z" opacity=".5"/>
+  <path d="M22 74 L72 24 L90 24 L40 74 Z" opacity=".35"/>`;
+
+/** De «Clases gratuitas» a `gratuitas`: sin tildes, sin espacios, en minúscula. */
+const claveDeCategoria = (t) => String(t || '')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z]/g, '')
+  .replace(/^clases/, '').replace(/^ia$|^inteligencia.*/, 'tecnologia');
+
+/**
+ * La portada de un curso, lista para meter en una ficha.
+ * Si tiene foto, la foto. Si no, un motivo dibujado según su categoría.
+ *
+ * @param {object} curso  con `imagen_url`, `categoria` y `nombre`
+ * @param {number} alto   en píxeles; 148 es el de la ficha del catálogo
+ */
+export function portadaDeCurso(curso, alto = 148) {
+  if (curso?.imagen_url) {
+    /* `onerror` quita la imagen en vez de esconderla: una imagen invisible
+       sigue ocupando sus 148 px y deja un hueco que nadie entiende. */
+    return `<img class="portada-curso" src="${esc(curso.imagen_url)}" alt="" loading="lazy"
+      decoding="async" style="height:${alto}px" onerror="this.remove()">`;
+  }
+  const clave = claveDeCategoria(curso?.categoria);
+  const motivo = MOTIVOS[clave] || MOTIVO_POR_OMISION;
+  /* El desplazamiento del degradado sale del nombre, así que dos cursos de la
+     misma categoría no salen idénticos y siempre igual al recargar. */
+  const nombre = String(curso?.nombre || '');
+  let h = 0;
+  for (let i = 0; i < nombre.length; i++) h = (h * 31 + nombre.charCodeAt(i)) >>> 0;
+  return `<div class="portada-curso portada-tema" style="height:${alto}px;--mezcla:${25 + (h % 55)}"
+      aria-hidden="true">
+    <svg viewBox="0 0 100 88" preserveAspectRatio="xMidYMid slice" focusable="false">
+      <g fill="currentColor">${motivo}</g>
+    </svg>
+    ${curso?.categoria ? `<span class="etiqueta">${esc(curso.categoria)}</span>` : ''}
+  </div>`;
 }
 
 /* ============ imagen de portada (Supabase Storage, gratis y de sobra para fotos) ============ */

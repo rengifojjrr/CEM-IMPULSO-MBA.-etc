@@ -742,18 +742,42 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 .franja h2{font-size:var(--t-xl);margin:0 0 var(--e1);}
 .franja > .dentro > p.entrada{color:var(--tinta-2);max-width:62ch;margin:0 0 var(--e3);}
 
-.portada-cem{text-align:center;padding:var(--e5) var(--e3) var(--e4);}
-.portada-cem h1{font-size:clamp(28px, 5vw, 44px);line-height:1.12;margin:0 auto var(--e2);
-  max-width:16ch;}
-.portada-cem .lema{color:var(--tinta-2);font-size:var(--t-md);max-width:56ch;
-  margin:0 auto var(--e3);}
+.portada-cem{padding:var(--e5) var(--e3) var(--e4);}
+/* Dos columnas: lo que decimos y algo que se puede hacer.
+   La derecha no baja de 340 px porque debajo lleva un formulario, y un campo
+   de texto más estrecho que eso se vuelve incómodo de escribir. */
+.portada-dos{display:grid;gap:var(--e4);align-items:center;
+  grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr);}
+.portada-cem h1{font-size:clamp(28px, 4.4vw, 46px);line-height:1.08;margin:0 0 var(--e2);
+  max-width:15ch;letter-spacing:-.02em;}
+.portada-cem .lema{color:var(--tinta-2);font-size:var(--t-md);max-width:52ch;
+  margin:0 0 var(--e3);}
+/* El ojal: quién habla y desde cuándo, antes del titular. Dos datos que una
+   escuela sí puede decir y que ninguna plantilla trae puestos. */
+.ojal{display:inline-block;font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--secondary);
+  margin-bottom:var(--e2);}
+.portada-manos{display:flex;gap:var(--e1);flex-wrap:wrap;margin-bottom:var(--e3);}
+
+/* El comprobador de títulos. Es la única cosa de esta portada que la
+   competencia no puede copiar pegando texto: funciona. */
+.comprobador{align-self:start;}
+.comprobador .sello{color:var(--ok);font-size:34px;}
+.comprobador .buscador-grande,.comprobador input{margin:0;}
+
+@media (max-width:900px){
+  /* En una columna el orden manda: primero lo que se dice, y el comprobador
+     debajo. Quien llega por el móvil viene a mirar qué hay, no a verificar. */
+  .portada-dos{grid-template-columns:minmax(0,1fr);gap:var(--e3);}
+  .portada-cem h1{max-width:none;}
+}
 /* El buscador grande. Es el elemento con más peso de la página a propósito. */
-.buscador-grande{max-width:620px;margin:0 auto;position:relative;}
+.buscador-grande{max-width:620px;position:relative;}
 .buscador-grande .material-symbols-outlined{position:absolute;left:14px;top:50%;
   transform:translateY(-50%);color:var(--tinta-3);pointer-events:none;}
 .buscador-grande input{padding-left:44px;min-height:52px;font-size:var(--t-md);
   border-radius:var(--r-full);}
-.atajos{display:flex;flex-wrap:wrap;gap:var(--e1);justify-content:center;margin-top:var(--e2);}
+.atajos{display:flex;flex-wrap:wrap;gap:var(--e1);margin-top:var(--e2);}
 
 /* ── escribir para encontrar a alguien ────────────────────────────────────
    Sustituye al desplegable de quinientos nombres. La lista flota sobre lo
@@ -992,6 +1016,27 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
   overflow:hidden;display:flex;flex-direction:column;transition:border-color var(--rapido);}
 .course-card:hover{border-color:var(--filete-fuerte);}
 .course-card img{width:100%;height:148px;object-fit:cover;background:var(--hueco);}
+/* ── la portada dibujada, cuando el curso no tiene foto ───────────────────
+   Seis de los ocho cursos publicados no tienen imagen, y un recuadro en blanco
+   de 148 px no se lee como «falta la foto»: se lee como «esto no está
+   terminado». Cada categoría trae su motivo —lo dibuja `portadaDeCurso()` en
+   app.js— y el color sale del tema elegido, así que sigue la paleta como todo
+   lo demás en vez de ser un morado fijo.
+
+   `currentColor` es lo que deja que el motivo se pinte solo: el SVG hereda el
+   color del contenedor y no hay que repetirlo dentro de cada trazo. */
+.portada-curso{width:100%;display:block;object-fit:cover;background:var(--hueco);}
+.portada-tema{position:relative;overflow:hidden;color:var(--on-primary);
+  background:linear-gradient(135deg,
+    color-mix(in oklab, var(--primary) calc(var(--mezcla, 50) * 1%), var(--secondary)),
+    color-mix(in oklab, var(--primary) 78%, #000));}
+.portada-tema svg{position:absolute;inset:0;width:100%;height:100%;opacity:.72;}
+/* El nombre de la categoría, abajo a la izquierda: es el único texto, porque el
+   título del curso ya va ocho píxeles más abajo en la propia ficha. */
+.portada-tema .etiqueta{position:absolute;left:var(--e2);bottom:var(--e1);
+  font-size:var(--t-xs);font-weight:var(--peso-fuerte);letter-spacing:.08em;
+  text-transform:uppercase;opacity:.9;}
+@media (prefers-reduced-transparency:reduce){ .portada-tema svg{opacity:1;} }
 .course-card .body{padding:var(--e2);flex:1;display:flex;flex-direction:column;gap:var(--e1);}
 .course-card h3{margin:0;font-size:var(--t-md);line-height:1.3;font-weight:var(--peso-fuerte);}
 /* El título de una tarjeta dentro del portal, con la misma voz. */
