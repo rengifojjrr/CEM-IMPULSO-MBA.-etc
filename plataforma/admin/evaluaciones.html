@@ -9,12 +9,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Gestión de evaluaciones</h1><p>Administra exámenes, pruebas y bancos de preguntas.</p></div>
+    <div><h1>Gestión de evaluaciones</h1><p>Los exámenes y tareas de cada programa: cuántos intentos permiten, con cuánto se aprueba y quién ya los rindió.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
       <a class="btn outline" href="preguntas.html"><span class="material-symbols-outlined">help_center</span> Banco de preguntas</a>
@@ -24,24 +24,34 @@
   <div class="kpis" id="kpis"></div>
   <div class="card">
     <div class="filters">
-      <div class="field grow"><label>Buscar por nombre</label><input type="search" id="q"></div>
-      <div class="field"><label>Curso</label><select id="fCurso"><option value="">Todos</option></select></div>
-      <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
-        <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
-        <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
-      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
-        <option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="archivado">Archivado</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
+      <div class="field grow"><label>Buscar por nombre <button type="button" class="ayuda-btn" data-ayuda="Busca por el nombre de la evaluación o el del programa al que pertenece.">?</button></label><input type="search" id="q"></div>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Evaluación</th><th>Curso</th><th>Tipo</th><th>Preguntas</th><th>Intentos</th><th>Tiempo</th>
-        <th>Entregas</th><th>Promedio</th><th>Estado</th><th></th></tr></thead>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por programa, tipo o estado
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Programa</label><select id="fCurso"><option value="">Todos</option></select></div>
+        <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
+          <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
+          <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
+        <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
+          <option value="publicado">Publicado</option><option value="borrador">Borrador</option><option value="archivado">Archivado</option></select></div>
+      </div>
+    </details>
+    <div class="table-wrap"><table id="tabla" class="tarjetas">
+      <!-- De diez columnas a seis. Intentos, tiempo y tipo casi nunca deciden
+           qué vas a hacer con una evaluación: viven en su ficha. -->
+      <thead><tr><th data-ord="nombre">Evaluación</th><th data-ord="_curso">Programa</th>
+        <th class="num" data-ord="_nq">Preguntas</th><th class="num" data-ord="_subs">Entregas</th>
+        <th class="num" data-ord="_avg">Promedio</th><th data-ord="estado">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, run, audit, toCSV, download, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, ok, fail, run, audit, toCSV, download, confirmDialog, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, mensajeError, modal } from '../assets/app.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'evaluaciones.html', area:'admin' });
+accionVacio('vacioEval', () => location.href = 'evaluacion-nueva.html');
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[];
 if (p) load();
@@ -51,7 +61,7 @@ async function load(){
     sb.from('cem_assessments').select('*,cem_courses(nombre)').order('created_at',{ascending:false}),
     sb.from('cem_courses').select('id,nombre').order('nombre'),
     sb.from('cem_assessment_questions').select('assessment_id'),
-    sb.from('cem_submissions').select('assessment_id,puntaje,estado'),
+    sb.from('cem_submissions').select('assessment_id,puntaje,estado').limit(500),
   ]);
   $('#fCurso').innerHTML='<option value="">Todos</option>'+(cs||[]).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
   const nq={}; (aq||[]).forEach(x=>nq[x.assessment_id]=(nq[x.assessment_id]||0)+1);
@@ -70,25 +80,52 @@ async function load(){
   render();
 }
 
+/** item 26 · por qué columna se ordena la lista de evaluaciones. */
+const ordenEvals = { campo:null, asc:true };
+
 function render(){
   const q=$('#q').value.trim(), c=$('#fCurso').value, t=$('#fTipo').value, e=$('#fEstado').value;
-  const list = rows.filter(r=>match(r,q,['nombre','cem_courses.nombre'])
-    && (!c||r.course_id===c) && (!t||r.tipo===t) && (!e||r.estado===e));
+  const list = ordenarPor(rows.filter(r=>match(r,q,['nombre','cem_courses.nombre'])
+    && (!c||r.course_id===c) && (!t||r.tipo===t) && (!e||r.estado===e))
+    .map(r=>({ ...r, _curso: r.cem_courses?.nombre||'' })), ordenEvals);
+  const puestos = [c,t,e].filter(Boolean).length;
+  $('#nFiltros').hidden = !puestos; $('#nFiltros').textContent = puestos;
+  /* `tarjetas` + `data-col`: en un teléfono la fila se apila y cada celda dice
+     de qué columna es. Sin eso, con el botón de vista previa la tabla ya no
+     cabía en 390 puntos y había que arrastrarla de lado. */
   $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
-    <td class="wrap"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}</td>
-    <td class="wrap">${esc(r.cem_courses?.nombre||'')}</td><td>${chip(r.tipo,'neutral')}</td>
-    <td>${num(r._nq)}</td><td>${r.intentos||1}</td><td>${r.tiempo_min?r.tiempo_min+' min':'sin límite'}</td>
-    <td>${num(r._subs)}</td><td>${r._avg!=null?r._avg.toFixed(1):'—'}</td><td>${chip(r.estado)}</td>
-    <td style="white-space:nowrap">
-      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar"><span class="material-symbols-outlined">edit</span></a>
+    <td class="wrap" data-col="Evaluación"><b>${esc(r.nombre)}</b>${r._pend?` <span class="chip warn">${r._pend} por calificar</span>`:''}
+      <div class="tiny muted">${esc(etiqueta(r.tipo))} · ${r.intentos||1} intento(s) · ${r.tiempo_min?r.tiempo_min+' min':'sin límite de tiempo'}</div></td>
+    <td class="wrap" data-col="Programa">${esc(r._curso)}</td>
+    <td class="num" data-col="Preguntas">${num(r._nq)}</td>
+    <td class="num" data-col="Entregas">${num(r._subs)}</td>
+    <td class="num" data-col="Promedio">${r._avg!=null?r._avg.toFixed(1):'—'}</td>
+    <td data-col="Estado">${chipEstado(r.estado)}</td>
+    <td class="nowrap" data-col="">
+      <button class="btn ghost sm" data-previa="${r.id}" title="Verla como la ve el estudiante"><span class="material-symbols-outlined">visibility</span></button>
+      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar las preguntas"><span class="material-symbols-outlined">edit</span></a>
+      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}#respuestas" title="Ver las respuestas y sus métricas"><span class="material-symbols-outlined">insights</span></a>
       <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>
       ${puede?`<button class="btn ghost sm" data-pub="${r.id}" title="${r.estado==='publicado'?'Despublicar':'Publicar'}">
         <span class="material-symbols-outlined">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(10);
+    </td></tr>`).join('') : emptyRow(7, 'Todavía no hay evaluaciones.', {texto:'Crear la primera evaluación', id:'vacioEval', icono:'quiz'});
+  ordenable('#tabla', ordenEvals, render);
+  $$('[data-previa]').forEach(b=>b.onclick=()=>previa(rows.find(x=>x.id===b.dataset.previa)));
   $$('[data-pub]').forEach(b=>b.onclick=async()=>{
     const r=rows.find(x=>x.id===b.dataset.pub);
     const nuevo = r.estado==='publicado'?'borrador':'publicado';
-    if (nuevo==='publicado' && r._nq===0){ if(!await confirmDialog('Esta evaluación no tiene preguntas. ¿Publicar de todas formas?')) return; }
+    /* Publicar desde la lista tiene que pasar por la misma regla que publicar
+       desde el constructor: si los puntajes no suman el total declarado, no
+       sale. Antes este botón era la puerta de atrás. */
+    if (nuevo==='publicado'){
+      const { data: p, error: e } = await sb.rpc('cem_puntaje_evaluacion',{ p_assessment_id:r.id });
+      if (e){ fail(mensajeError(e)); return; }
+      if (!Number(p?.preguntas)){ fail('Esta evaluación no tiene preguntas todavía.'); return; }
+      if (!p?.cuadra){
+        fail(`Los puntajes suman ${p.total} y la evaluación es sobre ${p.maximo}. Ábrela y cuádralos antes de publicar.`);
+        return;
+      }
+    }
     await run(sb.from('cem_assessments').update({estado:nuevo}).eq('id',r.id),'No se pudo actualizar');
     await audit('evaluacion_estado','cem_assessments',r.id,'medio',{estado:nuevo}); ok('Estado actualizado'); load();
   });
@@ -98,6 +135,71 @@ $('#btnClear').onclick=()=>{['#q','#fCurso','#fTipo','#fEstado'].forEach(s=>$(s)
 $('#btnExport').onclick=()=>download('evaluaciones_cem.csv', toCSV(rows.map(r=>({
   nombre:r.nombre, curso:r.cem_courses?.nombre, tipo:r.tipo, preguntas:r._nq,
   intentos:r.intentos, tiempo_min:r.tiempo_min, entregas:r._subs, promedio:r._avg, estado:r.estado }))));
+
+/* ============ verla antes de publicarla ============
+   Se podía editar una evaluación y se podían mirar sus métricas, pero no
+   había forma de LEERLA como la lee el estudiante: el constructor enseña
+   cajas de edición, casillas de «correcta» y puntajes, que es justo lo que
+   el alumno no ve. Publicar sin haberla leído en su forma final es cómo se
+   publican enunciados a medias y opciones repetidas.
+
+   Aquí se ve el examen, no su ficha: enunciado, ayuda y opciones, sin marcar
+   cuál es la buena. Sólo se añade, al margen, el puntaje de cada pregunta y
+   el total, porque quien mira esto sí tiene que cuadrarlo. */
+async function previa(r){
+  if (!r) return;
+  const m = modal({ title:`Vista previa · ${r.nombre}`, wide:true,
+    body:'<p class="muted tiny">Cargando las preguntas…</p>' });
+  const cuerpo = $('.modal-b', m) || m;
+
+  const { data, error } = await sb.from('cem_assessment_questions')
+    .select('puntaje,orden,seccion,seccion_desc,cem_questions(enunciado,ayuda,tipo,opciones)')
+    .eq('assessment_id', r.id).order('orden');
+  if (error){ cuerpo.innerHTML = `<p class="tiny" style="color:var(--error)">${esc(mensajeError(error))}</p>`; return; }
+
+  const preguntas = (data||[]).filter(x=>x.cem_questions);
+  if (!preguntas.length){
+    cuerpo.innerHTML = `<p class="muted">Esta evaluación todavía no tiene preguntas.
+      <a href="evaluacion-nueva.html?id=${r.id}">Añádele las primeras</a>.</p>`;
+    return;
+  }
+  const total = preguntas.reduce((a,x)=>a+(Number(x.puntaje)||0), 0);
+  let seccion = null;
+
+  cuerpo.innerHTML = `
+    <p class="tiny muted">${esc(etiqueta(r.tipo))} · ${preguntas.length} pregunta(s) ·
+      ${r.intentos||1} intento(s)${r.tiempo_min?` · ${r.tiempo_min} min`:''} ·
+      se aprueba con ${r.nota_aprobatoria ?? 70}</p>
+    ${total !== Number(r.puntaje_max || 100)
+      ? `<div class="nota warn">
+          Los puntajes suman ${total} y la evaluación es sobre ${r.puntaje_max ?? 100}: no cuadra, y así no deja publicarse.</div>`
+      : ''}
+    <ol class="stack sep" style="padding-left:18px">
+      ${preguntas.map((x,i)=>{
+        const p = x.cem_questions;
+        const opciones = Array.isArray(p.opciones) ? p.opciones : [];
+        const cabecera = x.seccion && x.seccion !== seccion
+          ? (seccion = x.seccion, `<h3 class="sec" style="margin-left:-18px">${esc(x.seccion)}${
+              x.seccion_desc?`<span class="tiny muted"> — ${esc(x.seccion_desc)}</span>`:''}</h3>`)
+          : '';
+        return `${cabecera}<li style="margin-bottom:14px">
+          <div class="row between" style="gap:12px;align-items:flex-start">
+            <b style="font-weight:600">${esc(p.enunciado||'(sin enunciado)')}</b>
+            <span class="tiny muted nowrap">${Number(x.puntaje)||0} pt</span>
+          </div>
+          ${p.ayuda?`<div class="tiny muted">${esc(p.ayuda)}</div>`:''}
+          ${opciones.length
+            ? `<div class="stack sep-poco">${opciones.map(o=>`
+                <label class="check"><input type="radio" disabled>
+                  <span>${esc(typeof o === 'string' ? o : (o?.texto ?? ''))}</span></label>`).join('')}</div>`
+            : `<div class="tiny muted sep-poco">${p.tipo==='abierta'
+                ? 'Respuesta escrita: el estudiante ve una caja de texto.'
+                : 'Sin opciones cargadas.'}</div>`}
+        </li>`;
+      }).join('')}
+    </ol>
+    <p class="tiny muted">Total: ${total} punto(s) de ${r.puntaje_max ?? 100}.</p>`;
+}
 </script>
 </body>
 </html>

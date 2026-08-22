@@ -9,16 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Playfair+Display:wght@500;700&family=Lora:wght@400;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
-  .ed{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;align-items:start;}
+  .ed{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:var(--aire);align-items:start;}
   .ed > *{min-width:0;}
   @media(max-width:1000px){ .ed{grid-template-columns:minmax(0,1fr);} }
 
   /* ---------- lienzo ---------- */
-  .lienzo-wrap{overflow:auto;-webkit-overflow-scrolling:touch;background:var(--surface-container);
-    border-radius:var(--radius);padding:14px;display:flex;justify-content:center;}
+  .lienzo-wrap{overflow:auto;-webkit-overflow-scrolling:touch;background:var(--hueco);
+    border-radius:var(--r);padding:14px;display:flex;justify-content:center;}
   .lienzo{position:relative;background:#fff;flex-shrink:0;box-shadow:var(--shadow);
     background-size:cover;background-position:center;}
   .lienzo .marco{position:absolute;inset:0;pointer-events:none;}
@@ -32,32 +32,35 @@
   .blk img{display:block;width:100%;height:auto;pointer-events:none;}
   /* El tirador se dibuja siempre y solo se muestra en el elemento elegido:
      asi arrastrar no obliga a reconstruir el lienzo. */
-  .tirador{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:50%;
+  /* sin-caja: el tirador de 14px de un elemento del editor */
+  .tirador{position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:var(--r-full);
     background:var(--info);border:2px solid #fff;cursor:nwse-resize;box-shadow:0 1px 3px rgba(0,0,0,.3);
     display:none;}
   .blk.sel .tirador{display:block;}
 
   /* ---------- panel ---------- */
-  .var{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:var(--primary-fixed);
-    color:var(--primary);font-size:11.5px;font-weight:600;cursor:pointer;margin:3px 3px 0 0;}
+  .var{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r);background:var(--primary-suave);
+    color:var(--primary);font-size:var(--t-xs);font-weight:600;cursor:pointer;margin:3px 3px 0 0;}
   .var:hover{background:var(--primary-dim);}
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
   .g2 .field,.g4 .field{margin:0;}
-  .field.mini label{font-size:11px;}
+  .field.mini label{font-size:var(--t-xs);}
   .field.mini input,.field.mini select{padding:6px 8px;}
-  .lista-item{display:flex;gap:9px;align-items:center;padding:7px 9px;border-radius:8px;cursor:pointer;
-    border:1px solid var(--outline-variant);margin-bottom:6px;}
+  /* sin-caja: una fila que se selecciona, no un panel */
+  .lista-item{display:flex;gap:9px;align-items:center;padding:7px 9px;border-radius:var(--r);cursor:pointer;
+    border:1px solid var(--filete);margin-bottom:6px;}
   .lista-item.sel{border-color:var(--info);background:var(--info-container);}
-  .lista-item .mini-img{width:34px;height:26px;object-fit:contain;background:var(--surface-container);border-radius:4px;flex-shrink:0;}
+  .lista-item .mini-img{width:34px;height:26px;object-fit:contain;background:var(--hueco);border-radius:var(--r);flex-shrink:0;}
   .rango{display:flex;align-items:center;gap:9px;}
   .rango input[type=range]{flex:1;min-width:0;}
-  .rango b{font-variant-numeric:tabular-nums;min-width:42px;text-align:right;font-size:12.5px;}
-  .zona{border:2px dashed var(--outline-variant);border-radius:10px;padding:16px;text-align:center;
-    color:var(--on-surface-variant);font-size:12.5px;cursor:pointer;}
+  .rango b{font-variant-numeric:tabular-nums;min-width:42px;text-align:right;font-size:var(--t-xs);}
+  /* sin-caja: su filete discontinuo significa donde soltar */
+  .zona{border:2px dashed var(--filete);border-radius:var(--r);padding:16px;text-align:center;
+    color:var(--tinta-2);font-size:var(--t-xs);cursor:pointer;}
   .zona.drag{border-color:var(--info);background:var(--info-container);}
-  details.sec-fold{border:1px solid var(--outline-variant);border-radius:10px;margin-bottom:10px;background:var(--surface-lowest);}
-  details.sec-fold > summary{padding:11px 13px;font-weight:700;font-size:13.5px;cursor:pointer;
+  details.sec-fold{border:1px solid var(--filete);border-radius:var(--r);margin-bottom:10px;background:var(--surface-lowest);}
+  details.sec-fold > summary{padding:11px 13px;font-weight:700;font-size:var(--t-sm);cursor:pointer;
     display:flex;align-items:center;gap:8px;list-style:none;}
   details.sec-fold > summary::-webkit-details-marker{display:none;}
   details.sec-fold > summary::after{content:'expand_more';font-family:'Material Symbols Outlined';margin-left:auto;
@@ -84,7 +87,7 @@
       <details class="sec-fold" open>
         <summary><span class="material-symbols-outlined">tune</span> General</summary>
         <div class="cuerpo">
-          <div class="field"><label>Nombre de la plantilla *</label><input id="nombre"></div>
+          <div class="field"><label>Nombre de la plantilla *</label><input id="nombre" required></div>
           <div class="field"><label>Orientación</label>
             <div class="row"><button class="chip chip-btn" data-or="horizontal">Horizontal</button>
               <button class="chip chip-btn" data-or="vertical">Vertical</button></div></div>
@@ -102,7 +105,7 @@
       <details class="sec-fold" open>
         <summary><span class="material-symbols-outlined">crop_free</span> Márgenes y estilo</summary>
         <div class="cuerpo">
-          <label class="tiny" style="font-weight:600">Márgenes (mm)</label>
+          <label class="tiny negrita">Márgenes (mm)</label>
           <div class="g4" style="margin:6px 0 12px">
             <div class="field mini"><label>Sup.</label><input type="number" id="mT" min="0" max="60"></div>
             <div class="field mini"><label>Der.</label><input type="number" id="mR" min="0" max="60"></div>
@@ -209,7 +212,7 @@
     <div>
       <div class="card">
         <div class="row between" style="margin-bottom:10px">
-          <h2 class="sec" style="margin:0">Vista previa</h2>
+          <h2 class="sec sin-margen">Vista previa</h2>
           <div class="row">
             <span class="tiny muted">Arrastra los elementos para colocarlos</span>
             <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir prueba</button>
@@ -227,7 +230,7 @@
 
       <div class="card">
         <div class="row between" style="margin-bottom:4px">
-          <h2 class="sec" style="margin:0">Certificados emitidos</h2>
+          <h2 class="sec sin-margen">Certificados emitidos</h2>
           <span class="tiny muted">Corrige uno si salió con datos equivocados</span>
         </div>
         <div class="table-wrap"><table>
@@ -239,7 +242,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, fail, run, audit, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, modal, ok, fail, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin'], active:'certificados.html', area:'admin' });
 
 const VARS = ['estudiante_nombre','estudiante_cedula','curso_nombre','fecha_emision',
@@ -367,7 +370,7 @@ function dibujar(){
   const imgsHtml = imagenes.map((im,i)=>`
     <div class="blk ${sel?.tipo==='img'&&sel.id===im.id?'sel':''}" data-img="${im.id}"
       style="left:${im.x}%;top:${im.y}%;width:${im.w}%;opacity:${im.op};z-index:${10+i}">
-      <img src="${esc(im.url)}" alt="" onerror="this.style.opacity=.25">
+      <img loading="lazy" decoding="async" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.25">
       <span class="tirador" data-rs="img"></span>
     </div>`).join('');
 
@@ -475,12 +478,12 @@ const redondea = n => Math.round(n*2)/2;
 function renderListaImg(){
   $('#listaImg').innerHTML = imagenes.length ? imagenes.map(im=>`
     <div class="lista-item ${sel?.tipo==='img'&&sel.id===im.id?'sel':''}" data-selimg="${im.id}">
-      <img class="mini-img" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.3">
-      <div class="grow" style="flex:1;min-width:0">
+      <img loading="lazy" decoding="async" class="mini-img" src="${esc(im.url)}" alt="" onerror="this.style.opacity=.3">
+      <div class="grow crece">
         <div class="tiny" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(im.nombre||'Imagen')}</div>
         <div class="tiny muted">${im.w}% · ${Math.round(im.op*100)}%</div>
       </div>
-    </div>`).join('') : '<p class="tiny muted" style="margin:0">Todavía no hay imágenes.</p>';
+    </div>`).join('') : '<p class="tiny muted sin-margen">Todavía no hay imágenes.</p>';
   $$('[data-selimg]').forEach(el=>el.onclick=()=>{ sel={tipo:'img',id:el.dataset.selimg}; dibujar(); });
 }
 
@@ -489,15 +492,15 @@ function renderListaBlk(){
     <div class="lista-item ${sel?.tipo==='blk'&&sel.id===k?'sel':''}" data-selblk="${k}">
       <span class="material-symbols-outlined" style="font-size:18px;color:var(--on-surface-variant)">
         ${b.visible?'visibility':'visibility_off'}</span>
-      <div style="flex:1;min-width:0">
-        <div class="tiny" style="font-weight:600">${esc(b.etiqueta)}</div>
+      <div class="crece">
+        <div class="tiny negrita">${esc(b.etiqueta)}</div>
         <div class="tiny muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.texto.slice(0,42))}</div>
       </div>
     </div>`).join('');
   const qrFila = `<div class="lista-item ${sel?.tipo==='qr'?'sel':''}" data-selqr="1">
       <span class="material-symbols-outlined" style="font-size:18px;color:var(--on-surface-variant)">
         ${qrCfg.on?'qr_code_2':'visibility_off'}</span>
-      <div style="flex:1;min-width:0"><div class="tiny" style="font-weight:600">Código QR de verificación</div>
+      <div class="crece"><div class="tiny negrita">Código QR de verificación</div>
         <div class="tiny muted">${qrCfg.on?`${qrCfg.w}% · ${Math.round(qrCfg.op*100)}%`:'oculto'}</div></div>
     </div>`;
   $('#listaBlk').innerHTML = filas + qrFila;
@@ -643,11 +646,11 @@ function renderTbl(){
     <td><b>${esc(t.nombre)}</b></td><td>${esc(t.orientacion||'—')}</td>
     <td>${t.incluir_qr?chip('sí','ok'):chip('no','neutral')}</td>
     <td class="wrap">${esc(t.firma_nombre||'—')}</td><td class="muted">${fdate(t.created_at)}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       <button class="btn ghost sm" data-l="${t.id}" title="Abrir"><span class="material-symbols-outlined">edit</span></button>
       <button class="btn ghost sm" data-dup="${t.id}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
       <button class="btn ghost sm" data-del="${t.id}" style="color:var(--error)" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
-    </td></tr>`).join('') : emptyRow(6,'Sin plantillas.');
+    </td></tr>`).join('') : emptyRow(6, 'Todavía no has guardado ningún diseño de certificado.');
   $$('[data-l]').forEach(b=>b.onclick=()=>{ $('#selTpl').value=b.dataset.l;
     actual=tpls.find(t=>t.id===b.dataset.l); cargarPlantilla(); });
   $$('[data-dup]').forEach(b=>b.onclick=()=>duplicar(tpls.find(t=>t.id===b.dataset.dup)));
@@ -723,7 +726,7 @@ function corregir(c){
     <div class="field"><label>Título del certificado</label><input id="fTit" value="${esc(c.titulo||'')}"></div>
     <div class="field"><label>Fecha de emisión (texto impreso)</label><input id="fFec" value="${esc(d.emision||'')}"></div>
     <div class="field"><label>Motivo de la corrección *</label>
-      <input id="fMot" placeholder="Ej.: el apellido venía mal escrito en el registro"></div>`,
+      <input id="fMot" placeholder="Ej.: el apellido venía mal escrito en el registro" required></div>`,
     footer:`<button class="btn outline" data-no>Cancelar</button>
             <button class="btn" data-si>Guardar corrección</button>` });
 

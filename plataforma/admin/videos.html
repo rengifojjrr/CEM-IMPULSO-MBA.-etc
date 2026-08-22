@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Vídeo de cada lección</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  .vid{display:flex;gap:10px;align-items:center;padding:8px;border-radius:var(--r);
+    border:1px solid var(--filete);margin-bottom:8px;}
+  .vid img{width:88px;height:50px;object-fit:cover;border-radius:var(--r-sm);flex-shrink:0;background:var(--hueco);}
+  .vid .t{flex:1;min-width:0;font-size:var(--t-sm);overflow-wrap:anywhere;}
+  .lec{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r);
+    border:1px solid var(--filete);margin-bottom:8px;}
+  .lec.vacia{border-style:dashed;}
+  .lec .t{flex:1;min-width:0;font-size:var(--t-sm);overflow-wrap:anywhere;}
+  .lec .mini{width:64px;height:36px;object-fit:cover;border-radius:var(--r);
+    flex-shrink:0;background:var(--hueco);}
+  .lec .hueco-mini{width:64px;height:36px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;border-radius:var(--r);background:var(--hueco);color:var(--tinta-3);font-size:19px;}
+  /* En el diálogo, cada vídeo es un botón: se pulsa el vídeo, no se elige en un
+     desplegable y luego se confirma. */
+  .vid.elegible{width:100%;text-align:left;background:none;cursor:pointer;font:inherit;color:inherit;}
+  .vid.elegible:hover,.vid.elegible:focus-visible{background:var(--hueco);}
+  .mod-t{font-weight:600;margin:14px 0 8px;font-size:var(--t-sm);color:var(--tinta-2);}
+  .corto-fila{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:var(--r);
+    border:1px solid var(--filete);margin-bottom:8px;}
+  .corto-fila img{width:38px;height:66px;object-fit:cover;border-radius:var(--r-sm);
+    flex-shrink:0;background:var(--hueco);}
+  .corto-fila .t{flex:1;min-width:0;font-size:var(--t-sm);overflow-wrap:anywhere;}
+  .corto-fila.retirado{opacity:.55;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <!-- item 26 · esta pantalla enseñaba dos columnas —los vídeos de YouTube a la
+       izquierda, las lecciones a la derecha— y dejaba el trabajo de juntarlas
+       en la cabeza de quien miraba. Pero sólo se viene aquí a hacer una cosa:
+       que cada lección tenga su vídeo. Así que ahora hay una sola lista, la de
+       las lecciones, y el vídeo se elige desde la lección que lo necesita. Lo
+       demás —la lista de reproducción y los vídeos de repaso— sigue estando,
+       plegado, porque se toca una vez y no cada día. -->
+  <div class="page-head">
+    <div><h1>Vídeo de cada lección</h1>
+      <p id="bajada">Elige un programa y pon el vídeo de YouTube que le toca a cada lección.</p></div>
+    <div class="actions">
+      <a class="btn outline" id="btnVolver" href="contenido.html"><span class="material-symbols-outlined">arrow_back</span> Contenido</a>
+    </div>
+  </div>
+
+  <div class="card" id="cardCurso">
+    <div class="field"><label for="fCurso">Curso</label>
+      <select id="fCurso"><option value="">Elige un programa…</option></select></div>
+  </div>
+
+  <div id="cuerpo"></div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, num, ok, fail, avisar, mensajeError,
+         confirmDialog, qs, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-53';
+await mount({ require:['coordinador','admin','superadmin'], area:'admin' });
+
+let cursos = [], curso = null, datos = null, videos = null, errorVideos = null, shorts = [];
+
+/* El token para hablar con YouTube es el mismo que usa la subida: se pide a la
+   función del servidor, que lo saca del permiso guardado. La clave del canal no
+   pasa por aquí en ningún momento. */
+async function tokenDeYoutube(){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-youtube-upload-token`, {
+    headers: { Authorization: `Bearer ${session?.access_token}`, apikey: SUPABASE_KEY },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error === 'not_connected'
+    ? 'No hay ningún canal de YouTube conectado todavía.'
+    : json.error === 'reauth_required'
+      ? 'El permiso de YouTube caducó. Entra en Configuración → Integración con YouTube y pulsa Reconectar.'
+      : (json.detail || json.error || 'No se pudo hablar con YouTube.'));
+  return json.access_token;
+}
+
+/* YouTube devuelve la lista de 50 en 50. Un curso largo pasa de 50, así que se
+   siguen las páginas hasta el final en vez de enseñar los primeros y callar. */
+async function videosDeLaLista(playlist){
+  const token = await tokenDeYoutube();
+  const salida = [];
+  let pagina = '';
+  do {
+    const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
+    url.search = new URLSearchParams({
+      part: 'snippet,contentDetails', maxResults: '50', playlistId: playlist,
+      ...(pagina ? { pageToken: pagina } : {}),
+    });
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error?.message || 'YouTube no devolvió la lista.');
+    for (const it of json.items || []) {
+      salida.push({
+        video_id: it.contentDetails?.videoId,
+        titulo: it.snippet?.title || '(sin título)',
+        miniatura: it.snippet?.thumbnails?.default?.url || '',
+        posicion: it.snippet?.position ?? 0,
+      });
+    }
+    pagina = json.nextPageToken || '';
+  } while (pagina && salida.length < 500);
+  // Los borrados o privados llegan sin identificador utilizable.
+  return salida.filter((v) => v.video_id);
+}
+
+async function cargarCursos(){
+  const { data } = await sb.from('cem_courses').select('id,nombre,youtube_playlist').order('nombre');
+  cursos = data || [];
+  $('#fCurso').innerHTML = '<option value="">Elige un programa…</option>' +
+    cursos.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  const pedido = qs('curso');
+  if (pedido && cursos.some((c) => c.id === pedido)) {
+    $('#fCurso').value = pedido;
+    /* Quien llega desde Contenido ya eligió el programa allí. Volver a
+       enseñarle el desplegable es pedirle que lo elija dos veces, y deja la
+       duda de si el de arriba manda sobre el de abajo. */
+    $('#cardCurso').hidden = true;
+    $('#btnVolver').href = `contenido.html?curso=${encodeURIComponent(pedido)}`;
+    await elegir(pedido);
+  }
+}
+
+async function elegir(id){
+  curso = cursos.find((c) => c.id === id) || null;
+  datos = null; videos = null; errorVideos = null; shorts = [];
+  if (!curso) { pintar(); return; }
+  const [{ data, error }, { data: cs }] = await Promise.all([
+    sb.rpc('cem_curso_lecciones_de_video', { p_course_id: id }),
+    sb.rpc('cem_shorts_del_curso', { p_course_id: id }),
+  ]);
+  if (error) { avisar('#cuerpo', mensajeError(error)); return; }
+  datos = data || {};
+  shorts = cs || [];
+  pintar();
+  if (datos.playlist) await traerVideos();
+}
+
+async function traerVideos(){
+  try { videos = await videosDeLaLista(datos.playlist); errorVideos = null; }
+  catch (e) { videos = null; errorVideos = e.message; }
+  pintar();
+}
+
+const lecciones = () => (datos?.modulos || []).flatMap((m) => m.lecciones || []);
+const usados = () => new Set(lecciones().map((l) => l.video_id).filter(Boolean));
+
+function pintar(){
+  $('#bajada').textContent = curso
+    ? `${curso.nombre} · pon el vídeo de YouTube que le toca a cada lección.`
+    : 'Elige un programa y pon el vídeo de YouTube que le toca a cada lección.';
+  if (!curso) {
+    $('#cuerpo').innerHTML = `<div class="card"><p class="muted tiny">
+      Elige un programa arriba para ver sus vídeos y sus lecciones.</p></div>`;
+    return;
+  }
+
+  const yaPuestos = usados();
+  const sueltos = (videos || []).filter((v) => !yaPuestos.has(v.video_id));
+  const todas = lecciones();
+  const sinVideo = todas.filter((l) => !l.video_id);
+  const conVideo = todas.length - sinVideo.length;
+
+  $('#cuerpo').innerHTML = `
+    ${errorVideos ? `<div class="nota err">${esc(errorVideos)}</div>` : ''}
+
+    <!-- Una sola frase que contesta «¿me queda algo por hacer aquí?». Antes eso
+         se sacaba comparando dos columnas a ojo. -->
+    <div class="card">
+      <div class="row between" style="align-items:flex-end">
+        <div class="grow" style="min-width:200px">
+          <h2 class="sec" style="margin-bottom:4px">${todas.length
+            ? `${num(conVideo)} de ${num(todas.length)} lecciones tienen vídeo`
+            : 'Este programa todavía no tiene lecciones'}</h2>
+          <div style="max-width:340px">${todas.length ? bar(100 * conVideo / todas.length) : ''}</div>
+          <p class="tiny muted" style="margin:6px 0 0">${
+            !datos?.playlist ? 'Todavía no has enlazado la lista de reproducción de este programa: ábrela abajo.'
+            : !videos && !errorVideos ? 'Leyendo la lista de YouTube…'
+            : !todas.length ? 'Crea sus módulos y lecciones en Contenido y vuelve aquí.'
+            : !sinVideo.length ? 'No queda ninguna lección esperando vídeo.'
+            : `Faltan ${num(sinVideo.length)}. `
+              + (sueltos.length
+                  ? `Hay ${num(sueltos.length)} vídeo(s) de la lista sin usar.`
+                  : 'La lista no tiene ningún vídeo libre: sube los que faltan a YouTube.')}</p>
+        </div>
+        <div class="row" style="gap:8px">
+          ${sueltos.length && sinVideo.length ? `<button class="btn outline sm" id="btnAuto">
+            <span class="material-symbols-outlined">auto_fix_high</span> Emparejar por título</button>` : ''}
+          ${datos?.playlist ? `<button class="btn ghost sm" type="button" id="btnRecargar"
+            title="Volver a leer la lista de YouTube">
+            <span class="material-symbols-outlined">refresh</span></button>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      ${(datos?.modulos || []).length ? (datos.modulos).map((m) => `
+        <div class="mod-t">${esc(m.titulo)}</div>
+        ${(m.lecciones || []).length ? m.lecciones.map((l) => {
+          const v = (videos || []).find((x) => x.video_id === l.video_id);
+          return `<div class="lec caja ${l.video_id ? '' : 'vacia'}">
+            ${l.video_id
+              ? `<img class="mini" loading="lazy" alt=""
+                   src="https://i.ytimg.com/vi/${esc(l.video_id)}/default.jpg"
+                   onerror="this.style.visibility='hidden'">`
+              : '<span class="material-symbols-outlined hueco-mini">videocam_off</span>'}
+            <div class="t"><b>${esc(l.titulo)}</b>
+              <div class="tiny muted">${l.video_id
+                ? esc(v?.titulo || l.video_id)
+                : 'sin vídeo'}</div></div>
+            ${l.video_id
+              ? `<button class="btn ghost sm" data-quitar="${l.id}" title="Quitarle el vídeo">
+                   <span class="material-symbols-outlined">link_off</span></button>`
+              : `<button class="btn outline sm" data-elegir="${l.id}" data-t="${esc(l.titulo)}"
+                   ${datos?.playlist ? '' : 'disabled title="Enlaza primero la lista de reproducción"'}>
+                   Poner vídeo</button>`}
+          </div>`;
+        }).join('') : '<p class="muted tiny" style="margin:0 0 10px">Este módulo no tiene lecciones.</p>'}
+      `).join('') : '<p class="muted tiny">Este programa todavía no tiene módulos. Créalos en Contenido.</p>'}
+    </div>
+
+    <!-- La lista de reproducción se pega una vez y no se vuelve a tocar. Antes
+         ocupaba lo alto de la pantalla todos los días. -->
+    <details class="card" id="cardLista"${datos?.playlist ? '' : ' open'}>
+      <summary><span class="material-symbols-outlined">expand_more</span>
+        <b>La lista de reproducción de este programa</b>
+        <span class="tiny muted">${datos?.playlist
+          ? (videos ? `${num(videos.length)} vídeo(s) en YouTube` : 'enlazada')
+          : 'sin enlazar'}</span></summary>
+      <p class="tiny muted">Pega la dirección de la lista tal como sale en la barra del navegador,
+        o su identificador. Los vídeos siguen viviendo en YouTube: aquí sólo se guarda a cuál
+        corresponde cada lección.</p>
+      <form id="formLista" class="row" style="align-items:flex-end;gap:10px">
+        <div class="field" style="flex:1;margin:0"><label for="cLista">Lista de este programa</label>
+          <input type="text" id="cLista" placeholder="https://www.youtube.com/playlist?list=PL…"
+            value="${esc(datos?.playlist || '')}"></div>
+        <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+      </form>
+      <div id="msgLista"></div>
+      ${videos && sueltos.length ? `<h3 class="sec" style="margin-top:var(--e3)">Vídeos que no están en ninguna lección</h3>
+        ${sueltos.map((v) => `<div class="vid caja">
+          <img loading="lazy" src="${esc(v.miniatura)}" alt="">
+          <div class="t">${esc(v.titulo)}</div></div>`).join('')}` : ''}
+    </details>
+
+    <!-- El aprendizaje express no es esto: son vídeos de repaso que no cuentan
+         para nada. Compartían pantalla y se leían como si fueran lo mismo. -->
+    <details class="card" id="cardExpress">
+      <summary><span class="material-symbols-outlined">expand_more</span>
+        <b>Aprendizaje express</b>
+        <span class="tiny muted">${num(shorts.length)} vídeo(s) cortos de repaso</span></summary>
+      <p class="tiny muted">Vídeos verticales de uno o dos minutos —los shorts que subes a
+        YouTube— para repasar rápido. No son lecciones: no cuentan para el progreso ni para
+        aprobar, y el alumno los ve en cualquier orden, uno detrás de otro como en el teléfono.
+        Súbelos a YouTube como <b>no listados</b> y pega aquí su dirección.</p>
+
+      <form id="formCorto" class="stack sep">
+        <div class="row" style="gap:10px;align-items:flex-end">
+          <div class="field" style="flex:2;min-width:220px;margin:0">
+            <label for="sVideo">Dirección del short</label>
+            <input type="text" id="sVideo" placeholder="https://www.youtube.com/shorts/…">
+          </div>
+          <div class="field" style="flex:3;min-width:220px;margin:0">
+            <label for="sTitulo">Título</label>
+            <input type="text" id="sTitulo" placeholder="Qué se repasa en este minuto">
+          </div>
+          <button class="btn" type="submit">
+            <span class="material-symbols-outlined">add</span> Añadir</button>
+        </div>
+        <div class="field" style="margin:0"><label for="sDesc">Descripción (opcional)</label>
+          <input type="text" id="sDesc" placeholder="Una línea, la que se lee debajo del vídeo"></div>
+      </form>
+      <div id="msgCorto"></div>
+
+      <div class="sep">
+        ${shorts.length ? shorts.map((c, i) => `
+          <div class="corto-fila caja ${c.publicado ? '' : 'retirado'}">
+            <img loading="lazy" alt=""
+              src="https://i.ytimg.com/vi/${esc(c.video_id)}/default.jpg"
+              onerror="this.style.visibility='hidden'">
+            <div class="t"><b>${esc(c.titulo)}</b>
+              <div class="tiny muted">${c.descripcion ? esc(c.descripcion) + ' · ' : ''}${
+                c.publicado ? 'publicado' : 'retirado, no lo ven los alumnos'}</div></div>
+            <button class="btn ghost sm" data-sube="${c.id}" title="Subir en el orden"
+              ${i === 0 ? 'disabled' : ''}>
+              <span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+            <button class="btn ghost sm" data-baja="${c.id}" title="Bajar en el orden"
+              ${i === shorts.length - 1 ? 'disabled' : ''}>
+              <span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+            <button class="btn ghost sm" data-pub="${c.id}" data-a="${c.publicado ? '0' : '1'}"
+              title="${c.publicado ? 'Retirar' : 'Publicar'}">
+              <span class="material-symbols-outlined">${c.publicado ? 'visibility_off' : 'visibility'}</span></button>
+            <button class="btn ghost sm" data-borra="${c.id}" data-t="${esc(c.titulo)}" title="Borrar">
+              <span class="material-symbols-outlined">delete</span></button>
+          </div>`).join('')
+          : '<p class="muted tiny">Todavía no hay ninguno. Pega arriba la dirección del primero.</p>'}
+      </div>
+    </details>`;
+}
+
+/* ── Emparejar por título ──────────────────────────────────────────────────
+   No adivina: propone. Compara el título del vídeo con el de la lección sin
+   tildes ni mayúsculas y sólo empareja lo que coincide de sobra, porque un
+   emparejamiento equivocado es peor que ninguno — el alumno ve la clase que no
+   es y nadie se entera. */
+const limpiar = (s) => String(s || '').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+function parecido(a, b){
+  const A = new Set(limpiar(a).split(' ').filter((w) => w.length > 2));
+  const B = new Set(limpiar(b).split(' ').filter((w) => w.length > 2));
+  if (!A.size || !B.size) return 0;
+  let comunes = 0;
+  for (const w of A) if (B.has(w)) comunes++;
+  return comunes / Math.min(A.size, B.size);
+}
+
+async function recargarShorts(){
+  const { data } = await sb.rpc('cem_shorts_del_curso', { p_course_id: curso.id });
+  shorts = data || [];
+  pintar();
+}
+
+/* Reordenar mandando la lista entera, no «sube uno». Mover de a uno deja
+   huecos y empates si dos personas tocan a la vez, y entonces el orden que se
+   guarda deja de ser el que se ve en pantalla. */
+async function mover(id, salto){
+  const i = shorts.findIndex((c) => c.id === id);
+  const j = i + salto;
+  if (i < 0 || j < 0 || j >= shorts.length) return;
+  const orden = shorts.map((c) => c.id);
+  [orden[i], orden[j]] = [orden[j], orden[i]];
+  const { error } = await sb.rpc('cem_shorts_ordenar', { p_course_id: curso.id, p_ids: orden });
+  if (error) return fail(mensajeError(error, 'No se pudo reordenar.'));
+  await recargarShorts();
+}
+
+document.addEventListener('submit', async (ev) => {
+  if (ev.target.id === 'formCorto') {
+    ev.preventDefault();
+    const video = $('#sVideo').value.trim(), titulo = $('#sTitulo').value.trim();
+    if (!video) return avisar('#msgCorto', 'Pega la dirección del short de YouTube.');
+    if (!titulo) return avisar('#msgCorto', 'Ponle un título: es lo único que se lee antes de darle al play.');
+    const { error } = await sb.rpc('cem_short_guardar', {
+      p_course_id: curso.id, p_video: video, p_titulo: titulo,
+      p_descripcion: $('#sDesc').value.trim() || null,
+    });
+    if (error) return avisar('#msgCorto', mensajeError(error, 'No se pudo guardar.'));
+    await recargarShorts();
+    ok('Vídeo express añadido.');
+    return;
+  }
+  if (ev.target.id !== 'formLista') return;
+  ev.preventDefault();
+  const { data, error } = await sb.rpc('cem_guardar_playlist',
+    { p_course_id: curso.id, p_playlist: $('#cLista').value.trim() || null });
+  if (error) return avisar('#msgLista', mensajeError(error, 'No se pudo guardar la lista.'));
+  datos = data; videos = null;
+  pintar();
+  if (datos.playlist) { await traerVideos(); ok('Lista guardada. Aquí están sus vídeos.'); }
+  else ok('Lista quitada.');
+});
+
+document.addEventListener('click', async (ev) => {
+  const sube = ev.target.closest('[data-sube]');
+  if (sube) return mover(sube.dataset.sube, -1);
+  const baja = ev.target.closest('[data-baja]');
+  if (baja) return mover(baja.dataset.baja, +1);
+
+  const pub = ev.target.closest('[data-pub]');
+  if (pub) {
+    const { error } = await sb.rpc('cem_short_publicar',
+      { p_id: pub.dataset.pub, p_publicado: pub.dataset.a === '1' });
+    if (error) return fail(mensajeError(error, 'No se pudo cambiar.'));
+    await recargarShorts();
+    ok(pub.dataset.a === '1' ? 'Publicado: ya lo ven los alumnos.' : 'Retirado: deja de verse.');
+    return;
+  }
+
+  const borra = ev.target.closest('[data-borra]');
+  if (borra) {
+    if (!await confirmDialog(
+      `Se quita «${borra.dataset.t}» del aprendizaje express. El vídeo sigue en YouTube: `
+      + 'esto sólo lo saca del curso.', 'Quitar el vídeo express')) return;
+    const { error } = await sb.rpc('cem_short_borrar', { p_id: borra.dataset.borra });
+    if (error) return fail(mensajeError(error, 'No se pudo quitar.'));
+    await recargarShorts();
+    ok('Quitado del curso.');
+    return;
+  }
+
+  const recargar = ev.target.closest('#btnRecargar');
+  if (recargar) { videos = null; pintar(); await traerVideos(); return; }
+
+  const elegirEn = ev.target.closest('[data-elegir]');
+  if (elegirEn) {
+    const libres = (videos || []).filter((v) => !usados().has(v.video_id));
+    if (!videos) return fail('Todavía no se han leído los vídeos de la lista. Espera un momento o pulsa recargar.');
+    if (!libres.length) return fail('No queda ningún vídeo de la lista sin usar. Súbelo primero a YouTube y vuelve a leer la lista.');
+    const cual = await elegirVideo(libres, elegirEn.dataset.t);
+    if (!cual) return;
+    await asignar(elegirEn.dataset.elegir, cual);
+    return;
+  }
+
+  const quitar = ev.target.closest('[data-quitar]');
+  if (quitar) {
+    if (!await confirmDialog(
+      'La lección se queda sin vídeo y los alumnos dejan de verlo. El vídeo sigue en YouTube: '
+      + 'esto sólo deshace el emparejamiento.', 'Quitarle el vídeo a la lección')) return;
+    await asignar(quitar.dataset.quitar, null);
+    return;
+  }
+
+  if (ev.target.closest('#btnAuto')) {
+    const libres = lecciones().filter((l) => !l.video_id);
+    const sueltos = (videos || []).filter((v) => !usados().has(v.video_id));
+    const propuestas = [];
+    for (const l of libres) {
+      let mejor = null, mejorPunto = 0;
+      for (const v of sueltos) {
+        if (propuestas.some((p) => p.video === v.video_id)) continue;
+        const punto = parecido(v.titulo, l.titulo);
+        if (punto > mejorPunto) { mejorPunto = punto; mejor = v; }
+      }
+      // Dos tercios de las palabras en común. Por debajo de ahí acierta poco y
+      // aun así hay que revisarlo todo a mano.
+      if (mejor && mejorPunto >= 0.67) propuestas.push({ leccion: l, video: mejor.video_id, titulo: mejor.titulo, punto: mejorPunto });
+    }
+    if (!propuestas.length) return fail('Ningún título se parece lo bastante. Ponlos a mano, es más rápido que revisar un error.');
+    if (!await confirmDialog(
+      `Se van a emparejar ${propuestas.length}:\n\n`
+      + propuestas.map((p) => `· ${p.leccion.titulo}\n   ← ${p.titulo}`).join('\n\n')
+      + '\n\nRevísalo: un vídeo en la lección equivocada no da error, simplemente está mal.',
+      'Emparejar por título')) return;
+    for (const p of propuestas) {
+      const { data } = await sb.rpc('cem_asignar_video', { p_lesson_id: p.leccion.id, p_video_id: p.video });
+      if (data) datos = data;
+    }
+    pintar();
+    ok(`${propuestas.length} lección(es) emparejada(s). Revísalas antes de publicar.`);
+  }
+});
+
+async function asignar(lessonId, videoId){
+  const { data, error } = await sb.rpc('cem_asignar_video',
+    { p_lesson_id: lessonId, p_video_id: videoId });
+  if (error) return fail(mensajeError(error, 'No se pudo guardar.'));
+  datos = data; pintar();
+  ok(videoId ? 'Vídeo puesto en la lección.' : 'Vídeo quitado de la lección.');
+}
+
+/* El diálogo va en la dirección en que se trabaja: se está en una lección y se
+   busca su vídeo, no al revés. Con miniatura y con buscador, porque un curso
+   largo tiene cuarenta vídeos y sus títulos se parecen entre sí. */
+function elegirVideo(libres, tituloLeccion){
+  return new Promise((res) => {
+    const dlg = document.createElement('div');
+    dlg.className = 'modal-bg';
+    dlg.innerHTML = `<div class="modal">
+      <div class="modal-h"><h3>¿Qué vídeo va en esta lección?</h3>
+        <button class="icon-btn" data-x aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button></div>
+      <div class="modal-b">
+        <p class="tiny muted" style="margin-top:0">${esc(tituloLeccion)}</p>
+        <div class="field"><label for="qVid">Buscar entre los ${libres.length} sin usar</label>
+          <input type="search" id="qVid" autocomplete="off" placeholder="Parte del título del vídeo"></div>
+        <div id="qLista"></div>
+      </div>
+      <div class="modal-f"><button class="btn outline" data-x>Cancelar</button></div></div>`;
+
+    const lista = dlg.querySelector('#qLista');
+    const pintarLista = (q) => {
+      const f = q ? libres.filter((v) => limpiar(v.titulo).includes(limpiar(q))) : libres;
+      lista.innerHTML = f.length
+        ? f.map((v) => `<button type="button" class="vid caja elegible" data-v="${esc(v.video_id)}">
+             <img loading="lazy" src="${esc(v.miniatura)}" alt="">
+             <span class="t">${esc(v.titulo)}</span></button>`).join('')
+        : '<p class="muted tiny">Ninguno de los vídeos sin usar se llama así.</p>';
+    };
+    pintarLista('');
+
+    const cerrar = (v) => { dlg.remove(); res(v); };
+    dlg.querySelectorAll('[data-x]').forEach((b) => { b.onclick = () => cerrar(null); });
+    dlg.querySelector('#qVid').addEventListener('input', (e) => pintarLista(e.target.value));
+    lista.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-v]');
+      if (b) cerrar(b.dataset.v);
+    });
+    dlg.onclick = (e) => { if (e.target === dlg) cerrar(null); };
+    document.body.appendChild(dlg);
+    dlg.querySelector('#qVid').focus();
+  });
+}
+
+$('#fCurso').onchange = (e) => elegir(e.target.value);
+await cargarCursos();
+pintar();
+</script>
+</body>
+</html>

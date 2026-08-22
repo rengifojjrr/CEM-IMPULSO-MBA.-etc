@@ -9,12 +9,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Gestión de profesores</h1><p>Administra el claustro docente, asigna cursos y supervisa cohortes activas.</p></div>
+    <div><h1>Gestión de profesores</h1><p>Quién dicta qué, con cuántos alumnos y cuánto tiene por calificar. Los profesores se dan de alta desde una cuenta ya registrada.</p></div>
     <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">person_add</span> Invitar profesor</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -23,36 +23,55 @@
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Nombre o correo…"></div>
       <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option><option value="1">Activo</option><option value="0">Inactivo</option></select></div>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Profesor</th><th>Correo</th><th>País</th><th>Cohortes</th><th>Alumnos</th><th>Clases dictadas</th><th>Por calificar</th><th>Estado</th><th></th></tr></thead>
+    <div class="table-wrap"><table id="tabla">
+      <thead><tr><th data-ord="nombre">Profesor</th><th data-ord="email">Correo</th><th data-ord="pais">País</th><th class="num" data-ord="_coh">Cohortes</th><th class="num" data-ord="_alumnos">Alumnos</th><th class="num" data-ord="_dict">Clases dictadas</th><th class="num" data-ord="_cal">Por calificar</th><th data-ord="activo">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, fail, run, audit, initials } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, initials, accionVacio, ordenable, ordenarPor,
+         fdate, etiqueta, chipEstado } from '../assets/app.js?v=2026-08-21-53';
+import { paisConBandera } from '../assets/paises.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'profesores.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
-let rows=[], cohortes=[];
+let rows=[], cohortes=[], clases=[], entregas=[], inscripciones=[], cohortesDe={};
 if (p) load();
 
 async function load(){
   const [{data:ps},{data:tas},{data:cos},{data:cls},{data:subs}] = await Promise.all([
-    sb.from('cem_profiles').select('*').eq('rol','profesor').order('nombre'),
+    sb.from('cem_profiles').select('*').eq('rol','profesor').order('nombre').limit(500),
     sb.from('cem_teacher_assignments').select('teacher_id,cohort_id'),
     sb.from('cem_cohorts').select('id,nombre,course_id,cem_courses(nombre)').order('nombre'),
-    sb.from('cem_classes').select('teacher_id,estado'),
-    sb.from('cem_submissions').select('assessment_id,estado'),
+    sb.from('cem_classes').select('*').limit(500),
+    sb.from('cem_submissions').select('enrollment_id,estado,puntaje,calificado_por').limit(500),
   ]);
-  cohortes = cos||[];
-  const { data: ens } = await sb.from('cem_enrollments').select('cohort_id');
+  cohortes = cos||[]; clases = cls||[]; entregas = subs||[];
+  const { data: ens } = await sb.from('cem_enrollments').select('id,cohort_id').limit(500);
+  inscripciones = ens||[];
   const nByCoh={}; (ens||[]).forEach(e=>nByCoh[e.cohort_id]=(nByCoh[e.cohort_id]||0)+1);
   const cohByT={}; (tas||[]).forEach(t=>(cohByT[t.teacher_id] ||= []).push(t.cohort_id));
+  cohortesDe = cohByT;
   const dictadas={}; (cls||[]).forEach(c=>{ if(c.estado==='dictada') dictadas[c.teacher_id]=(dictadas[c.teacher_id]||0)+1; });
+
+  /* «Por calificar» decía, para cada profesor, el total de la institución
+     dividido entre el número de profesores. Con una entrega pendiente y dos
+     profesores, los dos salían con 1: un número inventado con cara de dato,
+     que es peor que no poner ninguno —alguien lo mira y decide con él—.
+     Ahora se cuenta lo suyo: las entregas de las cohortes que tiene asignadas. */
+  const cohDeInscripcion = Object.fromEntries((ens||[]).map(e => [e.id, e.cohort_id]));
+  const pendientePorCohorte = {};
+  (subs||[]).forEach(s => {
+    if (s.estado !== 'entregada') return;
+    const coh = cohDeInscripcion[s.enrollment_id];
+    if (coh) pendientePorCohorte[coh] = (pendientePorCohorte[coh]||0) + 1;
+  });
   const porCalificar = (subs||[]).filter(s=>s.estado==='entregada').length;
+
   rows = (ps||[]).map(t=>{
     const cs = cohByT[t.id]||[];
     return {...t, _coh:cs.length, _alumnos:cs.reduce((a,c)=>a+(nByCoh[c]||0),0),
-      _dict:dictadas[t.id]||0, _cal:Math.round(porCalificar/Math.max((ps||[]).length,1))};
+      _dict:dictadas[t.id]||0,
+      _cal: cs.reduce((a,c)=>a+(pendientePorCohorte[c]||0), 0)};
   });
   $('#kpis').innerHTML = [
     kpi('Profesores', num(rows.length),'psychology', `${rows.filter(r=>r.activo).length} activos`),
@@ -62,27 +81,126 @@ async function load(){
   ].join('');
   render();
 }
+/** item 26 · por qué columna se ordena el claustro. */
+const ordenProfes = { campo:null, asc:true };
+
 function render(){
   const q=$('#q').value.trim(), e=$('#fEstado').value;
-  const list = rows.filter(r=>match(r,q,['nombre','apellido','email']) && (e===''||String(r.activo?1:0)===e));
+  const list = ordenarPor(rows.filter(r=>match(r,q,['nombre','apellido','email']) && (e===''||String(r.activo?1:0)===e)), ordenProfes);
   $('#tb').innerHTML = list.length ? list.map(r=>`<tr>
     <td><div class="row" style="gap:9px;flex-wrap:nowrap"><span class="avatar">${initials(r.nombre,r.apellido)}</span>
       <b>${esc(r.nombre)} ${esc(r.apellido||'')}</b></div></td>
-    <td>${esc(r.email)}</td><td>${esc(r.pais||'—')}</td><td>${num(r._coh)}</td><td>${num(r._alumnos)}</td>
-    <td>${num(r._dict)}</td><td>${r._cal>0?`<span class="chip warn">${r._cal}</span>`:'<span class="chip ok">0</span>'}</td>
+    <td>${esc(r.email)}</td><td>${r.pais?esc(paisConBandera(r.pais)):'—'}</td><td class="num">${num(r._coh)}</td><td class="num">${num(r._alumnos)}</td>
+    <td class="num">${num(r._dict)}</td><td class="num">${r._cal>0?`<span class="chip warn">${r._cal}</span>`:'<span class="chip ok">0</span>'}</td>
     <td>${r.activo?chip('activo','ok'):chip('inactivo','err')}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
+      <button class="btn ghost sm" data-ficha="${r.id}" title="Ver su ficha"><span class="material-symbols-outlined">visibility</span></button>
       ${editable?`<button class="btn ghost sm" data-asig="${r.id}" title="Asignar cohortes"><span class="material-symbols-outlined">assignment_ind</span></button>
       <button class="btn ghost sm" data-tog="${r.id}" title="Activar/desactivar"><span class="material-symbols-outlined">${r.activo?'block':'check_circle'}</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(9);
+    </td></tr>`).join('') : emptyRow(9, 'Todavía no hay profesores. Se dan de alta a partir de una cuenta ya registrada.', {texto:'Dar de alta un profesor', id:'vacioProfe', icono:'person_add'});
+  ordenable('#tabla', ordenProfes, render);
+  $$('[data-ficha]').forEach(b=>b.onclick=()=>ficha(rows.find(x=>x.id===b.dataset.ficha)));
   $$('[data-asig]').forEach(b=>b.onclick=()=>asignar(rows.find(x=>x.id===b.dataset.asig)));
   $$('[data-tog]').forEach(b=>b.onclick=async()=>{
     const t = rows.find(x=>x.id===b.dataset.tog);
     await run(sb.from('cem_profiles').update({activo:!t.activo}).eq('id',t.id),'No se pudo actualizar');
-    await audit('profesor_estado','cem_profiles',t.id,'medio',{activo:!t.activo}); ok('Actualizado'); load();
+    await audit('profesor_estado','cem_profiles',t.id,'medio',{activo:!t.activo});
+    const quien = `${t.nombre} ${t.apellido||''}`.trim();
+    okDeshacer(t.activo ? `${quien} ya no puede entrar.` : `${quien} vuelve a tener acceso.`, async () => {
+      await run(sb.from('cem_profiles').update({activo:t.activo}).eq('id',t.id),'No se pudo deshacer');
+      await audit('profesor_estado','cem_profiles',t.id,'medio',{activo:t.activo, deshecho:true});
+      load();
+    });
+    load();
   });
 }
 ['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+
+/* ============ la ficha del profesor ============
+   La tabla dice cuántas cohortes lleva y cuántos alumnos tiene; para saber
+   CUÁLES había que ir a cohortes, filtrar, volver, ir al calendario, filtrar
+   otra vez. Aquí está lo suyo junto: qué grupos lleva, qué clases tiene y con
+   qué asistencia se están dando, y qué opinan sus alumnos.
+
+   Las opiniones salen en media y sólo con tres o más respuestas: con una, la
+   media es una persona, y decirle a un profesor «tu clase saca un 2» cuando lo
+   dijo un alumno es señalar a ese alumno. */
+async function ficha(t){
+  if (!t) return;
+  const m = modal({ title:`${t.nombre} ${t.apellido||''}`.trim(), wide:true,
+    body:'<p class="muted tiny">Cargando su ficha…</p>' });
+  const cuerpo = $('.modal-b', m);
+
+  const susCohortes = (cohortesDe[t.id]||[]).map(id => cohortes.find(c=>c.id===id)).filter(Boolean);
+  const susClases = clases.filter(c => c.teacher_id === t.id)
+    .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  const dictadas = susClases.filter(c=>c.estado==='dictada').length;
+  const proximas = susClases.filter(c=>c.estado==='programada' && c.fecha >= new Date().toISOString().slice(0,10));
+
+  // Lo que puso él: cuántas notas y con qué media. Es la respuesta a «cómo
+  // está evaluando esta persona» sin salir de aquí.
+  const suyas = entregas.filter(s => s.calificado_por === t.id && s.puntaje != null);
+  const mediaQuePone = suyas.length ? (suyas.reduce((a,s)=>a+Number(s.puntaje),0)/suyas.length) : null;
+
+  const { data: op } = await sb.from('cem_valoraciones')
+    .select('claridad,utilidad,ritmo,class_id')
+    .in('class_id', susClases.map(c=>c.id).length ? susClases.map(c=>c.id) : ['00000000-0000-0000-0000-000000000000']);
+  const opiniones = op || [];
+  const media = (k) => opiniones.length >= 3
+    ? (opiniones.reduce((a,x)=>a+Number(x[k]||0),0)/opiniones.length).toFixed(1) : null;
+
+  const dato = (k, v) => `<div><div class="tiny muted">${esc(k)}</div><div class="t"><b>${v}</b></div></div>`;
+
+  cuerpo.innerHTML = `
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${t.activo ? chip('activo','ok') : chip('inactivo','err')}
+      <span class="tiny muted">${esc(t.email)}${t.pais?` · ${esc(paisConBandera(t.pais))}`:''}${t.telefono?` · ${esc(t.telefono)}`:''}</span>
+    </div>
+    ${t.bio ? `<p class="muted">${esc(t.bio)}</p>` : ''}
+
+    <div class="row" style="gap:22px;flex-wrap:wrap" >
+      ${dato('Cohortes', num(susCohortes.length))}
+      ${dato('Alumnos', num(t._alumnos))}
+      ${dato('Clases dictadas', num(dictadas))}
+      ${dato('Próximas', num(proximas.length))}
+      ${dato('Por calificar', t._cal ? `<span style="color:var(--warn)">${num(t._cal)}</span>` : '0')}
+      ${dato('Notas que ha puesto', suyas.length
+        ? `${num(suyas.length)} <span class="tiny muted">media ${mediaQuePone.toFixed(1)}</span>`
+        : '<span class="tiny muted">ninguna todavía</span>')}
+    </div>
+
+    <h3 class="sec sep-mucho">Qué grupos lleva</h3>
+    ${susCohortes.length ? `<div class="stack">${susCohortes.map(c=>`
+      <div class="list-item"><div class="grow">
+        <div class="t">${esc(c.nombre)}</div>
+        <div class="s">${esc(c.cem_courses?.nombre||'')}</div></div>
+        <a class="btn outline sm" href="cohortes.html?curso=${esc(c.course_id)}">Ver la cohorte</a>
+      </div>`).join('')}</div>`
+      : '<p class="tiny muted">Todavía no tiene ninguna cohorte asignada.</p>'}
+
+    <h3 class="sec sep-mucho">Sus clases</h3>
+    ${susClases.length ? `<div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>Fecha</th><th>Sesión</th><th>Modalidad</th><th>Estado</th></tr></thead>
+      <tbody>${susClases.slice(0,12).map(c=>`<tr>
+        <td data-col="Fecha" class="muted">${fdate(c.fecha)}</td>
+        <td data-col="Sesión" class="wrap">${esc(c.titulo)}</td>
+        <td data-col="Modalidad">${esc(etiqueta(c.modalidad))}</td>
+        <td data-col="Estado">${chipEstado(c.estado)}</td></tr>`).join('')}</tbody></table></div>
+      ${susClases.length > 12 ? `<p class="tiny muted">Se ven las 12 más recientes de ${susClases.length}.</p>` : ''}`
+      : '<p class="tiny muted">Todavía no tiene clases en el calendario.</p>'}
+
+    <h3 class="sec sep-mucho">Qué dicen sus alumnos</h3>
+    ${media('claridad') ? `<div class="row" style="gap:22px;flex-wrap:wrap">
+        ${dato('Claridad', media('claridad'))}
+        ${dato('Utilidad', media('utilidad'))}
+        ${dato('Ritmo', media('ritmo'))}
+        ${dato('Respuestas', num(opiniones.length))}
+      </div>
+      <p class="tiny muted sep-poco">Sobre 5, y sin nombres: las opiniones son anónimas.</p>`
+      : `<p class="tiny muted">${opiniones.length
+          ? `Sólo ${opiniones.length} respuesta(s): hacen falta tres para enseñar una media sin señalar a nadie.`
+          : 'Todavía nadie ha opinado de sus clases.'}</p>`}`;
+}
 
 async function asignar(t){
   const { data: mine } = await sb.from('cem_teacher_assignments').select('cohort_id').eq('teacher_id',t.id);
@@ -103,10 +221,11 @@ async function asignar(t){
   };
 }
 
+accionVacio('vacioProfe', () => $('#btnNuevo').click());
 $('#btnNuevo').onclick = () => {
   const m = modal({ title:'Invitar profesor', body:`
     <p class="tiny muted" style="margin-top:0">El profesor debe registrarse primero en la plataforma; aquí le asignas el rol docente por su correo.</p>
-    <div class="field"><label>Correo del usuario ya registrado *</label><input id="iEmail" type="email" placeholder="profesor@correo.com"></div>`,
+    <div class="field"><label>Correo del usuario ya registrado *</label><input id="iEmail" type="email" placeholder="profesor@correo.com" required></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Asignar rol docente</button>` });
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{

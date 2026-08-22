@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Docente · Asistencia</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  /* Pasar lista se hace con el teléfono en la mano y con gente esperando:
+     los tres botones tienen que ser grandes y distinguirse de un vistazo. */
+  .lista-asis .fila{display:flex;align-items:center;gap:12px;padding:11px 4px;
+    border-bottom:1px solid var(--filete);}
+  .lista-asis .fila:last-child{border-bottom:0;}
+  .lista-asis .quien{flex:1;min-width:0;}
+  .lista-asis .quien b{display:block;font-size:var(--t-sm);}
+  .marcas{display:flex;gap:6px;flex-shrink:0;}
+  .marcas button{min-width:44px;min-height:40px;border-radius:var(--r);border:1px solid var(--filete);
+    background:var(--papel);cursor:pointer;font-size:var(--t-sm);font-weight:600;color:var(--tinta-3);}
+  .marcas button.on[data-v="1"]{background:var(--ok-suave);border-color:var(--ok);color:var(--ok);}
+  .marcas button.on[data-v="0"]{background:var(--error-suave);border-color:var(--error);color:var(--error);}
+  .marcas button.on[data-v="j"]{background:var(--warn-suave);border-color:var(--warn);color:var(--warn);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Pasar asistencia</h1>
+      <p>Marca quién vino a cada sesión. Se guarda solo, a medida que marcas.</p></div>
+    <div class="actions">
+      <select id="selSesion" style="min-width:260px"></select>
+    </div>
+  </div>
+
+  <div class="card" id="cardSesion" hidden>
+    <div class="row between" style="align-items:flex-start">
+      <div>
+        <h2 class="sec" id="tituloSesion" style="margin-bottom:2px"></h2>
+        <p class="tiny muted" id="detalleSesion"></p>
+      </div>
+      <div style="text-align:right">
+        <b id="conteo" style="font-size:20px"></b>
+        <div class="tiny muted">presentes</div>
+      </div>
+    </div>
+    <div class="row" style="gap:8px;margin:10px 0 4px">
+      <button class="btn outline sm" id="btnTodos">Marcar a todos presentes</button>
+      <button class="btn ghost sm" id="btnLimpiar">Empezar de cero</button>
+      <span class="spacer crece"></span>
+      <span class="tiny muted" id="guardado"></span>
+    </div>
+    <div class="lista-asis" id="lista"></div>
+  </div>
+
+  <div class="card" id="cardVacio">
+    <div class="empty" id="msgVacio">Cargando tus sesiones…</div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, fdate, ok, fail, mensajeError, num } from '../assets/app.js?v=2026-08-21-53';
+
+const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
+                        active:'asistencia.html', area:'docente' });
+let sesiones = [], alumnos = [], marcas = {};
+if (me) inicio();
+
+async function inicio(){
+  const { data: tas } = await sb.from('cem_teacher_assignments')
+    .select('cohort_id,course_id').eq('teacher_id', me.id);
+  let cohIds = (tas || []).map(t => t.cohort_id).filter(Boolean);
+
+  if (!cohIds.length && me.rol !== 'profesor') {
+    const { data } = await sb.from('cem_cohorts').select('id');
+    cohIds = (data || []).map(c => c.id);
+  }
+  if (!cohIds.length) { $('#msgVacio').textContent = 'Todavía no tienes grupos asignados.'; return; }
+
+  const { data: cls } = await sb.from('cem_classes')
+    .select('*,cem_cohorts(nombre,cem_courses(nombre))')
+    .in('cohort_id', cohIds).order('fecha', { ascending:false });
+  sesiones = cls || [];
+
+  if (!sesiones.length) { $('#msgVacio').textContent = 'No hay sesiones programadas en tus grupos.'; return; }
+
+  // La de hoy primero: es la que se va a pasar el 90% de las veces.
+  const hoy = new Date().toISOString().slice(0, 10);
+  const deHoy = sesiones.find(s => s.fecha === hoy);
+
+  $('#selSesion').innerHTML = sesiones.map(s =>
+    `<option value="${s.id}">${fdate(s.fecha)} — ${esc(s.titulo)} (${esc(s.cem_cohorts?.nombre || '')})</option>`).join('');
+  if (deHoy) $('#selSesion').value = deHoy.id;
+  $('#selSesion').onchange = cargarSesion;
+  cargarSesion();
+}
+
+async function cargarSesion(){
+  const s = sesiones.find(x => x.id === $('#selSesion').value);
+  if (!s) return;
+
+  const { data: ens } = await sb.from('cem_enrollments')
+    .select('id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email)')
+    .eq('cohort_id', s.cohort_id).in('estado', ['activa','pendiente']).limit(500);
+  alumnos = (ens || []).sort((a, b) =>
+    (a.cem_profiles?.apellido || '').localeCompare(b.cem_profiles?.apellido || ''));
+
+  const { data: att } = await sb.from('cem_attendance')
+    .select('enrollment_id,presente,minutos').eq('class_id', s.id).limit(500);
+
+  marcas = {};
+  (att || []).forEach(a => {
+    // "Justificado" se guarda como ausente con minutos = -1: la tabla sólo
+    // tiene un booleano y no vale la pena migrarla por un tercer estado.
+    marcas[a.enrollment_id] = a.presente ? '1' : (a.minutos === -1 ? 'j' : '0');
+  });
+
+  $('#cardVacio').hidden = true;
+  $('#cardSesion').hidden = false;
+  $('#tituloSesion').textContent = s.titulo;
+  $('#detalleSesion').textContent =
+    `${fdate(s.fecha)} · ${(s.hora_inicio || '').slice(0,5)}–${(s.hora_fin || '').slice(0,5)} · ` +
+    `${s.cem_cohorts?.cem_courses?.nombre || ''} — ${s.cem_cohorts?.nombre || ''}`;
+
+  pintar();
+}
+
+function pintar(){
+  if (!alumnos.length) {
+    $('#lista').innerHTML = '<div class="empty">Este grupo no tiene alumnos inscritos.</div>';
+    $('#conteo').textContent = '0';
+    return;
+  }
+  $('#lista').innerHTML = alumnos.map(a => {
+    const v = marcas[a.id] || '';
+    const p = a.cem_profiles || {};
+    return `<div class="fila">
+      <div class="quien">
+        <b>${esc(p.apellido || '')}${p.apellido ? ', ' : ''}${esc(p.nombre || '')}</b>
+        <span class="tiny muted">${esc(p.email || '')}</span></div>
+      <div class="marcas" data-enr="${a.id}">
+        <button data-v="1" class="${v === '1' ? 'on' : ''}" title="Presente">Sí</button>
+        <button data-v="0" class="${v === '0' ? 'on' : ''}" title="Ausente">No</button>
+        <button data-v="j" class="${v === 'j' ? 'on' : ''}" title="Ausencia justificada">Just.</button>
+      </div></div>`;
+  }).join('');
+
+  $$('.marcas button').forEach(b => b.onclick = () => {
+    const enr = b.closest('.marcas').dataset.enr;
+    // Volver a pulsar la misma marca la quita: sirve para corregir un toque
+    // accidental sin tener que elegir otra cosa.
+    marcas[enr] = marcas[enr] === b.dataset.v ? '' : b.dataset.v;
+    pintar();
+    guardar(enr);
+  });
+
+  $('#conteo').textContent = `${Object.values(marcas).filter(v => v === '1').length} / ${alumnos.length}`;
+}
+
+let temporizador = null;
+async function guardar(enrollmentId){
+  const claseId = $('#selSesion').value;
+  const v = marcas[enrollmentId];
+  $('#guardado').textContent = 'Guardando…';
+
+  let error;
+  if (!v) {
+    ({ error } = await sb.from('cem_attendance')
+      .delete().eq('class_id', claseId).eq('enrollment_id', enrollmentId));
+  } else {
+    ({ error } = await sb.from('cem_attendance').upsert({
+      class_id: claseId, enrollment_id: enrollmentId,
+      presente: v === '1', minutos: v === 'j' ? -1 : null,
+      registrado_en: new Date().toISOString(),
+    }, { onConflict: 'class_id,enrollment_id' }));
+  }
+
+  if (error) { $('#guardado').textContent = ''; fail(mensajeError(error, 'No se pudo guardar la asistencia.')); return; }
+  $('#guardado').textContent = 'Guardado';
+  clearTimeout(temporizador);
+  temporizador = setTimeout(() => { $('#guardado').textContent = ''; }, 1800);
+}
+
+$('#btnTodos').onclick = async () => {
+  alumnos.forEach(a => { marcas[a.id] = '1'; });
+  pintar();
+  for (const a of alumnos) await guardar(a.id);
+  ok('Todos marcados como presentes.');
+};
+
+$('#btnLimpiar').onclick = async () => {
+  const previos = Object.keys(marcas);
+  marcas = {};
+  pintar();
+  for (const id of previos) await guardar(id);
+};
+</script>
+</body>
+</html>

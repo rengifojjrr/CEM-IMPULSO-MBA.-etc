@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Seguridad de mi cuenta</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  .qr-caja{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;}
+  .qr-caja img{width:190px;height:190px;border:1px solid var(--filete);border-radius:var(--r);background:#fff;padding:8px;}
+  .secreto{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-sm);letter-spacing:.06em;
+    word-break:break-all;background:var(--hueco);padding:8px 10px;border-radius:var(--r);}
+  #codigo{font-size:var(--t-lg);letter-spacing:.5em;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Seguridad de mi cuenta</h1>
+      <p>Con una cuenta administrativa se mueve dinero y se emiten certificados.
+         Un segundo factor evita que baste con saber la contraseña.</p></div>
+  </div>
+
+  <div class="card" id="cardExigido" hidden>
+    <div class="row" style="gap:10px;align-items:flex-start">
+      <span class="material-symbols-outlined err-text">gpp_maybe</span>
+      <div>
+        <b>Tu rol requiere segundo factor.</b>
+        <p class="tiny muted" style="margin:4px 0 0">
+          Actívalo ahora. Mientras no lo hagas, cualquiera que consiga tu contraseña
+          entra con todos tus permisos.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Segundo factor (aplicación de códigos)</h2>
+    <div id="estado"><p class="muted">Comprobando…</p></div>
+  </div>
+
+  <div class="card" id="cardAlta" hidden>
+    <h2 class="sec">Activar</h2>
+    <ol class="tiny muted" style="padding-left:18px;line-height:1.8">
+      <li>Instala una aplicación de códigos: Google Authenticator, Microsoft Authenticator, 1Password, Authy…</li>
+      <li>Escanea este código con ella. Si no puedes escanear, escribe la clave a mano.</li>
+      <li>Escribe abajo el código de seis dígitos que te muestre.</li>
+    </ol>
+    <div class="qr-caja">
+      <img loading="lazy" decoding="async" id="qr" alt="Código QR para la aplicación de autenticación">
+      <div style="flex:1;min-width:220px">
+        <div class="field"><label>Clave para escribir a mano</label>
+          <div class="secreto" id="secreto">—</div></div>
+        <div class="field"><label>Código de seis dígitos</label>
+          <input id="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000"></div>
+        <button class="btn" id="btnVerificar">Activar el segundo factor</button>
+        <button class="btn ghost" id="btnCancelar">Cancelar</button>
+        <div id="msgAlta"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Quién lo tiene activo</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Sólo la lista de cuentas administrativas y si tienen el segundo factor puesto.
+      Nadie ve los códigos ni las claves de nadie.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Persona</th><th>Rol</th><th>Segundo factor</th></tr></thead>
+      <tbody id="tbPersonal"></tbody></table></div>
+  </div>
+
+  <!-- Las políticas revisan las TABLAS. Esto revisa las FUNCIONES, que es por
+       donde se coló el problema: al crear una función, Postgres le da permiso
+       de ejecución a todo el mundo, y hay que acordarse de quitárselo. -->
+  <div class="card" id="cardFunciones" hidden>
+    <h2 class="sec">Funciones que puede llamar alguien sin haber entrado</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Al crear una función, la base le da permiso de ejecución a cualquiera —también
+      a quien no ha entrado— y hay que acordarse de quitárselo. Todas comprueban por
+      dentro quién llama y ninguna filtra nada, pero eso es la segunda cerradura:
+      aquí salen las que sólo tienen esa.</p>
+    <div id="resumenFunciones"><p class="muted">Revisando…</p></div>
+    <details style="margin-top:12px">
+      <summary class="tiny" style="cursor:pointer">Ver función por función</summary>
+      <div class="table-wrap sep"><table>
+        <thead><tr><th>Función</th><th>Estado</th><th>Qué significa</th></tr></thead>
+        <tbody id="tbFunciones"></tbody></table></div>
+    </details>
+  </div>
+
+  <!-- Cuentas que existen para entrar pero no para la plataforma. Pasó de
+       verdad: tres de una siembra vieja llevaban un mes pudiendo iniciar sesión
+       y no salían en Usuarios y roles ni en la matriz, porque esas pantallas
+       leen las fichas y ellas no tenían ficha. Se descubrió de casualidad. -->
+  <div class="card" id="cardHuerfanas" hidden>
+    <h2 class="sec">Cuentas que pueden entrar y no aparecen en ninguna pantalla</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Usuarios y roles enseña las fichas. Una cuenta puede existir para iniciar
+      sesión sin tener ficha —restos de una prueba, una invitación a medias— y
+      entonces no sale en ninguna lista, así que nadie puede quitarla desde aquí.
+      Sin ficha no es administradora de nada, pero sí es una sesión de alguien
+      que ha entrado, y eso ya alcanza lo que esté abierto a cualquiera.</p>
+    <div id="resumenHuerfanas"><p class="muted">Revisando…</p></div>
+    <div class="table-wrap sep" id="tablaHuerfanas" hidden><table>
+      <thead><tr><th>Cuenta</th><th>Última entrada</th><th>Estado</th><th>Qué hacer</th></tr></thead>
+      <tbody id="tbHuerfanas"></tbody></table></div>
+  </div>
+
+  <div class="card" id="cardPoliticas" hidden>
+    <h2 class="sec">Políticas de acceso de la base</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Lo que de verdad decide quién ve qué no son los botones de estas pantallas,
+      son las políticas de la base. Una tabla sin políticas no la protege el
+      diseño de la página: la protege —o no— la base. Esto lo revisa cada vez
+      que abres esta pantalla, así que una tabla nueva que salga mal configurada
+      se ve aquí y no dentro de un año.</p>
+    <div id="resumenPoliticas"><p class="muted">Revisando…</p></div>
+    <details style="margin-top:12px">
+      <summary class="tiny" style="cursor:pointer">Ver tabla por tabla</summary>
+      <div class="table-wrap sep"><table>
+        <thead><tr><th>Tabla</th><th>Filas</th><th>Estado</th><th>Qué significa</th></tr></thead>
+        <tbody id="tbPoliticas"></tbody></table></div>
+    </details>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, emptyRow, ok, fail, confirmDialog, mensajeError, chipEstado, avisar, fdate } from '../assets/app.js?v=2026-08-21-53';
+
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'],
+                        active:'seguridad.html', area:'admin' });
+
+/* Los roles que mueven dinero o firman documentos deberían tenerlo sí o sí. */
+const ROLES_QUE_LO_NECESITAN = ['admin', 'superadmin', 'cobranza'];
+/* Quién ve la radiografía de la base. Coincide con lo que exige la propia
+   función en el servidor: pedirla con otro rol devuelve un error, no una lista
+   recortada. */
+const PUEDEN_REVISAR_LA_BASE = ['admin', 'superadmin', 'auditor'];
+let factores = [], enAlta = null;
+
+if (p) cargar();
+
+async function cargar(){
+  $('#cardExigido').hidden = !ROLES_QUE_LO_NECESITAN.includes(p.rol);
+
+  const { data, error } = await sb.auth.mfa.listFactors();
+  if (error) {
+    avisar('#estado', mensajeError(error), 'err');
+    return;
+  }
+  factores = data?.totp || [];
+  pintarEstado();
+  pintarPersonal();
+  if (PUEDEN_REVISAR_LA_BASE.includes(p.rol)) { revisarPoliticas(); revisarFunciones(); revisarHuerfanas(); }
+}
+
+function pintarEstado(){
+  const activos = factores.filter(f => f.status === 'verified');
+  if (activos.length) {
+    $('#estado').innerHTML = `
+      <div class="list-item">
+        <span class="material-symbols-outlined ok-text">verified_user</span>
+        <div class="grow"><div class="t">Activo</div>
+          <div class="s">${activos.map(f => esc(f.friendly_name || 'Aplicación de códigos')).join(', ')}</div></div>
+        <button class="btn ghost sm" id="btnQuitar" style="color:var(--error)">Quitar</button>
+      </div>`;
+    $('#btnQuitar').onclick = quitar;
+    $('#cardAlta').hidden = true;
+  } else {
+    $('#estado').innerHTML = `
+      <div class="list-item">
+        <span class="material-symbols-outlined" style="color:${ROLES_QUE_LO_NECESITAN.includes(p.rol) ? 'var(--error)' : 'var(--on-surface-variant)'}">
+          ${ROLES_QUE_LO_NECESITAN.includes(p.rol) ? 'gpp_maybe' : 'shield'}</span>
+        <div class="grow"><div class="t">Sin activar</div>
+          <div class="s">Entrar sólo requiere tu correo y tu contraseña.</div></div>
+        <button class="btn sm" id="btnActivar">Activar ahora</button>
+      </div>`;
+    $('#btnActivar').onclick = empezarAlta;
+  }
+}
+
+async function empezarAlta(){
+  // Un intento anterior a medias deja un factor "unverified" que estorba.
+  for (const f of factores.filter(x => x.status !== 'verified')) {
+    await sb.auth.mfa.unenroll({ factorId: f.id });
+  }
+  const { data, error } = await sb.auth.mfa.enroll({
+    factorType: 'totp',
+    friendlyName: `CEM · ${new Date().toLocaleDateString('es-ES')}`,
+  });
+  if (error) { fail(mensajeError(error, 'No se pudo preparar el segundo factor.')); return; }
+
+  enAlta = data;
+  $('#qr').src = data.totp.qr_code;
+  $('#secreto').textContent = data.totp.secret;
+  $('#cardAlta').hidden = false;
+  $('#codigo').value = '';
+  $('#codigo').focus();
+}
+
+$('#btnCancelar').onclick = async () => {
+  if (enAlta) await sb.auth.mfa.unenroll({ factorId: enAlta.id });
+  enAlta = null;
+  $('#cardAlta').hidden = true;
+  cargar();
+};
+
+$('#btnVerificar').onclick = async () => {
+  const codigo = $('#codigo').value.replace(/\D/g, '');
+  const msg = $('#msgAlta');
+  if (codigo.length !== 6) {
+    msg.innerHTML = '<div class="nota err">El código son seis dígitos.</div>';
+    return;
+  }
+  const { data: reto, error: eReto } = await sb.auth.mfa.challenge({ factorId: enAlta.id });
+  if (eReto) { msg.innerHTML = `<div class="nota err">${esc(mensajeError(eReto))}</div>`; return; }
+
+  const { error } = await sb.auth.mfa.verify({
+    factorId: enAlta.id, challengeId: reto.id, code: codigo,
+  });
+  if (error) {
+    msg.innerHTML = `<div class="nota err">
+      Ese código no coincide. Fíjate que sea el actual: cambian cada 30 segundos.</div>`;
+    return;
+  }
+
+  await sb.from('cem_audit_events').insert({
+    actor_id: p.id, actor_email: p.email, accion: 'segundo_factor_activado',
+    entidad: 'auth', riesgo: 'alto', detalle: { rol: p.rol },
+  });
+
+  enAlta = null;
+  $('#cardAlta').hidden = true;
+  ok('Segundo factor activado. La próxima vez que entres te pedirá el código.');
+  cargar();
+};
+
+async function quitar(){
+  if (!await confirmDialog(
+    'Al quitarlo, tu cuenta vuelve a entrar sólo con correo y contraseña. ' +
+    'Con tu rol eso significa que quien consiga tu clave puede mover dinero y emitir certificados. ¿Lo quitamos igual?')) return;
+
+  for (const f of factores) await sb.auth.mfa.unenroll({ factorId: f.id });
+  await sb.from('cem_audit_events').insert({
+    actor_id: p.id, actor_email: p.email, accion: 'segundo_factor_retirado',
+    entidad: 'auth', riesgo: 'alto', detalle: { rol: p.rol },
+  });
+  ok('Segundo factor retirado.');
+  cargar();
+}
+
+/* Quién del equipo lo tiene puesto. Se lee de la auditoría, que es lo único
+   que la plataforma puede ver: los factores de otra persona no son
+   consultables desde el navegador, y así debe ser. */
+async function pintarPersonal(){
+  const { data: gente } = await sb.from('cem_profiles')
+    .select('id,nombre,apellido,email,rol')
+    .in('rol', ['coordinador','cobranza','admin','superadmin','auditor'])
+    .eq('activo', true).order('rol').limit(500);
+
+  const { data: eventos } = await sb.from('cem_audit_events')
+    .select('actor_id,accion,created_at')
+    .in('accion', ['segundo_factor_activado','segundo_factor_retirado'])
+    .order('created_at', { ascending: false }).limit(500);
+
+  // El último evento de cada persona dice cómo está ahora.
+  const ultimo = {};
+  (eventos || []).forEach(e => { if (!(e.actor_id in ultimo)) ultimo[e.actor_id] = e.accion; });
+
+  $('#tbPersonal').innerHTML = (gente || []).length ? gente.map(g => {
+    const activo = ultimo[g.id] === 'segundo_factor_activado';
+    const necesario = ROLES_QUE_LO_NECESITAN.includes(g.rol);
+    return `<tr>
+      <td><b>${esc(g.nombre)} ${esc(g.apellido || '')}</b>
+        <div class="tiny muted">${esc(g.email)}</div></td>
+      <td>${chipEstado(g.rol)}</td>
+      <td>${activo ? chip('activo','ok')
+            : necesario ? chip('falta ponerlo','err')
+            : chip('sin activar','neutral')}</td></tr>`;
+  }).join('') : emptyRow(3, 'No hay cuentas administrativas.');
+}
+
+/* ═══════════ la radiografía de las políticas de la base ═══════════ */
+
+const VEREDICTOS = {
+  abierta:   { etiqueta: 'abierta a cualquiera', tono: 'err',     icono: 'gpp_bad' },
+  bloqueada: { etiqueta: 'cerrada, sin políticas', tono: 'warn',  icono: 'lock' },
+  sin_rls:   { etiqueta: 'sólo del servidor',     tono: 'neutral', icono: 'dns' },
+  bien:      { etiqueta: 'con políticas',          tono: 'ok',     icono: 'verified_user' },
+};
+
+async function revisarPoliticas(){
+  $('#cardPoliticas').hidden = false;
+  const { data, error } = await sb.rpc('cem_revisar_politicas');
+  if (error) {
+    avisar('#resumenPoliticas', mensajeError(error), 'err');
+    return;
+  }
+  const tablas = data || [];
+  const por = (v) => tablas.filter(t => t.veredicto === v);
+
+  const abiertas = por('abierta');
+  const bloqueadas = por('bloqueada');
+
+  /* El único caso que hay que arreglar corriendo es "abierta": permisos para el
+     navegador y RLS apagado. Las "cerradas sin políticas" no filtran nada — son
+     tablas de otras herramientas que viven en esta misma base y no las usa
+     ninguna pantalla de CEM. Se listan para que quien las necesite algún día
+     sepa que le va a hacer falta escribirles políticas primero. */
+  $('#resumenPoliticas').innerHTML = `
+    <div class="list-item">
+      <span class="material-symbols-outlined" style="color:${abiertas.length ? 'var(--error)' : 'var(--ok)'}">
+        ${abiertas.length ? 'gpp_bad' : 'verified_user'}</span>
+      <div class="grow">
+        <div class="t">${abiertas.length
+          ? `${abiertas.length} tabla(s) abiertas a cualquiera`
+          : 'Ninguna tabla queda abierta'}</div>
+        <div class="s">${abiertas.length
+          ? `Hay que encenderles RLS y escribirles políticas: ${abiertas.map(t => esc(t.tabla)).join(', ')}.`
+          : `Las ${por('bien').length} tablas que usan las pantallas tienen políticas propias.`}</div>
+      </div>
+    </div>
+    ${bloqueadas.length ? `
+    <div class="list-item">
+      <span class="material-symbols-outlined">lock</span>
+      <div class="grow">
+        <div class="t">${bloqueadas.length} tabla(s) cerradas y sin políticas</div>
+        <div class="s">No filtran nada: con RLS encendido y ninguna política, la base
+          no devuelve ni acepta filas desde el navegador. Son de otras herramientas
+          que comparten esta base y ninguna pantalla de CEM las toca. Si alguna se
+          fuera a usar, primero hay que escribirle políticas.</div>
+      </div>
+    </div>` : ''}`;
+
+  $('#tbPoliticas').innerHTML = tablas.length ? tablas.map(t => {
+    const v = VEREDICTOS[t.veredicto] || VEREDICTOS.bien;
+    return `<tr>
+      <td><code class="tiny">${esc(t.tabla)}</code></td>
+      <td class="tiny">${num(t.filas)}</td>
+      <td>${chip(v.etiqueta, v.tono)}</td>
+      <td class="tiny muted">${esc(t.explicacion)}</td></tr>`;
+  }).join('') : emptyRow(4, 'No se pudo leer el estado de las tablas.');
+}
+
+/* ============ los permisos de las funciones ============
+   Lo que `cem_revisar_politicas` no mira. Se separa «revisar» de «a propósito»
+   y de «inocua» para que la cifra de arriba sea la que hay que arreglar y no
+   un número que asusta sin decir nada. */
+const VEREDICTO_FN = {
+  revisar:     { etiqueta: 'sólo se defiende por dentro', tono: 'warn' },
+  a_proposito: { etiqueta: 'pública a propósito',          tono: 'ok' },
+  inocua:      { etiqueta: 'sin permisos de dueño',        tono: 'neutral' },
+};
+
+async function revisarFunciones(){
+  const { data, error } = await sb.rpc('cem_revisar_funciones');
+  if (error) { document.getElementById('cardFunciones')?.remove(); return; }
+  $('#cardFunciones').hidden = false;
+
+  const fns = data || [];
+  const porRevisar = fns.filter(f => f.veredicto === 'revisar');
+
+  $('#resumenFunciones').innerHTML = `
+    <div class="list-item">
+      <span class="material-symbols-outlined"
+        style="color:${porRevisar.length ? 'var(--warn)' : 'var(--ok)'}">
+        ${porRevisar.length ? 'gpp_maybe' : 'verified_user'}</span>
+      <div class="grow">
+        <div class="t">${porRevisar.length
+          ? `${porRevisar.length} función(es) llamables sin haber entrado`
+          : 'Ninguna función queda abierta de más'}</div>
+        <div class="s">${porRevisar.length
+          ? 'Ninguna filtra nada —todas comprueban por dentro quién llama— pero convendría '
+            + 'cerrarles también la puerta de fuera. El detalle de abajo trae la orden exacta de cada una.'
+          : `Las ${fns.filter(f => f.veredicto === 'a_proposito').length} que quedan abiertas `
+            + 'las necesita la web pública.'}</div>
+      </div>
+    </div>`;
+
+  $('#tbFunciones').innerHTML = fns.length ? fns.map(f => {
+    const v = VEREDICTO_FN[f.veredicto] || { etiqueta: f.veredicto, tono: 'neutral' };
+    return `<tr>
+      <td class="wrap"><code class="tiny">${esc(f.funcion)}</code></td>
+      <td>${chip(v.etiqueta, v.tono)}</td>
+      <td class="wrap tiny">${esc(f.explicacion)}</td></tr>`;
+  }).join('') : emptyRow(3, 'Ninguna función queda abierta.');
+}
+
+/* Las cuentas sin ficha. Se separa «puede entrar» de «está bloqueada» porque no
+   son el mismo problema: una bloqueada es un resto que conviene limpiar algún
+   día; una que puede entrar es algo que hay que mirar hoy. */
+async function revisarHuerfanas(){
+  const { data, error } = await sb.rpc('cem_cuentas_sin_ficha');
+  if (error) { document.getElementById('cardHuerfanas')?.remove(); return; }
+  $('#cardHuerfanas').hidden = false;
+
+  const cuentas = data || [];
+  const abiertas = cuentas.filter(c => !c.bloqueada || c.sesiones_vivas > 0);
+
+  $('#resumenHuerfanas').innerHTML = `
+    <div class="list-item">
+      <span class="material-symbols-outlined"
+        style="color:${abiertas.length ? 'var(--error)' : cuentas.length ? 'var(--warn)' : 'var(--ok)'}">
+        ${abiertas.length ? 'gpp_bad' : cuentas.length ? 'gpp_maybe' : 'verified_user'}</span>
+      <div class="grow">
+        <div class="t">${abiertas.length
+          ? `${abiertas.length} cuenta(s) pueden entrar ahora mismo sin que nadie las vea`
+          : cuentas.length
+            ? `${cuentas.length} cuenta(s) sin ficha, todas bloqueadas`
+            : 'Todas las cuentas que pueden entrar tienen su ficha'}</div>
+        <div class="s">${abiertas.length
+          ? 'Hay que bloquearlas, o darles ficha para poder gestionarlas desde Usuarios y roles.'
+          : cuentas.length
+            ? 'No pueden entrar ni les quedan sesiones abiertas. Se pueden borrar cuando quieras.'
+            : 'Nada que aparezca aquí significa que no falta nadie por revisar.'}</div>
+      </div>
+    </div>`;
+
+  $('#tablaHuerfanas').hidden = !cuentas.length;
+  $('#tbHuerfanas').innerHTML = cuentas.map(c => `<tr>
+    <td class="wrap"><code class="tiny">${esc(c.correo)}</code></td>
+    <td class="tiny">${c.ultima_entrada ? fdate(c.ultima_entrada) : 'nunca'}</td>
+    <td>${chip(c.bloqueada ? 'bloqueada' : 'puede entrar', c.bloqueada ? 'ok' : 'error')}${
+      c.sesiones_vivas > 0 ? ' ' + chip(`${c.sesiones_vivas} sesión(es) abiertas`, 'warn') : ''}</td>
+    <td class="wrap tiny">${esc(c.que_hacer)}</td></tr>`).join('');
+}
+</script>
+</body>
+</html>

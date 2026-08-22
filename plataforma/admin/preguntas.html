@@ -9,33 +9,40 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Banco de preguntas</h1><p>Gestiona y reutiliza preguntas para evaluaciones y cuestionarios.</p></div>
+    <div><h1>Banco de preguntas</h1><p>Preguntas guardadas para reutilizar entre exámenes. Se escriben una vez y se meten en las evaluaciones que hagan falta.</p></div>
     <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Crear pregunta</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Texto de la pregunta…"></div>
-      <div class="field"><label>Curso relacionado</label><select id="fCurso"><option value="">Todos</option></select></div>
-      <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option>
-        <option value="multiple">Selección múltiple</option><option value="verdadero_falso">Verdadero/Falso</option>
-        <option value="corta">Respuesta corta</option><option value="ensayo">Ensayo</option></select></div>
-      <div class="field"><label>Dificultad</label><select id="fDif"><option value="">Todas</option>
-        <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por programa, tipo o dificultad
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Curso relacionado</label><select id="fCurso"><option value="">Todos</option></select></div>
+        <div class="field"><label>Tipo</label><select id="fTipo"><option value="">Todos</option></select></div>
+        <div class="field"><label>Dificultad</label><select id="fDif"><option value="">Todas</option>
+        <option value="alta">Alta</option><option value="media">Media</option><option value="baja">Baja</option></select></div>
+      </div>
+    </details>
     <div class="table-wrap"><table>
       <thead><tr><th>Pregunta</th><th>Tipo</th><th>Curso</th><th>Dificultad</th><th>Usos</th><th>% acierto</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, run, audit, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, emptyRow, match, kpi, modal, ok, fail, run, audit,
+         confirmDialog, opciones, chipEstado, accionVacio, montarAyudas, mensajeError } from '../assets/app.js?v=2026-08-21-53';
+import { TIPOS, etiquetaTipo, nuevaPregunta, conFormaDeSuTipo, editorDeCuerpo,
+         conectarEditorDeCuerpo, seCorrigeSola } from '../assets/preguntas.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'preguntas.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let rows=[], cursos=[];
@@ -43,40 +50,72 @@ if (p) load();
 
 async function load(){
   const [{data},{data:cs}] = await Promise.all([
-    sb.from('cem_questions').select('*,cem_courses(nombre)').order('created_at',{ascending:false}),
+    sb.from('cem_questions').select('*,cem_courses(nombre),cem_modules(titulo,orden)').order('created_at',{ascending:false}),
     sb.from('cem_courses').select('id,nombre').order('nombre'),
   ]);
   rows=data||[]; cursos=cs||[];
   $('#fCurso').innerHTML='<option value="">Todos</option>'+cursos.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  $('#fTipo').innerHTML='<option value="">Todos</option>'+Object.entries(TIPOS)
+    .map(([k,v])=>`<option value="${k}">${esc(v.etq)}</option>`).join('');
   const conUso = rows.filter(r=>r.usos>0);
   $('#kpis').innerHTML = [
     kpi('Preguntas', num(rows.length),'help_center','en el banco'),
-    kpi('Selección múltiple', num(rows.filter(r=>r.tipo==='multiple').length),'radio_button_checked','objetivas'),
-    kpi('Abiertas', num(rows.filter(r=>['corta','ensayo'].includes(r.tipo)).length),'edit_note','calificación manual'),
+    kpi('Se corrigen solas', num(rows.filter(seCorrigeSola).length),'bolt','tienen respuesta correcta'),
+    kpi('Las lee un profesor', num(rows.filter(r=>!seCorrigeSola(r)).length),'edit_note','calificación manual'),
     kpi('Acierto promedio', conUso.length? Math.round(conUso.reduce((a,r)=>a+(100*r.aciertos/Math.max(r.usos,1)),0)/conUso.length)+'%':'—','target','en preguntas usadas'),
   ].join('');
   render();
 }
 
+/* item 17 · los filtros secundarios están plegados; esto dice cuántos hay
+   puestos para no tener que abrirlos a mirar. */
+function contarFiltros(valores){
+  const n = valores.filter(Boolean).length;
+  const señal = $('#nFiltros');
+  if (!señal) return;
+  señal.hidden = !n;
+  señal.textContent = n;
+}
+
 function render(){
   const q=$('#q').value.trim(), c=$('#fCurso').value, t=$('#fTipo').value, d=$('#fDif').value;
+  contarFiltros([c,t,d]);
   const list = rows.filter(r=>match(r,q,['enunciado','ayuda','cem_courses.nombre'])
     && (!c||r.course_id===c) && (!t||r.tipo===t) && (!d||r.dificultad===d));
-  $('#tb').innerHTML = list.length ? list.map(r=>{
+  /* El banco era una lista plana. Con treinta preguntas se busca con el ojo;
+     con trescientas no se encuentra nada y se acaban escribiendo otra vez las
+     que ya existían. Ahora las filas van agrupadas por módulo y, dentro, por
+     carpeta: la misma tabla, con encabezados que dicen dónde estás. */
+  const grupos = new Map();
+  for (const r of list) {
+    const clave = `${r.cem_modules?.titulo || 'Sin módulo'}\u0000${r.carpeta || ''}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(r);
+  }
+  const ordenadas = [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'));
+
+  $('#tb').innerHTML = list.length ? ordenadas.map(([clave, filas]) => {
+    const [modulo, carpeta] = clave.split('\u0000');
+    return `<tr class="grupo-banco"><td colspan="7">
+        <span class="material-symbols-outlined">${carpeta ? 'folder' : 'view_module'}</span>
+        <b>${esc(modulo)}</b>${carpeta ? ` · ${esc(carpeta)}` : ''}
+        <span class="tiny muted">${filas.length} pregunta${filas.length === 1 ? '' : 's'}</span>
+      </td></tr>` + filas.map(r=>{
     const ac = r.usos? Math.round(100*r.aciertos/r.usos) : null;
     return `<tr>
       <td class="wrap" style="max-width:420px"><b>${esc(r.enunciado)}</b>
-        ${(r.opciones||[]).length?`<div class="tiny muted">${(r.opciones||[]).length} opciones · correcta: ${esc(String(r.respuesta_correcta??'—').replace(/"/g,''))}</div>`:''}</td>
-      <td>${chip(r.tipo.replace('_','/'),'neutral')}</td>
+        <div class="tiny muted">${(r.opciones||[]).length?`${(r.opciones||[]).length} opciones · `:''}${
+          seCorrigeSola(r) ? `correcta: ${esc(resumenClave(r.respuesta_correcta))}` : 'la corrige un profesor'}</div></td>
+      <td>${chip(etiquetaTipo(r.tipo),'neutral')}</td>
       <td class="wrap">${esc(r.cem_courses?.nombre||'—')}</td>
-      <td>${chip(r.dificultad)}</td><td>${num(r.usos)}</td>
+      <td>${chipEstado(r.dificultad)}</td><td>${num(r.usos)}</td>
       <td>${ac!=null?`<span class="chip ${ac>=70?'ok':ac>=40?'warn':'err'}">${ac}%</span>`:'—'}</td>
-      <td style="white-space:nowrap">
-        ${puede?`<button class="btn ghost sm" data-e="${r.id}"><span class="material-symbols-outlined">edit</span></button>
+      <td class="nowrap">
+        ${puede?`<button class="btn ghost sm" data-e="${r.id}" title="Editar la pregunta"><span class="material-symbols-outlined">edit</span></button>
         <button class="btn ghost sm" data-dup="${r.id}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
-        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>`:''}
+        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)" title="Borrar la pregunta"><span class="material-symbols-outlined">delete</span></button>`:''}
       </td></tr>`;
-  }).join('') : emptyRow(7);
+  }).join('')}).join('') : emptyRow(7, 'El banco de preguntas está vacío. Las preguntas se reutilizan entre evaluaciones.', {texto:'Crear la primera pregunta', id:'vacioPreg', icono:'help_center'});
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(r=>r.id===b.dataset.e)));
   $$('[data-dup]').forEach(b=>b.onclick=()=>{ const r=rows.find(x=>x.id===b.dataset.dup);
     form({...r, id:null, enunciado:r.enunciado+' (copia)', usos:0, aciertos:0}); });
@@ -89,65 +128,111 @@ function render(){
 ['#q','#fCurso','#fTipo','#fDif'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
 $('#btnClear').onclick=()=>{['#q','#fCurso','#fTipo','#fDif'].forEach(s=>$(s).value=''); render();};
 $('#btnNueva').onclick=()=>form(null);
+accionVacio('vacioPreg', () => form(null));
 
-function form(q){
-  const isNew=!q?.id;
-  const opts = (q?.opciones||['','','','']);
-  const dlg = modal({ title:isNew?'Crear pregunta':'Editar pregunta', wide:true, body:`
-    <div class="field"><label>Enunciado *</label><textarea id="qE" style="min-height:70px">${esc(q?.enunciado||'')}</textarea></div>
-    <div class="field"><label>Texto de ayuda (opcional)</label><input id="qA" value="${esc(q?.ayuda||'')}"></div>
+/** La respuesta correcta en una línea, sea texto, lista o cuadrícula. */
+function resumenClave(c){
+  if (c == null) return '—';
+  if (Array.isArray(c)) return c.join(', ');
+  if (typeof c === 'object') return Object.entries(c)
+    .map(([f,v]) => `${f}: ${Array.isArray(v)?v.join(', '):v}`).join(' · ');
+  return String(c);
+}
+
+/* El formulario de una pregunta suelta. El trozo que cambia con el tipo
+   —opciones, filas y columnas, la clave de respuesta— lo pone preguntas.js,
+   el mismo que usa el constructor de evaluaciones: si aquí sólo se pudieran
+   escribir cuatro de los doce tipos, el banco se quedaría a medias y habría
+   que salir del banco para escribir una escala. */
+function form(original){
+  const isNew = !original?.id;
+  // Se trabaja sobre una copia: si se cancela, el banco no se entera.
+  const q = original
+    ? { ...conFormaDeSuTipo(structuredClone(original), original.tipo) }
+    : nuevaPregunta('multiple');
+
+  const dlg = modal({ title: isNew ? 'Crear pregunta' : 'Editar pregunta', wide:true, body:`
+    <div class="field"><label>Enunciado *</label>
+      <textarea id="qE" style="min-height:70px" required>${esc(q.enunciado||'')}</textarea></div>
+    <div class="field"><label>Texto de ayuda (opcional)</label>
+      <input id="qA" value="${esc(q.ayuda||'')}"></div>
     <div class="row">
-      <div class="field" style="flex:2;min-width:200px"><label>Curso relacionado</label><select id="qC"><option value="">Sin curso</option>
-        ${cursos.map(c=>`<option value="${c.id}" ${q?.course_id===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:160px"><label>Tipo *</label><select id="qT">
-        ${['multiple','verdadero_falso','corta','ensayo'].map(v=>`<option value="${v}" ${q?.tipo===v?'selected':''}>${v.replace('_','/')}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Dificultad</label><select id="qD">
-        ${['baja','media','alta'].map(v=>`<option ${q?.dificultad===v?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="field largo"><label>Curso relacionado</label><select id="qC"><option value="">Sin curso</option>
+        ${cursos.map(c=>`<option value="${c.id}" ${q.course_id===c.id?'selected':''}>${esc(c.nombre)}</option>`).join('')}</select></div>
+      <div class="field medio"><label>Tipo *</label><select id="qT" required>
+        ${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${q.tipo===k?'selected':''}>${esc(v.etq)}</option>`).join('')}</select></div>
+      <div class="field medio"><label>Dificultad</label><select id="qD">
+        ${opciones(['baja','media','alta'], q.dificultad)}</select></div>
+    </div>
+    <div class="row">
+      <div class="field largo"><label>Módulo que evalúa
+        <button type="button" class="ayuda-btn" data-ayuda="Una pregunta pertenece al módulo del que evalúa. Así el banco deja de ser una lista plana y se puede armar una evaluación pidiendo «tres del módulo 2».">?</button></label>
+        <select id="qM"><option value="">Sin módulo — del programa en general</option></select></div>
+      <div class="field largo"><label>Carpeta (opcional)
+        <button type="button" class="ayuda-btn" data-ayuda="Un cajón dentro del módulo, con el nombre que quieras: «casos prácticos», «teoría», «examen final». No hay lista cerrada: la clasificación útil la descubre quien da la clase.">?</button></label>
+        <input id="qF" list="carpetasSugeridas" value="${esc(q.carpeta||'')}" maxlength="60"
+          placeholder="Casos prácticos, teoría…">
+        <datalist id="carpetasSugeridas"></datalist></div>
     </div>
     <div id="opcWrap"></div>
-    <div class="field"><label>Explicación de la respuesta</label><textarea id="qX" style="min-height:60px">${esc(q?.explicacion||'')}</textarea></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    <div class="row sep">
+      <label class="check"><input type="checkbox" id="qObl" ${q.obligatoria!==false?'checked':''}> Obligatoria</label>
+      <label class="check"><input type="checkbox" id="qBar" ${q.barajar_opciones?'checked':''}> Barajar las opciones</label>
+    </div>
+    <div class="field"><label>Explicación de la respuesta
+      <button type="button" class="ayuda-btn" data-ayuda="Se le enseña al estudiante después de entregar, en las evaluaciones que muestran los aciertos. Es donde de verdad se aprende: no basta saber que fallaste.">?</button></label>
+      <textarea id="qX" style="min-height:60px">${esc(q.explicacion||'')}</textarea></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+      <button class="btn" data-s>Guardar la pregunta</button>` });
 
-  const renderOpts = () => {
-    const t = $('#qT',dlg).value;
-    const W = $('#opcWrap',dlg);
-    if (t==='multiple'){
-      W.innerHTML = `<label class="tiny" style="font-weight:600;color:var(--on-surface-variant)">Opciones y respuesta correcta *</label>
-        <div class="stack" style="margin-top:6px">${[0,1,2,3].map(i=>`<div class="row" style="gap:8px;flex-wrap:nowrap">
-          <input type="radio" name="corr" data-corr="${i}" ${String(q?.respuesta_correcta??'').replace(/"/g,'')===opts[i]?'checked':''}>
-          <input class="inp" data-o="${i}" value="${esc(opts[i]||'')}" placeholder="Opción ${i+1}"></div>`).join('')}</div>`;
-    } else if (t==='verdadero_falso'){
-      const cv = String(q?.respuesta_correcta??'').replace(/"/g,'');
-      W.innerHTML = `<div class="field"><label>Respuesta correcta *</label><select id="qVF">
-        <option value="Verdadero" ${cv==='Verdadero'?'selected':''}>Verdadero</option>
-        <option value="Falso" ${cv==='Falso'?'selected':''}>Falso</option></select></div>`;
-    } else {
-      W.innerHTML = `<p class="tiny muted">Las preguntas abiertas las califica manualmente un profesor.</p>`;
-    }
+  const pintarCuerpo = () => {
+    const W = $('#opcWrap', dlg);
+    W.innerHTML = editorDeCuerpo(q, 'b');
+    conectarEditorDeCuerpo({ raiz: W, q, i: 'b', repintar: pintarCuerpo });
   };
-  renderOpts(); $('#qT',dlg).onchange = renderOpts;
+  pintarCuerpo();
+  $('#qT', dlg).onchange = () => { conFormaDeSuTipo(q, $('#qT',dlg).value); pintarCuerpo(); };
+  montarAyudas(dlg);
 
-  $('[data-x]',dlg).onclick=dlg.close;
-  $('[data-s]',dlg).onclick=async()=>{
-    const t=$('#qT',dlg).value;
-    let opciones=[], correcta=null;
-    if (t==='multiple'){
-      opciones = $$('[data-o]',dlg).map(i=>i.value.trim()).filter(Boolean);
-      const ci = $$('[data-corr]',dlg).findIndex(r=>r.checked);
-      if (opciones.length<2){ return; }
-      if (ci<0){ return; }
-      correcta = $$('[data-o]',dlg)[ci].value.trim();
-    } else if (t==='verdadero_falso'){
-      opciones=['Verdadero','Falso']; correcta=$('#qVF',dlg).value;
+  /* Los módulos son los del curso elegido: ofrecer los de otro programa sería
+     ofrecer un error. Se recargan al cambiar de curso. */
+  const cargarModulos = async () => {
+    const curso = $('#qC',dlg).value;
+    const sel = $('#qM',dlg);
+    sel.innerHTML = '<option value="">Sin módulo — del programa en general</option>';
+    if (!curso) return;
+    const { data } = await sb.from('cem_modules')
+      .select('id,titulo,orden').eq('course_id', curso).order('orden');
+    sel.innerHTML += (data||[]).map(m =>
+      `<option value="${esc(m.id)}" ${q.module_id===m.id?'selected':''}>${esc(m.titulo)}</option>`).join('');
+    // Las carpetas que ya se usaron en ese curso, para no inventar sinónimos.
+    const usadas = [...new Set(rows.filter(x => x.course_id === curso && x.carpeta).map(x => x.carpeta))];
+    $('#carpetasSugeridas',dlg).innerHTML = usadas.map(c => `<option value="${esc(c)}">`).join('');
+  };
+  cargarModulos(); $('#qC',dlg).onchange = cargarModulos;
+
+  $('[data-x]',dlg).onclick = dlg.close;
+  $('[data-s]',dlg).onclick = async () => {
+    const enunciado = $('#qE',dlg).value.trim();
+    if (!enunciado){ fail('La pregunta necesita un enunciado.'); $('#qE',dlg).focus(); return; }
+    const d = TIPOS[q.tipo] || {};
+    const opcs = (q.opciones||[]).filter(o => String(o).trim() !== '');
+    if ((d.opciones || d.fijas) && opcs.length < 2){
+      fail('Una pregunta de opciones necesita al menos dos.'); return;
     }
-    const payload = { enunciado:$('#qE',dlg).value.trim(), ayuda:$('#qA',dlg).value.trim()||null,
-      course_id:$('#qC',dlg).value||null, tipo:t, dificultad:$('#qD',dlg).value,
-      opciones, respuesta_correcta: correcta!=null? correcta : null,
-      explicacion:$('#qX',dlg).value.trim()||null };
-    if (!payload.enunciado) return;
-    if (isNew) await run(sb.from('cem_questions').insert(payload),'No se pudo crear');
-    else await run(sb.from('cem_questions').update(payload).eq('id',q.id),'No se pudo guardar');
-    await audit(isNew?'pregunta_creada':'pregunta_actualizada','cem_questions',q?.id,'bajo',{});
+    const payload = {
+      enunciado, ayuda: $('#qA',dlg).value.trim() || null,
+      course_id: $('#qC',dlg).value || null, tipo: q.tipo, dificultad: $('#qD',dlg).value,
+      module_id: $('#qM',dlg).value || null, carpeta: $('#qF',dlg).value.trim() || null,
+      opciones: opcs, respuesta_correcta: q.respuesta_correcta ?? null,
+      config: q.config || {}, obligatoria: $('#qObl',dlg).checked,
+      barajar_opciones: $('#qBar',dlg).checked,
+      explicacion: $('#qX',dlg).value.trim() || null };
+    const { error } = isNew
+      ? await sb.from('cem_questions').insert(payload)
+      : await sb.from('cem_questions').update(payload).eq('id', original.id);
+    if (error){ fail(mensajeError(error)); return; }
+    await audit(isNew?'pregunta_creada':'pregunta_actualizada','cem_questions',original?.id,'bajo',{});
     dlg.close(); ok(isNew?'Pregunta creada':'Pregunta actualizada'); load();
   };
 }

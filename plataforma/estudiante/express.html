@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Aprendizaje express</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  /* El carrete. Vertical, uno cada vez, y se pasa deslizando o con las flechas.
+     `scroll-snap` en lugar de mover cosas con JavaScript: el navegador lo hace
+     mejor, respeta el gesto del dedo y no se desincroniza. */
+  .carrete{height:min(78vh, 760px);overflow-y:auto;scroll-snap-type:y mandatory;
+    border-radius:var(--r);background:#000;position:relative;
+    scrollbar-width:none;-ms-overflow-style:none;}
+  .carrete::-webkit-scrollbar{display:none;}
+  .corto{height:100%;scroll-snap-align:start;scroll-snap-stop:always;
+    display:flex;align-items:center;justify-content:center;position:relative;}
+  /* 9:16 pero sin pasarse de alto: en un portátil apaisado, un vertical a
+     pantalla completa deja media ventana en negro. */
+  .corto .marco{position:relative;height:100%;aspect-ratio:9/16;max-width:100%;
+    background:#000;overflow:hidden;}
+  .corto .hueco{width:100%;height:100%;}
+
+  /* El texto encima, con un degradado detrás: sobre un vídeo cualquiera, texto
+     blanco a secas se pierde en cuanto el fotograma es claro. */
+  /* El texto de la casa —título y descripción del corto— va encima del vídeo
+     pero por debajo de los mandos, y sin comerse los clics. */
+  .corto .pie{position:absolute;left:0;right:0;bottom:44px;padding:56px 16px 10px;z-index:4;
+    color:#fff;pointer-events:none;
+    background:linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.45) 45%, transparent);}
+  .corto .pie h3{margin:0 0 4px;font-size:var(--t-md);line-height:1.3;}
+  .corto .pie p{margin:0;font-size:var(--t-xs);opacity:.85;line-height:1.45;}
+
+  .flechas{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:8px;z-index:4;}
+  .flechas button{width:40px;height:40px;border-radius:var(--r-full);border:none;
+    background:rgba(0,0,0,.55);color:#fff;cursor:pointer;display:grid;place-items:center;}
+  .flechas button:hover{background:rgba(0,0,0,.78);}
+  .flechas button:disabled{opacity:.3;cursor:default;}
+  @media (max-width:720px){ .flechas{right:6px;} }
+
+  .contador{position:absolute;left:12px;top:12px;z-index:4;color:#fff;
+    background:rgba(0,0,0,.5);border-radius:var(--r-full);padding:3px 10px;font-size:var(--t-xs);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div id="migas"></div>
+  <div class="row between" style="margin-bottom:14px">
+    <div><h1 style="margin:0;font-size:20px">Aprendizaje express</h1>
+      <p class="tiny muted" style="margin:3px 0 0">Vídeos de un minuto para repasar rápido.
+        Desliza o usa las flechas para pasar al siguiente.</p></div>
+    <div class="actions" id="acciones"></div>
+  </div>
+  <div id="cuerpo"></div>
+</div>
+<script type="module">
+import { sb, mount, $, esc, qs, migas, vacio, mensajeError } from '../assets/app.js?v=2026-08-21-53';
+import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-53';
+const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+
+const cursoId = qs('curso');
+let cortos = [], curso = null;
+
+/* La misma marca de agua que en el aula, y por lo mismo: un short es más fácil
+   de repartir que una clase de cuarenta minutos, no menos. */
+const QUIEN = [
+  [me.nombre, me.apellido].filter(Boolean).join(' ').trim() || me.email,
+  me.documento ? `${me.documento_tipo || 'CI'} ${me.documento}` : me.email,
+].filter(Boolean).join('  ·  ');
+
+async function cargar(){
+  if (!cursoId) { $('#cuerpo').innerHTML = `<div class="card">${vacio({
+    icono:'bolt', titulo:'Falta decir de qué curso',
+    texto:'Entra al aprendizaje express desde tu curso.',
+    accion:{ texto:'Mis cursos', href:'panel.html' } })}</div>`; return; }
+
+  const [{ data: c }, { data: cs, error }] = await Promise.all([
+    sb.from('cem_courses').select('id,nombre').eq('id', cursoId).maybeSingle(),
+    sb.rpc('cem_shorts_del_curso', { p_course_id: cursoId }),
+  ]);
+  curso = c;
+  if (error) { $('#cuerpo').innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+  cortos = cs || [];
+
+  $('#migas').innerHTML = migas([
+    ['Mis cursos', 'panel.html'],
+    [curso?.nombre || 'Curso', `clase.html?curso=${cursoId}`],
+    ['Aprendizaje express'],
+  ]);
+  $('#acciones').innerHTML = `<a class="btn outline" href="clase.html?curso=${esc(cursoId)}">
+    <span class="material-symbols-outlined">school</span> Ir a las clases</a>`;
+  pintar();
+}
+
+function pintar(){
+  if (!cortos.length) {
+    $('#cuerpo').innerHTML = `<div class="card">${vacio({
+      icono:'bolt', titulo:'Todavía no hay vídeos express en este curso',
+      texto:'Cuando el profesor suba alguno, aparecerá aquí para repasar en un minuto.',
+      accion:{ texto:'Ir a las clases', href:`clase.html?curso=${cursoId}` } })}</div>`;
+    return;
+  }
+
+  $('#cuerpo').innerHTML = `
+    <div class="carrete" id="carrete">
+      ${cortos.map((s, i) => `
+        <div class="corto" data-i="${i}">
+          <div class="marco">
+            <div class="hueco" id="hueco-${i}"></div>
+            <div class="pie">
+              <h3>${esc(s.titulo)}</h3>
+              ${s.descripcion ? `<p>${esc(s.descripcion)}</p>` : ''}
+            </div>
+          </div>
+        </div>`).join('')}
+      <div class="contador" id="contador"></div>
+      <div class="flechas">
+        <button id="antes" title="Anterior" aria-label="Vídeo anterior">
+          <span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+        <button id="luego" title="Siguiente" aria-label="Vídeo siguiente">
+          <span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+      </div>
+    </div>`;
+
+  enganchar();
+  montar(0);
+}
+
+/* ── Los reproductores ─────────────────────────────────────────────────────
+   No se montan los veinte de golpe: veinte <iframe> de YouTube en una página
+   es medio minuto de espera y varios cientos de megas de memoria. Se monta el
+   que se está viendo y el siguiente —para que pasar no espere a que cargue— y
+   se suelta el resto, que es lo que hace cualquier aplicación de vídeo
+   vertical. */
+const montados = new Map();
+
+async function montarUno(i){
+  if (montados.has(i)) return;
+  const hueco = $(`#hueco-${i}`);
+  const s = cortos[i];
+  if (!hueco || !s) return;
+  montados.set(i, { repro: null });      // se aparta el sitio antes de esperar
+
+  /* El reproductor de la casa, en su versión reducida: sin saltar diez
+     segundos ni volumen —en un vídeo de un minuto no hacen falta— pero con la
+     barra, el play y la pantalla completa. Y sobre todo sin el título, sin el
+     canal y sin el botón de «Mirar en YouTube», que es de lo que se trataba. */
+  const repro = await crearReproductor(hueco, {
+    videoId: s.video_id,
+    marca: QUIEN,
+    repetir: true,
+    compacto: true,
+  });
+
+  // Se pasó a otro corto mientras cargaba: éste ya no hace falta.
+  if (!montados.has(i)) { repro?.destruir(); return; }
+  montados.set(i, { repro });
+}
+
+function soltar(i){
+  const m = montados.get(i);
+  if (!m) return;
+  m.repro?.destruir();
+  montados.delete(i);
+  const hueco = $(`#hueco-${i}`);
+  if (hueco) hueco.innerHTML = '';
+}
+
+let actual = 0;
+function montar(i){
+  actual = Math.max(0, Math.min(i, cortos.length - 1));
+  const vivos = new Set([actual, actual + 1].filter((n) => n >= 0 && n < cortos.length));
+  for (const n of [...montados.keys()]) if (!vivos.has(n)) soltar(n);
+  for (const n of vivos) montarUno(n);
+
+  $('#contador').textContent = `${actual + 1} de ${cortos.length}`;
+  $('#antes').disabled = actual === 0;
+  $('#luego').disabled = actual === cortos.length - 1;
+}
+
+function enganchar(){
+  const carrete = $('#carrete');
+
+  /* Se escucha el desplazamiento en vez de mover nada: quien desliza con el
+     dedo manda, y el índice se entera de dónde quedó. */
+  let quieto = null;
+  carrete.addEventListener('scroll', () => {
+    clearTimeout(quieto);
+    quieto = setTimeout(() => {
+      const i = Math.round(carrete.scrollTop / carrete.clientHeight);
+      if (i !== actual) montar(i);
+    }, 90);
+  }, { passive: true });
+
+  const ir = (i) => {
+    if (i < 0 || i >= cortos.length) return;
+    carrete.scrollTo({ top: i * carrete.clientHeight, behavior: 'smooth' });
+    montar(i);
+  };
+  $('#antes').onclick = () => ir(actual - 1);
+  $('#luego').onclick = () => ir(actual + 1);
+
+  /* Con el teclado también: hay gente que no usa el ratón, y en un portátil
+     las flechas son más cómodas que arrastrar. */
+  carrete.tabIndex = 0;
+  carrete.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowDown' || ev.key === 'PageDown') { ev.preventDefault(); ir(actual + 1); }
+    if (ev.key === 'ArrowUp' || ev.key === 'PageUp') { ev.preventDefault(); ir(actual - 1); }
+  });
+}
+
+cargar();
+</script>
+</body>
+</html>

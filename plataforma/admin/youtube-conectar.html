@@ -9,7 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  /* sin-caja: un valor en monoespaciada, no un panel */
+  .dato-copiable{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--filete);
+    word-break:break-all;flex:1;}
+</style>
 </head>
 <body>
 <div id="page" class="hidden">
@@ -22,7 +28,8 @@
   <div id="cont"></div>
 </div>
 <script type="module">
-import { sb, mount, $, esc, ok, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
+import { sb, mount, $, esc, ok, fail, avisar, chip, mensajeError, confirmDialog,
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-53';
 const p = await mount({ require:['admin','superadmin'], area:'admin' });
 
 const FN = `${SUPABASE_URL}/functions/v1/cem-youtube-oauth-exchange`;
@@ -36,8 +43,14 @@ async function authHeaders(){
 async function init(){
   const params = new URLSearchParams(location.search);
   if (params.get('error')) {
-    render({ cargando:false, errorFlujo: 'Google no completó la conexión: ' + params.get('error') });
+    /* Se carga el estado igual antes de pintar: si no, el error de Google haría
+       aparecer la pantalla como si no hubiera nada configurado, que es
+       justamente lo contrario de lo que pasó. */
+    render({ cargando:true, mensaje:'Google no completó la conexión; comprobando cómo quedó todo…' });
+    await cargarEstado();
     history.replaceState(null, '', location.pathname);
+    render({ cargando:false, errorFlujo: 'Google no completó la conexión: ' + params.get('error')
+      + '. Si dice «redirect_uri_mismatch», la URI registrada en Google Cloud no coincide con la de esta página.' });
     return;
   }
   if (params.get('code')) {
@@ -63,25 +76,32 @@ async function init(){
 }
 
 async function cargarEstado(){
-  try {
-    const res = await fetch(FN, { headers: await authHeaders() });
-    estado = await res.json();
-    if (!res.ok) { estado = { error: estado.error || 'No se pudo consultar el estado.' }; }
-  } catch (e) { estado = { error: String(e) }; }
+  /* El estado sale de la base y no de la Edge Function: devuelve lo mismo más
+     la pista del secreto, y es una pieza menos en el camino. La Edge Function
+     se queda sólo para lo que sí necesita el secreto — canjear el código. */
+  const { data, error } = await sb.rpc('cem_youtube_app_estado');
+  estado = error ? { error: mensajeError(error) } : (data || {});
 }
+
+/* La URL de retorno correcta es, por construcción, la de esta misma página: si
+   configuras desde aquí, no puede no coincidir. El «redirect_uri_mismatch» de
+   Google sale casi siempre de teclearla a mano con una barra de más. */
+const URL_RETORNO = location.origin + location.pathname;
 
 function render({ cargando, mensaje, errorFlujo }){
   if (cargando) {
-    $('#cont').innerHTML = `<div class="card"><p class="muted">${esc(mensaje || 'Cargando…')}</p></div>`;
+    $('#cont').innerHTML = mensaje
+      ? `<div class="card"><p class="muted">${esc(mensaje)}</p></div>`
+      : `<div class="card"><span class="cargando"></span></div>`;
     return;
   }
-  if (estado?.error && !estado?.configured && !estado?.connected) {
-    // el GET también puede fallar por falta de permisos; distinguimos del "no configurado"
-  }
-  const redirectUri = location.origin + location.pathname;
+
+  const guardada = estado?.redirect_uri;
+  const desajuste = guardada && guardada !== URL_RETORNO;
+
   const authUrl = estado?.client_id ? 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
     client_id: estado.client_id,
-    redirect_uri: estado.redirect_uri || redirectUri,
+    redirect_uri: guardada || URL_RETORNO,
     response_type: 'code',
     access_type: 'offline',
     prompt: 'consent',
@@ -89,31 +109,134 @@ function render({ cargando, mensaje, errorFlujo }){
   }).toString() : null;
 
   $('#cont').innerHTML = `
-    ${errorFlujo ? `<div class="card" style="border-color:var(--error)"><p style="color:var(--error)">${esc(errorFlujo)}</p></div>` : ''}
-    <div class="grid g2">
-      <div class="card">
-        <h2 class="sec">Estado</h2>
-        ${!estado?.configured ? `
-          <p class="muted">Todavía no se configuraron las credenciales de Google en el servidor (client_id / client_secret de un proyecto de Google Cloud con la API de YouTube habilitada). Ese paso lo hace quien administra la plataforma.</p>
-        ` : estado?.connected ? `
-          <div class="row" style="gap:10px;align-items:center">
-            <span class="material-symbols-outlined" style="font-size:32px;color:var(--ok)">check_circle</span>
-            <div><div style="font-weight:600">Conectado${estado.channel_title ? ': ' + esc(estado.channel_title) : ''}</div>
-              <div class="tiny muted">${estado.conectado_por ? 'Conectado por ' + esc(estado.conectado_por) : ''}${estado.conectado_en ? ' · ' + new Date(estado.conectado_en).toLocaleString('es-ES') : ''}</div></div>
-          </div>
-          <p class="tiny muted" style="margin-top:12px">Si las subidas empiezan a fallar con un error de autorización, es probable que el acceso haya expirado (pasa cada 7 días mientras la app de Google esté en modo "prueba"). Sólo hace falta reconectar de nuevo, abajo.</p>
-        ` : `<p class="muted">Todavía no hay ningún canal de YouTube conectado.</p>`}
+    ${errorFlujo ? `<div class="nota err">${esc(errorFlujo)}</div>` : ''}
+    ${estado?.error ? `<div class="nota err">${esc(estado.error)}</div>` : ''}
+    ${desajuste ? `<div class="nota warn"><b>La URL de retorno guardada no es la de esta página.</b>
+      Guardada: <code>${esc(guardada)}</code> · Esta página: <code>${esc(URL_RETORNO)}</code>.
+      Google va a rechazar la conexión con «redirect_uri_mismatch» salvo que las dos estén
+      registradas en Google Cloud. Guarda de nuevo aquí abajo para dejar la de esta página.</div>` : ''}
+
+    <div class="card">
+      <div class="row between"><h2 class="sec">Paso 1 · La app de Google</h2>
+        ${chip(estado?.configurada ? 'Configurada' : 'Falta', estado?.configurada ? 'ok' : 'warn')}</div>
+      <p class="tiny muted">Hace falta un proyecto en Google Cloud con la <b>API de YouTube Data v3</b>
+        habilitada y unas credenciales de tipo «ID de cliente de OAuth · Aplicación web». Google te da
+        dos datos: un ID de cliente (que no es secreto: viaja en la URL a la vista de todos) y un
+        secreto de cliente, que <b>sólo enseña una vez</b>. El paso a paso completo está en
+        <code>docs/youtube.md</code>.</p>
+
+      <div class="nota">
+        <b>Antes de crear las credenciales</b>, Google te va a pedir la «URI de redirección
+        autorizada». Es exactamente ésta, y tiene que coincidir carácter por carácter — sin barra
+        al final:
+        <div class="row" style="gap:8px;margin-top:8px;align-items:center">
+          <code id="urlRetorno" class="dato-copiable">${esc(URL_RETORNO)}</code>
+          <button class="btn ghost sm" id="btnCopiar" type="button">
+            <span class="material-symbols-outlined">content_copy</span> Copiar</button>
+        </div>
       </div>
-      <div class="card">
-        <h2 class="sec">${estado?.connected ? 'Reconectar' : 'Conectar'}</h2>
-        <p class="tiny muted">Vas a iniciar sesión con la cuenta de Google dueña del canal donde quieres que se suban los videos de los cursos (puede ser un canal dedicado, no tiene que ser personal).</p>
+
+      <form id="formApp" class="stack sep">
+        <div class="field"><label for="cId">ID de cliente</label>
+          <input type="text" id="cId" autocomplete="off" placeholder="123456789-abc….apps.googleusercontent.com"
+            value="${esc(estado?.client_id || '')}">
+          <span class="pista">Termina siempre en <code>.apps.googleusercontent.com</code>.</span></div>
+        <div class="field"><label for="cSecreto">Secreto de cliente</label>
+          <input type="password" id="cSecreto" autocomplete="off"
+            placeholder="${estado?.configurada ? 'déjalo vacío para conservar el de ahora' : 'GOCSPX-…'}">
+          ${estado?.secreto_pista ? `<span class="pista">Guardado: <code>${esc(estado.secreto_pista)}</code>.
+            Ni esta pantalla lo puede leer entero.</span>` : ''}</div>
+        <div class="row">
+          <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+          ${estado?.configurada ? `<button class="btn ghost" type="button" id="btnQuitarApp">
+            <span class="material-symbols-outlined">link_off</span> Quitar la app</button>` : ''}
+        </div>
+      </form>
+      <div id="msgApp"></div>
+    </div>
+
+    <div class="card">
+      <div class="row between"><h2 class="sec">Paso 2 · El canal</h2>
+        ${chip(estado?.conectado ? 'Conectado' : 'Sin conectar', estado?.conectado ? 'ok' : 'neutral')}</div>
+      ${!estado?.configurada
+        ? `<p class="muted tiny">Primero hay que guardar la app de Google, aquí arriba. Sin eso no hay
+             con qué pedirle permiso a nadie.</p>`
+        : estado?.conectado
+          ? `<div class="row" style="gap:10px;align-items:center">
+              <span class="material-symbols-outlined" style="font-size:32px;color:var(--ok)">check_circle</span>
+              <div><div class="negrita">${esc(estado.canal || 'Canal conectado')}</div>
+                <div class="tiny muted">${estado.conectado_por ? 'Conectado por ' + esc(estado.conectado_por) : ''}${
+                  estado.conectado_en ? ' · ' + new Date(estado.conectado_en).toLocaleString('es-ES') : ''}</div></div>
+             </div>
+             <p class="tiny muted sep">Si las subidas empiezan a fallar por autorización, lo más probable
+               es que el acceso haya caducado: mientras la app de Google esté en modo «prueba», Google lo
+               corta cada 7 días. Se arregla volviendo a conectar aquí.</p>`
+          : `<p class="tiny muted">Vas a iniciar sesión con la cuenta de Google dueña del canal donde
+               quieres que se suban los videos. Puede ser un canal dedicado; no tiene que ser el personal.</p>`}
+      <div class="row sep">
         <button class="btn" id="btnConectar" ${authUrl ? '' : 'disabled'}>
-          <span class="material-symbols-outlined">link</span> ${estado?.connected ? 'Reconectar con YouTube' : 'Conectar con YouTube'}</button>
+          <span class="material-symbols-outlined">link</span>
+          ${estado?.conectado ? 'Reconectar con YouTube' : 'Conectar con YouTube'}</button>
+        ${estado?.conectado ? `<button class="btn ghost" type="button" id="btnDesconectar">
+          <span class="material-symbols-outlined">link_off</span> Desconectar el canal</button>` : ''}
       </div>
     </div>`;
+
   const btn = $('#btnConectar');
   if (btn && authUrl) btn.onclick = () => { location.href = authUrl; };
 }
+
+/* Los formularios y botones se repintan enteros con la tarjeta, así que se
+   escuchan desde arriba en vez de reengancharlos en cada pintada. */
+document.addEventListener('submit', async (ev) => {
+  if (ev.target.id !== 'formApp') return;
+  ev.preventDefault();
+  const id = $('#cId').value.trim(), secreto = $('#cSecreto').value;
+  if (!id) return avisar('#msgApp', 'Falta el ID de cliente que te dio Google.');
+  if (!secreto && !estado?.configurada) return avisar('#msgApp', 'Falta el secreto de cliente.');
+  const { data, error } = await sb.rpc('cem_youtube_app_guardar', {
+    p_client_id: id, p_redirect_uri: URL_RETORNO, p_client_secret: secreto || null });
+  if (error) return avisar('#msgApp', mensajeError(error, 'No se pudo guardar la app de Google.'));
+  estado = data; render({ cargando:false });
+  ok('Guardado. Ya puedes conectar el canal, aquí abajo.');
+});
+
+document.addEventListener('click', async (ev) => {
+  if (ev.target.closest('#btnCopiar')) {
+    try {
+      await navigator.clipboard.writeText(URL_RETORNO);
+      ok('URL de retorno copiada. Pégala en Google Cloud tal cual.');
+    } catch {
+      /* Sin permiso de portapapeles no se pierde el dato: se selecciona para
+         que baste con Ctrl+C. */
+      const r = document.createRange(); r.selectNodeContents($('#urlRetorno'));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      ok('Seleccionada: cópiala con Ctrl+C.');
+    }
+    return;
+  }
+  if (ev.target.closest('#btnQuitarApp')) {
+    if (!await confirmDialog(
+      'Se borran el ID y el secreto de Google, y también el canal conectado — sin la app de Google '
+      + 'el canal no sirve de nada. Los videos que ya estén subidos siguen en YouTube. Para volver a '
+      + 'usarlo habría que pegar otra vez las credenciales.', 'Quitar la app de Google')) return;
+    const { data, error } = await sb.rpc('cem_youtube_app_quitar');
+    if (error) return fail(mensajeError(error, 'No se pudo quitar la app.'));
+    estado = data; render({ cargando:false });
+    ok('App de Google quitada.');
+    return;
+  }
+  if (ev.target.closest('#btnDesconectar')) {
+    if (!await confirmDialog(
+      'Deja de subirse video nuevo a ese canal. Los que ya están subidos siguen en YouTube y los '
+      + 'estudiantes los siguen viendo. La app de Google se queda, así que reconectar es un clic.',
+      'Desconectar el canal')) return;
+    const { data, error } = await sb.rpc('cem_youtube_desconectar');
+    if (error) return fail(mensajeError(error, 'No se pudo desconectar.'));
+    estado = data; render({ cargando:false });
+    ok('Canal desconectado.');
+  }
+});
 
 if (p) init();
 </script>

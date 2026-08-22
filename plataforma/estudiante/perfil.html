@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mi perfil</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  .sub-perfil{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
+    margin-bottom:var(--e1);}
+  .enlace-perfil{display:flex;align-items:center;gap:var(--e1);flex-wrap:wrap;
+    background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r);
+    padding:var(--e1) var(--e2);font-family:var(--cifra);font-size:var(--t-sm);
+    word-break:break-all;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <!-- La cabecera.
+       ─────────────────────────────────────────────────────────────────────
+       Antes esta pantalla abría con el formulario de la cédula y la foto
+       estaba cuatro tarjetas más abajo: se podía corregir un dato, pero no
+       reconocerse. Ahora abre por lo que es —una persona con un nombre, una
+       cara y unas credenciales— y lo que se reparte está a un botón.
+
+       Es la misma cabecera que ve quien abra el enlace. Enseñar aquí otra
+       cosa sería enseñar una que no es. -->
+  <div class="card perfil-cabeza">
+    <div class="perfil-portada" id="portada"></div>
+    <div class="perfil-identidad">
+      <button type="button" class="retrato-perfil retrato-editable" id="miFoto"
+        aria-label="Cambiar mi foto de perfil"></button>
+      <div class="quien">
+        <h1 id="nombreGrande">…</h1>
+        <div class="titular" id="titularPerfil"></div>
+        <div class="credenciales" id="credencialesPerfil" hidden>
+          <span class="material-symbols-outlined">verified</span>
+          <span id="credencialesTxt"></span></div>
+      </div>
+      <div class="manos" id="manosPerfil"></div>
+    </div>
+    <div class="perfil-cifras" id="cifrasPerfil"></div>
+  </div>
+
+  <div class="card" id="avisoCert" hidden>
+    <div class="row" style="gap:10px;align-items:flex-start">
+      <span class="material-symbols-outlined" style="color:var(--gold,#C9A227)">workspace_premium</span>
+      <div>
+        <b>Ya tienes certificados emitidos.</b>
+        <p class="tiny muted" style="margin:4px 0 0">
+          Por eso el cambio de nombre o de documento lo revisa el equipo antes de aplicarse:
+          esos datos ya están impresos en un documento firmado. El resto lo cambias tú directamente.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Datos personales <button type="button" class="ayuda-btn" data-ayuda="Tu nombre y tu documento salen impresos en los certificados tal como los escribas aquí. Si ya tienes alguno emitido, cambiarlos pasa antes por aprobación.">?</button></h2>
+    <p class="tiny muted" style="margin-top:-6px">Esto no se publica: lo que escribas aquí es lo que
+      aparece en tus certificados. Tu cédula, tu teléfono y tu correo no salen nunca en el perfil
+      que compartes.</p>
+    <form id="fPerfil">
+      <div class="row">
+        <div class="field medio"><label>Nombre</label>
+          <input id="nombre" required></div>
+        <div class="field medio"><label>Apellido</label>
+          <input id="apellido" required></div>
+      </div>
+      <div class="row">
+        <div class="field medio"><label>Tipo de documento</label>
+          <select id="docTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
+        <div class="field medio"><label>Número de documento</label>
+          <input id="documento"></div>
+      </div>
+      <div class="row">
+        <div class="field medio"><label>Teléfono</label>
+          <input id="telefono" type="tel" placeholder="+58 412 1234567"></div>
+        <div class="field medio"><label for="pais">País</label>
+          <select id="pais"></select></div>
+        <div class="field medio"><label>Ciudad</label>
+          <input id="ciudad"></div>
+      </div>
+      <div class="field"><label>Correo</label>
+        <input id="email" disabled>
+        <span class="tiny muted">El correo es tu forma de entrar. Para cambiarlo, escríbenos por soporte.</span></div>
+      <div class="field" id="campoMotivo" hidden><label>¿Por qué hay que corregirlo?</label>
+        <textarea id="motivo" rows="2" placeholder="Ej.: mi cédula está escrita con un dígito de más."></textarea></div>
+      <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar cambios</button>
+      <div id="msgPerfil"></div>
+    </form>
+  </div>
+
+  <div class="card" id="cardSolPerfil" hidden>
+    <h2 class="sec">Cambios que pediste</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Pedido</th><th>Qué cambia</th><th>Estado</th><th>Respuesta</th></tr></thead>
+      <tbody id="tbSolPerfil"></tbody></table></div>
+  </div>
+
+  <!-- items 05 y 06 · un perfil público que se publica solo es un problema de
+       privacidad. Lo enciende la persona, y decide qué se ve. -->
+  <div class="card">
+    <div class="row between"><h2 class="sec">Mi perfil público</h2>
+      <span class="chip neutral" id="estadoPerfil">…</span></div>
+    <p class="tiny muted sin-margen">Una página con tus certificados de CEM que puedes poner en tu
+      currículum o en LinkedIn. La abre cualquiera sin necesidad de cuenta, y el QR de tus títulos
+      lleva a ella. <b>Nunca se muestran tu cédula, tu teléfono, tu correo ni nada de pagos.</b></p>
+
+    <div class="row sep" id="accionesPerfil"></div>
+    <div id="enlacePerfil" class="sep-poco"></div>
+
+    <div class="sep" id="queSeVe" hidden>
+      <div class="sub-perfil">Qué quieres que se vea</div>
+      <div class="row" id="opcionesPerfil"></div>
+    </div>
+  </div>
+
+  <!-- El trabajo.
+       ─────────────────────────────────────────────────────────────────────
+       Un perfil público con certificados pero sin obra sirve para el currículum
+       y para poco más. Quien estudia aquí suele tener algo que vender
+       —fotografía, diseño, asesoría—, y el perfil es la página que ya reparte.
+       Así que además de lo que estudió, lo que hace. -->
+  <div class="card">
+    <div class="row between"><h2 class="sec">Mi trabajo</h2>
+      <button class="btn outline sm" id="btnNuevaObra">
+        <span class="material-symbols-outlined">add</span> Añadir</button></div>
+    <p class="tiny muted sin-margen">Productos, servicios o cosas que hayas hecho. Se ven en tu
+      perfil público, con la foto y el enlace que pongas — así quien lo abra puede escribirte.
+      <b>Sólo se publica si tu perfil está publicado.</b></p>
+    <div id="portafolio" class="sep"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Mis inscripciones</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      Si necesitas parar un tiempo o dejar un programa, pídelo acá y el equipo lo resuelve.</p>
+    <div id="inscripciones"></div>
+  </div>
+
+  <!-- Plegado por omisión. Es un historial: crece con cada pausa que se pide y
+       cada plan que se cambia, y acaba siendo la mitad de la pantalla debajo de
+       los datos que uno viene a mirar. Se abre quien lo necesite, y el resumen
+       de la línea dice si hay algo esperando respuesta —que es la única razón
+       para abrirlo con prisa—. -->
+  <details class="card" id="cardSolInsc" hidden>
+    <summary class="sec" style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+      <span class="material-symbols-outlined">expand_more</span>
+      Solicitudes sobre mis inscripciones
+      <span class="chip neutral" id="contSolInsc"></span>
+    </summary>
+    <div class="table-wrap sep-poco"><table>
+      <thead><tr><th>Pedido</th><th>Tipo</th><th>Motivo</th><th>Estado</th><th>Respuesta</th></tr></thead>
+      <tbody id="tbSolInsc"></tbody></table></div>
+  </details>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, modal, ok, fail, run,
+         mensajeError, confirmDialog, chipEstado, avisar, vacio, ocupado,
+         campoArchivo, compartir, encogerImagen,
+         TIPOS_ARCHIVO } from '../assets/app.js?v=2026-08-21-53';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-21-53';
+
+const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
+const me = p;   // el portafolio y la foto son de quien entró
+let tieneCertificados = false;
+let originales = {};
+
+if (p) cargar();
+
+async function cargar(){
+  const [{ data: perfil }, { count: certs }, { count: vigentes }, { count: medallas },
+         { data: ens }, { data: solP }, { data: solI }] = await Promise.all([
+    sb.from('cem_profiles').select('*').eq('id', p.id).single(),
+    sb.from('cem_certificates').select('id', { count:'exact', head:true }).eq('profile_id', p.id),
+    /* Para la cabecera sólo cuentan los que siguen en pie, porque es lo que
+       enseña la página pública. Para el aviso de más abajo cuentan todos: un
+       certificado anulado también se imprimió, y por eso el nombre sigue
+       pasando por aprobación. */
+    sb.from('cem_certificates').select('id', { count:'exact', head:true })
+      .eq('profile_id', p.id).is('anulado_en', null),
+    sb.from('cem_badge_awards').select('id', { count:'exact', head:true }).eq('profile_id', p.id),
+    sb.from('cem_enrollments')
+      .select('id,estado,progreso,fecha_inscripcion,cem_courses(nombre)')
+      .eq('profile_id', p.id).order('fecha_inscripcion', { ascending:false }).limit(500),
+    sb.from('cem_solicitudes_perfil').select('*').order('created_at', { ascending:false }),
+    sb.from('cem_solicitudes_inscripcion')
+      .select('*,cem_enrollments(cem_courses(nombre))').order('created_at', { ascending:false }),
+  ]);
+
+  tieneCertificados = (certs || 0) > 0;
+
+  cabecera = {
+    nombre: perfil?.nombre || '', apellido: perfil?.apellido || '',
+    avatar_url: perfil?.avatar_url || '', portada_url: perfil?.portada_url || '',
+    ocupacion: perfil?.ocupacion || '', pais: perfil?.pais || '',
+    certs: vigentes || 0, insignias: medallas || 0, obras: cabecera.obras || 0,
+  };
+  pintarCabecera();
+
+  perfilPub = {
+    publico: !!perfil.perfil_publico,
+    slug: perfil.perfil_slug,
+    muestra: perfil.perfil_muestra || { programas:true, insignias:true, notas:false },
+  };
+  pintarPerfilPublico();
+  $('#avisoCert').hidden = !tieneCertificados;
+
+  originales = {
+    nombre: perfil?.nombre || '', apellido: perfil?.apellido || '',
+    documento: perfil?.documento || '', documento_tipo: perfil?.documento_tipo || 'Cédula',
+  };
+  $('#nombre').value = originales.nombre;
+  $('#apellido').value = originales.apellido;
+  $('#documento').value = originales.documento;
+  $('#docTipo').value = originales.documento_tipo;
+  $('#telefono').value = perfil?.telefono || '';
+  $('#pais').innerHTML = opcionesDePais(perfil?.pais || '');
+  $('#ciudad').value = perfil?.ciudad || '';
+  $('#email').value = perfil?.email || '';
+
+  pintarSolicitudesPerfil(solP || []);
+  pintarInscripciones(ens || []);
+  pintarSolicitudesInscripcion(solI || []);
+  cargarPortafolio();
+  vigilarCamposSensibles();
+}
+
+/* El campo de motivo sólo aparece cuando de verdad hace falta: si la persona
+   ya tiene certificados y está tocando su nombre o su documento. */
+function vigilarCamposSensibles(){
+  const revisar = () => {
+    const cambio = tieneCertificados && (
+      $('#nombre').value.trim() !== originales.nombre ||
+      $('#apellido').value.trim() !== originales.apellido ||
+      $('#documento').value.trim() !== originales.documento ||
+      $('#docTipo').value !== originales.documento_tipo);
+    $('#campoMotivo').hidden = !cambio;
+  };
+  ['#nombre','#apellido','#documento'].forEach(s => $(s).oninput = revisar);
+  $('#docTipo').onchange = revisar;
+  revisar();
+}
+
+$('#fPerfil').onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = $('#msgPerfil');
+  msg.innerHTML = '';
+  const { data, error } = await sb.rpc('cem_actualizar_mi_perfil', { p_datos: {
+    nombre: $('#nombre').value.trim(), apellido: $('#apellido').value.trim(),
+    documento: $('#documento').value.trim(), documento_tipo: $('#docTipo').value,
+    telefono: $('#telefono').value.trim(), pais: $('#pais').value,
+    ciudad: $('#ciudad').value.trim(), motivo: $('#motivo').value.trim(),
+  }});
+  if (error) { msg.innerHTML = `<div class="chip err sep">${esc(mensajeError(error))}</div>`; return; }
+  if (data?.requiere_aprobacion) {
+    msg.innerHTML = `<div class="chip warn sep">${esc(data.aviso)}</div>`;
+  } else {
+    ok('Datos guardados.');
+  }
+  $('#motivo').value = '';
+  cargar();
+};
+
+function pintarSolicitudesPerfil(lista){
+  $('#cardSolPerfil').hidden = lista.length === 0;
+  if (!lista.length) return;
+  $('#tbSolPerfil').innerHTML = lista.map(s => `<tr>
+    <td class="muted">${fdate(s.created_at)}</td>
+    <td class="wrap">${esc(Object.entries(s.campos || {})
+        .map(([k, v]) => `${k.replace('documento_tipo','tipo de documento')}: ${v}`).join(', '))}</td>
+    <td>${chip(s.estado === 'pendiente' ? 'en revisión' : s.estado)}</td>
+    <td class="wrap muted">${esc(s.resolucion || '—')}</td></tr>`).join('');
+}
+
+function pintarInscripciones(lista){
+  $('#inscripciones').innerHTML = lista.length ? `<div class="table-wrap"><table>
+    <thead><tr><th>Programa</th><th>Avance</th><th>Estado</th><th>Desde</th><th></th></tr></thead>
+    <tbody>${lista.map(e => `<tr>
+      <td class="wrap">${esc(e.cem_courses?.nombre || '—')}</td>
+      <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
+      <td>${chipEstado(e.estado)}</td>
+      <td class="muted">${fdate(e.fecha_inscripcion)}</td>
+      <td class="nowrap">${botonesDe(e)}</td></tr>`).join('')}</tbody></table></div>`
+    : vacio({ icono:'school', titulo:'Todavía no tienes inscripciones',
+        accion:{ texto:'Ver el catálogo', href:'catalogo.html' } });
+
+  $$('[data-sol]').forEach(b => b.onclick = () => pedirCambio(b.dataset.sol, b.dataset.tipo));
+}
+
+function botonesDe(e){
+  if (e.estado === 'activa' || e.estado === 'pendiente') {
+    return `<button class="btn ghost sm" data-sol="${e.id}" data-tipo="congelamiento">Congelar</button>
+            <button class="btn ghost sm" data-sol="${e.id}" data-tipo="retiro" style="color:var(--error)">Retirarme</button>`;
+  }
+  if (e.estado === 'congelada') {
+    return `<button class="btn ghost sm" data-sol="${e.id}" data-tipo="reactivacion">Reactivar</button>`;
+  }
+  return '<span class="tiny muted">—</span>';
+}
+
+const EXPLICACION = {
+  congelamiento: 'Tu inscripción queda en pausa y las cuotas que todavía no vencieron se congelan. Lo que ya venció se sigue debiendo.',
+  retiro: 'Dejas el programa. Las cuotas pendientes se anulan, pero lo ya pagado no se devuelve automáticamente: eso se conversa aparte.',
+  reactivacion: 'Vuelves a cursar y las cuotas congeladas se reactivan desde donde quedaron.',
+};
+
+function pedirCambio(enrollmentId, tipo){
+  const m = modal({ title: `Pedir ${tipo === 'reactivacion' ? 'reactivación' : tipo}`, body: `
+    <p>${esc(EXPLICACION[tipo])}</p>
+    <div class="field"><label>Cuéntanos el motivo *</label>
+      <textarea id="solMotivo" rows="3" placeholder="Lo lee quien resuelve tu solicitud." required></textarea></div>
+    ${tipo === 'congelamiento' ? `<div class="field"><label>¿Hasta cuándo, más o menos?</label>
+      <input type="date" id="solHasta"></div>` : ''}
+    <div id="solMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" data-s>Enviar solicitud</button>` });
+  $('[data-s]', m).onclick = async () => {
+    const motivo = $('#solMotivo', m).value.trim();
+    if (motivo.length < 10) {
+      avisar($('#solMsg', m), 'Escribe el motivo con una frase completa.', 'err');
+      return;
+    }
+    const { error } = await sb.rpc('cem_solicitar_cambio_inscripcion', {
+      p_enrollment_id: enrollmentId, p_tipo: tipo, p_motivo: motivo,
+      p_hasta: $('#solHasta', m)?.value || null,
+    });
+    if (error) {
+      avisar($('#solMsg', m), mensajeError(error), 'err');
+      return;
+    }
+    m.close();
+    ok('Solicitud enviada. Te avisamos cuando la resuelvan.');
+    cargar();
+  };
+}
+
+/* ============ el perfil público ============
+   Lo enciende y lo apaga la persona, y decide qué se ve. Por omisión sólo el
+   nombre y los certificados: las notas son de quien las sacó y no tienen por
+   qué estar en un enlace que se reparte. */
+let perfilPub = { publico:false, slug:null, muestra:{ programas:true, insignias:true, notas:false } };
+
+const OPCIONES_PERFIL = [
+  ['programas', 'Los programas que cursé'],
+  ['insignias', 'Mis insignias'],
+  ['trabajo',   'Mi trabajo'],
+  /* La ocupación se preguntó al registrarse, para saber quién estudia aquí.
+     Publicarla sin más sería usar para una cosa un dato que se dio para otra,
+     así que entra apagada y hay que encenderla. */
+  ['ocupacion', 'A qué me dedico', false],
+  ['notas',     'Mis notas', false],
+];
+
+/** La dirección del perfil, o vacío si todavía no tiene una. */
+const urlDelPerfil = () => perfilPub.slug
+  ? new URL(`../perfil-publico.html?p=${encodeURIComponent(perfilPub.slug)}`, location.href).href
+  : '';
+
+function pintarPerfilPublico(){
+  const { publico, muestra } = perfilPub;
+  const url = urlDelPerfil();
+  $('#estadoPerfil').textContent = publico ? 'publicado' : 'sin publicar';
+  $('#estadoPerfil').className = 'chip ' + (publico ? 'ok' : 'neutral');
+
+  /* Compartir arriba, en la cabecera, y siempre: es lo que se viene a hacer.
+     Si el perfil todavía no está publicado no se esconde el botón —esconderlo
+     deja a la persona buscando— sino que al pulsarlo se ofrece publicarlo. */
+  $('#manosPerfil').innerHTML = `
+    <button class="btn" id="btnCompartir">
+      <span class="material-symbols-outlined">share</span> Compartir perfil</button>
+    ${publico ? `<a class="btn outline" id="verPerfilArriba" target="_blank" rel="noopener" href="${esc(url)}">
+      <span class="material-symbols-outlined">open_in_new</span> Ver cómo lo ven</a>` : ''}`;
+  $('#btnCompartir').onclick = compartirPerfil;
+
+  $('#accionesPerfil').innerHTML = publico
+    ? `<button class="btn outline" id="btnDespublicar">
+         <span class="material-symbols-outlined">visibility_off</span> Dejar de publicarlo</button>
+       <a class="btn outline" id="verPerfil" target="_blank" rel="noopener">
+         <span class="material-symbols-outlined">open_in_new</span> Verlo</a>`
+    : `<button class="btn" id="btnPublicar">
+         <span class="material-symbols-outlined">public</span> Publicar mi perfil</button>`;
+
+  $('#enlacePerfil').innerHTML = publico && url
+    ? `<div class="enlace-perfil caja"><span class="crece">${esc(url)}</span>
+         <button class="btn ghost sm" id="btnCopiarPerfil"
+           aria-label="Copiar el enlace de mi perfil">
+           <span class="material-symbols-outlined">content_copy</span> Copiar</button></div>`
+    : '';
+
+  $('#queSeVe').hidden = !publico;
+  /* Cada opción trae su valor de partida: las que faltan en lo guardado no
+     valen todas lo mismo. Si el botón dijera «encendido» y el servidor lo
+     tratara como apagado, la persona creería estar enseñando algo que no
+     enseña — o al revés, que es peor. */
+  $('#opcionesPerfil').innerHTML = OPCIONES_PERFIL.map(([clave, txt, porOmision]) => {
+    const on = muestra?.[clave] ?? porOmision;
+    return `<button type="button" class="btn ${on ? '' : 'outline'} sm" data-muestra="${clave}"
+      aria-pressed="${on}">
+      <span class="material-symbols-outlined">${on ? 'check' : 'close'}</span> ${esc(txt)}</button>`;
+  }).join('');
+
+  const guardar = (publicar, muestraNueva) => ocupado(
+    $('#btnPublicar') || $('#btnDespublicar'), 'Guardando…', async () => {
+      const { data, error } = await sb.rpc('cem_publicar_perfil',
+        { p_publicar: publicar, p_muestra: muestraNueva || null });
+      if (error) { fail(mensajeError(error)); return; }
+      perfilPub = { publico: data.publico, slug: data.slug, muestra: data.muestra };
+      pintarPerfilPublico();
+      ok(publicar ? 'Tu perfil ya es público.' : 'Tu perfil dejó de ser público.');
+    });
+
+  if ($('#btnPublicar'))    $('#btnPublicar').onclick    = () => guardar(true);
+  if ($('#btnDespublicar')) $('#btnDespublicar').onclick = () => guardar(false);
+  if ($('#verPerfil'))      $('#verPerfil').href = url;
+  if ($('#btnCopiarPerfil')) $('#btnCopiarPerfil').onclick = async () => {
+    try { await navigator.clipboard.writeText(url); ok('Enlace copiado.'); }
+    catch { fail('No se pudo copiar. Selecciona el enlace y cópialo a mano.'); }
+  };
+  $$('[data-muestra]').forEach(b => b.onclick = () => {
+    /* Lo contrario de lo que el botón está diciendo, no lo contrario de lo que
+       hay guardado. No es lo mismo para las opciones que vienen apagadas: al
+       no estar guardadas, el primer clic las dejaba apagadas otra vez y
+       parecía que el botón no hacía nada. */
+    const nueva = { ...perfilPub.muestra,
+                    [b.dataset.muestra]: b.getAttribute('aria-pressed') !== 'true' };
+    guardar(true, nueva);
+  });
+}
+
+/* Compartir el perfil.
+   ─────────────────────────────────────────────────────────────────────────
+   Si todavía no está publicado, el enlace existe pero le enseña al otro un
+   «este perfil no está publicado». Repartir eso es peor que no tener botón,
+   así que primero se ofrece publicarlo — con lo que se va a ver dicho antes,
+   no después. */
+async function compartirPerfil(){
+  if (!perfilPub.publico) {
+    const m = modal({ title:'Tu perfil todavía no es público', body:`
+      <p>Para que otras personas puedan abrir tu perfil, primero hay que publicarlo.</p>
+      <p class="tiny muted">Se verá tu nombre, tu foto, tus certificados de CEM y lo que dejes
+        encendido más abajo. <b>Nunca tu cédula, tu teléfono, tu correo ni nada de pagos.</b>
+        Puedes dejar de publicarlo cuando quieras.</p>`,
+      footer:`<button class="btn outline" data-x>Ahora no</button>
+              <button class="btn" id="pubYa">Publicarlo y compartir</button>` });
+    $('#pubYa', m).onclick = () => ocupado('#pubYa', 'Publicando…', async () => {
+      const { data, error } = await sb.rpc('cem_publicar_perfil', { p_publicar:true, p_muestra:null });
+      if (error) { fail(mensajeError(error)); return; }
+      perfilPub = { publico: data.publico, slug: data.slug, muestra: data.muestra };
+      m.close();
+      pintarPerfilPublico();
+      await compartir({ url: urlDelPerfil(), titulo: tituloParaCompartir(),
+                        texto: textoParaCompartir() });
+    });
+    return;
+  }
+  await compartir({ url: urlDelPerfil(), titulo: tituloParaCompartir(),
+                    texto: textoParaCompartir() });
+}
+
+const tituloParaCompartir = () =>
+  `${[cabecera.nombre, cabecera.apellido].filter(Boolean).join(' ')} · Credenciales CEM`;
+const textoParaCompartir = () => cabecera.certs
+  ? `Mira mis ${cabecera.certs === 1 ? 'credencial' : `${cabecera.certs} credenciales`} de CEM:`
+  : 'Mi perfil en CEM:';
+
+/* ============ la foto y el trabajo ============
+   Las dos suben al mismo sitio: `perfiles/<mi uid>/…` dentro del almacén
+   compartido. Esa carpeta es la única donde un estudiante puede escribir —lo
+   dice la política del almacén, no esta pantalla—, así que nadie puede tocar
+   la de otro ni aunque se salte la interfaz. */
+async function subirMia(file){
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const ruta = `perfiles/${me.id}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('cem-assets')
+    .upload(ruta, file, { contentType: file.type || 'image/*' });
+  if (error) throw new Error(error.message || 'No se pudo subir la imagen.');
+  return sb.storage.from('cem-assets').getPublicUrl(ruta).data.publicUrl;
+}
+
+/* Tocar la imagen la cambia. Antes había que bajar a otra tarjeta a buscar el
+   botón, que es justo donde nadie mira: la foto se quedaba sin poner y el
+   perfil que se repartía salía sin cara. */
+function elegirImagen(ladoMax, alSubir){
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = TIPOS_ARCHIVO.imagen.accept;
+  inp.onchange = async () => {
+    const file = inp.files?.[0];
+    if (!file) return;
+    try {
+      const listo = await encogerImagen(file, ladoMax);
+      const max = TIPOS_ARCHIVO.imagen.maxMB * 1024 * 1024;
+      if (listo.size > max) {
+        fail(`La imagen pesa ${(listo.size / 1048576).toFixed(1)} MB y el máximo son ${
+          TIPOS_ARCHIVO.imagen.maxMB} MB.`);
+        return;
+      }
+      await alSubir(await subirMia(listo));
+    } catch (e) { fail(mensajeError(e, 'No se pudo subir la imagen.')); }
+  };
+  inp.click();
+}
+
+/* ============ la cabecera ============
+   Lo que ve quien abre el perfil, y lo mismo que verá quien reciba el enlace.
+   Se pinta con lo que hay guardado, no con lo que se está escribiendo en el
+   formulario: si alguien teclea un nombre y no lo guarda, la cabecera no puede
+   decir que ése es su nombre. */
+let cabecera = { nombre:'', apellido:'', avatar_url:'', portada_url:'', ocupacion:'',
+                 pais:'', certs:0, insignias:0, obras:0 };
+
+function pintarCabecera(){
+  const { avatar_url, portada_url, ocupacion, pais, certs, insignias } = cabecera;
+  const nombre = [cabecera.nombre, cabecera.apellido].filter(Boolean).join(' ') || 'Sin nombre';
+
+  $('#portada').innerHTML = `
+    ${portada_url ? `<img src="${esc(portada_url)}" alt="">` : ''}
+    <div class="encima">
+      <button type="button" class="btn sm" id="btnPortada"
+        aria-label="${portada_url ? 'Cambiar la portada' : 'Poner una portada'}">
+        <span class="material-symbols-outlined">photo_camera</span>
+        <span class="solo-ancho">${portada_url ? 'Cambiar portada' : 'Poner una portada'}</span></button>
+      ${portada_url ? `<button type="button" class="btn outline sm" id="btnQuitarPortada"
+        aria-label="Quitar la portada"><span class="material-symbols-outlined">delete</span></button>` : ''}
+    </div>`;
+
+  $('#miFoto').innerHTML = `${avatar_url
+    ? `<img src="${esc(avatar_url)}" alt="Tu foto de perfil">`
+    : '<span class="material-symbols-outlined">person</span>'}
+    <span class="lapiz"><span class="material-symbols-outlined">photo_camera</span></span>`;
+
+  $('#nombreGrande').textContent = nombre;
+  /* Ocupación y país, separados por un punto, igual que en la página
+     pública. Si no hay ninguna de las dos cosas, «Estudiante de CEM», que es
+     verdad y evita un hueco debajo del nombre. */
+  $('#titularPerfil').textContent =
+    [ocupacion, pais ? paisConBandera(pais) : ''].filter(Boolean).join(' · ')
+    || 'Estudiante de CEM';
+  $('#credencialesPerfil').hidden = !certs;
+  $('#credencialesTxt').textContent = certs === 1
+    ? '1 credencial verificada' : `${certs} credenciales verificadas`;
+
+  /* Las mismas tres que la página pública, y contando lo mismo. Un rato
+     contaron cosas distintas —aquí los programas cursados, allí los trabajos—
+     y la cabecera dejaba de servir para lo único que tiene que servir: saber
+     qué va a ver el otro sin tener que pedirle el enlace a nadie. */
+  $('#cifrasPerfil').innerHTML = [
+    [certs, 'Certificados'],
+    [insignias, 'Insignias'],
+    [cabecera.obras, 'Trabajos'],
+  ].map(([n, txt]) => `<div><b>${num(n)}</b><span>${esc(txt)}</span></div>`).join('');
+
+  $('#miFoto').onclick = () => elegirImagen(600, async (url) => {
+    await guardarImagen({ avatar_url: url }, 'Foto guardada.');
+  });
+  $('#btnPortada').onclick = () => elegirImagen(1600, async (url) => {
+    await guardarImagen({ portada_url: url }, 'Portada guardada.');
+  });
+  if ($('#btnQuitarPortada')) $('#btnQuitarPortada').onclick = () =>
+    guardarImagen({ portada_url: null }, 'Portada quitada.');
+}
+
+async function guardarImagen(campos, mensaje){
+  const { error } = await sb.from('cem_profiles').update(campos).eq('id', me.id);
+  if (error) { fail(mensajeError(error)); return; }
+  Object.assign(cabecera, campos);
+  pintarCabecera();
+  ok(mensaje);
+}
+
+let obras = [];
+async function cargarPortafolio(){
+  const { data, error } = await sb.from('cem_portafolio')
+    .select('*').eq('profile_id', me.id).order('orden').order('created_at');
+  if (error) { $('#portafolio').innerHTML = `<p class="tiny muted">${esc(mensajeError(error))}</p>`; return; }
+  obras = data || [];
+  pintarPortafolio();
+  // La cabecera cuenta los trabajos, y llegan después que ella.
+  cabecera.obras = obras.length;
+  pintarCabecera();
+}
+
+function pintarPortafolio(){
+  if (!obras.length){
+    $('#portafolio').innerHTML = `<p class="tiny muted">Todavía no has añadido nada.
+      Empieza por lo que mejor te represente: una foto, un título corto y, si tienes, el enlace
+      donde se ve o se compra.</p>`;
+    return;
+  }
+  $('#portafolio').innerHTML = `<div class="rejilla-material">${obras.map(o => `
+    <div class="card sin-margen">
+      ${o.imagen_url
+        ? `<div class="previa" style="height:130px"><img src="${esc(o.imagen_url)}" alt="${esc(o.titulo)}" loading="lazy"></div>`
+        : `<div class="previa sin-previa" style="height:130px"><span class="material-symbols-outlined">work</span></div>`}
+      <div class="negrita" style="font-size:13.5px">${esc(o.titulo)}</div>
+      ${o.descripcion ? `<div class="tiny muted">${esc(o.descripcion)}</div>` : ''}
+      ${o.enlace ? `<div class="tiny muted recorta">${esc(o.enlace)}</div>` : ''}
+      <div class="row sep-poco">
+        <button class="btn ghost sm" data-obra="${esc(o.id)}" title="Editar">
+          <span class="material-symbols-outlined">edit</span></button>
+        <button class="btn ghost sm" data-borrar="${esc(o.id)}" style="color:var(--error)" title="Quitar">
+          <span class="material-symbols-outlined">delete</span></button>
+      </div>
+    </div>`).join('')}</div>`;
+
+  $$('[data-obra]').forEach(b => b.onclick = () => formObra(obras.find(o => o.id === b.dataset.obra)));
+  $$('[data-borrar]').forEach(b => b.onclick = async () => {
+    const o = obras.find(x => x.id === b.dataset.borrar);
+    if (!await confirmDialog(`¿Quitar «${o?.titulo || ''}» de tu perfil?`)) return;
+    const { error } = await sb.from('cem_portafolio').delete().eq('id', b.dataset.borrar);
+    if (error) { fail(mensajeError(error)); return; }
+    ok('Quitado.'); cargarPortafolio();
+  });
+}
+
+function formObra(o){
+  const nueva = !o;
+  const m = modal({ title: nueva ? 'Añadir a mi trabajo' : 'Editar', body: `
+    <div class="field"><label for="oTitulo">Qué es *</label>
+      <input id="oTitulo" required maxlength="90" value="${esc(o?.titulo || '')}"
+        placeholder="Sesión de fotos para marcas"></div>
+    <div class="field"><label for="oDesc">Cuéntalo en una línea o dos</label>
+      <textarea id="oDesc" rows="2" maxlength="280"
+        placeholder="Qué haces, para quién y qué incluye.">${esc(o?.descripcion || '')}</textarea></div>
+    <div class="field"><label for="oEnlace">Enlace (opcional)</label>
+      <input id="oEnlace" type="url" value="${esc(o?.enlace || '')}"
+        placeholder="https://…"></div>
+    <div class="field"><label>Foto</label><div id="oFoto"></div></div>
+    <div id="oMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" data-s>${nueva ? 'Añadir' : 'Guardar'}</button>` });
+
+  const campo = campoArchivo({ id: 'oImg', tipo: 'imagen', valor: o?.imagen_url || '',
+    subir: subirMia, etiquetaSubir: 'Elegir una foto', permitirEnlace: true });
+  $('#oFoto', m).innerHTML = campo.html;
+  campo.conectar($('#oFoto', m));
+
+  $('[data-s]', m).onclick = async () => {
+    const titulo = $('#oTitulo', m).value.trim();
+    if (titulo.length < 3){ avisar($('#oMsg', m), 'Ponle un título, aunque sea corto.', 'err'); return; }
+    const fila = { titulo, descripcion: $('#oDesc', m).value.trim() || null,
+      enlace: $('#oEnlace', m).value.trim() || null, imagen_url: campo.valor() || null };
+    const { error } = nueva
+      ? await sb.from('cem_portafolio').insert({ ...fila, profile_id: me.id, orden: obras.length })
+      : await sb.from('cem_portafolio').update(fila).eq('id', o.id);
+    if (error){ avisar($('#oMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok(nueva ? 'Añadido a tu perfil.' : 'Guardado.'); cargarPortafolio();
+  };
+}
+$('#btnNuevaObra').onclick = () => formObra(null);
+
+function pintarSolicitudesInscripcion(lista){
+  $('#cardSolInsc').hidden = lista.length === 0;
+  if (!lista.length) return;
+
+  /* Lo que espera respuesta se dice en la línea plegada y la abre sola: es la
+     única de las cinco filas que le importa a alguien hoy. Lo resuelto puede
+     quedarse guardado. */
+  const enEspera = lista.filter(s => s.estado === 'pendiente').length;
+  const señal = $('#contSolInsc');
+  señal.textContent = enEspera
+    ? `${enEspera} esperando respuesta`
+    : `${lista.length} en total`;
+  señal.className = enEspera ? 'chip warn' : 'chip neutral';
+  if (enEspera) $('#cardSolInsc').open = true;
+
+  $('#tbSolInsc').innerHTML = lista.map(s => `<tr>
+    <td class="muted">${fdate(s.created_at)}</td>
+    <td>${esc(s.tipo)}</td>
+    <td class="wrap">${esc(s.motivo)}</td>
+    <td>${chip(s.estado === 'pendiente' ? 'en revisión' : s.estado)}</td>
+    <td class="wrap muted">${esc(s.resolucion || '—')}</td></tr>`).join('');
+}
+</script>
+</body>
+</html>

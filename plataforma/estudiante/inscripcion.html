@@ -9,11 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
-  .plan{border:2px solid var(--outline-variant);border-radius:var(--radius);padding:14px;cursor:pointer;flex:1;min-width:190px;}
-  .plan.on{border-color:var(--primary);background:var(--primary-fixed);}
-  .plan .p{font-size:21px;font-weight:700;color:var(--primary);}
+  .plan{border:2px solid var(--filete);border-radius:var(--r);padding:14px;cursor:pointer;flex:1;min-width:190px;}
+  .plan.on{border-color:var(--primary);background:var(--primary-suave);}
+  .plan .p{font-size:var(--t-lg);font-weight:700;color:var(--primary);}
 </style>
 </head>
 <body>
@@ -26,7 +26,7 @@
       <p class="muted" id="sub" style="margin:0"></p>
     </div>
 
-    <div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:18px">
+    <div class="grid dos-columnas">
       <div>
         <div class="card">
           <h2 class="sec"><span class="material-symbols-outlined">payments</span> Opciones de pago</h2>
@@ -41,18 +41,18 @@
         <div class="card">
           <h2 class="sec"><span class="material-symbols-outlined">person</span> Datos del estudiante</h2>
           <div class="row">
-            <div class="field" style="flex:1;min-width:150px"><label>Nombre</label><input id="dNombre"></div>
-            <div class="field" style="flex:1;min-width:150px"><label>Apellidos</label><input id="dApellido"></div>
+            <div class="field medio"><label>Nombre</label><input id="dNombre"></div>
+            <div class="field medio"><label>Apellidos</label><input id="dApellido"></div>
           </div>
           <div class="field"><label>Correo electrónico</label><input id="dEmail" disabled></div>
           <div class="row">
-            <div class="field" style="flex:1;min-width:150px"><label>Tipo de documento</label>
+            <div class="field medio"><label>Tipo de documento</label>
               <select id="dDocTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
-            <div class="field" style="flex:1;min-width:150px"><label>Número de documento</label><input id="dDoc"></div>
+            <div class="field medio"><label>Número de documento</label><input id="dDoc"></div>
           </div>
           <div class="row">
-            <div class="field" style="flex:1;min-width:150px"><label>Teléfono</label><input id="dTel"></div>
-            <div class="field" style="flex:1;min-width:150px"><label>País</label><input id="dPais"></div>
+            <div class="field medio"><label>Teléfono</label><input id="dTel" placeholder="+58 412 1234567"></div>
+            <div class="field medio"><label for="dPais">País</label><select id="dPais"></select></div>
           </div>
         </div>
 
@@ -60,12 +60,12 @@
           <h2 class="sec"><span class="material-symbols-outlined">local_offer</span> ¿Tienes un código de beca o descuento?</h2>
           <div class="row"><input id="cupon" placeholder="Ej. CEM10" style="flex:1;min-width:180px">
             <button class="btn outline" id="btnCupon">Aplicar</button></div>
-          <div id="cuponMsg" class="tiny" style="margin-top:6px"></div>
+          <div id="cuponMsg" class="tiny sep-poco"></div>
         </div>
       </div>
 
       <div>
-        <div class="card" style="position:sticky;top:80px">
+        <div class="card pegajosa" style="top:80px">
           <h2 class="sec">Resumen del pedido</h2>
           <div id="resumen"></div>
           <button class="btn block" id="btnConfirmar" style="margin-top:14px">
@@ -79,7 +79,8 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile } from '../assets/app.js';
+import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta, ocupado, avisar } from '../assets/app.js?v=2026-08-21-53';
+import { opcionesDePais } from '../assets/paises.js?v=2026-08-21-53';
 const me = await mount({ require:['estudiante','admin','superadmin','coordinador'], area:'estudiante', active:'catalogo.html' });
 const cursoId = qs('curso');
 let curso, cohortes=[], plan=1, descuento=0;
@@ -101,7 +102,7 @@ async function load(){
 
   $('#sub').textContent = `Estás a un paso de comenzar ${curso.nombre}.`;
   $('#dNombre').value=me.nombre||''; $('#dApellido').value=me.apellido||''; $('#dEmail').value=me.email||'';
-  $('#dDoc').value=me.documento||''; $('#dTel').value=me.telefono||''; $('#dPais').value=me.pais||'';
+  $('#dDoc').value=me.documento||''; $('#dTel').value=me.telefono||''; $('#dPais').innerHTML=opcionesDePais(me.pais||'');
   if (me.documento_tipo) $('#dDocTipo').value=me.documento_tipo;
 
   $('#cohorte').innerHTML = cohortes.length
@@ -111,21 +112,37 @@ async function load(){
   renderPlanes(); resumen();
 }
 
+/* item 45 · las tres opciones cambiaban el número final sin decir por qué: no
+   se veía que pagar de una vez descuenta un 10% y que en seis hay un 6% de
+   recargo. Ahora cada tarjeta dice cuánto cuesta al final y cuánto se ahorra o
+   se paga de más frente a pagar en tres, que es el precio de lista. */
 function renderPlanes(){
   const base = Number(curso.precio)||0;
   const opciones = [
-    { n:1, lbl:'Un solo pago', desc:'Ahorra 10%', factor:0.9 },
-    { n:3, lbl:'3 cuotas', desc:'Sin intereses', factor:1 },
-    { n:6, lbl:'6 cuotas', desc:'Cuota más baja', factor:1.06 },
+    { n:1, lbl:'Un solo pago', factor:0.9 },
+    { n:3, lbl:'3 cuotas', factor:1 },
+    { n:6, lbl:'6 cuotas', factor:1.06 },
   ];
   $('#planes').innerHTML = opciones.map(o=>{
     const total = Math.round(base*o.factor*100)/100;
-    return `<div class="plan ${o.n===plan?'on':''}" data-plan="${o.n}" data-factor="${o.factor}">
+    const dif = Math.round((total - base)*100)/100;   // contra el precio de lista
+    const nota = dif < 0
+      ? `<span class="ok-text">Te ahorras ${money(-dif, curso.moneda)}</span>`
+      : dif > 0
+        ? `<span class="err-text">Pagas ${money(dif, curso.moneda)} de más por financiarlo</span>`
+        : 'Precio de lista, sin recargo';
+    return `<div class="plan caja ${o.n===plan?'on':''}" data-plan="${o.n}" data-factor="${o.factor}"
+      role="button" tabindex="0" aria-pressed="${o.n===plan}">
       <div class="row between"><b>${o.lbl}</b>${o.n===plan?'<span class="material-symbols-outlined" style="color:var(--primary)">check_circle</span>':''}</div>
-      <div class="p">${money(total/o.n, curso.moneda)}${o.n>1?'<span class="tiny muted"> /mes</span>':''}</div>
-      <div class="tiny muted">${o.desc} · total ${money(total, curso.moneda)}</div></div>`;
+      <div class="p">${money(total/o.n, curso.moneda)}${o.n>1?'<span class="tiny muted"> cada una</span>':''}</div>
+      <div class="tiny muted">${o.n>1?`${o.n} pagos mensuales · `:''}total ${money(total, curso.moneda)}</div>
+      <div class="tiny sep-poco">${nota}</div></div>`;
   }).join('');
-  $$('[data-plan]').forEach(el=>el.onclick=()=>{ plan=Number(el.dataset.plan); renderPlanes(); resumen(); });
+  const elegir = (el) => { plan=Number(el.dataset.plan); renderPlanes(); resumen(); };
+  $$('[data-plan]').forEach(el=>{
+    el.onclick = () => elegir(el);
+    el.onkeydown = (ev) => { if (ev.key==='Enter'||ev.key===' ') { ev.preventDefault(); elegir(el); } };
+  });
 }
 
 function totalPlan(){
@@ -139,10 +156,10 @@ function resumen(){
   const ahorro = plan===1? Math.round(base*0.1*100)/100 : 0;
   $('#resumen').innerHTML = `
     <div class="list-item"><div class="grow"><div class="t">${esc(curso.nombre)}</div>
-      <div class="s">${esc(curso.duracion_texto||curso.horas+' h')} · ${esc(curso.modalidad.replace('_',' '))}</div></div></div>
+      <div class="s">${esc(curso.duracion_texto||curso.horas+' h')} · ${esc(etiqueta(curso.modalidad))}</div></div></div>
     <div class="row between tiny" style="padding:6px 0"><span class="muted">Subtotal</span><span>${money(base, curso.moneda)}</span></div>
-    ${ahorro?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Descuento (pago único)</span><span style="color:var(--ok)">-${money(ahorro, curso.moneda)}</span></div>`:''}
-    ${descuento?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Cupón</span><span style="color:var(--ok)">-${money(descuento, curso.moneda)}</span></div>`:''}
+    ${ahorro?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Descuento (pago único)</span><span class="ok-text">-${money(ahorro, curso.moneda)}</span></div>`:''}
+    ${descuento?`<div class="row between tiny" style="padding:6px 0"><span class="muted">Cupón</span><span class="ok-text">-${money(descuento, curso.moneda)}</span></div>`:''}
     <div class="row between" style="padding:10px 0;border-top:1px solid var(--outline-variant);margin-top:6px">
       <b>Total a pagar</b><b style="font-size:19px;color:var(--primary)">${money(total, curso.moneda)}</b></div>
     <div class="tiny muted">${plan>1?`${plan} cuotas de ${money(total/plan, curso.moneda)}`:'Pago único'}</div>`;
@@ -152,18 +169,17 @@ $('#btnCupon').onclick = () => {
   const code = $('#cupon').value.trim().toUpperCase();
   if (code && curso.codigo_descuento && code === String(curso.codigo_descuento).trim().toUpperCase() && Number(curso.descuento_pct) > 0) {
     descuento = Math.round((Number(curso.precio)||0)*(Number(curso.descuento_pct)/100)*100)/100;
-    $('#cuponMsg').innerHTML = `<span class="chip ok">Cupón aplicado: ${curso.descuento_pct}% de descuento</span>`;
-  } else { descuento=0; $('#cuponMsg').innerHTML = '<span class="chip err">Cupón no válido</span>'; }
+    avisar('#cuponMsg', `Cupón aplicado: ${curso.descuento_pct}% de descuento`, 'ok');
+  } else { descuento=0; avisar('#cuponMsg', 'Cupón no válido', 'err'); }
   resumen();
 };
 
-$('#btnConfirmar').onclick = async () => {
-  const btn=$('#btnConfirmar'); btn.disabled=true; btn.textContent='Procesando…';
+$('#btnConfirmar').onclick = () => ocupado('#btnConfirmar', 'Registrando tu inscripción…', async () => {
   try{
     await sb.from('cem_profiles').update({
       nombre:$('#dNombre').value.trim(), apellido:$('#dApellido').value.trim(),
       documento_tipo:$('#dDocTipo').value, documento:$('#dDoc').value.trim(),
-      telefono:$('#dTel').value.trim(), pais:$('#dPais').value.trim(),
+      telefono:$('#dTel').value.trim(), pais:$('#dPais').value,
     }).eq('id',me.id);
 
     const enr = await run(sb.rpc('cem_self_enroll',{
@@ -172,12 +188,26 @@ $('#btnConfirmar').onclick = async () => {
     }),'No se pudo completar la inscripción');
 
     await audit('inscripcion_estudiante','cem_enrollments',enr?.id,'medio',{curso:curso.nombre, plan});
-    ok('¡Inscripción registrada! Revisa tu panel.');
-    setTimeout(()=>location.href='panel.html', 1100);
-  } catch(e){
-    btn.disabled=false; btn.innerHTML='Confirmar inscripción <span class="material-symbols-outlined">arrow_forward</span>';
-  }
-};
+
+    /* Al terminar se va A PAGAR, no al panel. Antes decía «revisa tu panel» y
+       dejaba a quien acababa de decidir comprar buscando por su cuenta dónde
+       se paga — que es el momento exacto en que se pierde una venta. El curso
+       no se abre hasta que el pago se confirme, así que llevarlo al panel era
+       además llevarlo a una pantalla donde no puede hacer nada todavía.
+
+       Si el programa fuera gratuito o ya estuviera pagado, `cem_mi_acceso`
+       dice que la puerta está abierta y entonces sí se va al aula. */
+    const { data: acceso } = await sb.rpc('cem_mi_acceso');
+    const abierto = acceso?.[enr?.id]?.abierto === true;
+    if (abierto) {
+      ok('¡Listo! Ya puedes empezar.');
+      setTimeout(()=>location.href=`clase.html?curso=${cursoId}`, 1100);
+    } else {
+      ok('Inscripción registrada. Ahora el pago para abrir el curso.');
+      setTimeout(()=>location.href=`pagos.html?enr=${enr?.id||''}`, 1100);
+    }
+  } catch(e){ /* `run` ya explicó qué pasó; el botón vuelve solo */ }
+});
 </script>
 </body>
 </html>

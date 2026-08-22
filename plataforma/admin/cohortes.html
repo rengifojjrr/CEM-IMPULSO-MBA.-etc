@@ -9,12 +9,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Gestión de cohortes</h1><p>Administra los grupos de estudio, asignaciones y estado de inscripción.</p></div>
+    <div><h1>Gestión de cohortes</h1><p>Una cohorte es el grupo con el que se dicta un programa: cuándo empieza, cuántos cupos tiene y quién lo dicta.</p></div>
     <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Nueva cohorte</button></div>
   </div>
 
@@ -30,15 +30,15 @@
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
     <div class="table-wrap">
-      <table><thead><tr><th>Cohorte</th><th>Programa</th><th>Modalidad</th><th>Horario</th>
-        <th>Inicio</th><th>Ocupación</th><th>Profesor</th><th>Estado</th><th></th></tr></thead>
+      <table id="tabla"><thead><tr><th data-ord="nombre">Cohorte</th><th data-ord="_curso">Programa</th><th>Modalidad</th><th>Horario</th>
+        <th data-ord="fecha_inicio">Inicio</th><th class="num" data-ord="_n">Ocupación</th><th>Profesor</th><th data-ord="estado">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table>
     </div>
   </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, montarAyudas } from '../assets/app.js?v=2026-08-21-53';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cohortes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -49,9 +49,9 @@ async function load(){
   const [{ data: cs }, { data: cos }, { data: ens }, { data: tas }, { data: ps }] = await Promise.all([
     sb.from('cem_courses').select('id,nombre').order('nombre'),
     sb.from('cem_cohorts').select('*').order('fecha_inicio',{ascending:false}),
-    sb.from('cem_enrollments').select('cohort_id'),
+    sb.from('cem_enrollments').select('cohort_id').limit(500),
     sb.from('cem_teacher_assignments').select('cohort_id,teacher_id'),
-    sb.from('cem_profiles').select('id,nombre,apellido').eq('rol','profesor'),
+    sb.from('cem_profiles').select('id,nombre,apellido').eq('rol','profesor').limit(500),
   ]);
   cursos = cs||[]; profes = ps||[];
   const nEns = {}; (ens||[]).forEach(e => nEns[e.cohort_id] = (nEns[e.cohort_id]||0)+1);
@@ -76,56 +76,83 @@ async function load(){
 
 function render(){
   const q=$('#q').value.trim(), c=$('#fCurso').value, e=$('#fEstado').value;
-  const list = rows.filter(r => match(r,q,['nombre','codigo','_curso']) && (!c||r.course_id===c) && (!e||r.estado===e));
+  const list = ordenarPor(rows.filter(r => match(r,q,['nombre','codigo','_curso']) && (!c||r.course_id===c) && (!e||r.estado===e)), ordenCohortes);
   $('#tb').innerHTML = list.length ? list.map(r => {
     const occ = Math.round(100*r._n/Math.max(r.cupos,1));
     return `<tr>
       <td><b>${esc(r.nombre)}</b><div class="tiny muted">${esc(r.codigo)}</div></td>
-      <td class="wrap">${esc(r._curso)}</td><td>${esc(r.modalidad.replace('_',' '))}</td>
+      <td class="wrap">${esc(r._curso)}</td><td>${esc(etiqueta(r.modalidad))}</td>
       <td class="wrap">${esc(r.horario||'—')}</td><td>${fdate(r.fecha_inicio)}</td>
-      <td style="min-width:120px">${bar(occ)}<span class="tiny muted">${r._n}/${r.cupos} · ${occ}%</span></td>
-      <td>${esc(r._prof)}</td><td>${chip(r.estado)}</td>
-      <td style="white-space:nowrap">
+      <td style="min-width:120px">${r._n
+        ? `${bar(occ)}<span class="tiny muted">${r._n}/${r.cupos} · ${occ}%</span>`
+        : `<span class="tiny muted">Sin inscritos · ${r.cupos} cupos</span>`}</td>
+      <td>${esc(r._prof)}</td><td>${chipEstado(r.estado)}</td>
+      <td class="nowrap">
         <a class="btn ghost sm" href="calendario.html?cohorte=${r.id}" title="Calendario"><span class="material-symbols-outlined">calendar_today</span></a>
         <a class="btn ghost sm" href="inscripciones.html?cohorte=${r.id}" title="Inscritos"><span class="material-symbols-outlined">group</span></a>
-        ${editable?`<button class="btn ghost sm" data-edit="${r.id}"><span class="material-symbols-outlined">edit</span></button>`:''}
+        ${editable?`<button class="btn ghost sm" data-edit="${r.id}" title="Editar la cohorte"><span class="material-symbols-outlined">edit</span></button>`:''}
       </td></tr>`;
-  }).join('') : emptyRow(9);
+  }).join('') : emptyRow(9, 'Todavía no hay cohortes. Una cohorte es el grupo con el que un programa se dicta.', {texto:'Crear la primera cohorte', id:'vacioCohorte', icono:'group_add'});
   $$('[data-edit]').forEach(b => b.onclick = () => form(rows.find(x=>x.id===b.dataset.edit)));
+  ordenable('#tabla', ordenCohortes, render);
 }
+
+/** item 26 · por qué columna se está ordenando. */
+const ordenCohortes = { campo:null, asc:true };
 ['#q','#fCurso','#fEstado'].forEach(s=>{ const el=$(s); el.oninput=render; el.onchange=render; });
 $('#btnClear').onclick = () => { ['#q','#fCurso','#fEstado'].forEach(s=>$(s).value=''); render(); };
 $('#btnNueva').onclick = () => form(null);
+/* item 19 · el vacío ofrece la acción, no sólo la noticia de que está vacío. */
+accionVacio('vacioCohorte', () => form(null));
 
 function form(c){
   const isNew = !c;
+  /* item 22 · eran catorce campos seguidos, sin ningún corte: el nombre pesaba
+     lo mismo que el salón. Ahora van en tres bloques —qué grupo es, cuándo se
+     da, quién lo dicta— y lo que casi nunca se toca queda plegado. */
   const m = modal({ title: isNew?'Nueva cohorte':`Editar: ${c.nombre}`, wide:true, body:`
+    <h3 class="sec">Qué grupo es</h3>
     <div class="row">
-      <div class="field" style="flex:2;min-width:220px"><label>Programa *</label><select id="cCurso">
+      <div class="field largo"><label>Programa *</label><select id="cCurso" required>
         ${cursos.map(x=>`<option value="${x.id}" ${c&&c.course_id===x.id?'selected':''}>${esc(x.nombre)}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Código *</label><input id="cCodigo" value="${esc(c?.codigo||'')}"></div>
+      <div class="field medio"><label>Código *</label><input id="cCodigo" value="${esc(c?.codigo||'')}" required placeholder="CEM-DIP-009"></div>
     </div>
-    <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera"></div>
+    <div class="field"><label>Nombre *</label><input id="cNombre" value="${esc(c?.nombre||'')}" placeholder="Cohorte 25A - Primavera" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Modalidad</label><select id="cMod">
-        ${['online','en_vivo','presencial','hibrido'].map(v=>`<option ${c?.modalidad===v?'selected':''}>${v}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cTurno">
-        ${turnos.map(t=>`<option value="${esc(t.nombre)}" ${c?.turno===t.nombre?'selected':''}>${esc(t.nombre)}</option>`).join('') || `<option value="${esc(c?.turno||'')}">${esc(c?.turno||'Sin turnos definidos')}</option>`}</select></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Cupos</label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
+      <div class="field corto"><label>Cupos <button type="button" class="ayuda-btn" data-ayuda="Cuánta gente cabe. No impide inscribir de más: sirve para ver la ocupación y saber cuándo cerrar el grupo.">?</button></label><input type="number" id="cCupos" value="${c?.cupos??30}"></div>
+      <div class="field medio"><label>Estado</label><select id="cEstado">
+        ${opciones(['planificada','inscripciones_abiertas','en_curso','finalizada','cancelada'], c?.estado)}</select></div>
     </div>
+
+    <h3 class="sec sep-mucho">Cuándo se da</h3>
     <div class="row">
-      <div class="field" style="flex:1;min-width:150px"><label>Inicio</label><input type="date" id="cIni" value="${c?.fecha_inicio||''}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Fin</label><input type="date" id="cFin" value="${c?.fecha_fin||''}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Salón</label><input id="cSalon" value="${esc(c?.salon||'')}"></div>
+      <div class="field medio"><label>Inicio</label><input type="date" id="cIni" value="${c?.fecha_inicio||''}"></div>
+      <div class="field medio"><label>Fin</label><input type="date" id="cFin" value="${c?.fecha_fin||''}"></div>
     </div>
-    <div class="row">
-      <div class="field" style="flex:2;min-width:220px"><label>Horario</label><div id="cHorarioPicker"></div></div>
-      <div class="field" style="flex:1;min-width:170px"><label>Estado</label><select id="cEstado">
-        ${['planificada','inscripciones_abiertas','en_curso','finalizada','cancelada'].map(v=>`<option ${c?.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
-    </div>
-    <div class="field"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
-      ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>`,
-    footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+    <div class="field"><label>Horario</label><div id="cHorarioPicker"></div></div>
+
+    <h3 class="sec sep-mucho">Quién la dicta</h3>
+    <!-- Un titular no quiere decir que dé todas las clases: en un diplomado es
+         normal que un módulo lo lleve otro. Esa asignación por sesión ya existe
+         —cada clase del calendario tiene su profesor— pero desde aquí parecía
+         que la cohorte tenía un profesor y ya, así que se dice. -->
+    <p class="tiny muted sin-margen">Es quien responde por la cohorte y quien sale por omisión en las
+      clases nuevas. Cada sesión puede tener otro: se elige en el
+      <a href="calendario.html">calendario</a>, clase por clase.</p>
+    <div class="field sep-poco"><label>Profesor titular</label><select id="cProf"><option value="">Sin asignar</option>
+      ${profes.map(x=>`<option value="${x.id}">${esc(x.nombre)} ${esc(x.apellido||'')}</option>`).join('')}</select></div>
+
+    <details class="filtros-plegables sep">
+      <summary><span class="material-symbols-outlined">tune</span> Más opciones</summary>
+      <div class="row">
+        <div class="field medio"><label>Modalidad</label><select id="cMod">
+          ${opciones(['online','en_vivo','presencial','hibrido'], c?.modalidad)}</select></div>
+        <div class="field medio"><label>Turno</label><select id="cTurno">
+          ${turnos.map(t=>`<option value="${esc(t.nombre)}" ${c?.turno===t.nombre?'selected':''}>${esc(t.nombre)}</option>`).join('') || `<option value="${esc(c?.turno||'')}">${esc(c?.turno||'Sin turnos definidos')}</option>`}</select></div>
+        <div class="field medio"><label>Salón</label><input id="cSalon" value="${esc(c?.salon||'')}" placeholder="Aula 3 o el enlace de la sala"></div>
+      </div>
+    </details>`,
+    footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar la cohorte</button>` });
   mejorarSelects(m);
   let horarioValor = { dias: c?.horario_dias || [], horaInicio: c?.horario_hora_inicio || '', horaFin: c?.horario_hora_fin || '' };
   montarHorarioPicker($('#cHorarioPicker',m), horarioValor, (v) => { horarioValor = v; });
@@ -138,7 +165,13 @@ function form(c){
       salon:$('#cSalon',m).value.trim(), horario:horarioResumen(horarioValor), estado:$('#cEstado',m).value,
       horario_dias:horarioValor.dias.length?horarioValor.dias:null, horario_hora_inicio:horarioValor.horaInicio||null, horario_hora_fin:horarioValor.horaFin||null,
     };
-    if (!payload.nombre || !payload.codigo) { m.querySelector('.modal-b').scrollTop=0; return; }
+    if (!payload.nombre || !payload.codigo) {
+      /* item 42 · antes sólo subía el modal, sin decir qué faltaba. */
+      fail('Faltan el nombre y el código de la cohorte: sin ellos nadie la distingue de las demás.');
+      m.querySelector('.modal-b').scrollTop = 0;
+      (!payload.nombre ? $('#cNombre', m) : $('#cCodigo', m)).focus();
+      return;
+    }
     let id = c?.id;
     if (isNew) { const r = await run(sb.from('cem_cohorts').insert(payload).select().single(),'No se pudo crear'); id = r.id; }
     else await run(sb.from('cem_cohorts').update(payload).eq('id',c.id),'No se pudo guardar');

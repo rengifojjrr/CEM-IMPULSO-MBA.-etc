@@ -9,13 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Administración de credenciales</h1><p>Gestione certificados institucionales e insignias de logros académicos.</p></div>
+    <div><h1>Administración de credenciales</h1><p>Quién ya cumple los requisitos para certificarse y qué certificados se han emitido. Desde aquí se emiten, de uno en uno o por cohorte.</p></div>
     <div class="actions">
       <a class="btn outline" href="certificado-editor.html"><span class="material-symbols-outlined">design_services</span> Plantillas</a>
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
@@ -25,7 +25,7 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="card">
-    <div class="row between"><h2 class="sec">Listos para certificar (≥80% de avance)</h2>
+    <div class="row between"><h2 class="sec">Listos para certificar <button type="button" class="ayuda-btn" data-ayuda="Aparecen aquí al pasar el 80% de avance, pero para emitir hacen falta las tres cosas: terminar, aprobar las evaluaciones y no deber cuotas. Si falta alguna, la plataforma avisa antes de emitir.">?</button></h2>
       <button class="btn outline sm" id="btnLote" ><span class="material-symbols-outlined">workspace_premium</span> Emitir en lote</button></div>
     <div class="table-wrap"><table>
       <thead><tr><th><input type="checkbox" id="chkAll"></th><th>Estudiante</th><th>Programa</th><th>Avance</th><th>Estado</th></tr></thead>
@@ -38,24 +38,33 @@
       <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option>
         <option value="emitido">Emitido</option><option value="revocado">Revocado</option></select></div>
     </div>
+    <div class="row between sep-poco"><span id="cuenta"></span></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Código</th><th>Estudiante</th><th>Certificado</th><th>Programa</th><th>Emitido</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, toCSV, download, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado, avisar, filtrosEnLaDireccion, cargarEn, contarFilas } from '../assets/app.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'certificados.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let certs=[], elegibles=[], tpls=[];
 if (p) load();
 
 async function load(){
-  const [{data:cs},{data:ens},{data:tp}] = await Promise.all([
-    sb.from('cem_certificates').select('*,cem_profiles(nombre,apellido,email),cem_courses(nombre)').order('emitido_en',{ascending:false}),
-    sb.from('cem_enrollments').select('id,progreso,estado,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre,certificado_nombre)'),
+  // item 12 · si esta consulta falla la tabla se queda vacía, y «no hay
+  // certificados» y «no pudimos preguntar» se veían exactamente igual.
+  await cargarEn('#tb', () => Promise.all([
+    // `cem_certificates` apunta dos veces a `cem_profiles` —el titular y quien
+    // lo anuló—, así que hay que nombrar la clave foránea o PostgREST no sabe
+    // por cuál entrar y devuelve la lista vacía sin decir por qué.
+    sb.from('cem_certificates').select('*,cem_profiles!cem_certificates_profile_id_fkey(nombre,apellido,email),cem_courses(nombre)').order('emitido_en',{ascending:false}).limit(500),
+    sb.from('cem_enrollments').select('id,progreso,estado,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre,certificado_nombre)').limit(500),
     sb.from('cem_certificate_templates').select('*').order('created_at'),
-  ]);
+  ]).then((rs) => ({ data: rs, error: rs.find(r => r.error)?.error })), pintar);
+}
+
+function pintar([{data:cs},{data:ens},{data:tp}]){
   certs=cs||[]; tpls=tp||[];
   const conCert = new Set(certs.map(c=>c.enrollment_id).filter(Boolean));
   elegibles = (ens||[]).filter(e=>Number(e.progreso)>=80 && !conCert.has(e.id));
@@ -72,7 +81,7 @@ async function load(){
     <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(e.cem_courses?.certificado_nombre||e.cem_courses?.nombre||'')}</td>
     <td style="min-width:110px">${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span></td>
-    <td>${chip(e.estado)}</td></tr>`).join('') : emptyRow(5,'No hay estudiantes pendientes de certificación.');
+    <td>${chipEstado(e.estado)}</td></tr>`).join('') : emptyRow(5, 'Nadie cumple todavía los requisitos para certificarse. Aparecen aquí al llegar al 80% y aprobar sus evaluaciones.');
   $('#chkAll').onchange = () => $$('.chkE').forEach(c=>{ if(!c.disabled) c.checked=$('#chkAll').checked; });
   render();
 }
@@ -85,26 +94,142 @@ function render(){
     <td><code>${esc(c.codigo)}</code></td>
     <td class="wrap">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</td>
     <td class="wrap">${esc(c.titulo)}</td><td class="wrap">${esc(c.cem_courses?.nombre||'—')}</td>
-    <td class="muted">${fdate(c.emitido_en)}</td><td>${chip(c.estado)}</td>
-    <td style="white-space:nowrap">
-      <button class="btn ghost sm" data-ver="${c.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
-      <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank" title="Verificación pública">
+    <td class="muted">${fdate(c.emitido_en)}</td>
+    <td>${c.anulado_en ? chip('anulado','err') : chipEstado(c.estado)}</td>
+    <td class="nowrap"><span class="acciones">
+      <button class="btn ghost sm" data-ver="${c.id}" title="Ver el certificado"
+        aria-label="Ver el certificado ${esc(c.codigo)}"><span class="material-symbols-outlined">visibility</span></button>
+      <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"
+        title="Verificación pública" aria-label="Abrir la verificación pública de ${esc(c.codigo)}">
         <span class="material-symbols-outlined">verified</span></a>
-      ${puede && c.estado==='emitido'?`<button class="btn ghost sm" data-rev="${c.id}" style="color:var(--error)" title="Revocar">
-        <span class="material-symbols-outlined">block</span></button>`:''}
-    </td></tr>`).join('') : emptyRow(7,'Sin certificados emitidos.');
+      ${puede && !c.anulado_en ? `<button class="btn ghost sm" data-rev="${c.id}" style="color:var(--error)"
+        title="Anular" aria-label="Anular el certificado ${esc(c.codigo)}">
+        <span class="material-symbols-outlined">block</span></button>` : ''}
+    </span></td></tr>`).join('') : emptyRow(7, 'Todavía no se ha emitido ningún certificado.');
+  contarFilas('#cuenta', list.length, certs.length, 500);
   $$('[data-ver]').forEach(b=>b.onclick=()=>ver(certs.find(c=>c.id===b.dataset.ver)));
-  $$('[data-rev]').forEach(b=>b.onclick=async()=>{
-    if (!await confirmDialog('¿Revocar este certificado? Dejará de validar en la verificación pública.')) return;
-    await run(sb.from('cem_certificates').update({estado:'revocado'}).eq('id',b.dataset.rev),'No se pudo revocar');
-    await audit('certificado_revocado','cem_certificates',b.dataset.rev,'alto',{}); ok('Certificado revocado'); load();
-  });
+  $$('[data-rev]').forEach(b=>b.onclick=()=>anular(certs.find(c=>c.id===b.dataset.rev)));
 }
-['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+
+/* item 25 · antes «revocar» ponía el estado en revocado y la verificación
+   pública dejaba de encontrarlo: quien escaneaba leía «no existe», que
+   sugiere que el papel es falso. Un título anulado sí existió; lo que hay
+   que decir es cuándo se anuló y por qué. Y eso obliga a escribir el motivo,
+   porque es lo que va a leer un tercero. */
+function anular(c){
+  if (!c) return;
+  const m = modal({ title:`Anular ${c.codigo}`, body:`
+    <p class="tiny muted">El certificado no se borra. Quien lo verifique va a leer que fue anulado,
+      con la fecha y el motivo que escribas aquí. Esto no se puede deshacer desde la pantalla.</p>
+    <div class="field"><label>Motivo de la anulación</label>
+      <textarea id="anMotivo" placeholder="Ej.: el apellido venía mal escrito en el registro y se emitió uno corregido"></textarea></div>
+    <div id="anMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn danger" data-s>Anular el certificado</button>` });
+
+  $('[data-s]', m).onclick = async () => {
+    const motivo = $('#anMotivo', m).value.trim();
+    if (motivo.length < 10) {
+      avisar($('#anMsg', m), 'Escribe el motivo: lo va a leer quien verifique el título.', 'err');
+      return;
+    }
+    const { error } = await sb.rpc('cem_anular_certificado', { p_id: c.id, p_motivo: motivo });
+    if (error) { avisar($('#anMsg', m), mensajeError(error), 'err'); return; }
+    await audit('certificado_anulado','cem_certificates',c.id,'alto',{ motivo });
+    m.close(); ok(`${c.codigo} anulado.`); load();
+  };
+}
+// `filtrosEnLaDireccion` ya escucha los dos campos: volver a conectarlos aquí
+// hacía que cada tecla repintara la tabla dos veces.
+filtrosEnLaDireccion({ q:'#q', est:'#fEstado' }, render);
 $('#btnExport').onclick=()=>download('certificados_cem.csv', toCSV(certs.map(c=>({
   codigo:c.codigo, estudiante:(c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''),
   email:c.cem_profiles?.email, titulo:c.titulo, programa:c.cem_courses?.nombre,
   emitido:c.emitido_en, estado:c.estado }))));
+
+/* Emitir un certificado a quien todavía debe cuotas o no aprobó las
+   evaluaciones deja a la institución respaldando algo que no ocurrió. La
+   plataforma no lo impide del todo — a veces hay razones — pero obliga a
+   verlo y a dejar dicho por qué. */
+async function revisarRequisitos(ids){
+  const reparos = [];
+  for (const id of ids){
+    // Se llama la envoltura, no la interna: la interna no comprueba de quién es
+    // la inscripción y por eso ya sólo la alcanza el servidor.
+    const { data } = await sb.rpc('cem_mis_requisitos_certificado', { p_enrollment_id: id });
+    if (data && !data.listo) reparos.push({ id, lista: data.reparos || [] });
+  }
+  return reparos;
+}
+
+function nombreDeInscripcion(id){
+  // La lista viene de "elegibles" cuando se emite en lote y de las
+  // inscripciones completas cuando se emite a mano.
+  const e = elegibles.find(x => x.id === id) || (window.__inscripciones || []).find(x => x.id === id);
+  const n = e ? `${e.cem_profiles?.nombre || ''} ${e.cem_profiles?.apellido || ''}`.trim() : '';
+  return n || 'esa inscripción';
+}
+
+/** Devuelve el motivo escrito, o null si se cancela. */
+function pedirExcepcion(reparos){
+  return new Promise(res => {
+    const m = modal({ title: 'Todavía no cumplen los requisitos', wide: true, body: `
+      <p>Estos casos no reúnen las condiciones para recibir un certificado:</p>
+      <div class="list" style="margin:12px 0">
+        ${reparos.map(r => `<div class="li">
+          <b>${esc(nombreDeInscripcion(r.id))}</b>
+          <ul style="margin:6px 0 0;padding-left:18px">
+            ${r.lista.map(x => `<li class="tiny">${esc(x)}</li>`).join('')}
+          </ul></div>`).join('')}
+      </div>
+      <div class="field"><label>Motivo de la excepción *</label>
+        <textarea id="exMotivo" rows="3" placeholder="Ej.: convenio institucional aprobado por el consejo académico el 12/08." required></textarea></div>
+      <p class="tiny muted">Queda asentado en la auditoría con tu nombre y la fecha.</p>`,
+      footer: `<button class="btn outline" data-x>Cancelar</button>
+               <button class="btn" data-si>Emitir como excepción</button>` });
+    $('[data-x]', m).onclick = () => { m.close(); res(null); };
+    $('[data-si]', m).onclick = () => {
+      const motivo = $('#exMotivo', m).value.trim();
+      if (motivo.length < 10) { fail('Escribe el motivo: al menos una frase que explique la excepción.'); return; }
+      m.close(); res(motivo);
+    };
+  });
+}
+
+async function emitirLote(ids, tpl, tipo = 'certificado'){
+  const reparos = await revisarRequisitos(ids);
+  let motivo = null;
+  if (reparos.length){
+    motivo = await pedirExcepcion(reparos);
+    if (motivo === null) return false;
+  }
+  const nuevos = [];
+  for (const id of ids){
+    const conReparo = reparos.some(r => r.id === id);
+    const { data, error } = await sb.rpc('cem_issue_certificate', {
+      p_enrollment_id: id, p_template_id: tpl, p_tipo: tipo,
+      p_forzar: conReparo, p_motivo_excepcion: conReparo ? motivo : null,
+    });
+    if (error) { fail(`${nombreDeInscripcion(id)}: ${mensajeError(error)}`); continue; }
+    nuevos.push({ id: data?.id, codigo: data?.codigo, quien: nombreDeInscripcion(id) });
+  }
+  /* item 16 · un certificado emitido a la persona equivocada no se borra —queda
+     asentado— pero sí se puede anular. Ofrecerlo aquí mismo, en los segundos
+     siguientes, evita que alguien imprima y entregue el papel antes de que
+     nadie note el error. */
+  if (nuevos.length) {
+    const quienes = nuevos.length === 1 ? nuevos[0].quien : `${nuevos.length} certificados`;
+    okDeshacer(`Emitido a ${quienes}${motivo ? ', con excepción asentada' : ''}.`, async () => {
+      for (const c of nuevos) {
+        if (!c.id) continue;
+        await sb.rpc('cem_anular_certificado', {
+          p_id: c.id, p_motivo: 'Emisión deshecha por quien la hizo, segundos después.' });
+      }
+      load();
+    });
+  }
+  return nuevos.length > 0;
+}
 
 $('#btnLote').onclick = async () => {
   if (!puede) { fail('No tienes permiso para emitir certificados.'); return; }
@@ -112,15 +237,15 @@ $('#btnLote').onclick = async () => {
   if (!ids.length) { fail('Selecciona al menos un estudiante.'); return; }
   if (!await confirmDialog(`¿Emitir ${ids.length} certificado(s)?`)) return;
   const tpl = tpls[0]?.id || null;
-  for (const id of ids) await sb.rpc('cem_issue_certificate',{ p_enrollment_id:id, p_template_id:tpl });
-  ok(`${ids.length} certificado(s) emitido(s)`); load();
+  if (await emitirLote(ids, tpl)) load();
 };
 
 $('#btnEmitir').onclick = async () => {
   const { data: ens } = await sb.from('cem_enrollments')
-    .select('id,progreso,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)').order('fecha_inscripcion',{ascending:false});
+    .select('id,progreso,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)').order('fecha_inscripcion',{ascending:false}).limit(500);
+  window.__inscripciones = ens || [];
   const m = modal({ title:'Emitir certificado manualmente', body:`
-    <div class="field"><label>Inscripción *</label><select id="eE">
+    <div class="field"><label>Inscripción *</label><select id="eE" required>
       ${(ens||[]).map(e=>`<option value="${e.id}">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))} — ${esc(e.cem_courses?.nombre||'')} (${Math.round(e.progreso)}%)</option>`).join('')}</select></div>
     <div class="field"><label>Plantilla</label><select id="eT">
       ${tpls.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('')||'<option value="">Sin plantilla</option>'}</select></div>
@@ -130,9 +255,11 @@ $('#btnEmitir').onclick = async () => {
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Emitir</button>` });
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{
-    await run(sb.rpc('cem_issue_certificate',{ p_enrollment_id:$('#eE',m).value,
-      p_template_id:$('#eT',m).value||null, p_tipo:$('#eTipo',m).value }),'No se pudo emitir');
-    m.close(); ok('Certificado emitido'); load();
+    const id = $('#eE',m).value;
+    const tipo = $('#eTipo',m).value;
+    const tpl = $('#eT',m).value || null;
+    m.close();
+    if (await emitirLote([id], tpl, tipo)) load();
   };
 };
 
@@ -143,16 +270,16 @@ function ver(c){
     <div id="lienzo" style="border:8px double var(--tertiary-container);padding:30px;text-align:center;background:#fff">
       <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
       <h2 style="margin:12px 0 6px;color:var(--primary)">${esc(c.tipo==='diploma'?'Diploma':'Certificado')} de finalización</h2>
-      <p class="tiny muted" style="margin:0">Se otorga a</p>
+      <p class="tiny muted sin-margen">Se otorga a</p>
       <div style="font-size:25px;font-weight:700;margin:10px 0">${esc((c.cem_profiles?.nombre||'')+' '+(c.cem_profiles?.apellido||''))}</div>
-      <p class="tiny muted" style="margin:0">por haber completado</p>
+      <p class="tiny muted sin-margen">por haber completado</p>
       <div style="font-size:16px;font-weight:600;margin:8px 0">${esc(c.titulo)}</div>
       <div class="row" style="justify-content:center;gap:24px;margin-top:20px;align-items:flex-end">
         <div>${qr.createImgTag(3,4)}<div class="tiny muted">Verificación</div></div>
         <div style="text-align:center"><div style="border-top:1px solid var(--outline);padding-top:6px;min-width:180px">
           ${esc(tpls.find(t=>t.id===c.template_id)?.firma_nombre||'Dirección Académica')}</div></div>
       </div>
-      <div class="tiny muted" style="margin-top:14px">Código: ${esc(c.codigo)} · ${fdate(c.emitido_en)}</div>
+      <div class="tiny muted sep">Código: ${esc(c.codigo)} · ${fdate(c.emitido_en)}</div>
     </div>`,
     footer:`<button class="btn outline" data-x2>Cerrar</button><button class="btn" data-pr">
       <span class="material-symbols-outlined">print</span> Imprimir / PDF</button>` });

@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Contactos de la web</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Contactos de la web
+      <button type="button" class="ayuda-btn" data-ayuda="Gente que dejó sus datos en la web pública sin llegar a crear cuenta. Cada ficha se mueve de «nuevo» a «contactado» y de ahí a lo que pase. Un contacto sin mover es un contacto que nadie llamó.">?</button></h1>
+      <p>Quien preguntó por un programa y todavía no se ha inscrito.</p></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label for="q">Buscar</label>
+        <input type="search" id="q" placeholder="Nombre, correo, teléfono o mensaje…"></div>
+      <div class="field"><label for="fEstado">Estado</label>
+        <select id="fEstado">
+          <option value="">Todos</option>
+          <option value="nuevo">Nuevos</option>
+          <option value="contactado">Contactados</option>
+          <option value="interesado">Interesados</option>
+          <option value="inscrito">Inscritos</option>
+          <option value="descartado">Descartados</option>
+        </select></div>
+      <div class="field"><label for="fOrigen">Llegó desde</label>
+        <select id="fOrigen"><option value="">Todas las páginas</option></select></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Quién</th><th>Cómo contactarle</th><th>Qué le interesa</th>
+        <th>Llegó</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </div>
+
+  <div class="grid g2 sep">
+    <div class="card"><h2 class="sec">De dónde llega la gente
+      <button type="button" class="ayuda-btn" data-ayuda="Lo que dijeron al registrarse o al escribir. Es la única medida de si la publicidad sirve: sin esto se paga a ciegas.">?</button></h2>
+      <div id="grOrigen"></div></div>
+    <div class="card"><h2 class="sec">Qué pasa con los contactos
+      <button type="button" class="ayuda-btn" data-ayuda="Cuántos siguen sin llamar y cuántos acabaron inscribiéndose. Si la barra de «nuevo» crece semana a semana, el problema no es que no llegue gente.">?</button></h2>
+      <div id="grEstado"></div></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, fdate, fdatetime, kpi, num, emptyRow, match, modal,
+         ok, chipEstado, etiqueta, mensajeError, montarAyudas } from '../assets/app.js?v=2026-08-21-53';
+import { barras } from '../assets/graficos.js?v=2026-08-21-53';
+const p = await mount({ require: ['cobranza', 'coordinador', 'admin', 'superadmin'],
+                        active: 'leads.html', area: 'admin' });
+let filas = [];
+if (p) cargar();
+
+async function cargar() {
+  const { data, error } = await sb.rpc('cem_leads_listar');
+  if (error) { $('#tb').innerHTML = emptyRow(6, mensajeError(error)); return; }
+  filas = data || [];
+
+  const cuenta = (e) => filas.filter((x) => x.estado === e).length;
+  const nuevos7 = filas.filter((x) =>
+    x.estado === 'nuevo' && Date.now() - new Date(x.created_at) < 7 * 864e5).length;
+  $('#kpis').innerHTML = [
+    kpi('Sin contactar', num(cuenta('nuevo')), 'mark_email_unread',
+        `${nuevos7} de la última semana`, cuenta('nuevo') ? 'warn' : '',
+        'Gente que dejó sus datos y a la que nadie ha escrito todavía.'),
+    kpi('Contactados', num(cuenta('contactado') + cuenta('interesado')), 'forum',
+        'conversación abierta', '',
+        'Ya se les escribió y la conversación sigue viva.'),
+    kpi('Acabaron inscritos', num(cuenta('inscrito')), 'how_to_reg', 'de los que escribieron', 'ok',
+        'De toda la gente que preguntó, cuántos terminaron matriculándose.'),
+    kpi('Total recibidos', num(filas.length), 'contact_phone', 'histórico', '',
+        'Todos los contactos que ha recogido la web, desde el primero.'),
+  ].join('');
+
+  const origenes = [...new Set(filas.map((x) => x.origen).filter(Boolean))];
+  $('#fOrigen').innerHTML = '<option value="">Todas las páginas</option>'
+    + origenes.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+
+  pintarGraficos();
+  render();
+  montarAyudas();
+}
+
+function pintarGraficos() {
+  const porOrigen = {};
+  filas.forEach((x) => {
+    const k = x.como_nos_conocio || x.origen || 'sin decir';
+    porOrigen[k] = (porOrigen[k] || 0) + 1;
+  });
+  $('#grOrigen').innerHTML = barras({
+    titulo: 'De dónde llega la gente',
+    pie: 'Lo que dijeron al escribir, o la página que recogió sus datos.',
+    datos: Object.entries(porOrigen).map(([etq, n]) => ({ etq, n })),
+    col: 'Canal', colN: 'Contactos', tope: 8,
+  });
+
+  /* Aquí NO se ordena por tamaño: el orden es el del embudo, de «nadie lo ha
+     llamado» a «se inscribió». Ordenado por cantidad se pierde justo lo que se
+     quiere ver, que es si la primera barra crece. */
+  const ORDEN = ['nuevo', 'contactado', 'interesado', 'inscrito', 'descartado'];
+  $('#grEstado').innerHTML = barras({
+    titulo: 'Qué pasa con los contactos',
+    pie: 'En orden, del que nadie ha llamado al que acabó matriculándose.',
+    datos: ORDEN.map((e) => ({ etq: etiqueta(e), n: filas.filter((x) => x.estado === e).length })),
+    col: 'Estado', colN: 'Contactos', ordenar: false,
+    marcar: (d) => (d.etq === 'Sin contactar' && d.n > 0 ? 'warn'
+      : d.etq === 'Se inscribió' && d.n > 0 ? 'ok' : null),
+  });
+}
+
+function render() {
+  const q = $('#q').value.trim();
+  const est = $('#fEstado').value;
+  const ori = $('#fOrigen').value;
+  const lista = filas.filter((x) =>
+    match(x, q, ['nombre', 'email', 'telefono', 'mensaje', 'interes'])
+    && (!est || x.estado === est) && (!ori || x.origen === ori));
+
+  $('#tb').innerHTML = lista.length ? lista.map((x) => `<tr>
+    <td class="wrap"><b>${esc(x.nombre)}</b>
+      ${x.mensaje ? `<div class="tiny muted recorta">${esc(x.mensaje.slice(0, 70))}</div>` : ''}</td>
+    <td class="nowrap">
+      ${x.email ? `<a href="mailto:${esc(x.email)}">${esc(x.email)}</a><br>` : ''}
+      ${x.telefono ? `<a href="tel:${esc(x.telefono.replace(/\s/g, ''))}">${esc(x.telefono)}</a>` : ''}</td>
+    <td class="wrap">${esc(x.interes || '—')}</td>
+    <td class="muted nowrap">${fdate(x.created_at)}<div class="tiny">${esc(x.origen || '')}</div></td>
+    <td>${chipEstado(x.estado)}</td>
+    <td class="nowrap">
+      <button class="btn ghost sm" data-ver="${x.id}" title="Ver la ficha completa">
+        <span class="material-symbols-outlined">visibility</span></button>
+    </td></tr>`).join('')
+    : emptyRow(6, filas.length
+        ? 'Ningún contacto cuadra con lo que buscas. Prueba a limpiar los filtros.'
+        : 'Todavía no ha escrito nadie desde la web. Cuando lo hagan, aparecen aquí.');
+
+  $$('[data-ver]').forEach((b) => b.onclick = () => ficha(filas.find((x) => x.id === b.dataset.ver)));
+}
+
+['#q', '#fEstado', '#fOrigen'].forEach((s) => {
+  const el = $(s); el.oninput = render; el.onchange = render;
+});
+
+function ficha(x) {
+  if (!x) return;
+  const m = modal({
+    title: x.nombre, wide: true,
+    body: `
+      <div class="row" style="gap:var(--e1);flex-wrap:wrap">${chipEstado(x.estado)}
+        ${x.origen ? `<span class="chip neutral">${esc(x.origen)}</span>` : ''}
+        <span class="tiny muted">${fdatetime(x.created_at)}</span></div>
+
+      <div class="grid g2 sep">
+        <div><b class="tiny">Correo</b><div>${x.email
+          ? `<a href="mailto:${esc(x.email)}">${esc(x.email)}</a>` : '<span class="muted">—</span>'}</div></div>
+        <div><b class="tiny">Teléfono</b><div>${x.telefono
+          ? `<a href="tel:${esc(x.telefono.replace(/\s/g, ''))}">${esc(x.telefono)}</a>` : '<span class="muted">—</span>'}</div></div>
+      </div>
+      <div class="sep"><b class="tiny">Qué le interesa</b>
+        <div>${esc(x.interes || 'No lo dijo')}</div></div>
+      ${x.mensaje ? `<div class="sep"><b class="tiny">Lo que escribió</b>
+        <p class="sin-margen" style="white-space:pre-wrap">${esc(x.mensaje)}</p></div>` : ''}
+      ${x.atendido_en ? `<p class="tiny muted sep">Última vez que alguien lo movió: ${
+        fdatetime(x.atendido_en)}.</p>` : ''}
+
+      <!-- Contestarle desde aquí.
+           ───────────────────────────────────────────────────────────────
+           (Sin comillas invertidas en este comentario: vive dentro de una
+           plantilla de JavaScript, y una sola cierra la cadena y convierte el
+           resto del texto en código.)
+
+           El correo estaba como un enlace de «mailto»: se salía a Gmail, se
+           escribía allí, y lo que se le dijo no quedaba en ningún sitio. El siguiente
+           que abría la ficha veía «sin contactar» y volvía a escribirle — o no
+           le escribía nadie, porque cada uno suponía que ya lo había hecho el
+           otro. Ahora sale por la misma cola que el resto del correo, se
+           apunta en la ficha y el contacto pasa a «contactado» solo. -->
+      ${x.email ? `
+      <details class="card sep" style="background:var(--hueco);box-shadow:none" id="cajaResponder">
+        <summary style="cursor:pointer;font-weight:var(--peso-fuerte)">
+          <span class="material-symbols-outlined">reply</span> Contestarle por correo</summary>
+        <div class="field sep-poco"><label for="rAsunto">Asunto</label>
+          <input id="rAsunto" maxlength="140"
+            value="Sobre tu consulta en CEM International"></div>
+        <div class="field"><label for="rCuerpo">Mensaje</label>
+          <textarea id="rCuerpo" rows="5" placeholder="Hola ${esc((x.nombre||'').split(' ')[0])}, gracias por escribirnos…">${
+            esc(`Hola ${(x.nombre||'').split(' ')[0]}:\n\nGracias por escribirnos${
+              x.interes ? ` sobre ${x.interes}` : ''}. `)}</textarea></div>
+        <div id="rMsg"></div>
+        <button class="btn" id="btnResponder">
+          <span class="material-symbols-outlined">send</span> Enviar</button>
+        <p class="tiny muted sep-poco">Sale a <b>${esc(x.email)}</b> por la cola de correo de la
+          plataforma, con sus reintentos. Queda apuntado abajo.</p>
+      </details>` : `<p class="tiny muted sep">No dejó correo: a este hay que llamarle.</p>`}
+
+      <div class="field sep"><label for="nota">Nota interna</label>
+        <textarea id="nota" rows="3"
+          placeholder="Qué se habló, qué quedó pendiente…">${esc(x.nota_interna || '')}</textarea>
+        <span class="tiny muted">Esto no lo ve la persona: es para el equipo.</span></div>
+
+      <div class="field"><label for="nuevoEstado">Mover a</label>
+        <select id="nuevoEstado">
+          ${['nuevo', 'contactado', 'interesado', 'inscrito', 'descartado'].map((e) =>
+            `<option value="${e}"${e === x.estado ? ' selected' : ''}>${e}</option>`).join('')}
+        </select></div>`,
+    footer: `<button class="btn outline" data-x>Cerrar</button>
+             <button class="btn" data-g>Guardar</button>`,
+  });
+  $('[data-x]', m).onclick = m.close;
+
+  const btnResp = $('#btnResponder', m);
+  if (btnResp) btnResp.onclick = async () => {
+    const cuerpo = $('#rCuerpo', m).value.trim();
+    if (cuerpo.length < 20) {
+      avisar($('#rMsg', m), 'Escríbele algo más: con dos líneas sueltas no se contesta una consulta.', 'err');
+      return;
+    }
+    const fin = ocupado(btnResp);
+    const { error } = await sb.rpc('cem_lead_responder', {
+      p_id: x.id, p_asunto: $('#rAsunto', m).value.trim(), p_cuerpo: cuerpo,
+    });
+    fin();
+    if (error) { avisar($('#rMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Respuesta encolada. Sale con el próximo envío.'); cargar();
+  };
+
+  $('[data-g]', m).onclick = async () => {
+    const { error } = await sb.rpc('cem_lead_atender', {
+      p_id: x.id, p_estado: $('#nuevoEstado', m).value, p_nota: $('#nota', m).value.trim() || null,
+    });
+    if (error) { alert(mensajeError(error)); return; }
+    m.close(); ok('Contacto actualizado.'); cargar();
+  };
+}
+</script>
+</body>
+</html>

@@ -158,6 +158,7 @@
   .flag p{max-width:70ch;}
 
   /* ---- tablas ---- */
+  /* sin-caja: el manual tiene su propio sistema de estilos, aparte del portal */
   .tw{overflow-x:auto; margin:20px 0; border:1px solid var(--line); border-radius:7px; background:var(--card);}
   table{border-collapse:collapse; width:100%; font-size:14px; min-width:600px;}
   th,td{padding:9px 13px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top;}
@@ -256,9 +257,22 @@
         </table>
       </div>
 
-      <p>Hay dos páginas que funcionan <b>sin sesión iniciada</b>: el catálogo público de programas
-        (con su ficha de detalle) y el verificador de certificados. Cualquiera con el código de un
-        certificado puede comprobar su validez sin tener cuenta.</p>
+      <p>Hay una <b>web pública</b> que funciona sin sesión iniciada, y funciona entera: la portada
+        (<code>inicio.html</code>), quiénes somos, el <b>catálogo de programas</b>
+        (<code>catalogo.html</code>) con su ficha de detalle (<code>curso.html</code>), el verificador
+        de certificados, el perfil público de un graduado y la pantalla de confirmación de cuenta.
+        Cualquiera con el código de un certificado puede comprobar su validez sin tener cuenta, y
+        cualquiera puede ver el temario y el precio de un programa antes de registrarse.</p>
+
+      <div class="note">
+        <div class="h">Por qué el catálogo vive en la raíz</div>
+        <p>El catálogo y la ficha del programa colgaban de <code>estudiante/</code>. Es una dirección
+          que dice «esto es para alumnos» de las dos páginas que existen precisamente para quien
+          <i>todavía no lo es</i>, y así lo leían tanto las personas como Google. Se mudaron a
+          <code>plataforma/catalogo.html</code> y <code>plataforma/curso.html</code>. Las direcciones
+          viejas siguen funcionando como reenvío, porque están en enlaces que ya se mandaron, y se
+          llevan consigo lo que fuera pegado detrás (la búsqueda, el id del curso).</p>
+      </div>
 
       <div class="note">
         <div class="h">Qué pasa si alguien entra donde no debe</div>
@@ -545,6 +559,38 @@
 
       <p>Todo pago queda registrado con quién lo cargó, método, referencia y comprobante, y genera
         un evento de auditoría de <b>riesgo alto</b>. Es la operación más vigilada del sistema.</p>
+
+      <h3>La historia de una cuota</h3>
+      <p>Una cuota puede pagarse en varias veces. Pulsando el icono de historia en la fila de la
+        cuota se ve cada pago con su fecha, su referencia, si está aprobado y quién lo registró,
+        más lo abonado y lo que queda debiendo. Es lo que hace falta para reclamarle a alguien
+        sin tener que armar la cuenta a mano.</p>
+
+      <h3>Cierre de mes</h3>
+      <p>La pantalla <b>Cierre de mes</b> responde de una vez las cuatro preguntas de fin de mes,
+        y cada cifra explica al pulsar el «?» qué está contando exactamente:</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Cifra</th><th>Qué cuenta</th></tr></thead>
+          <tbody>
+            <tr><td>Se facturó</td><td>Las cuotas que vencían dentro del mes, se hayan cobrado o no.</td></tr>
+            <tr><td>Entró</td><td>Pagos aprobados con fecha del mes, en dólares. Puede incluir cuotas viejas que se pusieron al día.</td></tr>
+            <tr><td>Quedó debiéndose</td><td>De lo que vencía este mes, lo que a día de hoy sigue sin pagarse.</td></tr>
+            <tr><td>Por revisar</td><td>Pagos reportados y todavía sin verificar: ni entraron ni dejaron de entrar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Debajo va el detalle de lo cobrado y de lo vencido, con los días de mora. La hoja se
+        imprime sin el menú ni los botones, y el detalle se exporta a CSV.</p>
+
+      <div class="note">
+        <div class="h">Aprobar varios pagos de una vez</div>
+        <p>En <b>Verificar pagos</b> se marcan las casillas de los pagos que hagan falta y se
+          aprueban o se rechazan todos juntos. Es exactamente lo mismo que hacerlo de uno en uno
+          —cada pago se abona a su cuota igual—, pensado para el lunes con las transferencias del
+          fin de semana. Al rechazar en lote, el motivo que escribas les llega a todos, así que
+          conviene redactarlo de forma que sirva para el grupo.</p>
+      </div>
     </section>
 
     <!-- 7 -->
@@ -564,6 +610,13 @@
       <p>El <b>editor de certificados</b> permite diseñar la plantilla visual, y el
         <b>verificador público</b> permite a un empleador confirmar la validez de un código sin
         tener cuenta en la plataforma.</p>
+
+      <h3>Qué ve el estudiante</h3>
+      <p>En <b>Mis logros</b>, bajo «Camino a la certificación», cada programa muestra los tres
+        requisitos con lo cumplido marcado: terminar las lecciones, aprobar las evaluaciones y no
+        deber cuotas. Los calcula el mismo servidor que los comprueba al emitir, así que lo que ve
+        el estudiante y lo que impide la emisión son siempre la misma cosa. El requisito de pago
+        enlaza directo a su pantalla de pagos.</p>
     </section>
 
     <!-- 8 -->
@@ -585,6 +638,40 @@
 
       <p>Complementan el circuito <b>Soporte</b>, con tickets priorizados y conversación por caso,
         y <b>Comunicaciones</b>, para anuncios dirigidos a una cohorte o a todos.</p>
+
+      <h3>Envío de correo</h3>
+      <p>La plataforma <b>nunca manda un correo en el momento</b>: lo deja en una cola y un reloj la
+        vacía cada minuto. Así el aviso de dentro de la plataforma —la campana— le llega a la persona
+        aunque el correo falle, y nada se pierde por el camino. Quien envía es la propia base de datos:
+        no hay ninguna pieza intermedia que se pueda quedar apagada.</p>
+
+      <div class="note">
+        <div class="h">Los dos correos que no hay que confundir</div>
+        <p>Son dos sistemas distintos y se configuran en sitios distintos. El de <b>confirmar la cuenta
+          y recuperar la contraseña</b> lo manda Supabase por su cuenta, y se configura en su panel.
+          El de <b>«tu pago fue aprobado», las cuotas que vencen y los certificados</b> lo manda la
+          plataforma, y se configura en <b>Operación → Envío de correo</b>. Arreglar uno no arregla el
+          otro: si el primero está mal, nadie puede crear una cuenta; si el segundo está mal, las
+          cuentas funcionan pero nadie se entera de nada.</p>
+      </div>
+
+      <p>En <b>Operación → Envío de correo</b> se ve si está saliendo, cuántos esperan, cuántos
+        fallaron y por qué —agrupado por motivo, porque veinte mensajes con el mismo error son
+        <i>un</i> problema y no veinte—. Ahí mismo se pega la clave del proveedor, sin escribir SQL.
+        La clave entra pero no sale: la pantalla enseña los cuatro últimos caracteres para que puedas
+        reconocerla, y guardarla o quitarla queda registrado en la auditoría.</p>
+
+      <p>Dos detalles que evitan un disgusto el primer día. El botón de <b>mandar una prueba</b> es la
+        única forma de descubrir que el dominio no está verificado en el proveedor: una clave correcta
+        con un dominio sin verificar deja pasar la configuración y rechaza cada envío. Y la pantalla
+        <b>avisa de cuántos mensajes de la cola van a rebotar</b> porque su dirección es de las cuentas
+        de demostración, con un botón para tirarlos: un lote de rebotes en el primer envío es la forma
+        más rápida de que un proveedor te marque como spam y te limite la cuenta.</p>
+
+      <p>Mientras no haya proveedor configurado, la plataforma lo <b>dice</b> en vez de fingir: la
+        campana avisa de que los avisos por correo están en pausa y que esa lista es la única forma de
+        enterarse. Es la diferencia entre que alguien no reciba un correo y que además crea que su pago
+        no se aprobó.</p>
     </section>
 
     <!-- 9 -->

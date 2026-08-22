@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -25,11 +25,25 @@
     <div class="card"><h2 class="sec">Próximas sesiones</h2><div id="sesiones"></div></div>
   </div>
 
+  <!-- Las dudas de las lecciones que dicta. Antes acababan en su WhatsApp o no
+       se preguntaban; ahora tienen sitio y se ven aquí las que nadie contestó. -->
+  <div class="card" id="cardDudas" hidden>
+    <div class="row between"><h2 class="sec">Dudas esperando respuesta</h2>
+      <span class="chip warn" id="nDudas"></span></div>
+    <p class="tiny muted" style="margin-top:-6px">Lo que contestes lo ve toda la clase:
+      una duda buena la tienen cinco personas y sólo una se atreve a escribirla.</p>
+    <div id="dudas"></div>
+  </div>
+
   <div class="card">
     <div class="row between"><h2 class="sec">Entregas pendientes de calificar</h2>
       <span class="chip warn" id="nPend"></span></div>
+    <!-- Mejora 15: primero lo que bloquea a alguien para certificarse —ya
+         terminó y está esperando por nosotros— y después lo que lleva más
+         tiempo esperando. -->
+    <p class="tiny muted" style="margin-top:-6px">Ordenadas por urgencia real, no por fecha de entrega.</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Estudiante</th><th>Evaluación</th><th>Programa</th><th>Entregado</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Estudiante</th><th>Evaluación</th><th>Programa</th><th>Esperando</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tbEntregas"></tbody></table></div>
   </div>
 
@@ -41,7 +55,8 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, fdatetime, emptyRow, kpi, modal, ok, run, audit, mensajeError, chipEstado, avisar, ocupado } from '../assets/app.js?v=2026-08-21-53';
+import { escribirle } from '../assets/aula.js?v=2026-08-21-53';
 const me = await mount({ require:['profesor'], active:'panel.html', area:'docente' });
 let cohortes=[], clases=[], subsPend=[];
 if (me) load();
@@ -54,8 +69,8 @@ async function load(){
   const cohIds = cohortes.map(c=>c.id), courseIds=[...new Set((tas||[]).map(t=>t.course_id).filter(Boolean))];
 
   const [{data:ens},{data:cls},{data:asis}] = await Promise.all([
-    cohIds.length? sb.from('cem_enrollments').select('id,cohort_id,progreso,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido)').in('cohort_id',cohIds) : Promise.resolve({data:[]}),
-    cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre)').in('cohort_id',cohIds).order('fecha') : Promise.resolve({data:[]}),
+    cohIds.length? sb.from('cem_enrollments').select('id,cohort_id,progreso,profile_id,course_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido)').in('cohort_id',cohIds).limit(500) : Promise.resolve({data:[]}),
+    cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre)').in('cohort_id',cohIds).order('fecha').limit(500) : Promise.resolve({data:[]}),
     Promise.resolve({data:[]}),
   ]);
   clases = cls||[];
@@ -81,7 +96,7 @@ async function load(){
     return `<div class="list-item"><div class="grow">
       <div class="t">${esc(c.cem_courses?.nombre||'')}</div>
       <div class="s">${esc(c.nombre)} · ${list.length} alumnos</div>
-      <div style="margin-top:6px">${bar(avg)}</div></div>
+      <div class="sep-poco">${bar(avg)}</div></div>
       <div style="text-align:right"><b>${pct(avg)}</b><div class="tiny muted">participación</div></div></div>`;
   }).join('') : '<p class="muted tiny">Aún no tienes cohortes asignadas.</p>';
 
@@ -92,25 +107,40 @@ async function load(){
         <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
-      ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chip(c.estado)}
+      <button class="btn ghost sm" data-sesion="${c.id}" title="Mover la hora o avisar a la clase">
+        <span class="material-symbols-outlined">edit_calendar</span></button>
+      ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chipEstado(c.estado)}
     </div>`).join('') : '<p class="muted tiny">Sin sesiones próximas.</p>';
+  $$('[data-sesion]').forEach(b=>b.onclick=()=>gestionarSesion(clases.find(c=>c.id===b.dataset.sesion)));
 
-  $('#nPend').textContent = `${subsPend.length} pendientes`;
-  $('#tbEntregas').innerHTML = subsPend.length ? subsPend.map(s=>{
-    const e = (ens||[]).find(x=>x.id===s.enrollment_id);
-    return `<tr>
-      <td>${esc((e?.cem_profiles?.nombre||'')+' '+(e?.cem_profiles?.apellido||''))}</td>
-      <td class="wrap">${esc(s.cem_assessments?.nombre||'')}</td>
-      <td class="wrap">${esc(s.cem_assessments?.cem_courses?.nombre||'')}</td>
-      <td class="muted">${fdatetime(s.entregado_en)}</td>
-      <td>${chip(s.estado)}${s.tarde?' '+chip('tarde','err'):''}</td>
-      <td><button class="btn outline sm" data-cal="${s.id}">Calificar</button></td></tr>`;
-  }).join('') : emptyRow(6,'No tienes entregas pendientes.');
+  /* La cola la ordena el servidor: quién lleva más esperando y a quién le está
+     bloqueando el certificado. Si por lo que sea no llegara, se cae a la lista
+     de siempre en vez de dejar la tarjeta vacía. */
+  const { data: cola } = await sb.rpc('cem_cola_de_correccion');
+  const ordenadas = (cola || []).length
+    ? cola.map(c => ({ ...c, sub: subsPend.find(s => s.id === c.id) })).filter(c => c.sub)
+    : subsPend.map(s => ({ id: s.id, sub: s, dias: null, bloquea: false,
+        estudiante: nombreDe(ens, s), evaluacion: s.cem_assessments?.nombre,
+        curso: s.cem_assessments?.cem_courses?.nombre }));
+
+  $('#nPend').textContent = ordenadas.length === 1 ? '1 pendiente' : `${ordenadas.length} pendientes`;
+  $('#tbEntregas').innerHTML = ordenadas.length ? ordenadas.map(c=>`<tr>
+      <td>${esc(c.estudiante || '—')}</td>
+      <td class="wrap">${esc(c.evaluacion || '')}</td>
+      <td class="wrap">${esc(c.curso || '')}</td>
+      <td class="muted">${c.dias == null ? fdatetime(c.sub.entregado_en)
+        : c.dias === 0 ? 'hoy' : `${c.dias} día${c.dias > 1 ? 's' : ''}`}</td>
+      <td>${c.bloquea ? chip('le bloquea el certificado', 'err')
+        : chipEstado(c.sub.estado)}${c.sub.tarde ? ' ' + chip('tarde','err') : ''}</td>
+      <td><button class="btn outline sm" data-cal="${c.id}">Calificar</button></td></tr>`).join('')
+    : emptyRow(6,'No tienes entregas pendientes.');
   $$('[data-cal]').forEach(b=>b.onclick=()=>calificar(subsPend.find(s=>s.id===b.dataset.cal), ens||[]));
+
+  pintarDudasPendientes();
 
   const dictadas = clases.filter(c=>c.estado==='dictada').slice(0,8);
   const { data: att } = dictadas.length
-    ? await sb.from('cem_attendance').select('class_id,presente').in('class_id',dictadas.map(c=>c.id))
+    ? await sb.from('cem_attendance').select('class_id,presente').in('class_id',dictadas.map(c=>c.id)).limit(500)
     : { data: [] };
   const byClass={}; (att||[]).forEach(a=>{ (byClass[a.class_id] ||= {t:0,p:0}); byClass[a.class_id].t++; if(a.presente) byClass[a.class_id].p++; });
   $('#tbAsis').innerHTML = dictadas.length ? dictadas.map(c=>{
@@ -118,9 +148,88 @@ async function load(){
     return `<tr><td class="wrap">${esc(c.titulo)}</td><td>${fdate(c.fecha)}</td>
       <td>${esc(c.cem_cohorts?.nombre||'')}</td>
       <td style="min-width:120px">${bar(r)}<span class="tiny muted">${s.p}/${s.t} · ${r}%</span></td>
-      <td><button class="btn ghost sm" data-asis="${c.id}"><span class="material-symbols-outlined">how_to_reg</span></button></td></tr>`;
+      <td><button class="btn ghost sm" data-asis="${c.id}" title="Pasar la asistencia"><span class="material-symbols-outlined">how_to_reg</span></button></td></tr>`;
   }).join('') : emptyRow(5,'Aún no has dictado sesiones.');
   $$('[data-asis]').forEach(b=>b.onclick=()=>pasarAsistencia(b.dataset.asis, ens||[]));
+}
+
+/** El nombre del alumno de una entrega, cuando hay que armarlo aquí. */
+const nombreDe = (ens, s) => {
+  const e = (ens || []).find(x => x.id === s.enrollment_id);
+  return `${e?.cem_profiles?.nombre || ''} ${e?.cem_profiles?.apellido || ''}`.trim();
+};
+
+/* ============ las dudas de mis lecciones (mejora 1, desde este lado) ============
+   Sólo las que todavía no ha contestado ningún profesor: las que ya tienen
+   respuesta no son trabajo pendiente. */
+async function pintarDudasPendientes(){
+  const { data } = await sb.rpc('cem_dudas_pendientes', { p_course_id: null });
+  const lista = data || [];
+  $('#cardDudas').hidden = lista.length === 0;
+  if (!lista.length) return;
+  $('#nDudas').textContent = lista.length === 1 ? '1 duda' : `${lista.length} dudas`;
+  $('#dudas').innerHTML = lista.slice(0, 10).map(d => `<div class="list-item">
+    <span class="material-symbols-outlined" style="color:var(--warn)">contact_support</span>
+    <div class="grow"><div class="t">${esc(d.cuerpo)}</div>
+      <div class="s">${esc(d.autor || 'Un estudiante')} · ${esc(d.leccion)} · ${esc(d.curso)}
+        ${d.segundo ? ` · minuto ${Math.floor(d.segundo/60)}:${String(d.segundo%60).padStart(2,'0')}` : ''}</div></div>
+    <span class="tiny muted">${fdate(d.created_at)}</span>
+    <a class="btn outline sm" href="aula.html?leccion=${esc(d.lesson_id)}">Responder</a>
+  </div>`).join('');
+}
+
+/* ============ mover la clase y avisar (mejora 16) ============
+   Mover la hora ya lo podía hacer —la clase es suya—, pero avisar tenía que
+   pedírselo a administración, así que en la práctica lo avisaba por WhatsApp y
+   quien no estaba en el grupo se quedaba sin enterarse. */
+function gestionarSesion(c){
+  if (!c) return;
+  const m = modal({ title: `Sesión · ${c.titulo || ''}`, body: `
+    <div class="row">
+      <div class="field medio"><label>Fecha</label>
+        <input type="date" id="sFecha" value="${esc(c.fecha || '')}"></div>
+      <div class="field corto"><label>Empieza</label>
+        <input type="time" id="sIni" value="${esc((c.hora_inicio || '').slice(0,5))}"></div>
+      <div class="field corto"><label>Termina</label>
+        <input type="time" id="sFin" value="${esc((c.hora_fin || '').slice(0,5))}"></div>
+    </div>
+    <div class="field"><label>Enlace de la sesión</label>
+      <input id="sUrl" value="${esc(c.url_sesion || '')}" placeholder="https://…"></div>
+    <div class="field"><label>Qué decirle a la clase (opcional)</label>
+      <textarea id="sNota" rows="2" maxlength="400"
+        placeholder="Por ejemplo: la movemos al viernes a la misma hora."></textarea>
+      <span class="tiny muted">Si lo dejas vacío se avisa igual, con la fecha y la hora.</span></div>
+    <div id="sMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn outline" id="sSolo">Sólo guardar</button>
+             <button class="btn" id="sAvisar">Guardar y avisar a la clase</button>` });
+
+  const guardar = async () => {
+    const cambios = {
+      fecha: $('#sFecha', m).value || c.fecha,
+      hora_inicio: $('#sIni', m).value || c.hora_inicio,
+      hora_fin: $('#sFin', m).value || c.hora_fin,
+      url_sesion: $('#sUrl', m).value.trim() || null,
+    };
+    const { error } = await sb.from('cem_classes').update(cambios).eq('id', c.id);
+    if (error) { avisar($('#sMsg', m), mensajeError(error), 'err'); return false; }
+    return true;
+  };
+
+  $('#sSolo', m).onclick = () => ocupado('#sSolo', 'Guardando…', async () => {
+    if (!await guardar()) return;
+    m.close(); ok('Sesión guardada. La clase no ha recibido ningún aviso.'); load();
+  });
+
+  $('#sAvisar', m).onclick = () => ocupado('#sAvisar', 'Avisando…', async () => {
+    if (!await guardar()) return;
+    const { data, error } = await sb.rpc('cem_avisar_de_clase', {
+      p_class_id: c.id, p_nota: $('#sNota', m).value.trim() || null });
+    if (error) { avisar($('#sMsg', m), mensajeError(error), 'err'); return; }
+    m.close();
+    ok(`Avisados ${data ?? 0} estudiante(s).`);
+    load();
+  });
 }
 
 function calificar(s, ens){
@@ -129,26 +238,54 @@ function calificar(s, ens){
     <div class="tiny muted">Estudiante: <b>${esc((e?.cem_profiles?.nombre||'')+' '+(e?.cem_profiles?.apellido||''))}</b></div>
     ${Object.keys(s.respuestas||{}).length? `<div class="card" style="margin-top:12px;background:var(--surface-container)">
       <b class="tiny">Respuestas entregadas</b>
-      ${Object.entries(s.respuestas).map(([k,v])=>`<div class="tiny" style="margin-top:6px"><code>${esc(k.slice(0,8))}</code>: ${esc(String(v))}</div>`).join('')}
+      ${Object.entries(s.respuestas).map(([k,v])=>`<div class="tiny sep-poco"><code>${esc(k.slice(0,8))}</code>: ${esc(String(v))}</div>`).join('')}
     </div>`:''}
-    <div class="row" style="margin-top:12px">
-      <div class="field" style="flex:1;min-width:130px"><label>Puntaje (0–100) *</label>
-        <input type="number" id="gP" min="0" max="100" value="${s.puntaje??''}"></div></div>
-    <div class="field"><label>Retroalimentación</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar calificación</button>` });
-  $('[data-x]',m).onclick=m.close;
+    <div class="row sep">
+      <div class="field medio"><label>Puntaje (0–100) *</label>
+        <input type="number" id="gP" min="0" max="100" value="${s.puntaje??''}" required></div></div>
+    <div class="field"><label>Retroalimentación</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>
+    <div id="gMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn outline" data-reabrir style="color:var(--error)">Devolver para corregir</button>
+            <button class="btn" data-s>Guardar calificación</button>` });
   $('[data-s]',m).onclick=async()=>{
     const p=Number($('#gP',m).value);
     if (isNaN(p)) return;
     await run(sb.rpc('cem_grade_submission',{ p_submission_id:s.id, p_puntaje:p, p_feedback:$('#gF',m).value.trim()||null }),'No se pudo calificar');
     m.close(); ok('Calificación registrada'); load();
   };
+  /* Si alguien entrega por error o se le corta la conexión a la mitad, antes
+     había que tocar la base a mano. Ahora se devuelve con motivo, el
+     estudiante recibe el aviso y queda asentado quién lo hizo. */
+  $('[data-reabrir]',m).onclick=()=>{ m.close(); reabrir(s); };
+}
+
+function reabrir(s){
+  const m = modal({ title:'Devolver la entrega para corregir', body:`
+    <p>La entrega vuelve a estar abierta y el estudiante puede enviarla de nuevo.
+       El puntaje que tenga ahora se borra.</p>
+    <div class="field"><label>¿Por qué la devuelves? *</label>
+      <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto." required></textarea>
+      <span class="tiny muted">El estudiante lo va a leer en su aviso.</span></div>
+    <div id="rMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Devolver</button>` });
+  $('[data-s]',m).onclick=async()=>{
+    const motivo = $('#rMotivo',m).value.trim();
+    if (motivo.length < 10) {
+      avisar($('#rMsg', m), 'Escribe el motivo con una frase completa.', 'err');
+      return;
+    }
+    const { error } = await sb.rpc('cem_reabrir_entrega',{ p_submission_id:s.id, p_motivo:motivo });
+    if (error) { avisar($('#rMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Entrega devuelta. El estudiante ya recibió el aviso.'); load();
+  };
 }
 
 async function pasarAsistencia(classId, ens){
   const cl = clases.find(c=>c.id===classId);
   const alumnos = ens.filter(e=>e.cohort_id===cl.cohort_id);
-  const { data: att } = await sb.from('cem_attendance').select('*').eq('class_id',classId);
+  const { data: att } = await sb.from('cem_attendance').select('*').eq('class_id',classId).limit(500);
   const map={}; (att||[]).forEach(a=>map[a.enrollment_id]=a.presente);
   const m = modal({ title:`Asistencia · ${cl.titulo}`, wide:true, body:`
     <div class="stack">${alumnos.map(a=>`<label class="check">
@@ -167,7 +304,7 @@ async function pasarAsistencia(classId, ens){
 
 $('#btnAnuncio').onclick = () => {
   const m = modal({ title:'Publicar anuncio', body:`
-    <div class="field"><label>Título *</label><input id="aT"></div>
+    <div class="field"><label>Título *</label><input id="aT" required></div>
     <div class="field"><label>Mensaje</label><textarea id="aB"></textarea></div>
     <div class="field"><label>Dirigido a</label><select id="aC"><option value="">Todos mis grupos</option>
       ${cohortes.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('')}</select></div>`,

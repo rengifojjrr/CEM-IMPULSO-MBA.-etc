@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -21,6 +21,30 @@
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
+
+  <!-- Los estados "congelada" y "suspendida" existían en los datos pero no
+       había forma de pedirlos ni de aprobarlos: se resolvía tocando la base. -->
+  <div class="card" id="cardSolicitudes" hidden>
+    <div class="row between">
+      <h2 class="sec">Solicitudes por resolver</h2>
+      <span class="chip warn" id="contSol"></span>
+    </div>
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>Estudiante</th><th>Programa</th><th>Pide</th><th>Motivo</th><th>Desde</th><th></th></tr></thead>
+      <tbody id="tbSol"></tbody></table></div>
+  </div>
+
+  <!-- item 22 · una invitación es una oferta con precio puesta por escrito.
+       Mientras nadie la conteste hay que poder verla y poder retirarla. -->
+  <details class="card" id="cardInvit" hidden>
+    <summary><span class="material-symbols-outlined">expand_more</span>
+      <b>Invitaciones enviadas</b> <span class="chip warn" id="contInv"></span></summary>
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>A quién</th><th>Programa</th><th class="num">Precio ofrecido</th><th>Plan</th>
+        <th>Estado</th><th>Enviada</th><th></th></tr></thead>
+      <tbody id="tbInv"></tbody></table></div>
+  </details>
+
   <div class="tabs" id="tabs">
     <button class="active" data-t="ins">Inscripciones</button>
     <button data-t="cuotas">Cuotas y cartera</button>
@@ -29,31 +53,55 @@
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Estudiante o programa…"></div>
-      <div class="field"><label>Estado</label><select id="fEstado"><option value="">Todos</option></select></div>
+      <div class="field"><label>Estado <button type="button" class="ayuda-btn" data-ayuda="El de la inscripción: activa si está estudiando, congelada si pidió pausa, cancelada si se retiró. Las cuotas tienen su propio estado, aparte.">?</button></label><select id="fEstado"><option value="">Todos</option></select></div>
       <button class="btn ghost" id="btnClear">Limpiar</button>
     </div>
-    <div class="table-wrap"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+    <!-- Cien pagos seguidos no se leen. Se acota por cuándo y por cómo entró el
+         dinero, que es como se busca de verdad: «las transferencias de octubre». -->
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> <span id="lblMas">Filtrar por fecha o método</span>
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Desde</label><input type="date" id="fDesde"></div>
+        <div class="field"><label>Hasta</label><input type="date" id="fHasta"></div>
+        <div class="field" id="campoMetodo"><label>Método</label><select id="fMetodo"><option value="">Todos</option></select></div>
+      </div>
+    </details>
+    <div class="table-wrap"><table id="tabla" class="tarjetas"><thead id="th"></thead><tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, money, num, fdate, emptyRow, match, kpi, modal, ok, run, audit, toCSV, download, qs } from '../assets/app.js';
-const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
-const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
-let ens=[], insts=[], pays=[], tab='ins';
+import { sb, mount, MONEDA_BASE, $, $$, esc, chip, money, num, fdate, fdateCorta, fdatetime, emptyRow, match, kpi, modal, ok, fail,
+         run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
+         opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
+         ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion,
+         campoBuscar, campoDescuento } from '../assets/app.js?v=2026-08-21-53';
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
+const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
+let ens=[], insts=[], pays=[], sols=[], invits=[], tab='ins';
 if (p) load();
 
 async function load(){
-  const [{data:e},{data:i},{data:y}] = await Promise.all([
-    sb.from('cem_enrollments').select('*,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email),cem_courses(nombre),cem_cohorts(nombre)').order('fecha_inscripcion',{ascending:false}),
-    sb.from('cem_installments').select('*').order('fecha_vencimiento'),
-    sb.from('cem_payments').select('*').order('fecha',{ascending:false}),
+  const [{data:e},{data:i},{data:y},{data:s},{data:inv}] = await Promise.all([
+    sb.from('cem_enrollments').select('*,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email),cem_courses(nombre),cem_cohorts(nombre)').order('fecha_inscripcion',{ascending:false}).limit(500),
+    sb.from('cem_installments').select('*').order('fecha_vencimiento').limit(500),
+    sb.from('cem_payments').select('*').order('fecha',{ascending:false}).limit(500),
+    // La tabla apunta dos veces a cem_profiles (quien pide y quien resuelve),
+    // así que hay que decir por cuál de las dos relaciones se trae el nombre.
+    sb.from('cem_solicitudes_inscripcion')
+      .select('*,cem_profiles!cem_solicitudes_inscripcion_profile_id_fkey(nombre,apellido),cem_enrollments(cem_courses(nombre))')
+      .eq('estado','pendiente').order('created_at'),
+    sb.rpc('cem_invitaciones_listar'),
   ]);
-  ens=e||[]; insts=i||[]; pays=y||[];
+  ens=e||[]; insts=i||[]; pays=y||[]; sols=s||[]; invits=inv||[];
+  renderSolicitudes();
+  renderInvitaciones();
   const hoy = new Date().toISOString().slice(0,10);
   const vencidas = insts.filter(x=>['pendiente','parcial','vencida'].includes(x.estado) && x.fecha_vencimiento < hoy);
   $('#kpis').innerHTML = [
     kpi('Inscripciones', num(ens.length),'assignment_ind',`${ens.filter(x=>x.estado==='activa').length} activas`),
-    kpi('Ingresos totales', money(pays.reduce((a,x)=>a+Number(x.monto||0),0)),'payments',`${pays.length} pagos`),
+    kpi('Cobrado', money(pays.filter(x=>x.estado==='confirmado').reduce((a,x)=>a+enDolares(x),0)),'payments',
+        `${pays.filter(x=>x.estado==='confirmado').length} pagos confirmados`),
     kpi('Por cobrar', money(insts.filter(x=>x.estado!=='pagada'&&x.estado!=='anulada').reduce((a,x)=>a+Number(x.saldo||0),0)),'account_balance_wallet','cuotas abiertas'),
     kpi('Cartera vencida', money(vencidas.reduce((a,x)=>a+Number(x.saldo||0),0)),'warning',`${vencidas.length} cuotas`,'down'),
   ].join('');
@@ -61,125 +109,530 @@ async function load(){
   render();
 }
 
+/* Congelar o retirar a alguien mueve su dinero: se dice exactamente qué va a
+   pasar con las cuotas antes de confirmar, no después. */
+const EFECTO = {
+  congelamiento: 'La inscripción queda en pausa y las cuotas que todavía no vencieron pasan a "congelada". Lo ya vencido se sigue debiendo.',
+  retiro: 'La inscripción se cancela y las cuotas pendientes o congeladas se anulan. Lo ya pagado no se devuelve automáticamente.',
+  reactivacion: 'La inscripción vuelve a "activa" y las cuotas congeladas se reactivan desde donde quedaron.',
+  plan_de_pago: 'Lo que queda por pagar se reparte en el número de cuotas que pidió, una al mes, empezando dentro de 30 días. Lo ya pagado no se toca, y si alguna cuota pendiente tiene un pago detrás la operación se rechaza entera.',
+};
+
+function renderSolicitudes(){
+  $('#cardSolicitudes').hidden = sols.length === 0;
+  if (!sols.length) return;
+  $('#contSol').textContent = `${sols.length} pendiente${sols.length > 1 ? 's' : ''}`;
+  $('#tbSol').innerHTML = sols.map(s => `<tr>
+    <td class="wrap">${esc((s.cem_profiles?.nombre||'')+' '+(s.cem_profiles?.apellido||''))}</td>
+    <td class="wrap">${esc(s.cem_enrollments?.cem_courses?.nombre || '—')}</td>
+    <td>${chipEstado(s.tipo)}${s.hasta ? `<div class="tiny muted">hasta ${fdate(s.hasta)}</div>` : ''}${
+      s.datos?.cuotas ? `<div class="tiny muted">pide ${esc(String(s.datos.cuotas))} cuota(s)</div>` : ''}</td>
+    <td class="wrap">${esc(s.motivo)}</td>
+    <td class="muted">${fdate(s.created_at)}</td>
+    <td class="nowrap">${editable ? `
+      <button class="btn ghost sm" data-sol-ok="${s.id}" title="Aprobar"><span class="material-symbols-outlined">check</span></button>
+      <button class="btn ghost sm" data-sol-no="${s.id}" style="color:var(--error)" title="Rechazar"><span class="material-symbols-outlined">close</span></button>`
+      : '<span class="tiny muted">sólo lectura</span>'}</td></tr>`).join('');
+
+  $$('[data-sol-ok]').forEach(b => b.onclick = () => resolverSolicitud(b.dataset.solOk, true));
+  $$('[data-sol-no]').forEach(b => b.onclick = () => resolverSolicitud(b.dataset.solNo, false));
+}
+
+const PLAN = { 1:'Pago único', 3:'3 cuotas', 6:'6 cuotas' };
+
+function renderInvitaciones(){
+  $('#cardInvit').hidden = invits.length === 0;
+  if (!invits.length) return;
+  const vivas = invits.filter(x => x.estado === 'pendiente');
+  /* La tarjeta se abre sola si hay algo esperando respuesta, y se queda
+     plegada si sólo guarda historia. */
+  $('#cardInvit').open = vivas.length > 0;
+  const cont = $('#contInv');
+  cont.textContent = vivas.length ? `${vivas.length} sin contestar` : `${invits.length} enviadas`;
+  cont.className = vivas.length ? 'chip warn' : 'chip neutral';
+
+  $('#tbInv').innerHTML = invits.map(x => `<tr>
+    <td class="wrap" data-col="A quién"><a href="estudiante.html?id=${esc(x.profile_id)}">${esc(x.quien || x.email)}</a>
+      <div class="tiny muted">${esc(x.email)}</div></td>
+    <td class="wrap" data-col="Programa">${esc(x.curso)}${x.cohorte ? `<div class="tiny muted">${esc(x.cohorte)}</div>` : ''}</td>
+    <td class="num" data-col="Precio ofrecido">${money(x.precio_final, x.moneda)}
+      ${Number(x.descuento) > 0 ? `<div class="tiny muted">${money(x.precio_lista, x.moneda)} − ${money(x.descuento, x.moneda)}</div>` : ''}</td>
+    <td data-col="Plan">${esc(PLAN[x.cuotas] || `${x.cuotas} cuotas`)}</td>
+    <td data-col="Estado">${chipEstado(x.estado)}${x.vence && x.estado === 'pendiente'
+      ? `<div class="tiny muted">vale hasta ${fdate(x.vence)}</div>` : ''}</td>
+    <td class="muted" data-col="Enviada">${fdate(x.created_at)}${x.invito ? `<div class="tiny muted">${esc(x.invito)}</div>` : ''}</td>
+    <td class="nowrap" data-col="">${editable && x.estado === 'pendiente'
+      ? `<button class="btn ghost sm" data-inv-no="${x.id}" title="Retirar la invitación"><span class="material-symbols-outlined">undo</span></button>`
+      : ''}</td></tr>`).join('');
+
+  $$('[data-inv-no]').forEach(b => b.onclick = async () => {
+    await run(sb.rpc('cem_retirar_invitacion', { p_id: b.dataset.invNo }), 'No se pudo retirar');
+    ok('Invitación retirada.'); load();
+  });
+}
+
+function resolverSolicitud(id, aprobar){
+  const s = sols.find(x => x.id === id);
+  const quien = `${s.cem_profiles?.nombre || ''} ${s.cem_profiles?.apellido || ''}`.trim();
+  const m = modal({ title: aprobar ? `Aprobar ${s.tipo}` : `Rechazar ${s.tipo}`, body: `
+    <p><b>${esc(quien)}</b> — ${esc(s.cem_enrollments?.cem_courses?.nombre || '')}</p>
+    <p class="tiny muted">Motivo que dio: ${esc(s.motivo)}</p>
+    ${aprobar ? `<div class="chip warn" style="margin:10px 0;white-space:normal;height:auto;line-height:1.5;padding:8px 12px">
+      ${esc(EFECTO[s.tipo])}</div>` : ''}
+    <div class="field"><label>${aprobar ? 'Nota para el estudiante (opcional)' : 'Explícale por qué *'}</label>
+      <textarea id="solResp" rows="2" required></textarea></div>
+    <div id="solMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" data-s>${aprobar ? 'Aprobar' : 'Rechazar'}</button>` });
+  $('[data-s]', m).onclick = async () => {
+    const resp = $('#solResp', m).value.trim();
+    if (!aprobar && resp.length < 5) {
+      avisar($('#solMsg', m), 'Escribe el motivo: el estudiante lo va a leer.', 'err');
+      return;
+    }
+    const { error } = await sb.rpc('cem_resolver_solicitud_inscripcion', {
+      p_solicitud_id: id, p_aprobar: aprobar, p_resolucion: resp || null });
+    if (error) { fail(mensajeError(error)); return; }
+    m.close();
+    ok(aprobar ? 'Solicitud aprobada y aplicada.' : 'Solicitud rechazada.');
+    load();
+  };
+}
+
 $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab=b.dataset.t; render(); });
 
-function render(){
+/* El orden que se está mirando en cada pestaña. Antes no se podía ordenar por
+   ninguna columna: para saber quién debía más había que exportar a Excel. */
+const orden = { ins:{campo:null,asc:true}, cuotas:{campo:null,asc:true}, pagos:{campo:null,asc:true} };
+
+/** Suma de una columna, sobre lo que se está viendo (no sobre todo). */
+const suma = (lista, f) => lista.reduce((a,x)=>a+(Number(f(x))||0),0);
+
+/** Pone (o quita) la fila de totales al pie de la tabla. */
+function ponerTotales(celdas){
+  const tabla = $('#tabla');
+  const viejo = tabla.querySelector('tfoot');
+  if (viejo) viejo.remove();
+  if (!$('#tb').querySelector('td[data-col]')) return;   // tabla vacía: no hay nada que sumar
+  tabla.insertAdjacentHTML('beforeend', filaTotales(celdas));
+}
+
+/* ============ los filtros, en un solo sitio ============
+   La pantalla los usa dos veces: para pintar y para exportar. Escritos dos
+   veces se separan —ya pasó una vez, y el Excel salía con filas que la tabla
+   no enseñaba—, así que cada pestaña arma su lista aquí y las dos la piden.
+
+   Las fechas se comparan como texto porque en la base son `YYYY-MM-DD`: en ese
+   formato el orden alfabético y el cronológico son el mismo, y así no hay que
+   construir un `Date` por fila ni preocuparse de husos horarios. */
+const pasaFecha = (valor) => {
+  const d = $('#fDesde').value, h = $('#fHasta').value;
+  if (!d && !h) return true;
+  const v = String(valor || '').slice(0,10);
+  if (!v) return false;
+  return (!d || v >= d) && (!h || v <= h);
+};
+
+/** Cuántos filtros de los plegados están puestos, para el contador del resumen. */
+function contarFiltros(){
+  const n = ['#fDesde','#fHasta', tab==='pagos' ? '#fMetodo' : null]
+    .filter(Boolean).filter(s => $(s).value).length;
+  const chip = $('#nFiltros');
+  chip.hidden = n === 0;
+  chip.textContent = `${n} puesto${n===1?'':'s'}`;
+  if (n) $('#masFiltros').open = true;
+}
+
+function listaIns(){
   const q=$('#q').value.trim(), f=$('#fEstado').value;
+  return ens.filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre'])
+      && (!f||r.estado===f) && pasaFecha(r.fecha_inscripcion))
+    .map(r=>({ ...r,
+      _alumno: `${r.cem_profiles?.nombre||''} ${r.cem_profiles?.apellido||''}`.trim(),
+      _pagado: pays.filter(x=>x.enrollment_id===r.id && x.estado!=='rechazado' && x.estado!=='anulado')
+                   .reduce((a,x)=>a+enDolares(x),0),
+      _saldo: insts.filter(i=>i.enrollment_id===r.id && i.estado!=='pagada' && i.estado!=='anulada')
+                   .reduce((a,i)=>a+Number(i.saldo||0),0),
+    }));
+}
+
+function listaCuotas(){
+  const q=$('#q').value.trim(), f=$('#fEstado').value;
+  return insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
+    .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
+      && (!f||i.estado===f) && pasaFecha(i.fecha_vencimiento))
+    .map(i=>({ ...i,
+      _alumno: `${i._e.cem_profiles?.nombre||''} ${i._e.cem_profiles?.apellido||''}`.trim(),
+      _curso: i._e.cem_courses?.nombre||'' }));
+}
+
+function listaPagos(){
+  const q=$('#q').value.trim(), f=$('#fEstado').value, m=$('#fMetodo').value;
+  return pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
+    .filter(x=>x._e && match(x._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
+      && (f===''||String(x.conciliado?1:0)===f)
+      && (!m||x.metodo===m) && pasaFecha(x.fecha))
+    .map(x=>({ ...x,
+      _alumno: `${x._e.cem_profiles?.nombre||''} ${x._e.cem_profiles?.apellido||''}`.trim(),
+      _curso: x._e.cem_courses?.nombre||'' }));
+}
+
+function render(){
+  $('#tabla').classList.add('tarjetas');   // en el teléfono, cada fila una tarjeta
+
+  /* El método sólo existe en los pagos: en las otras dos pestañas se retira
+     en vez de quedarse ahí sin hacer nada. */
+  $('#campoMetodo').hidden = tab !== 'pagos';
+  $('#lblMas').textContent = tab==='pagos' ? 'Filtrar por fecha o método'
+    : tab==='cuotas' ? 'Filtrar por fecha de vencimiento' : 'Filtrar por fecha de inscripción';
+  $('#fMetodo').innerHTML = '<option value="">Todos</option>'
+    + opciones([...new Set(pays.map(x=>x.metodo).filter(Boolean))].sort(), $('#fMetodo').value);
+  contarFiltros();
+  const f=$('#fEstado').value;
+
   if (tab==='ins'){
-    $('#fEstado').innerHTML = '<option value="">Todos</option>'+['pendiente','activa','suspendida','congelada','finalizada','cancelada'].map(v=>`<option ${f===v?'selected':''}>${v}</option>`).join('');
-    $('#th').innerHTML = '<tr><th>Estudiante</th><th>Programa</th><th>Cohorte</th><th>Precio</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th>Fecha</th><th></th></tr>';
-    const list = ens.filter(r=>match(r,q,['cem_profiles.nombre','cem_profiles.apellido','cem_profiles.email','cem_courses.nombre','cem_cohorts.nombre']) && (!f||r.estado===f));
-    $('#tb').innerHTML = list.length? list.map(r=>{
-      const mine = insts.filter(i=>i.enrollment_id===r.id);
-      const pagado = pays.filter(x=>x.enrollment_id===r.id).reduce((a,x)=>a+Number(x.monto||0),0);
-      const saldo = mine.filter(i=>i.estado!=='pagada'&&i.estado!=='anulada').reduce((a,i)=>a+Number(i.saldo||0),0);
-      return `<tr>
-        <td class="wrap"><b>${esc((r.cem_profiles?.nombre||'')+' '+(r.cem_profiles?.apellido||''))}</b>
-          <div class="tiny muted">${esc(r.cem_profiles?.email||'')}</div></td>
-        <td class="wrap">${esc(r.cem_courses?.nombre||'')}</td><td>${esc(r.cem_cohorts?.nombre||'—')}</td>
-        <td>${money(r.precio_final)}</td><td>${money(pagado)}</td>
-        <td>${saldo>0?`<span class="chip warn">${money(saldo)}</span>`:'<span class="chip ok">0</span>'}</td>
-        <td>${chip(r.estado)}</td><td class="muted">${fdate(r.fecha_inscripcion)}</td>
-        <td><a class="btn ghost sm" href="estudiante.html?id=${r.profile_id}"><span class="material-symbols-outlined">visibility</span></a></td></tr>`;
-    }).join('') : emptyRow(9);
+    $('#fEstado').innerHTML = '<option value="">Todos</option>'
+      + opciones(['pendiente','activa','suspendida','congelada','finalizada','cancelada'], f);
+    $('#th').innerHTML = `<tr><th data-ord="_alumno">Estudiante</th><th data-ord="cem_courses.nombre">Programa</th>
+      <th>Cohorte</th><th class="num" data-ord="precio_final">Precio</th>
+      <th class="num" data-ord="_pagado">Pagado</th><th class="num" data-ord="_saldo">Saldo</th>
+      <th data-ord="estado">Estado</th><th data-ord="fecha_inscripcion">Fecha</th><th></th></tr>`;
+    const list = ordenarPor(listaIns(), orden.ins);
+
+    $('#tb').innerHTML = list.length? list.map(r=>`<tr>
+        <td data-col="Estudiante"><b>${esc(r._alumno)}</b></td>
+        <td data-col="Programa"><span class="recorta" title="${esc(r.cem_courses?.nombre||'')}">${esc(r.cem_courses?.nombre||'')}</span></td>
+        <td data-col="Cohorte">${esc(r.cem_cohorts?.nombre||'—')}</td>
+        <td class="num" data-col="Precio">${money(r.precio_final)}</td>
+        <td class="num" data-col="Pagado">${money(r._pagado)}</td>
+        <td class="num" data-col="Saldo">${saldo(r._saldo)}</td>
+        <td data-col="Estado">${chipEstado(r.estado)}</td>
+        <td class="muted" data-col="Fecha">${fdateCorta(r.fecha_inscripcion)}</td>
+        <td data-col=""><span class="acciones"><a class="btn ghost sm" href="estudiante.html?id=${r.profile_id}"
+             title="Ver la ficha del estudiante"><span class="material-symbols-outlined">visibility</span></a></span></td></tr>`).join('')
+      : emptyRow(9, 'Todavía no hay inscripciones que coincidan.',
+                 editable ? {texto:'Inscribir a alguien', id:'vacioNueva', icono:'person_add'} : null);
+    ponerTotales(['', '', 'Totales', {num:true,html:money(suma(list,r=>r.precio_final))},
+      {num:true,html:money(suma(list,r=>r._pagado))}, {num:true,html:money(suma(list,r=>r._saldo))}, '', '', '']);
+    const vacioNueva = $('#vacioNueva');
+    if (vacioNueva) vacioNueva.onclick = () => $('#btnNueva').click();
+    ordenable('#tabla', orden.ins, render);
   }
+
   if (tab==='cuotas'){
-    $('#fEstado').innerHTML = '<option value="">Todos</option>'+['pendiente','parcial','pagada','vencida','congelada','anulada','reembolsada'].map(v=>`<option ${f===v?'selected':''}>${v}</option>`).join('');
-    $('#th').innerHTML = '<tr><th>Estudiante</th><th>Programa</th><th>#</th><th>Monto</th><th>Saldo</th><th>Vence</th><th>Estado</th><th></th></tr>';
+    $('#fEstado').innerHTML = '<option value="">Todos</option>'
+      + opciones(['pendiente','parcial','pagada','vencida','congelada','anulada','reembolsada'], f);
+    $('#th').innerHTML = `<tr><th data-ord="_alumno">Estudiante</th><th data-ord="_curso">Programa</th>
+      <th class="num" data-ord="numero">#</th><th class="num" data-ord="monto">Monto</th>
+      <th class="num" data-ord="saldo">Saldo</th><th data-ord="fecha_vencimiento">Vence</th>
+      <th data-ord="estado">Estado</th><th></th></tr>`;
     const hoy = new Date().toISOString().slice(0,10);
-    const rows = insts.map(i=>({ ...i, _e: ens.find(e=>e.id===i.enrollment_id) }))
-      .filter(i=>i._e && match(i._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre']) && (!f||i.estado===f));
+    const rows = ordenarPor(listaCuotas(), orden.cuotas);
+
     $('#tb').innerHTML = rows.length? rows.map(i=>{
       const venc = i.estado!=='pagada' && i.fecha_vencimiento < hoy;
-      return `<tr><td class="wrap">${esc((i._e.cem_profiles?.nombre||'')+' '+(i._e.cem_profiles?.apellido||''))}</td>
-        <td class="wrap">${esc(i._e.cem_courses?.nombre||'')}</td><td>${i.numero}</td>
-        <td>${money(i.monto)}</td><td>${money(i.saldo)}</td>
-        <td class="${venc?'':'muted'}">${fdate(i.fecha_vencimiento)} ${venc?'<span class="chip err">vencida</span>':''}</td>
-        <td>${chip(i.estado)}</td>
-        <td>${editable && i.estado!=='pagada'?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</td></tr>`;
-    }).join('') : emptyRow(8);
+      const mora = venc ? Math.round((new Date(hoy) - new Date(i.fecha_vencimiento))/86400000) : 0;
+      return `<tr class="${venc?'vencida':''}">
+        <td class="wrap" data-col="Estudiante">${esc(i._alumno)}</td>
+        <td class="wrap" data-col="Programa">${esc(i._curso)}</td>
+        <td class="num" data-col="Cuota">${i.numero}</td>
+        <td class="num" data-col="Monto">${money(i.monto)}</td>
+        <td class="num" data-col="Saldo">${saldo(i.saldo)}</td>
+        <td class="${venc?'':'muted'}" data-col="Vence">${fdate(i.fecha_vencimiento)}
+          ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
+        <td data-col="Estado">${chipEstado(i.estado)}</td>
+        <td data-col=""><span class="acciones">
+          <button class="btn ghost sm" data-hist="${i.id}" title="Ver la historia de esta cuota"><span class="material-symbols-outlined">history</span></button>
+          <a class="btn ghost sm" href="estudiante.html?id=${i._e.profile_id}"
+             title="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined">visibility</span></a>
+          ${editable && i.estado!=='pagada'
+          ?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</span></td></tr>`;
+    }).join('') : emptyRow(8, 'No hay cuotas que coincidan con el filtro.');
+    ponerTotales(['', 'Totales', '', {num:true,html:money(suma(rows,i=>i.monto))},
+      {num:true,html:money(suma(rows,i=>i.saldo))}, '', '', '']);
     $$('[data-pay]').forEach(b=>b.onclick=()=>pagar(insts.find(i=>i.id===b.dataset.pay)));
+    $$('[data-hist]').forEach(b=>b.onclick=()=>historia(insts.find(i=>i.id===b.dataset.hist)));
+    ordenable('#tabla', orden.cuotas, render);
   }
+
   if (tab==='pagos'){
     $('#fEstado').innerHTML = '<option value="">Todos</option><option value="1">Conciliados</option><option value="0">Sin conciliar</option>';
-    $('#th').innerHTML = '<tr><th>Fecha</th><th>Estudiante</th><th>Programa</th><th>Monto</th><th>Método</th><th>Referencia</th><th>Conciliado</th><th></th></tr>';
-    const rows = pays.map(x=>({ ...x, _e: ens.find(e=>e.id===x.enrollment_id) }))
-      .filter(x=>x._e && match(x._e,q,['cem_profiles.nombre','cem_profiles.apellido','cem_courses.nombre'])
-        && (f===''||String(x.conciliado?1:0)===f));
+    $('#th').innerHTML = `<tr><th data-ord="fecha">Fecha</th><th data-ord="_alumno">Estudiante</th>
+      <th data-ord="_curso">Programa</th><th class="num" data-ord="monto">Monto</th>
+      <th data-ord="metodo">Método</th><th data-ord="referencia">Referencia</th>
+      <th data-ord="conciliado">Conciliado</th><th></th></tr>`;
+    const rows = ordenarPor(listaPagos(), orden.pagos);
+
     $('#tb').innerHTML = rows.length? rows.map(x=>`<tr>
-      <td class="muted">${fdate(x.fecha)}</td>
-      <td class="wrap">${esc((x._e.cem_profiles?.nombre||'')+' '+(x._e.cem_profiles?.apellido||''))}</td>
-      <td class="wrap">${esc(x._e.cem_courses?.nombre||'')}</td><td><b>${money(x.monto)}</b></td>
-      <td>${esc(x.metodo||'—')}</td><td>${esc(x.referencia||'—')}</td>
-      <td>${x.conciliado?chip('sí','ok'):chip('pendiente','warn')}</td>
-      <td>${editable && !x.conciliado?`<button class="btn outline sm" data-conc="${x.id}">Conciliar</button>`:''}</td></tr>`).join('') : emptyRow(8);
+      <td class="muted" data-col="Fecha">${fdate(x.fecha)}</td>
+      <td class="wrap" data-col="Estudiante">${esc(x._alumno)}</td>
+      <td class="wrap" data-col="Programa">${esc(x._curso)}</td>
+      <td class="num" data-col="Monto"><b>${montoPagado(x)}</b></td>
+      <td data-col="Método">${esc(etiqueta(x.metodo))}</td>
+      <td data-col="Referencia">${esc(x.referencia||'—')}</td>
+      <td data-col="Conciliado">${x.conciliado?chip('Sí','ok'):chip('Pendiente','warn')}</td>
+      <td data-col=""><span class="acciones">
+        ${editable && !x.conciliado?`<button class="btn outline sm" data-conc="${x.id}">Conciliar</button>`:''}
+        <a class="btn ghost sm" href="estudiante.html?id=${x._e.profile_id}"
+           title="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined">visibility</span></a>
+      </span></td></tr>`).join('')
+      : emptyRow(8, 'No hay pagos registrados que coincidan.');
+    ponerTotales(['', '', 'Total en dólares', {num:true,html:money(suma(rows,enDolares))}, '', '', '', '']);
+    ordenable('#tabla', orden.pagos, render);
     $$('[data-conc]').forEach(b=>b.onclick=async()=>{
       await run(sb.from('cem_payments').update({conciliado:true}).eq('id',b.dataset.conc),'No se pudo conciliar');
       await audit('pago_conciliado','cem_payments',b.dataset.conc,'alto',{}); ok('Pago conciliado'); load();
     });
   }
 }
-['#q','#fEstado'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
-$('#btnClear').onclick=()=>{$('#q').value='';$('#fEstado').value='';render();};
+filtrosEnLaDireccion({ q:'#q', est:'#fEstado', desde:'#fDesde', hasta:'#fHasta', metodo:'#fMetodo' }, render);
+['#q','#fEstado','#fDesde','#fHasta','#fMetodo'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{
+  ['#q','#fEstado','#fDesde','#fHasta','#fMetodo'].forEach(s=>$(s).value='');
+  render();
+};
 $('#btnExport').onclick=()=>{
-  const rows = tab==='ins'? ens.map(r=>({estudiante:(r.cem_profiles?.nombre||'')+' '+(r.cem_profiles?.apellido||''),
+  /* Saca lo que se está viendo, no todo: antes exportaba la tabla entera
+     dijera lo que dijera el filtro, y no avisaba de cuántas filas iban a
+     salir — se abría el Excel para descubrirlo. */
+  const nombreHoja = { ins:'inscripciones', cuotas:'cuotas', pagos:'pagos' }[tab];
+  const hayFiltro = ['#q','#fEstado','#fDesde','#fHasta','#fMetodo'].some(s=>$(s).value);
+  let filas;
+  if (tab==='ins'){
+    filas = listaIns().map(r=>({ estudiante:r._alumno,
       email:r.cem_profiles?.email, programa:r.cem_courses?.nombre, cohorte:r.cem_cohorts?.nombre,
-      precio:r.precio_final, estado:r.estado, fecha:r.fecha_inscripcion}))
-    : tab==='cuotas'? insts : pays;
-  download(`${tab}_cem.csv`, toCSV(rows));
+      precio:r.precio_final, estado:etiqueta(r.estado), fecha:r.fecha_inscripcion }));
+  } else if (tab==='cuotas'){
+    filas = listaCuotas().map(i=>({ estudiante:i._alumno,
+      programa:i._curso, cuota:i.numero, monto:i.monto, saldo:i.saldo,
+      vence:i.fecha_vencimiento, estado:etiqueta(i.estado) }));
+  } else {
+    filas = listaPagos().map(x=>({ fecha:x.fecha, estudiante:x._alumno,
+      programa:x._curso, monto:x.monto, moneda:x.moneda, tasa:x.tasa,
+      en_dolares:enDolares(x), metodo:etiqueta(x.metodo), referencia:x.referencia,
+      conciliado:x.conciliado?'Sí':'No' }));
+  }
+  download(`${nombreHoja}_cem.csv`, toCSV(filas));
+  ok(`${filas.length} fila(s) exportadas${hayFiltro ? ' — las que deja ver el filtro' : ''}`);
 };
 
+/* ============ item 55 · la historia de una cuota ============
+   Si una cuota se pagó en dos veces se veía el saldo, pero no los dos pagos,
+   ni cuándo, ni quién los aprobó. Para reclamarle a alguien hacía falta eso. */
+async function historia(i){
+  if (!i) return;
+  const e = ens.find(x => x.id === i.enrollment_id);
+  const suyos = pays.filter(x => x.installment_id === i.id)
+    .sort((a,b) => String(a.fecha).localeCompare(String(b.fecha)));
+  const abonado = suyos.filter(x => x.estado === 'confirmado').reduce((a,x) => a + enDolares(x), 0);
+
+  // Quién registró cada pago: en la tabla sólo está el identificador.
+  const quienes = [...new Set(suyos.map(x => x.registrado_por).filter(Boolean))];
+  const nombre = {};
+  if (quienes.length) {
+    const { data } = await sb.from('cem_profiles').select('id,nombre,apellido,email').in('id', quienes);
+    (data||[]).forEach(x => nombre[x.id] = `${x.nombre||''} ${x.apellido||''}`.trim() || x.email);
+  }
+
+  modal({ title:`Cuota ${i.numero} · ${e?.cem_profiles?.nombre||''} ${e?.cem_profiles?.apellido||''}`.trim(), wide:true, body:`
+    <div class="row" style="gap:18px;flex-wrap:wrap;margin-bottom:12px">
+      <div><div class="tiny muted">De</div><div class="t"><b>${money(i.monto, i.moneda || MONEDA_BASE)}</b></div></div>
+      <div><div class="tiny muted">Abonado</div><div class="t"><b>${money(abonado)}</b>
+        <span class="tiny muted">en ${suyos.filter(x=>x.estado==='confirmado').length} pago(s)</span></div></div>
+      <div><div class="tiny muted">Queda debiendo</div><div class="t">${saldo(i.saldo)}</div></div>
+      <div><div class="tiny muted">Vence</div><div class="t">${fdate(i.fecha_vencimiento)}</div></div>
+      <div><div class="tiny muted">Estado</div><div class="t">${chipEstado(i.estado)}</div></div>
+    </div>
+    ${suyos.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Cuándo</th><th>Cómo</th><th>Referencia</th><th class="num">Cuánto</th><th>Estado</th><th>Quién lo registró</th></tr></thead>
+      <tbody>${suyos.map(x => `<tr>
+        <td class="tiny">${fdatetime(x.fecha)}</td>
+        <td>${esc(etiqueta(x.metodo||'—'))}</td>
+        <td class="tiny">${esc(x.referencia||'—')}</td>
+        <td class="num">${montoPagado(x)}</td>
+        <td>${chip(x.estado==='confirmado'?'Aprobado':x.estado==='rechazado'?'Rechazado':'Por revisar',
+                   x.estado==='confirmado'?'ok':x.estado==='rechazado'?'err':'warn')}</td>
+        <td class="tiny muted">${esc(nombre[x.registrado_por] || (x.conciliado ? 'El propio banco (conciliado)' : 'El estudiante'))}
+          ${x.nota ? `<div class="tiny">${esc(x.nota)}</div>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted tiny">Todavía no hay ningún pago contra esta cuota.</p>'}`,
+    footer:`<button class="btn outline" data-x>Cerrar</button>` });
+}
+
 function pagar(i){
+  const saldoCuota = Number(i.saldo || i.monto) || 0;
+  // El comprobante es una foto o un PDF que quien registra tiene delante, no una
+  // dirección web. Antes esta pantalla sólo aceptaba pegar un enlace, cuando el
+  // propio estudiante ya podía adjuntar el archivo desde la suya.
+  const comprobante = campoArchivo({
+    id:'pComp', tipo:'comprobante', subir: subirComprobante,
+    etiquetaSubir:'Adjuntar el comprobante', permitirEnlace:false,
+  });
+
   const m = modal({ title:`Registrar pago · cuota ${i.numero}`, body:`
-    <div class="row"><div class="field" style="flex:1;min-width:130px"><label>Monto *</label>
-      <input type="number" step="0.01" id="pMonto" value="${i.saldo||i.monto}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Método</label><select id="pMetodo">
-        <option>transferencia</option><option>zelle</option><option>paypal</option><option>binance</option>
-        <option>efectivo</option><option>pago movil</option><option>tarjeta</option></select></div></div>
-    <div class="field"><label>Referencia</label><input id="pRef"></div>
-    <div class="field"><label>Comprobante (URL)</label><input id="pComp"></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Registrar</button>` });
+    <p class="tiny muted" style="margin:-4px 0 12px">
+      Saldo de esta cuota: <b>${esc(money(saldoCuota, i.moneda || MONEDA_BASE))}</b></p>
+    <div class="row"><div class="field medio"><label>Monto *</label>
+      <input type="number" step="0.01" id="pMonto" value="${saldoCuota}" required>
+      <div class="tiny" id="pAviso"></div></div>
+      <div class="field medio"><label>Método</label>
+        <select id="pMetodo">${opciones(['transferencia','zelle','paypal','binance','efectivo','pago movil','tarjeta'])}</select></div></div>
+    <div class="field"><label>Referencia ${ayuda('El número con el que el banco identifica la operación. Es lo que permite comprobarla después contra el extracto.')}</label>
+      <input id="pRef" placeholder="Ej.: 004512873"></div>
+    <div class="field"><label>Comprobante</label>${comprobante.html}</div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Registrar el pago</button>` });
+
+  comprobante.conectar(m);
+  montarAyudas(m);
+  mejorarSelects(m);
+
+  // Un pago de 5.000 sobre una cuota de 100 casi siempre es un error de tecleo.
+  // El servidor ya lo avisa; aquí se ve mientras se escribe, que es cuando sirve.
+  const monto = $('#pMonto', m), aviso = $('#pAviso', m);
+  monto.addEventListener('input', () => {
+    const v = Number(monto.value) || 0;
+    aviso.className = 'tiny';
+    if (v > saldoCuota * 2 && saldoCuota > 0) {
+      aviso.className = 'tiny err-text';
+      aviso.textContent = `Es más del doble del saldo (${money(saldoCuota, i.moneda || MONEDA_BASE)}). Comprueba la cifra.`;
+    } else if (v > 0 && v < saldoCuota) {
+      aviso.textContent = `Abono parcial: quedarían ${money(saldoCuota - v, i.moneda || MONEDA_BASE)}.`;
+    } else aviso.textContent = '';
+  });
+
   $('[data-x]',m).onclick=m.close;
   $('[data-s]',m).onclick=async()=>{
-    await run(sb.rpc('cem_register_payment',{ p_installment_id:i.id, p_monto:Number($('#pMonto',m).value),
+    const v = Number(monto.value);
+    if (!(v > 0)) { fail('El monto tiene que ser mayor que cero.'); return; }
+    await run(sb.rpc('cem_register_payment',{ p_installment_id:i.id, p_monto:v,
       p_metodo:$('#pMetodo',m).value, p_referencia:$('#pRef',m).value.trim()||null,
-      p_comprobante:$('#pComp',m).value.trim()||null }),'No se pudo registrar');
-    m.close(); ok('Pago registrado'); load();
+      p_comprobante:comprobante.valor()||null }),'No se pudo registrar');
+    m.close();
+    /* item 39 · el aviso dice a quién y por cuánto, no sólo «guardado»: si se
+       registró en la fila equivocada, esto es lo que lo delata. */
+    const e = ens.find(x => x.id === i.enrollment_id);
+    const quien = `${e?.cem_profiles?.nombre||''} ${e?.cem_profiles?.apellido||''}`.trim();
+    ok(`Pago de ${money(v, i.moneda || MONEDA_BASE)} registrado a ${quien || 'el estudiante'} en la cuota ${i.numero}.`);
+    load();
   };
 }
 
+/* item 22 · esto empezaba con un desplegable de quinientos nombres y un campo
+   de descuento que no decía si era en euros o en porcentaje. Y sólo sabía
+   hacer una cosa: matricular a alguien de golpe, con sus cuotas ya emitidas,
+   sin haberle preguntado.
+
+   Ahora se busca a la persona escribiendo, el descuento se dice en la unidad
+   que uno quiera y debajo se ve el precio que queda, y hay dos formas de
+   terminar: matricular —cuando ya está hablado— o mandarle una invitación,
+   que es la misma oferta pero esperando su respuesta. */
 $('#btnNueva').onclick = async () => {
-  const [{data:est},{data:cursos},{data:cohs}] = await Promise.all([
-    sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre'),
-    sb.from('cem_courses').select('id,nombre,precio').eq('estado','publicado').order('nombre'),
+  const [{data:cursos},{data:cohs}] = await Promise.all([
+    sb.from('cem_courses').select('id,nombre,precio,moneda').eq('estado','publicado').order('nombre'),
     sb.from('cem_cohorts').select('id,nombre,course_id'),
   ]);
-  const m = modal({ title:'Nueva inscripción', body:`
-    <div class="field"><label>Estudiante *</label><select id="nEst">
-      ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>
-    <div class="field"><label>Programa *</label><select id="nCurso">
+
+  const quien = campoBuscar({
+    id:'nEst', etiqueta:'Estudiante *',
+    ayudaTexto:'Escribe el nombre, el apellido o el correo',
+    buscar: async (q) => {
+      const patron = `%${q.replace(/[%_]/g,'')}%`;
+      const { data } = await sb.from('cem_profiles')
+        .select('id,nombre,apellido,email,rol')
+        .or(`nombre.ilike.${patron},apellido.ilike.${patron},email.ilike.${patron}`)
+        .eq('activo', true).order('nombre').limit(8);
+      return (data||[]).map(x=>({ id:x.id,
+        titulo:`${x.nombre||''} ${x.apellido||''}`.trim() || x.email,
+        sub:`${x.email}${x.rol && x.rol!=='estudiante' ? ' · '+etiqueta(x.rol) : ''}` }));
+    },
+  });
+  const desc = campoDescuento({ id:'nDesc', precio: Number(cursos?.[0]?.precio)||0,
+                                moneda: cursos?.[0]?.moneda || MONEDA_BASE });
+
+  const m = modal({ title:'Inscribir o invitar', body:`
+    ${quien.html}
+    <div class="field"><label for="nCurso">Programa *</label><select id="nCurso" required>
       ${(cursos||[]).map(c=>`<option value="${c.id}" data-p="${c.precio}">${esc(c.nombre)}</option>`).join('')}</select></div>
-    <div class="field"><label>Cohorte</label><select id="nCoh"></select></div>
-    <div class="row"><div class="field" style="flex:1;min-width:120px"><label>Cuotas</label>
+    <div class="field"><label for="nCoh">Cohorte</label><select id="nCoh"></select></div>
+    <div class="row"><div class="field corto"><label for="nCuotas">Cuotas</label>
       <select id="nCuotas"><option value="1">Pago único</option><option value="3" selected>3</option><option value="6">6</option></select></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Descuento</label><input type="number" step="0.01" id="nDesc" value="0"></div></div>`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Crear inscripción</button>` });
-  const fill=()=>{ const cid=$('#nCurso',m).value;
-    $('#nCoh',m).innerHTML='<option value="">Sin cohorte</option>'+(cohs||[]).filter(c=>c.course_id===cid).map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join(''); };
-  fill(); $('#nCurso',m).onchange=fill;
-  $('[data-x]',m).onclick=m.close;
-  $('[data-s]',m).onclick=async()=>{
-    const precio=Number($('#nCurso',m).selectedOptions[0].dataset.p)||0, desc=Number($('#nDesc',m).value)||0;
-    const cuotas=Number($('#nCuotas',m).value)||1, final=Math.max(precio-desc,0);
-    const enr = await run(sb.from('cem_enrollments').insert({ profile_id:$('#nEst',m).value, course_id:$('#nCurso',m).value,
-      cohort_id:$('#nCoh',m).value||null, precio_lista:precio, descuento:desc, precio_final:final, estado:'pendiente' })
+      ${desc.html}</div>
+    <details class="card" id="nInvit" style="margin:var(--e2) 0 0">
+      <summary><span class="material-symbols-outlined">expand_more</span>
+        <b>Si prefieres invitarle en vez de matricularle</b></summary>
+      <div class="field"><label for="nMsg">Mensaje (opcional)</label>
+        <textarea id="nMsg" rows="2" placeholder="Por qué le viene bien este programa"></textarea></div>
+      <div class="field corto"><label for="nVence">La oferta vale hasta</label>
+        <input type="date" id="nVence"></div>
+      <p class="tiny muted">Le llega un aviso dentro de la plataforma y por correo. La
+        inscripción y las cuotas se crean cuando acepte, con este mismo precio.</p>
+    </details>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn outline" data-inv><span class="material-symbols-outlined">forward_to_inbox</span> Invitar</button>
+            <button class="btn" data-s>Matricular ya</button>` });
+
+  quien.conectar(m);
+  desc.conectar(m);
+
+  const cursoElegido = () => (cursos||[]).find(c => c.id === $('#nCurso',m).value);
+  /* El recargo del plan es el mismo que se le cobra a quien se inscribe solo.
+     Si aquí no se aplicara, matricular a mano sería una tarifa aparte. */
+  const factorPlan = (n) => n === 1 ? 0.9 : n === 6 ? 1.06 : 1;
+  const refrescar = () => {
+    const c = cursoElegido();
+    const cid = c?.id;
+    $('#nCoh',m).innerHTML = '<option value="">Sin cohorte</option>' +
+      (cohs||[]).filter(x=>x.course_id===cid).map(x=>`<option value="${x.id}">${esc(x.nombre)}</option>`).join('');
+    desc.fijarPrecio(Math.round((Number(c?.precio)||0) * factorPlan(Number($('#nCuotas',m).value)||1) * 100) / 100);
+  };
+  refrescar();
+  $('#nCurso',m).onchange = refrescar;
+  $('#nCuotas',m).onchange = refrescar;
+  $('[data-x]',m).onclick = m.close;
+
+  const validar = () => {
+    const r = quien.valor();
+    if (!r) { fail('Busca primero a la persona: escribe su nombre o su correo y elígela de la lista.'); return null; }
+    if (!$('#nCurso',m).value) { fail('Elige el programa.'); return null; }
+    return r;
+  };
+
+  $('[data-inv]',m).onclick = async () => {
+    const r = validar(); if (!r) return;
+    const inv = await run(sb.rpc('cem_invitar_a_curso', {
+      p_profile_id: r.id, p_course_id: $('#nCurso',m).value,
+      p_cohort_id: $('#nCoh',m).value || null,
+      p_descuento: desc.valor().descuento,
+      p_cuotas: Number($('#nCuotas',m).value) || 1,
+      p_mensaje: $('#nMsg',m).value.trim() || null,
+      p_vence: $('#nVence',m).value || null,
+    }), 'No se pudo mandar la invitación');
+    m.close();
+    ok(`Invitación enviada a ${r.titulo} por ${money(inv.precio_final, inv.moneda)}. Se inscribe cuando acepte.`);
+    load();
+  };
+
+  $('[data-s]',m).onclick = async () => {
+    const r = validar(); if (!r) return;
+    const c = cursoElegido();
+    const cuotas = Number($('#nCuotas',m).value) || 1;
+    const lista = Math.round((Number(c?.precio)||0) * factorPlan(cuotas) * 100) / 100;
+    const { descuento, final } = desc.valor();
+    const enr = await run(sb.from('cem_enrollments').insert({ profile_id:r.id, course_id:c.id,
+      cohort_id:$('#nCoh',m).value||null, precio_lista:lista, descuento, precio_final:final,
+      moneda: c?.moneda || MONEDA_BASE, estado:'pendiente' })
       .select().single(),'No se pudo crear');
-    const monto=Math.round((final/cuotas)*100)/100;
+    /* El mismo reparto exacto que usa la base: la última cuota absorbe el
+       céntimo del redondeo, o tres cuotas de 33,33 no suman los 100. */
+    const base = Math.round((final/cuotas)*100)/100;
+    const ultima = Math.round((final - base*(cuotas-1))*100)/100;
     await run(sb.from('cem_installments').insert(Array.from({length:cuotas},(_,k)=>({
-      enrollment_id:enr.id, numero:k+1, monto, saldo:monto,
+      enrollment_id:enr.id, numero:k+1, monto:k===cuotas-1?ultima:base, saldo:k===cuotas-1?ultima:base,
+      moneda: c?.moneda || MONEDA_BASE,
       fecha_vencimiento:new Date(Date.now()+k*30*86400000).toISOString().slice(0,10), estado:'pendiente'}))),'No se crearon las cuotas');
-    await audit('inscripcion_manual','cem_enrollments',enr.id,'medio',{});
-    m.close(); ok('Inscripción creada'); load();
+    await audit('inscripcion_manual','cem_enrollments',enr.id,'medio',{ estudiante:r.sub, total:final });
+    m.close(); ok(`${r.titulo} matriculado por ${money(final, c?.moneda || MONEDA_BASE)}.`); load();
   };
 };
 </script>

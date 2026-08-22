@@ -9,50 +9,131 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Auditoría y registro de actividad</h1><p>Monitoreo detallado de acciones del sistema y cambios críticos.</p></div>
+    <div><h1>Auditoría y registro de actividad <button type="button" class="ayuda-btn" data-ayuda="Se guarda solo: cada acción importante deja su rastro con quién, qué y cuándo. No se puede borrar ni editar desde aquí.">?</button></h1><p>Quién hizo qué y cuándo. Sirve para reconstruir lo que pasó cuando algo no cuadra: un pago, una nota o un certificado.</p></div>
     <div class="actions"><button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar CSV</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
+  <div id="alertas"></div>
+  <div class="grid graficos" id="graficos"></div>
   <div class="card">
     <div class="filters">
       <div class="field grow"><label>Buscar</label><input type="search" id="q" placeholder="Acción, entidad o usuario…"></div>
-      <div class="field"><label>Desde</label><input type="date" id="fDesde"></div>
-      <div class="field"><label>Hasta</label><input type="date" id="fHasta"></div>
-      <div class="field"><label>Usuario</label><select id="fUser"><option value="">Todos</option></select></div>
-      <div class="field"><label>Nivel de riesgo</label><select id="fRiesgo"><option value="">Todos</option>
-        <option value="alto">Alto (crítico)</option><option value="medio">Medio</option><option value="bajo">Bajo</option></select></div>
-      <button class="btn ghost" id="btnClear">Limpiar</button>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
+    <details class="filtros-plegables" id="masFiltros">
+      <summary><span class="material-symbols-outlined">tune</span> Filtrar por fecha, persona, riesgo o tipo
+        <span class="chip neutral" id="nFiltros" hidden></span></summary>
+      <div class="filters">
+        <div class="field"><label>Desde</label><input type="date" id="fDesde"></div>
+        <div class="field"><label>Hasta</label><input type="date" id="fHasta"></div>
+        <div class="field"><label>Usuario</label><select id="fUser"><option value="">Todos</option></select></div>
+        <div class="field"><label>Nivel de riesgo</label><select id="fRiesgo"><option value="">Todos</option>
+        <option value="alto">Alto (crítico)</option><option value="medio">Medio</option><option value="bajo">Bajo</option></select></div>
+        <div class="field grow"><label>Tipo de acción</label><select id="fAccion"><option value="">Todas</option></select></div>
+      </div>
+    </details>
     <div class="table-wrap"><table>
       <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Riesgo</th><th>Detalle</th></tr></thead>
       <tbody id="tb"></tbody></table></div>
     <div class="row" style="justify-content:center;margin-top:12px">
       <button class="btn outline sm" id="btnMas">Cargar más</button>
     </div>
-    <p class="tiny muted" style="margin-top:12px">
+    <p class="tiny muted sep">
       El registro de auditoría es inalterable: no existe ninguna función en el sistema que permita
       editar o borrar estos eventos.</p>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdatetime, emptyRow, match, kpi, modal, toCSV, download } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, fdatetime, emptyRow, match, kpi, modal, toCSV, download, base } from '../assets/app.js?v=2026-08-21-53';
+import { apiladas, barras } from '../assets/graficos.js?v=2026-08-21-53';
+
+/* ============ el registro visto de lejos ============
+   Un pico de eventos de riesgo alto un martes a las once de la noche es
+   exactamente lo que un registro de auditoría existe para enseñar, y en una
+   tabla de mil filas no se ve. */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  if (!host) return;
+  const { data: g, error } = await sb.rpc('cem_series_gobierno', { p_dias: 30 });
+  if (error){ host.innerHTML = ''; return; }
+  host.innerHTML = `
+    <div class="card">${apiladas({
+      titulo: 'Qué pasó cada día, y con cuánto riesgo',
+      pie: 'Treinta días. Lo que se busca no es el volumen sino la forma: un día que rompe el patrón. Pulsa uno para ver su registro.',
+      periodos: (g.eventos || []).map(d => ({ ...d, href: `?desde=${d.clave}&hasta=${d.clave}` })),
+      series: [
+        { clave: 'alto', etq: 'Riesgo alto', tono: 'err' },
+        { clave: 'medio', etq: 'Medio', tono: 'warn' },
+        { clave: 'bajo', etq: 'Bajo', tono: 'gris' },
+      ] })}</div>
+
+    <div class="card">${barras({
+      titulo: 'Quién hizo acciones sensibles', col: 'Persona', colN: 'Acciones', tope: 8,
+      pie: 'No es para vigilar a nadie: es para notar cuando una cuenta empieza a hacer diez veces lo que hacía.',
+      datos: (g.actores || []).map(x => ({ ...x, n: Number(x.n),
+        href: x.id ? `usuarios.html?id=${x.id}` : null })) })}</div>`;
+}
+/* ============ lo que no debería pasar (mejora 37) ============
+   Un pago aprobado y anulado el mismo día, un certificado emitido saltándose
+   los requisitos, la cuenta de cobro cambiada, un rol repartido. Las cuatro
+   cosas ya se registraban; el problema era que quedaban enterradas entre
+   ochocientas líneas cronológicas, y nadie va a buscar lo que no sabe que
+   ocurrió. Aquí salen arriba y solas.
+
+   Van también por aviso a auditoría y dirección todos los días, así que esta
+   tarjeta es el sitio donde se comprueban, no el sitio donde se descubren. */
+async function pintarAlertas(){
+  const host = $('#alertas');
+  const { data, error } = await sb.rpc('cem_alertas_gobierno', { p_dias: 30 });
+  if (error || !host) return;
+  const lista = data || [];
+  if (!lista.length){
+    host.innerHTML = `<div class="card nota ok">
+      <b>Nada raro en los últimos treinta días.</b>
+      <span class="tiny">Se vigilan cuatro cosas: pagos aprobados y anulados el mismo día,
+      certificados emitidos como excepción, cambios en la cuenta a la que se cobra
+      y cambios de rol.</span></div>`;
+    return;
+  }
+  // Si se llega desde el aviso, esa alerta viene señalada.
+  const señalada = new URLSearchParams(location.search).get('alerta');
+  host.innerHTML = `<div class="card">
+    <div class="card-head"><h3>Revisar: ${lista.length} ${lista.length===1?'cosa':'cosas'} fuera de lo normal</h3>
+      <span class="tiny muted">Últimos 30 días</span></div>
+    <div class="avisos">${lista.map(a=>`
+      <a class="aviso${a.clave===señalada?' nuevo':''}" href="${esc(base() + a.url)}">
+        <b>${esc(a.titulo)}</b>
+        <span>${esc(a.detalle)}</span>
+        <em>${fdatetime(a.cuando)} · ${esc(a.actor)}</em>
+      </a>`).join('')}</div></div>`;
+}
+
 const p = await mount({ require:['admin','superadmin','auditor'], active:'auditoria.html', area:'admin' });
 let rows=[], limite=100;
-if (p) load();
+if (p) { load(); pintarGraficos(); pintarAlertas(); }
 
 async function load(){
   const { data } = await sb.from('cem_audit_events').select('*').order('created_at',{ascending:false}).limit(limite);
   rows = data||[];
-  const { data: ps } = await sb.from('cem_profiles').select('id,nombre,apellido,email');
+  const { data: ps } = await sb.from('cem_profiles').select('id,nombre,apellido,email').limit(500);
   const users = [...new Map((rows.map(r=>r.actor_id).filter(Boolean))
     .map(id=>[id,(ps||[]).find(x=>x.id===id)]).filter(([,v])=>v)).values()];
   $('#fUser').innerHTML = '<option value="">Todos</option>' +
     users.map(u=>`<option value="${u.id}">${esc(u.nombre)} ${esc(u.apellido||'')}</option>`).join('');
+  /* Así se investiga de verdad: «enséñame todas las anulaciones de pago».
+     Las opciones salen de lo que hay, no de una lista escrita a mano que se
+     queda corta en cuanto alguien añade una acción nueva. */
+  const antes = $('#fAccion').value;
+  const acciones = [...new Set(rows.map(r=>r.accion).filter(Boolean))].sort();
+  $('#fAccion').innerHTML = '<option value="">Todas</option>' +
+    acciones.map(a=>`<option value="${esc(a)}">${esc(String(a).replace(/_/g,' '))}</option>`).join('');
+  if (acciones.includes(antes)) $('#fAccion').value = antes;
+  aplicarFiltrosDeLaDireccion();
   const hoy = new Date().toISOString().slice(0,10);
   $('#kpis').innerHTML = [
     kpi('Eventos registrados', num(rows.length),'history', limite>=rows.length?'todos':'últimos '+limite),
@@ -63,13 +144,39 @@ async function load(){
   render();
 }
 
+/* Pulsar un día en el gráfico enlazaba a `?desde=…&hasta=…` y aquí no lo leía
+   nadie: la tabla seguía enseñando los cien últimos eventos como si no se
+   hubiera pulsado nada. Se aplica una sola vez, al cargar, y se abren los
+   filtros plegados para que se vea de dónde sale lo que está en pantalla. */
+let filtrosAplicados = false;
+function aplicarFiltrosDeLaDireccion(){
+  if (filtrosAplicados) return;
+  filtrosAplicados = true;
+  const u = new URLSearchParams(location.search);
+  const puestos = [['desde','#fDesde'],['hasta','#fHasta'],['riesgo','#fRiesgo'],['accion','#fAccion']]
+    .filter(([clave, sel]) => { const v = u.get(clave); if (!v) return false; $(sel).value = v; return true; });
+  if (puestos.length) $('#masFiltros').open = true;
+}
+
+/* item 17 · los filtros secundarios están plegados; esto dice cuántos hay
+   puestos para no tener que abrirlos a mirar. */
+function contarFiltros(valores){
+  const n = valores.filter(Boolean).length;
+  const señal = $('#nFiltros');
+  if (!señal) return;
+  señal.hidden = !n;
+  señal.textContent = n;
+}
+
 function render(){
   const q=$('#q').value.trim(), d=$('#fDesde').value, h=$('#fHasta').value,
-    u=$('#fUser').value, ri=$('#fRiesgo').value;
+    u=$('#fUser').value, ri=$('#fRiesgo').value, ac=$('#fAccion').value;
+  contarFiltros([d,h,u,ri,ac]);
   const list = rows.filter(r=>{
     if (q && !match(r,q,['accion','entidad','actor_email'])) return false;
     if (u && r.actor_id!==u) return false;
     if (ri && r.riesgo!==ri) return false;
+    if (ac && r.accion!==ac) return false;
     const f = String(r.created_at).slice(0,10);
     if (d && f<d) return false;
     if (h && f>h) return false;
@@ -81,14 +188,14 @@ function render(){
     <td><b>${esc(String(r.accion).replace(/_/g,' '))}</b></td>
     <td>${esc(r.entidad||'—')}</td>
     <td>${chip(r.riesgo, r.riesgo==='alto'?'err':r.riesgo==='medio'?'warn':'neutral')}</td>
-    <td>${Object.keys(r.detalle||{}).length? `<button class="btn ghost sm" data-v='${esc(JSON.stringify(r.detalle))}'>
+    <td>${Object.keys(r.detalle||{}).length? `<button class="btn ghost sm" data-v='${esc(JSON.stringify(r.detalle))}' title="Ver el detalle del evento">
       <span class="material-symbols-outlined">data_object</span></button>` : '<span class="muted tiny">—</span>'}</td>
     </tr>`).join('') : emptyRow(6,'No hay eventos que coincidan con los filtros.');
   $$('[data-v]').forEach(b=>b.onclick=()=>modal({ title:'Detalle del evento',
     body:`<pre class="tiny" style="white-space:pre-wrap;background:var(--surface-container);padding:12px;border-radius:9px">${esc(JSON.stringify(JSON.parse(b.dataset.v),null,2))}</pre>` }));
 }
-['#q','#fDesde','#fHasta','#fUser','#fRiesgo'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
-$('#btnClear').onclick=()=>{['#q','#fDesde','#fHasta','#fUser','#fRiesgo'].forEach(s=>$(s).value=''); render();};
+['#q','#fDesde','#fHasta','#fUser','#fRiesgo','#fAccion'].forEach(s=>{const el=$(s); el.oninput=render; el.onchange=render;});
+$('#btnClear').onclick=()=>{['#q','#fDesde','#fHasta','#fUser','#fRiesgo','#fAccion'].forEach(s=>$(s).value=''); render();};
 $('#btnMas').onclick=()=>{ limite+=200; load(); };
 $('#btnExport').onclick=()=>download('auditoria_cem.csv', toCSV(rows.map(r=>({
   fecha:r.created_at, usuario:r.actor_email, accion:r.accion, entidad:r.entidad,

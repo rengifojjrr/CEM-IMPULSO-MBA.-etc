@@ -9,26 +9,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
-  .sup{display:grid;grid-template-columns:minmax(250px,340px) minmax(0,1fr);gap:16px;align-items:start;}
+  .sup{display:grid;grid-template-columns:minmax(250px,340px) minmax(0,1fr);gap:var(--aire);align-items:start;}
   @media(max-width:900px){ .sup{grid-template-columns:1fr;} }
-  .tk{display:flex;gap:10px;padding:11px;border-radius:9px;cursor:pointer;}
-  .tk:hover{background:var(--surface-container);}
+  .tk{display:flex;gap:10px;padding:11px;border-radius:var(--r);cursor:pointer;}
+  .tk:hover{background:var(--hueco);}
   .tk.on{background:var(--secondary-container);}
-  .msg{padding:10px 12px;border-radius:10px;margin-bottom:8px;max-width:82%;}
-  .msg.in{background:var(--surface-container);}
-  .msg.out{background:var(--primary-fixed);margin-left:auto;}
+  .msg{padding:10px 12px;border-radius:var(--r);margin-bottom:8px;max-width:82%;}
+  .msg.in{background:var(--hueco);}
+  .msg.out{background:var(--primary-suave);margin-left:auto;}
   .msg.interno{background:var(--warn-container);}
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Centro de soporte</h1><p>Gestiona y resuelve las consultas de estudiantes.</p></div>
+    <div><h1>Centro de soporte <button type="button" class="ayuda-btn" data-ayuda="Consultas que abren los estudiantes desde su panel. Lo que respondas aquí les llega como aviso y queda en el hilo.">?</button></h1><p>Gestiona y resuelve las consultas de estudiantes.</p></div>
     <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">add</span> Nuevo ticket</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
+  <div class="grid graficos" id="graficos"></div>
   <div class="sup">
     <div class="card" style="max-height:78vh;overflow:auto">
       <div class="filters" style="margin-bottom:8px">
@@ -41,16 +42,32 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdatetime, kpi, match, initials, modal, ok, run, audit } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, fdatetime, kpi, match, initials, modal, ok, run, audit, opciones, chipEstado} from '../assets/app.js?v=2026-08-21-53';
+import { barras } from '../assets/graficos.js?v=2026-08-21-53';
+
+/* Mismo criterio que la deuda: un ticket de ocho días ya no es un ticket, es
+   alguien que se fue. */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  if (!host) return;
+  const { data: g, error } = await sb.rpc('cem_series_gobierno', { p_dias: 30 });
+  if (error){ host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="card" style="grid-column:1/-1">${barras({
+    titulo: 'Cuánto llevan esperando los tickets abiertos', ordenar: false,
+    col: 'Antigüedad', colN: 'Tickets',
+    pie: 'De arriba abajo, de lo recién llegado a lo que lleva demasiado. La barra de abajo es la que hay que vaciar hoy.',
+    datos: (g.tickets || []).map(t => ({ ...t, n: Number(t.n), href: `?edad=${t.clave}` })),
+    marcar: (d) => /Más de una semana/.test(d.etq) ? 'err' : /3 a 7/.test(d.etq) ? 'warn' : 'ok' })}</div>`;
+}
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'soporte.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let tickets=[], sel=null, fEstado='', staff=[];
-if (p) load();
+if (p) { load(); pintarGraficos(); }
 
 async function load(){
   const [{data},{data:st}] = await Promise.all([
-    sb.from('cem_tickets').select('*,cem_profiles!cem_tickets_profile_id_fkey(nombre,apellido,email)').order('actualizado_en',{ascending:false}),
-    sb.from('cem_profiles').select('id,nombre,apellido').in('rol',['coordinador','admin','superadmin']),
+    sb.from('cem_tickets').select('*,cem_profiles!cem_tickets_profile_id_fkey(nombre,apellido,email)').order('actualizado_en',{ascending:false}).limit(500),
+    sb.from('cem_profiles').select('id,nombre,apellido').in('rol',['coordinador','admin','superadmin']).limit(500),
   ]);
   tickets=data||[]; staff=st||[];
   $('#kpis').innerHTML = [
@@ -72,10 +89,10 @@ function render(){
   $('#lista').innerHTML = list.length ? list.map(t=>`
     <div class="tk ${sel?.id===t.id?'on':''}" data-t="${t.id}">
       <span class="avatar">${initials(t.cem_profiles?.nombre,t.cem_profiles?.apellido)}</span>
-      <div style="flex:1;min-width:0">
+      <div class="crece">
         <div style="font-weight:600;font-size:13px">${esc(t.asunto)}</div>
         <div class="tiny muted">${esc(t.codigo||'')} · ${esc((t.cem_profiles?.nombre||'')+' '+(t.cem_profiles?.apellido||''))}</div>
-        <div class="row" style="gap:5px;margin-top:4px">${chip(t.estado)}${chip(t.prioridad)}</div>
+        <div class="row" style="gap:5px;margin-top:4px">${chipEstado(t.estado)}${chipEstado(t.prioridad)}</div>
       </div></div>`).join('') : '<p class="muted tiny">Sin tickets.</p>';
   $$('[data-t]').forEach(el=>el.onclick=()=>{ sel=tickets.find(t=>t.id===el.dataset.t); render(); });
   detalle();
@@ -89,19 +106,19 @@ async function detalle(){
     <h3>Selecciona un ticket</h3><p class="muted tiny">Elige un ticket de la lista para ver la conversación.</p></div>`; return; }
   const t=sel;
   const { data: msgs } = await sb.from('cem_ticket_messages').select('*,cem_profiles(nombre,apellido,rol)')
-    .eq('ticket_id',t.id).order('created_at');
+    .eq('ticket_id',t.id).order('created_at').limit(500);
   D.innerHTML = `<div class="card">
     <div class="row between">
       <div><h2 class="sec" style="margin:0 0 3px">${esc(t.asunto)}</h2>
         <div class="tiny muted">${esc(t.codigo||'')} · ${esc((t.cem_profiles?.nombre||'')+' '+(t.cem_profiles?.apellido||''))}
           · ${esc(t.cem_profiles?.email||'')}</div></div>
-      <div class="row">${chip(t.estado)}${chip(t.prioridad)}${chip(t.categoria,'neutral')}</div>
+      <div class="row">${chipEstado(t.estado)}${chipEstado(t.prioridad)}${chip(t.categoria,'neutral')}</div>
     </div>
-    ${puede? `<div class="row" style="margin-top:12px">
+    ${puede? `<div class="row sep">
       <div class="field" style="margin:0;flex:1;min-width:140px"><label class="tiny">Estado</label><select id="sEstado">
-        ${['abierto','en_proceso','esperando','resuelto','cerrado'].map(v=>`<option ${t.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['abierto','en_proceso','esperando','resuelto','cerrado'], t.estado)}</select></div>
       <div class="field" style="margin:0;flex:1;min-width:140px"><label class="tiny">Prioridad</label><select id="sPrio">
-        ${['baja','media','alta','urgente'].map(v=>`<option ${t.prioridad===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        ${opciones(['baja','media','alta','urgente'], t.prioridad)}</select></div>
       <div class="field" style="margin:0;flex:1;min-width:160px"><label class="tiny">Asignado a</label><select id="sAsig">
         <option value="">Sin asignar</option>
         ${staff.map(s=>`<option value="${s.id}" ${t.asignado_a===s.id?'selected':''}>${esc(s.nombre)} ${esc(s.apellido||'')}</option>`).join('')}</select></div>
@@ -112,9 +129,9 @@ async function detalle(){
       <b class="tiny">Descripción original</b>
       <p class="tiny" style="margin:6px 0 0;white-space:pre-wrap">${esc(t.descripcion||'')}</p></div>
 
-    <div style="margin-top:14px">
+    <div class="sep">
       ${(msgs||[]).map(m=>`<div class="msg ${m.interno?'interno':(m.cem_profiles?.rol==='estudiante'?'in':'out')}">
-        <div class="tiny" style="font-weight:700">${esc((m.cem_profiles?.nombre||'')+' '+(m.cem_profiles?.apellido||''))}
+        <div class="tiny negrita">${esc((m.cem_profiles?.nombre||'')+' '+(m.cem_profiles?.apellido||''))}
           ${m.interno?'<span class="chip warn">nota interna</span>':''}</div>
         <div style="white-space:pre-wrap">${esc(m.cuerpo)}</div>
         <div class="tiny muted" style="margin-top:3px">${fdatetime(m.created_at)}</div></div>`).join('')
@@ -145,15 +162,15 @@ async function detalle(){
 }
 
 $('#btnNuevo').onclick = async () => {
-  const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre');
+  const { data: est } = await sb.from('cem_profiles').select('id,nombre,apellido,email').eq('rol','estudiante').order('nombre').limit(500);
   const m = modal({ title:'Nuevo ticket', body:`
-    <div class="field"><label>Estudiante *</label><select id="nE">
+    <div class="field"><label>Estudiante *</label><select id="nE" required>
       ${(est||[]).map(e=>`<option value="${e.id}">${esc(e.nombre)} ${esc(e.apellido||'')} — ${esc(e.email)}</option>`).join('')}</select></div>
-    <div class="field"><label>Asunto *</label><input id="nA"></div>
+    <div class="field"><label>Asunto *</label><input id="nA" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Categoría</label><select id="nC">
-        ${['acceso','contenido','pagos','certificados','general'].map(v=>`<option>${v}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:140px"><label>Prioridad</label><select id="nP">
+      <div class="field medio"><label>Categoría</label><select id="nC">
+        ${opciones(['acceso','contenido','pagos','certificados','general'])}</select></div>
+      <div class="field medio"><label>Prioridad</label><select id="nP">
         ${['baja','media','alta','urgente'].map(v=>`<option ${v==='media'?'selected':''}>${v}</option>`).join('')}</select></div>
     </div>
     <div class="field"><label>Descripción</label><textarea id="nD"></textarea></div>`,

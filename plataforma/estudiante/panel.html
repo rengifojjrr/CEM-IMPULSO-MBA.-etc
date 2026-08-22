@@ -9,48 +9,114 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
-  <div class="page-head"><div><h1 id="saludo">Hola</h1><p>Este es el resumen de tu actividad académica.</p></div></div>
+  <!-- ── El orden de esta pantalla ────────────────────────────────────────
+       Antes empezaba con cuatro cifras, dos gráficos y la próxima clase, y los
+       cursos quedaban a media pantalla de distancia. Pero un estudiante entra
+       aquí a hacer una cosa: seguir por donde iba. Las cifras y el avance
+       importan —no se quitan— pero importan DESPUÉS, cuando ya se decidió qué
+       abrir; puestas primero convierten «continuar mi curso» en algo que hay
+       que buscar.
 
-  <div class="card" id="proxima" style="background:linear-gradient(120deg,#00122b,#1f3a5f);color:#fff;border:none"></div>
+       Así que los cursos van arriba, y el resumen debajo y plegado. Plegado y
+       no escondido: se abre de un clic y recuerda si se dejó abierto. -->
+  <div class="page-head"><div><h1 id="saludo">Hola</h1>
+    <p>Sigue por donde ibas. Abajo tienes tu avance y tus pagos.</p></div></div>
 
-  <div class="kpis" id="kpis"></div>
+  <!-- La bienvenida sólo existe el primer día (mejora 2). Alguien que acaba de
+       pagar entra a un panel con cursos, cifras y un temario y tiene que
+       deducir por dónde empezar; ahí es donde se pierde la mitad de la gente
+       que ya pagó. -->
+  <div id="bienvenida"></div>
 
-  <h2 class="sec" style="margin-top:20px">Cursos activos</h2>
-  <div class="grid g2" id="cursos"></div>
+  <!-- item 22 · antes, «meterte a otro curso» era una inscripción que aparecía
+       en tu panel sin que nadie te la hubiera propuesto, con sus cuotas ya
+       emitidas. Aquí la oferta está a la vista, con su precio, y no pasa nada
+       hasta que la contestes. -->
+  <div id="invitaciones"></div>
 
-  <div class="grid g2" style="margin-top:16px">
-    <div class="card"><h2 class="sec">Mis evaluaciones</h2><div id="entregas"></div></div>
-    <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
-  </div>
+  <div class="card" id="proxima" style="background:linear-gradient(120deg,color-mix(in oklab, var(--primary) 88%, #000),color-mix(in oklab, var(--primary) 62%, var(--secondary)));color:var(--on-primary);border:none"></div>
+
+  <h2 class="sec">Mis cursos</h2>
+  <div class="grid g2 tarjetas-elevables" id="cursos"></div>
+
+  <details class="filtros-plegables bloque sep-mucho" id="resumen">
+    <summary><span class="material-symbols-outlined">insights</span>
+      Mi avance, mis notas y mis pagos</summary>
+
+    <div class="kpis" id="kpis"></div>
+
+    <!-- Aquí un gráfico no es para analizar: es para dar ganas de seguir. -->
+    <div class="grid graficos" id="graficos"></div>
+
+    <!-- "Así voy": antes se veían los cursos y las evaluaciones sueltas, pero
+         en ninguna parte el promedio ni qué faltaba por presentar. -->
+    <div class="card">
+      <div class="row between"><h2 class="sec">Cómo voy</h2>
+        <span class="tiny muted">promedio, entregas y lo que falta</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Programa</th><th>Avance</th><th>Promedio</th>
+          <th>Evaluaciones</th><th>Lo próximo</th></tr></thead>
+        <tbody id="tbDesempeno"></tbody></table></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card"><h2 class="sec">Mis evaluaciones</h2><div id="entregas"></div></div>
+      <div class="card"><h2 class="sec">Mis pagos</h2><div id="pagos"></div></div>
+    </div>
+  </details>
 
   <div class="card"><h2 class="sec">Anuncios</h2><div id="anuncios"></div></div>
 </div>
 <script type="module">
-import { sb, mount, $, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, kpi, num, emptyRow, chipEstado,
+         chipNota, vacio, etiqueta, confirmDialog, ok, avisar, mensajeError } from '../assets/app.js?v=2026-08-21-53';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-21-53';
 const p = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+
+/* El resumen arranca plegado, pero si alguien lo abre se queda abierto la
+   próxima vez. Quien mira sus notas todos los días no tiene que abrirlo cada
+   día, y quien sólo entra a ver clase no lo tiene estorbando. */
+const RESUMEN_ABIERTO = 'cemPanelResumen';
+const resumen = $('#resumen');
+if (resumen) {
+  resumen.open = localStorage.getItem(RESUMEN_ABIERTO) === '1';
+  resumen.addEventListener('toggle', () => {
+    localStorage.setItem(RESUMEN_ABIERTO, resumen.open ? '1' : '0');
+  });
+}
+
 if (p) init();
 
 async function init(){
   $('#saludo').textContent = `Hola, ${p.nombre}`;
   const { data: ens } = await sb.from('cem_enrollments')
-    .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)').eq('profile_id',p.id);
+    .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)')
+    .eq('profile_id',p.id).neq('estado','cancelada').limit(500);
   const eids = (ens||[]).map(e=>e.id), cohIds=(ens||[]).map(e=>e.cohort_id).filter(Boolean);
 
   const cIds = (ens||[]).map(e=>e.course_id).filter(Boolean);
   const [{data:clases},{data:insts},{data:subs},{data:anuncios},{data:certs},{data:evals}] = await Promise.all([
     cohIds.length? sb.from('cem_classes').select('*,cem_cohorts(nombre,cem_courses(nombre))').in('cohort_id',cohIds)
       .gte('fecha',new Date().toISOString().slice(0,10)).order('fecha').limit(5) : Promise.resolve({data:[]}),
-    eids.length? sb.from('cem_installments').select('*').in('enrollment_id',eids).order('fecha_vencimiento') : Promise.resolve({data:[]}),
-    eids.length? sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,course_id)').in('enrollment_id',eids) : Promise.resolve({data:[]}),
+    eids.length? sb.from('cem_installments').select('*').in('enrollment_id',eids).order('fecha_vencimiento').limit(500) : Promise.resolve({data:[]}),
+    eids.length? sb.from('cem_submissions').select('*,cem_assessments(nombre,tipo,course_id)').in('enrollment_id',eids).limit(500) : Promise.resolve({data:[]}),
     sb.from('cem_announcements').select('*').eq('estado','enviado').order('enviado_en',{ascending:false}).limit(4),
-    sb.from('cem_certificates').select('id').eq('profile_id',p.id),
-    cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria')
+    sb.from('cem_certificates').select('id').eq('profile_id',p.id).limit(500),
+    cIds.length? sb.from('cem_assessments').select('id,nombre,tipo,course_id,intentos,nota_aprobatoria,puntaje_max')
       .in('course_id',cIds).eq('estado','publicado') : Promise.resolve({data:[]}),
   ]);
+
+  /* Qué inscripciones están abiertas y cuáles esperan el primer pago. Se
+     pregunta al servidor y no se deduce del estado, porque la regla —gratis,
+     ya pagó, ya terminó— vive en cem_acceso_abierto() y sólo hay una. */
+  const { data: acceso } = await sb.rpc('cem_mi_acceso');
+  const puertas = acceso || {};
+
+  pintarGraficos(ens || []);
 
   const prog = ens?.length? ens.reduce((a,e)=>a+Number(e.progreso||0),0)/ens.length : 0;
   const saldo = (insts||[]).filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
@@ -74,24 +140,71 @@ async function init(){
     </div>` : `<div class="row" style="gap:12px"><span class="material-symbols-outlined">event_available</span>
       <div>No tienes clases programadas próximamente.</div></div>`;
 
+  /* Un número del 0 al 100 estable a partir del nombre: el mismo curso saca
+     siempre la misma tapa, y dos cursos distintos casi nunca la misma. Sirve
+     sólo cuando no hay foto. */
+  const mezcla = (txt) => {
+    let h = 0;
+    for (const c of String(txt)) h = (h * 31 + c.charCodeAt(0)) % 1000;
+    return 20 + (h % 65);
+  };
   $('#cursos').innerHTML = (ens||[]).length ? ens.map(e=>`
-    <div class="card" style="margin:0">
+    <div class="card con-portada sin-margen">
+      ${e.cem_courses?.imagen_url
+        ? `<img class="portada" src="${esc(e.cem_courses.imagen_url)}" alt=""
+             loading="lazy" onerror="this.remove()">`
+        : `<div class="portada portada-vacia" aria-hidden="true"
+             style="--mezcla:${mezcla(e.cem_courses?.nombre||'')}"
+             >${esc((e.cem_courses?.nombre||'?').trim()[0].toUpperCase())}</div>`}
+      <div class="dentro">
       <div class="row between" style="align-items:flex-start">
-        <div style="flex:1;min-width:0">
-          <span class="chip teal">${esc(e.cem_courses?.modalidad?.replace('_',' ')||'')}</span>
-          <h3 style="margin:8px 0 4px;font-size:16px">${esc(e.cem_courses?.nombre||'')}</h3>
+        <div class="crece">
+          <span class="chip teal">${esc(etiqueta(e.cem_courses?.modalidad||''))}</span>
+          <h3 class="tit-tarjeta">${esc(e.cem_courses?.nombre||'')}</h3>
           <div class="tiny muted">${esc(e.cem_cohorts?.nombre||'Sin cohorte')}</div>
-        </div>${chip(e.estado)}
+        </div>${chipEstado(e.estado)}
       </div>
-      <div style="margin-top:12px">
+      <div class="sep">
         <div class="row between tiny muted"><span>Progreso general</span><b>${pct(e.progreso)}</b></div>
         ${bar(e.progreso)}
       </div>
-      <div class="row" style="margin-top:12px">
-        <a class="btn sm" href="clase.html?curso=${e.cem_courses?.id}">Continuar</a>
-        <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>
+      <!-- Qué falta para el certificado y cómo va contra el grupo. Se rellena
+           después de pintar: son dos preguntas al servidor por curso y no
+           merecen retrasar la pantalla entera. -->
+      <div class="pistas" data-pista="${e.id}"></div>
+      <div class="row sep">
+        ${puertas[e.id]?.abierto === false
+          ? `<a class="btn abrir-curso" href="pagos.html?enr=${e.id}">
+               <span class="material-symbols-outlined">lock_open</span> Pagar para empezar</a>
+             <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`
+          : `<a class="btn abrir-curso" href="clase.html?curso=${e.cem_courses?.id}">
+               <span class="material-symbols-outlined">play_arrow</span> Continuar</a>
+             <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`}
       </div>
-    </div>`).join('') : '<div class="card"><p class="muted">Aún no tienes cursos. <a href="catalogo.html">Explora el catálogo</a>.</p></div>';
+      ${puertas[e.id]?.abierto === false ? `<p class="tiny muted sep-poco">
+        El acceso se abre en cuanto se confirme tu primer pago${
+          puertas[e.id]?.primeraCuota ? ` de ${money(puertas[e.id].primeraCuota, puertas[e.id].moneda)}` : ''}.
+        <button class="enlace" data-baja="${e.id}"
+          data-curso="${esc(e.cem_courses?.nombre||'el programa')}">Ya no me interesa</button></p>` : ''}
+      </div>
+    </div>`).join('') : `<div class="card sin-margen">${vacio({ icono:'school', titulo:'Todavía no estás inscrito en ningún programa',
+        texto:'Cuando te inscribas, aquí verás tu avance y por dónde ibas.',
+        accion:{ texto:'Ver el catálogo', href:'catalogo.html' } })}</div>`;
+
+  /* Darse de baja de lo que nunca se llegó a pagar. Sin esto, quien se inscribe
+     por curiosidad se queda la tarjeta de «Pagar para empezar» encima para
+     siempre, y a la escuela le queda una cuota fantasma en la cartera. */
+  $$('[data-baja]').forEach(b=>b.onclick = async () => {
+    const curso = b.dataset.curso;
+    if (!await confirmDialog(
+      `¿Cancelar tu inscripción en «${curso}»? No has pagado nada, así que no se cobra ` +
+      'ni se devuelve nada, y puedes volver a inscribirte cuando quieras.',
+      'Cancelar inscripción')) return;
+    const { error } = await sb.rpc('cem_cancelar_inscripcion', { p_enrollment_id: b.dataset.baja });
+    if (error) { avisar(mensajeError(error)); return; }
+    ok('Inscripción cancelada.');
+    init();
+  });
 
   const enrPorCurso = {}; (ens||[]).forEach(e=>{ enrPorCurso[e.course_id] = e.id; });
   const tareas = (evals||[]).map(a=>{
@@ -109,7 +222,7 @@ async function init(){
     if (abierta){ estado = chip('en progreso','warn');
       accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Continuar</a>`;
     } else if (ult?.estado==='calificada'){
-      estado = `<span class="chip ${ult.puntaje>=aprob?'ok':'err'}">${ult.puntaje} pts</span>`;
+      estado = chipNota(ult.puntaje, 100, aprob);   // la nota ya viene sobre 100
       accion = sinIntentos? '' : `<a class="btn outline sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Reintentar</a>`;
     } else if (ult?.estado==='entregada'){ estado = chip('en revisión','info'); accion = '';
     } else { estado = chip('pendiente','warn');
@@ -119,14 +232,15 @@ async function init(){
         <div class="s">${esc(a.tipo||'')} · ${ult?.entregado_en?'entregado '+fdate(ult.entregado_en):`nota mínima ${aprob}`}</div></div>
       ${estado}${accion}</div>`;
   }).join('')
-    : '<p class="muted tiny">No tienes evaluaciones pendientes.</p>';
+    : vacio({ icono:'task_alt', titulo:'No tienes nada por entregar',
+        texto:'Cuando un profesor abra una evaluación, te aparecerá aquí.' });
 
   $('#pagos').innerHTML = (insts||[]).length ? insts.slice(0,6).map(i=>{
     const venc = i.estado!=='pagada' && i.fecha_vencimiento < new Date().toISOString().slice(0,10);
     return `<div class="list-item"><div class="grow">
       <div class="t">Cuota ${i.numero} · ${money(i.monto)}</div>
       <div class="s">Vence ${fdate(i.fecha_vencimiento)}</div></div>
-      ${venc?chip('vencida','err'):chip(i.estado)}</div>`;
+      ${venc?chip('vencida','err'):chipEstado(i.estado)}</div>`;
   }).join('') : '<p class="muted tiny">Sin cuotas registradas.</p>';
 
   $('#anuncios').innerHTML = (anuncios||[]).length ? anuncios.map(a=>`
@@ -134,7 +248,250 @@ async function init(){
       <div class="grow"><div class="t">${esc(a.titulo)}</div><div class="s">${esc(a.cuerpo||'')}</div></div>
       <span class="tiny muted">${fdate(a.enviado_en)}</span></div>`).join('')
     : '<p class="muted tiny">Sin anuncios recientes.</p>';
+
+  pintarBienvenida(ens || [], puertas);
+  pintarPistas(ens || [], puertas);
+  pintarInvitaciones();
 }
+
+/* ============ una invitación a otro programa (item 22) ============
+   Es una oferta con precio, no una matrícula hecha. Se enseña lo que costaría,
+   en cuántas cuotas y hasta cuándo vale, y las dos respuestas pesan lo mismo:
+   aceptar crea la inscripción; decir que no la cierra y no vuelve a salir. */
+const PLAN_INV = { 1:'de una vez', 3:'en 3 cuotas', 6:'en 6 cuotas' };
+
+async function pintarInvitaciones(){
+  const host = $('#invitaciones');
+  if (!host) return;
+  const { data, error } = await sb.rpc('cem_mis_invitaciones');
+  if (error || !(data || []).length) { host.innerHTML = ''; return; }
+
+  host.innerHTML = data.map(i => `
+    <div class="card invitacion" data-inv="${esc(i.id)}">
+      <div class="row between" style="align-items:flex-start;gap:var(--e2)">
+        <div class="grow">
+          <span class="chip info">Invitación</span>
+          <h2 class="sec" style="margin:var(--e1) 0 4px">${esc(i.curso)}</h2>
+          <p class="tiny muted" style="margin:0">${esc(i.cohorte || 'sin grupo asignado')}
+            · ${esc(PLAN_INV[i.cuotas] || `en ${i.cuotas} cuotas`)}
+            ${i.vence ? ` · la oferta vale hasta el ${fdate(i.vence)}` : ''}</p>
+          ${i.mensaje ? `<p class="sep-poco" style="margin-bottom:0">${esc(i.mensaje)}</p>` : ''}
+        </div>
+        <div style="text-align:right;flex:none">
+          <div style="font-size:var(--t-xl);font-family:var(--cifra);font-variant-numeric:tabular-nums">
+            ${esc(money(i.precio_final, i.moneda))}</div>
+          ${Number(i.descuento) > 0 ? `<div class="tiny muted">
+            <s>${esc(money(i.precio_lista, i.moneda))}</s> · ${esc(money(i.descuento, i.moneda))} menos</div>` : ''}
+        </div>
+      </div>
+      <div class="row sep" style="justify-content:flex-end">
+        <button class="btn ghost" data-no="${esc(i.id)}">No, gracias</button>
+        <button class="btn" data-si="${esc(i.id)}">
+          <span class="material-symbols-outlined">check</span> Aceptar e inscribirme</button>
+      </div>
+    </div>`).join('');
+
+  $$('[data-si]', host).forEach(b => b.onclick = () => responder(b.dataset.si, true));
+  $$('[data-no]', host).forEach(b => b.onclick = async () => {
+    if (!await confirmDialog('¿Rechazar esta invitación? No volverá a aparecer.')) return;
+    responder(b.dataset.no, false);
+  });
+}
+
+async function responder(id, aceptar){
+  const { data, error } = await sb.rpc('cem_responder_invitacion', { p_id: id, p_aceptar: aceptar });
+  if (error) { avisar(mensajeError(error, 'No se pudo contestar la invitación.')); return; }
+  if (!aceptar) { ok('Invitación rechazada.'); pintarInvitaciones(); return; }
+  /* Aceptar deja una inscripción con sus cuotas pendientes: lo siguiente es
+     pagarlas, así que se lleva ahí en vez de dejar a la persona buscando. */
+  ok('Ya estás inscrito. Te llevamos a tus pagos para que elijas cómo pagarlo.');
+  setTimeout(() => { location.href = `pagos.html?enr=${encodeURIComponent(data?.id || '')}`; }, 900);
+}
+
+/* ============ la bienvenida del primer día (mejora 2) ============
+   Tres frases y un botón. No es una pantalla de ayuda ni un tour: es quitar
+   de en medio la única decisión que hay que tomar el primer día —por dónde
+   empiezo— cuando todavía queda ganas de empezar hoy.
+
+   Desaparece sola en cuanto se ve la primera lección, y se puede cerrar antes.
+   Que se cierre se recuerda en este navegador: no es un dato de la escuela. */
+const BIENVENIDA_CERRADA = 'cemBienvenidaCerrada';
+function pintarBienvenida(ens, puertas){
+  const host = $('#bienvenida');
+  if (!host) return;
+  const abiertas = ens.filter(e => puertas[e.id]?.abierto !== false && e.estado !== 'cancelada');
+  const empezado = ens.some(e => Number(e.progreso || 0) > 0);
+  if (empezado || !abiertas.length || localStorage.getItem(BIENVENIDA_CERRADA) === '1') {
+    host.innerHTML = ''; return;
+  }
+  const e = abiertas[0];
+  const curso = e.cem_courses?.nombre || 'tu programa';
+  host.innerHTML = `<div class="card bienvenida">
+    <button class="icon-btn cerrar" id="cerrarBienvenida" title="Cerrar" aria-label="Cerrar la bienvenida">
+      <span class="material-symbols-outlined">close</span></button>
+    <span class="material-symbols-outlined ico">waving_hand</span>
+    <h2>Bienvenido, ${esc(p.nombre)}</h2>
+    <p>Tu plaza en <b>${esc(curso)}</b> está lista. Se estudia a tu ritmo: cada lección
+      se marca como vista y tu avance se guarda solo.</p>
+    <p class="tiny muted">Si algo no queda claro, pregúntalo en la propia lección: responde
+      tu profesor y lo ve toda tu clase.</p>
+    <a class="btn abrir-curso" href="clase.html?curso=${esc(e.cem_courses?.id || '')}">
+      <span class="material-symbols-outlined">play_arrow</span> Empezar la primera lección</a>
+  </div>`;
+  $('#cerrarBienvenida').onclick = () => {
+    localStorage.setItem(BIENVENIDA_CERRADA, '1');
+    host.innerHTML = '';
+  };
+}
+
+/* ============ qué falta y cómo voy (mejoras 6 y 10) ============
+   Dos frases por curso. La primera convierte «el certificado aparece cuando
+   aparece» en una lista que se puede terminar. La segunda no es para competir:
+   es para que quien se está descolgando lo note cuando todavía se puede
+   recuperar — por eso calla si el grupo es de menos de cuatro, donde decir
+   «la mayoría va por la 8» sería señalar a alguien con el dedo. */
+async function pintarPistas(ens, puertas){
+  const abiertas = ens.filter(e => puertas[e.id]?.abierto !== false);
+  await Promise.all(abiertas.map(async (e) => {
+    const host = $(`[data-pista="${e.id}"]`);
+    if (!host) return;
+    const [{ data: req }, { data: ritmo }] = await Promise.all([
+      sb.rpc('cem_mis_requisitos_certificado', { p_enrollment_id: e.id }),
+      sb.rpc('cem_mi_ritmo', { p_enrollment_id: e.id }),
+    ]);
+    host.innerHTML = [pistaCertificado(req), pistaRitmo(ritmo)].filter(Boolean).join('');
+  }));
+}
+
+function pistaCertificado(req){
+  if (!req) return '';
+  if (req.ya_emitido) return `<p class="pista ok"><span class="material-symbols-outlined">workspace_premium</span>
+    Tu certificado ya está emitido. <a href="certificados.html">Verlo</a></p>`;
+  if (req.listo) return `<p class="pista ok"><span class="material-symbols-outlined">workspace_premium</span>
+    Cumples todo para el certificado. Ya se está tramitando.</p>`;
+
+  // Se dice lo que falta, no lo que está mal. «Le faltan 3 evaluaciones de 3»
+  // es un informe interno; «te faltan 3 evaluaciones» es una lista que se
+  // puede terminar.
+  const falta = [];
+  const sinEval = Number(req.evaluaciones_total || 0) - Number(req.evaluaciones_aprobadas || 0);
+  const avance = Number(req.avance || 0);
+  if (avance < 100) falta.push(`el ${Math.max(1, Math.round(100 - avance))}% del contenido`);
+  // «evaluaciónes» no existe: el plural pierde la tilde. Se escriben las dos
+  // formas en vez de pegarle una terminación a la de singular.
+  if (sinEval > 0) falta.push(`${sinEval} ${sinEval > 1 ? 'evaluaciones' : 'evaluación'}`);
+  if (Number(req.cuotas_pendientes || 0) > 0) {
+    falta.push(`${req.cuotas_pendientes} cuota${Number(req.cuotas_pendientes) > 1 ? 's' : ''} por pagar`);
+  }
+  if (!falta.length) return '';
+  const texto = falta.length === 1 ? falta[0]
+    : falta.slice(0, -1).join(', ') + ' y ' + falta[falta.length - 1];
+  return `<p class="pista"><span class="material-symbols-outlined">workspace_premium</span>
+    Para el certificado te falta ${esc(texto)}.</p>`;
+}
+
+function pistaRitmo(r){
+  if (!r || r.donde === 'sin_grupo' || !Number(r.total)) return '';
+  const mias = Number(r.mias || 0), med = Number(r.mediana || 0);
+  if (r.donde === 'adelante') {
+    return `<p class="pista ok"><span class="material-symbols-outlined">trending_up</span>
+      Vas por la lección ${mias} y la mayoría de tu grupo por la ${med}. Vas por delante.</p>`;
+  }
+  if (r.donde === 'atras') {
+    return `<p class="pista warn"><span class="material-symbols-outlined">schedule</span>
+      Vas por la lección ${mias}; la mayoría de tu grupo va por la ${med}.
+      Todavía se recupera.</p>`;
+  }
+  return `<p class="pista"><span class="material-symbols-outlined">group</span>
+    Vas por la lección ${mias}, al ritmo de tu grupo.</p>`;
+}
+
+/* ============ cómo voy (item 06) ============
+   Una fila por programa con lo que de verdad se pregunta un estudiante:
+   cuánto llevo, qué promedio tengo, qué me falta y qué viene ahora. */
+(async () => {
+  const { data } = await sb.rpc('cem_mi_desempeno');
+  const filas = data || [];
+  $('#tbDesempeno').innerHTML = filas.length ? filas.map(f => {
+    const aprueba = f.nota_minima ?? 60;
+    const flojo = f.promedio != null && Number(f.promedio) < Number(aprueba);
+    return `<tr>
+      <td class="wrap"><b>${esc(f.curso)}</b>
+        ${f.estado !== 'activa' ? `<div>${chipEstado(f.estado)}</div>` : ''}</td>
+      <td style="min-width:110px">${bar(f.progreso)}<span class="tiny muted">${pct(f.progreso)}</span></td>
+      <td>${f.promedio == null
+          ? '<span class="tiny muted">sin notas aún</span>'
+          : `<b style="color:${flojo ? 'var(--error)' : 'inherit'}">${f.promedio}</b>
+             <div class="tiny muted">aprueba con ${aprueba}</div>`}</td>
+      <td class="tiny">
+        ${num(f.evaluaciones_aprobadas)} aprobada(s) de ${num(f.evaluaciones_total)}
+        ${Number(f.pendientes_de_revision) > 0
+          ? `<div style="color:var(--warn,#7A6215)">${f.pendientes_de_revision} esperando corrección</div>` : ''}
+        ${Number(f.evaluaciones_total) > Number(f.evaluaciones_entregadas)
+          ? `<div class="muted">${Number(f.evaluaciones_total) - Number(f.evaluaciones_entregadas)} sin presentar</div>` : ''}
+      </td>
+      <td class="wrap tiny">${f.proxima_evaluacion
+          ? `${esc(f.proxima_evaluacion)}${f.proxima_fecha ? `<div class="muted">cierra el ${fdate(f.proxima_fecha)}</div>` : ''}`
+          : '<span class="muted">nada pendiente</span>'}</td></tr>`;
+  }).join('') : emptyRow(5, 'Todavía no tienes programas activos.');
+})();
+/* ============ mis gráficos ============
+   Uno por inscripción activa no cabe: se pinta el del curso en el que se está
+   más avanzado sin terminar, que es donde uno está de verdad. */
+async function pintarGraficos(ens){
+  const host = $('#graficos');
+  const activas = ens.filter(e => e.estado === 'activa');
+  const foco = activas.sort((a,b) => Number(b.progreso||0) - Number(a.progreso||0))[0] || ens[0];
+  if (!foco){ host.innerHTML = ''; return; }
+
+  const { data: g, error } = await sb.rpc('cem_mi_avance', { p_enrollment_id: foco.id });
+  if (error){ host.innerHTML = ''; return; }
+
+  const curso = foco.cem_courses?.nombre || 'tu programa';
+  /* Los tres requisitos NO son las etapas de un embudo: no se pasa de uno al
+     siguiente, se cumplen a la vez y en cualquier orden. Puestos en embudo
+     salía «40 %, 33 %, 100 %» con una caída del −18 % entre dos cosas que no
+     tienen nada que ver. Son tres barras. */
+  const req = (g.requisitos || []).map(r => ({
+    etq: `${r.etq}${Number(r.meta) ? ` · ${r.n} de ${r.meta}` : ''}`,
+    n: Number(r.meta) ? Math.round(100 * Number(r.n) / Number(r.meta)) : 100 }));
+
+  host.innerHTML = `
+    <div class="card">${barras({
+      titulo: `Cuánto llevas de ${curso}`, formato: 'pct', ordenar: false,
+      col: 'Módulo', colN: 'Visto',
+      pie: 'Módulo a módulo. Un «68 %» suelto no dice si lo que falta es una tarde o tres semanas; esto sí. Pulsa uno para seguir donde lo dejaste.',
+      datos: (g.modulos || []).map(m => ({ ...m, n: Number(m.n),
+        href: `clase.html?enr=${foco.id}&modulo=${m.id}` })),
+      marcar: (d) => d.n >= 100 ? 'ok' : d.n > 0 ? 'warn' : null })}</div>
+
+    <div class="card">${(g.notas || []).length
+      ? linea({
+          titulo: 'Tus notas, una tras otra',
+          datos: (g.notas || []).map(x => ({ etq: x.cuando, n: Number(x.n),
+            href: `evaluacion.html?id=${x.id}&enr=${foco.id}` })),
+          referencia: Number(g.aprobatoria) || 70,
+          etqRef: `la línea punteada es el ${g.aprobatoria || 70}, la nota con la que se aprueba`,
+          pie: 'Ver la propia curva es lo que hace que uno se dé cuenta a tiempo, en vez de enterarse en la última evaluación.' })
+      : `<figure class="gr"><figcaption class="gr-tit">Tus notas</figcaption>
+         <p class="gr-vacio">Todavía no tienes ninguna evaluación calificada.</p></figure>`}</div>
+
+    <div class="card">${barras({
+      titulo: 'Qué te falta para el certificado', formato: 'pct', ordenar: false,
+      col: 'Requisito', colN: 'Cumplido',
+      pie: 'Los tres a la vez: ver el contenido, aprobar las evaluaciones y no deber nada. El certificado sale cuando los tres llegan a cien.',
+      datos: req.map(r => ({ ...r, href: 'certificados.html' })),
+      marcar: (d) => d.n >= 100 ? 'ok' : d.n >= 50 ? 'warn' : 'err' })}</div>
+
+    <div class="card">${hitos({
+      titulo: 'Tus cuotas',
+      pie: 'Verde pagada, naranja por vencer, roja vencida. La mayoría de los retrasos son despistes, no falta de plata.',
+      puntos: (g.cuotas || []).map(c => ({
+        etq: c.etq, cuando: c.cuando, tono: c.tono,
+        detalle: `${money(c.monto, c.moneda || undefined)} · ${etiqueta(c.estado)}`,
+        href: c.estado === 'pagada' ? null : `pagos.html?cuota=${c.id}` })) })}</div>`;
+}
+
 </script>
 </body>
 </html>

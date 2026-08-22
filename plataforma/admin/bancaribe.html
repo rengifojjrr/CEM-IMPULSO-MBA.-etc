@@ -9,10 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
-  .dato-tec{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;
-    background:var(--surface-container);padding:8px 10px;border-radius:6px;border:1px solid var(--outline-variant);}
+  /* sin-caja: un valor en monoespaciada, no un panel */
+  .dato-tec{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);word-break:break-all;
+    background:var(--hueco);padding:8px 10px;border-radius:var(--r);border:1px solid var(--filete);}
   .oculto-secreto{filter:blur(5px);transition:filter .15s;cursor:pointer;}
   .oculto-secreto.ver{filter:none;}
 </style>
@@ -21,18 +22,43 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Banco (Bancaribe)</h1>
-      <p>Conexión con el API Manager de Bancaribe: tasa BCV, saldo, verificación de pagos y conciliación automática.</p></div>
+      <p>Si el banco nos está respondiendo, la tasa del día, el saldo de la cuenta y los
+         pagos que el propio banco nos avisa. Cuando todo esto funciona, los pagos en
+         bolívares se verifican solos.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnDiag"><span class="material-symbols-outlined">stethoscope</span> Diagnóstico</button>
+      <button class="btn outline" id="btnDiag"><span class="material-symbols-outlined">stethoscope</span> Revisar la conexión</button>
       <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined">refresh</span> Refrescar</button>
     </div>
   </div>
 
   <div class="kpis" id="kpis"></div>
 
+  <!-- Mejora 32. Hasta ahora se verificaba pago por pago mirando referencias a
+       ojo: el aviso del banco en una ventana, el pago reportado en otra, y a
+       comparar seis dígitos. Esto lo propone; confirmar sigue siendo humano,
+       porque una coincidencia de importe y fecha no es una prueba —dos alumnos
+       pueden pagar lo mismo el mismo día— y aprobar un pago es mover dinero. -->
+  <!-- El extracto se descarga del banco y se pega aquí. Hace falta porque el
+       aviso automático del banco llega cuando llega, y mientras tanto lo único
+       que hay es ese archivo. Queda marcado como cargado a mano: no es lo
+       mismo que un aviso del banco y no debe parecerlo. -->
+  <div class="card">
+    <div class="row between"><h2 class="sec">Cargar el extracto a mano</h2>
+      <button class="btn outline sm" id="btnExtracto">
+        <span class="material-symbols-outlined">upload_file</span> Pegar movimientos</button></div>
+    <p class="tiny muted sin-margen">Una línea por movimiento, separando con punto y coma:
+      <b>referencia; monto; fecha; moneda</b>. Volver a pegar el mismo extracto no duplica nada.</p>
+  </div>
+
+  <div class="card" id="cardConciliar" hidden>
+    <div class="row between"><h2 class="sec">Coincidencias que propone el sistema</h2>
+      <span class="tiny muted" id="nConciliar"></span></div>
+    <div id="sugerencias"></div>
+  </div>
+
   <div class="card hidden" id="cardDiag">
     <div class="row between"><h2 class="sec">Diagnóstico de la conexión</h2>
-      <button class="btn ghost sm" id="btnCerrarDiag"><span class="material-symbols-outlined">close</span></button></div>
+      <button class="btn ghost sm" id="btnCerrarDiag" title="Cerrar el diagnóstico"><span class="material-symbols-outlined">close</span></button></div>
     <p class="tiny muted">Separa dos cosas distintas: si <b>nuestras credenciales autentican</b> contra el API Manager,
       y si <b>cada API está habilitada</b> para nuestra aplicación. Útil para llevar evidencia concreta a la
       sesión técnica con el banco.</p>
@@ -40,19 +66,35 @@
   </div>
 
   <div class="grid g2">
-    <div class="card">
+    <div class="card" id="cardEstado">
       <h2 class="sec">Estado de la conexión</h2>
-      <div id="estado"><p class="muted">Cargando…</p></div>
+      <div id="estado"><span class="cargando"></span></div>
     </div>
 
-    <div class="card">
-      <h2 class="sec">Datos que necesita el banco</h2>
-      <p class="tiny muted">Para activar el servicio de <b>Notificación de Pagos</b>, Bancaribe necesita
-        que le entreguemos el endpoint y su ApiKey. Estos son los valores actuales:</p>
-      <div class="field"><label>Endpoint REST (nuestro)</label><div class="dato-tec" id="webhookUrl">—</div></div>
-      <div class="field"><label>ApiKey (haz clic para revelar)</label>
-        <div class="dato-tec oculto-secreto" id="webhookKey" title="Clic para mostrar/ocultar">—</div></div>
-      <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar ambos</button>
+    <!-- item 35 · esto hablaba de endpoint, webhook y ApiKey en una pantalla a la
+         que entra quien administra el instituto, no quien programa. Lo técnico
+         sigue estando —al banco hay que dárselo— pero plegado y explicado. -->
+    <div class="card" id="cardCredenciales">
+      <h2 class="sec">Datos para entregarle al banco</h2>
+      <p class="tiny muted">Bancaribe avisa cada pago que entra a nuestra cuenta, y para eso
+        necesita dos datos nuestros: una dirección a la que escribirnos y una clave para que
+        sepamos que quien escribe es el banco de verdad. Se los pasas una vez, en la sesión
+        técnica, y con eso queda.</p>
+      <details class="filtros-plegables">
+        <summary><span class="material-symbols-outlined">code</span> Ver los dos datos técnicos</summary>
+        <div class="field"><label>La dirección a la que el banco nos escribe</label>
+          <div class="dato-tec" id="webhookUrl">—</div></div>
+        <div class="field"><label>La clave con la que se identifica <span class="tiny muted">(pulsa para verla)</span></label>
+          <div class="dato-tec oculto-secreto" id="webhookKey" title="Pulsa para mostrar u ocultar la clave">—</div></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar los dos</button>
+          <button class="btn outline sm" id="btnRotar" style="color:var(--error)">
+            <span class="material-symbols-outlined">key</span> Cambiar la clave</button>
+        </div>
+        <p class="tiny muted sep-poco">Cambia la clave sólo si crees que alguien
+          más la vio: hay que volver a dársela al banco o dejará de avisarnos.</p>
+      </details>
+      <div id="estadoRotacion"></div>
     </div>
   </div>
 
@@ -88,7 +130,7 @@
 
   <div class="card">
     <div class="row between"><h2 class="sec">Pagos notificados por el banco</h2>
-      <div class="field" style="margin:0"><select id="fEstado">
+      <div class="field sin-margen"><select id="fEstado">
         <option value="">Todos</option><option value="pendiente">Pendientes</option>
         <option value="conciliada">Conciliadas</option><option value="descartada">Descartadas</option></select></div></div>
     <div class="table-wrap">
@@ -99,10 +141,24 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY, chipEstado, avisar } from '../assets/app.js?v=2026-08-21-53';
 
-const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'bancaribe.html', area:'admin' });
-const puedeOperar = p && ['coordinador','admin','superadmin'].includes(p.rol);
+/* Cobranza entra: conciliar el extracto contra los pagos reportados es
+   exactamente su trabajo. Lo que no ve nadie más que administración son las
+   credenciales del banco, que se tapan más abajo con `puedeOperar`. */
+const p = await mount({ require:['cobranza','admin','superadmin'], active:'bancaribe.html', area:'admin' });
+const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
+
+/* Conciliar el extracto y tener la clave con la que el banco se identifica no
+   son el mismo permiso. Cobranza entra a lo primero —es su trabajo— y no ve lo
+   segundo: quien cruza referencias no necesita la llave, y una llave que ve
+   más gente es una llave que hay que rotar más veces. */
+const veLasClaves = p && ['admin','superadmin'].includes(p.rol);
+if (!veLasClaves) {
+  document.getElementById('cardCredenciales')?.remove();
+  document.getElementById('btnDiag')?.remove();
+  document.getElementById('cardEstado')?.remove();
+}
 const FN = `${SUPABASE_URL}/functions/v1/cem-bancaribe`;
 let notifs = [], estado = null;
 
@@ -121,14 +177,21 @@ async function llamar(accion, params = {}){
 }
 
 async function cargar(){
-  try { estado = await llamar('estado'); } catch(e){ estado = { error: e.message }; }
-  renderEstado();
+  /* El estado de la conexión lo sirve una función que sólo contesta a
+     administración —configurar el banco no es de cobranza— así que ni se le
+     pregunta: pedirlo para recibir un 403 dejaría un error rojo en la consola
+     y un aviso que no le dice nada a quien sólo viene a conciliar. */
+  if (veLasClaves) {
+    try { estado = await llamar('estado'); } catch(e){ estado = { error: e.message }; }
+    renderEstado();
+  }
   await cargarNotifs();
 }
 
 function renderEstado(){
+  if (!$('#estado')) return;
   if (estado?.error){
-    $('#estado').innerHTML = `<div class="chip err">${esc(estado.error)}</div>`;
+    avisar('#estado', estado.error, 'err');
     return;
   }
   $('#estado').innerHTML = `
@@ -138,19 +201,64 @@ function renderEstado(){
     <div class="list-item"><div class="grow"><div class="s">Cuenta</div><div class="t">${esc(estado.cuenta||'—')}</div></div></div>
     <div class="list-item"><div class="grow"><div class="s">Servicios habilitados</div>
       <div class="t">${(estado.servicios||[]).map(s=>chip(s.replace(/_/g,' '),'neutral')).join(' ')}</div></div></div>`;
-  $('#webhookUrl').textContent = estado.webhook_url || '—';
-  $('#webhookKey').textContent = estado.webhook_api_key || '—';
+  if ($('#webhookUrl')) $('#webhookUrl').textContent = estado.webhook_url || '—';
+  if ($('#webhookKey')) $('#webhookKey').textContent = estado.webhook_api_key || '—';
 }
 
-$('#webhookKey').onclick = () => $('#webhookKey').classList.toggle('ver');
-$('#btnCopiar').onclick = async () => {
-  await navigator.clipboard.writeText(`Endpoint: ${estado?.webhook_url||''}\nApiKey: ${estado?.webhook_api_key||''}`);
-  ok('Copiado al portapapeles');
+if ($('#webhookKey')) $('#webhookKey').onclick = () => $('#webhookKey').classList.toggle('ver');
+if ($('#btnCopiar')) $('#btnCopiar').onclick = async () => {
+  await navigator.clipboard.writeText(
+    `Dirección a la que el banco nos escribe (endpoint): ${estado?.webhook_url||''}\n` +
+    `Clave con la que se identifica (ApiKey): ${estado?.webhook_api_key||''}`);
+  ok('Los dos datos quedaron copiados. Pégalos donde el banco los pida.');
+};
+
+/* ============ rotar la clave del webhook ============
+   Era una sola clave fija guardada en la configuración: si se filtraba, no
+   había forma de cambiarla sin editar la base a mano. Ahora se rota desde
+   acá, y la anterior sigue valiendo un tiempo para que el banco no quede
+   cortado en mitad del cambio. */
+const GRACIA_HORAS = 48;
+
+if ($('#btnRotar')) $('#btnRotar').onclick = async () => {
+  if (p.rol !== 'admin' && p.rol !== 'superadmin') {
+    fail('Sólo un administrador puede cambiar esta clave. Pídeselo a quien lleve la plataforma.'); return;
+  }
+  const m = modal({ title:'Cambiar la clave que usa el banco', body:`
+    <p>Se genera una clave nueva y hay que entregársela a Bancaribe: hasta que la
+       tengan, los avisos de pago seguirán llegando con la anterior.</p>
+    <p>Durante <b>${GRACIA_HORAS} horas</b> la clave actual <b>sigue funcionando</b>,
+       para que las notificaciones no se corten mientras el banco la actualiza.
+       Pasado ese plazo, sólo sirve la nueva.</p>
+    <p class="tiny muted">Queda asentado en la auditoría quién la rotó y cuándo.
+       Si el banco sigue usando la vieja, también queda registrado, para poder avisarles a tiempo.</p>
+    <div id="rotMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Generar clave nueva</button>` });
+
+  $('[data-s]', m).onclick = async () => {
+    $('[data-s]', m).disabled = true;
+    const { data: nueva, error } = await sb.rpc('cem_rotar_clave_webhook', { p_gracia_horas: GRACIA_HORAS });
+    if (error) {
+      avisar($('#rotMsg', m), error.message, 'err');
+      $('[data-s]', m).disabled = false;
+      return;
+    }
+    m.close();
+    ok('Clave nueva lista. Entrégasela al banco antes de que venza el plazo.');
+    await cargar();
+    // Se muestra revelada una sola vez: es el momento en que hay que copiarla.
+    $('#webhookKey').classList.add('ver');
+    $('#estadoRotacion').innerHTML = `<div class="nota warn">
+      Clave nueva generada. La anterior deja de servir en ${GRACIA_HORAS} horas:
+      envíasela a Bancaribe antes de ese plazo.</div>`;
+    void nueva;  // el valor ya viene en el estado recargado; no hace falta mostrarlo dos veces
+  };
 };
 $('#btnRefrescar').onclick = cargar;
 $('#btnCerrarDiag').onclick = () => $('#cardDiag').classList.add('hidden');
 
-$('#btnDiag').onclick = async () => {
+if ($('#btnDiag')) $('#btnDiag').onclick = async () => {
   $('#cardDiag').classList.remove('hidden');
   $('#diag').innerHTML = '<p class="muted tiny">Probando el token y cada servicio contra el banco… (puede tardar)</p>';
   try {
@@ -178,13 +286,13 @@ $('#btnDiag').onclick = async () => {
 
     const noSuscritos = (r.servicios||[]).filter(s=>s.codigo==='900908').length;
     $('#diag').innerHTML = `${tok}
-      <div class="table-wrap" style="margin-top:12px"><table>
+      <div class="table-wrap sep"><table>
         <thead><tr><th>Servicio</th><th>Resultado</th><th>Mensaje del banco</th></tr></thead>
-        <tbody>${filas || emptyRow(3)}</tbody></table></div>
-      ${noSuscritos ? `<div class="chip warn" style="margin-top:12px">
+        <tbody>${filas || emptyRow(3, 'El banco todavía no ha enviado ninguna notificación.')}</tbody></table></div>
+      ${noSuscritos ? `<div class="nota warn">
         ${noSuscritos} servicio(s) responden 900908: el token es válido pero nuestra aplicación
         no aparece suscrita a esas APIs en el API Manager. Es una habilitación que hace Bancaribe de su lado.</div>` : ''}`;
-  } catch(e){ $('#diag').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#diag', e.message, 'err'); }
 };
 
 $('#btnTasa').onclick = async () => {
@@ -198,7 +306,7 @@ $('#btnTasa').onclick = async () => {
       : `<div class="chip warn">El banco respondió sin tasas</div>
          <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
          <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(r.datos,null,2)).slice(0,1500)}</pre></details>`;
-  } catch(e){ $('#tasas').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#tasas', e.message, 'err'); }
 };
 
 $('#btnSaldo').onclick = async () => {
@@ -213,7 +321,7 @@ $('#btnSaldo').onclick = async () => {
       : `<div class="chip warn">El banco respondió sin saldo</div>
          <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
          <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,1500)}</pre></details>`;
-  } catch(e){ $('#saldo').innerHTML = `<div class="chip err">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#saldo', e.message, 'err'); }
 };
 
 $('#btnVerificar').onclick = async () => {
@@ -227,12 +335,12 @@ $('#btnVerificar').onclick = async () => {
       fecha: $('#vFecha').value.trim() || null,
     });
     const d = r.datos;
-    $('#resVerificar').innerHTML = `<div style="margin-top:12px">
+    $('#resVerificar').innerHTML = `<div class="sep">
       ${d?.success === true ? chip('El banco confirma la operación','ok') : chip('El banco no confirmó la operación','warn')}
-      ${d?.descripción||d?.descripcion ? `<div class="tiny muted" style="margin-top:6px">${esc(String(d.descripción||d.descripcion))}</div>`:''}
+      ${d?.descripción||d?.descripcion ? `<div class="tiny muted sep-poco">${esc(String(d.descripción||d.descripcion))}</div>`:''}
       <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta completa</summary>
       <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,2000)}</pre></details></div>`;
-  } catch(e){ $('#resVerificar').innerHTML = `<div class="chip err" style="margin-top:12px">${esc(e.message)}</div>`; }
+  } catch(e){ avisar('#resVerificar', e.message, 'err'); }
 };
 
 async function cargarNotifs(){
@@ -248,6 +356,45 @@ async function cargarNotifs(){
     kpi('Monto pendiente', money(pend.reduce((a,n)=>a+Number(n.amount||0),0), 'VES'), 'payments', 'sin conciliar'),
   ].join('');
   renderNotifs();
+  pintarSugerencias();
+}
+
+/* ============ conciliar contra el extracto (mejora 32) ============
+   Se ordenan por lo seguras que son. Una referencia que coincide entera es
+   prácticamente certeza; un importe igual el mismo día es una pista. La
+   diferencia se dice con palabras, no con un número que nadie sabe leer. */
+async function pintarSugerencias(){
+  const host = $('#sugerencias');
+  if (!host) return;
+  const { data, error } = await sb.rpc('cem_conciliar_sugerencias', { p_dias: 45 });
+  const lista = error ? [] : (data || []);
+  $('#cardConciliar').hidden = lista.length === 0;
+  if (!lista.length) return;
+
+  $('#nConciliar').textContent = lista.length === 1 ? '1 coincidencia' : `${lista.length} coincidencias`;
+  host.innerHTML = lista.map(x => `<div class="list-item">
+    <span class="material-symbols-outlined"
+      style="color:var(--${x.parecido >= 90 ? 'ok' : x.parecido >= 60 ? 'warn' : 'tinta-3'})">
+      ${x.parecido >= 90 ? 'check_circle' : 'help'}</span>
+    <div class="grow">
+      <div class="t">${esc(x.estudiante || 'Sin nombre')} · ${esc(String(x.pago_monto))} ${esc(x.pago_moneda || '')}</div>
+      <div class="s">Banco: <b>${esc(x.banco_referencia || 'sin referencia')}</b> ${esc(String(x.banco_monto))} ${esc(x.banco_moneda)}
+        ${x.banco_fecha ? ` · ${esc(x.banco_fecha)}` : ''}</div>
+      <div class="s">Reportó: <b>${esc(x.pago_referencia || 'sin referencia')}</b>
+        ${esc(x.pago_metodo || '')}${x.curso ? ` · ${esc(x.curso)}` : ''}</div>
+      <div class="s"><i>${esc(x.porque)}</i></div>
+    </div>
+    ${puedeOperar ? `<button class="btn sm" data-conciliar="${esc(x.notificacion_id)}"
+      data-pago="${esc(x.payment_id)}">Es este</button>` : ''}
+  </div>`).join('');
+
+  $$('[data-conciliar]', host).forEach(b => b.onclick = async () => {
+    const { error: e } = await sb.rpc('cem_conciliar', {
+      p_notificacion_id: b.dataset.conciliar, p_payment_id: b.dataset.pago });
+    if (e) { fail(e.message); return; }
+    ok('Conciliado. El pago sigue esperando tu aprobación en Verificar pagos.');
+    cargarNotifs();
+  });
 }
 
 function renderNotifs(){
@@ -260,12 +407,23 @@ function renderNotifs(){
     <td><b>${esc(String(n.amount ?? '—'))}</b> <span class="tiny muted">${esc(n.currency_code||'')}</span></td>
     <td>${chip(n.payment_type||'—','neutral')}</td>
     <td>${chip(n.estado, n.estado==='conciliada'?'ok':n.estado==='descartada'?'neutral':'warn')}</td>
-    <td style="white-space:nowrap">
+    <td class="nowrap">
       <button class="btn ghost sm" data-ver="${n.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
       ${puedeOperar && n.estado==='pendiente' ? `<button class="btn ghost sm" data-desc="${n.id}" title="Descartar"><span class="material-symbols-outlined">block</span></button>` : ''}
-    </td></tr>`).join('') : emptyRow(7);
+      ${puedeOperar && n.estado==='conciliada' ? `<button class="btn ghost sm" data-descon="${n.id}"
+        title="Deshacer la conciliación"><span class="material-symbols-outlined">link_off</span></button>` : ''}
+    </td></tr>`).join('') : emptyRow(7, 'Sin operaciones en el periodo consultado.');
 
   $$('[data-ver]').forEach(b=>b.onclick=()=>verDetalle(notifs.find(n=>n.id===b.dataset.ver)));
+  /* Conciliar mal es tan fácil como conciliar bien, así que se puede soltar.
+     El pago vuelve a estar sin conciliar sólo si no le queda otro aviso. */
+  $$('[data-descon]').forEach(b=>b.onclick=async()=>{
+    if (!await confirmDialog('¿Soltar esta conciliación? El aviso vuelve a quedar pendiente.')) return;
+    const { error } = await sb.rpc('cem_desconciliar', { p_notificacion_id: b.dataset.descon });
+    if (error) { fail(error.message); return; }
+    ok('Conciliación deshecha.'); cargarNotifs();
+  });
+
   $$('[data-desc]').forEach(b=>b.onclick=async()=>{
     if (!await confirmDialog('¿Descartar esta notificación? Se marcará como no aplicable a ninguna cuota.')) return;
     await run(sb.from('cem_bancaribe_notificaciones').update({
@@ -283,9 +441,9 @@ function verDetalle(n){
       <div><div class="s tiny muted">Monto</div><div class="t"><b>${esc(String(n.amount??'—'))}</b> ${esc(n.currency_code||'')}</div></div>
       <div><div class="s tiny muted">Fecha del banco</div><div class="t">${esc(n.fecha_banco||'—')} ${esc(n.hora_banco||'')}</div></div>
       <div><div class="s tiny muted">Tipo</div><div class="t">${esc(n.payment_type||'—')}</div></div>
-      <div><div class="s tiny muted">Estado</div><div class="t">${chip(n.estado)}</div></div>
+      <div><div class="s tiny muted">Estado</div><div class="t">${chipEstado(n.estado)}</div></div>
     </div>
-    <div class="field" style="margin-top:14px"><label>Cuenta ordenante / beneficiaria</label>
+    <div class="field sep"><label>Cuenta ordenante / beneficiaria</label>
       <div class="dato-tec">${esc(n.debtor_account||'—')} → ${esc(n.creditor_account||'—')}</div></div>
     ${n.nota?`<div class="field"><label>Nota</label><div class="tiny">${esc(n.nota)}</div></div>`:''}
     <details><summary class="tiny muted">Ver el JSON exacto que envió el banco</summary>
@@ -293,6 +451,40 @@ function verDetalle(n){
 }
 
 mejorarSelects();
+
+/* ============ pegar el extracto (mejora 32) ============
+   Se pide texto separado por punto y coma en vez de un archivo porque es lo
+   que se puede copiar directamente de la web del banco o de un Excel, sin
+   convertir nada. Lo que no se entienda se cuenta aparte y se dice: callar las
+   líneas que no entraron es como se pierde un pago sin que nadie lo note. */
+$('#btnExtracto').onclick = () => {
+  const m = modal({ title:'Pegar los movimientos del extracto', wide:true, body:`
+    <p class="tiny muted">Una línea por movimiento:
+      <b>referencia; monto; fecha; moneda</b>. La moneda es opcional (por defecto VES)
+      y la fecha se escribe como venga del banco.</p>
+    <div class="field"><label>Movimientos</label>
+      <textarea id="exTexto" rows="10" spellcheck="false"
+        placeholder="001234567; 1500.00; 2026-08-12; VES&#10;001234890; 980.50; 2026-08-12"></textarea></div>
+    <div id="exMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="exGo">Cargar</button>` });
+
+  $('#exGo', m).onclick = async () => {
+    const lineas = $('#exTexto', m).value.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lineas.length) { avisar($('#exMsg', m), 'Pega al menos un movimiento.', 'err'); return; }
+    const movs = lineas.map(l => {
+      const [referencia, monto, fecha, moneda] = l.split(';').map(x => (x || '').trim());
+      return { referencia, monto: Number(String(monto).replace(',', '.')) || 0, fecha, moneda };
+    });
+    const { data, error } = await sb.rpc('cem_extracto_cargar', { p_movimientos: movs });
+    if (error) { avisar($('#exMsg', m), error.message, 'err'); return; }
+    m.close();
+    ok(`${data.puestos} movimiento(s) cargados` +
+       (data.repetidos ? `, ${data.repetidos} ya estaban` : '') +
+       (data.sin_datos ? `, ${data.sin_datos} sin referencia o sin importe` : '') + '.');
+    cargarNotifs();
+  };
+};
 </script>
 </body>
 </html>

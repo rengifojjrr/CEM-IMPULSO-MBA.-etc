@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Ayuda</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  /* Una pregunta frecuente es un <details>: se abre la que hace falta y las
+     demás siguen siendo un índice de una línea. */
+  .faq{border-bottom:1px solid var(--filete);}
+  .faq:last-child{border-bottom:0;}
+  .faq > summary{list-style:none;cursor:pointer;padding:14px 0;font-weight:var(--peso-fuerte);
+    display:flex;align-items:flex-start;gap:10px;}
+  .faq > summary::-webkit-details-marker{display:none;}
+  .faq > summary .material-symbols-outlined{color:var(--tinta-3);transition:transform var(--rapido);flex:none;}
+  .faq[open] > summary .material-symbols-outlined{transform:rotate(180deg);}
+  .faq .cuerpo{padding:0 0 14px 30px;color:var(--tinta-2);}
+  .faq .cuerpo p{margin:0 0 8px;}
+
+  .hilo-msg{border-radius:var(--r);padding:10px 13px;margin-bottom:8px;max-width:min(560px,86%);}
+  .hilo-msg.mio{background:var(--primary-suave);margin-left:auto;}
+  .hilo-msg.suyo{background:var(--hueco);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Ayuda</h1>
+      <p>Lo que más se pregunta, y una forma de escribirnos si tu caso no está aquí.</p></div>
+  </div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar en las preguntas</label>
+        <input type="search" id="q" placeholder="Pagos, certificado, contraseña…"></div>
+    </div>
+    <div id="faqs"></div>
+  </div>
+
+  <h2 class="sec sep-mucho">Escríbenos</h2>
+  <div class="card">
+    <p class="tiny muted">Si lo de arriba no resuelve tu caso, cuéntanoslo. Te contestamos por aquí
+      mismo y te avisamos por correo cuando haya respuesta.</p>
+    <form id="fNuevo" class="sep">
+      <div class="row">
+        <div class="field medio"><label for="tCat">¿De qué se trata?</label>
+          <select id="tCat">
+            <option value="pagos">Un pago o una cuota</option>
+            <option value="acceso">No puedo entrar o ver algo</option>
+            <option value="academico">Mis clases, notas o evaluaciones</option>
+            <option value="certificado">Mi certificado</option>
+            <option value="otro">Otra cosa</option>
+          </select></div>
+        <div class="field largo"><label for="tAsunto">En una línea</label>
+          <input id="tAsunto" required maxlength="120" placeholder="No me deja abrir la clase 3"></div>
+      </div>
+      <div class="field"><label for="tDesc">Cuéntanos con detalle</label>
+        <textarea id="tDesc" rows="4" required
+          placeholder="Qué intentabas hacer, qué pasó y desde qué dispositivo. Cuanto más concreto, antes lo resolvemos."></textarea></div>
+      <div id="nMsg"></div>
+      <button class="btn" type="submit" id="btnEnviar">
+        <span class="material-symbols-outlined">send</span> Enviar</button>
+    </form>
+  </div>
+
+  <h2 class="sec sep-mucho">Lo que ya nos has escrito</h2>
+  <div class="card" id="mios"></div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, chipEstado, fdatetime, ok, fail, run, modal,
+         avisar, ocupado, mensajeError, vacio } from '../assets/app.js?v=2026-08-21-53';
+
+/* ============ el centro de ayuda ============
+   El estudiante no tenía dónde preguntar. Cuando algo le fallaba —un pago que
+   no aparece, una clase que no abre— el único camino era buscar un correo por
+   fuera de la plataforma, y ahí se pierde: nadie sabe si escribió, ni a quién,
+   ni cuándo.
+
+   Dos partes, y en este orden a propósito. Primero las preguntas frecuentes,
+   porque la mayoría de las dudas ya tienen respuesta y contestarlas a mano una
+   por una es trabajo que no hace falta hacer. Después el formulario, para lo
+   que de verdad necesita a una persona.
+
+   Lo que escribe cae en la misma bandeja que ya usa el equipo (`cem_tickets`),
+   así que no hay dos sitios donde mirar ni un buzón nuevo que atender. Y sigue
+   su propia conversación desde aquí: saber que alguien lo leyó es la mitad de
+   la respuesta.
+
+   Las notas internas del equipo NO llegan hasta aquí, y no porque esta
+   pantalla las esconda: la política de la base dejaba leer todos los mensajes
+   del ticket propio, incluidas las marcadas `interno`, y se cambió para que
+   filtre. Esconderlo aquí no habría servido de nada —cualquiera puede pedirle
+   los mensajes a la API sin pasar por esta pantalla—. */
+const me = await mount({ require:['estudiante'], active:'ayuda.html', area:'estudiante' });
+
+/* Las preguntas frecuentes viven aquí, en el código, y no en una tabla, por una
+   razón concreta: son la voz de la institución y cambian tres veces al año, no
+   tres veces al día. Una tabla habría traído una pantalla para administrarlas,
+   permisos, y una versión vacía el día del estreno. Si algún día se editan a
+   menudo, mudarlas es una tarde. */
+const PREGUNTAS = [
+  { t: 'Pagué y mi cuota sigue apareciendo pendiente. ¿Qué hago?',
+    c: `<p>Un pago no se abona solo: alguien del equipo comprueba la referencia contra el
+        banco antes de aplicarlo. Si ya lo reportaste desde <a href="pagos.html">Mis pagos</a>,
+        está en cola y verás la cuota como «en revisión».</p>
+        <p>Si pagaste pero <b>no lo reportaste</b>, hazlo ahora: sin el número de referencia
+        no hay forma de encontrar tu pago entre los del día.</p>` },
+  { t: '¿Puedo pagar en cuotas?',
+    c: `<p>Depende del programa. Al inscribirte, si admite cuotas, te deja elegir entre pagar
+        de contado o repartirlo. Lo verás en <a href="pagos.html">Mis pagos</a>, con la fecha
+        de cada una.</p>
+        <p>Si ya estás inscrito y quieres cambiar a cuotas, pídelo desde
+        <a href="perfil.html">Mi perfil</a>: el equipo lo revisa y te responde.</p>` },
+  { t: 'No me deja abrir una clase.',
+    c: `<p>Lo más común es que el acceso esté cerrado por una cuota vencida. Míralo en
+        <a href="pagos.html">Mis pagos</a>: si hay algo en rojo, es eso.</p>
+        <p>Si estás al día y sigue sin abrir, escríbenos aquí abajo y dinos qué clase es —el
+        nombre del programa y el de la lección— para que podamos mirarlo.</p>` },
+  { t: 'El vídeo no carga o se queda en negro.',
+    c: `<p>Prueba primero a recargar la página. Si sigue igual, casi siempre es la conexión o
+        una extensión del navegador que bloquea vídeo; ábrelo en una ventana de incógnito para
+        salir de dudas.</p>
+        <p>Si ahí tampoco va, cuéntanoslo: puede que la clase tenga mal el vídeo asignado, y eso
+        lo arreglamos nosotros.</p>` },
+  { t: '¿Cuándo me dan el certificado?',
+    c: `<p>Cuando se cumplen tres cosas: terminas todas las lecciones, apruebas las evaluaciones
+        y no debes ninguna cuota. En <a href="certificados.html">Certificados</a> tienes las tres
+        marcadas y ves cuál te falta.</p>
+        <p>Al cumplirlas, el equipo lo emite; no es automático el mismo minuto.</p>` },
+  { t: 'Me equivoqué al escribir mi nombre y ya tengo un certificado emitido.',
+    c: `<p>Cámbialo en <a href="perfil.html">Mi perfil</a>. Como tu nombre ya está impreso en un
+        documento firmado, el cambio pasa antes por aprobación y te pedimos el motivo. El resto
+        de tus datos los cambias tú directamente.</p>` },
+  { t: 'Olvidé mi contraseña.',
+    c: `<p>En la pantalla de entrada, pulsa «¿Olvidaste tu contraseña?» y te llega un correo con
+        un enlace para ponerla de nuevo. Revisa la carpeta de correo no deseado.</p>
+        <p>Tu correo es tu forma de entrar y no se puede cambiar solo: si ya no tienes acceso a
+        él, escríbenos.</p>` },
+  { t: 'Necesito pausar mis estudios o darme de baja.',
+    c: `<p>Las dos cosas se piden desde <a href="perfil.html">Mi perfil</a>, en «Solicitudes sobre
+        mis inscripciones». Antes de confirmar te decimos exactamente qué pasa con tus cuotas en
+        cada caso, para que no haya sorpresas.</p>` },
+];
+
+function pintarFaqs(){
+  const q = $('#q').value.trim().toLowerCase();
+  const sinEtiquetas = (s) => s.replace(/<[^>]+>/g, ' ');
+  const lista = PREGUNTAS.filter(p => !q
+    || p.t.toLowerCase().includes(q) || sinEtiquetas(p.c).toLowerCase().includes(q));
+  $('#faqs').innerHTML = lista.length ? lista.map(p => `
+    <details class="faq">
+      <summary><span class="material-symbols-outlined">expand_more</span>
+        <span>${esc(p.t)}</span></summary>
+      <div class="cuerpo">${p.c}</div>
+    </details>`).join('')
+    : `<p class="muted tiny">Ninguna pregunta coincide con «${esc(q)}». Escríbenos aquí abajo y te contestamos.</p>`;
+}
+$('#q').oninput = pintarFaqs;
+
+/* ============ escribirnos ============ */
+$('#fNuevo').onsubmit = async (ev) => {
+  ev.preventDefault();
+  const asunto = $('#tAsunto').value.trim();
+  const descripcion = $('#tDesc').value.trim();
+  if (descripcion.length < 15){
+    avisar($('#nMsg'), 'Cuéntanos un poco más: con una línea suelta no podemos ayudarte.', 'err');
+    return;
+  }
+  const fin = ocupado($('#btnEnviar'));
+  /* El código lo ve la persona y lo repite por teléfono, así que es corto y
+     legible, no un identificador de treinta y seis caracteres. */
+  const codigo = 'AY-' + Date.now().toString(36).toUpperCase().slice(-6);
+  const { error } = await sb.from('cem_tickets').insert({
+    codigo, profile_id: me.id, categoria: $('#tCat').value,
+    asunto, descripcion, estado: 'abierto', prioridad: 'media',
+  });
+  fin();
+  if (error){ avisar($('#nMsg'), mensajeError(error), 'err'); return; }
+  $('#fNuevo').reset();
+  $('#nMsg').innerHTML = '';
+  ok(`Lo recibimos. Tu consulta es la ${codigo}.`);
+  cargarMios();
+};
+
+/* ============ seguir lo que ya escribí ============ */
+async function cargarMios(){
+  const { data, error } = await sb.from('cem_tickets')
+    .select('*').eq('profile_id', me.id).order('actualizado_en', { ascending:false }).limit(50);
+  if (error){ $('#mios').innerHTML = `<p class="tiny muted">${esc(mensajeError(error))}</p>`; return; }
+  const lista = data || [];
+  if (!lista.length){
+    $('#mios').innerHTML = vacio({ icono:'forum', titulo:'Todavía no nos has escrito',
+      texto:'Cuando nos mandes una consulta, aquí verás en qué va y lo que te respondamos.' });
+    return;
+  }
+  $('#mios').innerHTML = lista.map(t => `<div class="list-item">
+    <div class="grow">
+      <div class="t">${esc(t.asunto)}</div>
+      <div class="s"><code>${esc(t.codigo)}</code> · ${esc(t.categoria||'')} ·
+        escrita el ${fdatetime(t.created_at)}</div>
+    </div>
+    ${chipEstado(t.estado)}
+    <button class="btn outline sm" data-hilo="${t.id}">Ver la conversación</button>
+  </div>`).join('');
+  $$('[data-hilo]').forEach(b => b.onclick = () => hilo(lista.find(t => t.id === b.dataset.hilo)));
+}
+
+async function hilo(t){
+  if (!t) return;
+  const m = modal({ title: t.asunto, wide:true, body:'<p class="muted tiny">Cargando…</p>',
+    footer:`<button class="btn outline" data-x2>Cerrar</button>` });
+  $('[data-x2]', m).onclick = m.close;
+  const cuerpo = $('.modal-b', m);
+
+  const { data: msgs, error } = await sb.from('cem_ticket_messages')
+    .select('*').eq('ticket_id', t.id).order('created_at');
+  if (error){ cuerpo.innerHTML = `<p class="tiny" style="color:var(--error)">${esc(mensajeError(error))}</p>`; return; }
+
+  const pinta = (lista) => `
+    <div class="row" style="gap:8px;margin-bottom:12px">${chipEstado(t.estado)}
+      <span class="chip neutral">${esc(t.codigo)}</span></div>
+    <div class="hilo-msg suyo"><div class="tiny muted">Lo que escribiste · ${fdatetime(t.created_at)}</div>
+      ${esc(t.descripcion)}</div>
+    ${(lista||[]).map(x => `<div class="hilo-msg ${x.autor_id === me.id ? 'mio' : 'suyo'}">
+      <div class="tiny muted">${x.autor_id === me.id ? 'Tú' : 'CEM'} · ${fdatetime(x.created_at)}</div>
+      ${esc(x.cuerpo)}</div>`).join('')}
+    ${t.estado === 'cerrado'
+      ? '<p class="tiny muted sep">Esta consulta está cerrada. Si te vuelve a pasar, escríbenos una nueva.</p>'
+      : `<div class="field sep"><label for="hResp">Añadir algo</label>
+           <textarea id="hResp" rows="3" placeholder="Cuéntanos si cambió algo o responde a lo que te preguntamos."></textarea></div>
+         <div id="hMsg"></div>
+         <button class="btn" id="hEnviar"><span class="material-symbols-outlined">send</span> Enviar</button>`}`;
+
+  /* Al enviar hay que repintar la conversación, y repintar borra el botón que
+     acaba de pulsarse: por eso pintar y enganchar van juntos en una función y
+     no sueltos. Antes esto se resolvía cerrando y volviendo a abrir el
+     diálogo, que era exactamente lo que se sentía como un parpadeo. */
+  const montar = (lista) => {
+    cuerpo.innerHTML = pinta(lista);
+    const enviar = $('#hEnviar', m);
+    if (!enviar) return;
+    enviar.onclick = async () => {
+      const texto = $('#hResp', m).value.trim();
+      if (texto.length < 3){ avisar($('#hMsg', m), 'Escribe tu mensaje antes de enviarlo.', 'err'); return; }
+      const fin = ocupado(enviar);
+      const { error: e2 } = await sb.from('cem_ticket_messages')
+        .insert({ ticket_id: t.id, autor_id: me.id, cuerpo: texto, interno: false });
+      fin();
+      if (e2){ avisar($('#hMsg', m), mensajeError(e2), 'err'); return; }
+      const { data: otra } = await sb.from('cem_ticket_messages')
+        .select('*').eq('ticket_id', t.id).order('created_at');
+      montar(otra);
+      ok('Enviado.');
+    };
+  };
+  montar(msgs);
+}
+
+/* Al final y no arriba: `PREGUNTAS` es un `const` y llamar a `pintarFaqs()`
+   antes de su declaración lanza «Cannot access before initialization». */
+if (me) { pintarFaqs(); cargarMios(); }
+</script>
+</body>
+</html>

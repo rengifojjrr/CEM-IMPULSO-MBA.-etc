@@ -9,12 +9,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Constructor de evaluaciones</h1><p id="crumb">Configura y diseña el examen módulo por módulo.</p></div>
+    <div><h1>Constructor de evaluaciones</h1><p id="crumb">Escribe las preguntas, repártelas los puntos y publica.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined">visibility</span> Previsualizar</button>
       <button class="btn outline" id="btnDraft"><span class="material-symbols-outlined">save</span> Guardar borrador</button>
@@ -22,168 +22,669 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2 class="sec"><span class="material-symbols-outlined">tune</span> Configuración general</h2>
-    <div class="field"><label>Nombre de la evaluación *</label><input id="nombre" placeholder="Examen final del módulo 3"></div>
-    <div class="row">
-      <div class="field" style="flex:2;min-width:200px"><label>Curso vinculado *</label><select id="curso"></select></div>
-      <div class="field" style="flex:1;min-width:160px"><label>Módulo</label><select id="modulo"></select></div>
-      <div class="field" style="flex:1;min-width:130px"><label>Tipo</label><select id="tipo">
-        <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
-        <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
-    </div>
-    <div class="row">
-      <div class="field" style="flex:1;min-width:120px"><label>Puntaje máx.</label><input type="number" id="pmax" value="100"></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Tiempo (min)</label><input type="number" id="tiempo" value="45" placeholder="vacío = sin límite"></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Intentos</label><select id="intentos">
-        <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="99">Ilimitados</option></select></div>
-      <div class="field" style="flex:1;min-width:140px"><label>Nota aprobatoria</label><input type="number" id="napr" value="70"></div>
-    </div>
-    <div class="field"><label>Descripción / instrucciones</label><textarea id="desc" style="min-height:70px"></textarea></div>
-    <label class="check"><input type="checkbox" id="barajar"> Barajar preguntas aleatoriamente</label>
+  <!-- El marcador va fuera de las pestañas a propósito: la suma de puntos es
+       la regla de toda la evaluación, no un detalle de la pestaña de preguntas. -->
+  <div class="marcador sep" id="marcador"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="active" data-t="preguntas">Preguntas</button>
+    <button data-t="ajustes">Ajustes</button>
+    <button data-t="respuestas">Respuestas</button>
   </div>
 
-  <div class="card">
-    <div class="row between">
-      <h2 class="sec"><span class="material-symbols-outlined">format_list_numbered</span> Estructura de la evaluación</h2>
-      <div class="row">
-        <span class="chip neutral" id="totalPts">0 pts</span>
-        <button class="btn outline sm" id="btnAdd"><span class="material-symbols-outlined">add</span> Agregar del banco</button>
+  <div id="panelPreguntas">
+    <div id="lista"></div>
+    <div class="card">
+      <div class="row" style="gap:var(--e1);flex-wrap:wrap">
+        <button class="btn" id="btnAdd"><span class="material-symbols-outlined">add</span> Agregar pregunta</button>
+        <button class="btn outline" id="btnSec"><span class="material-symbols-outlined">segment</span> Agregar sección</button>
+        <button class="btn outline" id="btnBanco"><span class="material-symbols-outlined">inventory_2</span> Traer del banco</button>
+        <button class="btn ghost" id="btnRepartir"><span class="material-symbols-outlined">balance</span> Repartir los puntos en partes iguales</button>
       </div>
     </div>
-    <div id="lista"></div>
   </div>
+
+  <div id="panelAjustes" class="hidden">
+    <div class="card">
+      <h2 class="sec"><span class="material-symbols-outlined">tune</span> De qué va esta evaluación</h2>
+      <div class="field"><label>Nombre de la evaluación *</label><input id="nombre" placeholder="Examen final del módulo 3" required></div>
+      <div class="row">
+        <div class="field largo"><label>Programa *</label><select id="curso" required></select></div>
+        <div class="field medio"><label>Módulo</label><select id="modulo"></select></div>
+        <div class="field medio"><label>Tipo</label><select id="tipo">
+          <option value="examen">Examen</option><option value="quiz">Prueba rápida</option>
+          <option value="practica">Actividad práctica</option><option value="ensayo">Ensayo</option></select></div>
+      </div>
+      <div class="field"><label>Descripción / instrucciones</label><textarea id="desc" style="min-height:70px"
+        placeholder="Lo que lee el estudiante antes de empezar."></textarea></div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec"><span class="material-symbols-outlined">scoreboard</span> Puntaje y aprobación</h2>
+      <div class="row">
+        <div class="field corto"><label>La evaluación es sobre *
+          <button type="button" class="ayuda-btn" data-ayuda="El total de la evaluación. Las preguntas tienen que repartirse exactamente este número: si dices que es sobre 100, entre todas tienen que sumar 100. No se puede publicar hasta que cuadre.">?</button></label>
+          <input type="number" id="pmax" value="100" min="1" step="1"></div>
+        <div class="field medio"><label>Se aprueba con
+          <button type="button" class="ayuda-btn" data-ayuda="Sobre 100, siempre. La nota que saca el estudiante se calcula como porcentaje de los puntos que obtuvo, así que esta cifra se lee igual aunque cambies el total.">?</button></label>
+          <input type="number" id="napr" value="70" min="0" max="100"></div>
+        <div class="field corto"><label>Tiempo (min)</label><input type="number" id="tiempo" placeholder="sin límite"></div>
+        <div class="field corto"><label>Intentos</label><select id="intentos">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+          <option value="99">Ilimitados</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field medio"><label>Se abre el</label><input type="datetime-local" id="abre"></div>
+        <div class="field medio"><label>Cierra el</label><input type="datetime-local" id="cierra"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec"><span class="material-symbols-outlined">quiz</span> Cómo se presenta</h2>
+      <div class="stack">
+        <label class="check"><input type="checkbox" id="barajar">
+          <span>Barajar el orden de las preguntas
+            <div class="tiny muted">Cada estudiante las recibe en un orden distinto, pero siempre el mismo si recarga. Si la evaluación tiene secciones no se baraja: moverlas dejaría los encabezados hablando de otra cosa.</div></span></label>
+        <label class="check"><input type="checkbox" id="unaPorPagina">
+          <span>Una pregunta por pantalla
+            <div class="tiny muted">Para evaluaciones largas. Se avanza con «Siguiente» y no se pierde nada al retroceder.</div></span></label>
+        <label class="check"><input type="checkbox" id="mostrarCorrectas">
+          <span>Al entregar, mostrarle cuáles falló
+            <div class="tiny muted">Sirve para practicar. En un examen con varios intentos, déjalo apagado: enseñar las respuestas convierte el segundo intento en copiar.</div></span></label>
+      </div>
+      <div class="field sep"><label>Mensaje al terminar</label>
+        <input id="mensajeFinal" placeholder="Gracias por presentar. Los resultados salen el viernes." maxlength="240"></div>
+
+      <!-- La rúbrica (mejora 18). Corregir con el trabajo en una pestaña y los
+           criterios en otra es como se ponen notas inconsistentes: a la décima
+           entrega ya no se recuerda cuánto valía la bibliografía. -->
+      <div class="field sep"><label>Rúbrica de corrección
+        <button type="button" class="ayuda-btn" data-ayuda="Los criterios con los que se corrige. Al calificar salen al lado del trabajo, con su casilla de puntos, y la suma se pone sola. Es opcional: sin rúbrica se califica como siempre.">?</button></label>
+        <div id="rubrica" class="stack"></div>
+        <div class="row sep-poco" style="gap:var(--e1)">
+          <button type="button" class="btn outline sm" id="btnRubMas">
+            <span class="material-symbols-outlined">add</span> Añadir criterio</button>
+          <span class="tiny muted" id="rubSuma"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panelRespuestas" class="hidden"></div>
 </div>
+
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, modal, ok, fail, run, audit, qs, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, num, modal, ok, fail, run, qs, confirmDialog, mensajeError,
+         montarAyudas, avisar, ocupado, bloqueEsqueleto, vacio, pct, kpi } from '../assets/app.js?v=2026-08-21-53';
+import { TIPOS, etiquetaTipo, iconoTipo, nuevaPregunta, conFormaDeSuTipo, repartirPuntos,
+         estadoPuntos, controlDeRespuesta, seCorrigeSola, editorDeCuerpo,
+         conectarEditorDeCuerpo } from '../assets/preguntas.js?v=2026-08-21-53';
+
 const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'evaluaciones.html', area:'admin' });
 const editId = qs('id');
-let cursos=[], mods=[], banco=[], sel=[]; // sel: [{question, puntaje}]
+
+let cursos = [], mods = [], banco = [];
+let A = { nombre:'', course_id:'', module_id:'', tipo:'examen', descripcion:'', puntaje_max:100,
+          nota_aprobatoria:70, tiempo_min:'', intentos:1, abre_en:'', cierra_en:'',
+          barajar:false, una_por_pagina:false, mostrar_correctas:false, mensaje_final:'',
+          rubrica:[], estado:'borrador' };
+let P = [];            // las preguntas, en orden
+let activa = -1;       // cuál está abierta para editar
+let idLocal = 0;       // llave para pintar; el id de verdad lo pone la base
+
 if (p) init();
 
 async function init(){
   const { data: cs } = await sb.from('cem_courses').select('id,nombre').order('nombre');
-  cursos = cs||[];
+  cursos = cs || [];
   $('#curso').innerHTML = cursos.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
-  if (qs('curso')) $('#curso').value = qs('curso');
-  await onCurso();
+  A.course_id = qs('curso') || cursos[0]?.id || '';
+  $('#curso').value = A.course_id;
+  await cargarCurso();
   if (editId) await cargarExistente();
-  render();
+  aAjustes();
+  montarAyudas();
+  pintar();
 }
-$('#curso').onchange = async () => { await onCurso(); render(); };
 
-async function onCurso(){
+/* ============ pestañas ============ */
+$$('#tabs button').forEach(b => b.onclick = () => {
+  $$('#tabs button').forEach(x => x.classList.toggle('active', x === b));
+  const t = b.dataset.t;
+  $('#panelPreguntas').classList.toggle('hidden', t !== 'preguntas');
+  $('#panelAjustes').classList.toggle('hidden', t !== 'ajustes');
+  $('#panelRespuestas').classList.toggle('hidden', t !== 'respuestas');
+  if (t === 'respuestas') pintarRespuestas();
+});
+
+/* La lista de evaluaciones enlaza con #respuestas para caer directo en las
+   métricas; sin esto, ese enlace abría el constructor por las preguntas y
+   había que buscar la pestaña. */
+if (location.hash === '#respuestas') {
+  const b = $$('#tabs button').find((x) => x.dataset.t === 'respuestas');
+  if (b) b.click();
+}
+
+/* ============ carga ============ */
+async function cargarCurso(){
   const cid = $('#curso').value;
   const [{data:ms},{data:qsb}] = await Promise.all([
     sb.from('cem_modules').select('id,titulo').eq('course_id',cid).order('orden'),
     sb.from('cem_questions').select('*').eq('course_id',cid).order('created_at'),
   ]);
-  mods = ms||[]; banco = qsb||[];
-  $('#modulo').innerHTML = '<option value="">Todo el curso</option>' + mods.map(m=>`<option value="${m.id}">${esc(m.titulo)}</option>`).join('');
+  mods = ms || []; banco = qsb || [];
+  $('#modulo').innerHTML = '<option value="">Todo el programa</option>' +
+    mods.map(m=>`<option value="${m.id}">${esc(m.titulo)}</option>`).join('');
+  if (A.module_id) $('#modulo').value = A.module_id;
 }
 
 async function cargarExistente(){
-  const { data: a } = await sb.from('cem_assessments').select('*').eq('id',editId).maybeSingle();
-  if (!a) return;
-  $('#nombre').value=a.nombre; $('#curso').value=a.course_id; await onCurso();
-  if (a.module_id) $('#modulo').value=a.module_id;
-  $('#tipo').value=a.tipo; $('#pmax').value=a.puntaje_max; $('#tiempo').value=a.tiempo_min||'';
-  $('#intentos').value=String(a.intentos||1); $('#napr').value=a.nota_aprobatoria;
-  $('#desc').value=a.descripcion||''; $('#barajar').checked=!!a.barajar;
-  $('#crumb').textContent = `Editando: ${a.nombre}`;
+  const { data: a, error } = await sb.from('cem_assessments').select('*').eq('id',editId).maybeSingle();
+  if (error || !a){ fail('Esa evaluación ya no existe.'); return; }
+  A = { ...A, ...a,
+    module_id: a.module_id || '', tiempo_min: a.tiempo_min ?? '',
+    descripcion: a.descripcion || '', mensaje_final: a.mensaje_final || '',
+    rubrica: Array.isArray(a.rubrica) ? a.rubrica : [],
+    abre_en: paraInput(a.abre_en), cierra_en: paraInput(a.cierra_en) };
+  $('#curso').value = a.course_id;
+  await cargarCurso();
+  $('#crumb').textContent = `Editando «${a.nombre}»`;
+  document.title = `CEM Admin · ${a.nombre}`;
+
   const { data: aq } = await sb.from('cem_assessment_questions')
-    .select('puntaje,orden,cem_questions(*)').eq('assessment_id',editId).order('orden');
-  sel = (aq||[]).map(x=>({ question:x.cem_questions, puntaje:Number(x.puntaje) }));
+    .select('puntaje,orden,seccion,seccion_desc,cem_questions(*)')
+    .eq('assessment_id',editId).order('orden');
+  P = (aq||[]).map(x => ({ ...x.cem_questions, puntaje: Number(x.puntaje)||0,
+    seccion: x.seccion || null, seccion_desc: x.seccion_desc || null, _k: ++idLocal }));
 }
 
-function render(){
-  const total = sel.reduce((a,x)=>a+Number(x.puntaje||0),0);
-  $('#totalPts').textContent = `${sel.length} preguntas · ${total.toFixed(1)} pts`;
-  $('#lista').innerHTML = sel.length ? sel.map((x,i)=>`
-    <div class="card" style="margin-bottom:10px;box-shadow:none">
-      <div class="row" style="gap:10px;align-items:flex-start;flex-wrap:nowrap">
-        <span class="chip neutral">${i+1}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600">${esc(x.question.enunciado)}</div>
-          <div class="row tiny muted" style="margin-top:5px">
-            ${chip(x.question.tipo,'neutral')} ${chip(x.question.dificultad)}
-            ${(x.question.opciones||[]).length?`<span>${(x.question.opciones||[]).length} opciones</span>`:''}</div>
-        </div>
-        <div class="field" style="margin:0;width:92px"><label class="tiny">Puntaje</label>
-          <input type="number" step="0.5" data-pt="${i}" value="${x.puntaje}"></div>
-        <div class="stack" style="gap:2px">
-          <button class="btn ghost sm" data-up="${i}" ${i===0?'disabled':''}><span class="material-symbols-outlined">arrow_upward</span></button>
-          <button class="btn ghost sm" data-down="${i}" ${i===sel.length-1?'disabled':''}><span class="material-symbols-outlined">arrow_downward</span></button>
-        </div>
-        <button class="btn ghost sm" data-rm="${i}" style="color:var(--error)"><span class="material-symbols-outlined">close</span></button>
-      </div></div>`).join('')
-    : '<p class="muted tiny">Todavía no has agregado preguntas. Usa «Agregar del banco».</p>';
-
-  $$('[data-pt]').forEach(i=>i.onchange=()=>{ sel[Number(i.dataset.pt)].puntaje=Number(i.value)||0; render(); });
-  $$('[data-rm]').forEach(b=>b.onclick=()=>{ sel.splice(Number(b.dataset.rm),1); render(); });
-  $$('[data-up]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.up); [sel[i-1],sel[i]]=[sel[i],sel[i-1]]; render(); });
-  $$('[data-down]').forEach(b=>b.onclick=()=>{ const i=Number(b.dataset.down); [sel[i+1],sel[i]]=[sel[i],sel[i+1]]; render(); });
+// Un timestamptz de Postgres no entra en un <input type=datetime-local>: hay que
+// darle la hora local sin zona y sin segundos.
+function paraInput(iso){
+  if (!iso) return '';
+  const d = new Date(iso);
+  const p2 = (n)=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}T${p2(d.getHours())}:${p2(d.getMinutes())}`;
 }
 
+/* ============ ajustes ⇄ estado ============ */
+function aAjustes(){
+  $('#nombre').value = A.nombre; $('#curso').value = A.course_id;
+  $('#modulo').value = A.module_id || ''; $('#tipo').value = A.tipo || 'examen';
+  $('#desc').value = A.descripcion || ''; $('#pmax').value = A.puntaje_max;
+  $('#napr').value = A.nota_aprobatoria; $('#tiempo').value = A.tiempo_min ?? '';
+  $('#intentos').value = String(A.intentos || 1);
+  $('#abre').value = A.abre_en || ''; $('#cierra').value = A.cierra_en || '';
+  $('#barajar').checked = !!A.barajar; $('#unaPorPagina').checked = !!A.una_por_pagina;
+  $('#mostrarCorrectas').checked = !!A.mostrar_correctas;
+  $('#mensajeFinal').value = A.mensaje_final || '';
+  pintarRubrica();
+}
+function deAjustes(){
+  A.nombre = $('#nombre').value.trim(); A.course_id = $('#curso').value;
+  A.module_id = $('#modulo').value || ''; A.tipo = $('#tipo').value;
+  A.descripcion = $('#desc').value.trim(); A.puntaje_max = Number($('#pmax').value) || 0;
+  A.nota_aprobatoria = Number($('#napr').value) || 0; A.tiempo_min = $('#tiempo').value;
+  A.intentos = Number($('#intentos').value) || 1;
+  A.abre_en = $('#abre').value; A.cierra_en = $('#cierra').value;
+  A.barajar = $('#barajar').checked; A.una_por_pagina = $('#unaPorPagina').checked;
+  A.mostrar_correctas = $('#mostrarCorrectas').checked;
+  A.mensaje_final = $('#mensajeFinal').value.trim();
+  leerRubrica();
+}
+
+/* ============ la rúbrica ============
+   Una lista de criterios con sus puntos. No se obliga a que sumen el máximo:
+   hay rúbricas que sólo orientan («¿está bien argumentado?») y forzarlas a
+   cuadrar haría que nadie las usara. Pero sí se dice cuánto suman, que es lo
+   que hace falta para darse cuenta de que faltan veinte puntos. */
+function pintarRubrica(){
+  const host = $('#rubrica');
+  if (!host) return;
+  const lista = A.rubrica || [];
+  host.innerHTML = lista.length ? lista.map((r, i) => `
+    <div class="row rub-fila" style="gap:var(--e1);align-items:flex-end" data-rub="${i}">
+      <div class="field grow sin-margen"><label class="tiny">Criterio</label>
+        <input class="rub-c" value="${esc(r.criterio || '')}"
+          placeholder="Por ejemplo: bibliografía citada"></div>
+      <div class="field corto sin-margen"><label class="tiny">Puntos</label>
+        <input class="rub-p" type="number" min="0" step="0.5" value="${esc(String(r.puntos ?? ''))}"></div>
+      <button type="button" class="btn ghost sm" data-rub-quitar="${i}"
+        title="Quitar este criterio" style="color:var(--error)">
+        <span class="material-symbols-outlined">close</span></button>
+    </div>`).join('')
+    : '<p class="tiny muted sin-margen">Sin rúbrica. Se califica con un solo puntaje, como siempre.</p>';
+
+  const suma = lista.reduce((t, r) => t + (Number(r.puntos) || 0), 0);
+  const max = Number(A.puntaje_max) || 0;
+  $('#rubSuma').innerHTML = !lista.length ? ''
+    : suma === max ? `Suman ${suma}, igual que el total.`
+    : `Suman <b>${suma}</b> y la evaluación es sobre <b>${max}</b>.`;
+
+  $$('[data-rub-quitar]', host).forEach(b => b.onclick = () => {
+    leerRubrica();
+    A.rubrica.splice(Number(b.dataset.rubQuitar), 1);
+    pintarRubrica();
+  });
+  $$('.rub-c, .rub-p', host).forEach(el => el.addEventListener('change', () => {
+    leerRubrica(); pintarRubrica();
+  }));
+}
+
+function leerRubrica(){
+  const host = $('#rubrica');
+  if (!host || !host.querySelector('.rub-fila')) return;
+  A.rubrica = $$('.rub-fila', host).map(f => ({
+    criterio: $('.rub-c', f).value.trim(),
+    puntos: Number($('.rub-p', f).value) || 0,
+  })).filter(r => r.criterio);
+}
+$$('#panelAjustes input,#panelAjustes select,#panelAjustes textarea').forEach(el => {
+  el.addEventListener('change', () => { deAjustes(); pintarMarcador(); });
+});
+$('#curso').onchange = async () => { deAjustes(); await cargarCurso(); pintar(); };
+$('#btnRubMas').onclick = () => { leerRubrica(); (A.rubrica ||= []).push({ criterio:'', puntos:0 }); pintarRubrica(); };
+
+/* ============ el marcador de puntos ============ */
+function pintarMarcador(){
+  const e = estadoPuntos(P, A.puntaje_max);
+  const m = $('#marcador');
+  m.className = `marcador sep ${e.clase}`;
+  m.innerHTML = `
+    <div><div class="tiny muted">Repartido entre las preguntas</div>
+      <div class="cifra">${e.total} <span class="muted" style="font-weight:400">de ${e.max}</span></div></div>
+    <div class="crece"><b>${esc(e.texto)}</b>
+      <div class="tiny muted">${P.length} pregunta${P.length===1?'':'s'} · ${
+        e.cuadra ? 'ya se puede publicar' : 'no se puede publicar hasta que la suma dé exacto'}</div></div>
+    ${e.cuadra ? '' : `<button class="btn outline sm" id="btnCuadrar">
+      <span class="material-symbols-outlined">balance</span> Cuadrar</button>`}`;
+  const b = $('#btnCuadrar');
+  if (b) b.onclick = repartir;
+}
+
+function repartir(){
+  if (!P.length){ fail('Primero agrega alguna pregunta.'); return; }
+  const puntos = repartirPuntos(P.length, A.puntaje_max);
+  P.forEach((q,i) => q.puntaje = puntos[i]);
+  pintar(); ok('Puntos repartidos en partes iguales');
+}
+$('#btnRepartir').onclick = repartir;
+
+/* ============ la lista de preguntas ============ */
+function pintar(){ pintarMarcador(); pintarLista(); }
+
+function pintarLista(){
+  if (!P.length){
+    $('#lista').innerHTML = `<div class="card">${vacio({ icono:'quiz',
+      titulo:'Todavía no hay preguntas',
+      texto:'Escribe la primera aquí abajo, o tráete las que ya tengas del banco de preguntas.' })}</div>`;
+    return;
+  }
+  $('#lista').innerHTML = P.map((q,i) =>
+    (q.seccion != null ? `<div class="q-seccion">
+        <div class="row between">
+          <h3>${esc(q.seccion || 'Sección sin título')}</h3>
+          <button class="btn ghost sm" data-secedit="${i}" title="Editar la sección">
+            <span class="material-symbols-outlined">edit</span></button>
+        </div>
+        ${q.seccion_desc ? `<div class="tiny muted">${esc(q.seccion_desc)}</div>` : ''}
+      </div>` : '') +
+    (i === activa ? tarjetaAbierta(q,i) : tarjetaCerrada(q,i))).join('');
+  conectarLista();
+}
+
+function tarjetaCerrada(q,i){
+  const d = TIPOS[q.tipo] || {};
+  const sinClave = !d.aMano && !seCorrigeSola(q) && Number(q.puntaje) > 0;
+  return `<div class="q-tarjeta ${Number(q.puntaje)===0?'sin-puntos':''}" data-abrir="${i}">
+    <div class="q-cabeza">
+      <span class="q-num">${i+1}</span>
+      <div class="crece">
+        <div class="negrita">${esc(q.enunciado) || '<span class="muted">Pregunta sin enunciado</span>'}</div>
+        <div class="row tiny muted sep-poco" style="gap:var(--e1)">
+          <span><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">${iconoTipo(q.tipo)}</span>
+            ${esc(etiquetaTipo(q.tipo))}</span>
+          ${q.obligatoria ? '<span>obligatoria</span>' : '<span>opcional</span>'}
+          ${sinClave ? '<span style="color:var(--warn)">sin respuesta correcta: la corrige un profesor</span>' : ''}
+        </div>
+      </div>
+      <span class="chip neutral q-vale">${Number(q.puntaje)||0} pts</span>
+    </div></div>`;
+}
+
+function tarjetaAbierta(q,i){
+  const d = TIPOS[q.tipo] || {};
+  return `<div class="q-tarjeta activa" data-tarjeta="${i}">
+    <div class="q-cabeza">
+      <span class="q-num">${i+1}</span>
+      <div class="crece stack">
+        <div class="row" style="gap:var(--e1);align-items:flex-start">
+          <div class="field crece" style="margin:0"><label class="tiny">Pregunta *</label>
+            <textarea data-enun="${i}" style="min-height:56px" placeholder="¿Qué quieres preguntar?">${esc(q.enunciado)}</textarea></div>
+          <div class="field" style="margin:0;min-width:200px"><label class="tiny">Tipo</label>
+            <select data-tipo="${i}">${Object.entries(TIPOS).map(([k,v]) =>
+              `<option value="${k}" ${q.tipo===k?'selected':''}>${esc(v.etq)}</option>`).join('')}</select></div>
+        </div>
+        <div class="field" style="margin:0"><label class="tiny">Texto de ayuda (opcional)</label>
+          <input data-ayuda-txt="${i}" value="${esc(q.ayuda||'')}" placeholder="Una aclaración corta, si hace falta."></div>
+        <div data-cuerpo="${i}">${editorDeCuerpo(q,i)}</div>
+        <div class="field" style="margin:0"><label class="tiny">Explicación de la respuesta (opcional)
+          <button type="button" class="ayuda-btn" data-ayuda="Se le enseña al estudiante después de entregar, si activaste «mostrarle cuáles falló». Es donde de verdad se aprende: no basta saber que fallaste, hace falta saber por qué.">?</button></label>
+          <textarea data-expl="${i}" style="min-height:48px">${esc(q.explicacion||'')}</textarea></div>
+      </div>
+      <div class="stack" style="gap:var(--e1);flex:none;width:120px">
+        <div class="field q-vale" style="margin:0"><label class="tiny">Puntos</label>
+          <input type="number" step="0.25" min="0" data-pt="${i}" value="${Number(q.puntaje)||0}"></div>
+        <label class="check tiny"><input type="checkbox" data-obl="${i}" ${q.obligatoria?'checked':''}> Obligatoria</label>
+        ${d.opciones ? `<label class="check tiny"><input type="checkbox" data-baraj="${i}" ${q.barajar_opciones?'checked':''}> Barajar opciones</label>` : ''}
+      </div>
+    </div>
+    <div class="row between sep" style="border-top:1px solid var(--filete);padding-top:var(--e1)">
+      <div class="row" style="gap:var(--e0)">
+        <button class="btn ghost sm" data-up="${i}" ${i===0?'disabled':''} title="Subir"><span class="material-symbols-outlined">arrow_upward</span></button>
+        <button class="btn ghost sm" data-down="${i}" ${i===P.length-1?'disabled':''} title="Bajar"><span class="material-symbols-outlined">arrow_downward</span></button>
+        <button class="btn ghost sm" data-dup="${i}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
+      </div>
+      <div class="row" style="gap:var(--e0)">
+        ${q.id ? '<span class="tiny muted">Esta pregunta está en el banco: al guardar se actualiza también donde más se use.</span>' : ''}
+        <button class="btn ghost sm" data-rm="${i}" style="color:var(--error)" title="Quitar"><span class="material-symbols-outlined">delete</span></button>
+      </div>
+    </div></div>`;
+}
+
+/* ============ conectar la lista ============
+   El trozo que cambia con el tipo —opciones, filas y columnas, la clave— lo
+   pone y lo escucha preguntas.js, porque el banco de preguntas necesita
+   exactamente el mismo formulario. Aquí queda lo que sólo tiene sentido dentro
+   de una evaluación: el orden, los puntos y las secciones. */
+function conectarLista(){
+  $$('[data-abrir]').forEach(el => el.onclick = () => { activa = Number(el.dataset.abrir); pintarLista(); });
+
+  const q = () => P[activa];
+  const repintaCuerpo = () => {
+    const host = $(`[data-cuerpo="${activa}"]`);
+    if (host){ host.innerHTML = editorDeCuerpo(q(), activa); conectarLista(); }
+  };
+
+  $$('[data-enun]').forEach(el => el.oninput = () => { P[el.dataset.enun].enunciado = el.value; });
+  $$('[data-ayuda-txt]').forEach(el => el.oninput = () => { P[el.dataset['ayudaTxt']].ayuda = el.value; });
+  $$('[data-expl]').forEach(el => el.oninput = () => { P[el.dataset.expl].explicacion = el.value; });
+  $$('[data-pt]').forEach(el => el.onchange = () => {
+    P[el.dataset.pt].puntaje = Math.max(0, Number(el.value) || 0); pintar(); });
+  $$('[data-obl]').forEach(el => el.onchange = () => { P[el.dataset.obl].obligatoria = el.checked; });
+  $$('[data-baraj]').forEach(el => el.onchange = () => { P[el.dataset.baraj].barajar_opciones = el.checked; });
+  $$('[data-tipo]').forEach(el => el.onchange = () => {
+    conFormaDeSuTipo(P[el.dataset.tipo], el.value); pintarLista(); });
+
+  if (activa >= 0) conectarEditorDeCuerpo({ raiz: document, q: q(), i: activa, repintar: repintaCuerpo });
+
+  $$('[data-up]').forEach(el => el.onclick = () => mover(Number(el.dataset.up), -1));
+  $$('[data-down]').forEach(el => el.onclick = () => mover(Number(el.dataset.down), 1));
+  $$('[data-dup]').forEach(el => el.onclick = () => {
+    const i = Number(el.dataset.dup);
+    // La copia entra al banco como pregunta nueva: si compartiera el id, editar
+    // una cambiaría la otra y nadie entendería por qué.
+    P.splice(i+1, 0, { ...structuredClone(P[i]), id:null, seccion:null, seccion_desc:null, _k: ++idLocal });
+    activa = i+1; pintar(); });
+  $$('[data-rm]').forEach(el => el.onclick = async () => {
+    const i = Number(el.dataset.rm);
+    if (!await confirmDialog('¿Quitar esta pregunta de la evaluación? Si estaba en el banco, allí se queda.')) return;
+    // La sección la abría esta pregunta: pasa a la siguiente, o se pierde.
+    if (P[i].seccion != null && P[i+1]){ P[i+1].seccion = P[i].seccion; P[i+1].seccion_desc = P[i].seccion_desc; }
+    P.splice(i,1); activa = -1; pintar(); });
+
+  $$('[data-secedit]').forEach(el => el.onclick = (ev) => { ev.stopPropagation(); editarSeccion(Number(el.dataset.secedit)); });
+}
+
+function mover(i, paso){
+  const j = i + paso;
+  if (j < 0 || j >= P.length) return;
+  // Las secciones se quedan donde están: son del sitio, no de la pregunta.
+  const secI = P[i].seccion, descI = P[i].seccion_desc;
+  const secJ = P[j].seccion, descJ = P[j].seccion_desc;
+  [P[i], P[j]] = [P[j], P[i]];
+  P[i].seccion = secI; P[i].seccion_desc = descI;
+  P[j].seccion = secJ; P[j].seccion_desc = descJ;
+  activa = j; pintar();
+}
+
+function editarSeccion(i){
+  const q = P[i];
+  const dlg = modal({ title:'Sección', body:`
+    <div class="field"><label>Título de la sección</label>
+      <input id="sT" value="${esc(q.seccion||'')}" maxlength="80" placeholder="Parte 1 · Conceptos"></div>
+    <div class="field"><label>Descripción (opcional)</label>
+      <textarea id="sD" style="min-height:60px">${esc(q.seccion_desc||'')}</textarea></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+      <button class="btn ghost" data-quitar style="color:var(--error)">Quitar la sección</button>
+      <button class="btn" data-s>Guardar</button>` });
+  $('[data-x]',dlg).onclick = dlg.close;
+  $('[data-quitar]',dlg).onclick = () => { q.seccion = null; q.seccion_desc = null; dlg.close(); pintar(); };
+  $('[data-s]',dlg).onclick = () => {
+    q.seccion = $('#sT',dlg).value.trim() || 'Sección';
+    q.seccion_desc = $('#sD',dlg).value.trim() || null;
+    dlg.close(); pintar();
+  };
+}
+
+/* ============ agregar ============ */
 $('#btnAdd').onclick = () => {
-  const yaIds = new Set(sel.map(x=>x.question.id));
-  const disp = banco.filter(q=>!yaIds.has(q.id));
-  const m = modal({ title:'Agregar preguntas del banco', wide:true, body:`
-    ${disp.length? `<div class="stack">${disp.map(q=>`<label class="check" style="align-items:flex-start">
-      <input type="checkbox" data-q="${q.id}" style="margin-top:3px">
-      <span><b>${esc(q.enunciado)}</b>
-        <div class="tiny muted">${esc(q.tipo)} · dificultad ${esc(q.dificultad)}</div></span></label>`).join('')}</div>`
-      : `<p class="muted">No quedan preguntas disponibles en el banco para este curso.
-         <a href="preguntas.html">Crea nuevas preguntas</a>.</p>`}`,
-    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Agregar seleccionadas</button>` });
-  $('[data-x]',m).onclick=m.close;
-  $('[data-s]',m).onclick=()=>{
+  P.push({ ...nuevaPregunta('multiple'), _k: ++idLocal });
+  activa = P.length - 1; pintar();
+  $(`[data-enun="${activa}"]`)?.focus();
+};
+
+$('#btnSec').onclick = () => {
+  if (!P.length){ fail('Una sección agrupa preguntas: agrega alguna primero.'); return; }
+  // La sección se abre delante de la pregunta que sigue a la abierta, que es
+  // donde uno espera que caiga al pulsar el botón.
+  const i = Math.min(activa >= 0 ? activa + 1 : P.length - 1, P.length - 1);
+  P[i].seccion = P[i].seccion || 'Sección';
+  pintar(); editarSeccion(i);
+};
+
+$('#btnBanco').onclick = () => {
+  const yaIds = new Set(P.map(x => x.id).filter(Boolean));
+  const disp = banco.filter(q => !yaIds.has(q.id));
+  const porGrupo = new Map();
+  for (const q of disp){
+    const k = q.carpeta || 'Sin carpeta';
+    if (!porGrupo.has(k)) porGrupo.set(k, []);
+    porGrupo.get(k).push(q);
+  }
+  const m = modal({ title:'Traer preguntas del banco', wide:true, body:
+    disp.length ? [...porGrupo.entries()].map(([carpeta, qs]) => `
+      <div class="sub-ap">${esc(carpeta)}</div>
+      <div class="stack">${qs.map(q => `<label class="check" style="align-items:flex-start">
+        <input type="checkbox" data-q="${q.id}" style="margin-top:3px">
+        <span><b>${esc(q.enunciado)}</b>
+          <div class="tiny muted">${esc(etiquetaTipo(q.tipo))} · dificultad ${esc(q.dificultad)}${
+            q.usos ? ` · ${q.usos} usos, ${Math.round(100*q.aciertos/q.usos)}% de acierto` : ''}</div></span></label>`).join('')}</div>`).join('')
+      : `<p class="muted">No quedan preguntas de este programa sin usar en la evaluación.
+         <a href="preguntas.html">Ve al banco</a> para escribir más.</p>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Agregar las marcadas</button>` });
+  $('[data-x]',m).onclick = m.close;
+  $('[data-s]',m).onclick = () => {
     const ids = $$('[data-q]',m).filter(i=>i.checked).map(i=>i.dataset.q);
-    const pts = Math.round((Number($('#pmax').value)||100)/Math.max(sel.length+ids.length,1)*100)/100;
-    ids.forEach(id=>sel.push({ question:banco.find(q=>q.id===id), puntaje:pts }));
-    sel = sel.map(x=>({ ...x, puntaje:pts }));
-    m.close(); render();
+    ids.forEach(id => {
+      const q = banco.find(x => x.id === id);
+      P.push({ ...q, puntaje: 0, seccion: null, seccion_desc: null, _k: ++idLocal });
+    });
+    m.close();
+    if (ids.length) repartir(); else pintar();
   };
 };
 
+/* ============ previsualizar ============ */
 $('#btnPrev').onclick = () => {
-  modal({ title:`Previsualización: ${$('#nombre').value||'Sin título'}`, wide:true, body:`
-    <p class="tiny muted">${esc($('#desc').value||'')}</p>
-    ${sel.map((x,i)=>`<div class="card" style="box-shadow:none;margin-bottom:10px">
-      <b>${i+1}. ${esc(x.question.enunciado)}</b>
-      <div style="margin-top:8px">${(x.question.opciones||[]).map(o=>`
-        <div style="padding:8px 11px;border:1px solid var(--outline-variant);border-radius:9px;margin-top:6px">${esc(o)}</div>`).join('')
-        || '<textarea placeholder="Respuesta abierta" disabled></textarea>'}</div>
-      <div class="tiny muted" style="margin-top:6px">${x.puntaje} pts</div></div>`).join('') || '<p class="muted">Sin preguntas.</p>'}` });
+  deAjustes();
+  modal({ title:`Así la ve el estudiante`, wide:true, body: `
+    <h2 style="margin-top:0">${esc(A.nombre || 'Sin título')}</h2>
+    ${A.descripcion ? `<p class="muted">${esc(A.descripcion)}</p>` : ''}
+    <div class="tiny muted sep">Sobre ${estadoPuntos(P, A.puntaje_max).max} puntos ·
+      se aprueba con ${A.nota_aprobatoria} · ${A.tiempo_min ? A.tiempo_min+' minutos' : 'sin límite de tiempo'}</div>
+    ${P.map((q,i) => (q.seccion != null
+      ? `<div class="q-seccion"><h3>${esc(q.seccion)}</h3>${q.seccion_desc?`<div class="tiny muted">${esc(q.seccion_desc)}</div>`:''}</div>` : '')
+      + `<div class="card" style="box-shadow:none;margin-bottom:var(--e1)">
+      <div class="row between"><b>${i+1}. ${esc(q.enunciado || '(sin enunciado)')}${q.obligatoria?' <span style="color:var(--error)">*</span>':''}</b>
+        <span class="chip neutral">${Number(q.puntaje)||0} pts</span></div>
+      ${q.ayuda ? `<div class="tiny muted">${esc(q.ayuda)}</div>` : ''}
+      <div class="sep-poco">${controlDeRespuesta({ ...q, id:`prev${i}` }, null)}</div>
+    </div>`).join('') || '<p class="muted">Todavía no hay preguntas.</p>'}` });
 };
 
-async function guardar(estado){
-  const nombre=$('#nombre').value.trim();
-  if (!nombre){ fail('El nombre de la evaluación es obligatorio.'); return; }
-  const payload = {
-    course_id:$('#curso').value, module_id:$('#modulo').value||null, nombre,
-    descripcion:$('#desc').value.trim(), tipo:$('#tipo').value,
-    puntaje_max:Number($('#pmax').value)||100, tiempo_min:Number($('#tiempo').value)||null,
-    intentos:Number($('#intentos').value)||1, nota_aprobatoria:Number($('#napr').value)||70,
-    barajar:$('#barajar').checked, estado,
+/* ============ guardar ============ */
+function aPayload(estado){
+  deAjustes();
+  return {
+    datos: { ...A, estado,
+      module_id: A.module_id || null,
+      tiempo_min: A.tiempo_min === '' ? null : Number(A.tiempo_min),
+      abre_en: A.abre_en ? new Date(A.abre_en).toISOString() : null,
+      cierra_en: A.cierra_en ? new Date(A.cierra_en).toISOString() : null,
+      rubrica: (A.rubrica || []).filter(r => r.criterio) },
+    preguntas: P.map(q => ({
+      id: q.id || null, enunciado: q.enunciado, ayuda: q.ayuda || null, tipo: q.tipo,
+      dificultad: q.dificultad || 'media',
+      opciones: (q.opciones||[]).filter(o => String(o).trim() !== ''),
+      respuesta_correcta: q.respuesta_correcta ?? null,
+      explicacion: q.explicacion || null, config: q.config || {},
+      obligatoria: !!q.obligatoria, barajar_opciones: !!q.barajar_opciones,
+      module_id: A.module_id || q.module_id || null, carpeta: q.carpeta || null,
+      puntaje: Number(q.puntaje) || 0, seccion: q.seccion, seccion_desc: q.seccion_desc,
+    })),
   };
-  let id = editId;
-  if (id) await run(sb.from('cem_assessments').update(payload).eq('id',id),'No se pudo guardar');
-  else { const r = await run(sb.from('cem_assessments').insert(payload).select().single(),'No se pudo crear'); id=r.id; }
-
-  await sb.from('cem_assessment_questions').delete().eq('assessment_id',id);
-  if (sel.length) await run(sb.from('cem_assessment_questions').insert(
-    sel.map((x,i)=>({ assessment_id:id, question_id:x.question.id, orden:i+1, puntaje:x.puntaje }))),'No se pudieron guardar las preguntas');
-
-  await audit(editId?'evaluacion_actualizada':'evaluacion_creada','cem_assessments',id,'medio',{nombre, estado});
-  ok(estado==='publicado'?'Evaluación publicada':'Borrador guardado');
-  setTimeout(()=>location.href='evaluaciones.html', 800);
 }
-$('#btnDraft').onclick = () => guardar('borrador');
-$('#btnPub').onclick = async () => {
-  if (!sel.length && !await confirmDialog('La evaluación no tiene preguntas. ¿Publicar igual?')) return;
-  guardar('publicado');
+
+async function guardar(estado, boton){
+  const { datos, preguntas } = aPayload(estado);
+  if (!datos.nombre){
+    fail('Ponle un nombre a la evaluación.');
+    $$('#tabs button')[1].click(); $('#nombre').focus(); return;
+  }
+  const sinTexto = preguntas.findIndex(q => !q.enunciado.trim());
+  if (sinTexto >= 0){
+    fail(`La pregunta ${sinTexto+1} está sin enunciado.`);
+    activa = sinTexto; $$('#tabs button')[0].click(); pintarLista(); return;
+  }
+  await ocupado(boton, 'Guardando…', async () => {
+    const { data, error } = await sb.rpc('cem_guardar_evaluacion',
+      { p_id: editId, p_datos: datos, p_preguntas: preguntas });
+    if (error){ fail(mensajeError(error)); return; }
+    ok(estado === 'publicado' ? 'Evaluación publicada' : 'Borrador guardado');
+    // Al crear, se pasa a modo edición sin recargar: si el usuario sigue
+    // escribiendo, lo siguiente que guarde tiene que caer en la misma evaluación
+    // y no crear una segunda.
+    if (!editId){ setTimeout(()=>{ location.replace(`evaluacion-nueva.html?id=${data.id}`); }, 700); }
+    else setTimeout(()=>location.href='evaluaciones.html', 800);
+  });
+}
+
+$('#btnDraft').onclick = (e) => guardar('borrador', e.currentTarget);
+$('#btnPub').onclick = (e) => {
+  deAjustes();
+  const est = estadoPuntos(P, A.puntaje_max);
+  if (!est.cuadra){
+    fail(`${est.texto}. Los puntajes tienen que sumar exactamente ${est.max} para poder publicar.`);
+    $$('#tabs button')[0].click();
+    return;
+  }
+  guardar('publicado', e.currentTarget);
 };
+
+/* ============ respuestas ============ */
+async function pintarRespuestas(){
+  const host = $('#panelRespuestas');
+  if (!editId){
+    host.innerHTML = `<div class="card">${vacio({ icono:'insights', titulo:'Todavía no hay respuestas',
+      texto:'Guarda la evaluación y publícala. Cuando alguien la presente, aquí sale cuánto sacaron y qué pregunta falló más gente.' })}</div>`;
+    return;
+  }
+  host.innerHTML = bloqueEsqueleto(5);
+  const { data, error } = await sb.rpc('cem_metricas_evaluacion', { p_assessment_id: editId });
+  if (error){ avisar(host, mensajeError(error)); return; }
+  const { resumen: R, distribucion: D, preguntas: Q } = data;
+
+  if (!Number(R.entregas)){
+    host.innerHTML = `<div class="card">${vacio({ icono:'inbox', titulo:'Nadie la ha presentado todavía',
+      texto:'En cuanto entreguen la primera, aquí aparecen el promedio, cómo se repartieron las notas y qué preguntas costaron más.' })}</div>`;
+    return;
+  }
+
+  const tope = Math.max(...D.map(b => Number(b.n)), 1);
+  const falladas = Q.filter(q => q.automatica && q.acierto != null && Number(q.respondidas) > 0)
+    .sort((a,b) => Number(a.acierto) - Number(b.acierto)).slice(0,3);
+
+  host.innerHTML = `
+    <div class="kpis">
+      ${kpi('Entregas', num(R.entregas), 'assignment_turned_in',
+        `${num(R.por_revisar)} sin corregir${Number(R.tardias)?` · ${num(R.tardias)} fuera de plazo`:''}`)}
+      ${kpi('Promedio', R.promedio ?? '—', 'trending_up', `mediana ${R.mediana ?? '—'}`)}
+      ${kpi('Aprobados', num(R.aprobados), 'check_circle',
+        `${num(R.reprobados)} por debajo de ${data.evaluacion.nota_aprobatoria}`)}
+      ${kpi('Tiempo medio', R.minutos != null ? `${R.minutos} min` : '—', 'timer',
+        'desde que abren hasta que entregan')}
+    </div>
+
+    <div class="card">
+      <h2 class="sec"><span class="material-symbols-outlined">bar_chart</span> Cómo se repartieron las notas</h2>
+      <div class="histograma">${D.map(b => {
+        const alto = Math.round(100 * Number(b.n) / tope);
+        return `<div class="col ${Number(b.hasta) < Number(data.evaluacion.nota_aprobatoria) ? 'reprueba':''}"
+          title="${b.desde}–${b.hasta}: ${b.n} entrega(s)">
+          <div class="palo" style="height:${alto}%"></div>
+          <div class="pie">${b.desde}</div></div>`; }).join('')}</div>
+      <p class="tiny muted">Cada columna es un tramo de diez puntos. Las rojas están por debajo de la nota aprobatoria.
+        Entre ${R.baja ?? '—'} y ${R.alta ?? '—'} fue todo lo que se vio.</p>
+    </div>
+
+    ${falladas.length ? `<div class="card">
+      <h2 class="sec"><span class="material-symbols-outlined">priority_high</span> Las que más costaron</h2>
+      <p class="tiny muted">Cuando casi nadie acierta una pregunta, lo normal no es que la clase falle:
+        o la pregunta está mal redactada, o ese tema no quedó explicado. Vale la pena leerlas otra vez.</p>
+      <div class="stack sep">${falladas.map(q => `<div class="fallada">
+        <b>${q.orden}. ${esc(q.enunciado)}</b>
+        <div class="tiny muted">Acertó el ${q.acierto}% · ${num(q.correctas)} de ${num(q.respondidas)} que la contestaron</div>
+      </div>`).join('')}</div></div>` : ''}
+
+    <div class="card">
+      <h2 class="sec"><span class="material-symbols-outlined">format_list_numbered</span> Pregunta por pregunta</h2>
+      <div class="stack" style="gap:var(--e3)">${Q.map(bloquePregunta).join('')}</div>
+    </div>`;
+}
+
+function bloquePregunta(q){
+  const respondidas = Number(q.respondidas) || 0;
+  const cabeza = `<div class="row between" style="align-items:flex-start">
+      <div class="crece"><b>${q.orden}. ${esc(q.enunciado)}</b>
+        <div class="tiny muted">${esc(etiquetaTipo(q.tipo))} · vale ${q.vale} pts ·
+          ${num(respondidas)} respondieron${Number(q.sin_responder)?`, ${num(q.sin_responder)} la dejaron en blanco`:''}</div></div>
+      ${q.acierto != null
+        ? `<span class="chip ${q.acierto>=70?'ok':q.acierto>=40?'warn':'err'}">${q.acierto}% de acierto</span>`
+        : '<span class="chip neutral">la corrige un profesor</span>'}
+    </div>`;
+
+  if ((q.opciones||[]).length){
+    const tope = Math.max(...q.opciones.map(o => Number(o.n)), 1);
+    return `<div>${cabeza}<div class="sep-poco">${q.opciones.map(o => `
+      <div class="barra-dato ${o.correcta?'acertada':''}">
+        <span class="etq">${o.correcta?'<span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px;color:var(--ok)">check</span> ':''}${esc(o.valor)}</span>
+        <span class="pista"><span class="relleno" style="width:${Math.round(100*Number(o.n)/tope)}%"></span></span>
+        <span class="cuenta">${num(o.n)}${respondidas?` · ${pct(100*Number(o.n)/respondidas)}`:''}</span>
+      </div>`).join('')}</div></div>`;
+  }
+
+  if ((q.muestra||[]).length){
+    return `<div>${cabeza}
+      <div class="sep-poco">${q.muestra.map(t => `<div class="comentario-anon">${esc(t)}</div>`).join('')}
+      ${q.muestra.length >= 25 ? '<p class="tiny muted">Se muestran las primeras 25 respuestas distintas.</p>' : ''}</div></div>`;
+  }
+
+  return `<div>${cabeza}<p class="tiny muted sep-poco">${
+    q.tipo === 'archivo' ? 'Los archivos entregados se abren desde la pantalla de calificar.'
+    : 'Este tipo de pregunta no se resume en un gráfico: se revisa entrega por entrega.'}
+    <a href="calificar.html?assessment=${editId}">Ir a calificar</a></p></div>`;
+}
 </script>
 </body>
 </html>

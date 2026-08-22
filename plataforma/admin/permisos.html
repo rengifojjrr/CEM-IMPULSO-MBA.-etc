@@ -9,29 +9,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
   td.pcell{text-align:center;}
-  .sw{width:34px;height:20px;border-radius:11px;border:none;background:var(--outline-variant);position:relative;cursor:pointer;}
+  .sw{width:34px;height:20px;border-radius:var(--r);border:none;background:var(--filete);position:relative;cursor:pointer;}
   .sw.on{background:var(--ok);}
-  .sw i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .14s;}
+  .sw i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:var(--r-full);background:var(--papel);transition:left .14s;}
   .sw.on i{left:16px;}
   .sw:disabled{opacity:.5;cursor:not-allowed;}
-  th.rot{font-size:10px;}
+  th.rot{font-size:var(--t-xs);}
   /* En teléfono el interruptor de 34×20 es difícil de acertar con el pulgar. */
   @media(max-width:900px){
-    .sw{width:52px;height:34px;border-radius:17px;}
+    .sw{width:52px;height:34px;border-radius:var(--r);}
     .sw i{top:4px;left:4px;width:26px;height:26px;}
     .sw.on i{left:22px;}
     td.pcell{padding:8px 10px;}
-    th.rot{font-size:11.5px;}
+    th.rot{font-size:var(--t-xs);}
   }
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Matriz de permisos</h1><p>Configuración de acceso y capacidades operativas del sistema.</p></div>
+    <div><h1>Matriz de permisos</h1><p>Qué puede hacer cada rol. Cambiar algo aquí afecta de inmediato a todas las personas que tengan ese rol.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnReset"><span class="material-symbols-outlined">restart_alt</span> Restaurar sugeridos</button>
       <button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar cambios</button>
@@ -51,16 +51,20 @@
       <thead><tr><th>Módulo del sistema</th><th class="rot">Ver</th><th class="rot">Crear</th><th class="rot">Editar</th>
         <th class="rot">Publicar</th><th class="rot">Aprobar</th><th class="rot">Exportar</th><th class="rot">Eliminar</th></tr></thead>
       <tbody id="tb"></tbody></table></div>
-    <p class="tiny muted" style="margin-top:10px">
-      Nota: la matriz documenta y controla las capacidades de la interfaz. Las reglas de base de datos
-      (RLS) siguen aplicándose siempre como última barrera de seguridad.</p>
+    <p class="tiny muted sep">
+      Esta matriz gobierna lo que muestra la interfaz. Por debajo, la base de datos aplica sus
+      propias reglas y son las que mandan: cambiar roles, desactivar cuentas y borrar cursos están
+      reservados a <b>administrador</b>; el rol de <b>cobranza</b> sólo alcanza dinero y estudiantes;
+      y el <b>auditor</b> no puede escribir en ninguna tabla, aunque una pantalla se olvide de
+      esconderle el botón.</p>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, ok, run, audit, confirmDialog } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, ok, run, audit, confirmDialog, etiqueta,
+         QUE_HACE_EL_ROL } from '../assets/app.js?v=2026-08-21-53';
 const p = await mount({ require:['admin','superadmin','auditor'], active:'permisos.html', area:'admin' });
 const puede = p && ['admin','superadmin'].includes(p.rol);
-const ROLES = ['superadmin','admin','coordinador','profesor','auditor'];
+const ROLES = ['superadmin','admin','coordinador','cobranza','profesor','auditor'];
 const ACCIONES = ['ver','crear','editar','publicar','aprobar','exportar','eliminar'];
 let perms=[], rol='admin', dirty={};
 if (p) load();
@@ -68,9 +72,15 @@ if (p) load();
 async function load(){
   const { data } = await sb.from('cem_permissions').select('*');
   perms = data||[];
-  $('#roles').innerHTML = ROLES.map(r=>`<button class="chip chip-btn ${r===rol?'on':''}" data-r="${r}">${r}</button>`).join('');
-  $$('[data-r]').forEach(b=>b.onclick=()=>{
-    if (Object.keys(dirty).length && !confirm('Tienes cambios sin guardar. ¿Descartarlos?')) return;
+  $('#roles').innerHTML = ROLES.map(r=>`<button class="chip chip-btn ${r===rol?'on':''}" data-r="${r}"
+    title="${esc(QUE_HACE_EL_ROL[r]||'')}">${esc(etiqueta(r))}</button>`).join('');
+  $$('[data-r]').forEach(b=>b.onclick=async()=>{
+    // El confirm() del navegador es una caja gris del sistema que no explica
+    // bien qué se pierde. El diálogo de la plataforma dice cuántos cambios son.
+    const n = Object.keys(dirty).length;
+    if (n && !await confirmDialog(
+      `Tienes ${n} cambio(s) sin guardar en «${etiqueta(rol)}». Si cambias de rol se pierden. ¿Seguir igual?`,
+      'Cambios sin guardar')) return;
     rol=b.dataset.r; dirty={}; $$('[data-r]').forEach(x=>x.classList.toggle('on',x===b)); render();
   });
   render();
@@ -115,10 +125,14 @@ $('#btnReset').onclick = async () => {
   const mods = modulos();
   const rows = mods.flatMap(m=>ACCIONES.map(a=>{
     let v=false;
+    // Los sugeridos reflejan lo que la base de datos permite de verdad, para
+    // que la matriz no prometa algo que después el servidor rechaza.
     if (rol==='superadmin') v=true;
-    else if (rol==='admin') v = a!=='eliminar';
-    else if (rol==='coordinador') v = ['ver','crear','editar'].includes(a);
-    else if (rol==='profesor') v = a==='ver' || (['crear','editar'].includes(a) && ['Contenidos','Evaluaciones','Calificaciones'].includes(m));
+    else if (rol==='admin') v = true;
+    else if (rol==='coordinador') v = a!=='eliminar';       // borrar cursos es sólo de admin
+    else if (rol==='cobranza') v = ['Pagos','Inscripciones','Estudiantes'].includes(m)
+                                   && ['ver','crear','editar','aprobar','exportar'].includes(a);
+    else if (rol==='profesor') v = a==='ver' || (['crear','editar','publicar'].includes(a) && ['Contenidos','Evaluaciones','Calificaciones'].includes(m));
     else if (rol==='auditor') v = ['ver','exportar'].includes(a);
     return { rol, modulo:m, accion:a, permitido:v };
   }));

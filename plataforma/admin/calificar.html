@@ -9,23 +9,39 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
-  .grader{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start;}
+  .grader{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:var(--aire);align-items:start;}
   @media(max-width:900px){ .grader{grid-template-columns:1fr;} }
-  .sub-item{display:flex;gap:10px;align-items:center;padding:10px;border-radius:9px;cursor:pointer;}
-  .sub-item:hover{background:var(--surface-container);}
+  .sub-item{display:flex;gap:10px;align-items:center;padding:10px;border-radius:var(--r);cursor:pointer;}
+  .sub-item:hover{background:var(--hueco);}
   .sub-item.on{background:var(--secondary-container);}
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Calificar entregas</h1><p id="sub">Revisa y califica las entregas de los estudiantes.</p></div>
-    <div class="actions">
-      <div class="field" style="margin:0;min-width:220px"><select id="fAssess"><option value="">Todas las evaluaciones</option></select></div>
+    <div><h1>Calificar entregas <button type="button" class="ayuda-btn" data-ayuda="Las de opción múltiple se corrigen solas; aquí llegan las que hay que leer. Al poner la nota, el estudiante la ve al instante y su avance se recalcula.">?</button></h1><p id="sub">Revisa y califica las entregas de los estudiantes.</p></div>
+  </div>
+
+  <!-- Antes sólo se podía acotar por evaluación, y la cola llegaba mezclada:
+       cinco programas, tres cohortes y las notas que puso otro, todo en la
+       misma lista. La pregunta que se hace de verdad al abrir esto es «a quién
+       estoy evaluando» —de qué programa, de qué cohorte— y, cuando se revisa
+       el trabajo ajeno, «cómo está calificando esta persona». -->
+  <div class="card sep-poco">
+    <div class="filters">
+      <div class="field grow"><label>Buscar</label>
+        <input type="search" id="q" placeholder="Estudiante o evaluación…"></div>
+      <div class="field"><label>Evaluación</label><select id="fAssess"><option value="">Todas</option></select></div>
+      <div class="field"><label>Programa</label><select id="fCurso"><option value="">Todos</option></select></div>
+      <div class="field"><label>Cohorte</label><select id="fCohorte"><option value="">Todas</option></select></div>
+      <div class="field"><label>Corregido por <button type="button" class="ayuda-btn" data-ayuda="Para ver cómo está calificando una persona: elige su nombre y quedan sólo las entregas que puso ella, con su nota y su comentario.">?</button></label>
+        <select id="fCorrector"><option value="">Cualquiera</option></select></div>
+      <button class="btn ghost" id="btnClear">Limpiar los filtros</button>
     </div>
   </div>
+
   <div class="grader">
     <div class="card" style="max-height:78vh;overflow:auto">
       <div class="tabs" style="margin-bottom:10px">
@@ -38,7 +54,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, run, qs, audit } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, fdatetime, initials, ok, okDeshacer, fail, run, qs, audit, modal, mensajeError, chipEstado, avisar, match } from '../assets/app.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'calificar.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin','profesor'].includes(p.rol);
 let subs=[], filtro='pend', sel=null;
@@ -46,20 +62,37 @@ if (p) load();
 
 async function load(){
   const { data: as } = await sb.from('cem_assessments').select('id,nombre').order('nombre');
-  $('#fAssess').innerHTML = '<option value="">Todas las evaluaciones</option>' +
+  $('#fAssess').innerHTML = '<option value="">Todas</option>' +
     (as||[]).map(a=>`<option value="${a.id}">${esc(a.nombre)}</option>`).join('');
   if (qs('assessment')) $('#fAssess').value = qs('assessment');
   await fetchSubs();
 }
+/* La evaluación acota la consulta a la base —hay muchas entregas y no tiene
+   sentido traerlas todas—; los otros cuatro filtran lo ya traído, que es
+   instantáneo y deja escribir sin esperar a la red. */
 $('#fAssess').onchange = fetchSubs;
+const CAMPOS = ['#q','#fCurso','#fCohorte','#fCorrector'];
+CAMPOS.forEach(s=>{ const el=$(s); el.oninput=()=>{ sel=null; render(); }; el.onchange=()=>{ sel=null; render(); }; });
+$('#btnClear').onclick = () => {
+  [...CAMPOS,'#fAssess'].forEach(s=>$(s).value='');
+  sel=null; fetchSubs();
+};
 
 async function fetchSubs(){
   let q = sb.from('cem_submissions')
-    .select('*,cem_assessments(nombre,tipo,puntaje_max,nota_aprobatoria,cem_courses(nombre)),cem_enrollments(profile_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email))')
+    .select('*,cem_assessments(nombre,tipo,puntaje_max,nota_aprobatoria,rubrica,course_id,cem_courses(nombre)),cem_enrollments(profile_id,cohort_id,cem_cohorts(nombre),cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email))')
     .in('estado',['entregada','calificada']).order('entregado_en',{ascending:false});
   const a = $('#fAssess').value; if (a) q = q.eq('assessment_id',a);
   const { data } = await q;
   subs = data||[];
+
+  /* Los nombres de quien corrigió no vienen en la entrega, sólo su
+     identificador. Se piden una vez, sólo los que hagan falta. */
+  const correctores = [...new Set(subs.map(s=>s.calificado_por).filter(Boolean))];
+  if (correctores.length){
+    const { data: ps } = await sb.from('cem_profiles').select('id,nombre,apellido,email').in('id', correctores);
+    (ps||[]).forEach(x => quienCorrige[x.id] = `${x.nombre||''} ${x.apellido||''}`.trim() || x.email);
+  }
   sel = null;
   render();
 }
@@ -67,25 +100,156 @@ async function fetchSubs(){
 $$('[data-f]').forEach(b=>b.onclick=()=>{ $$('[data-f]').forEach(x=>x.classList.remove('active')); b.classList.add('active');
   filtro=b.dataset.f; sel=null; render(); });
 
+/** Nombre de quien puso cada nota, por identificador. */
+const quienCorrige = {};
+
+/** Rellena un desplegable con lo que hay, conservando lo elegido. */
+function llenar(sel, opciones, todos){
+  const el = $(sel), antes = el.value;
+  el.innerHTML = `<option value="">${todos}</option>`
+    + opciones.map(o=>`<option value="${esc(o.id)}">${esc(o.n)}</option>`).join('');
+  el.value = opciones.some(o=>o.id===antes) ? antes : '';
+}
+
+/** Lo que dejan ver los filtros de arriba, antes de partir en dos pestañas. */
+function visibles(){
+  const q=$('#q').value.trim(), c=$('#fCurso').value,
+        co=$('#fCohorte').value, cr=$('#fCorrector').value;
+  return subs.filter(s=>{
+    const pr = s.cem_enrollments?.cem_profiles;
+    const texto = { _alumno: `${pr?.nombre||''} ${pr?.apellido||''}`.trim(),
+                    _correo: pr?.email || '', _eval: s.cem_assessments?.nombre || '' };
+    return match(texto,q,['_alumno','_correo','_eval'])
+      && (!c || s.cem_assessments?.course_id===c)
+      && (!co || s.cem_enrollments?.cohort_id===co)
+      && (!cr || s.calificado_por===cr);
+  });
+}
+
 function render(){
-  const pend = subs.filter(s=>s.estado==='entregada');
+  const unicos = (pares) => [...new Map(pares.filter(x=>x[0]).map(([id,n])=>[id,{id,n:n||'—'}])).values()]
+    .sort((a,b)=>a.n.localeCompare(b.n));
+  llenar('#fCurso', unicos(subs.map(s=>[s.cem_assessments?.course_id, s.cem_assessments?.cem_courses?.nombre])), 'Todos');
+  /* Dos programas distintos pueden tener una «Cohorte 25A» cada uno. Sin el
+     nombre del programa detrás, el desplegable ofrece dos opciones idénticas
+     y elegir es adivinar. */
+  llenar('#fCohorte', unicos(subs.map(s=>[s.cem_enrollments?.cohort_id,
+    s.cem_enrollments?.cem_cohorts?.nombre
+      ? `${s.cem_enrollments.cem_cohorts.nombre} · ${s.cem_assessments?.cem_courses?.nombre || 'sin programa'}`
+      : null])), 'Todas');
+  llenar('#fCorrector', unicos(subs.map(s=>[s.calificado_por, quienCorrige[s.calificado_por]])), 'Cualquiera');
+
+  const dentro = visibles();
+  const pend = dentro.filter(s=>s.estado==='entregada');
   $('#nPend').textContent = pend.length;
-  const list = filtro==='pend'? pend : subs.filter(s=>s.estado==='calificada');
-  $('#sub').textContent = `${pend.length} entrega(s) por calificar · ${subs.length} en total`;
+  const list = filtro==='pend'? pend : dentro.filter(s=>s.estado==='calificada');
+  const acotado = dentro.length !== subs.length;
+  $('#sub').textContent = `${pend.length} entrega(s) por calificar · ${dentro.length} en total`
+    + (acotado ? ` (de ${subs.length}, el resto lo esconde el filtro)` : '');
   $('#lista').innerHTML = list.length ? list.map(s=>{
     const pr = s.cem_enrollments?.cem_profiles;
     return `<div class="sub-item ${sel?.id===s.id?'on':''}" data-s="${s.id}">
       <span class="avatar">${initials(pr?.nombre,pr?.apellido)}</span>
-      <div style="flex:1;min-width:0">
+      <div class="crece">
         <div style="font-weight:600;font-size:13px">${esc((pr?.nombre||'')+' '+(pr?.apellido||''))}</div>
         <div class="tiny muted">${esc(s.cem_assessments?.nombre||'')}</div>
-        <div class="tiny muted">${fdatetime(s.entregado_en)}</div>
+        <!-- De qué cohorte es y quién la corrigió: las dos cosas que había que
+             abrir una a una para saberlas. -->
+        <div class="tiny muted">${esc(s.cem_enrollments?.cem_cohorts?.nombre || 'Sin cohorte')}</div>
+        <div class="tiny muted">${fdatetime(s.entregado_en)}${
+          s.calificado_por ? ` · la puso ${esc(quienCorrige[s.calificado_por] || 'alguien del equipo')}` : ''}</div>
       </div>
       ${s.estado==='calificada'? `<span class="chip ${s.puntaje>=(s.cem_assessments?.nota_aprobatoria||70)?'ok':'err'}">${s.puntaje}</span>`
         : s.tarde? chip('tarde','err') : chip('pendiente','warn')}</div>`;
-  }).join('') : '<p class="muted tiny">Nada por aquí.</p>';
+  }).join('')
+    : `<p class="muted tiny">${acotado
+        ? 'Ninguna entrega coincide con lo que has filtrado.'
+        : 'Nada por aquí.'}</p>`;
   $$('[data-s]').forEach(el=>el.onclick=()=>{ sel = subs.find(s=>s.id===el.dataset.s); render(); });
   detalle();
+}
+
+/* ============ la rúbrica al lado del trabajo (mejora 18) ============
+   Antes se abrían por separado, y corregir con dos pestañas es cómo se ponen
+   notas inconsistentes: a la décima entrega ya no se recuerda cuánto valía la
+   bibliografía. Los puntos por criterio se suman solos en el total, así que la
+   nota deja de ser un número que alguien estimó de memoria. */
+function rubricaHTML(a, s){
+  const r = Array.isArray(a?.rubrica) ? a.rubrica : [];
+  if (!r.length) return '';
+  const previos = (s.rubrica_puntos && typeof s.rubrica_puntos === 'object') ? s.rubrica_puntos : {};
+  return `<div class="card sep" style="background:var(--surface-container);box-shadow:none">
+    <b class="tiny">Rúbrica</b>
+    <div class="stack sep-poco" id="rubricaCal">
+      ${r.map((c, i) => `<div class="row between rub-cal" data-i="${i}" style="gap:var(--e1)">
+        <span class="tiny crece">${esc(c.criterio)}</span>
+        <input type="number" class="rub-n" min="0" max="${esc(String(c.puntos ?? 100))}" step="0.5"
+          value="${esc(String(previos[c.criterio] ?? ''))}"
+          aria-label="Puntos de ${esc(c.criterio)}" style="width:88px">
+        <span class="tiny muted" style="min-width:52px">de ${esc(String(c.puntos ?? '—'))}</span>
+      </div>`).join('')}
+    </div>
+    <p class="tiny muted sep-poco sin-margen">Al escribir los puntos, el total de arriba se pone solo.</p>
+  </div>`;
+}
+
+/** Lo escrito en la rúbrica, como {criterio: puntos}. Null si no hay rúbrica
+    o si no se escribió nada: guardar un objeto vacío diría que se corrigió con
+    rúbrica y se dejó todo a cero, que no es lo mismo que no haberla usado. */
+function leerRubricaPuntos(a){
+  const host = $('#rubricaCal');
+  const r = Array.isArray(a?.rubrica) ? a.rubrica : [];
+  if (!host || !r.length) return null;
+  const out = {};
+  let alguno = false;
+  $$('.rub-cal', host).forEach((f) => {
+    const i = Number(f.dataset.i);
+    const v = $('.rub-n', f).value;
+    if (v === '' || !r[i]) return;
+    out[r[i].criterio] = Number(v);
+    alguno = true;
+  });
+  return alguno ? out : null;
+}
+
+function conectarRubrica(a){
+  const host = $('#rubricaCal');
+  if (!host) return;
+  const sumar = () => {
+    const total = $$('.rub-n', host).reduce((t, i) => t + (Number(i.value) || 0), 0);
+    const escritos = $$('.rub-n', host).some(i => i.value !== '');
+    if (escritos) $('#gP').value = Math.round(total * 100) / 100;
+  };
+  $$('.rub-n', host).forEach(i => i.addEventListener('input', sumar));
+}
+
+/* El cajón de comentarios: se rellena con los que más se usan y pegar uno lo
+   añade al final de lo escrito, no lo reemplaza. */
+async function conectarCajon(){
+  const host = $('#cajon');
+  if (!host) return;
+  const { data } = await sb.from('cem_comentarios_guardados')
+    .select('id,texto,usos').order('usos', { ascending: false }).limit(8);
+  const lista = data || [];
+  host.innerHTML = lista.map(c => `<button type="button" class="chip chip-btn"
+    data-com="${esc(c.texto)}" title="Pegarlo en la retroalimentación">
+    ${esc(c.texto.length > 42 ? c.texto.slice(0, 40) + '…' : c.texto)}</button>`).join('');
+  $$('[data-com]', host).forEach(b => b.onclick = () => {
+    const caja = $('#gF');
+    caja.value = (caja.value.trim() ? caja.value.trim() + ' ' : '') + b.dataset.com;
+    caja.focus();
+    sb.rpc('cem_comentario_usar', { p_texto: b.dataset.com }).then(() => {}, () => {});
+  });
+
+  const guardar = $('#btnGuardarCom');
+  if (guardar) guardar.onclick = async () => {
+    const texto = $('#gF').value.trim();
+    if (!texto) { fail('Escribe primero el comentario.'); return; }
+    const { error } = await sb.rpc('cem_comentario_usar', { p_texto: texto });
+    if (error) { fail(mensajeError(error)); return; }
+    ok('Guardado. Sale en el cajón la próxima vez.');
+    conectarCajon();
+  };
 }
 
 function detalle(){
@@ -99,29 +263,39 @@ function detalle(){
     <div class="row between">
       <div><h2 class="sec" style="margin:0 0 3px">${esc((pr?.nombre||'')+' '+(pr?.apellido||''))}</h2>
         <div class="tiny muted">${esc(pr?.email||'')} · ${esc(a?.nombre||'')} · intento ${s.intento}</div></div>
-      <div class="row">${chip(s.estado)}${s.tarde?chip('entrega tardía','err'):''}</div>
+      <div class="row">${chipEstado(s.estado)}${s.tarde?chip('entrega tardía','err'):''}</div>
     </div>
-    <div class="tiny muted" style="margin-top:8px">${esc(a?.cem_courses?.nombre||'')} · entregado ${fdatetime(s.entregado_en)}</div>
+    <div class="tiny muted sep-poco">${esc(a?.cem_courses?.nombre||'')} · entregado ${fdatetime(s.entregado_en)}</div>
 
     ${Object.keys(resp).length? `<div class="card" style="background:var(--surface-container);box-shadow:none;margin-top:14px">
       <b class="tiny">Respuestas del estudiante</b>
       <div id="respWrap" style="margin-top:8px"></div></div>`
-      : '<p class="muted tiny" style="margin-top:14px">Esta entrega no tiene respuestas registradas (posible entrega de archivo).</p>'}
+      : '<p class="muted tiny sep">Esta entrega no tiene respuestas registradas (posible entrega de archivo).</p>'}
     ${s.archivo_url? `<a class="btn outline sm" href="${esc(s.archivo_url)}" target="_blank" style="margin-top:10px">
       <span class="material-symbols-outlined">attach_file</span> Ver archivo entregado</a>`:''}
 
     ${puede? `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--outline-variant)">
       <div class="row">
-        <div class="field" style="flex:1;min-width:150px"><label>Puntaje (máx. ${a?.puntaje_max||100}) *</label>
-          <input type="number" id="gP" min="0" max="${a?.puntaje_max||100}" value="${s.puntaje??''}"></div>
-        <div class="field" style="flex:1;min-width:150px"><label>Referencia</label>
+        <div class="field medio"><label>Puntaje (máx. ${a?.puntaje_max||100}) *</label>
+          <input type="number" id="gP" min="0" max="${a?.puntaje_max||100}" value="${s.puntaje??''}" required></div>
+        <div class="field medio"><label>Referencia</label>
           <div class="tiny muted" style="padding-top:8px">Nota aprobatoria: <b>${a?.nota_aprobatoria||70}</b></div></div>
       </div>
-      <div class="field"><label>Retroalimentación para el estudiante</label><textarea id="gF">${esc(s.feedback||'')}</textarea></div>
+      ${rubricaHTML(a, s)}
+      <div class="field"><label>Retroalimentación para el estudiante</label>
+        <textarea id="gF">${esc(s.feedback||'')}</textarea>
+        <!-- «Falta la bibliografía» se escribe cincuenta veces por cohorte
+             (mejora 19). El cajón se ordena solo: lo que más se usa sube. -->
+        <div class="row sep-poco" style="gap:6px;flex-wrap:wrap" id="cajon"></div>
+        <button type="button" class="btn ghost sm" id="btnGuardarCom">
+          <span class="material-symbols-outlined">bookmark_add</span>
+          Guardar este comentario para reutilizarlo</button></div>
       <div class="row"><button class="btn" id="btnG"><span class="material-symbols-outlined">save</span>
         ${s.estado==='calificada'?'Actualizar calificación':'Guardar calificación'}</button>
-        <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined">arrow_forward</span></button></div>
-    </div>` : (s.feedback? `<div class="card" style="margin-top:14px"><b class="tiny">Retroalimentación</b>
+        <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
+        <button class="btn ghost" id="btnReabrir" style="color:var(--error)">
+          <span class="material-symbols-outlined">undo</span> Devolver para corregir</button></div>
+    </div>` : (s.feedback? `<div class="card sep"><b class="tiny">Retroalimentación</b>
         <p class="tiny" style="margin:6px 0 0">${esc(s.feedback)}</p></div>` : '')}
   </div>`;
 
@@ -135,7 +309,7 @@ function detalle(){
         const objetiva = ['multiple','verdadero_falso'].includes(q.tipo);
         const correcta = objetiva && String(dada)===String(q.respuesta_correcta).replace(/^"|"$/g,'');
         return `<div style="padding:8px 0;border-bottom:1px solid var(--outline-variant)">
-          <div class="tiny" style="font-weight:600">${i+1}. ${esc(q.enunciado)}</div>
+          <div class="tiny negrita">${i+1}. ${esc(q.enunciado)}</div>
           <div class="tiny" style="margin-top:3px">Respuesta: <b>${esc(String(dada??'— sin responder'))}</b>
             ${objetiva? (correcta? '<span class="chip ok">correcta</span>'
               : `<span class="chip err">incorrecta</span> <span class="muted">esperada: ${esc(String(q.respuesta_correcta).replace(/^"|"$/g,''))}</span>`) : '<span class="chip info">abierta</span>'}</div>
@@ -145,14 +319,66 @@ function detalle(){
   }
 
   if (puede){
+    conectarRubrica(a);
+    conectarCajon();
     const guardar = async () => {
       const v=Number($('#gP').value);
       if (isNaN(v)) return null;
       await run(sb.rpc('cem_grade_submission',{ p_submission_id:s.id, p_puntaje:v, p_feedback:$('#gF').value.trim()||null }),'No se pudo calificar');
+      /* El desglose por criterio se guarda aparte de la nota. Quien reclama
+         una nota tiene derecho a ver de dónde sale, y al reabrir la entrega
+         la rúbrica vuelve con lo que se puso. */
+      const desglose = leerRubricaPuntos(a);
+      if (desglose) await sb.from('cem_submissions').update({ rubrica_puntos: desglose }).eq('id', s.id);
       await audit('entrega_calificada','cem_submissions',s.id,'medio',{puntaje:v});
       return true;
     };
-    $('#btnG').onclick = async () => { if (await guardar()){ ok('Calificación guardada'); await fetchSubs(); } };
+    $('#btnG').onclick = async () => {
+      const previo = s.puntaje, previoF = s.feedback;
+      if (!await guardar()) return;
+      /* Calificar la entrega de la fila de abajo pasa todos los días: la lista
+         se reordena al guardar y el siguiente clic cae en otra persona.
+         Deshacer devuelve la nota anterior, o deja la entrega sin calificar si
+         no tenía ninguna. */
+      okDeshacer('Calificación guardada.', async () => {
+        if (previo == null) {
+          const { error } = await sb.rpc('cem_reabrir_entrega', {
+            p_submission_id: s.id, p_motivo: 'Se deshizo la calificación recién puesta.' });
+          if (error) { fail(mensajeError(error)); return; }
+        } else {
+          await run(sb.rpc('cem_grade_submission', {
+            p_submission_id: s.id, p_puntaje: previo, p_feedback: previoF || null }),
+            'No se pudo deshacer');
+        }
+        await fetchSubs();
+      });
+      await fetchSubs();
+    };
+
+    /* Devolver una entrega para que la corrijan. Antes esto sólo se podía
+       hacer tocando la base a mano, así que en la práctica no se hacía.
+       No tiene sentido ofrecerlo sobre algo que todavía no se entregó. */
+    $('#btnReabrir').hidden = !s.entregado_en;
+    $('#btnReabrir').onclick = () => {
+      const m = modal({ title:'Devolver la entrega para corregir', body:`
+        <p>Vuelve a quedar abierta y el estudiante puede enviarla de nuevo.
+           El puntaje actual se borra y él recibe un aviso con tu motivo.</p>
+        <div class="field"><label>¿Por qué la devuelves? *</label>
+          <textarea id="rMotivo" rows="3" placeholder="Ej.: se envió sin el archivo adjunto." required></textarea></div>
+        <div id="rMsg"></div>`,
+        footer:`<button class="btn outline" data-x>Cancelar</button>
+                <button class="btn" data-s>Devolver</button>` });
+      $('[data-s]',m).onclick = async () => {
+        const motivo = $('#rMotivo',m).value.trim();
+        if (motivo.length < 10) {
+          avisar($('#rMsg', m), 'Escribe el motivo con una frase completa.', 'err');
+          return;
+        }
+        const { error } = await sb.rpc('cem_reabrir_entrega',{ p_submission_id:s.id, p_motivo:motivo });
+        if (error) { avisar($('#rMsg', m), mensajeError(error), 'err'); return; }
+        m.close(); ok('Entrega devuelta. El estudiante ya recibió el aviso.'); await fetchSubs();
+      };
+    };
     $('#btnSig').onclick = async () => {
       if (!await guardar()) return;
       const pend = subs.filter(x=>x.estado==='entregada' && x.id!==s.id);

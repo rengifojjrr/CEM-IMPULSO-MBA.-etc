@@ -9,26 +9,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
   .steps{display:flex;gap:6px;overflow-x:auto;margin-bottom:18px;padding-bottom:4px;}
   .steps button{flex:0 0 auto;display:flex;align-items:center;gap:8px;background:var(--surface-lowest);
-    border:1px solid var(--outline-variant);border-radius:20px;padding:7px 14px;font-size:12.8px;font-weight:600;
-    color:var(--on-surface-variant);}
-  .steps button.on{background:var(--primary);color:#fff;border-color:var(--primary);}
-  .steps button .n{width:20px;height:20px;border-radius:50%;background:var(--surface-highest);color:var(--on-surface-variant);
-    display:inline-flex;align-items:center;justify-content:center;font-size:11px;}
-  .steps button.on .n{background:rgba(255,255,255,.25);color:#fff;}
+    border:1px solid var(--filete);border-radius:var(--r);padding:7px 14px;font-size:var(--t-xs);font-weight:600;
+    color:var(--tinta-2);}
+  .steps button.on{background:var(--primary);color:var(--on-primary);border-color:var(--primary);}
+  .steps button .n{width:20px;height:20px;border-radius:var(--r-full);background:var(--hueco);color:var(--tinta-2);
+    display:inline-flex;align-items:center;justify-content:center;font-size:var(--t-xs);}
+  .steps button.on .n{background:color-mix(in srgb, var(--on-primary) 25%, transparent);color:var(--on-primary);}
   .step{display:none;} .step.on{display:block;}
   .imagen-preview{margin-top:8px;width:160px;height:90px;border-radius:var(--radius-sm);object-fit:cover;
-    border:1px solid var(--outline-variant);display:none;}
+    border:1px solid var(--filete);display:none;}
   .imagen-preview.on{display:block;}
   .metodos-pago{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;}
-  .mod-thumb{width:46px;height:32px;border-radius:6px;object-fit:cover;border:1px solid var(--outline-variant);
-    background:var(--surface-container);flex:0 0 auto;}
+  /* sin-caja: una miniatura de 46x32, no un panel */
+  .mod-thumb{width:46px;height:32px;border-radius:var(--r);object-fit:cover;border:1px solid var(--filete);
+    background:var(--hueco);flex:0 0 auto;}
   .review-mod{margin:0;padding:0;overflow:hidden;text-align:center}
   .review-mod img{width:100%;height:70px;object-fit:cover;display:block}
-  .review-mod .n{padding:8px;font-size:12px;font-weight:600}
+  .review-mod .n{padding:8px;font-size:var(--t-xs);font-weight:600}
 </style>
 </head>
 <body>
@@ -48,19 +49,14 @@
       <div class="card">
         <h2 class="sec">Detalles principales</h2>
         <div class="row">
-          <div class="field" style="flex:2;min-width:240px"><label>Nombre del programa *</label><input id="nombre" required placeholder="Diplomado Internacional en…"></div>
-          <div class="field" style="flex:1;min-width:140px"><label>Código</label><input id="codigo" placeholder="CEM-DIP-009"></div>
+          <div class="field largo"><label>Nombre del programa *</label><input id="nombre" required placeholder="Diplomado Internacional en…"></div>
+          <div class="field medio"><label>Código</label><input id="codigo" placeholder="CEM-DIP-009"></div>
         </div>
         <div class="field"><label>Subtítulo</label><input id="subtitulo" placeholder="Certificación avanzada para…"></div>
         <div class="field"><label>Descripción corta</label><textarea id="descCorta" style="min-height:60px"></textarea></div>
         <div class="field"><label>Descripción completa</label><textarea id="descripcion"></textarea></div>
         <div class="field"><label>Imagen de portada</label>
-          <div class="row" style="gap:8px;align-items:center">
-            <input id="imagen" placeholder="https://…" style="flex:1">
-            <button type="button" class="btn outline sm" id="btnSubirImagen"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
-            <input type="file" id="imagenArchivo" accept="image/*" class="hidden">
-          </div>
-          <img id="imagenPreview" class="imagen-preview">
+          <div id="zonaPortada"></div>
         </div>
       </div>
     </div>
@@ -69,15 +65,15 @@
       <div class="card">
         <h2 class="sec">Información académica</h2>
         <div class="row">
-          <div class="field" style="flex:1;min-width:150px"><label>Tipo *</label><select id="tipo">
+          <div class="field medio"><label>Tipo *</label><select id="tipo" required>
             <option value="curso">Curso (20 h)</option><option value="masterclass">Masterclass (hasta 4 h)</option>
             <option value="programa">Programa (20–89 h)</option><option value="diplomado" selected>Diplomado (90 h)</option>
             <option value="maestria">Maestría (240 h)</option></select></div>
-          <div class="field" style="flex:1;min-width:150px"><label>Categoría</label><select id="categoria"></select></div>
+          <div class="field medio"><label>Categoría</label><select id="categoria"></select></div>
         </div>
         <div class="row">
-          <div class="field" style="flex:1;min-width:130px"><label>Horas cronológicas</label><input type="number" id="horas" value="90"></div>
-          <div class="field" style="flex:1;min-width:150px"><label>Modalidad</label><select id="modalidad">
+          <div class="field medio"><label>Horas cronológicas</label><input type="number" id="horas" value="90"></div>
+          <div class="field medio"><label>Modalidad</label><select id="modalidad">
             <option value="online">Online</option><option value="en_vivo">En vivo</option>
             <option value="presencial">Presencial</option><option value="hibrido" selected>Híbrido</option></select></div>
         </div>
@@ -90,7 +86,7 @@
         <div class="row between"><h2 class="sec">Estructura de módulos</h2>
           <button type="button" class="btn outline sm" id="addMod"><span class="material-symbols-outlined">add</span> Agregar módulo</button></div>
         <div id="mods" class="stack"></div>
-        <p class="tiny muted" style="margin-top:10px">Podrás añadir las lecciones de cada módulo desde el constructor de contenido.</p>
+        <p class="tiny muted sep">Podrás añadir las lecciones de cada módulo desde el constructor de contenido.</p>
       </div>
     </div>
 
@@ -100,14 +96,14 @@
         <label class="check" style="margin-bottom:12px"><input type="checkbox" id="crearCohorte" checked> Crear una cohorte inicial junto con el programa</label>
         <div id="cohorteFields">
           <div class="row">
-            <div class="field" style="flex:1;min-width:150px"><label>Nombre de la cohorte</label><input id="cohNombre" value="Cohorte 25A"></div>
-            <div class="field" style="flex:1;min-width:130px"><label>Turno</label><select id="cohTurno"></select></div>
-            <div class="field" style="flex:1;min-width:130px"><label>Cupos</label><input type="number" id="cohCupos" value="30"></div>
+            <div class="field medio"><label>Nombre de la cohorte</label><input id="cohNombre" value="Cohorte 25A"></div>
+            <div class="field medio"><label>Turno</label><select id="cohTurno"></select></div>
+            <div class="field medio"><label>Cupos</label><input type="number" id="cohCupos" value="30"></div>
           </div>
           <div class="row">
-            <div class="field" style="flex:1;min-width:150px"><label>Fecha de inicio</label><input type="date" id="cohIni"></div>
-            <div class="field" style="flex:1;min-width:150px"><label>Fecha de fin</label><input type="date" id="cohFin"></div>
-            <div class="field" style="flex:1;min-width:220px"><label>Horario</label><div id="cohHorarioPicker"></div></div>
+            <div class="field medio"><label>Fecha de inicio</label><input type="date" id="cohIni"></div>
+            <div class="field medio"><label>Fecha de fin</label><input type="date" id="cohFin"></div>
+            <div class="field medio"><label>Horario</label><div id="cohHorarioPicker"></div></div>
           </div>
         </div>
       </div>
@@ -117,22 +113,22 @@
       <div class="card">
         <h2 class="sec">Precio</h2>
         <div class="row">
-          <div class="field" style="flex:1;min-width:150px"><label>Precio de lista *</label><input type="number" step="0.01" id="precio" value="0"></div>
-          <div class="field" style="flex:1;min-width:130px"><label>Moneda</label><select id="moneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
+          <div class="field medio"><label>Precio de lista *</label><input type="number" step="0.01" id="precio" value="0" required></div>
+          <div class="field medio"><label>Moneda</label><select id="moneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
         </div>
         <label class="check"><input type="checkbox" id="destacado"> Mostrar como destacado en el catálogo público</label>
       </div>
       <div class="card">
         <h2 class="sec">Descuentos y facilidades de pago</h2>
         <div class="row">
-          <div class="field" style="flex:1;min-width:150px"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="descuentoPct" placeholder="0"></div>
-          <div class="field" style="flex:1;min-width:150px"><label>Código de descuento</label><input id="codigoDescuento" placeholder="Ej. CEM10"></div>
-          <div class="field" style="flex:2;min-width:220px"><label>Condición del descuento</label><input id="descuentoNota" placeholder="Pago de contado, pronto pago, alianza…"></div>
+          <div class="field medio"><label>Descuento general (%)</label><input type="number" step="0.1" min="0" max="100" id="descuentoPct" placeholder="0"></div>
+          <div class="field medio"><label>Código de descuento</label><input id="codigoDescuento" placeholder="Ej. CEM10"></div>
+          <div class="field largo"><label>Condición del descuento</label><input id="descuentoNota" placeholder="Pago de contado, pronto pago, alianza…"></div>
         </div>
         <p class="tiny muted" style="margin-top:-6px;margin-bottom:12px">Si defines un código, el estudiante debe escribirlo al inscribirse para recibir el % de descuento; sin código, el descuento es solo informativo.</p>
         <label class="check" style="margin-bottom:12px"><input type="checkbox" id="cuotasHab"> Se acepta pago en cuotas</label>
         <div class="row" id="cuotasCantidadWrap" style="display:none">
-          <div class="field" style="flex:1;min-width:150px"><label>Cantidad de cuotas</label><input type="number" min="2" id="cuotasCantidad" value="3"></div>
+          <div class="field medio"><label>Cantidad de cuotas</label><input type="number" min="2" id="cuotasCantidad" value="3"></div>
         </div>
         <div class="field"><label>Métodos / pasarelas de pago aceptados</label>
           <div class="metodos-pago" id="metodosPago"></div>
@@ -142,18 +138,22 @@
 
     <div class="step" data-step="5">
       <div class="card"><h2 class="sec">Revisión final</h2><div id="review"></div>
-        <h3 class="sec" style="margin-top:16px">Módulos</h3><div id="reviewMods" class="grid g3"></div></div>
+        <h3 class="sec sep-mucho">Módulos</h3><div id="reviewMods" class="grid g3"></div></div>
     </div>
   </form>
 
-  <div class="row between" style="margin-top:16px">
+  <div class="row between sep-mucho">
     <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined">arrow_back</span> Atrás</button>
+    <button class="btn outline" id="btnCrearYa" title="Crea el programa como borrador con lo que lleves puesto; el resto se completa después">
+      <span class="material-symbols-outlined">bolt</span> Crear ya como borrador</button>
     <button class="btn" id="btnNext">Siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
   </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, ok, fail, run, audit, mejorarSelects, subirImagenCurso, montarHorarioPicker, horarioResumen } from '../assets/app.js';
+import { sb, mount, $, $$, esc, money, ok, fail, run, audit, mejorarSelects, subirImagenCurso,
+         montarHorarioPicker, horarioResumen, campoArchivo, opciones, etiqueta, ayuda, montarAyudas,
+         vigilarCambiosSinGuardar } from '../assets/app.js?v=2026-08-21-53';
 
 const p = await mount({ require:['coordinador','admin','superadmin'], active:'cursos.html', area:'admin' });
 const LABELS = ['Información general','Información académica','Estructura','Disponibilidad','Precio','Revisión'];
@@ -191,23 +191,48 @@ function renderSteps(){
   $$('.step').forEach(s => s.classList.toggle('on', Number(s.dataset.step)===step));
   $('#btnPrev').style.visibility = step===0?'hidden':'visible';
   $('#btnNext').innerHTML = step===LABELS.length-1
-    ? 'Crear programa <span class="material-symbols-outlined">check</span>'
+    ? 'Crear el programa <span class="material-symbols-outlined">check</span>'
     : 'Siguiente <span class="material-symbols-outlined">arrow_forward</span>';
+  /* Seis pasos para dar de alta un curso eran muchos: casi todos los campos
+     tienen un valor razonable por defecto. Desde el primer paso se puede crear
+     con lo imprescindible y afinar el resto después, en la ficha. */
+  $('#btnCrearYa').hidden = step === LABELS.length-1;
   if (step===LABELS.length-1) review();
 }
 function go(i){ if(i>0 && !$('#nombre').value.trim()){ fail('Primero escribe el nombre del programa.'); return; } step=i; renderSteps(); }
 $('#btnPrev').onclick = () => go(Math.max(0,step-1));
 $('#btnNext').onclick = () => step===LABELS.length-1 ? crear() : go(Math.min(LABELS.length-1,step+1));
+$('#btnCrearYa').onclick = () => {
+  if (!$('#nombre').value.trim()) { fail('Al menos ponle nombre al programa.'); return; }
+  crear('borrador');
+};
+
+/* item 40 · el código se propone solo a partir del nombre y el año, en vez de
+   que cada quien invente el suyo. Se puede cambiar; sólo se rellena si está
+   vacío, para no pisar lo que se escriba a mano. */
+$('#nombre').addEventListener('blur', () => {
+  const campo = $('#codigo');
+  if (campo.value.trim()) return;
+  const nombre = $('#nombre').value.trim();
+  if (!nombre) return;
+  const siglas = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .split(/\s+/).filter(w => w.length > 3).slice(0,2)
+    .map(w => w.slice(0,3).toUpperCase()).join('-') || 'PRG';
+  campo.value = `CEM-${siglas}-${new Date().getFullYear()}`;
+});
+
+/* item 38 · avisa antes de perder un formulario a medias. */
+const vigilancia = vigilarCambiosSinGuardar($('#page'));
 
 $('#addMod').onclick = () => { mods.push({titulo:`Módulo ${mods.length+1}: `, imagen_url:null}); renderMods(); };
 function renderMods(){
   $('#mods').innerHTML = mods.map((m,i)=>`<div class="row" style="gap:8px;align-items:center">
     <span class="chip neutral">${i+1}</span>
-    ${m.imagen_url?`<img class="mod-thumb" src="${esc(m.imagen_url)}">`:''}
-    <input class="inp" style="flex:1" data-m="${i}" value="${esc(m.titulo)}" placeholder="Título del módulo">
+    ${m.imagen_url?`<img loading="lazy" decoding="async" class="mod-thumb" src="${esc(m.imagen_url)}">`:''}
+    <input class="inp crece" data-m="${i}" value="${esc(m.titulo)}" placeholder="Título del módulo">
     <button type="button" class="btn outline sm" data-img="${i}" title="Miniatura del módulo"><span class="material-symbols-outlined">add_photo_alternate</span></button>
     <input type="file" accept="image/*" class="hidden" data-imgfile="${i}">
-    <button type="button" class="btn ghost sm" data-del="${i}"><span class="material-symbols-outlined">delete</span></button></div>`).join('');
+    <button type="button" class="btn ghost sm" data-del="${i}" title="Quitar el módulo"><span class="material-symbols-outlined">delete</span></button></div>`).join('');
   $$('[data-m]').forEach(inp => inp.oninput = () => mods[Number(inp.dataset.m)].titulo = inp.value);
   $$('[data-del]').forEach(b => b.onclick = () => { mods.splice(Number(b.dataset.del),1); renderMods(); });
   $$('[data-img]').forEach(b => b.onclick = () => $(`[data-imgfile="${b.dataset.img}"]`).click());
@@ -219,22 +244,15 @@ function renderMods(){
   });
 }
 
-$('#btnSubirImagen').onclick = () => $('#imagenArchivo').click();
-$('#imagenArchivo').onchange = async () => {
-  const file = $('#imagenArchivo').files[0];
-  if (!file) return;
-  try {
-    const url = await subirImagenCurso(file);
-    $('#imagen').value = url;
-    $('#imagenPreview').src = url; $('#imagenPreview').classList.add('on');
-    ok('Imagen subida');
-  } catch (e) { fail(e.message || 'No se pudo subir la imagen.'); }
-};
-$('#imagen').oninput = () => {
-  const v = $('#imagen').value.trim();
-  if (v) { $('#imagenPreview').src = v; $('#imagenPreview').classList.add('on'); }
-  else $('#imagenPreview').classList.remove('on');
-};
+/* Antes el campo de la dirección ocupaba todo el ancho y «Subir foto» quedaba
+   pequeño al lado, como si pegar un enlace fuese lo normal. Es al revés: quien
+   crea el programa tiene la imagen en su equipo. */
+const portada = campoArchivo({
+  id:'portada', tipo:'imagen', subir: subirImagenCurso,
+  etiquetaSubir:'Elegir la imagen de portada',
+});
+$('#zonaPortada').innerHTML = portada.html;
+portada.conectar(document);
 
 function review(){
   $('#review').innerHTML = [
@@ -247,7 +265,7 @@ function review(){
     ['Cohorte inicial', $('#crearCohorte').checked ? `${$('#cohNombre').value} · ${$('#cohTurno').value} · ${horarioResumen(horarioValor)||'sin horario'}` : 'No'],
   ].map(([k,v])=>`<div class="list-item"><div class="grow"><div class="s">${k}</div><div class="t">${esc(String(v))}</div></div></div>`).join('');
   $('#reviewMods').innerHTML = mods.filter(m=>m.titulo.trim()).map(m=>`<div class="card review-mod">
-    ${m.imagen_url?`<img src="${esc(m.imagen_url)}">`:`<div style="height:70px;display:flex;align-items:center;justify-content:center;background:var(--surface-container)">
+    ${m.imagen_url?`<img loading="lazy" decoding="async" src="${esc(m.imagen_url)}">`:`<div style="height:70px;display:flex;align-items:center;justify-content:center;background:var(--surface-container)">
       <span class="material-symbols-outlined" style="color:var(--outline)">image</span></div>`}
     <div class="n">${esc(m.titulo)}</div></div>`).join('') || '<p class="muted tiny">Sin módulos.</p>';
 }
@@ -260,7 +278,7 @@ async function crear(estado='publicado'){
     descripcion_corta:$('#descCorta').value.trim(), descripcion:$('#descripcion').value.trim(),
     tipo:$('#tipo').value, categoria:$('#categoria').value.trim(), modalidad:$('#modalidad').value,
     horas:Number($('#horas').value)||0,
-    precio:Number($('#precio').value)||0, moneda:$('#moneda').value, imagen_url:$('#imagen').value.trim()||null,
+    precio:Number($('#precio').value)||0, moneda:$('#moneda').value, imagen_url:portada.valor()||null,
     destacado:$('#destacado').checked, estado, certificado_nombre:$('#certNombre').value.trim()||null,
     descuento_pct:$('#descuentoPct').value?Number($('#descuentoPct').value):null, descuento_nota:$('#descuentoNota').value.trim()||null,
     codigo_descuento:$('#codigoDescuento').value.trim().toUpperCase()||null,
@@ -283,8 +301,14 @@ async function crear(estado='publicado'){
     }), 'No se pudo crear la cohorte');
   }
   await audit('curso_creado','cem_courses',course.id,'medio',{nombre:course.nombre, estado});
-  ok('Programa creado correctamente');
-  setTimeout(()=>location.href='cursos.html', 700);
+  /* Ya está guardado: si no lo marcamos como limpio, al salir de la página
+     saltaría el aviso de «tienes cambios sin guardar» justo cuando sí se
+     guardaron. */
+  vigilancia.limpio();
+  ok(estado==='borrador'
+    ? 'Programa guardado como borrador. Puedes seguir completándolo desde su ficha.'
+    : 'Programa creado y publicado.');
+  setTimeout(()=>location.href = estado==='borrador' ? `contenido.html?curso=${course.id}` : 'cursos.html', 900);
 }
 $('#btnDraft').onclick = () => crear('borrador');
 </script>

@@ -9,14 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
     <div>
-      <h1>Resumen administrativo</h1>
-      <p>Supervisa la actividad académica y administra la experiencia educativa de CEM.</p>
+      <h1>Qué hay que hacer hoy</h1>
+      <p>Lo pendiente primero. Las cifras del negocio están más abajo.</p>
     </div>
     <div class="actions">
       <a class="btn outline" href="curso-nuevo.html"><span class="material-symbols-outlined">add_circle</span> Crear programa</a>
@@ -25,62 +25,129 @@
     </div>
   </div>
 
+  <!-- Mejora 24. Esta pantalla empezaba con cuatro cifras del negocio, y quien
+       coordina entra aquí a despachar, no a mirar el ritmo de matrícula. Lo
+       pendiente va primero; las cifras siguen estando, justo debajo. -->
+  <div class="card" id="cardPendientes">
+    <div class="row between"><h2 class="sec">Pendiente</h2>
+      <span class="tiny muted" id="pendResumen"></span></div>
+    <div class="pendientes" id="pendientes"><span class="cargando"></span></div>
+  </div>
+
   <div class="kpis" id="kpis"></div>
+
+  <!-- Los gráficos van aquí arriba a propósito: las cifras dicen cuánto, y
+       estos dicen si eso es bueno o malo comparado con antes, que es la parte
+       que hace falta para decidir algo. -->
+  <div class="grid graficos" id="graficos"></div>
 
   <div class="grid g2">
     <div class="card">
       <div class="row between"><h2 class="sec">Próximas clases</h2><a class="btn ghost sm" href="calendario.html">Ver calendario</a></div>
-      <div id="clases"><p class="muted tiny">Cargando…</p></div>
+      <div id="clases"><span class="cargando"></span></div>
     </div>
     <div class="card">
       <div class="row between"><h2 class="sec">Requiere tu atención</h2></div>
-      <div id="atencion"><p class="muted tiny">Cargando…</p></div>
+      <div id="atencion"><span class="cargando"></span></div>
     </div>
   </div>
 
-  <div class="grid g2" style="margin-top:14px">
-    <div class="card">
-      <div class="row between"><h2 class="sec">Inscripciones recientes</h2><a class="btn ghost sm" href="inscripciones.html">Ver todas</a></div>
-      <div class="table-wrap">
-        <table><thead><tr><th>Estudiante</th><th>Programa</th><th>Estado</th><th>Monto</th><th>Fecha</th></tr></thead>
-        <tbody id="tbInscripciones"></tbody></table>
-      </div>
+  <!-- item 39 · una tabla de cinco columnas metida en media pantalla dejaba
+       fuera «Monto» y «Fecha»: había que arrastrar de lado para ver cuánto
+       pagó cada quien. Una tabla ocupa el ancho que necesita; las listas, que
+       se leen de arriba abajo, son las que van en pareja. -->
+  <div class="card sep">
+    <div class="row between"><h2 class="sec">Inscripciones recientes</h2><a class="btn ghost sm" href="inscripciones.html">Ver todas</a></div>
+    <div class="table-wrap">
+      <table class="tarjetas"><thead><tr><th>Estudiante</th><th>Programa</th><th>Estado</th><th class="num">Monto</th><th>Fecha</th></tr></thead>
+      <tbody id="tbInscripciones"></tbody></table>
     </div>
-    <div class="card">
-      <div class="row between"><h2 class="sec">Cohortes en curso</h2><a class="btn ghost sm" href="cohortes.html">Gestionar</a></div>
-      <div id="cohortes"><p class="muted tiny">Cargando…</p></div>
-    </div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Cohortes en curso</h2><a class="btn ghost sm" href="cohortes.html">Gestionar</a></div>
+    <div id="cohortes"><span class="cargando"></span></div>
   </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, esc, kpi, chip, bar, money, num, fdate, emptyRow, pct } from '../assets/app.js';
+import { sb, mount, $, $$, esc, kpi, chip, bar, money, num, fdate, fdateCorta, emptyRow, pct, chipEstado,
+         kpisConMas, accionVacio, cargarEn, bloqueEsqueleto } from '../assets/app.js?v=2026-08-21-53';
+import { embudo, columnas, barras, apilada } from '../assets/graficos.js?v=2026-08-21-53';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'index.html', area:'admin' });
-if (p) init();
+if (p) { init(); pintarPendientes(); }
+
+/* ============ lo pendiente (mejora 24) ============
+   Cada tarjeta es un botón que lleva a donde se despacha eso. Las que están a
+   cero se apagan pero no se esconden: saber que hoy no hay pagos por verificar
+   también es información, y una lista que cambia de forma cada mañana obliga a
+   volver a leerla entera. */
+async function pintarPendientes(){
+  const host = $('#pendientes');
+  const { data, error } = await sb.rpc('cem_pendientes_de_hoy');
+  if (error || !host) { $('#cardPendientes')?.remove(); return; }
+  const lista = data || [];
+  if (!lista.length) { $('#cardPendientes')?.remove(); return; }
+
+  const total = lista.reduce((t, x) => t + Number(x.n || 0), 0);
+  $('#pendResumen').textContent = total
+    ? `${num(total)} cosa${total === 1 ? '' : 's'} esperando`
+    : 'Nada esperando. Buen día.';
+
+  // Lo que tiene cosas va primero: si hay nueve tarjetas y sólo dos con
+  // número, esas dos tienen que estar arriba y no en medio.
+  const orden = [...lista].sort((a, b) => Number(b.n || 0) - Number(a.n || 0));
+  host.innerHTML = orden.map(x => `
+    <a class="pendiente ${Number(x.n) ? esc(x.tono || '') : 'vacio'}" href="${esc(x.url)}">
+      <span class="material-symbols-outlined">${esc(x.icono || 'task_alt')}</span>
+      <span class="n">${num(x.n)}</span>
+      <span class="que crece">${esc(x.que)}</span></a>`).join('');
+}
+accionVacio('irInscribir', () => location.href = 'inscripciones.html');
 
 async function init(){
   const { data: m } = await sb.rpc('cem_admin_metrics');
-  $('#kpis').innerHTML = [
-    kpi('Estudiantes activos', num(m.estudiantes_activos), 'school', `${num(m.estudiantes_total)} en total`),
-    kpi('Cursos publicados', num(m.cursos_publicados), 'menu_book', `${num(m.cursos_total)} creados`),
-    kpi('Cohortes activas', num(m.cohortes_activas), 'groups', 'en curso o abiertas'),
-    kpi('Clases hoy', num(m.clases_hoy), 'event', 'programadas'),
-    kpi('Por calificar', num(m.evaluaciones_pendientes), 'assignment', 'entregas pendientes'),
-    kpi('Ingresos del mes', money(m.ingresos_mes), 'payments', `${money(m.ingresos_total)} acumulado`),
-    kpi('Por cobrar', money(m.por_cobrar), 'account_balance_wallet', `${money(m.cartera_vencida)} vencido`, 'down'),
-    kpi('Progreso promedio', pct(m.progreso_promedio), 'trending_up', 'de inscripciones activas'),
-  ].join('');
+  /* items 20 y 50 · cuatro cifras a la vista, las que se miran cada mañana; el
+     resto a un clic. Y cada una dice qué está contando: «estudiantes» no
+     significa lo mismo para quien lleva la caja que para quien lleva el aula. */
+  kpisConMas('#kpis', [
+    kpi('Estudiantes activos', num(m.estudiantes_activos), 'school', `${num(m.estudiantes_total)} en total`, '',
+      'Personas con al menos una inscripción activa hoy. El total de abajo incluye a quienes ya terminaron o se retiraron.'),
+    kpi('Por cobrar', money(m.por_cobrar), 'account_balance_wallet', `${money(m.cartera_vencida)} vencido`, 'down',
+      'Suma de las cuotas todavía no pagadas, en dólares. «Vencido» es la parte cuya fecha límite ya pasó.'),
+    kpi('Ingresos del mes', money(m.ingresos_mes), 'payments', `${money(m.ingresos_total)} acumulado`, '',
+      'Pagos verificados con fecha de este mes, convertidos a dólares. Los pagos aún por verificar no entran.'),
+    kpi('Por calificar', num(m.evaluaciones_pendientes), 'assignment', 'entregas pendientes', '',
+      'Entregas de estudiantes que ya llegaron y todavía no tienen nota.'),
+  ], [
+    kpi('Cursos publicados', num(m.cursos_publicados), 'menu_book', `${num(m.cursos_total)} creados`, '',
+      'Programas visibles en el catálogo. Los borradores cuentan en «creados» pero nadie los ve.'),
+    kpi('Cohortes activas', num(m.cohortes_activas), 'groups', 'en curso o abiertas', '',
+      'Cohortes que están dando clase o que aún admiten inscripciones.'),
+    kpi('Clases hoy', num(m.clases_hoy), 'event', 'programadas', '',
+      'Clases del calendario con fecha de hoy, dictadas o no.'),
+    kpi('Progreso promedio', pct(m.progreso_promedio), 'trending_up', 'de inscripciones activas', '',
+      'Promedio de lecciones completadas sobre lecciones totales, sólo entre inscripciones activas.'),
+  ]);
+
+  pintarGraficos();
 
   $('#atencion').innerHTML = [
     ['assignment', 'Entregas por calificar', m.evaluaciones_pendientes, 'calificar.html'],
     ['gavel', 'Apelaciones abiertas', m.apelaciones_pendientes, 'apelaciones.html'],
     ['fact_check', 'Contenidos por revisar', m.contenidos_pendientes, 'revision.html'],
     ['support_agent', 'Tickets de soporte', m.tickets_abiertos, 'soporte.html'],
+  /* items 19 y 20 · «0» venía con una etiqueta verde, y cuatro filas verdes
+     seguidas son cuatro manchas que hay que leer para descubrir que no hay
+     nada que hacer. Lo que no requiere atención no se pinta: una raya. Y lo
+     que sí, un número, en rojo sólo cuando de verdad se está acumulando. */
   ].map(([ic,t,n,href]) => `<a class="list-item" href="${href}">
-      <span class="material-symbols-outlined" style="color:var(--on-surface-variant)">${ic}</span>
+      <span class="material-symbols-outlined">${ic}</span>
       <div class="grow"><div class="t">${t}</div></div>
-      ${Number(n)>0 ? `<span class="chip ${Number(n)>4?'err':'warn'}">${n}</span>` : '<span class="chip ok">0</span>'}
+      ${Number(n)>0
+        ? `<b class="cifra${Number(n)>4?' err-text':''}">${num(n)}</b>`
+        : '<span class="muted" title="Nada pendiente">—</span>'}
       <span class="material-symbols-outlined">chevron_right</span></a>`).join('');
 
   const { data: clases } = await sb.from('cem_classes')
@@ -88,37 +155,89 @@ async function init(){
     .gte('fecha', new Date().toISOString().slice(0,10)).order('fecha').limit(6);
   $('#clases').innerHTML = (clases?.length ? clases : []).map(c => `
     <div class="list-item">
-      <div style="text-align:center;min-width:44px">
-        <div style="font-size:17px;font-weight:700">${new Date(c.fecha+'T12:00').getDate()}</div>
-        <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div>
+      <div class="dia">
+        <b>${new Date(c.fecha+'T12:00').getDate()}</b>
+        <span>${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</span>
       </div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${esc(c.cem_cohorts?.cem_courses?.nombre||'')} · ${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
-      ${chip(c.estado)}
+      ${chipEstado(c.estado)}
     </div>`).join('') || '<p class="muted tiny">No hay clases próximas.</p>';
 
   const { data: ins } = await sb.from('cem_enrollments')
     .select('id,precio_final,estado,fecha_inscripcion,profile_id,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido),cem_courses(nombre)')
     .order('fecha_inscripcion',{ascending:false}).limit(6);
-  $('#tbInscripciones').innerHTML = ins?.length ? ins.map(e => `<tr class="clickable" onclick="location.href='estudiante.html?id=${e.cem_profiles ? '' : ''}'">
-      <td>${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
-      <td class="wrap">${esc(e.cem_courses?.nombre||'')}</td>
-      <td>${chip(e.estado)}</td><td>${money(e.precio_final)}</td>
-      <td class="muted">${fdate(e.fecha_inscripcion)}</td></tr>`).join('') : emptyRow(5);
+  /* La fila llevaba «estudiante.html?id=» sin id: llevaba a una ficha vacía.
+     El id que hace falta es el del perfil de la inscripción. */
+  $('#tbInscripciones').innerHTML = ins?.length ? ins.map(e => `<tr class="clickable" data-ir="estudiante.html?id=${esc(e.profile_id||'')}">
+      <td data-col="Estudiante">${esc((e.cem_profiles?.nombre||'')+' '+(e.cem_profiles?.apellido||''))}</td>
+      <td data-col="Programa"><span class="recorta" title="${esc(e.cem_courses?.nombre||'')}"
+        >${esc(e.cem_courses?.nombre||'')}</span></td>
+      <td data-col="Estado">${chipEstado(e.estado)}</td><td class="num" data-col="Monto">${money(e.precio_final)}</td>
+      <td class="muted" data-col="Fecha">${fdateCorta(e.fecha_inscripcion)}</td></tr>`).join('')
+    : emptyRow(5, 'Todavía no hay inscripciones.', {texto:'Inscribir a alguien', id:'irInscribir', icono:'person_add'});
+  $$('#tbInscripciones tr[data-ir]').forEach(tr => tr.onclick = () => location.href = tr.dataset.ir);
 
   const { data: cohs } = await sb.from('cem_cohorts')
     .select('id,nombre,codigo,cupos,estado,fecha_inicio,cem_courses(nombre)')
     .in('estado',['en_curso','inscripciones_abiertas']).order('fecha_inicio').limit(5);
-  const { data: counts } = await sb.from('cem_enrollments').select('cohort_id');
+  const { data: counts } = await sb.from('cem_enrollments').select('cohort_id').limit(500);
   const byCohort = {}; (counts||[]).forEach(r => byCohort[r.cohort_id] = (byCohort[r.cohort_id]||0)+1);
   $('#cohortes').innerHTML = (cohs||[]).map(c => {
     const n = byCohort[c.id]||0, occ = Math.round(100*n/Math.max(c.cupos,1));
     return `<div class="list-item"><div class="grow">
       <div class="t">${esc(c.nombre)}</div>
       <div class="s">${esc(c.cem_courses?.nombre||'')} · ${n}/${c.cupos} inscritos</div>
-      <div style="margin-top:6px">${bar(occ)}</div></div>${chip(c.estado)}</div>`;
+      <div class="sep-poco">${bar(occ)}</div></div>${chipEstado(c.estado)}</div>`;
   }).join('') || '<p class="muted tiny">Sin cohortes activas.</p>';
 }
+/* ============ los cuatro gráficos del resumen ============
+   Las series las suma Postgres y llegan hechas: bajarse todos los pagos para
+   sumarlos en el navegador funciona con datos de prueba y se cae con datos de
+   verdad. */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  host.innerHTML = `<div class="card">${bloqueEsqueleto(4)}</div>
+                    <div class="card">${bloqueEsqueleto(4)}</div>`;
+  const { data: g, error } = await sb.rpc('cem_series_tablero', { p_meses: 12 });
+  if (error){ host.innerHTML = `<div class="card"><p class="muted tiny">${esc(error.message)}</p></div>`; return; }
+
+  const c = g.cartera || {};
+  host.innerHTML = `
+    <div class="card">${embudo({
+      titulo: 'De solicitar información a recibir el certificado',
+      pie: 'Cada escalón es parte del anterior, y el porcentaje rojo es la gente que se quedó por el camino. El escalón que más cae es donde hay que trabajar.',
+      pasos: (g.embudo || []).map((p, i) => ({ ...p, href: [
+        'inscripciones.html', 'inscripciones.html', 'pagos-verificar.html?estado=confirmado',
+        'estudiantes.html?estado=activa', 'certificados.html'][i] })),
+    })}</div>
+
+    <div class="card">${columnas({
+      titulo: 'Ingresos de los últimos doce meses',
+      pie: 'En euros siempre, aunque el pago haya entrado en bolívares o en efectivo: si cada barra usara la moneda con la que se cobró, no se podrían comparar entre ellas.',
+      datos: (g.ingresos || []).map(m => ({ ...m, href: `reportes.html?mes=${m.clave}` })),
+      formato: (v) => money(v),
+    })}</div>
+
+    <div class="card">${apilada({
+      titulo: 'En qué estado está todo lo que se ha facturado',
+      pie: 'Lo que importa no son las tres cifras sueltas sino qué tajada del total está vencida. Pulsa una parte para ver de quién es.',
+      partes: [
+        { etq: 'Cobrado', n: c.cobrado, tono: 'ok', href: 'pagos-verificar.html?estado=confirmado' },
+        { etq: 'Por cobrar', n: c.porCobrar, tono: 'warn', href: 'pagos-verificar.html?deuda=al-dia' },
+        { etq: 'Vencido', n: c.vencido, tono: 'err', href: 'pagos-verificar.html?deuda=vencida' },
+      ],
+      formato: (v) => money(v),
+    })}</div>
+
+    <div class="card">${barras({
+      titulo: 'Estudiantes activos por programa',
+      pie: 'De mayor a menor. Se ve de un vistazo cuál sostiene la escuela y cuál se mantiene por costumbre.',
+      datos: (g.matricula || []).map(m => ({ ...m, href: `estudiantes.html?curso=${m.id}` })),
+      col: 'Programa', colN: 'Activos', tope: 8,
+    })}</div>`;
+}
+
 </script>
 </body>
 </html>

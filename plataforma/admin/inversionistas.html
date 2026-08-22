@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Inversionistas</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  /* La tarjeta de cada socio. El color no es adorno: con seis socios en la
+     pantalla, es cómo se lee de un vistazo de quién es cada cifra. Va en una
+     franja lateral y no en el fondo, que taparía el número. */
+  .socio{display:flex;flex-direction:column;gap:2px;padding:16px 16px 16px 20px;
+    position:relative;text-align:left;width:100%;cursor:pointer;}
+  .socio::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+    border-radius:var(--r) 0 0 var(--r);background:var(--suyo,var(--marca));}
+  .socio .quien{font-weight:var(--peso-fuerte);}
+  .socio .debe{font-size:var(--t-xl);font-weight:var(--peso-fuerte);letter-spacing:-.025em;
+    line-height:1.15;font-family:var(--cifra);font-variant-numeric:tabular-nums;}
+  .socio .debe.vacio{color:var(--tinta-3);}
+  .socio .puso{font-size:var(--t-xs);color:var(--tinta-2);}
+  .socio[aria-expanded="true"]{outline:2px solid var(--marca);outline-offset:-2px;}
+  .socios{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));}
+
+  /* El desglose: la respuesta a «¿de dónde sale ese número?». */
+  .desglose td.linea{font-weight:var(--peso-fuerte);}
+  .desglose .resta{color:var(--tinta-2);font-size:var(--t-xs);}
+
+  /* Un porcentaje que no llega a 100 no es un error —lo que falta se lo queda
+     la casa— pero pasarse sí lo es. */
+  .pct-mal{color:var(--error);font-weight:var(--peso-fuerte);}
+
+  .fila-parte{display:grid;grid-template-columns:1.6fr 1fr .8fr .8fr auto;gap:8px;align-items:end;}
+  @media (max-width:760px){ .fila-parte{grid-template-columns:1fr 1fr;} }
+
+  /* El mismo color del socio, en pequeño, dentro de las tablas: sin él hay que
+     leer el nombre en cada fila para saber de quién es la cifra. */
+  .pinta{display:inline-block;width:9px;height:9px;border-radius:50%;
+    margin-right:6px;vertical-align:baseline;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Inversionistas</h1>
+      <p>Quién puso capital, qué porcentaje le toca de cada línea y cuánto se le debe hoy.
+         Ninguna de esas cifras está guardada: se recalculan desde los pagos confirmados y los
+         gastos cada vez que abres esta pantalla, y por eso se pueden abrir hasta el detalle.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnCapital"><span class="material-symbols-outlined">savings</span> Registrar capital</button>
+      <button class="btn" id="btnPagar"><span class="material-symbols-outlined">payments</span> Pagar a los socios</button>
+    </div>
+  </div>
+
+  <div id="avisoSueltos"></div>
+
+  <div class="grid g4" id="kpis"></div>
+
+  <div class="card">
+    <div class="row between">
+      <h2 class="sec sin-margen">Ronda</h2>
+      <div class="row">
+        <div class="field sin-margen">
+          <select id="ronda" aria-label="Ronda de reparto"></select></div>
+        <button class="btn outline sm" id="btnEditarRonda"><span class="material-symbols-outlined">edit</span> Editar</button>
+        <button class="btn outline sm" id="btnNuevaRonda"><span class="material-symbols-outlined">add</span> Abrir una nueva</button>
+      </div>
+    </div>
+    <p class="tiny muted" id="rondaNota"></p>
+  </div>
+
+  <h2 class="sec">Cuánto se le debe a cada quien</h2>
+  <p class="tiny muted">La cifra grande es lo pendiente sumando todas las rondas y todas las líneas.
+     Toca una tarjeta para ver de qué está hecha.</p>
+  <div class="socios" id="socios"></div>
+  <div id="detalleSocio"></div>
+
+  <div class="card">
+    <h2 class="sec">De dónde sale la ganancia de esta ronda</h2>
+    <p class="tiny muted">Una fila por línea de negocio. Las líneas no se agrupan nunca:
+       el nombre se compara exacto, porque agrupar aquí le acredita a unos socios lo que generaron otros.</p>
+    <div class="table-wrap"><table class="desglose">
+      <thead><tr><th>Línea</th><th class="num">Entró</th><th class="num">Gastos</th>
+        <th class="num">Ganancia</th><th class="num">Repartido</th><th class="num">Se queda la casa</th></tr></thead>
+      <tbody id="tbLineas"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <div class="row between">
+      <h2 class="sec sin-margen">Balance del capital</h2>
+    </div>
+    <p class="tiny muted">El capital que pusieron los socios y lo que se compró con ganancias del propio
+       negocio van por separado y no se suman nunca. Sumarlos infla el aportado mes a mes hasta mostrar
+       que los socios pusieron el triple de lo que pusieron, y sobre ese número se discuten porcentajes.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Socio</th><th class="num">Puso de su bolsillo</th><th class="num">Movimientos</th></tr></thead>
+      <tbody id="tbCapital"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">Lo que ya se pagó</h2>
+    <p class="tiny muted">Agrupado por evento: un pago a tres socios en cuatro líneas son doce filas,
+       y sueltas no las revisa nadie. Despliega para ver el detalle y poder eliminar una.</p>
+    <div id="historial"></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, num, money, fdate, emptyRow, modal, ok, fail,
+         mensajeError, avisar, ocupado, montarAyudas, etiqueta, kpi,
+         mejorarSelects, confirmarBorrado } from '../assets/app.js?v=2026-08-21-53';
+
+const p = await mount({ require:['admin','superadmin','auditor'], active:'inversionistas.html', area:'admin' });
+/* El auditor mira los libros; no mueve dinero. Se le deja entrar porque
+   auditar el reparto sin verlo es auditar la mitad. */
+const puedeOperar = p && ['admin','superadmin'].includes(p.rol);
+
+const LINEAS = ['masterclass','curso','programa','diplomado','maestria'];
+
+let rep = null, historial = [], carteras = [], abierto = null;
+
+if (p) {
+  if (!puedeOperar) $$('.page-head .actions .btn').forEach(b => b.remove());
+  cargar();
+}
+
+async function cargar(){
+  const [{ data: r, error }, { data: h }, { data: cs }, { data: sueltos }] = await Promise.all([
+    sb.rpc('cem_reparto'),
+    sb.rpc('cem_liquidaciones_listar', { p_limite: 300 }),
+    sb.from('cem_carteras').select('id,nombre,moneda').eq('activa', true).order('orden'),
+    sb.rpc('cem_reparto_sin_clasificar'),
+  ]);
+  if (error) { fail(mensajeError(error, 'No se pudo calcular el reparto.')); return; }
+  rep = r; historial = h || []; carteras = cs || [];
+
+  pintarSueltos(sueltos);
+  pintarRondas();
+  pintarKpis();
+  pintarSocios();
+  pintarLineas();
+  pintarCapital();
+  pintarHistorial();
+}
+
+/* ============ lo que nadie clasificó ============
+   No se adivina y no se reparte «a partes iguales»: se pone delante para que
+   alguien lo asigne. Un gasto repartido a ojo es un gasto que se le cobra a un
+   socio que no tenía por qué pagarlo. */
+function pintarSueltos(sueltos){
+  const gastos = (sueltos?.gastos) || [];
+  const liqs = (sueltos?.liquidaciones) || [];
+  if (!gastos.length && !liqs.length) { $('#avisoSueltos').innerHTML = ''; return; }
+  $('#avisoSueltos').innerHTML = `<div class="card aviso">
+    <div class="row between">
+      <div>
+        <b>Hay movimientos sin clasificar y por eso no entran en ningún reparto.</b>
+        <p class="tiny sin-margen">${gastos.length
+          ? `${num(gastos.length)} gasto(s) sin línea de negocio, ${money(gastos.reduce((a,g)=>a+Number(g.monto_base||0),0))} en total. `
+          : ''}${liqs.length ? `${num(liqs.length)} pago(s) a socios sin decir de qué cartera salieron.` : ''}</p>
+      </div>
+      ${gastos.length && puedeOperar
+        ? '<button class="btn sm" id="btnClasificar"><span class="material-symbols-outlined">label</span> Clasificarlos</button>'
+        : ''}
+    </div></div>`;
+  if ($('#btnClasificar')) $('#btnClasificar').onclick = () => abrirClasificar(gastos);
+}
+
+function abrirClasificar(gastos){
+  const m = modal({ wide:true, title:'Poner línea a los gastos sueltos', body:`
+    <p class="tiny muted">Un gasto es de una línea, o se reparte de verdad entre varias —el alquiler,
+      la publicidad general—. Lo que no se puede es adivinarlo.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Fecha</th><th>En qué</th><th class="num">Monto</th><th>Línea</th></tr></thead>
+      <tbody>${gastos.map(g => `<tr>
+        <td>${esc(fdate(g.fecha))}</td>
+        <td>${esc(g.concepto)}</td>
+        <td class="num">${esc(money(g.monto_base))}</td>
+        <td><select data-gasto="${esc(g.id)}">
+          <option value="">— sin clasificar —</option>
+          ${LINEAS.map(l => `<option value="${l}">${esc(etiqueta(l))}</option>`).join('')}
+          <option value="__compartido">Compartido entre todas</option>
+        </select></td></tr>`).join('')}</tbody></table></div>
+    <div id="clMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="clGo">Guardar</button>` });
+  mejorarSelects();
+  $('#clGo', m).onclick = () => ocupado('#clGo', 'Guardando…', async () => {
+    let n = 0;
+    for (const sel of $$('[data-gasto]', m)) {
+      if (!sel.value) continue;
+      /* «Compartido entre todas» reparte a partes iguales entre las cinco
+         líneas, y lo dice con todas sus letras en el nombre de la opción: es
+         una decisión que toma quien la elige, no un promedio que se aplica
+         solo cuando falta el dato. */
+      const iguales = Object.fromEntries(LINEAS.map(l => [l, Number((100 / LINEAS.length).toFixed(4))]));
+      const suma = Object.values(iguales).reduce((a, b) => a + b, 0);
+      iguales[LINEAS[0]] = Number((iguales[LINEAS[0]] + (100 - suma)).toFixed(4));
+      const { error } = await sb.rpc('cem_gasto_clasificar', {
+        p_id: sel.dataset.gasto,
+        p_linea: sel.value === '__compartido' ? null : sel.value,
+        p_reparto: sel.value === '__compartido' ? iguales : null,
+      });
+      if (error) { avisar($('#clMsg', m), mensajeError(error), 'err'); return; }
+      n++;
+    }
+    m.close(); ok(`${n} gasto(s) clasificado(s).`); cargar();
+  });
+}
+
+/* ============ la ronda ============ */
+const rondaElegida = () => (rep?.rondas || []).find(r => r.id === $('#ronda').value) || (rep?.rondas || [])[0];
+
+function pintarRondas(){
+  const rs = rep.rondas || [];
+  const sel = $('#ronda');
+  const antes = sel.value;
+  sel.innerHTML = rs.length
+    ? rs.map(r => `<option value="${esc(r.id)}">${esc(r.nombre)} · ${esc(fdate(r.desde))} → ${
+        r.abierta ? 'sigue abierta' : esc(fdate(r.hasta))}</option>`).join('')
+    : '<option value="">No hay ninguna ronda todavía</option>';
+  if (antes && rs.some(r => r.id === antes)) sel.value = antes;
+  mejorarSelects();
+  const r = rondaElegida();
+  $('#rondaNota').textContent = !r
+    ? 'Una ronda es un período con sus propias reglas de reparto. Abre la primera para empezar.'
+    : r.abierta
+      ? 'Esta ronda sigue abierta: todo pago confirmado desde su fecha de inicio entra aquí. Cuando cambien los porcentajes, no los edites — abre otra ronda y ésta se cierra sola el día anterior.'
+      : `${r.nota || 'Cerrada.'} Los porcentajes de una ronda cerrada no se tocan: al editarlos cambiaría lo que ya se le pagó a alguien.`;
+  $('#btnEditarRonda').disabled = !r;
+}
+
+$('#ronda').onchange = () => { abierto = null; pintarRondas(); pintarLineas(); pintarSocios(); };
+if (puedeOperar) {
+  $('#btnNuevaRonda').onclick = () => abrirRonda(null);
+  $('#btnEditarRonda').onclick = () => abrirRonda(rondaElegida());
+}
+
+function abrirRonda(r){
+  const inversores = (rep.inversores || []).filter(i => i.activo);
+  if (!inversores.length) { abrirInversor(); return; }
+  const partes = [];
+  if (r) for (const l of (r.lineas || [])) for (const pt of (l.partes || []))
+    partes.push({ inversor_id: pt.inversor_id, linea: l.linea, pct: pt.pct, aporte: pt.aporte });
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const m = modal({ wide:true, title: r ? `Editar «${r.nombre}»` : 'Abrir una ronda nueva', body:`
+    ${r ? '' : `<p class="tiny muted">Al abrir una ronda nueva, la que estuviera abierta se cierra sola
+      el día anterior. Dos rondas solapadas contarían las mismas ventas dos veces.</p>`}
+    <div class="field"><label>Nombre de la ronda</label>
+      <input id="rNombre" maxlength="80" value="${esc(r?.nombre || '')}"
+        placeholder="Por ejemplo: 2026 · segunda mitad"></div>
+    <div class="row">
+      <div class="field medio"><label>Desde</label>
+        <input type="date" id="rDesde" value="${esc(r?.desde || hoy)}"></div>
+      <div class="field medio"><label>Hasta (vacío = sigue abierta)</label>
+        <input type="date" id="rHasta" value="${esc(r?.hasta || '')}"></div>
+    </div>
+    <div class="field"><label>Nota (opcional)</label>
+      <input id="rNota" maxlength="200" value="${esc(r?.nota || '')}"></div>
+
+    <h3 class="sub-ap">Quién se lleva qué</h3>
+    <p class="tiny muted">Una fila por socio y línea. Lo que los porcentajes de una línea no lleguen
+      a sumar se lo queda la casa, así que no tienen por qué dar 100 — pero pasarse sí es un error.
+      El aporte se anota para el registro de la ronda; el reparto sale del porcentaje.</p>
+    <div id="rPartes"></div>
+    <button type="button" class="btn outline sm sep-poco" id="rAdd">
+      <span class="material-symbols-outlined">add</span> Añadir una línea</button>
+    <p class="tiny sep-poco" id="rSumas"></p>
+    <div id="rMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="rGo">${r ? 'Guardar los cambios' : 'Abrir la ronda'}</button>` });
+
+  const dibujarPartes = () => {
+    $('#rPartes', m).innerHTML = partes.map((x, i) => `
+      <div class="fila-parte sep-poco">
+        <div class="field sin-margen"><label>Socio</label>
+          <select data-c="inversor" data-i="${i}">${inversores.map(v =>
+            `<option value="${esc(v.id)}"${v.id === x.inversor_id ? ' selected' : ''}>${esc(v.nombre)}</option>`).join('')}</select></div>
+        <div class="field sin-margen"><label>Línea</label>
+          <select data-c="linea" data-i="${i}">${LINEAS.map(l =>
+            `<option value="${l}"${l === x.linea ? ' selected' : ''}>${esc(etiqueta(l))}</option>`).join('')}</select></div>
+        <div class="field sin-margen"><label>%</label>
+          <input type="number" step="0.01" min="0" max="100" data-c="pct" data-i="${i}" value="${esc(x.pct)}"></div>
+        <div class="field sin-margen"><label>Aportó</label>
+          <input type="number" step="0.01" min="0" data-c="aporte" data-i="${i}" value="${esc(x.aporte)}"></div>
+        <button type="button" class="btn outline sm" data-quitar="${i}" aria-label="Quitar esta fila">
+          <span class="material-symbols-outlined">close</span></button>
+      </div>`).join('') || '<p class="tiny muted">Todavía no hay ninguna fila.</p>';
+    mejorarSelects($('#rPartes', m));
+    $$('[data-quitar]', m).forEach(b => b.onclick = () => {
+      partes.splice(Number(b.dataset.quitar), 1); dibujarPartes();
+    });
+    $$('[data-c]', m).forEach(el => el.onchange = () => {
+      const x = partes[Number(el.dataset.i)];
+      const k = el.dataset.c;
+      x[k === 'inversor' ? 'inversor_id' : k] = k === 'pct' || k === 'aporte' ? Number(el.value || 0) : el.value;
+      sumas();
+    });
+    sumas();
+  };
+  const sumas = () => {
+    const porLinea = {};
+    for (const x of partes) porLinea[x.linea] = (porLinea[x.linea] || 0) + Number(x.pct || 0);
+    const txt = Object.entries(porLinea).map(([l, s]) =>
+      `<span class="${s > 100 ? 'pct-mal' : ''}">${esc(etiqueta(l))}: ${s.toFixed(2)}%${
+        s > 100 ? ' — se reparte más de lo que hay' : s < 100 ? ` (la casa se queda ${(100 - s).toFixed(2)}%)` : ''}</span>`);
+    $('#rSumas', m).innerHTML = txt.join(' · ') || '';
+  };
+  $('#rAdd', m).onclick = () => {
+    partes.push({ inversor_id: inversores[0].id, linea: LINEAS[1], pct: 0, aporte: 0 });
+    dibujarPartes();
+  };
+  dibujarPartes();
+
+  $('#rGo', m).onclick = () => ocupado('#rGo', 'Guardando…', async () => {
+    const nombre = $('#rNombre', m).value.trim();
+    if (!nombre) { avisar($('#rMsg', m), 'La ronda necesita un nombre.', 'err'); return; }
+    const { data, error } = await sb.rpc('cem_ronda_guardar', {
+      p_id: r?.id || null,
+      p_nombre: nombre,
+      p_desde: $('#rDesde', m).value || null,
+      p_hasta: $('#rHasta', m).value || null,
+      p_nota: $('#rNota', m).value.trim() || null,
+      p_partes: partes,
+    });
+    if (error) { avisar($('#rMsg', m), mensajeError(error), 'err'); return; }
+    m.close();
+    ok(data?.rondas_cerradas
+      ? 'Ronda abierta. La anterior se cerró el día antes, para que no se solapen.'
+      : 'Ronda guardada.');
+    await cargar();
+    $('#ronda').value = data.id; pintarRondas(); pintarLineas(); pintarSocios();
+  });
+}
+
+/* ============ los socios ============ */
+function abrirInversor(){
+  const m = modal({ title:'Añadir un socio', body:`
+    <p class="tiny muted">Para armar una ronda hace falta al menos un socio.</p>
+    <div class="field"><label>Nombre</label><input id="iNombre" maxlength="80"></div>
+    <div class="field"><label>Color</label>
+      <input type="color" id="iColor" value="#3b82f6">
+      <p class="tiny muted sin-margen">Es cómo se distingue su cifra de la de los demás de un vistazo.</p></div>
+    <div class="field"><label>Nota (opcional)</label><input id="iNota" maxlength="200"></div>
+    <div id="iMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="iGo">Guardar</button>` });
+  $('#iGo', m).onclick = () => ocupado('#iGo', 'Guardando…', async () => {
+    const nombre = $('#iNombre', m).value.trim();
+    if (!nombre) { avisar($('#iMsg', m), 'Escribe el nombre.', 'err'); return; }
+    const { error } = await sb.from('cem_inversores').insert({
+      nombre, color: $('#iColor', m).value, nota: $('#iNota', m).value.trim() || null });
+    if (error) { avisar($('#iMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Socio añadido.'); cargar();
+  });
+}
+
+const nombreDe = (id) => (rep.inversores || []).find(i => i.id === id)?.nombre || '—';
+const colorDe  = (id) => (rep.inversores || []).find(i => i.id === id)?.color || 'var(--marca)';
+
+function pintarKpis(){
+  const pend = (rep.pendiente_por_inversor || []).reduce((a, x) => a + Number(x.le_debo || 0), 0);
+  const favor = (rep.pendiente_por_inversor || []).reduce((a, x) => a + Number(x.a_favor || 0), 0);
+  const r = rondaElegida();
+  const gan = (r?.lineas || []).reduce((a, l) => a + Number(l.ganancia || 0), 0);
+  $('#kpis').innerHTML = [
+    kpi('Se les debe hoy', money(pend), 'account_balance_wallet',
+        favor > 0 ? `${money(favor)} pagados de más` : `${num((rep.inversores || []).length)} socio(s)`, '',
+        'Suma de lo pendiente de todos los socios, en todas las rondas y líneas. Nunca es negativo: lo pagado de más sale aparte como saldo a favor.'),
+    kpi('Ganancia de la ronda', money(gan), 'trending_up',
+        r ? r.nombre : 'sin ronda', '',
+        'Lo que entró por pagos confirmados menos los gastos de cada línea, en el período de esta ronda. No hay término de coste: vender un cupo más de un curso ya grabado no cuesta nada, y lo que sí cuesta —los honorarios de un profesor— es un gasto con su línea puesta.'),
+    kpi('Capital de los socios', money(Number(rep.capital?.nuevo || 0)), 'savings',
+        'dinero que entró de fuera', '',
+        'Lo que los socios pusieron de su bolsillo. No incluye lo reinvertido, y por eso no crece solo.'),
+    kpi('Reinvertido', money(Number(rep.capital?.reinversion || 0)), 'autorenew',
+        'ganancias que se volvieron a poner', '',
+        'Comprado con ganancias del propio negocio. Esa plata ya era del negocio, así que no aumenta el capital de nadie ni da derecho a más participación.'),
+  ].join('');
+  montarAyudas($('#kpis'));
+}
+
+function pintarSocios(){
+  const pend = rep.pendiente_por_inversor || [];
+  const aport = rep.aportado_por_inversor || [];
+  const activos = (rep.inversores || []).filter(i => i.activo);
+  $('#socios').innerHTML = activos.length ? activos.map(i => {
+    const x = pend.find(y => y.inversor_id === i.id) || {};
+    const a = aport.find(y => y.inversor_id === i.id) || {};
+    const debe = Number(x.le_debo || 0);
+    return `<button type="button" class="socio caja" data-socio="${esc(i.id)}"
+        style="--suyo:${esc(i.color)}" aria-expanded="${abierto === i.id}">
+      <span class="quien">${esc(i.nombre)}</span>
+      <span class="debe${debe === 0 ? ' vacio' : ''}">${esc(money(debe))}</span>
+      <span class="puso">puso ${esc(money(Number(a.aportado || 0)))}${
+        Number(x.a_favor || 0) > 0 ? ` · ${esc(money(Number(x.a_favor)))} a favor` : ''}</span>
+    </button>`;
+  }).join('') : `<p class="tiny muted">Todavía no hay socios.${
+    puedeOperar ? ' <button type="button" class="btn sm" id="btnPrimerSocio">Añadir el primero</button>' : ''}</p>`;
+
+  if ($('#btnPrimerSocio')) $('#btnPrimerSocio').onclick = abrirInversor;
+  $$('[data-socio]').forEach(b => b.onclick = () => {
+    abierto = abierto === b.dataset.socio ? null : b.dataset.socio;
+    pintarSocios(); pintarDetalleSocio();
+  });
+  pintarDetalleSocio();
+}
+
+/* La respuesta a «¿de dónde sale ese número?», que es la única forma de que un
+   socio acepte una cifra. Ronda por ronda y línea por línea: lo que generó esa
+   línea, su porcentaje, lo que le tocó y lo que ya cobró. */
+function pintarDetalleSocio(){
+  const host = $('#detalleSocio');
+  if (!abierto) { host.innerHTML = ''; return; }
+  const filas = [];
+  for (const r of (rep.rondas || []))
+    for (const l of (r.lineas || []))
+      for (const pt of (l.partes || []))
+        if (pt.inversor_id === abierto) filas.push({ r, l, pt });
+
+  host.innerHTML = `<div class="card">
+    <h2 class="sec">${esc(nombreDe(abierto))}, número por número</h2>
+    ${filas.length ? `<div class="table-wrap"><table class="desglose">
+      <thead><tr><th>Ronda</th><th>Línea</th><th class="num">Ganó la línea</th>
+        <th class="num">Su %</th><th class="num">Le tocó</th><th class="num">Ya cobró</th>
+        <th class="num">Se le debe</th></tr></thead>
+      <tbody>${filas.map(({ r, l, pt }) => `<tr>
+        <td>${esc(r.nombre)}</td>
+        <td class="linea">${esc(etiqueta(l.linea))}
+          <div class="resta">${esc(money(l.ingreso))} entraron − ${esc(money(l.gastos))} de gastos</div></td>
+        <td class="num">${esc(money(l.ganancia))}</td>
+        <td class="num">${esc(Number(pt.pct).toFixed(2))}%</td>
+        <td class="num">${esc(money(pt.le_toca))}</td>
+        <td class="num">${esc(money(pt.liquidado))}</td>
+        <td class="num">${esc(money(pt.le_debo))}${
+          Number(pt.a_favor) > 0 ? `<div class="resta">${esc(money(pt.a_favor))} a favor</div>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`
+      : '<p class="tiny muted">Todavía no tiene ninguna parte asignada en ninguna ronda.</p>'}
+  </div>`;
+}
+
+function pintarLineas(){
+  const r = rondaElegida();
+  const tb = $('#tbLineas');
+  const ls = r?.lineas || [];
+  if (!ls.length) { tb.innerHTML = emptyRow(6, 'Esta ronda todavía no tiene ni ingresos ni gastos.'); return; }
+  tb.innerHTML = ls.map(l => {
+    const repartido = (l.partes || []).reduce((a, x) => a + Number(x.le_toca || 0), 0);
+    const pctTotal = Number(l.pct_total || 0);
+    return `<tr>
+      <td class="linea">${esc(etiqueta(l.linea))}
+        <div class="resta">${num(l.pagos)} pago(s) confirmado(s)</div></td>
+      <td class="num">${esc(money(l.ingreso))}</td>
+      <td class="num">${esc(money(l.gastos))}</td>
+      <td class="num">${esc(money(l.ganancia))}</td>
+      <td class="num">${esc(money(repartido))}
+        <div class="resta${pctTotal > 100 ? ' pct-mal' : ''}">${esc(pctTotal.toFixed(2))}% asignado</div></td>
+      <td class="num">${esc(money(l.casa))}</td></tr>`;
+  }).join('');
+}
+
+function pintarCapital(){
+  const aport = rep.aportado_por_inversor || [];
+  const tb = $('#tbCapital');
+  tb.innerHTML = aport.length ? aport.map(a => `<tr>
+      <td><span class="pinta" style="background:${esc(colorDe(a.inversor_id))}"></span> ${esc(nombreDe(a.inversor_id))}</td>
+      <td class="num">${esc(money(a.aportado))}</td>
+      <td class="num">${num(a.movimientos)}</td></tr>`).join('')
+    : emptyRow(3, 'Todavía no se ha registrado capital de nadie.');
+}
+
+/* ============ el historial ============ */
+function pintarHistorial(){
+  const host = $('#historial');
+  if (!historial.length) {
+    host.innerHTML = '<p class="tiny muted">Todavía no se le ha pagado nada a nadie.</p>'; return;
+  }
+  host.innerHTML = historial.map(ev => `<details class="caja sep-poco">
+    <summary>
+      <b>${esc(fdate(ev.fecha))}</b> · ${esc(money(ev.total))} a ${num(ev.socios)} socio(s)
+      · ${num((ev.filas || []).length)} línea(s)${ev.nota ? ` · ${esc(ev.nota)}` : ''}
+    </summary>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Socio</th><th>Ronda</th><th>Línea</th><th class="num">Pagado</th>
+        <th class="num">En euros</th><th>Salió de</th><th></th></tr></thead>
+      <tbody>${(ev.filas || []).map(f => `<tr>
+        <td><span class="pinta" style="background:${esc(f.color)}"></span> ${esc(f.inversor)}</td>
+        <td>${esc(f.ronda)}</td>
+        <td>${esc(etiqueta(f.linea))}</td>
+        <td class="num">${esc(money(f.monto, f.moneda))}</td>
+        <td class="num">${esc(money(f.monto_base))}</td>
+        <td>${f.cartera ? esc(f.cartera) : '<span class="muted">sin decir</span>'}</td>
+        <td class="num">${puedeOperar
+          ? `<button type="button" class="btn outline sm" data-borrar="${esc(f.id)}"
+               data-que="${esc(f.inversor)} · ${esc(money(f.monto_base))}">Eliminar</button>`
+          : ''}</td></tr>`).join('')}</tbody></table></div>
+  </details>`).join('');
+
+  $$('[data-borrar]').forEach(b => b.onclick = () => confirmarBorrado({
+    que: 'este pago', nombre: b.dataset.que,
+    consecuencia: 'Lo que se le debe a ese socio volverá a subir por ese importe. El registro queda, marcado como eliminado.',
+  }).then(async (si) => {
+    if (!si) return;
+    const { error } = await sb.rpc('cem_liquidacion_eliminar', { p_id: b.dataset.borrar });
+    if (error) { fail(mensajeError(error)); return; }
+    ok('Pago eliminado. El saldo pendiente ya está actualizado.');
+    cargar();
+  }));
+}
+
+/* ============ pagar ============ */
+if (puedeOperar) $('#btnPagar').onclick = () => {
+  const r = rondaElegida();
+  if (!r) { fail('Antes hay que abrir una ronda.'); return; }
+  /* Se ofrecen exactamente las combinaciones que deben algo: pagar contra una
+     línea que no debe nada se puede, pero no tiene por qué estar a un clic. */
+  const deben = [];
+  for (const l of (r.lineas || [])) for (const pt of (l.partes || []))
+    if (Number(pt.le_debo) > 0) deben.push({ linea: l.linea, ...pt });
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const m = modal({ wide:true, title:'Pagar a los socios', body:`
+    <p class="tiny muted">No hace falta pagar todo de una vez: se paga cuando hay caja, en partes.
+      Lo que escribas aquí se descuenta de la línea que elijas y de ninguna otra.</p>
+    <div class="row">
+      <div class="field medio"><label>Fecha</label><input type="date" id="pFecha" value="${hoy}"></div>
+      <div class="field medio"><label>Nota (opcional)</label>
+        <input id="pNota" maxlength="200" placeholder="Por ejemplo: reparto de agosto"></div>
+    </div>
+    ${deben.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Socio</th><th>Línea</th><th class="num">Se le debe</th>
+        <th class="num">Le pago</th><th>Moneda</th><th>Sale de</th></tr></thead>
+      <tbody>${deben.map((d, i) => `<tr>
+        <td><span class="pinta" style="background:${esc(colorDe(d.inversor_id))}"></span> ${esc(nombreDe(d.inversor_id))}</td>
+        <td>${esc(etiqueta(d.linea))}</td>
+        <td class="num">${esc(money(d.le_debo))}
+          <button type="button" class="btn outline sm" data-todo="${i}">todo</button></td>
+        <td class="num"><input type="number" step="0.01" min="0" data-monto="${i}" style="max-width:120px"></td>
+        <td><select data-moneda="${i}">
+          <option value="EUR">EUR</option><option value="USD">USD</option><option value="VES">VES</option></select></td>
+        <td><select data-cartera="${i}"><option value="">— sin decir —</option>
+          ${carteras.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}</select></td>
+      </tr>`).join('')}</tbody></table></div>`
+      : '<p class="tiny muted">Ahora mismo no se le debe nada a nadie en esta ronda.</p>'}
+    <p class="tiny muted sep-poco">Decir de qué cartera sale no es opcional de verdad: un pago que no
+      descuenta de ninguna cuenta infla los saldos del negocio. Si lo dejas sin decir, saldrá en la
+      lista de movimientos sin clasificar hasta que alguien lo arregle.</p>
+    <div id="pMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="pGo"${deben.length ? '' : ' disabled'}>Registrar los pagos</button>` });
+  mejorarSelects();
+
+  $$('[data-todo]', m).forEach(b => b.onclick = () => {
+    $(`[data-monto="${b.dataset.todo}"]`, m).value = deben[Number(b.dataset.todo)].le_debo;
+  });
+
+  $('#pGo', m).onclick = () => ocupado('#pGo', 'Registrando…', async () => {
+    const pagos = deben.map((d, i) => ({
+      ronda_id: r.id, inversor_id: d.inversor_id, linea: d.linea,
+      monto: Number($(`[data-monto="${i}"]`, m).value || 0),
+      moneda: $(`[data-moneda="${i}"]`, m).value,
+      cartera_id: $(`[data-cartera="${i}"]`, m).value || null,
+    })).filter(x => x.monto > 0);
+    if (!pagos.length) { avisar($('#pMsg', m), 'Escribe al menos un importe.', 'err'); return; }
+
+    const { data, error } = await sb.rpc('cem_liquidacion_guardar', {
+      p_pagos: pagos, p_fecha: $('#pFecha', m).value || null,
+      p_nota: $('#pNota', m).value.trim() || null });
+    if (error) { avisar($('#pMsg', m), mensajeError(error), 'err'); return; }
+    m.close();
+    ok(`${data.filas} pago(s) registrado(s), ${money(data.total)} en total.`);
+    /* Los avisos no son errores: el pago se guardó. Son las dos cosas que el
+       código no puede decidir por su cuenta y una persona sí. */
+    for (const av of (data.avisos || [])) fail(av.texto);
+    cargar();
+  });
+};
+
+/* ============ capital ============ */
+if (puedeOperar) $('#btnCapital').onclick = () => {
+  const inversores = (rep.inversores || []).filter(i => i.activo);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const m = modal({ title:'Registrar capital', body:`
+    <div class="field"><label>¿De dónde salió el dinero?</label>
+      <select id="cTipo">
+        <option value="nuevo">Capital nuevo — alguien lo puso de su bolsillo</option>
+        <option value="reinversion">Reinversión — se pagó con ganancias del negocio</option>
+      </select>
+      <p class="tiny muted sin-margen" id="cTipoNota"></p></div>
+    <div class="field" id="cQuienCampo"><label>¿Quién lo puso?</label>
+      <select id="cQuien">${inversores.map(i =>
+        `<option value="${esc(i.id)}">${esc(i.nombre)}</option>`).join('')}</select></div>
+    <div class="field"><label>¿Para qué?</label>
+      <input id="cConcepto" maxlength="140" placeholder="Por ejemplo: campaña de lanzamiento del diplomado"></div>
+    <div class="row">
+      <div class="field medio"><label>Monto</label>
+        <input type="number" step="0.01" min="0.01" id="cMonto"></div>
+      <div class="field medio"><label>Moneda</label>
+        <select id="cMoneda"><option value="EUR">EUR</option>
+          <option value="USD">USD</option><option value="VES">VES</option></select></div>
+    </div>
+    <div class="row">
+      <div class="field medio"><label>Fecha</label><input type="date" id="cFecha" value="${hoy}"></div>
+      <div class="field medio"><label>Entra en</label>
+        <select id="cCartera"><option value="">— sin decir —</option>
+          ${carteras.map(c => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Línea de negocio (opcional)</label>
+      <select id="cLinea"><option value="">Para todo el negocio</option>
+        ${LINEAS.map(l => `<option value="${l}">${esc(etiqueta(l))}</option>`).join('')}</select></div>
+    <div id="cMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" id="cGo">Guardar</button>` });
+  mejorarSelects();
+
+  const verTipo = () => {
+    const nuevo = $('#cTipo', m).value === 'nuevo';
+    /* Cuando es reinversión no se pide dueño, y no por comodidad: acreditarle
+       una reinversión a un socio le sube el capital aportado con plata que ya
+       era del negocio. El servidor lo rechaza igual; esto lo hace evidente. */
+    $('#cQuienCampo', m).classList.toggle('hidden', !nuevo);
+    $('#cTipoNota', m).textContent = nuevo
+      ? 'Aumenta el capital de esa persona y su derecho a participar.'
+      : 'No aumenta el capital de nadie: esa plata ya era del negocio.';
+  };
+  $('#cTipo', m).onchange = verTipo; verTipo();
+
+  $('#cGo', m).onclick = () => ocupado('#cGo', 'Guardando…', async () => {
+    const nuevo = $('#cTipo', m).value === 'nuevo';
+    const concepto = $('#cConcepto', m).value.trim();
+    const monto = Number($('#cMonto', m).value || 0);
+    if (!concepto) { avisar($('#cMsg', m), 'Escribe para qué es.', 'err'); return; }
+    if (monto <= 0) { avisar($('#cMsg', m), 'El monto tiene que ser mayor que cero.', 'err'); return; }
+    if (nuevo && !inversores.length) { avisar($('#cMsg', m), 'Antes hay que dar de alta al socio.', 'err'); return; }
+
+    const { error } = await sb.rpc('cem_aporte_guardar', {
+      p_concepto: concepto, p_monto: monto,
+      p_tipo_capital: nuevo ? 'nuevo' : 'reinversion',
+      p_inversor_id: nuevo ? $('#cQuien', m).value : null,
+      p_moneda: $('#cMoneda', m).value,
+      p_fecha: $('#cFecha', m).value || null,
+      p_linea: $('#cLinea', m).value || null,
+      p_cartera_id: $('#cCartera', m).value || null,
+    });
+    if (error) { avisar($('#cMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Capital registrado.'); cargar();
+  });
+};
+</script>
+</body>
+</html>

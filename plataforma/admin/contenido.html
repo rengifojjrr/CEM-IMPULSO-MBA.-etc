@@ -9,39 +9,47 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
-  .builder{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr);gap:16px;align-items:start;}
+  .builder{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr);gap:var(--aire);align-items:start;}
   @media(max-width:900px){ .builder{grid-template-columns:1fr;} }
-  .tree-mod{border:1px solid var(--outline-variant);border-radius:10px;margin-bottom:8px;overflow:hidden;}
-  .tree-mod > .h{display:flex;align-items:center;gap:8px;padding:10px;background:var(--surface-container);cursor:pointer;}
-  .tree-mod > .h b{flex:1;font-size:13px;}
-  .tree-les{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 26px;font-size:12.7px;cursor:pointer;
-    border-top:1px solid var(--outline-variant);}
-  .tree-les:hover{background:var(--surface-container);}
+  .tree-mod{border:1px solid var(--filete);border-radius:var(--r);margin-bottom:8px;overflow:hidden;}
+  .tree-mod > .h{display:flex;align-items:center;gap:8px;padding:10px;background:var(--hueco);cursor:pointer;}
+  .tree-mod > .h b{flex:1;font-size:var(--t-sm);}
+  .tree-les{display:flex;align-items:center;gap:8px;padding:8px 10px 8px 26px;font-size:var(--t-xs);cursor:pointer;
+    border-top:1px solid var(--filete);}
+  .tree-les:hover{background:var(--hueco);}
   .tree-les.on{background:var(--secondary-container);color:var(--secondary);font-weight:600;}
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
+  <div id="migas"></div>
   <div class="page-head">
     <div><h1>Constructor de contenido</h1><p id="sub">Organiza módulos y lecciones del programa.</p></div>
     <div class="actions">
       <div class="field" style="margin:0;min-width:230px"><select id="curso"></select></div>
+      <!-- Mejora 20: antes se publicaba y se esperaba a que un alumno avisara
+           de que un vídeo no cargaba. -->
+      <a class="btn outline" id="btnVerComoAlumno" href="#">
+        <span class="material-symbols-outlined">visibility</span> Ver como estudiante</a>
     </div>
   </div>
 
   <div class="builder">
     <div class="card">
       <div class="row between"><h2 class="sec">Estructura del curso</h2>
-        <button class="btn outline sm" id="btnMod"><span class="material-symbols-outlined">create_new_folder</span></button></div>
+        <button class="btn outline sm" id="btnMod" title="Agregar un módulo"><span class="material-symbols-outlined">create_new_folder</span></button></div>
       <div id="arbol"></div>
     </div>
     <div id="editor"></div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, modal, ok, fail, run, audit, qs, confirmDialog, abrirSubidaVideo, subirImagenCurso, subirDocumentoLeccion } from '../assets/app.js';
+import { sb, mount, $, $$, esc, chip, modal, ok, fail, run, audit, qs, confirmDialog,
+         abrirSubidaVideo, subirImagenCurso, subirDocumentoLeccion, campoArchivo, opciones,
+         etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, migas,
+         idDeYoutube } from '../assets/app.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'contenido.html', area:'admin' });
 let cursos=[], cursoId=null, mods=[], sel=null, docs=[];
 const ICO_DOC = t => t==='pdf'?'picture_as_pdf':t==='excel'?'table_chart':t==='video'?'play_circle':t==='imagen'?'image':'attach_file';
@@ -57,18 +65,53 @@ async function load(){
 }
 $('#curso').onchange = async () => { cursoId = $('#curso').value; sel=null; await loadMods(); };
 
+/* El enlace se rehace cada vez que cambia el programa elegido: si apuntara
+   siempre al primero, «ver como estudiante» enseñaría el aula equivocada. */
+function refrescarVistaPrevia(){
+  const a = $('#btnVerComoAlumno');
+  if (!a) return;
+  a.href = cursoId ? `../estudiante/clase.html?curso=${encodeURIComponent(cursoId)}` : '#';
+  a.classList.toggle('deshabilitado', !cursoId);
+}
+
 async function loadMods(){
   if (!cursoId) return;
-  const { data } = await sb.from('cem_modules').select('*,cem_lessons(*)').eq('course_id',cursoId).order('orden');
+  const { data } = await sb.from('cem_modules')
+    .select('*,cem_lessons(id,module_id,titulo,descripcion,tipo,duracion_min,orden,obligatorio,estado)')
+    .eq('course_id',cursoId).order('orden');
   mods = (data||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
+
+  /* El enlace y el cuerpo se piden aparte: la base ya no los entrega por
+     consulta abierta, porque son el curso y el curso se paga. A quien coordina
+     se los da igual, que para eso los edita en esta misma pantalla. */
+  const ids = mods.flatMap(m=>m.cem_lessons).map(l=>l.id);
+  if (ids.length){
+    const { data: material } = await sb.rpc('cem_material_lecciones',{ p_ids: ids });
+    mods.forEach(m=>m.cem_lessons.forEach(l=>{
+      l.url = material?.[l.id]?.url ?? null;
+      /* El vídeo asignado desde «Vídeos del curso» se lee AQUÍ también. Sin
+         esto el editor no sabía que existía: enseñaba el campo del enlace
+         vacío, y al guardar escribía ese vacío encima del enlace bueno. */
+      l.video_id = material?.[l.id]?.video_id ?? null;
+      l.contenido = material?.[l.id]?.contenido ?? null;
+    }));
+  }
   const c = cursos.find(x=>x.id===cursoId);
   $('#sub').textContent = `${c?.nombre||''} · ${mods.length} módulos · ${mods.reduce((a,m)=>a+m.cem_lessons.length,0)} lecciones`;
+  refrescarVistaPrevia();
+  /* item 41 · desde aquí se llega desde la lista de programas y no había cómo
+     volver ni cómo saber en qué programa estabas parado. */
+  $('#migas').innerHTML = migas([
+    ['Programas', 'cursos.html'],
+    [c?.nombre || 'Programa'],
+    ['Contenido'],
+  ]);
   render();
 }
 
 function render(){
   $('#arbol').innerHTML = mods.length ? mods.map((m,mi)=>`
-    <div class="tree-mod">
+    <div class="tree-mod caja">
       <div class="h" data-mod="${m.id}">
         <span class="material-symbols-outlined" style="font-size:18px">folder</span>
         <b>${esc(m.titulo)}</b>
@@ -78,7 +121,7 @@ function render(){
       ${m.cem_lessons.map(l=>`<div class="tree-les ${sel?.id===l.id?'on':''}" data-les="${l.id}">
         <span class="material-symbols-outlined" style="font-size:16px">
           ${l.tipo==='video'?'play_circle':l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
-        <span style="flex:1">${esc(l.titulo)}</span>
+        <span class="crece">${esc(l.titulo)}</span>
         ${l.estado==='publicado'?'<span class="material-symbols-outlined" style="font-size:15px;color:var(--ok)">check_circle</span>':''}
         </div>`).join('')}
     </div>`).join('') : '<p class="muted tiny">Este curso no tiene módulos. Crea el primero.</p>';
@@ -94,8 +137,39 @@ function render(){
 
 async function cargarDocs(){
   if (!sel) { docs = []; return; }
-  const { data } = await sb.from('cem_media').select('*').eq('lesson_id', sel.id).order('created_at', { ascending: false });
+  const { data } = await sb.from('cem_media').select('*').eq('lesson_id', sel.id).order('created_at', { ascending: false }).limit(500);
   docs = data || [];
+}
+
+/* Una lección puede tener el vídeo por dos caminos: el enlace que se pega aquí
+   y el vídeo que se le asigna en «Vídeos del curso». El aula reproduce el
+   asignado si lo hay, así que cuando los dos no dicen lo mismo hay que decirlo
+   en voz alta: callarlo es lo que hacía que alguien pegara un enlace, viera
+   «Lección guardada» y en el aula saliera otro vídeo. */
+function notaDelVideo(videoAsignado, urlActual){
+  const asignado = videoAsignado || null;
+  const pegado = idDeYoutube(urlActual);
+  if (!asignado) {
+    return pegado ? `<p class="tiny muted" style="margin:6px 0 0">
+      El aula reproducirá el vídeo <code>${esc(pegado)}</code>, sacado de este enlace.</p>` : '';
+  }
+  if (asignado === pegado) {
+    return `<p class="tiny muted" style="margin:6px 0 0">
+      <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-2px;color:var(--ok)">check_circle</span>
+      Vídeo <code>${esc(asignado)}</code>, asignado desde
+      <a href="videos.html?curso=${encodeURIComponent(cursoId)}">Vídeo de cada lección</a>.</p>`;
+  }
+  if (!pegado) {
+    return `<p class="tiny muted" style="margin:6px 0 0">
+      Esta lección ya tiene el vídeo <code>${esc(asignado)}</code>, asignado desde
+      <a href="videos.html?curso=${encodeURIComponent(cursoId)}">Vídeo de cada lección</a>.
+      El campo de arriba puede quedarse vacío: el aula usa el asignado.</p>`;
+  }
+  return `<span class="nota warn tiny">
+    El enlace de arriba apunta a <code>${esc(pegado)}</code>, pero la lección tiene
+    asignado <code>${esc(asignado)}</code>. <b>El aula reproduce el asignado.</b>
+    Al guardar se quedará con el enlace de arriba; si el bueno es el asignado,
+    borra el enlace antes de guardar.</span>`;
 }
 
 function renderEditor(){
@@ -105,31 +179,32 @@ function renderEditor(){
   const l = sel;
   $('#editor').innerHTML = `<div class="card">
     <div class="row between"><h2 class="sec">Editor: ${esc(l.titulo)}</h2>
-      <div class="row">${chip(l.estado)}
+      <div class="row">${chipEstado(l.estado)}
         <button class="btn outline sm" id="btnPrev"><span class="material-symbols-outlined">visibility</span> Vista previa</button>
         <button class="btn sm" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar</button></div></div>
     <div class="field"><label>Título de la lección</label><input id="lT" value="${esc(l.titulo)}"></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="lTipo">
-        ${['video','pdf','texto','enlace','quiz','tarea','en_vivo'].map(v=>`<option ${l.tipo===v?'selected':''}>${v}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Duración (min)</label><input type="number" id="lDur" value="${l.duracion_min||0}"></div>
-      <div class="field" style="flex:1;min-width:110px"><label>Orden</label><input type="number" id="lOrd" value="${l.orden||0}"></div>
-      <div class="field" style="flex:1;min-width:150px"><label>Estado</label><select id="lEstado">
-        ${['borrador','en_revision','publicado','archivado'].map(v=>`<option ${l.estado===v?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="field medio"><label>Tipo</label><select id="lTipo">
+        ${opciones(['video','pdf','texto','enlace','quiz','tarea','en_vivo'], l.tipo)}</select></div>
+      <div class="field corto"><label>Duración (min)</label><input type="number" id="lDur" value="${l.duracion_min||0}"></div>
+      <div class="field corto"><label>Orden</label><input type="number" id="lOrd" value="${l.orden||0}"></div>
+      <div class="field medio"><label>Estado</label><select id="lEstado">
+        ${opciones(['borrador','en_revision','publicado','archivado'], l.estado)}</select></div>
     </div>
     <div class="field"><label>Descripción breve</label><input id="lDesc" value="${esc(l.descripcion||'')}"></div>
     <div class="field"><label>URL del recurso (video, PDF o enlace)</label>
       <div class="row" style="gap:8px">
         <input id="lUrl" value="${esc(l.url||'')}" placeholder="https://…" style="flex:1">
         <button class="btn outline sm" id="btnSubirVideo" type="button"><span class="material-symbols-outlined">cloud_upload</span> Subir video</button>
-      </div></div>
+      </div>
+      <div id="notaVideo">${notaDelVideo(l.video_id, l.url)}</div></div>
     <div class="field"><label>Documentos adjuntos</label>
       <div id="lDocs" class="stack" style="margin-bottom:8px">${docs.length ? docs.map(d=>`
         <div class="row between" style="padding:6px 8px;border:1px solid var(--outline-variant);border-radius:8px">
           <div class="row" style="gap:8px;align-items:center"><span class="material-symbols-outlined">${ICO_DOC(d.tipo)}</span>
             <a href="${esc(d.url)}" target="_blank">${esc(d.nombre)}</a>
             <span class="tiny muted">${(Number(d.tamano_bytes||0)/1048576).toFixed(1)} MB</span></div>
-          <button type="button" class="btn ghost sm" data-deldoc="${d.id}"><span class="material-symbols-outlined">delete</span></button>
+          <button type="button" class="btn ghost sm" data-deldoc="${d.id}" title="Quitar el documento"><span class="material-symbols-outlined">delete</span></button>
         </div>`).join('') : '<p class="muted tiny">Sin documentos adjuntos.</p>'}</div>
       <button type="button" class="btn outline sm" id="btnSubirDoc"><span class="material-symbols-outlined">upload_file</span> Subir documento</button>
       <input type="file" id="lDocArchivo" class="hidden"></div>
@@ -140,11 +215,19 @@ function renderEditor(){
       <button class="btn outline sm" id="btnRev"><span class="material-symbols-outlined">fact_check</span> Enviar a revisión</button>
     </div></div>`;
 
+  /* La nota se rehace mientras se escribe: quien pega un enlace ve en el acto
+     qué va a reproducir el aula, en vez de enterarse después de guardar. */
+  const refrescarNota = () => {
+    const n = $('#notaVideo');
+    if (n) n.innerHTML = notaDelVideo(l.video_id, $('#lUrl').value.trim());
+  };
+  $('#lUrl').oninput = refrescarNota;
   $('#btnSubirVideo').onclick = async () => {
     const resultado = await abrirSubidaVideo({ tituloDefault: l.titulo });
     if (!resultado) return;
     $('#lUrl').value = resultado.embedUrl;
     $('#lTipo').value = 'video';
+    refrescarNota();
     ok('Video subido. Revisa y guarda la lección.');
   };
   $('#btnSubirDoc').onclick = () => $('#lDocArchivo').click();
@@ -167,10 +250,21 @@ function renderEditor(){
     ok('Documento eliminado'); await cargarDocs(); renderEditor();
   });
   $('#btnSave').onclick = async () => {
+    const urlNueva = $('#lUrl').value.trim();
+    /* El enlace y el vídeo asignado se escriben JUNTOS, en la misma sentencia.
+       Separados es como se quedaban en desacuerdo: se pegaba un enlace nuevo,
+       el `video_id` viejo seguía ahí, y el aula reproducía el viejo sin que
+       nadie lo hubiera pedido. Si el enlace no es de YouTube —un PDF, otra
+       plataforma—, `idDeYoutube` devuelve null y el vídeo asignado se quita,
+       que es justo lo que significa cambiar el recurso.
+       Sólo se toca cuando el campo se editó: si no, mandaría el editor sobre
+       lo que se asignó en «Vídeos del curso» con sólo abrir la lección. */
+    const cambio = urlNueva !== (l.url || '');
     await run(sb.from('cem_lessons').update({
       titulo:$('#lT').value.trim(), tipo:$('#lTipo').value, duracion_min:Number($('#lDur').value)||0,
       orden:Number($('#lOrd').value)||0, estado:$('#lEstado').value, descripcion:$('#lDesc').value.trim(),
-      url:$('#lUrl').value.trim()||null, contenido:$('#lCont').value, obligatorio:$('#lObl').checked,
+      url:urlNueva||null, contenido:$('#lCont').value, obligatorio:$('#lObl').checked,
+      ...(cambio ? { video_id: idDeYoutube(urlNueva) } : {}),
     }).eq('id',l.id),'No se pudo guardar');
     await audit('leccion_actualizada','cem_lessons',l.id,'bajo',{titulo:$('#lT').value});
     ok('Lección guardada'); await loadMods();
@@ -201,31 +295,20 @@ function renderEditor(){
 $('#btnMod').onclick = () => formMod(null);
 function formMod(m){
   const isNew=!m;
+  const miniatura = campoArchivo({
+    id:'mMin', tipo:'imagen', valor: m?.imagen_url || '',
+    subir: (f) => subirImagenCurso(f, 'modulos'),
+    etiquetaSubir:'Elegir la miniatura',
+  });
   const dlg = modal({ title:isNew?'Nuevo módulo':`Editar: ${m.titulo}`, body:`
-    <div class="field"><label>Título *</label><input id="mT" value="${esc(m?.titulo||'')}" placeholder="Módulo 1: Fundamentos"></div>
+    <div class="field"><label>Título *</label><input id="mT" value="${esc(m?.titulo||'')}" placeholder="Módulo 1: Fundamentos" required></div>
     <div class="field"><label>Descripción</label><textarea id="mD" style="min-height:70px">${esc(m?.descripcion||'')}</textarea></div>
     <div class="field"><label>Orden</label><input type="number" id="mO" value="${m?.orden ?? (mods.length+1)}"></div>
-    <div class="field"><label>Miniatura del módulo</label>
-      <div class="row" style="gap:8px;align-items:center">
-        <input id="mImg" value="${esc(m?.imagen_url||'')}" style="flex:1" placeholder="https://…">
-        <button type="button" class="btn outline sm" id="mBtnImg"><span class="material-symbols-outlined">add_photo_alternate</span> Subir foto</button>
-        <input type="file" id="mImgArchivo" accept="image/*" class="hidden">
-      </div>
-      <img id="mImgPreview" src="${esc(m?.imagen_url||'')}" style="margin-top:8px;width:160px;height:90px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--outline-variant);${m?.imagen_url?'':'display:none'}">
-    </div>`,
+    <div class="field"><label>Miniatura del módulo</label>${miniatura.html}</div>`,
     footer:`${isNew?'':'<button class="btn danger" data-del>Eliminar</button>'}
-      <button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+      <button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar los cambios</button>` });
   $('[data-x]',dlg).onclick=dlg.close;
-  $('#mBtnImg',dlg).onclick = () => $('#mImgArchivo',dlg).click();
-  $('#mImgArchivo',dlg).onchange = async () => {
-    const file = $('#mImgArchivo',dlg).files[0];
-    if (!file) return;
-    try {
-      const url = await subirImagenCurso(file, 'modulos');
-      $('#mImg',dlg).value = url; $('#mImgPreview',dlg).src = url; $('#mImgPreview',dlg).style.display = 'block';
-      ok('Miniatura subida');
-    } catch (e) { fail(e.message || 'No se pudo subir la miniatura.'); }
-  };
+  miniatura.conectar(dlg);
   const d=$('[data-del]',dlg);
   if (d) d.onclick=async()=>{
     if (!await confirmDialog('¿Eliminar el módulo y todas sus lecciones?')) return;
@@ -234,7 +317,7 @@ function formMod(m){
   };
   $('[data-s]',dlg).onclick=async()=>{
     const payload={ course_id:cursoId, titulo:$('#mT',dlg).value.trim(), descripcion:$('#mD',dlg).value.trim(),
-      orden:Number($('#mO',dlg).value)||0, imagen_url:$('#mImg',dlg).value.trim()||null };
+      orden:Number($('#mO',dlg).value)||0, imagen_url:miniatura.valor()||null };
     if (!payload.titulo) return;
     if (isNew) await run(sb.from('cem_modules').insert(payload),'No se pudo crear');
     else await run(sb.from('cem_modules').update(payload).eq('id',m.id),'No se pudo guardar');
@@ -244,21 +327,36 @@ function formMod(m){
 
 function nuevaLeccion(moduleId){
   const mod = mods.find(m=>m.id===moduleId);
+  /* El mismo control que al editar la lección. Antes, al crearla sólo se podía
+     pegar una dirección: había que crearla vacía y volver a entrar para poder
+     subir el material. */
+  const recurso = campoArchivo({
+    id:'nRec', tipo:'documento',
+    subir: async (f) => (await subirDocumentoLeccion(f)).url,
+    etiquetaSubir:'Subir el material',
+  });
   const dlg = modal({ title:`Nueva lección en ${mod.titulo}`, body:`
-    <div class="field"><label>Título *</label><input id="nT" placeholder="1.1 Introducción"></div>
+    <div class="field"><label>Título *</label><input id="nT" placeholder="1.1 Introducción" required></div>
     <div class="row">
-      <div class="field" style="flex:1;min-width:140px"><label>Tipo</label><select id="nTipo">
-        ${['video','pdf','texto','enlace','quiz','tarea','en_vivo'].map(v=>`<option>${v}</option>`).join('')}</select></div>
-      <div class="field" style="flex:1;min-width:120px"><label>Duración (min)</label><input type="number" id="nDur" value="20"></div>
+      <div class="field medio"><label>Tipo</label><select id="nTipo">
+        ${opciones(['video','pdf','texto','enlace','quiz','tarea','en_vivo'])}</select></div>
+      <div class="field corto"><label>Duración (min)</label><input type="number" id="nDur" value="20"></div>
     </div>
-    <div class="field"><label>URL del recurso</label><input id="nUrl" placeholder="https://…"></div>`,
+    <div class="field"><label>Material de la lección</label>${recurso.html}
+      <p class="tiny muted sep-poco">También puedes crearla vacía y subir el material después.</p></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Crear</button>` });
+  recurso.conectar(dlg);
+  mejorarSelects(dlg);
   $('[data-x]',dlg).onclick=dlg.close;
   $('[data-s]',dlg).onclick=async()=>{
-    if (!$('#nT',dlg).value.trim()) return;
+    if (!$('#nT',dlg).value.trim()) { fail('Ponle un título a la lección.'); return; }
+    const urlNueva = recurso.valor() || null;
     await run(sb.from('cem_lessons').insert({ module_id:moduleId, titulo:$('#nT',dlg).value.trim(),
       tipo:$('#nTipo',dlg).value, duracion_min:Number($('#nDur',dlg).value)||0,
-      url:$('#nUrl',dlg).value.trim()||null, orden:(mod.cem_lessons.length+1), estado:'borrador' }),'No se pudo crear');
+      // Igual que al editar: si el material es un vídeo de YouTube, la lección
+      // nace ya con su identificador y no con el enlace a medias.
+      url:urlNueva, video_id: idDeYoutube(urlNueva),
+      orden:(mod.cem_lessons.length+1), estado:'borrador' }),'No se pudo crear');
     dlg.close(); ok('Lección creada'); loadMods();
   };
 }

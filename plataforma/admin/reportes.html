@@ -9,20 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
-  .barlist{display:flex;flex-direction:column;gap:9px;}
-  .barrow{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(0,3fr) auto;gap:10px;align-items:center;font-size:12.6px;}
-  .barrow .track{height:9px;background:var(--surface-highest);border-radius:6px;overflow:hidden;}
-  .barrow .track i{display:block;height:100%;border-radius:6px;background:var(--secondary);}
-  .spark{display:flex;align-items:flex-end;gap:3px;height:70px;}
-  .spark i{flex:1;background:var(--primary-dim);border-radius:3px 3px 0 0;min-height:2px;}
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
-    <div><h1>Centro de reportes</h1><p>Análisis de rendimiento académico y comercial.</p></div>
+    <div><h1>Centro de reportes <button type="button" class="ayuda-btn" data-ayuda="Todo lo de esta pantalla responde al rango elegido arriba a la derecha. Cambiar el rango cambia todas las cifras.">?</button></h1><p>Cómo va el instituto en el periodo que elijas: cuánto se inscribió, cuánto se cobró y cómo avanzan los programas.</p></div>
     <div class="actions">
       <div class="row" style="gap:4px" id="rangos"></div>
       <button class="btn outline" id="btnCsv"><span class="material-symbols-outlined">download</span> CSV</button>
@@ -30,14 +24,33 @@
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
-  <div class="grid g2">
-    <div class="card"><h2 class="sec">Inscripciones por mes</h2><div class="spark" id="spark"></div>
-      <div class="row between tiny muted" id="sparkLbl" style="margin-top:6px"></div></div>
-    <div class="card"><h2 class="sec">Ingresos por programa</h2><div class="barlist" id="ingProg"></div></div>
-    <div class="card"><h2 class="sec">Estudiantes por programa</h2><div class="barlist" id="estProg"></div></div>
-    <div class="card"><h2 class="sec">Progreso promedio por cohorte</h2><div class="barlist" id="progCoh"></div></div>
-    <div class="card"><h2 class="sec">Estado de la cartera</h2><div class="barlist" id="cartera"></div></div>
-    <div class="card"><h2 class="sec">Rendimiento académico</h2><div class="barlist" id="acad"></div></div>
+  <!-- Mejoras 38 y 39. Estas dos van primero porque contestan las dos preguntas
+       con las que se decide algo: por dónde se cae la gente y qué canal la
+       trae. El resto de la pantalla dice cómo va el instituto; estas dos dicen
+       qué hacer. -->
+  <div class="grid graficos">
+    <div class="card" id="gEmbudo"></div>
+    <div class="card" id="gCanales"></div>
+  </div>
+
+  <div class="card" id="cardCanales" hidden>
+    <div class="row between"><h2 class="sec">Qué trae cada canal</h2>
+      <span class="tiny muted">contactos, cuántos pagaron y cuánto entró</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Canal</th><th class="num">Contactos</th><th class="num">Se inscribieron</th>
+        <th class="num">Pagaron</th><th class="num">De cada 100</th><th class="num">Cobrado</th></tr></thead>
+      <tbody id="tbCanales"></tbody></table></div>
+  </div>
+
+  <div class="grid graficos">
+    <div class="card" id="gInscripciones"></div>
+    <div class="card" id="gIngProg"></div>
+    <div class="card" id="gEstProg"></div>
+    <div class="card" id="gProgCoh"></div>
+    <div class="card" id="gCartera"></div>
+    <div class="card" id="gAcad"></div>
+    <div class="card" id="gNotas"></div>
+    <div class="card" id="gAbandono"></div>
   </div>
   <div class="card">
     <h2 class="sec">Detalle por programa</h2>
@@ -48,7 +61,8 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, num, pct, kpi, emptyRow, toCSV, download } from '../assets/app.js';
+import { sb, mount, $, $$, esc, money, num, pct, kpi, emptyRow, toCSV, download, enBase } from '../assets/app.js?v=2026-08-21-53';
+import { columnas, barras, apilada, linea, embudo } from '../assets/graficos.js?v=2026-08-21-53';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'reportes.html', area:'admin' });
 let rango=90, data={};
 if (p) load();
@@ -60,13 +74,17 @@ $$('[data-r]').forEach(b=>b.onclick=()=>{ rango=Number(b.dataset.r);
 
 async function load(){
   const desde = rango? new Date(Date.now()-rango*86400000).toISOString() : '1970-01-01';
+  // El embudo y los canales responden al mismo rango que el resto: cambiar
+  // arriba y que la mitad de la pantalla siguiera en otro periodo sería peor
+  // que no tenerlos.
+  pintarDireccion(rango || 3650);
   const [{data:cursos},{data:ens},{data:pays},{data:insts},{data:certs},{data:subs},{data:cohs}] = await Promise.all([
     sb.from('cem_courses').select('id,nombre,tipo,precio'),
-    sb.from('cem_enrollments').select('id,course_id,cohort_id,progreso,estado,precio_final,fecha_inscripcion'),
-    sb.from('cem_payments').select('enrollment_id,monto,fecha').gte('fecha',desde),
-    sb.from('cem_installments').select('enrollment_id,monto,saldo,estado,fecha_vencimiento'),
-    sb.from('cem_certificates').select('id,course_id,emitido_en'),
-    sb.from('cem_submissions').select('enrollment_id,puntaje,estado'),
+    sb.from('cem_enrollments').select('id,course_id,cohort_id,progreso,estado,precio_final,fecha_inscripcion').limit(500),
+    sb.from('cem_payments').select('enrollment_id,monto,monto_base,moneda,tasa,estado,fecha').gte('fecha',desde).limit(500),
+    sb.from('cem_installments').select('enrollment_id,monto,saldo,estado,fecha_vencimiento').limit(500),
+    sb.from('cem_certificates').select('id,course_id,emitido_en').limit(500),
+    sb.from('cem_submissions').select('enrollment_id,puntaje,estado').limit(500),
     sb.from('cem_cohorts').select('id,nombre,course_id'),
   ]);
   data = { cursos:cursos||[], ens:ens||[], pays:pays||[], insts:insts||[], certs:certs||[], subs:subs||[], cohs:cohs||[] };
@@ -76,15 +94,21 @@ async function load(){
 function render(){
   const { cursos, ens, pays, insts, certs, subs, cohs } = data;
   const enrById = Object.fromEntries(ens.map(e=>[e.id,e]));
-  const ingTotal = pays.reduce((a,x)=>a+Number(x.monto||0),0);
-  const porCobrar = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||0),0);
+  /* Un pago cuenta cuando está confirmado, y cuenta por su equivalente en la
+     moneda de la casa. Sumar `monto` a secas juntaba bolívares con euros: por
+     eso esta pantalla decía «78.655 €» de un programa que había cobrado 900.
+     enBase() usa la conversión que se guardó el día del pago; nunca la
+     recalcula con la tasa de hoy, que sería reescribir la historia. */
+  const cobrados = pays.filter(x => x.estado === 'confirmado');
+  const ingTotal = cobrados.reduce((a,x)=>a+enBase(x),0);
+  const porCobrar = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)).reduce((a,i)=>a+Number(i.saldo||i.monto||0),0);
   const hoy=new Date().toISOString().slice(0,10);
-  const vencida = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)&&i.fecha_vencimiento<hoy).reduce((a,i)=>a+Number(i.saldo||0),0);
+  const vencida = insts.filter(i=>['pendiente','parcial','vencida'].includes(i.estado)&&i.fecha_vencimiento<hoy).reduce((a,i)=>a+Number(i.saldo||i.monto||0),0);
   const califs = subs.filter(s=>s.puntaje!=null);
   const notaMedia = califs.length? califs.reduce((a,s)=>a+Number(s.puntaje),0)/califs.length : 0;
 
   $('#kpis').innerHTML = [
-    kpi('Ingresos del periodo', money(ingTotal),'payments',`${pays.length} pagos`),
+    kpi('Ingresos del periodo', money(ingTotal),'payments',`${cobrados.length} pago(s) confirmado(s) de ${pays.length}`),
     kpi('Inscripciones', num(ens.length),'assignment_ind',`${ens.filter(e=>e.estado==='activa').length} activas`),
     kpi('Ticket promedio', money(ens.length? ens.reduce((a,e)=>a+Number(e.precio_final||0),0)/ens.length : 0),'sell','por inscripción'),
     kpi('Por cobrar', money(porCobrar),'account_balance_wallet',`${money(vencida)} vencido`,'down'),
@@ -94,53 +118,88 @@ function render(){
     kpi('Tasa de aprobación', califs.length? Math.round(100*califs.filter(s=>Number(s.puntaje)>=70).length/califs.length)+'%':'—','verified','≥ 70 puntos'),
   ].join('');
 
-  // Inscripciones por mes (últimos 12)
+  /* Los seis gráficos de esta pantalla los dibuja el motor común: así siguen
+     la paleta, la forma y la densidad que cada quien eligió, y además cada
+     barra lleva a la lista filtrada en vez de quedarse en un dibujo. */
+  const nombre = id => cursos.find(c=>c.id===id)?.nombre || '—';
+
   const meses=[]; for(let i=11;i>=0;i--){ const d=new Date(); d.setMonth(d.getMonth()-i);
     meses.push({ k:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
-      l:d.toLocaleDateString('es-ES',{month:'short'}), n:0 }); }
-  ens.forEach(e=>{ const k=String(e.fecha_inscripcion).slice(0,7); const m=meses.find(x=>x.k===k); if(m) m.n++; });
-  const maxM=Math.max(...meses.map(m=>m.n),1);
-  $('#spark').innerHTML = meses.map(m=>`<i style="height:${Math.round(100*m.n/maxM)}%" title="${m.l}: ${m.n}"></i>`).join('');
-  $('#sparkLbl').innerHTML = `<span>${meses[0].l}</span><span>${meses[meses.length-1].l} · máx ${maxM}</span>`;
-
-  const barlist = (el, rows, fmt=(v)=>num(v)) => {
-    const max = Math.max(...rows.map(r=>r.v),1);
-    $(el).innerHTML = rows.length? rows.map(r=>`<div class="barrow">
-      <span class="wrap">${esc(r.k)}</span>
-      <div class="track"><i style="width:${Math.round(100*r.v/max)}%${r.c?`;background:${r.c}`:''}"></i></div>
-      <b>${fmt(r.v)}</b></div>`).join('') : '<p class="muted tiny">Sin datos.</p>';
-  };
+      etq:d.toLocaleDateString('es-ES',{month:'short'}), n:0 }); }
+  ens.forEach(e=>{ const m=meses.find(x=>x.k===String(e.fecha_inscripcion).slice(0,7)); if(m) m.n++; });
+  $('#gInscripciones').innerHTML = columnas({
+    titulo:'Inscripciones por mes', datos:meses.map(m=>({ ...m, href:`inscripciones.html?mes=${m.k}` })),
+    pie:'Doce meses seguidos. Lo que se busca aquí es la temporada: si cada año el bajón cae en el mismo mes, ese mes se planifica distinto.' });
 
   const ingByCourse={}, estByCourse={}, certByCourse={}, cobByCourse={};
-  pays.forEach(x=>{ const e=enrById[x.enrollment_id]; if(e) ingByCourse[e.course_id]=(ingByCourse[e.course_id]||0)+Number(x.monto||0); });
+  cobrados.forEach(x=>{ const e=enrById[x.enrollment_id];
+    if(e) ingByCourse[e.course_id]=(ingByCourse[e.course_id]||0)+enBase(x); });
   ens.forEach(e=>estByCourse[e.course_id]=(estByCourse[e.course_id]||0)+1);
   certs.forEach(c=>certByCourse[c.course_id]=(certByCourse[c.course_id]||0)+1);
   insts.forEach(i=>{ const e=enrById[i.enrollment_id];
-    if(e && ['pendiente','parcial','vencida'].includes(i.estado)) cobByCourse[e.course_id]=(cobByCourse[e.course_id]||0)+Number(i.saldo||0); });
-  const nombre = id => cursos.find(c=>c.id===id)?.nombre || '—';
+    if(e && ['pendiente','parcial','vencida'].includes(i.estado)) cobByCourse[e.course_id]=(cobByCourse[e.course_id]||0)+Number(i.saldo||i.monto||0); });
 
-  barlist('#ingProg', Object.entries(ingByCourse).map(([k,v])=>({k:nombre(k),v})).sort((a,b)=>b.v-a.v).slice(0,7), v=>money(v));
-  barlist('#estProg', Object.entries(estByCourse).map(([k,v])=>({k:nombre(k),v})).sort((a,b)=>b.v-a.v).slice(0,7));
+  $('#gIngProg').innerHTML = barras({
+    titulo:'Ingresos por programa', col:'Programa', colN:'Ingresos', tope:7, formato:(v)=>money(v),
+    pie:'En euros, con la tasa del día de cada pago. Es la mitad de la respuesta: la otra mitad es cuánto cuesta dar cada uno.',
+    datos:Object.entries(ingByCourse).map(([k,v])=>({ etq:nombre(k), n:v, href:`cursos.html?id=${k}` })) });
+
+  $('#gEstProg').innerHTML = barras({
+    titulo:'Estudiantes por programa', col:'Programa', colN:'Estudiantes', tope:7,
+    pie:'Todos los inscritos del periodo, activos o no. Un programa lleno que no cobra y uno medio vacío que cobra puntual no se gestionan igual.',
+    datos:Object.entries(estByCourse).map(([k,v])=>({ etq:nombre(k), n:v, href:`estudiantes.html?curso=${k}` })) });
 
   const progByCoh={};
   ens.forEach(e=>{ if(!e.cohort_id) return; (progByCoh[e.cohort_id] ||= {s:0,n:0});
     progByCoh[e.cohort_id].s+=Number(e.progreso||0); progByCoh[e.cohort_id].n++; });
-  barlist('#progCoh', Object.entries(progByCoh).map(([k,o])=>({ k:cohs.find(c=>c.id===k)?.nombre||'—', v:Math.round(o.s/o.n) }))
-    .sort((a,b)=>b.v-a.v).slice(0,7), v=>v+'%');
+  $('#gProgCoh').innerHTML = barras({
+    titulo:'Cuánto lleva visto cada cohorte', col:'Cohorte', colN:'Avance', tope:7, formato:'pct',
+    pie:'Dos cohortes del mismo programa con avances muy distintos dicen algo del grupo o de quien lo lleva, no del contenido.',
+    datos:Object.entries(progByCoh).map(([k,o])=>({ etq:cohs.find(c=>c.id===k)?.nombre||'—',
+      n:Math.round(o.s/o.n), href:`cohortes.html?id=${k}` })),
+    marcar:(d)=> d.n < 30 ? 'err' : d.n < 60 ? 'warn' : 'ok' });
 
   const alDia = insts.filter(i=>i.estado==='pagada').reduce((a,i)=>a+Number(i.monto||0),0);
-  barlist('#cartera', [
-    { k:'Cobrado', v:Math.round(alDia), c:'var(--ok)' },
-    { k:'Por cobrar (al día)', v:Math.round(porCobrar-vencida), c:'var(--warn)' },
-    { k:'Vencido', v:Math.round(vencida), c:'var(--error)' },
-  ], v=>money(v));
+  $('#gCartera').innerHTML = apilada({
+    titulo:'En qué estado está la cartera', formato:(v)=>money(v),
+    pie:'Lo que hay que mirar es la tajada roja: es dinero que ya se debía haber cobrado.',
+    partes:[
+      { etq:'Cobrado', n:Math.round(alDia), tono:'ok', href:'pagos-verificar.html?estado=confirmado' },
+      { etq:'Por cobrar', n:Math.round(porCobrar-vencida), tono:'warn', href:'pagos-verificar.html?deuda=al-dia' },
+      { etq:'Vencido', n:Math.round(vencida), tono:'err', href:'pagos-verificar.html?deuda=90mas' } ] });
 
   const aprob = califs.filter(s=>Number(s.puntaje)>=70).length;
-  barlist('#acad', [
-    { k:'Aprobadas (≥70)', v:aprob, c:'var(--ok)' },
-    { k:'No aprobadas', v:califs.length-aprob, c:'var(--error)' },
-    { k:'Pendientes de calificar', v:subs.filter(s=>s.estado==='entregada').length, c:'var(--warn)' },
-  ]);
+  $('#gAcad').innerHTML = apilada({
+    titulo:'Cómo van las entregas',
+    pie:'Las pendientes de calificar no son un dato académico sino de carga de trabajo: si crecen, hay estudiantes esperando su nota.',
+    partes:[
+      { etq:'Aprobadas', n:aprob, tono:'ok', href:'calificar.html' },
+      { etq:'No aprobadas', n:califs.length-aprob, tono:'err', href:'calificar.html' },
+      { etq:'Sin calificar', n:subs.filter(s=>s.estado==='entregada').length, tono:'warn', href:'calificar.html' } ] });
+
+  /* La nota media por programa, con la aprobatoria dibujada encima: una media
+     que roza el aprobado no es «va justo», es que algo no se está explicando. */
+  const notaProg = cursos.map(c=>{
+    const ns = subs.filter(x=>{ const e=enrById[x.enrollment_id];
+      return e?.course_id===c.id && x.puntaje!=null; });
+    return { etq:c.nombre, n: ns.length? Math.round(ns.reduce((a,x)=>a+Number(x.puntaje),0)/ns.length) : 0,
+             href:`evaluaciones.html?curso=${c.id}` };
+  }).filter(x=>x.n>0);
+  $('#gNotas').innerHTML = barras({
+    titulo:'Nota media por programa', col:'Programa', colN:'Nota', formato:'pct', tope:7,
+    pie:'Sobre 100. Verde por encima de 70, rojo por debajo de 50: ahí el problema no es de los estudiantes.',
+    datos:notaProg, marcar:(d)=> d.n>=70 ? 'ok' : d.n>=50 ? 'warn' : 'err' });
+
+  /* En qué semana del programa deja de entrar la gente. Casi siempre es la
+     misma semana todos los años, y ahí es donde hay que meter mano. */
+  const semanas = Array.from({length:12}, (_,i)=>({ etq:`S${i+1}`, n:0 }));
+  ens.filter(e=>e.ultimo_acceso && e.fecha_inscripcion).forEach(e=>{
+    const s = Math.floor((new Date(e.ultimo_acceso) - new Date(e.fecha_inscripcion)) / 604800000);
+    if (s >= 0 && s < 12) semanas[s].n++;
+  });
+  $('#gAbandono').innerHTML = columnas({
+    titulo:'En qué semana dejó de entrar cada quien', datos:semanas, alto:140,
+    pie:'Se cuenta desde que se inscribió hasta la última vez que abrió la plataforma. La columna más alta es la semana donde se pierde a la gente.' });
 
   const filas = cursos.map(c=>{
     const es = ens.filter(e=>e.course_id===c.id);
@@ -155,13 +214,73 @@ function render(){
   $('#tb').innerHTML = filas.length? filas.map(f=>`<tr>
     <td class="wrap"><b>${esc(f.programa)}</b></td><td>${num(f.estudiantes)}</td><td>${f.progreso}%</td>
     <td>${money(f.ingresos)}</td><td>${f.por_cobrar?`<span class="chip warn">${money(f.por_cobrar)}</span>`:'—'}</td>
-    <td>${num(f.certificados)}</td><td>${f.nota_media??'—'}</td></tr>`).join('') : emptyRow(7);
+    <td>${num(f.certificados)}</td><td>${f.nota_media??'—'}</td></tr>`).join('') : emptyRow(7, 'No hay datos para el periodo elegido. Prueba con un rango más amplio.');
 
   window.__filas = filas;
 }
 
 $('#btnCsv').onclick = () => download(`reporte_cem_${rango||'todo'}d.csv`, toCSV(window.__filas||[]));
 $('#btnPrint').onclick = () => window.print();
+
+/* ============ el embudo y los canales (mejoras 38 y 39) ============
+   Las dos preguntas con las que de verdad se decide algo. El embudo dice dónde
+   se cae la gente —y el escalón más alto es donde está el dinero, porque ahí ya
+   habían elegido el curso—. Los canales dicen quién la trae, cruzando de dónde
+   vino cada contacto con quién acabó pagando: sin ese cruce, un canal que trae
+   cien contactos y ningún pago parece el mejor de todos. */
+async function pintarDireccion(dias){
+  const [{ data: pasos }, { data: canales }] = await Promise.all([
+    sb.rpc('cem_embudo', { p_dias: dias }),
+    sb.rpc('cem_por_canal', { p_dias: dias }),
+  ]);
+
+  /* El embudo se dibuja sólo sobre las inscripciones, que sí son una población
+     donde cada escalón contiene al siguiente. Los contactos de la web y las
+     cuentas nuevas van al pie como contexto: mezclarlos haría barras que crecen
+     hacia abajo, que es una figura diciendo lo contrario de lo que pasa. */
+  const escalones = pasos?.pasos || [];
+  const ctx = pasos?.contexto || {};
+  const host = $('#gEmbudo');
+  if (host) {
+    host.innerHTML = escalones.length && Number(escalones[0].n)
+      ? embudo({
+          titulo: 'Por dónde se cae la gente',
+          pie: 'De inscribirse a terminar el temario. La caída más grande es donde está el dinero: '
+             + 'quien ya eligió un curso y no llega a pagar estaba dispuesto a pagar. '
+             + `En el periodo hubo ${num(ctx.contactos || 0)} contacto(s) de la web y `
+             + `${num(ctx.cuentas_nuevas || 0)} cuenta(s) nuevas, que no son escalones de este embudo: `
+             + 'mucha gente se inscribe sin dejar antes sus datos.',
+          pasos: escalones.map(x => ({ etq: x.etq, n: Number(x.n) })),
+        })
+      : '<figure class="gr"><figcaption class="gr-tit">Por dónde se cae la gente</figcaption>'
+        + '<p class="gr-vacio">No hubo inscripciones en este periodo.</p></figure>';
+  }
+
+  const lista = (canales || []).filter(c => Number(c.contactos) || Number(c.inscritos));
+  const gc = $('#gCanales');
+  if (gc) {
+    gc.innerHTML = lista.length
+      ? barras({
+          titulo: 'Cuánto ha entrado por cada canal',
+          col: 'Canal', colN: 'Cobrado', formato: 'dinero',
+          pie: 'Lo cobrado de verdad, no lo prometido. El detalle con las conversiones está en la tabla de abajo.',
+          datos: lista.map(c => ({ etq: c.canal, n: Number(c.cobrado) })),
+        })
+      : '<figure class="gr"><figcaption class="gr-tit">Cuánto ha entrado por cada canal</figcaption>'
+        + '<p class="gr-vacio">Nadie ha dicho todavía cómo nos conoció.</p></figure>';
+  }
+
+  $('#cardCanales').hidden = lista.length === 0;
+  if (lista.length) {
+    $('#tbCanales').innerHTML = lista.map(c => `<tr>
+      <td class="wrap"><b>${esc(c.canal)}</b></td>
+      <td class="num">${num(c.contactos)}</td>
+      <td class="num">${num(c.inscritos)}</td>
+      <td class="num">${num(c.pagaron)}</td>
+      <td class="num">${c.conversion == null ? '<span class="muted">—</span>' : `${c.conversion}`}</td>
+      <td class="num">${money(c.cobrado)}</td></tr>`).join('');
+  }
+}
 </script>
 </body>
 </html>

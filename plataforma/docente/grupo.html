@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Docente · Mi grupo</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Cómo va mi grupo</h1>
+      <p>Promedio, entregas, asistencia y quién se está quedando atrás.</p></div>
+    <div class="actions">
+      <select id="selCohorte" style="min-width:220px"></select>
+      <button class="btn outline" id="btnExport">
+        <span class="material-symbols-outlined">download</span> Exportar</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <!-- No es un tablero: es para saber a quién ayudar el lunes. -->
+  <div class="grid graficos" id="graficos"></div>
+
+  <div class="card" id="cardRiesgo" hidden>
+    <h2 class="sec">A quiénes conviene escribirles</h2>
+    <p class="tiny muted" style="margin-top:-6px">
+      No es una nota: es una señal de que algo se atascó y todavía hay tiempo.</p>
+    <div id="riesgo"></div>
+  </div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label>Buscar</label>
+        <input type="search" id="q" placeholder="Nombre o correo…"></div>
+      <div class="field"><label>Situación</label><select id="fRiesgo">
+        <option value="">Todos</option>
+        <option value="riesgo">Sólo los que necesitan atención</option>
+        <option value="al_dia">Sólo los que van bien</option></select></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Estudiante</th><th>Avance</th><th>Promedio</th><th>Entregas</th>
+        <th>Asistencia</th><th>Último acceso</th><th>Situación</th><th></th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi,
+         toCSV, download, fail, mensajeError, modal, ok, avisar, ocupado } from '../assets/app.js?v=2026-08-21-53';
+import { histograma, columnas, barras } from '../assets/graficos.js?v=2026-08-21-53';
+import { escribirle } from '../assets/aula.js?v=2026-08-21-53';
+
+const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
+                        active:'grupo.html', area:'docente' });
+let cohortes = [], filas = [];
+if (me) inicio();
+
+const ETIQUETA_RIESGO = {
+  sin_actividad: ['Sin entrar hace más de un mes', 'err'],
+  sin_entregas:  ['No ha entregado nada todavía', 'err'],
+  nota_baja:     ['Promedio por debajo de 60', 'warn'],
+  avance_bajo:   ['Avance por debajo del 30%', 'warn'],
+  al_dia:        ['Va al día', 'ok'],
+};
+
+async function inicio(){
+  const { data: tas } = await sb.from('cem_teacher_assignments')
+    .select('cohort_id,course_id,cem_cohorts(id,nombre,cem_courses(nombre))')
+    .eq('teacher_id', me.id);
+
+  cohortes = (tas || []).map(t => t.cem_cohorts).filter(Boolean);
+  // Un coordinador que entra acá ve todas: no tiene asignaciones propias.
+  if (!cohortes.length && me.rol !== 'profesor') {
+    const { data } = await sb.from('cem_cohorts').select('id,nombre,cem_courses(nombre)').order('nombre');
+    cohortes = data || [];
+  }
+
+  if (!cohortes.length) {
+    $('#selCohorte').innerHTML = '<option value="">Sin grupos asignados</option>';
+    $('#tb').innerHTML = emptyRow(7, 'Todavía no tienes grupos asignados.');
+    return;
+  }
+
+  $('#selCohorte').innerHTML = cohortes.map(c =>
+    `<option value="${c.id}">${esc(c.cem_courses?.nombre || '')} — ${esc(c.nombre)}</option>`).join('');
+  $('#selCohorte').onchange = cargar;
+  cargar();
+}
+
+async function cargar(){
+  const cohorteId = $('#selCohorte').value;
+  const { data, error } = await sb.rpc('cem_resumen_grupo', { p_cohort_id: cohorteId });
+  if (error) { fail(mensajeError(error)); return; }
+  filas = data || [];
+
+  const conNota = filas.filter(f => f.promedio != null);
+  const promedio = conNota.length ? conNota.reduce((a, f) => a + Number(f.promedio), 0) / conNota.length : null;
+  const esperadas = filas.reduce((a, f) => a + Number(f.entregas_esperadas || 0), 0);
+  const hechas = filas.reduce((a, f) => a + Number(f.entregas_hechas || 0), 0);
+  const enRiesgo = filas.filter(f => f.riesgo !== 'al_dia');
+  const conAsist = filas.filter(f => f.asistencia_pct != null);
+
+  $('#kpis').innerHTML = [
+    kpi('Alumnos', num(filas.length), 'group',
+        `${filas.length - enRiesgo.length} al día`),
+    kpi('Promedio del grupo', promedio == null ? '—' : promedio.toFixed(1), 'grade',
+        conNota.length ? `sobre ${conNota.length} con nota` : 'todavía sin calificaciones'),
+    kpi('Tasa de entrega', esperadas ? pct(100 * hechas / esperadas) : '—', 'assignment_turned_in',
+        esperadas ? `${hechas} de ${esperadas}` : 'sin evaluaciones publicadas'),
+    kpi('Asistencia media', conAsist.length
+        ? pct(conAsist.reduce((a, f) => a + Number(f.asistencia_pct), 0) / conAsist.length)
+        : '—', 'co_present', conAsist.length ? 'de las sesiones dictadas' : 'sin asistencia registrada'),
+  ].join('');
+
+  $('#cardRiesgo').hidden = enRiesgo.length === 0;
+  $('#riesgo').innerHTML = enRiesgo.map(f => {
+    const [txt, kind] = ETIQUETA_RIESGO[f.riesgo] || ['Revisar', 'warn'];
+    return `<div class="list-item">
+      <div class="grow"><div class="t">${esc(f.estudiante || f.email)}</div>
+        <div class="s">${esc(txt)}${f.ultimo_acceso ? ` · última vez el ${fdate(f.ultimo_acceso)}` : ''}</div></div>
+      <button class="btn ghost sm" data-escribir="${esc(f.profile_id || '')}"
+        data-nombre="${esc(f.estudiante || f.email)}">
+        <span class="material-symbols-outlined">mail</span> Escribirle</button>
+      <span class="chip ${kind}">${esc(txt.split(' ').slice(0, 2).join(' '))}</span>
+    </div>`;
+  }).join('');
+
+  render();
+}
+
+async function pintarGraficos(cohorte){
+  const host = $('#graficos');
+  if (!host) return;
+  if (!cohorte){ host.innerHTML = ''; return; }
+  const { data: g, error } = await sb.rpc('cem_series_grupo', { p_cohort_id: cohorte });
+  if (error){ host.innerHTML = ''; return; }
+
+  const asistencia = (g.asistencia || []).map(c => ({
+    etq: c.etq, n: Number(c.de) ? Math.round(100 * Number(c.n) / Number(c.de)) : 0,
+    href: `asistencia.html?clase=${c.id}` }));
+
+  host.innerHTML = `
+    <div class="card">${histograma({
+      titulo: 'Cómo se repartieron las notas del grupo',
+      pie: 'Si sale con dos jorobas —un montón arriba y otro abajo— el grupo va a dos velocidades, y dar la clase a la media no le sirve a ninguno de los dos.',
+      tramos: g.notas || [], corte: 70 })}</div>
+
+    <div class="card">${barras({
+      titulo: 'Lo que opina la clase', formato: (v) => `${Number(v).toFixed(1)} / 5`,
+      col: 'Aspecto', colN: 'Media', ordenar: false,
+      pie: 'De 1 a 5, y sin nombres: si se supiera quién dijo qué, se acaban las opiniones sinceras el mismo día.',
+      datos: (g.valoraciones || []).map(v => ({ ...v, n: Number(v.n) })),
+      marcar: (d) => d.n >= 4 ? 'ok' : d.n >= 3 ? 'warn' : 'err' })}</div>
+
+    <div class="card">${columnas({
+      titulo: 'Asistencia sesión por sesión', datos: asistencia, formato: 'pct', alto: 130,
+      pie: 'La sesión con el bajón suele coincidir con un feriado o con un tema del que se corrió la voz de que era denso. Pulsa una para ver la lista.' })}</div>
+
+    <div class="card">${barras({
+      titulo: 'Cuánto lleva visto el grupo de cada módulo', formato: 'pct',
+      col: 'Módulo', colN: 'Visto', ordenar: false,
+      pie: 'El módulo donde la barra cae es donde se atasca el grupo entero, que es distinto de que se atasque alguien.',
+      datos: (g.avance || []).map(m => ({ ...m, n: Number(m.n) })),
+      marcar: (d) => d.n >= 70 ? 'ok' : d.n >= 35 ? 'warn' : 'err' })}</div>`;
+}
+
+function render(){
+  pintarGraficos($('#selCohorte')?.value);
+  const q = $('#q').value.trim();
+  const f = $('#fRiesgo').value;
+  const lista = filas.filter(x => match(x, q, ['estudiante', 'email'])
+    && (!f || (f === 'al_dia' ? x.riesgo === 'al_dia' : x.riesgo !== 'al_dia')));
+
+  $('#tb').innerHTML = lista.length ? lista.map(x => {
+    const [txt, kind] = ETIQUETA_RIESGO[x.riesgo] || ['Revisar', 'warn'];
+    return `<tr>
+      <td><b>${esc(x.estudiante || '—')}</b><div class="tiny muted">${esc(x.email)}</div></td>
+      <td style="min-width:110px">${bar(x.progreso)}<span class="tiny muted">${pct(x.progreso)}</span></td>
+      <td>${x.promedio == null ? '<span class="muted">—</span>'
+            : `<b style="color:${Number(x.promedio) < 60 ? 'var(--error)' : 'inherit'}">${x.promedio}</b>`}</td>
+      <td>${num(x.entregas_hechas)} de ${num(x.entregas_esperadas)}
+        ${Number(x.entregas_tarde) ? `<div class="tiny err-text">${x.entregas_tarde} tarde</div>` : ''}</td>
+      <td>${x.asistencia_pct == null ? '<span class="muted">—</span>' : pct(x.asistencia_pct)}</td>
+      <td class="muted">${x.ultimo_acceso ? fdate(x.ultimo_acceso) : 'nunca'}</td>
+      <td><span class="chip ${kind}">${esc(txt)}</span></td>
+      <td><button class="btn ghost sm" data-escribir="${esc(x.profile_id || '')}"
+        data-nombre="${esc(x.estudiante || x.email)}" title="Escribirle desde la plataforma">
+        <span class="material-symbols-outlined">mail</span></button></td></tr>`;
+  }).join('') : emptyRow(8, 'Nadie coincide con ese filtro.');
+  conectarEscribir();
+}
+
+/* Escribirle a alguien que se está descolgando es lo único que este rol no
+   podía hacer, y es el rol que primero lo nota. El `mailto:` de antes abría el
+   correo del ordenador —si lo había— y no dejaba rastro de que se le escribió. */
+function conectarEscribir(){
+  $$('[data-escribir]').forEach(b => b.onclick = () => {
+    if (!b.dataset.escribir) { fail('No sabemos a qué cuenta escribirle.'); return; }
+    escribirle(b.dataset.escribir, b.dataset.nombre);
+  });
+}
+
+['#q', '#fRiesgo'].forEach(s => { const el = $(s); el.oninput = render; el.onchange = render; });
+
+$('#btnExport').onclick = () => {
+  const nombre = $('#selCohorte').selectedOptions[0]?.textContent.replace(/[^\w]+/g, '_') || 'grupo';
+  download(`grupo_${nombre}.csv`, toCSV(filas.map(f => ({
+    estudiante: f.estudiante, email: f.email,
+    avance: Math.round(Number(f.progreso || 0)), promedio: f.promedio ?? '',
+    entregas: `${f.entregas_hechas}/${f.entregas_esperadas}`, tarde: f.entregas_tarde,
+    asistencia: f.asistencia_pct ?? '', ultimo_acceso: f.ultimo_acceso ?? '',
+    situacion: (ETIQUETA_RIESGO[f.riesgo] || ['—'])[0],
+  }))));
+};
+</script>
+</body>
+</html>

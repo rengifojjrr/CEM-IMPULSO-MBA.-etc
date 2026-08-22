@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Verificar pagos</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  .tasa-box{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;}
+  /* La tasa vigente es una cifra: se escribe con la letra de las cifras y
+     con el tamaño que el sistema reserva para «un número que importa». */
+  .tasa-actual{font-size:var(--t-xl);font-weight:var(--peso-fuerte);letter-spacing:-.025em;
+    line-height:1.1;font-family:var(--cifra);font-variant-numeric:tabular-nums;}
+  /* sin-caja: es el marco de una imagen */
+  .comprobante-img{max-width:100%;max-height:60vh;border-radius:var(--r);border:1px solid var(--filete);display:block;}
+  td.ref{font-family:var(--cifra);font-size:var(--t-xs);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Verificar pagos</h1>
+      <p>Pagos que los estudiantes reportaron y esperan revisión. Aprobar abona la cuota; rechazar no toca el saldo.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnCartera">
+        <span class="material-symbols-outlined">table_view</span> Exportar cartera</button>
+      <a class="btn outline" href="bancaribe.html"><span class="material-symbols-outlined">account_balance</span> Panel del banco</a>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Para este puesto sólo hay una pregunta durante todo el día: a quién
+       llamo ahora. Estos tres la contestan sin abrir ninguna tabla. -->
+  <div class="grid graficos" id="graficos"></div>
+
+  <div class="card">
+    <div class="row between" style="align-items:flex-start">
+      <h2 class="sec">Tasas del BCV</h2>
+      <button class="btn outline sm" id="btnTraerBcv" title="Pedirle ahora mismo la tasa oficial al BCV">
+        <span class="material-symbols-outlined">cloud_download</span> Traer la del BCV</button>
+    </div>
+    <p class="tiny muted">La casa cobra en <b>euros</b>. La tasa del <b>euro</b> es la que convierte los
+      pagos en bolívares: es la que cobra. La del <b>dólar</b> no convierte nada — sirve para los
+      reportes y para cuadrar contra el banco. El efectivo en dólares se recibe a la par del euro y no
+      usa ninguna de las dos.</p>
+    <!-- La jerarquía, dicha donde se decide: lo que escribe la casa manda sobre
+         lo que trae el banco, y sólo por ese día. Sin decirlo, guardar una tasa
+         a mano y ver que al día siguiente cambió sola parece un fallo. -->
+    <p class="tiny muted">Se traen solas del BCV dos veces al día. Si escribes una a mano, esa manda
+      —pero sólo para hoy; mañana vuelve a mandar la del banco.</p>
+    <div id="avisoTasa"></div>
+    <div class="grid g2 sep-poco">
+      <div class="tasa-box">
+        <div>
+          <div class="s tiny muted">Euro · vigente ahora</div>
+          <div class="tasa-actual" id="tasaActual">—</div>
+          <div class="tiny muted" id="tasaOrigen"></div>
+        </div>
+        <div class="field sin-margen"><label>Nueva tasa (Bs por euro)
+          <button type="button" class="ayuda-btn" data-ayuda="Cuántos bolívares vale un euro hoy según el BCV. Sólo afecta a los pagos que se registren de aquí en adelante: los ya aprobados guardan la tasa con la que se convirtieron.">?</button></label>
+          <input type="number" step="0.01" min="0.01" id="inpTasa" placeholder="Ej: 48,90"></div>
+        <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar</button>
+      </div>
+      <div class="tasa-box">
+        <div>
+          <div class="s tiny muted">Dólar · vigente ahora</div>
+          <div class="tasa-actual" id="tasaActualUsd">—</div>
+          <div class="tiny muted" id="tasaOrigenUsd"></div>
+        </div>
+        <div class="field sin-margen"><label>Nueva tasa (Bs por dólar)
+          <button type="button" class="ayuda-btn" data-ayuda="La del dólar es de referencia: no se usa para convertir ningún cobro, porque el efectivo en dólares se recibe a la par del euro.">?</button></label>
+          <input type="number" step="0.01" min="0.01" id="inpTasaUsd" placeholder="Ej: 45,75"></div>
+        <button class="btn outline" id="btnTasaUsd"><span class="material-symbols-outlined">save</span> Guardar</button>
+      </div>
+    </div>
+    <div id="msgTasa"></div>
+  </div>
+
+  <div class="card">
+    <div class="row between"><h2 class="sec">Pagos reportados</h2>
+      <div class="field sin-margen"><select id="fEstado">
+        <option value="reportado">Por revisar</option>
+        <option value="confirmado">Aprobados</option>
+        <option value="rechazado">Rechazados</option>
+        <option value="">Todos</option>
+      </select></div></div>
+    <div class="barra-seleccion" id="barraSel" hidden></div>
+    <div class="row between sep-poco"><span id="cuenta"></span></div>
+    <div class="table-wrap">
+      <table class="tarjetas" id="tabla"><thead><tr>
+        <th class="sel"><input type="checkbox" data-todas aria-label="Marcar todos los pagos de la lista"></th>
+        <th>Reportado</th><th>Estudiante</th><th>Referencia</th><th class="num">Monto</th>
+        <th>Cuota</th><th>Estado</th><th></th>
+      </tr></thead><tbody id="tb"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, mount, MONEDA_BASE, $, $$, esc, chip, num, money, fdate, fdatetime, emptyRow, kpi, ok, okDeshacer, fail, modal,
+         confirmDialog, urlComprobante, tasaVigente, mejorarSelects, olvidarTasa, run,
+         toCSV, download, mensajeError, SUPABASE_URL, SUPABASE_KEY, cargarEn, contarFilas,
+         etiqueta, montoPagado, enDolares, saldo as saldoCelda,
+         seleccionMultiple, ayuda, montarAyudas, avisar } from '../assets/app.js?v=2026-08-21-53';
+import { barras, apiladas, anillo } from '../assets/graficos.js?v=2026-08-21-53';
+
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'pagos-verificar.html', area:'admin' });
+const puedeOperar = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
+let pagos = [], tasa = null;
+
+if (p) cargar();
+
+async function cargar(){
+  const [eur, usd] = await Promise.all([tasaVigente('EUR'), tasaVigente('USD')]);
+  tasa = eur;
+  const pintarTasa = (t, elValor, elOrigen, unidad) => {
+    $(elValor).textContent = t ? `${t.valor} Bs / ${unidad}` : 'sin cargar';
+    $(elOrigen).textContent = t
+      ? `${t.id_tasa === 'MANUAL' ? 'Cargada a mano' : 'Traída del BCV'} · ${t.fecha}`
+      : 'Nadie la ha cargado todavía.';
+  };
+  pintarTasa(eur, '#tasaActual', '#tasaOrigen', '€');
+  pintarTasa(usd, '#tasaActualUsd', '#tasaOrigenUsd', 'US$');
+  pintarEstadoTasa();
+
+  // cem_enrollments apunta dos veces a cem_profiles (el estudiante y el
+  // vendedor), así que hay que nombrar la clave foránea o PostgREST no sabe
+  // por cuál de las dos entrar.
+  //
+  // item 12 · si la consulta falla, la tabla se quedaba vacía y parecía «no hay
+  // pagos por revisar», que es justo lo contrario de lo que pasa.
+  await cargarEn('#tb', () => sb.from('cem_payments')
+    .select('*, cem_installments(numero, monto, saldo, moneda, estado), cem_enrollments(profile_id, cem_profiles!cem_enrollments_profile_id_fkey(nombre, apellido, email, documento), cem_courses(nombre))')
+    .order('fecha', { ascending: false }).limit(300),
+    (data) => { pagos = data || []; renderKpis(); render(); });
+}
+
+function nombreDe(x){
+  const pr = x.cem_enrollments?.cem_profiles;
+  return pr ? [pr.nombre, pr.apellido].filter(Boolean).join(' ') || pr.email : '—';
+}
+
+function renderKpis(){
+  const porRevisar = pagos.filter(x => x.estado === 'reportado');
+  const montoPorRevisar = porRevisar.reduce((a, x) => a + Number(x.monto_base ?? x.monto ?? 0), 0);
+  const hoy = new Date().toISOString().slice(0,10);
+  const aprobadosHoy = pagos.filter(x => x.estado === 'confirmado' && String(x.fecha).slice(0,10) === hoy);
+  $('#kpis').innerHTML = [
+    kpi('Por revisar', num(porRevisar.length), 'pending_actions', 'esperan tu verificación', '',
+      'Pagos que un estudiante reportó y todavía nadie aprobó ni rechazó. Mientras estén aquí, la cuota sigue debiendo.'),
+    kpi('Monto por revisar', money(montoPorRevisar), 'payments', 'equivalente en euros', '',
+      'Lo que suman esos pagos convertido a euros con la tasa del día en que se hizo cada uno. Todavía no es un ingreso: sólo se contará al aprobarlos.'),
+    kpi('Aprobados hoy', num(aprobadosHoy.length), 'task_alt', 'ya abonados a su cuota', '',
+      'Pagos con fecha de hoy que ya fueron aprobados y descontados del saldo del estudiante.'),
+  ].join('');
+  montarAyudas($('#kpis'));
+  pintarGraficos();
+}
+
+function render(){
+  const f = $('#fEstado').value;
+  const lista = pagos.filter(x => !f || x.estado === f);
+  $('#tb').innerHTML = lista.length ? lista.map(x => {
+    const c = x.cem_installments;
+    return `<tr>
+      <td class="sel">${puedeOperar && x.estado === 'reportado'
+        ? `<input type="checkbox" data-sel="${x.id}" aria-label="Marcar el pago ${esc(x.referencia||'')}">` : ''}</td>
+      <td class="tiny muted" data-col="Fecha">${fdatetime(x.fecha)}</td>
+      <td data-col="Estudiante"><span class="recorta" title="${esc((x.cem_enrollments?.cem_courses?.nombre || '') || nombreDe(x))}"
+        >${esc(nombreDe(x))}</span></td>
+      <td class="ref" data-col="Referencia" title="${esc(etiqueta(x.metodo))}">${esc(x.referencia || '—')}</td>
+      <td class="num" data-col="Monto">${montoPagado(x)}</td>
+      <td data-col="Cuota">${c ? `<span title="${c.estado === 'pagada' ? 'Cuota pagada'
+             : `Todavía debe ${esc(money(c.saldo ?? c.monto, c.moneda || MONEDA_BASE))}`}"
+             >#${esc(String(c.numero ?? ''))} · ${money(c.monto, c.moneda || MONEDA_BASE)}</span>`
+           : '<span class="muted">—</span>'}</td>
+      <td data-col="Estado">${chip(
+          x.estado === 'confirmado' ? 'Aprobado' : x.estado === 'rechazado' ? 'Rechazado'
+            : x.estado === 'reportado' ? 'Por revisar' : etiqueta(x.estado),
+          x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}
+        ${x.conciliado && x.nota && /autom/i.test(x.nota) ? chip('Automático','neutral') : ''}
+        <!-- Mejora 33: el motivo del rechazo estaba guardado y no se veía, así
+             que para saber cuál era el problema había que abrir los pagos de
+             uno en uno. Aquí, debajo del estado, se lee de un vistazo. -->
+        ${x.estado === 'rechazado' && x.nota
+          ? `<div class="tiny" style="color:var(--error);white-space:normal;margin-top:3px"
+               title="Motivo del rechazo">${esc(x.nota)}</div>` : ''}</td>
+      <td class="nowrap" data-col=""><span class="acciones">
+        <button class="btn ghost sm" data-ver="${x.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
+        ${puedeOperar && x.estado === 'reportado' ? `
+          <button class="btn ghost sm" data-ok="${x.id}" title="Aprobar y abonar a la cuota"><span class="material-symbols-outlined">check_circle</span></button>
+          <button class="btn ghost sm" data-no="${x.id}" title="Rechazar"><span class="material-symbols-outlined">cancel</span></button>` : ''}
+      </span></td></tr>`;
+  }).join('') : emptyRow(8, f === 'reportado'
+      ? 'No hay pagos esperando revisión. Todo al día.'
+      : 'Ningún pago con ese estado.');
+
+  contarFilas('#cuenta', lista.length, pagos.length, 300);
+  $$('[data-ver]').forEach(b => b.onclick = () => verDetalle(pagos.find(x => x.id === b.dataset.ver)));
+  $$('[data-ok]').forEach(b => b.onclick = () => aprobar(pagos.find(x => x.id === b.dataset.ok)));
+  $$('[data-no]').forEach(b => b.onclick = () => rechazar(pagos.find(x => x.id === b.dataset.no)));
+  if (seleccion) seleccion.limpiar();
+}
+$('#fEstado').onchange = render;
+
+/* item 25 · en un lunes con veinte transferencias del fin de semana, abrir
+   veinte ventanas iguales es media hora. Se marcan y se aprueban de una. */
+let seleccion = null;
+if (puedeOperar) seleccion = seleccionMultiple('#tabla', '#barraSel', [
+  { texto:'Aprobar los marcados', icono:'check_circle', clase:'', hacer: aprobarVarios },
+  { texto:'Rechazar los marcados', icono:'cancel', clase:'danger outline', hacer: rechazarVarios },
+]);
+
+async function aprobarVarios(ids){
+  const sel = pagos.filter(x => ids.includes(x.id));
+  const total = sel.reduce((a, x) => a + Number(x.monto_base ?? x.monto ?? 0), 0);
+  if (!await confirmDialog(`Se aprobarán ${sel.length} pago(s) por ${money(total)} en total y cada uno se abonará a su cuota. ` +
+      'Es lo mismo que aprobarlos uno por uno; asegúrate de haberlos verificado contra el banco.')) return;
+  let hechos = 0; const fallos = [];
+  for (const x of sel) {
+    const { error } = await sb.rpc('cem_aprobar_pago', { p_payment_id: x.id });
+    if (error) fallos.push(`${x.referencia || x.id.slice(0,8)}: ${mensajeError(error)}`); else hechos++;
+  }
+  await cargar();
+  if (!fallos.length) ok(`${hechos} pago(s) aprobado(s) y abonado(s).`);
+  else fail(`Se aprobaron ${hechos}. No se pudo con ${fallos.length}: ${fallos.slice(0,3).join(' · ')}`);
+}
+
+async function rechazarVarios(ids){
+  const m = modal({ title:`Rechazar ${ids.length} pago(s)`, body:`
+    <p class="tiny muted">El mismo motivo se enviará a los ${ids.length} estudiantes, así que escríbelo
+      de forma que sirva para todos. Ninguna cuota se toca.</p>
+    <div class="field"><label>Motivo del rechazo *</label>
+      <textarea id="mvMotivo" rows="3" required placeholder="Por ejemplo: estas referencias no aparecen en el estado de cuenta del banco."></textarea></div>
+    <div id="mvMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn danger" id="mvGo">Rechazar los ${ids.length}</button>` });
+  $('#mvGo', m).onclick = async () => {
+    const motivo = $('#mvMotivo', m).value.trim();
+    if (!motivo) { avisar($('#mvMsg', m), 'Escribe el motivo: sin él el estudiante no sabe qué corregir.', 'err'); return; }
+    let hechos = 0; const fallos = [];
+    for (const id of ids) {
+      const { error } = await sb.rpc('cem_rechazar_pago', { p_payment_id: id, p_motivo: motivo });
+      if (error) fallos.push(mensajeError(error)); else hechos++;
+    }
+    m.close(); await cargar();
+    if (!fallos.length) ok(`${hechos} pago(s) rechazado(s). Cada estudiante verá el motivo.`);
+    else fail(`Se rechazaron ${hechos}. No se pudo con ${fallos.length}.`);
+  };
+}
+
+async function verDetalle(x){
+  if(!x) return;
+  const c = x.cem_installments;
+  const pr = x.cem_enrollments?.cem_profiles;
+  const m = modal({ title:`Pago ${x.referencia || ''}`, wide:true, body:`
+    <div class="row" style="gap:18px;flex-wrap:wrap">
+      <div><div class="tiny muted">Estudiante</div><div class="t"><b>${esc(nombreDe(x))}</b></div>
+        <div class="tiny muted">${esc(pr?.documento || '')} ${esc(pr?.email || '')}</div></div>
+      <div><div class="tiny muted">Monto</div><div class="t"><b>${money(x.monto, x.moneda)}</b>
+        ${x.moneda !== MONEDA_BASE && x.monto_base ? `<br><span class="tiny muted">= ${money(x.monto_base)} a la tasa ${esc(String(x.tasa))}</span>` : ''}</div></div>
+      <div><div class="tiny muted">Método</div><div class="t">${esc(x.metodo || '—')}</div></div>
+      <div><div class="tiny muted">Fecha del pago</div><div class="t">${fdatetime(x.fecha)}</div></div>
+    </div>
+    ${c ? `<div class="field sep"><label>Cuota</label>
+      <div>#${esc(String(c.numero ?? ''))} — debe ${money(c.saldo ?? c.monto, c.moneda || MONEDA_BASE)} de ${money(c.monto, c.moneda || MONEDA_BASE)} (${esc(c.estado||'')})</div></div>` : ''}
+    ${x.nota ? `<div class="field"><label>Nota</label><div class="tiny">${esc(x.nota)}</div></div>` : ''}
+    <div class="field"><label>Comprobante</label><div id="dComp"><span class="cargando una"></span></div></div>
+    <div class="field"><label>Verificación contra el banco</label>
+      <div id="dBanco"><button class="btn outline sm" id="dVerificar">
+        <span class="material-symbols-outlined">travel_explore</span>
+        Buscar esta referencia en Bancaribe</button>
+        <div class="tiny muted sep-poco">Consulta la operación por referencia y monto,
+          sin salir de esta pantalla.</div></div></div>`,
+    footer: puedeOperar && x.estado === 'reportado'
+      ? `<button class="btn outline" data-x>Cerrar</button>
+         <button class="btn danger" id="dNo">Rechazar</button>
+         <button class="btn" id="dOk">Aprobar y abonar</button>`
+      : `<button class="btn outline" data-x>Cerrar</button>` });
+
+  const cont = $('#dComp', m);
+  if(x.comprobante_url){
+    const url = await urlComprobante(x.comprobante_url);
+    cont.innerHTML = url
+      ? (/\.pdf$/i.test(x.comprobante_url)
+          ? `<a class="btn outline sm" href="${url}" target="_blank">Abrir el PDF del comprobante</a>`
+          : `<a href="${url}" target="_blank"><img loading="lazy" decoding="async" class="comprobante-img" src="${url}" alt="Comprobante"></a>`)
+      : '<span class="tiny muted">No se pudo cargar el comprobante.</span>';
+  } else {
+    cont.innerHTML = '<span class="tiny muted">El estudiante no adjuntó comprobante.</span>';
+  }
+  if($('#dOk', m)) $('#dOk', m).onclick = () => { m.close(); aprobar(x); };
+  if($('#dNo', m)) $('#dNo', m).onclick = () => { m.close(); rechazar(x); };
+
+  /* Item 14: la consulta contra el banco existía sólo en el panel de
+     Bancaribe, así que había que saltar de pantalla copiando la referencia a
+     mano. Acá va precargada con los datos del pago que se está mirando. */
+  $('#dVerificar', m).onclick = async () => {
+    const caja = $('#dBanco', m);
+    caja.innerHTML = '<span class="tiny muted">Consultando al banco…</span>';
+    try {
+      const { data:{ session } } = await sb.auth.getSession();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-bancaribe`, {
+        method:'POST',
+        headers:{ Authorization:`Bearer ${session?.access_token}`, apikey:SUPABASE_KEY,
+                  'Content-Type':'application/json' },
+        // La función del banco espera "accion", no "servicio".
+        body: JSON.stringify({
+          accion: 'operaciones',
+          referencia: x.referencia,
+          monto: x.monto,
+          documento: x.cem_enrollments?.cem_profiles?.documento || null,
+          // El banco quiere mm/dd/aaaa; la fecha del pago viene ISO.
+          fecha: new Date(x.fecha).toLocaleDateString('en-US'),
+        }),
+      });
+      const r = await res.json();
+      if (!res.ok || r.error || r.ok === false) {
+        caja.innerHTML = `<div class="nota warn">
+          No se pudo consultar: ${esc(r.error || (typeof r.datos === 'string' ? r.datos.slice(0,160) : 'el banco respondió ' + (r.status || res.status)))}.
+          ${/900908|subscription/i.test(JSON.stringify(r))
+            ? 'Bancaribe todavía no habilitó la suscripción a este servicio para nuestra aplicación.'
+            : ''}
+          Verifica el comprobante a mano por ahora.</div>`;
+        return;
+      }
+      // El banco devuelve la lista con nombres distintos según el servicio.
+      const d = r.datos || {};
+      const ops = d.listaOperaciones || d.operaciones || d.transacciones ||
+                  (Array.isArray(d) ? d : []);
+      caja.innerHTML = ops.length
+        ? `<div class="nota ok">
+             El banco confirma ${ops.length} operación(es) con esa referencia.</div>
+           <pre class="tiny" style="max-height:150px;overflow:auto;margin-top:8px">${esc(JSON.stringify(ops, null, 2))}</pre>`
+        : `<div class="nota warn">
+             El banco no encontró ninguna operación con esa referencia. Puede que
+             todavía no esté procesada, o que la referencia esté mal escrita.</div>`;
+    } catch (e) {
+      caja.innerHTML = `<div class="nota err">${esc(mensajeError(e, 'No se pudo hablar con el banco.'))}</div>`;
+    }
+  };
+}
+
+/* ============ item 18: la cartera por cobrar, para conciliar ============
+   Para cuadrar con contabilidad había que copiar de la pantalla. */
+$('#btnCartera').onclick = async () => {
+  const { data, error } = await sb.rpc('cem_cartera_por_cobrar');
+  if (error) { fail(mensajeError(error)); return; }
+  if (!data?.length) { ok('No hay cuotas pendientes: la cartera está en cero.'); return; }
+  const hoy = new Date().toISOString().slice(0, 10);
+  download(`cartera_por_cobrar_${hoy}.csv`, toCSV(data.map(r => ({
+    estudiante: r.estudiante, email: r.email, documento: r.documento,
+    programa: r.programa, cohorte: r.cohorte || '',
+    cuota: r.cuota, monto: r.monto, saldo: r.saldo, moneda: r.moneda,
+    vence: r.vence, estado: r.estado, dias_mora: r.dias_mora,
+  }))));
+  ok(`${data.length} cuota(s) exportada(s).`);
+};
+
+async function aprobar(x){
+  if(!x) return;
+  const c = x.cem_installments;
+  const aplica = Number(x.monto_base ?? x.monto ?? 0);
+  const saldo = Number(c?.saldo ?? c?.monto ?? 0);
+  // El texto va dentro de un <p>, así que se escribe corrido: los saltos de
+  // línea no se verían.
+  const aviso = c
+    ? `Se abonarán ${money(aplica, c.moneda || MONEDA_BASE)} a la cuota #${c.numero}, que debe ${money(saldo, c.moneda || MONEDA_BASE)}. ` +
+      (aplica >= saldo - 0.01 ? 'La cuota quedará pagada.' : `Quedará un saldo de ${money(saldo - aplica, c.moneda || MONEDA_BASE)}.`)
+    : 'Se marcará el pago como aprobado.';
+  if(!await confirmDialog(`${aviso} ¿Confirmas que verificaste este pago contra el banco?`)) return;
+  const { error } = await sb.rpc('cem_aprobar_pago', { p_payment_id: x.id });
+  if(error){ fail(mensajeError(error)); return; }
+  await cargar();
+  /* item 16 · aprobar el pago de la fila de arriba en vez de la de abajo pasa
+     todos los días, y hasta ahora la única salida era buscar el pago, anularlo
+     y explicar por qué. El aviso dice A QUIÉN se le aprobó —no «Guardado»— y
+     durante unos segundos deja volver atrás sin buscar nada. */
+  okDeshacer(
+    `Aprobado el pago de ${nombreDe(x)}${c ? ` a la cuota #${c.numero}` : ''}.`,
+    async () => {
+      await run(sb.rpc('cem_anular_pago', {
+        p_payment_id: x.id,
+        p_motivo: 'Aprobación deshecha por quien la hizo, segundos después.',
+      }), 'No se pudo deshacer la aprobación.');
+      await cargar();
+    });
+}
+
+async function rechazar(x){
+  if(!x) return;
+  const m = modal({ title:'Rechazar el pago', body:`
+    <p class="tiny muted">El estudiante verá este motivo en su panel, así que explícalo claro
+      para que pueda corregirlo. La cuota no se toca.</p>
+    <div class="field"><label>Motivo del rechazo</label>
+      <textarea id="rMotivo" rows="3" placeholder="Por ejemplo: esa referencia no aparece en el estado de cuenta del banco."></textarea></div>
+    <div id="rMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn danger" id="rGo">Rechazar pago</button>` });
+  $('#rGo', m).onclick = async () => {
+    const motivo = $('#rMotivo', m).value.trim();
+    if(!motivo){ avisar($('#rMsg', m), 'Escribe el motivo.', 'err'); return; }
+    const { error } = await sb.rpc('cem_rechazar_pago', { p_payment_id: x.id, p_motivo: motivo });
+    if(error){ avisar($('#rMsg', m), error.message, 'err'); return; }
+    m.close(); ok('Pago rechazado. El estudiante verá el motivo.'); cargar();
+  };
+}
+
+const guardarTasa = (campo, moneda, comoSeLlama) => async () => {
+  const v = Number($(campo).value || 0);
+  if(v <= 0){ avisar('#msgTasa', 'Escribe una tasa mayor que cero.', 'err'); return; }
+  const { error } = await sb.rpc('cem_guardar_tasa_manual', { p_valor: v, p_moneda: moneda });
+  if(error){ avisar('#msgTasa', mensajeError(error), 'err'); return; }
+  $(campo).value = '';
+  olvidarTasa();  // para que el resto de pantallas tome la nueva y no la de la caché
+  avisar('#msgTasa', `Tasa del ${comoSeLlama} guardada.`, 'ok');
+  setTimeout(() => { $('#msgTasa').innerHTML = ''; }, 6000);
+  cargar();
+};
+$('#btnTasa').onclick = guardarTasa('#inpTasa', 'EUR', 'euro');
+$('#btnTasaUsd').onclick = guardarTasa('#inpTasaUsd', 'USD', 'dólar');
+
+/* ============ la tasa que se trae sola ============
+   Antes la tabla sólo tenía filas cargadas a mano: la columna que dice de dónde
+   viene cada tasa nunca dijo otra cosa que «MANUAL». Ahora el BCV entra solo dos
+   veces al día, y esto es para no tener que esperarlo.
+
+   La respuesta del proveedor no llega en el acto: `pg_net` deja la petición
+   puesta y otra tarea la recoge. Por eso se pide, se espera un momento y se
+   recoge aquí mismo, en vez de decir «traída» sin haberla visto llegar. */
+$('#btnTraerBcv').onclick = async () => {
+  const b = $('#btnTraerBcv');
+  b.disabled = true;
+  try {
+    const r = await run(sb.rpc('cem_tasa_bcv_pedir', { p_forzar: true }), 'No se pudo pedir la tasa');
+    if (r?.en_pausa) { avisar('#msgTasa', r.motivo || 'La actualización automática está apagada.', 'err'); return; }
+    await new Promise((r2) => setTimeout(r2, 2500));
+    const g = await run(sb.rpc('cem_tasa_bcv_recoger'), 'No se pudo leer la respuesta del BCV');
+    olvidarTasa();
+    if (Number(g?.guardadas)) {
+      /* «Traídas 2» era verdad y no servía de nada: si hay una tasa cargada a
+         mano ese día, sigue mandando ella y el número grande no se mueve. Lo
+         que hay que decir no es cuántas llegaron, sino cuál manda ahora. */
+      const est = await sb.rpc('cem_tasa_estado');
+      const tapadas = Object.entries(est.data?.monedas || {}).filter(([, m]) =>
+        m.origen === 'MANUAL' && m.bcv_hoy != null && Number(m.bcv_hoy) !== Number(m.valor));
+      avisar('#msgTasa', tapadas.length
+        ? `Traída${g.guardadas > 1 ? 's' : ''} del BCV, pero sigue mandando la que está cargada a mano.`
+          + ' Pulsa «Volver a la del BCV» ahí arriba para usarla.'
+        : `Listo: ahora manda la tasa del BCV.`,
+        tapadas.length ? 'warn' : 'ok');
+    } else {
+      /* «No se guardó nada» tiene dos causas muy distintas y no da lo mismo
+         cuál sea: o el proveedor falló, o simplemente todavía no ha contestado. */
+      const est = await sb.rpc('cem_tasa_estado');
+      const ult = est.data?.ultimo_intento;
+      avisar('#msgTasa', ult?.estado === 'fallo'
+        ? `El BCV no contestó bien: ${ult.error || 'sin detalle'}`
+        : 'Pedida al BCV. Todavía no ha contestado; se guardará sola en cuanto llegue.',
+        ult?.estado === 'fallo' ? 'err' : 'ok');
+    }
+    cargar();
+  } finally { b.disabled = false; }
+};
+
+/* Cuando hoy hay tasa del banco Y alguien cargó una a mano, manda la de la casa
+   —eso es lo correcto— pero tiene que verse. Es también lo que pasa cuando el
+   número se escribió mal: se queda tapando al BCV todo el día sin que nadie lo
+   note. */
+async function pintarEstadoTasa(){
+  const host = $('#avisoTasa');
+  if (!host) return;
+  const { data, error } = await sb.rpc('cem_tasa_estado');
+  if (error || !data) { host.innerHTML = ''; return; }
+
+  const tapadas = Object.entries(data.monedas || {}).filter(([, m]) =>
+    m.origen === 'MANUAL' && m.bcv_hoy != null && Number(m.bcv_hoy) !== Number(m.valor));
+
+  host.innerHTML = tapadas.length ? `<div class="nota warn">
+      ${tapadas.map(([mon, m]) => `<div>La tasa del <b>${mon === 'EUR' ? 'euro' : 'dólar'}</b> que manda
+        es la cargada a mano (<b>${esc(String(m.valor))} Bs</b>). El BCV publicó
+        <b>${esc(String(m.bcv_hoy))} Bs</b> el ${esc(String(m.bcv_fecha))}.
+        ${puedeOperar ? `<button class="btn ghost sm" data-soltar="${esc(mon)}">Volver a la del BCV</button>` : ''}</div>`).join('')}
+    </div>` : '';
+
+  $$('[data-soltar]', host).forEach((b) => {
+    b.onclick = async () => {
+      const mon = b.dataset.soltar;
+      if (!await confirmDialog(
+        `Se quita la tasa del ${mon === 'EUR' ? 'euro' : 'dólar'} que se cargó a mano hoy y vuelve a mandar `
+        + 'la del BCV. Los pagos ya aprobados no se tocan: cada uno guardó la tasa con la que se convirtió.',
+        'Volver a la tasa del BCV')) return;
+      await run(sb.rpc('cem_tasa_soltar_manual', { p_moneda: mon }), 'No se pudo soltar la tasa');
+      olvidarTasa();
+      ok('Vuelve a mandar la tasa del BCV.');
+      cargar();
+    };
+  });
+}
+
+mejorarSelects();
+/* ============ los gráficos de cobranza ============
+   El de la antigüedad es el que más decide de toda la plataforma para este
+   puesto: una deuda de treinta días se cobra y una de noventa casi nunca, y
+   hay que saber cuánto dinero está cruzando esa frontera este mes. */
+async function pintarGraficos(){
+  const host = $('#graficos');
+  const { data: g, error } = await sb.rpc('cem_series_cobranza', { p_dias: 30 });
+  if (error){ host.innerHTML = ''; return; }   // sin permiso: la pantalla sigue sirviendo
+
+  const mes = g.mes || {};
+  host.innerHTML = `
+    <div class="card">${barras({
+      titulo: 'Antigüedad de lo que falta por cobrar',
+      pie: 'Cuanto más abajo, más difícil. Pulsa un tramo para ver quiénes son y llamarlos hoy.',
+      datos: (g.antiguedad || []).map(t => ({
+        etq: `${t.etq}${Number(t.cuantas) ? ` · ${t.cuantas} cuota${Number(t.cuantas) === 1 ? '' : 's'}` : ''}`,
+        n: t.n, href: `?deuda=${t.clave}` })),
+      ordenar: false, col: 'Tramo', colN: 'Importe',
+      formato: (v) => money(v),
+      // El rojo se reserva para lo que de verdad se está perdiendo.
+      marcar: (d) => /Más de 90/.test(d.etq) ? 'err' : /61 a 90/.test(d.etq) ? 'warn' : null,
+    })}</div>
+
+    <div class="card">${anillo({
+      titulo: 'Recaudo del mes contra lo que vencía',
+      pie: 'La meta no es una cifra inventada: es lo que la propia escuela puso a vencer este mes cuando armó los planes de pago.',
+      valor: mes.recaudado, meta: mes.meta, etq: 'del mes',
+      formato: (v) => money(v),
+    })}</div>
+
+    <div class="card" style="grid-column:1/-1">${apiladas({
+      titulo: 'Comprobantes que llegaron cada día, y qué se hizo con ellos',
+      pie: 'Si la parte naranja crece dos días seguidos, hay alguien esperando por nosotros. Pulsa un día para ver los suyos.',
+      periodos: (g.comprobantes || []).map(d => ({ ...d, href: `?dia=${d.clave}` })),
+      series: [
+        { clave: 'aprobados', etq: 'Aprobados', tono: 'ok' },
+        { clave: 'porVerificar', etq: 'Por verificar', tono: 'warn' },
+        { clave: 'rechazados', etq: 'Rechazados', tono: 'err' },
+      ],
+    })}</div>`;
+}
+
+</script>
+</body>
+</html>

@@ -9,40 +9,89 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
 <style>
-  .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:16px;}
+  .aula{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:var(--aire);}
   .aula > *{min-width:0;}
   @media(max-width:900px){ .aula{grid-template-columns:minmax(0,1fr);} }
-  .les-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:13px;}
+  .les-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r);cursor:pointer;font-size:var(--t-sm);}
   .les-t{flex:1;min-width:0;overflow-wrap:anywhere;}
-  .les-item:hover{background:var(--surface-container);}
+  .les-item:hover{background:var(--hueco);}
   .les-item.on{background:var(--secondary-container);color:var(--secondary);font-weight:600;}
-  .les-item .material-symbols-outlined{font-size:18px;}
-  .player{aspect-ratio:16/9;background:#000;border-radius:var(--radius);overflow:hidden;display:flex;
-    align-items:center;justify-content:center;color:#fff;}
-  .player iframe{width:100%;height:100%;border:0;}
+  .les-item .material-symbols-outlined{font-size:var(--t-md);}
+  .player{aspect-ratio:16/9;background:#000;border-radius:var(--r);overflow:hidden;display:flex;
+    align-items:center;justify-content:center;color:#fff;position:relative;}
+  /* El reproductor de la casa ocupa el hueco entero. Toda su pinta —la lámina
+     que tapa la interfaz de YouTube, la marca de agua, los mandos— vive en
+     assets/styles.css, con `.repro`, porque la comparten esta pantalla y el
+     aprendizaje express. */
+  .player > .repro{border-radius:var(--r);}
+  .player iframe{width:100%!important;height:100%!important;border:0;}
+  .yt-host{width:100%;height:100%;}
+
+  /* Un documento se lee: alto, no proporción de cine, y sobre papel claro.
+     La altura sale de la ventana para que quepa una página entera sin tener
+     que desplazar la página de fuera y la de dentro a la vez. */
+  .documento{border:1px solid var(--filete);border-radius:var(--r);overflow:hidden;
+    background:var(--papel);display:flex;flex-direction:column;}
+  .documento-barra{display:flex;align-items:center;gap:var(--e1);padding:var(--e1) var(--e2);
+    border-bottom:1px solid var(--filete);background:var(--hueco);}
+  .documento-barra > .material-symbols-outlined{color:var(--primary);}
+  .documento-hoja{width:100%;height:min(72vh,760px);border:0;background:#fff;display:block;}
+  .documento-vacio{display:flex;gap:var(--e2);align-items:center;padding:var(--e4) var(--e3);}
+  .documento-vacio .material-symbols-outlined{font-size:40px;color:var(--primary);opacity:.7;}
+  .documento-pie{display:flex;align-items:center;gap:var(--e1);padding:var(--e1) var(--e2);
+    border-top:1px solid var(--filete);}
+  .documento-pie .material-symbols-outlined{font-size:17px;}
+  @media(max-width:720px){ .documento-hoja{height:62vh;} }
+
+  /* Cinco caras, no cinco estrellas: una estrella pide contar y comparar; una
+     cara se elige de un vistazo. */
+  .valorar .caras{display:flex;gap:6px;}
+  .valorar .cara{width:40px;height:40px;border-radius:var(--r-full);border:1px solid var(--filete);
+    background:var(--papel);color:var(--tinta-3);display:flex;align-items:center;justify-content:center;}
+  .valorar .cara:hover{border-color:var(--primary);color:var(--primary);}
+  .valorar .cara.puesta{background:var(--primary);border-color:var(--primary);color:var(--on-primary);}
+  .valorar .cara .material-symbols-outlined{font-size:23px;}
+
+  @media print{ .player,.documento,.valorar{display:none!important;} }
 </style>
 </head>
 <body>
 <div id="page" class="hidden">
+  <div id="migas"></div>
   <div class="row between" style="margin-bottom:14px">
     <div><h1 id="tCurso" style="margin:0;font-size:20px"></h1>
-      <div class="tiny muted" id="tProg"></div></div>
-    <a class="btn outline sm" href="panel.html"><span class="material-symbols-outlined">arrow_back</span> Mi panel</a>
+      <p class="tiny muted" style="margin:3px 0 0">Ve la lección, márcala como completada y así avanza tu progreso.
+        A la izquierda están todas las lecciones del programa.</p>
+      <div class="tiny muted" id="tProg" style="margin-top:3px"></div></div>
+    <div class="actions" id="accionesAula"></div>
   </div>
 
   <div class="aula">
     <div class="card" style="align-self:start;max-height:78vh;overflow:auto">
       <h2 class="sec">Contenido del curso</h2>
-      <div id="indice"></div>
+      <!-- Con treinta lecciones, encontrar «dónde explicaron el punto de
+           equilibrio» era abrirlas una por una (mejora 3). -->
+      <div class="field sin-margen">
+        <label class="visually-hidden" for="buscaLeccion">Buscar en el temario</label>
+        <input type="search" id="buscaLeccion" placeholder="Buscar una lección…">
+      </div>
+      <div class="row sep-poco" style="gap:6px">
+        <button type="button" class="chip-btn chip" id="soloPendientes">Sin ver</button>
+        <button type="button" class="chip-btn chip" id="soloDespues">Para después</button>
+      </div>
+      <div id="indice" class="sep-poco"></div>
+      <p class="tiny muted" id="sinResultados" hidden>Ninguna lección coincide con eso.</p>
     </div>
 
     <div>
       <div id="visor"></div>
-      <div class="card" style="margin-top:14px">
+      <div class="card sep">
         <div class="tabs" id="tabs">
-          <button class="active" data-t="notas">Mis notas</button>
+          <button class="active" data-t="dudas">Dudas</button>
+          <button data-t="tablon">Tablón</button>
+          <button data-t="notas">Mis notas</button>
           <button data-t="evaluaciones">Evaluaciones</button>
           <button data-t="recursos">Recursos</button>
           <button data-t="sesiones">Sesiones en vivo</button>
@@ -53,9 +102,36 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run } from '../assets/app.js';
-const me = await mount({ require:['estudiante'], active:'panel.html', area:'estudiante' });
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, qs, ok, run, chipEstado, migas, chipNota, money,
+         mensajeError, modal, avisar, ocupado, download, imprimirDocumento,
+         idDeYoutube, previaDeMaterial } from '../assets/app.js?v=2026-08-21-53';
+import { profile } from '../assets/app.js?v=2026-08-21-53';
+import { pintarMuro, pintarDudas, reloj } from '../assets/aula.js?v=2026-08-21-53';
+import { crearReproductor } from '../assets/reproductor.js?v=2026-08-21-53';
+
+/* ── quién está mirando ────────────────────────────────────────────────────
+   Esta pantalla la abren dos personas distintas. Un estudiante viene a dar su
+   clase. Un profesor viene a ver cómo se ve su clase ANTES de publicarla
+   (mejora 20): hasta ahora se publicaba y se esperaba a que alguien avisara de
+   que un vídeo no cargaba — que es exactamente lo que acabó pasando.
+
+   El contenido es el mismo; lo que cambia es que en modo vista previa no se
+   escribe nada. Marcar completada, apuntar el minuto o preguntar una duda son
+   cosas de quien está inscrito, y aquí no hay inscripción que tocar.
+
+   La navegación de al lado se queda siendo la suya: alguien que está de visita
+   no debería perder su propio menú. */
+const yo = await profile();
+const ROL = yo?.rol || 'estudiante';
+const soyEstudiante = ROL === 'estudiante';
+const me = await mount({
+  require: ['estudiante','profesor','coordinador','admin','superadmin'],
+  active: soyEstudiante ? 'panel.html' : ROL === 'profesor' ? 'aula.html' : 'contenido.html',
+  area: soyEstudiante ? 'estudiante' : ROL === 'profesor' ? 'docente' : 'admin',
+});
 let curso, enr, mods=[], progreso={}, actual=null, clases=[], media=[], evals=[], entregas=[];
+let hayExpress = false;
+let filtro = { texto:'', pendientes:false, despues:false };
 if (me) load();
 
 async function load(){
@@ -65,65 +141,634 @@ async function load(){
     const { data: cl } = await sb.from('cem_classes').select('cohort_id,cem_cohorts(course_id)').eq('id',claseId).maybeSingle();
     cursoId = cl?.cem_cohorts?.course_id;
   }
-  const { data: ens } = await sb.from('cem_enrollments')
-    .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id);
-  enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
-  if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
-  curso = enr.cem_courses;
+  if (soyEstudiante) {
+    const { data: ens } = await sb.from('cem_enrollments')
+      .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id).limit(500);
+    enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
+    if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
+    curso = enr.cem_courses;
+  } else {
+    /* Vista previa: no hay inscripción que mirar, así que se arma una de
+       mentira con el curso pedido. Todo lo que escribe queda desactivado más
+       abajo; esto sólo existe para que el resto de la pantalla —que da por
+       hecho que hay una inscripción— no tenga que preguntarlo en cada línea. */
+    if (!cursoId) {
+      document.body.innerHTML = `<div class="content"><div class="card">
+        Para ver un aula en vista previa hace falta decir cuál:
+        <a href="../admin/contenido.html">elige un programa</a>.</div></div>`;
+      return;
+    }
+    const { data: c } = await sb.from('cem_courses')
+      .select('id,nombre').eq('id', cursoId).maybeSingle();
+    if (!c) { document.body.innerHTML='<div class="content"><div class="card">Ese programa no existe.</div></div>'; return; }
+    curso = c;
+    enr = { id: null, course_id: c.id, cohort_id: null, progreso: 0, cem_courses: c, cem_cohorts: null };
+  }
 
+  /* El enlace y el cuerpo de cada lección no vienen aquí: la base ya no los
+     entrega por consulta directa. Se piden abajo, después de la puerta, y sólo
+     los devuelve a quien pagó. */
   const [{data:ms},{data:lp},{data:cls},{data:md},{data:evs},{data:subs}] = await Promise.all([
-    sb.from('cem_modules').select('*,cem_lessons(*)').eq('course_id',enr.course_id).order('orden'),
-    sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id),
-    enr.cohort_id? sb.from('cem_classes').select('*').eq('cohort_id',enr.cohort_id).order('fecha') : Promise.resolve({data:[]}),
-    sb.from('cem_media').select('*').eq('course_id',enr.course_id),
+    sb.from('cem_modules')
+      .select('*,cem_lessons(id,module_id,titulo,descripcion,tipo,duracion_min,orden,obligatorio,estado)')
+      .eq('course_id',enr.course_id).order('orden'),
+    enr.id? sb.from('cem_lesson_progress').select('*').eq('enrollment_id',enr.id).limit(500) : Promise.resolve({data:[]}),
+    enr.cohort_id? sb.from('cem_classes').select('*').eq('cohort_id',enr.cohort_id).order('fecha').limit(500) : Promise.resolve({data:[]}),
+    sb.from('cem_media').select('*').eq('course_id',enr.course_id).limit(500),
     sb.from('cem_assessments').select('*').eq('course_id',enr.course_id).eq('estado','publicado').order('nombre'),
-    sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id),
+    enr.id? sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id).limit(500) : Promise.resolve({data:[]}),
   ]);
+  /* La puerta. El servidor ya rechaza las evaluaciones y el progreso de quien
+     no ha pagado; aquí se le dice por qué, en vez de dejarle chocar con un
+     error en cada clic. */
+  const { data: acceso } = soyEstudiante ? await sb.rpc('cem_mi_acceso') : { data: null };
+  if (acceso && acceso[enr.id] && acceso[enr.id].abierto === false) {
+    $('#page').innerHTML = `<div class="card" style="max-width:620px;margin:0 auto;text-align:center;padding:var(--e4)">
+      <span class="material-symbols-outlined" style="font-size:46px;color:var(--warn)">lock</span>
+      <h2 style="margin:var(--e2) 0 var(--e1)">Tu inscripción está esperando el primer pago</h2>
+      <p class="muted">Reservamos tu cupo en <b>${esc(curso?.nombre || 'el programa')}</b>.
+        El contenido se abre en cuanto se confirme el pago${
+          acceso[enr.id].primeraCuota
+            ? ` de <b>${money(acceso[enr.id].primeraCuota, acceso[enr.id].moneda)}</b>` : ''}.</p>
+      <div class="row sep-mucho" style="justify-content:center">
+        <a class="btn" href="pagos.html?enr=${enr.id}">
+          <span class="material-symbols-outlined">payments</span> Ir a pagar</a>
+        <a class="btn outline" href="curso.html?id=${enr.course_id}">Ver el temario</a>
+      </div>
+      <p class="tiny muted sep">Si ya pagaste y subiste el comprobante, lo estamos verificando.
+        En cuanto lo aprobemos te llega el aviso y el curso se abre solo.</p>
+    </div>`;
+    return;
+  }
+
   mods = (ms||[]).map(m=>({ ...m, cem_lessons:(m.cem_lessons||[]).sort((a,b)=>a.orden-b.orden) }));
+
+  /* Pasada la puerta, se pide el material de verdad. Si la base dijera que no,
+     las lecciones se quedan con el título y sin reproductor: se ve el temario
+     pero no se ve la clase, que es exactamente lo que debe pasar. */
+  const idsLecciones = mods.flatMap(m=>m.cem_lessons).map(l=>l.id);
+  if (idsLecciones.length){
+    const { data: material } = await sb.rpc('cem_material_lecciones',{ p_ids: idsLecciones });
+    mods.forEach(m=>m.cem_lessons.forEach(l=>{
+      const x = material?.[l.id];
+      l.url = x?.url ?? null;
+      // Si nadie emparejó el vídeo pero el enlace es de YouTube, el
+      // identificador está ahí dentro: sacarlo es la diferencia entre que la
+      // clase se vea o se quede en negro.
+      l.video_id = x?.video_id ?? idDeYoutube(x?.url);
+      l.contenido = x?.contenido ?? null;
+      l.adjuntos = x?.adjuntos ?? [];
+    }));
+  }
+
+  /* ¿Este curso tiene vídeos express? Se pregunta aparte y sin bloquear: si
+     fallara, el aula tiene que abrir igual — es un atajo, no la clase. */
+  sb.rpc('cem_shorts_del_curso', { p_course_id: enr.course_id }).then(({ data }) => {
+    hayExpress = (data || []).length > 0;
+    if (hayExpress && $('#accionesAula')) render();
+  }, () => {});
+
   (lp||[]).forEach(x=>progreso[x.lesson_id]=x);
   clases = cls||[]; media = md||[]; evals = evs||[]; entregas = subs||[];
   const all = mods.flatMap(m=>m.cem_lessons);
-  actual = all.find(l=>!progreso[l.id]?.completado) || all[0];
+  /* Se puede llegar directo a una lección desde el aviso de «respondieron tu
+     duda» o desde el buscador del curso. Si no viene ninguna, se abre por la
+     primera sin completar, que es lo de siempre. */
+  const pedida = qs('leccion');
+  actual = (pedida && all.find(l=>l.id===pedida))
+    || all.find(l=>!progreso[l.id]?.completado) || all[0];
   render();
 }
 
-function render(){
-  $('#tCurso').textContent = curso?.nombre||'';
-  $('#tProg').innerHTML = `${esc(enr.cem_cohorts?.nombre||'')} · ${pct(enr.progreso)} completado`;
-  $('#indice').innerHTML = mods.map(m=>`
-    <div style="margin-bottom:10px">
+/* ── el buscador del temario (mejora 3) ────────────────────────────────────
+   Se filtra sobre lo que ya está cargado: no hay que ir a la base para buscar
+   entre treinta títulos, y así responde mientras se escribe. */
+const normal = (s) => String(s||'').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'');   // buscar «direccion» encuentra «dirección»
+function pasaElFiltro(l){
+  if (filtro.pendientes && progreso[l.id]?.completado) return false;
+  if (filtro.despues && !progreso[l.id]?.para_despues) return false;
+  if (!filtro.texto) return true;
+  const q = normal(filtro.texto);
+  return normal(l.titulo).includes(q) || normal(l.descripcion).includes(q)
+      || normal(l.contenido).includes(q);
+}
+function conectarFiltros(){
+  const caja = $('#buscaLeccion');
+  if (!caja || caja.dataset.listo) return;
+  caja.dataset.listo = '1';
+  caja.oninput = () => { filtro.texto = caja.value.trim(); pintarIndice(); };
+  const alterna = (sel, clave) => {
+    const b = $(sel);
+    b.onclick = () => {
+      filtro[clave] = !filtro[clave];
+      b.classList.toggle('on', filtro[clave]);
+      b.setAttribute('aria-pressed', String(filtro[clave]));
+      pintarIndice();
+    };
+    b.setAttribute('aria-pressed', 'false');
+  };
+  alterna('#soloPendientes', 'pendientes');
+  alterna('#soloDespues', 'despues');
+}
+
+/* ── el cartel de vista previa (mejora 20) ────────────────────────────────
+   Tiene que ser imposible confundirla con el aula de verdad: quien la mira
+   está viendo el curso de otra persona y nada de lo que haga se guarda. */
+function pintarAvisoDeVista(){
+  if (soyEstudiante) return;
+  if ($('#avisoVista')) return;
+  const cab = $('#migas');
+  if (!cab) return;
+  cab.insertAdjacentHTML('afterend', `<div class="nota warn" id="avisoVista">
+    <b>Vista previa.</b> Así se ve esta aula desde el lado del estudiante.
+    Nada de lo que hagas aquí se guarda: no marca progreso, no deja apuntes y
+    no publica dudas.
+    <a href="${ROL === 'profesor' ? '../docente/aula.html' : '../admin/contenido.html'}"
+       style="margin-left:6px">Volver a lo mío</a></div>`);
+}
+
+/* El índice se repinta solo cuando cambia el filtro, sin rehacer el
+   reproductor: si cada tecla del buscador reiniciara el vídeo, buscar sería
+   imposible mientras se ve una clase. */
+function pintarIndice(){
+  conectarFiltros();
+  let visibles = 0;
+  $('#indice').innerHTML = mods.map(m=>{
+    const lecciones = m.cem_lessons.filter(pasaElFiltro);
+    if (!lecciones.length) return '';
+    visibles += lecciones.length;
+    return `<div style="margin-bottom:10px">
       <div class="tiny" style="font-weight:700;text-transform:uppercase;color:var(--on-surface-variant);padding:4px 10px">${esc(m.titulo)}</div>
-      ${m.cem_lessons.map(l=>{
-        const done = progreso[l.id]?.completado;
+      ${lecciones.map(l=>{
+        const p = progreso[l.id] || {};
+        const done = p.completado;
         return `<div class="les-item ${actual?.id===l.id?'on':''}" data-l="${l.id}">
           <span class="material-symbols-outlined" style="color:${done?'var(--ok)':'var(--outline)'}">
             ${done?'check_circle':'radio_button_unchecked'}</span>
           <span class="les-t">${esc(l.titulo)}</span>
+          ${p.para_despues?`<span class="material-symbols-outlined" title="Marcada para después"
+            style="color:var(--gold);flex-shrink:0">bookmark</span>`:''}
           <span class="tiny muted" style="flex-shrink:0">${l.duracion_min||0}′</span></div>`;
       }).join('')}
-    </div>`).join('');
-  $$('[data-l]').forEach(el=>el.onclick=()=>{
+    </div>`;
+  }).join('');
+  /* «No hay lecciones» y «tu filtro no encuentra ninguna» son dos cosas
+     distintas y hasta ahora decían lo mismo: a quien entraba en un programa
+     todavía sin temario se le contestaba «ninguna lección coincide con eso»,
+     sin que hubiera buscado nada. Se queda mirando una página vacía sin saber
+     si le falta algo a él o al curso. */
+  const aviso = $('#sinResultados');
+  if (aviso) {
+    const hayTemario = mods.some((m) => m.cem_lessons.length > 0);
+    aviso.hidden = visibles > 0;
+    aviso.textContent = hayTemario
+      ? 'Ninguna lección coincide con eso.'
+      : 'Este programa todavía no tiene lecciones publicadas. En cuanto se suban, aparecen aquí.';
+  }
+  $$('#indice [data-l]').forEach(el=>el.onclick=()=>{
     actual = mods.flatMap(m=>m.cem_lessons).find(l=>l.id===el.dataset.l); render();
   });
+}
+
+/* ── «para después» (mejora 9) ─────────────────────────────────────────────
+   Marcar una lección para volver. Antes había que acordarse del nombre. */
+async function marcarParaDespues(l){
+  if (!soyEstudiante || !enr?.id) return;
+  const ahora = !progreso[l.id]?.para_despues;
+  const { error } = await sb.from('cem_lesson_progress').upsert({
+    enrollment_id: enr.id, lesson_id: l.id, para_despues: ahora,
+    completado: progreso[l.id]?.completado || false,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'enrollment_id,lesson_id' });
+  if (error) { avisar($('#visor'), mensajeError(error), 'err'); return; }
+  progreso[l.id] = { ...(progreso[l.id]||{}), para_despues: ahora };
+  ok(ahora ? 'Guardada para después.' : 'Ya no está marcada.');
+  render();
+}
+
+/* ── El reproductor ────────────────────────────────────────────────────────
+   Tres cosas que no son lo mismo y conviene no confundir:
+
+   · Se usa `youtube-nocookie.com`, que no deja rastro publicitario en quien ve
+     la clase. Es lo correcto con menores y con datos de alumnos.
+   · `rel=0` evita que al terminar salgan vídeos de otros canales, y
+     `modestbranding=1` + la tapa de la esquina quitan los caminos de vuelta a
+     YouTube. Esto para a quien se despista, no a quien busca.
+   · La dirección se arma aquí con el identificador, en vez de guardar la URL
+     entera en la base. No esconde nada más —quien tiene el identificador tiene
+     el vídeo— pero deja que sea la plataforma quien decida cómo se ve.
+
+   Lo que NO hace, y conviene decirlo: esto no impide sacar el enlace ni grabar
+   la pantalla. Nada en una página web puede. Lo que sí hace es que cualquier
+   grabación salga con el nombre de quien la hizo encima. */
+/* `idDeYoutube` saca el identificador de un enlace pegado a mano. Hace falta
+   porque quien crea una lección pega la dirección que copió del navegador
+   —`youtu.be/…`, `youtube.com/shorts/…`, `watch?v=…`— y ninguna de esas se
+   puede meter dentro de un marco: YouTube lo prohíbe con `X-Frame-Options`, así
+   que la clase se quedaba en negro sin decir por qué. Con el identificador
+   suelto sí se puede. Vive en app.js porque el editor de contenidos decide con
+   la misma regla. */
+
+/* ============ ¿te sirvió esta clase? ============
+   Al terminar el vídeo, una sola pregunta y cinco caras. Una, no tres: se ven
+   veinte lecciones en un programa, y una encuesta de tres escalas después de
+   cada una es una encuesta que nadie contesta. El comentario es opcional y
+   sólo aparece si la nota es baja, que es cuando de verdad hay algo que contar.
+
+   No se pregunta en modo vista previa —el profesor no valora su propia clase—
+   ni si ya se valoró: cambiar la nota se puede, que te la vuelvan a pedir cada
+   vez que abres la lección, no. */
+let valorada = new Set();
+
+async function pedirValoracion(l){
+  if (!soyEstudiante || !l || valorada.has(l.id)) return;
+  const host = $('#valoracion');
+  if (!host || actual?.id !== l.id) return;
+
+  const { data: ya } = await sb.from('cem_leccion_valoraciones')
+    .select('util').eq('lesson_id', l.id).eq('profile_id', yo.id).maybeSingle();
+  const puesta = ya?.util || 0;
+
+  host.innerHTML = `<div class="card sep-poco valorar">
+    <div class="row between" style="gap:12px;flex-wrap:wrap">
+      <div><b>¿Te sirvió esta clase?</b>
+        <div class="tiny muted">Nos dice qué clases hay que rehacer. Tu profesor ve el resumen, no quién lo dijo.</div></div>
+      <div class="caras" role="radiogroup" aria-label="¿Te sirvió esta clase?">
+        ${[[1,'sentiment_very_dissatisfied','Nada'],[2,'sentiment_dissatisfied','Poco'],
+           [3,'sentiment_neutral','Regular'],[4,'sentiment_satisfied','Bien'],
+           [5,'sentiment_very_satisfied','Mucho']].map(([n,ico,txt]) => `
+          <button type="button" class="cara${n===puesta?' puesta':''}" data-v="${n}"
+                  role="radio" aria-checked="${n===puesta}" title="${txt}" aria-label="${txt}">
+            <span class="material-symbols-outlined">${ico}</span></button>`).join('')}
+      </div>
+    </div>
+    <div id="porQue" hidden class="sep-poco">
+      <div class="field sin-margen"><label for="vCom">¿Qué le faltó? (opcional)</label>
+        <textarea id="vCom" rows="2" placeholder="Se oía mal, iba muy rápido, faltaba un ejemplo…"></textarea></div>
+      <button class="btn outline sm sep-poco" id="vEnviar">Enviar</button>
+    </div>
+  </div>`;
+
+  const guardar = async (util, comentario) => {
+    const { error } = await sb.from('cem_leccion_valoraciones').upsert({
+      lesson_id: l.id, profile_id: yo.id, util,
+      comentario: comentario || null, actualizado_en: new Date().toISOString(),
+    }, { onConflict: 'lesson_id,profile_id' });
+    if (error) { avisar(host, mensajeError(error), 'err'); return false; }
+    return true;
+  };
+
+  $$('.cara', host).forEach(b => b.onclick = async () => {
+    const util = Number(b.dataset.v);
+    $$('.cara', host).forEach(x => {
+      x.classList.toggle('puesta', x === b);
+      x.setAttribute('aria-checked', String(x === b));
+    });
+    if (!await guardar(util)) return;
+    // Sólo se pregunta el porqué cuando la nota dice que hubo un problema.
+    $('#porQue', host).hidden = util > 3;
+    if (util > 3) { valorada.add(l.id); ok('Gracias.'); }
+  });
+
+  const enviar = $('#vEnviar', host);
+  if (enviar) enviar.onclick = async () => {
+    const marcada = $$('.cara', host).find(x => x.classList.contains('puesta'));
+    if (!marcada) return;
+    if (!await guardar(Number(marcada.dataset.v), $('#vCom', host).value.trim())) return;
+    valorada.add(l.id);
+    host.innerHTML = '<p class="tiny muted">Gracias: se lo pasamos a quien la preparó.</p>';
+  };
+}
+
+/* ============ una lección que no es un vídeo ============
+   Todas las lecciones se pintaban dentro del mismo marco: un rectángulo negro
+   de 16:9. Con un vídeo eso está bien; con un PDF quedaba un cuadro negro
+   enorme con un iconito blanco en medio y el nombre del archivo debajo. Se veía
+   raro porque LO ERA: era el envase del vídeo puesto alrededor de algo que no
+   lo es.
+
+   Un documento se lee, y para leerlo hace falta alto, no proporción de cine.
+   Aquí se abre dentro de la página, a una altura de lectura, y con las dos
+   cosas que se hacen con un documento a mano: abrirlo aparte y bajárselo. Los
+   apuntes ya tienen su pestaña, y desde aquí se dice dónde están —que era la
+   otra mitad de lo que se pidió—.
+
+   Subrayar DENTRO del documento no está: hace falta pintar el PDF con una
+   librería y guardar las marcas, y eso es una pieza aparte. Queda escrito en
+   `docs/lo-que-falta.md` en vez de fingirse. */
+function documentoDeLaLeccion(l){
+  const esPdf = /\.pdf($|[?#])/i.test(l.url || '') || l.tipo === 'pdf';
+  const icono = l.tipo === 'quiz' ? 'quiz' : esPdf ? 'picture_as_pdf' : 'article';
+
+  if (!l.url) {
+    return `<div class="card sin-margen documento-vacio">
+      <span class="material-symbols-outlined">${icono}</span>
+      <div>
+        <b>${esc(l.titulo)}</b>
+        <div class="tiny muted">Esta lección todavía no tiene el archivo cargado.
+          ${l.contenido ? 'Lee abajo lo que dejó escrito tu profesor.' : 'Pregúntale a tu profesor.'}</div>
+      </div></div>`;
+  }
+
+  return `<div class="documento caja">
+    <div class="documento-barra">
+      <span class="material-symbols-outlined">${icono}</span>
+      <b class="crece recorta">${esc(l.titulo)}</b>
+      <a class="btn ghost sm" href="${esc(l.url)}" target="_blank" rel="noopener"
+         title="Abrirlo en otra pestaña"><span class="material-symbols-outlined">open_in_new</span></a>
+      <a class="btn outline sm" href="${esc(l.url)}" download
+         title="Descargarlo para leer sin conexión">
+        <span class="material-symbols-outlined">download</span> Descargar</a>
+    </div>
+    ${esPdf
+      ? `<iframe class="documento-hoja" src="${esc(l.url)}" title="${esc(l.titulo)}"></iframe>`
+      : `<div class="documento-vacio">
+           <span class="material-symbols-outlined">${icono}</span>
+           <div><b>Este material se abre fuera</b>
+             <div class="tiny muted">Pulsa «Descargar» o el icono de abrir en otra pestaña.</div></div>
+         </div>`}
+    <div class="tiny muted documento-pie">
+      <span class="material-symbols-outlined">edit_note</span>
+      Lo que apuntes mientras lees se guarda en la pestaña <b>Mis notas</b>, aquí abajo. Sólo las ves tú.
+    </div>
+  </div>`;
+}
+
+function reproductor(l){
+  if (l.tipo !== 'video') return '';
+  const id = l.video_id || idDeYoutube(l.url);
+  // El hueco y nada más: lo llena `montarReproductor()` con el reproductor de
+  // la casa, que es el que no enseña el título ni el botón de YouTube.
+  if (id) return '<div id="ytHost" class="yt-host"></div>';
+  return l.url ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>` : '';
+}
+
+/* ── La marca de agua ──────────────────────────────────────────────────────
+   Quien reparta la clase reparte su propio nombre con ella. Es lo único de
+   todo esto que de verdad frena una filtración: no porque sea imposible, sino
+   porque deja de ser anónima.
+
+   Ahora la pinta el reproductor de la casa, sobre NUESTRO recuadro: por eso a
+   pantalla completa sigue puesta, que es justo cuando antes desaparecía. */
+const QUIEN = [
+  [me.nombre, me.apellido].filter(Boolean).join(' ').trim() || me.email,
+  me.documento ? `${me.documento_tipo || 'CI'} ${me.documento}` : me.email,
+].filter(Boolean).join('  ·  ');
+
+/* ── El registro ───────────────────────────────────────────────────────────
+   Cada medio minuto mientras la lección está abierta y el vídeo REPRODUCIÉNDOSE
+   —no basta con tenerlo abierto en pausa—. La IP la pone el servidor: pedírsela
+   al navegador sería pedirle a quien se investiga que rellene el informe. */
+let verReloj = null, verSegundos = 0, verLeccion = null;
+function registrarQueSeVe(l){
+  clearInterval(verReloj);
+  if (!l || l.tipo !== 'video') return;
+  // En vista previa no se anota quién vio qué: no lo está viendo un alumno.
+  if (!soyEstudiante) return;
+  if (verLeccion !== l.id) { verLeccion = l.id; verSegundos = 0; }
+
+  /* El `.then()` no es decorativo: lo que devuelve `sb.rpc()` es perezoso y no
+     sale a la red hasta que alguien lo espera. Sin esto, la llamada quedaba
+     montada y nunca se enviaba — y como nadie mira el valor de vuelta, el fallo
+     habría pasado desapercibido hasta que alguien preguntara por el registro.
+     Los errores se tragan a propósito: que no se pueda anotar quién vio la
+     clase no es razón para estropearle la clase a nadie. */
+  const anotar = (segundos) =>
+    sb.rpc('cem_registrar_reproduccion', { p_lesson_id: l.id, p_segundos: segundos })
+      .then(() => {}, () => {});
+
+  const latir = () => {
+    if (document.hidden) return;              // pestaña de fondo no es ver clase
+    if (!ytPlayer?.jugando?.()) return;       // en pausa tampoco
+    verSegundos += 30;
+    anotar(verSegundos);
+    guardarElMinuto(l);
+  };
+  anotar(verSegundos);
+  verReloj = setInterval(latir, 30000);
+}
+
+/* ── dónde se quedó (mejora 4) ─────────────────────────────────────────────
+   El aula abría por la primera lección sin completar, y eso está bien. Lo que
+   estaba mal es que quien vio veinte minutos de una de cuarenta y la dejó,
+   al día siguiente empezaba de cero.
+
+   Se guarda el segundo real del reproductor —no los segundos acumulados de
+   `cem_registrar_reproduccion`, que cuentan otra cosa: cuánto se ha visto, no
+   por dónde va—. Cada medio minuto, que es cuando ya late el registro. */
+function segundoActual(){
+  return ytPlayer?.segundo ? ytPlayer.segundo() : null;
+}
+
+let minutoGuardando = false;
+async function guardarElMinuto(l){
+  if (!soyEstudiante || !enr?.id) return;   // en vista previa no se escribe nada
+  const s = segundoActual();
+  if (s == null || s < 5 || minutoGuardando) return;
+  minutoGuardando = true;
+  const { error } = await sb.from('cem_lesson_progress').upsert({
+    enrollment_id: enr.id, lesson_id: l.id, segundos_vistos: s,
+    completado: progreso[l.id]?.completado || false,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'enrollment_id,lesson_id' });
+  minutoGuardando = false;
+  // Si no se pudo guardar no pasa nada grave: se reintenta al siguiente latido.
+  if (!error) progreso[l.id] = { ...(progreso[l.id]||{}), segundos_vistos: s };
+}
+
+/* La barra de «lo dejaste en 20:14». Sólo aparece si de verdad hay algo que
+   retomar: pasado el minuto, sin haberla completado, y no al principio. */
+function ofrecerRetomar(l){
+  const host = $('#retomar');
+  const s = Number(progreso[l.id]?.segundos_vistos || 0);
+  if (!host) return;
+  if (progreso[l.id]?.completado || s < 60) { host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="card sep-poco nota info row between" style="gap:var(--e2)">
+    <span>Lo dejaste en <b>${esc(reloj(s))}</b>.</span>
+    <button class="btn sm" id="btnRetomar">
+      <span class="material-symbols-outlined">play_arrow</span> Continuar desde ahí</button></div>`;
+  $('#btnRetomar').onclick = () => {
+    saltarA(s);
+    host.innerHTML = '';
+  };
+}
+
+/** Llevar el vídeo a un segundo concreto. Lo usan «continuar» y las dudas. */
+function saltarA(segundo){
+  if (!ytPlayer?.saltarA) return false;
+  const bien = ytPlayer.saltarA(Number(segundo) || 0);
+  if (bien) {
+    ytPlayer.reproducir();
+    $('#reproductor')?.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+  return bien;
+}
+
+/* ── Montar el reproductor ─────────────────────────────────────────────────
+   Aparte de reproductor(), que sólo pinta el hueco: instanciarlo es asíncrono
+   —la librería tarda en cargar— y mientras carga la persona puede haber
+   cambiado de lección, así que se comprueba antes de montar nada encima.
+
+   Quien monta de verdad es `crearReproductor()`, el de la casa: el que tapa la
+   interfaz de YouTube y pone la nuestra. Aquí sólo se le dice qué vídeo, qué
+   marca de agua lleva y qué hacer cuando suena. */
+let ytPlayer = null, leccionDelPlayer = null;
+
+function limpiarReproductor(){
+  clearInterval(verReloj); verReloj = null;
+  /* Antes de tirar el reproductor, anotar por dónde iba. Sin esto sólo se
+     guardaba cada medio minuto, y quien cambia de lección a los cuarenta
+     segundos perdía justo lo que acababa de ver. */
+  if (leccionDelPlayer) guardarElMinuto(leccionDelPlayer);
+  ytPlayer?.destruir();
+  ytPlayer = null; leccionDelPlayer = null;
+}
+
+/* Cerrar la pestaña también es dejar la clase a medias. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && leccionDelPlayer) guardarElMinuto(leccionDelPlayer);
+});
+
+async function montarReproductor(l){
+  limpiarReproductor();
+  if (!l || l.tipo !== 'video') return;
+
+  const id = l.video_id || idDeYoutube(l.url);
+  if (!id) return;                       // material antiguo sin identificador
+
+  const host = $('#ytHost');
+  if (!host) return;
+  leccionDelPlayer = l;
+
+  /* Cuándo se anota que alguien vio la clase.
+     ────────────────────────────────────────
+     No en cuanto carga el reproductor, por dos razones distintas: cargar no
+     dice que el vídeo exista —con un identificador inventado carga igual y el
+     error llega un instante después—, y abrir la página no es ver la clase.
+     Quien entra, mira el título y se va no ha visto nada, y contarlo ensucia
+     justamente el dato que sirve para detectar una contraseña compartida.
+     Se anota al primer sonido de verdad. */
+  ytPlayer = await crearReproductor(host, {
+    videoId: id,
+    marca: QUIEN,
+    empezarEn: 0,
+    alSonar: () => registrarQueSeVe(l),
+    alFallar: () => { clearInterval(verReloj); verReloj = null; },
+    /* Se pregunta al terminar y no antes: a mitad de vídeo nadie sabe todavía
+       si le sirvió, y preguntar dos veces por lo mismo es como no preguntar. */
+    alTerminar: () => pedirValoracion(l),
+  });
+
+  // Se cambió de lección mientras cargaba la librería: lo recién montado sobra.
+  if (actual?.id !== l.id) { ytPlayer?.destruir(); ytPlayer = null; leccionDelPlayer = null; return; }
+  ofrecerRetomar(l);
+}
+
+function render(){
+  limpiarReproductor();
+  $('#tCurso').textContent = curso?.nombre||'';
+  pintarAvisoDeVista();
+  /* El acceso al repaso rápido. Sólo si el curso tiene alguno: un botón que
+     lleva a una pantalla vacía es peor que no tenerlo. */
+  $('#accionesAula').innerHTML = hayExpress
+    ? `<a class="btn outline" href="express.html?curso=${esc(curso?.id || '')}">
+        <span class="material-symbols-outlined">bolt</span> Repaso express</a>` : '';
+  $('#tProg').innerHTML = `${esc(enr.cem_cohorts?.nombre||'')} · ${pct(enr.progreso)} completado`;
+  /* item 41 · el rastro dice de dónde vienes y en qué lección estás; el botón
+     «Mi panel» de antes no decía nada de eso. */
+  $('#migas').innerHTML = migas([
+    ['Mis cursos', 'panel.html'],
+    [curso?.nombre || 'Curso', `curso.html?id=${curso?.id || ''}`],
+    [actual?.titulo || 'Lección'],
+  ]);
+  pintarIndice();
 
   const l = actual;
   $('#visor').innerHTML = l ? `
-    <div class="player">${l.tipo==='video'&&l.url
-      ? `<iframe src="${esc(l.url)}" allowfullscreen title="${esc(l.titulo)}"></iframe>`
-      : `<div style="text-align:center;padding:30px">
-          <span class="material-symbols-outlined" style="font-size:44px">${l.tipo==='pdf'?'picture_as_pdf':l.tipo==='quiz'?'quiz':'article'}</span>
-          <div style="margin-top:8px">${esc(l.titulo)}</div></div>`}</div>
-    <div class="card" style="margin-top:12px">
+    ${l.tipo === 'video'
+      ? `<div class="player" id="reproductor">${reproductor(l)}</div>`
+      : documentoDeLaLeccion(l)}
+    <div id="retomar"></div>
+    <div id="valoracion"></div>
+    <div class="card sep">
       <div class="row between">
         <div><h2 class="sec" style="margin:0 0 4px">${esc(l.titulo)}</h2>
           <div class="tiny muted">${esc(l.descripcion||'')}</div></div>
-        <button class="btn ${progreso[l.id]?.completado?'outline':''}" id="btnDone">
-          <span class="material-symbols-outlined">${progreso[l.id]?.completado?'check_circle':'done'}</span>
-          ${progreso[l.id]?.completado?'Completada':'Marcar completada'}</button>
+        <div class="actions"${soyEstudiante ? '' : ' hidden'}>
+          <button class="btn ghost" id="btnDespues"
+            title="${progreso[l.id]?.para_despues?'Quitar la marca':'Guardarla para volver'}">
+            <span class="material-symbols-outlined"
+              style="${progreso[l.id]?.para_despues?'color:var(--gold)':''}">
+              ${progreso[l.id]?.para_despues?'bookmark':'bookmark_border'}</span></button>
+          <button class="btn ${progreso[l.id]?.completado?'outline':''}" id="btnDone">
+            <span class="material-symbols-outlined">${progreso[l.id]?.completado?'check_circle':'done'}</span>
+            ${progreso[l.id]?.completado?'Completada':'Marcar completada'}</button>
+        </div>
       </div>
-      ${l.contenido?`<p class="muted" style="margin-top:10px">${esc(l.contenido)}</p>`:''}
-      <div style="margin-top:12px">${bar(enr.progreso)}</div>
-    </div>` : '<div class="card">Este curso todavía no tiene lecciones publicadas.</div>';
+      ${l.contenido?`<p class="muted sep">${esc(l.contenido)}</p>`:''}
+      ${adjuntosDe(l)}
+      <div class="sep">${bar(enr.progreso)}</div>
+    </div>
+    ${cierreDelCurso()}` : '<div class="card">Este curso todavía no tiene lecciones publicadas.</div>';
+
+/* El material de la lección, para bajárselo (mejora 7). En Venezuela la
+   conexión se cae, y el PDF o la plantilla de Excel son lo que decide si el
+   curso se puede seguir esa semana. El vídeo no —eso es de YouTube— pero el
+   resto sí. */
+function adjuntosDe(l){
+  const lista = l.adjuntos || [];
+  if (!lista.length) return '';
+  return `<div class="sep">
+    <div class="tiny muted" style="margin-bottom:6px">Material de esta lección</div>
+    <div class="post-adjuntos">${lista.map(a=>`
+      <a class="adjunto" href="${esc(a.url)}" target="_blank" rel="noopener" download>
+        <span class="material-symbols-outlined">${
+          a.tipo==='pdf'?'picture_as_pdf':a.tipo==='hoja'?'table_view':'attach_file'}</span>
+        ${esc(a.nombre||'Descargar')}</a>`).join('')}</div>
+    <p class="tiny muted sep-poco">Descárgalos ahora si vas a estudiar sin conexión.</p>
+  </div>`;
+}
+
+/* Terminar de ver el curso y no saber qué sigue es donde se pierde la gente:
+   se queda mirando la última lección sin enterarse de que hay un examen. En
+   cuanto no queda nada por ver, el siguiente paso ocupa el sitio del reproductor
+   y dice cuál es. */
+function cierreDelCurso(){
+  const todas = mods.flatMap(m=>m.cem_lessons);
+  if (!todas.length || todas.some(x=>!progreso[x.id]?.completado)) return '';
+
+  const pendientes = evals.filter(a=>{
+    const mias = entregas.filter(s=>s.assessment_id===a.id);
+    const entregada = mias.some(s=>s.entregado_en);
+    const aprobada = mias.some(s=>s.puntaje!=null && Number(s.puntaje) >= (a.nota_aprobatoria||70));
+    const quedanIntentos = mias.filter(s=>s.entregado_en).length < (a.intentos||1);
+    return !aprobada && (!entregada || quedanIntentos);
+  });
+
+  if (!pendientes.length) return `<div class="card sep" style="border-color:var(--ok)">
+    <div class="row" style="gap:var(--e2)">
+      <span class="material-symbols-outlined" style="font-size:34px;color:var(--ok)">workspace_premium</span>
+      <div class="crece"><b>Terminaste el programa y no tienes evaluaciones pendientes.</b>
+        <div class="tiny muted">Cuando estés al día con los pagos, el certificado aparece en tu sección de certificados.</div></div>
+      <a class="btn outline" href="certificados.html">Ver mis certificados</a>
+    </div></div>`;
+
+  return `<div class="card sep" style="border-color:var(--primary)">
+    <div class="row" style="gap:var(--e2)">
+      <span class="material-symbols-outlined" style="font-size:34px;color:var(--primary)">task_alt</span>
+      <div class="crece"><b>Viste todo el contenido. Ahora toca la evaluación.</b>
+        <div class="tiny muted">${pendientes.length===1
+          ? `«${esc(pendientes[0].nombre)}» · sobre ${pendientes[0].puntaje_max||100} puntos, se aprueba con ${pendientes[0].nota_aprobatoria||70}`
+          : `Te quedan ${pendientes.length} evaluaciones por presentar.`}</div></div>
+      ${pendientes.length===1
+        ? `<a class="btn" href="evaluacion.html?id=${pendientes[0].id}&enr=${enr.id}">Ver evaluación</a>`
+        : `<button class="btn" id="irEvals">Ver evaluaciones</button>`}
+    </div></div>`;
+}
+
+  const btnDespues = $('#btnDespues');
+  if (btnDespues) btnDespues.onclick = () => marcarParaDespues(l);
 
   const btn=$('#btnDone');
   if (btn) btn.onclick = async () => {
@@ -131,24 +776,73 @@ function render(){
     await run(sb.from('cem_lesson_progress').upsert({
       enrollment_id:enr.id, lesson_id:l.id, completado:done, actualizado_en:new Date().toISOString()
     },{onConflict:'enrollment_id,lesson_id'}),'No se pudo guardar el progreso');
-    progreso[l.id] = { completado:done };
+    // Se conserva el resto de lo guardado: marcar completada no puede borrar
+    // los apuntes ni el minuto donde se quedó.
+    progreso[l.id] = { ...(progreso[l.id]||{}), completado:done };
     const { data: np } = await sb.rpc('cem_recalc_progress',{p_enrollment_id:enr.id});
     enr.progreso = np ?? enr.progreso;
     ok(done?'Lección completada':'Marcada como pendiente');
     render();
   };
-  tab($('#tabs button.active')?.dataset.t || 'notas');
+  const irEvals = $('#irEvals');
+  if (irEvals) irEvals.onclick = () => $('[data-t="evaluaciones"]').click();
+
+  /* El reproductor se repinta entero en cada render, así que se vuelve a
+     montar aquí y no una sola vez al cargar. */
+  montarReproductor(l);
+  const caja = $('#reproductor');
+  if (caja) caja.oncontextmenu = (ev) => { ev.preventDefault(); };
+
+  tab($('#tabs button.active')?.dataset.t || 'tablon');
 }
 
 $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });
 
 function tab(t){
   const P=$('#panelTabs');
+  if (t==='dudas'){
+    if (!actual){ P.innerHTML = '<p class="muted tiny">Elige una lección para ver sus dudas.</p>'; return; }
+    pintarDudas({
+      host: P, lessonId: actual.id, puedeResponder: !soyEstudiante,
+      minutoActual: segundoActual,
+      // Pulsar el minuto de una duda lleva el vídeo a ese punto: es el gesto
+      // que convierte «en el minuto 14» en algo que se puede comprobar.
+      alSaltar: (s) => { if (!saltarA(s)) ok('Este material no permite saltar a un punto.'); },
+    });
+  }
+  if (t==='tablon'){
+    /* El tablón es de la cohorte, no de la lección: es donde el profesor
+       avisa de lo que pasa con la clase entera. */
+    P.innerHTML = '<span class="cargando una"></span>';
+    if (!enr?.cohort_id) {
+      P.innerHTML = `<div class="empty"><span class="material-symbols-outlined ico">groups</span>
+        <b>Esta inscripción no está en ningún grupo</b>
+        <span>El tablón es de un grupo con su profesor. Escríbele a coordinación para que te asignen a uno.</span></div>`;
+      return;
+    }
+    sb.rpc('cem_aula', { p_cohort: enr.cohort_id }).then(({ data, error }) => {
+      if (error) { P.innerHTML = `<p class="nota err">${esc(mensajeError(error))}</p>`; return; }
+      pintarMuro({ host: P, aula: data, yo: me.id, recargar: () => tab('tablon') });
+    });
+  }
   if (t==='notas'){
+    if (!soyEstudiante) {
+      P.innerHTML = `<p class="muted tiny">Aquí el estudiante escribe sus apuntes de esta
+        lección. Son privados: nadie de la escuela los ve, tú tampoco.</p>`;
+      return;
+    }
     const nota = progreso[actual?.id]?.notas || '';
+    const conNotas = mods.flatMap(m=>m.cem_lessons).filter(x=>(progreso[x.id]?.notas||'').trim());
     P.innerHTML = `<div class="field"><label>Notas personales de esta lección</label>
       <textarea id="nota" placeholder="Escribe tus apuntes…">${esc(nota)}</textarea></div>
-      <button class="btn outline sm" id="btnNota"><span class="material-symbols-outlined">save</span> Guardar nota</button>`;
+      <div class="row" style="gap:var(--e1)">
+        <button class="btn outline sm" id="btnNota"><span class="material-symbols-outlined">save</span> Guardar nota</button>
+        ${conNotas.length?`<button class="btn ghost sm" id="btnBajarNotas"
+          title="Descargar los apuntes de todo el curso">
+          <span class="material-symbols-outlined">download</span>
+          Bajar mis apuntes (${conNotas.length})</button>`:''}
+      </div>
+      <p class="tiny muted sep-poco">Sólo las ves tú. Nadie de la escuela puede leerlas.</p>`;
     $('#btnNota').onclick = async () => {
       await run(sb.from('cem_lesson_progress').upsert({
         enrollment_id:enr.id, lesson_id:actual.id, notas:$('#nota').value,
@@ -156,6 +850,18 @@ function tab(t){
       },{onConflict:'enrollment_id,lesson_id'}),'No se pudo guardar');
       progreso[actual.id] = { ...(progreso[actual.id]||{}), notas:$('#nota').value };
       ok('Nota guardada');
+    };
+    /* Quien estudia en serio toma notas, y unas notas que sólo viven dentro de
+       una plataforma se pierden el día que se acaba el curso (mejora 8). */
+    const bajar = $('#btnBajarNotas');
+    if (bajar) bajar.onclick = () => {
+      const texto = [`Apuntes de ${curso?.nombre||'el curso'}`, ''].concat(
+        mods.flatMap(m => m.cem_lessons
+          .filter(x => (progreso[x.id]?.notas||'').trim())
+          .map(x => `## ${m.titulo} · ${x.titulo}\n\n${progreso[x.id].notas.trim()}\n`))
+      ).join('\n');
+      const nombre = (curso?.nombre||'curso').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      download(`apuntes-${nombre}.md`, texto, 'text/markdown;charset=utf-8');
     };
   }
   if (t==='evaluaciones'){
@@ -171,7 +877,7 @@ function tab(t){
         estado = chip('en progreso','warn');
         accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr.id}">Continuar</a>`;
       } else if (ult?.estado==='calificada'){
-        estado = `<span class="chip ${ult.puntaje>=aprob?'ok':'err'}">${ult.puntaje} pts · ${ult.puntaje>=aprob?'aprobado':'reprobado'}</span>`;
+        estado = chipNota(ult.puntaje, 100, aprob);
         accion = sinIntentos ? '<span class="tiny muted">Sin intentos</span>'
           : `<a class="btn outline sm" href="evaluacion.html?id=${a.id}&enr=${enr.id}">Reintentar</a>`;
       } else if (ult?.estado==='entregada'){
@@ -189,12 +895,54 @@ function tab(t){
     }).join('') : '<p class="muted tiny">Este curso todavía no tiene evaluaciones publicadas.</p>';
   }
   if (t==='recursos'){
-    P.innerHTML = media.length ? media.map(m=>`<div class="list-item">
-      <span class="material-symbols-outlined">${m.tipo==='pdf'?'picture_as_pdf':m.tipo==='video'?'play_circle':'dataset'}</span>
-      <div class="grow"><div class="t">${esc(m.nombre)}</div>
-        <div class="s">${esc(m.tipo)} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div></div>
-      ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">download</span></a>`:''}
-      </div>`).join('') : '<p class="muted tiny">Sin recursos para este curso.</p>';
+    /* Todo lo descargable del curso en un sitio: lo del curso entero y lo que
+       cuelga de cada lección. Antes había que abrir las treinta lecciones para
+       saber si había algo que bajarse (mejora 7). */
+    /* Un archivo, una ficha.
+       ------------------------------------------------------------------
+       Salía dos veces: una por ser del curso y otra por colgar de una
+       lección. Y no era un adorno —al ver el mismo nombre repetido uno se
+       pregunta si son dos versiones distintas y acaba bajándose las dos—.
+       Son la misma tabla: `cem_media` con `lesson_id` puesto es material de
+       una lección, y sin él es del curso entero. Así que lo del curso deja
+       fuera lo que ya tiene lección, y por si acaso se descarta también lo
+       que repita dirección. */
+    const deLecciones = mods.flatMap(m => m.cem_lessons.flatMap(l =>
+      (l.adjuntos||[]).map(a => ({ ...a, leccion: l.titulo }))));
+    const todos = [];
+    const vistas = new Set();
+    for (const x of [...deLecciones, ...media.filter(m => !m.lesson_id)]) {
+      const clave = x.url || `${x.nombre}·${x.bytes ?? x.tamano_bytes ?? ''}`;
+      if (vistas.has(clave)) continue;
+      vistas.add(clave);
+      todos.push({ nombre: x.nombre || 'Material', tipo: x.tipo, url: x.url,
+        bytes: Number(x.bytes ?? x.tamano_bytes ?? 0),
+        de: x.leccion || 'Todo el programa' });
+    }
+
+    P.innerHTML = `
+      <div class="row between sep-poco">
+        <p class="tiny muted sin-margen">Todo esto se puede bajar y leer sin conexión.</p>
+        <button class="btn ghost sm" id="btnTemario">
+          <span class="material-symbols-outlined">print</span> Imprimir el temario</button>
+      </div>
+      ${todos.length ? `<div class="rejilla-material">${todos.map(x=>`
+        <div class="card sin-margen">
+          ${previaDeMaterial({ tipo:x.tipo, url:x.url, nombre:x.nombre, alto:120 })}
+          <div class="negrita" style="font-size:13.5px">${esc(x.nombre)}</div>
+          <div class="tiny muted">${esc(x.de)}${x.bytes?` · ${(x.bytes/1048576).toFixed(1)} MB`:''}</div>
+          ${x.url ? `<a class="btn outline sm sep-poco" href="${esc(x.url)}" target="_blank" download
+            aria-label="Descargar ${esc(x.nombre)}">
+            <span class="material-symbols-outlined">download</span> Descargar</a>` : ''}
+        </div>`).join('')}</div>`
+        : '<p class="muted tiny">Este curso todavía no tiene material para descargar.</p>'}`;
+
+    $('#btnTemario').onclick = () => imprimirDocumento(
+      `Temario · ${curso?.nombre || 'Programa'}`,
+      mods.map(m => `<h2>${esc(m.titulo)}</h2>
+        <ol>${m.cem_lessons.map(l => `<li><b>${esc(l.titulo)}</b>${
+          l.descripcion ? `<br><span>${esc(l.descripcion)}</span>` : ''}${
+          l.duracion_min ? ` <i>(${l.duracion_min} min)</i>` : ''}</li>`).join('')}</ol>`).join(''));
   }
   if (t==='sesiones'){
     P.innerHTML = clases.length ? clases.map(c=>`<div class="list-item">
@@ -202,11 +950,58 @@ function tab(t){
         <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${(c.hora_inicio||'').slice(0,5)}–${(c.hora_fin||'').slice(0,5)} · ${esc(c.modalidad.replace('_',' '))}</div></div>
-      ${chip(c.estado)}
+      ${chipEstado(c.estado)}
       ${c.estado!=='dictada'&&c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Unirme</a>`:''}
       ${c.grabacion_url?`<a class="btn outline sm" href="${esc(c.grabacion_url)}" target="_blank">Grabación</a>`:''}
+      ${c.estado==='dictada'?`<button class="btn outline sm" data-opinar="${esc(c.id)}"
+          data-titulo="${esc(c.titulo)}">Opinar</button>`:''}
       </div>`).join('') : '<p class="muted tiny">Sin sesiones programadas.</p>';
+    $$('[data-opinar]', P).forEach(b => b.onclick = () => opinar(b.dataset.opinar, b.dataset.titulo));
   }
+}
+
+/* ============ qué te pareció la clase ============
+   Tres notas de 1 a 5 y un comentario. Tres porque son las que se contestan
+   sin pensarlo mucho: si se piden ocho, nadie contesta ninguna. Y el profesor
+   lo ve SIN NOMBRE: si se supiera quién dijo qué, nadie diría nada útil. */
+function opinar(claseId, titulo){
+  const escala = (id, etiqueta, ayuda) => `
+    <div class="field"><label>${esc(etiqueta)} <span class="tiny muted">${esc(ayuda)}</span></label>
+      <div class="escala" id="${id}">${[1,2,3,4,5].map(n =>
+        `<button type="button" data-v="${n}">${n}</button>`).join('')}</div></div>`;
+
+  const m = modal({ title:`¿Qué te pareció «${titulo}»?`, body:`
+    <p class="tiny muted">Tu profesor ve el promedio y lo que escribas, pero <b>no quién lo escribió</b>.
+      Contesta con confianza: es para que la próxima clase salga mejor.</p>
+    ${escala('vClaridad', 'Se entendió', '1 = nada · 5 = clarísimo')}
+    ${escala('vUtilidad', 'Me sirve', '1 = nada · 5 = mucho')}
+    ${escala('vRitmo', 'El ritmo', '1 = muy lento o muy rápido · 5 = justo')}
+    <div class="field"><label>¿Algo que mejorarías? (opcional)</label>
+      <textarea id="vCom" rows="3" maxlength="600"
+        placeholder="Por ejemplo: los ejemplos ayudaron mucho, pero la última parte fue muy rápida."></textarea></div>
+    <div id="vMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Ahora no</button>
+            <button class="btn" id="vGo">Enviar</button>` });
+
+  const valores = {};
+  $$('.escala button', m).forEach(b => b.onclick = () => {
+    const caja = b.parentElement;
+    $$('button', caja).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    valores[caja.id] = Number(b.dataset.v);
+  });
+
+  $('#vGo', m).onclick = () => ocupado('#vGo', 'Enviando…', async () => {
+    if (!valores.vClaridad || !valores.vUtilidad || !valores.vRitmo) {
+      avisar($('#vMsg', m), 'Marca las tres: son un clic cada una.', 'err'); return;
+    }
+    const { error } = await sb.rpc('cem_valorar_clase', {
+      p_class_id: claseId, p_claridad: valores.vClaridad,
+      p_utilidad: valores.vUtilidad, p_ritmo: valores.vRitmo,
+      p_comentario: $('#vCom', m).value.trim() || null,
+    });
+    if (error) { avisar($('#vMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Gracias. Tu profesor lo verá sin tu nombre.');
+  });
 }
 </script>
 </body>

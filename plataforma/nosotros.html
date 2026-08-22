@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Quiénes somos</title>
+<meta name="description" content="Propósito, visión, valores e historia del CEM, Centro de Estudios de Marketing, nacido en Caracas en 2016.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-53">
+</head>
+<body>
+<!-- Todo lo que hay aquí sale del manual de marca del CEM. Está escrito en la
+     página y no traído de la base a propósito: la misión de una institución no
+     se edita desde un panel un martes por la tarde. Cuando cambie de verdad,
+     que cueste un commit y quede en el historial de quién la cambió. -->
+<div id="page" class="hidden">
+
+  <section class="portada-cem">
+    <h1>Educamos hoy, lideras mañana</h1>
+    <p class="lema">Formamos profesionales y emprendedores con visión estratégica y
+      herramientas actuales, para transformar ideas en resultados y construir un futuro
+      con impacto en Latinoamérica.</p>
+  </section>
+
+  <section class="franja tenue">
+    <div class="dentro tarjetas-idea">
+      <div class="tarjeta-idea">
+        <div class="ico"><span class="material-symbols-outlined">flag</span></div>
+        <h3>Propósito</h3>
+        <p>Formar profesionales y emprendedores con visión estratégica y herramientas
+          actuales, para transformar ideas en resultados y construir un futuro con
+          impacto en Latinoamérica.</p>
+      </div>
+      <div class="tarjeta-idea">
+        <div class="ico"><span class="material-symbols-outlined">visibility</span></div>
+        <h3>Visión</h3>
+        <p>Ser el centro de estudios de marketing y negocios de referencia en
+          Latinoamérica: el sitio al que se viene a aprender lo que de verdad se está
+          usando, no lo que se usaba hace cinco años.</p>
+      </div>
+      <div class="tarjeta-idea">
+        <div class="ico"><span class="material-symbols-outlined">favorite</span></div>
+        <h3>Cómo lo hacemos</h3>
+        <p>Aprender haciendo. Cada programa termina con algo hecho —una campaña, un
+          plan, un producto— y no con un apunte. Lo que no se puede aplicar el lunes
+          siguiente no entra en el temario.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="franja">
+    <div class="dentro">
+      <h2>Nuestros valores</h2>
+      <p class="entrada">Cinco, y se notan en decisiones concretas: qué se enseña, quién
+        lo enseña y qué se cobra por ello.</p>
+      <div class="tarjetas-idea" id="valores"></div>
+    </div>
+  </section>
+
+  <section class="franja tenue">
+    <div class="dentro">
+      <h2>Las cinco preguntas</h2>
+      <p class="entrada">Qué somos, a quién servimos, cuándo, dónde y por qué. Sin rodeos.</p>
+      <div class="tarjetas-idea" id="cincoW"></div>
+    </div>
+  </section>
+
+  <section class="franja">
+    <div class="dentro">
+      <h2>Qué te llevas</h2>
+      <p class="entrada">Lo que un estudiante del CEM tiene al terminar que no tenía al empezar.</p>
+      <div class="row" id="propuesta" style="gap:var(--e1);flex-wrap:wrap"></div>
+    </div>
+  </section>
+
+  <section class="franja tenue">
+    <div class="dentro">
+      <h2>De dónde venimos</h2>
+      <p class="entrada">El CEM no se fundó de la nada: es lo que quedó después de nueve años
+        haciendo esto con otros nombres.</p>
+      <ol class="hilo" id="historia"></ol>
+    </div>
+  </section>
+
+  <section class="franja">
+    <div class="dentro contacto">
+      <div>
+        <h2>¿Te cuadra?</h2>
+        <p class="entrada">Si lo de arriba se parece a lo que buscas, hay dos formas de seguir:
+          mirar el catálogo por tu cuenta, o dejarnos tus datos y que te escribamos nosotros.</p>
+        <div class="row" style="gap:var(--e1);flex-wrap:wrap">
+          <a class="btn" href="catalogo.html">
+            <span class="material-symbols-outlined">search</span> Ver los programas</a>
+          <a class="btn outline" href="index.html?registro=1">Crear mi cuenta</a>
+        </div>
+      </div>
+      <div class="card sin-margen">
+        <h3 class="sec">Déjanos tus datos</h3>
+        <form id="formLead" novalidate>
+          <div class="field"><label for="lNombre">Tu nombre</label>
+            <input type="text" id="lNombre" name="nombre" required autocomplete="name"></div>
+          <div class="row">
+            <div class="field medio"><label for="lEmail">Correo</label>
+              <input type="email" id="lEmail" name="email" autocomplete="email"></div>
+            <div class="field medio"><label for="lTel">Teléfono o WhatsApp</label>
+              <input type="tel" id="lTel" name="telefono" autocomplete="tel"></div>
+          </div>
+          <p class="tiny muted" style="margin:calc(var(--e1) * -1) 0 var(--e2)">
+            Con uno de los dos basta.</p>
+          <div class="field"><label for="lMensaje">¿Sobre qué?</label>
+            <textarea id="lMensaje" name="mensaje" rows="3"
+              placeholder="Qué te interesa, para cuándo, desde dónde escribes…"></textarea></div>
+          <div aria-hidden="true" class="visually-hidden">
+            <label for="lWeb">No rellenes esto</label>
+            <input type="text" id="lWeb" name="website" tabindex="-1" autocomplete="off">
+          </div>
+          <button class="btn block" type="submit">
+            <span class="material-symbols-outlined">send</span> Enviar</button>
+          <div id="leadMsg"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+import { sb, mount, $, esc } from './assets/app.js?v=2026-08-21-53';
+await mount({ pub: true });
+
+/* Los cinco valores del brand board, cada uno con su color — en el board son
+   cinco estrellas de cinco colores distintos, y aquí se respeta. */
+const VALORES = [
+  ['star', 'Excelencia', 'Enseñamos a decidir con criterio, no a repetir recetas que caducan.', 1],
+  ['favorite', 'Pasión', 'Da clase quien vive de esto y le gusta. Se nota en la primera sesión.', 3],
+  ['groups', 'Comunidad', 'No se estudia solo: la cohorte, el tablón y las dudas compartidas son parte del método.', 5],
+  ['bolt', 'Innovación', 'El temario se revisa cuando el mundo cambia, no cuando toca por calendario.', 4],
+  ['public', 'Impacto', 'Lo que se enseña tiene que servir en el trabajo o en el negocio de quien lo estudia.', 6],
+];
+
+const CINCO_W = [
+  ['diversity_3', '¿Qué somos?', 'Un ecosistema educativo multigeneracional: escuela, laboratorio de proyectos y comunidad, con programas que se conectan entre sí.'],
+  ['groups', '¿A quién servimos?', 'Niños, adolescentes, adultos, adultos mayores y emprendedores. Cada uno con su propio itinerario y su propio ritmo.'],
+  ['event_available', '¿Cuándo?', 'Todo el año. Los programas abren por cohortes, así que casi siempre hay uno a punto de empezar.'],
+  ['location_on', '¿Dónde?', 'Sede física en Caracas, operación en Chile con Super Boss OTEC, y en línea para el resto del mundo. Proyección hacia Florida.'],
+  ['psychology', '¿Por qué?', 'Porque el título solo dejó de bastar hace tiempo, y porque la formación práctica sigue siendo la vía más corta entre saber algo y vivir de ello.'],
+];
+
+const PROPUESTA = ['Oportunidades reales', 'Habilidades productivas', 'Educación práctica',
+  'Crecimiento multigeneracional', 'Resultados medibles', 'Aprender haciendo',
+  'Formación estratégica', 'Mentalidad emprendedora'];
+
+const HISTORIA = [
+  ['Marzo 2016', 'Nace Impulso Digital, la agencia con la que empezó todo.'],
+  ['Enero 2021', 'Más de 300 clientes atendidos en Estados Unidos.'],
+  ['Julio 2022', 'Arranca la Escuela Digital: cerca de 1.000 personas formadas.'],
+  ['Septiembre 2023', 'Se abre Exitus Lab, el laboratorio de proyectos.'],
+  ['Febrero 2024', '517 empresas acompañadas en 9 países y 33 ciudades.'],
+  ['Marzo 2024', 'Los dos primeros diplomados para adultos.'],
+  ['Abril 2025', '2.500 estudiantes formados.'],
+  ['Actualidad', 'Se funda el CEM y todo lo anterior pasa a ser una sola escuela.'],
+];
+
+$('#valores').innerHTML = VALORES.map(([ico, tit, txt, serie]) => `
+  <div class="tarjeta-idea">
+    <div class="ico" data-serie="${serie}"><span class="material-symbols-outlined">${esc(ico)}</span></div>
+    <h3>${esc(tit)}</h3><p>${esc(txt)}</p>
+  </div>`).join('');
+
+$('#cincoW').innerHTML = CINCO_W.map(([ico, tit, txt], i) => `
+  <div class="tarjeta-idea">
+    <div class="ico" data-serie="${(i % 6) + 1}"><span class="material-symbols-outlined">${esc(ico)}</span></div>
+    <h3>${esc(tit)}</h3><p>${esc(txt)}</p>
+  </div>`).join('');
+
+$('#propuesta').innerHTML = PROPUESTA.map((t, i) =>
+  `<span class="chip-marca" data-serie="${(i % 6) + 1}">${esc(t)}</span>`).join('');
+
+$('#historia').innerHTML = HISTORIA.map(([cuando, que]) =>
+  `<li><b>${esc(cuando)}</b><span>${esc(que)}</span></li>`).join('');
+
+/* El mismo formulario que la portada, y la misma función del servidor. Se
+   distingue por `origen`, que es lo que después dice qué página trae gente. */
+$('#formLead').onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = $('#leadMsg');
+  const queja = (t) => { msg.innerHTML = `<div class="chip err sep">${esc(t)}</div>`; };
+  msg.innerHTML = '';
+
+  if ($('#lWeb').value) {
+    msg.innerHTML = '<div class="chip ok sep">Gracias, te escribimos pronto.</div>';
+    $('#formLead').reset();
+    return;
+  }
+
+  const nombre = $('#lNombre').value.trim();
+  const correo = $('#lEmail').value.trim();
+  const tel = $('#lTel').value.trim();
+  if (!nombre) { queja('Dinos cómo te llamas, para no escribirte «hola».'); return; }
+  if (!correo && !tel) { queja('Déjanos un correo o un teléfono, o no podremos contestarte.'); return; }
+  if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) {
+    queja('Revisa el correo: no parece una dirección válida.'); return;
+  }
+
+  const btn = $('#formLead button[type=submit]');
+  btn.disabled = true;
+  const { error } = await sb.rpc('cem_dejar_contacto', {
+    p_nombre: nombre, p_email: correo || null, p_telefono: tel || null,
+    p_mensaje: $('#lMensaje').value.trim() || null,
+    p_origen: 'nosotros.html',
+  });
+  btn.disabled = false;
+
+  if (error) { queja(error.message || 'No se pudo enviar. Inténtalo otra vez en un momento.'); return; }
+  $('#formLead').reset();
+  msg.innerHTML = '<div class="chip ok sep">Recibido. Te escribimos pronto.</div>';
+};
+</script>
+</body>
+</html>

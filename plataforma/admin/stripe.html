@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Cobros con tarjeta</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<style>
+  .pista-clave{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--filete);}
+  /* sin-caja: un valor en monoespaciada, no un panel */
+  .dato-copiable{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--filete);
+    word-break:break-all;flex:1;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Cobros con tarjeta</h1>
+      <p>Con esto el estudiante paga con tarjeta en el momento y el curso se le abre solo,
+         sin esperar a que alguien verifique una transferencia.</p></div>
+    <div class="actions">
+      <a class="btn outline" href="formas-de-pago.html">
+        <span class="material-symbols-outlined">arrow_back</span> Formas de pago</a>
+    </div>
+  </div>
+
+  <div id="aviso"></div>
+  <div class="kpis" id="kpis"></div>
+  <div id="cuerpo"><span class="cargando"></span></div>
+</div>
+<script type="module">
+import { sb, mount, $, esc, num, chip, ok, fail, avisar, mensajeError,
+         confirmDialog, SUPABASE_URL } from '../assets/app.js?v=2026-08-21-53';
+await mount({ require:['admin','superadmin'], area:'admin' });
+
+let E = null;
+const URL_WEBHOOK = `${SUPABASE_URL}/functions/v1/cem-stripe-webhook`;
+
+async function cargar(){
+  const { data, error } = await sb.rpc('cem_stripe_config_estado');
+  if (error) { avisar('#cuerpo', mensajeError(error)); return; }
+  E = data || {};
+  pintar();
+}
+
+function pintar(){
+  const real = E.modo === 'real';
+
+  $('#aviso').innerHTML = E.configurada
+    ? (real ? '' : `<div class="nota warn"><b>Está en modo de prueba.</b>
+        Se pueden hacer cobros con las tarjetas de mentira de Stripe, pero
+        <b>no llega dinero de verdad</b>. Cuando lo hayas probado, cambia a
+        modo real con las claves que empiezan por <code>pk_live_</code>.</div>`)
+    : `<div class="nota"><b>Todavía no está conectado.</b> Mientras tanto, los estudiantes
+        pagan por transferencia, efectivo o las demás formas que tengas configuradas, y
+        alguien del equipo verifica cada pago a mano. Esto no lo sustituye: lo añade.</div>`;
+
+  $('#kpis').innerHTML = [
+    `<div class="kpi"><div class="k-lbl">Estado</div>
+      <div class="k-val">${E.configurada ? (real ? 'Cobrando' : 'En pruebas') : 'Apagado'}</div>
+      <div class="k-sub">${E.configurada ? esc(E.publishable_key || '').slice(0, 14) + '…' : 'sin claves'}</div></div>`,
+    `<div class="kpi"><div class="k-lbl">Cobrados</div>
+      <div class="k-val">${num(E.cobrados || 0)}</div>
+      <div class="k-sub">pagos completados con tarjeta</div></div>`,
+    `<div class="kpi"><div class="k-lbl">Sin terminar</div>
+      <div class="k-val">${num(E.abiertas || 0)}</div>
+      <div class="k-sub">se abrió el cobro y no se completó</div></div>`,
+  ].join('');
+
+  $('#cuerpo').innerHTML = `
+    <div class="card">
+      <h2 class="sec">Paso 1 · Las claves de Stripe</h2>
+      <p class="tiny muted">En Stripe: <b>Developers → API keys</b>. Hay dos.
+        La <b>pública</b> (<code>pk_</code>) puede ir en el navegador y no sirve para cobrar
+        por sí sola. La <b>secreta</b> (<code>sk_</code>) sí cobra: se guarda del lado del
+        servidor y esta pantalla no la puede volver a leer.</p>
+
+      <form id="formClaves" class="stack sep">
+        <div class="field"><label for="cModo">Modo</label>
+          <select id="cModo">
+            <option value="prueba" ${real ? '' : 'selected'}>Prueba — con tarjetas de mentira</option>
+            <option value="real" ${real ? 'selected' : ''}>Real — se cobra dinero de verdad</option>
+          </select>
+          <span class="pista">Empieza en prueba. Stripe da tarjetas de ejemplo (la 4242 4242 4242 4242)
+            para comprobar que todo funciona sin mover un céntimo.</span></div>
+
+        <div class="field"><label for="cPub">Clave pública</label>
+          <input type="text" id="cPub" autocomplete="off" placeholder="pk_test_…"
+            value="${esc(E.publishable_key || '')}"></div>
+
+        <div class="field"><label for="cSec">Clave secreta</label>
+          <input type="password" id="cSec" autocomplete="off"
+            placeholder="${E.configurada ? 'déjala vacía para conservar la de ahora' : 'sk_test_…'}">
+          ${E.secreto_pista ? `<span class="pista">Guardada: <code>${esc(E.secreto_pista)}</code>.
+            Ni esta pantalla la puede leer entera.</span>` : ''}</div>
+
+        <div class="field"><label for="cHook">Secreto del webhook</label>
+          <input type="password" id="cHook" autocomplete="off"
+            placeholder="${E.webhook_pista ? 'déjalo vacío para conservar el de ahora' : 'whsec_…'}">
+          ${E.webhook_pista ? `<span class="pista">Guardado: <code>${esc(E.webhook_pista)}</code>.</span>`
+            : '<span class="pista">Lo obtienes en el paso 2, al crear el webhook.</span>'}</div>
+
+        <div class="row">
+          <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+          ${E.configurada ? `<button class="btn ghost" type="button" id="btnQuitar">
+            <span class="material-symbols-outlined">link_off</span> Desconectar</button>` : ''}
+        </div>
+      </form>
+      <div id="msgClaves"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Paso 2 · Avisarle a Stripe dónde estamos</h2>
+      <p class="tiny muted">Sin esto, la persona paga y aquí nadie se entera: la cuota seguiría
+        pendiente y el curso cerrado. En Stripe: <b>Developers → Webhooks → Add endpoint</b>,
+        pega esta dirección y elige el evento <code>checkout.session.completed</code>.</p>
+      <div class="row" style="gap:8px;align-items:center">
+        <code id="urlHook" class="dato-copiable">${esc(URL_WEBHOOK)}</code>
+        <button class="btn ghost sm" id="btnCopiarHook" type="button">
+          <span class="material-symbols-outlined">content_copy</span> Copiar</button>
+      </div>
+      <p class="tiny muted sep-poco">Stripe te dará entonces un <b>signing secret</b>
+        (<code>whsec_…</code>): pégalo arriba, en el paso 1. Es lo que nos permite distinguir
+        un aviso de Stripe de uno que mande cualquiera diciendo que una cuota está pagada.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="sec">Qué pasa cuando alguien paga</h2>
+      <ol class="tiny muted" style="margin:0;padding-left:18px;line-height:1.7">
+        <li>El estudiante pulsa «Pagar con tarjeta» en su cuota.</li>
+        <li>El servidor pide el cobro a Stripe <b>por el importe que dice la base</b>, no el que
+            mande el navegador — si no, cualquiera podría pagar un euro por una cuota de mil.</li>
+        <li>Paga en la pantalla de Stripe. Su tarjeta no pasa por nosotros en ningún momento.</li>
+        <li>Stripe nos avisa, se comprueba la firma, y el pago entra por la misma puerta que uno
+            por transferencia: se registra, se aprueba y se abona a la cuota.</li>
+        <li>El curso se abre solo y le llega su aviso.</li>
+      </ol>
+    </div>`;
+}
+
+document.addEventListener('submit', async (ev) => {
+  if (ev.target.id !== 'formClaves') return;
+  ev.preventDefault();
+  const pub = $('#cPub').value.trim(), sec = $('#cSec').value, hook = $('#cHook').value;
+  if (!pub) return avisar('#msgClaves', 'Falta la clave pública de Stripe.');
+  if (!sec && !E.configurada) return avisar('#msgClaves', 'Falta la clave secreta.');
+
+  if ($('#cModo').value === 'real' && !await confirmDialog(
+    'A partir de ahora se cobra dinero de verdad a las tarjetas de los estudiantes. '
+    + 'Comprueba que hiciste al menos un cobro de prueba antes de esto.', 'Pasar a modo real')) return;
+
+  const { data, error } = await sb.rpc('cem_stripe_guardar', {
+    p_publishable_key: pub, p_modo: $('#cModo').value,
+    p_secret_key: sec || null, p_webhook_secret: hook || null,
+  });
+  if (error) return avisar('#msgClaves', mensajeError(error, 'No se pudo guardar.'));
+  E = data; pintar();
+  ok('Guardado.');
+});
+
+document.addEventListener('click', async (ev) => {
+  if (ev.target.closest('#btnCopiarHook')) {
+    try { await navigator.clipboard.writeText(URL_WEBHOOK); ok('Dirección copiada.'); }
+    catch {
+      const r = document.createRange(); r.selectNodeContents($('#urlHook'));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      ok('Seleccionada: cópiala con Ctrl+C.');
+    }
+    return;
+  }
+  if (ev.target.closest('#btnQuitar')) {
+    if (!await confirmDialog(
+      'Los estudiantes dejan de poder pagar con tarjeta. Las demás formas de pago siguen '
+      + 'funcionando, y los cobros que ya se hicieron no se tocan.', 'Desconectar los cobros con tarjeta')) return;
+    const { data, error } = await sb.rpc('cem_stripe_quitar');
+    if (error) return fail(mensajeError(error, 'No se pudo desconectar.'));
+    E = data; pintar();
+    ok('Desconectado.');
+  }
+});
+
+cargar();
+</script>
+</body>
+</html>
