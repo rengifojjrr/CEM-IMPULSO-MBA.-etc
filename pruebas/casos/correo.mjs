@@ -40,7 +40,7 @@ export default async function correr(navegador) {
     `La pantalla del correo abre sin un solo error ${JSON.stringify(A.errores.slice(0, 2))}`);
 
   const duplicado = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-2');
     const marca = 'Ensayo automático de duplicados ' + Date.now();
     const uno = { p_para: 'ensayo.duplicado@cem.invalid' };
     // Dos pruebas seguidas con el MISMO texto: la segunda tiene que rebotar.
@@ -65,7 +65,7 @@ export default async function correr(navegador) {
      porque llevan la hora, y eso también hay que verificarlo — si chocaran,
      mandar dos pruebas seguidas sería imposible. */
   const pruebas = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-2');
     const r1 = await m.sb.rpc('cem_correo_prueba', { p_para: 'ensayo.correo@cem.invalid' });
     const r2 = await m.sb.rpc('cem_correo_prueba', { p_para: 'ensayo.correo@cem.invalid' });
     const mala = await m.sb.rpc('cem_correo_prueba', { p_para: 'esto-no-es-un-correo' });
@@ -103,7 +103,7 @@ export default async function correr(navegador) {
      limite la cuenta, y las cuentas de demostración no existen. Si algún día no
      quedan direcciones falsas en la cola, el aviso desaparece y hace bien. */
   const rebotes = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-2');
     const { data } = await m.sb.rpc('cem_correo_estado');
     return Number(data?.rebotaran || 0);
   });
@@ -128,7 +128,7 @@ export default async function correr(navegador) {
 
   /* La clave NO se puede leer desde aquí. Ni la que hubiera guardada. */
   const fuga = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-2');
     const e = await m.sb.rpc('cem_correo_estado');
     const directo = await m.sb.from('cem_integraciones').select('*');
     const config = await m.sb.rpc('cem_correo_config');
@@ -155,7 +155,7 @@ export default async function correr(navegador) {
   /* pg_net contesta en su propio proceso, así que en el instante de pulsar no ha
      salido nada todavía. Decir «0 enviados» sería tan falso como decir «todos». */
   const vaciar = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-2');
     const { data, error } = await m.sb.rpc('cem_correo_vaciar_ahora', { p_tanda: 5 });
     return { data, error: error?.message || null };
   });
@@ -170,7 +170,7 @@ export default async function correr(navegador) {
   await E.waitForTimeout(2500);
 
   const alumno = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-2');
     const r = {};
     for (const [que, llamada] of Object.entries({
       estado: () => m.sb.rpc('cem_correo_estado'),
@@ -225,7 +225,7 @@ export default async function correr(navegador) {
     `Y abre igual de limpia la segunda vez ${JSON.stringify(L.errores.slice(0, 2))}`);
 
   const limpio = await L.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-22-2');
     const tirado = await m.sb.rpc('cem_correo_descartar',
       { p_estado: 'pendiente', p_para: '%@cem.invalid' });
     const { count } = await m.sb.rpc('cem_correo_estado');

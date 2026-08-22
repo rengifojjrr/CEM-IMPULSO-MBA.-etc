@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-53">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-22-2">
 </head>
 <body>
 <!-- Todo lo que hay aquí sale del manual de marca del CEM. Está escrito en la
@@ -128,7 +128,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, esc } from './assets/app.js?v=2026-08-21-53';
+import { sb, mount, $, esc } from './assets/app.js?v=2026-08-22-2';
 await mount({ pub: true });
 
 /* Los cinco valores del brand board, cada uno con su color — en el board son
@@ -187,11 +187,11 @@ $('#historia').innerHTML = HISTORIA.map(([cuando, que]) =>
 $('#formLead').onsubmit = async (e) => {
   e.preventDefault();
   const msg = $('#leadMsg');
-  const queja = (t) => { msg.innerHTML = `<div class="chip err sep">${esc(t)}</div>`; };
+  const queja = (t) => { msg.innerHTML = `<div class="nota err sep">${esc(t)}</div>`; };
   msg.innerHTML = '';
 
   if ($('#lWeb').value) {
-    msg.innerHTML = '<div class="chip ok sep">Gracias, te escribimos pronto.</div>';
+    msg.innerHTML = '<div class="nota ok sep">Gracias, te escribimos pronto.</div>';
     $('#formLead').reset();
     return;
   }
@@ -216,7 +216,7 @@ $('#formLead').onsubmit = async (e) => {
 
   if (error) { queja(error.message || 'No se pudo enviar. Inténtalo otra vez en un momento.'); return; }
   $('#formLead').reset();
-  msg.innerHTML = '<div class="chip ok sep">Recibido. Te escribimos pronto.</div>';
+  msg.innerHTML = '<div class="nota ok sep">Recibido. Te escribimos pronto.</div>';
 };
 </script>
 </body>

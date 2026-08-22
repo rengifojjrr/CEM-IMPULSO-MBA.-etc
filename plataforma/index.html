@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-21-53">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-22-2">
 </head>
 <body>
 <div class="auth-wrap">
@@ -178,8 +178,8 @@
 
 <script type="module">
 import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave } from './assets/app.js?v=2026-08-21-53';
-import { opcionesDePais } from './assets/paises.js?v=2026-08-21-53';
+         medidorDeClave } from './assets/app.js?v=2026-08-22-2';
+import { opcionesDePais } from './assets/paises.js?v=2026-08-22-2';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');
@@ -219,7 +219,7 @@ function quejaDelCorreo() {
   const codigo = h.get('error_code') || h.get('error');
   if (!codigo) return false;
   const caducado = /otp_expired|expired/i.test(codigo);
-  loginMsg.innerHTML = `<div class="chip ${caducado ? 'warn' : 'err'} sep">${
+  loginMsg.innerHTML = `<div class="nota ${caducado ? 'warn' : 'err'} sep">${
     caducado
       ? 'El enlace del correo ya caducó o se usó una vez. Pide otro y entra desde el nuevo.'
       : esc((h.get('error_description') || codigo).replace(/\+/g, ' '))}</div>`;
@@ -279,7 +279,7 @@ $('#formOlvide').onsubmit = async (e) => {
   }
   // Cualquier otro tropiezo (límite de envíos, caída momentánea) se responde
   // igual que el caso bueno: no hay forma de sondear quién tiene cuenta.
-  olvideMsg.innerHTML = `<div class="chip ok sep">
+  olvideMsg.innerHTML = `<div class="nota ok sep">
     Si <b>${esc(correo)}</b> tiene una cuenta, ya salió el enlace. Revisa también la carpeta de correo no deseado.</div>`;
 };
 
@@ -291,7 +291,7 @@ $('#formLogin').onsubmit = async (e) => {
   e.preventDefault();
   loginMsg.innerHTML = '';
   const { error } = await sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#pass').value });
-  if (error) { loginMsg.innerHTML = `<div class="chip err sep">${esc(error.message)}</div>`; return; }
+  if (error) { loginMsg.innerHTML = `<div class="nota err sep">${esc(error.message)}</div>`; return; }
   const p = await (async () => {
     const { data } = await sb.rpc('cem_my_profile');
     const row = Array.isArray(data) ? data[0] : data;
@@ -300,8 +300,8 @@ $('#formLogin').onsubmit = async (e) => {
     // no null), así que hay que comprobar el id, no sólo si "hay algo".
     return (row && row.id) ? row : null;
   })();
-  if (!p) { loginMsg.innerHTML = '<div class="chip err sep">Tu usuario no tiene perfil asignado.</div>'; await sb.auth.signOut(); return; }
-  if (!p.activo) { loginMsg.innerHTML = '<div class="chip err sep">Cuenta desactivada.</div>'; await sb.auth.signOut(); return; }
+  if (!p) { loginMsg.innerHTML = '<div class="nota err sep">Tu usuario no tiene perfil asignado.</div>'; await sb.auth.signOut(); return; }
+  if (!p.activo) { loginMsg.innerHTML = '<div class="nota err sep">Cuenta desactivada.</div>'; await sb.auth.signOut(); return; }
   location.href = destinoSeguro() || homeForRoot(p.rol);
 };
 
@@ -326,7 +326,7 @@ let correoPendiente = '';
 $('#formReg').onsubmit = async (e) => {
   e.preventDefault();
   regMsg.innerHTML = '';
-  const queja = (t) => { regMsg.innerHTML = `<div class="chip err sep">${esc(t)}</div>`; };
+  const queja = (t) => { regMsg.innerHTML = `<div class="nota err sep">${esc(t)}</div>`; };
 
   /* Se valida aquí y no con el `required` del navegador porque el formulario
      lleva `novalidate`: el globo nativo sale en el idioma del navegador, tapa el
@@ -418,8 +418,8 @@ $('#btnReenviar').onclick = async () => {
       Puedes entrar directamente.</div>`;
     return;
   }
-  if (error) { revisaMsg.innerHTML = `<div class="chip err sep">${esc(mensajeError(error))}</div>`; return; }
-  revisaMsg.innerHTML = `<div class="chip ok sep">Enviado otra vez a <b>${esc(correo)}</b>.
+  if (error) { revisaMsg.innerHTML = `<div class="nota err sep">${esc(mensajeError(error))}</div>`; return; }
+  revisaMsg.innerHTML = `<div class="nota ok sep">Enviado otra vez a <b>${esc(correo)}</b>.
     El enlace anterior deja de servir: usa el del correo nuevo.</div>`;
 };
 </script>

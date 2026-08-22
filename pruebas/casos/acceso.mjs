@@ -60,19 +60,65 @@ export default async function correr(navegador) {
   /* Y cabe donde va. El aviso estaba metido en un `.chip`, que lleva
      `white-space:nowrap` porque es una etiqueta de estado —«Al día», «3
      cuotas»—. Una frase de setenta y ocho caracteres ahí dentro no se parte:
-     se salía de la tarjeta por los dos lados. Se mide contra la caja que lo
-     contiene, que es lo que se veía mal en la captura. */
-  const cabe = await P.evaluate(() => {
-    const aviso = document.querySelector('#loginMsg > *');
-    const caja = aviso?.closest('.card') || aviso?.parentElement;
+     se salía de la tarjeta por los dos lados.
+
+     Esta comprobación existía y pasaba en verde con la pantalla rota. Dos
+     motivos, y los dos valen para más sitios:
+
+     1 · Buscaba la caja con `closest('.card')`, pero estas tarjetas son
+         `.auth-card`, que NO casa con `.card` —son clases distintas, no una
+         subcadena—. Al no encontrarla se quedaba con `parentElement`, que es
+         el propio contenedor del mensaje: un div que crece con lo que lleva
+         dentro. O sea, medía el aviso contra sí mismo, y eso da cero siempre.
+
+     2 · Sólo miraba la tarjeta de entrar. El que se rompió fue el de recuperar
+         contraseña, que nadie estaba mirando.
+
+     Ahora se mide contra la tarjeta de verdad, y en las tres pantallas. */
+  const cabeEn = (sel) => P.evaluate((s) => {
+    const aviso = document.querySelector(s + ' > *');
+    const caja = aviso?.closest('.auth-card, .card');
     if (!aviso || !caja) return null;
     const a = aviso.getBoundingClientRect(), c = caja.getBoundingClientRect();
     return { desborde: Math.round(Math.max(0, c.left - a.left) + Math.max(0, a.right - c.right)),
-             ancho: Math.round(a.width), caja: Math.round(c.width) };
-  });
-  a.comprobar(cabe && cabe.desborde === 0,
+             ancho: Math.round(a.width), caja: Math.round(c.width),
+             /* Y que la propia página no se haya ido a lo ancho: un desbordado
+                puede caber en su caja y aun así empujar la ventana. */
+             pagina: Math.round(document.documentElement.scrollWidth - innerWidth) };
+  }, sel);
+
+  const cabe = await cabeEn('#loginMsg');
+  a.comprobar(cabe && cabe.desborde === 0 && cabe.pagina <= 0,
     `Y el aviso cabe dentro de la tarjeta, sin asomar por los lados (${
       cabe ? `${cabe.ancho}px en ${cabe.caja}px, desborde ${cabe.desborde}px` : 'no se encontró'})`);
+
+  /* ---- y el de recuperar contraseña, que es el que se salía de verdad ----
+     La respuesta lleva dentro el correo que se escribió, así que su largo lo
+     decide quien lo teclea: una dirección larga la hace crecer todavía más. */
+  await P.goto(`${BASE}/plataforma/index.html`, { waitUntil: 'domcontentloaded' });
+  await P.waitForFunction(() => !!document.querySelector('#toOlvide')?.onclick,
+    null, { timeout: 30000 });
+  await P.click('#toOlvide');
+  await P.waitForSelector('#cardOlvide:not(.hidden)', { timeout: 10000 });
+  await P.fill('#oEmail', 'una.direccion.larga.de.prueba@correo-de-ejemplo.com');
+  await P.click('#formOlvide button[type=submit]');
+  await P.waitForFunction(() => document.querySelector('#olvideMsg')?.children.length > 0,
+    null, { timeout: 25000 });
+  await P.waitForTimeout(500);
+  const cabeOlvide = await cabeEn('#olvideMsg');
+  a.comprobar(cabeOlvide && cabeOlvide.desborde === 0 && cabeOlvide.pagina <= 0,
+    `El aviso de recuperar contraseña también cabe (${
+      cabeOlvide ? `${cabeOlvide.ancho}px en ${cabeOlvide.caja}px, desborde ${cabeOlvide.desborde}px, `
+        + `página ${cabeOlvide.pagina}px` : 'no se encontró'})`);
+
+  /* Y va en `.nota`, que es de bloque y parte donde toque, no en un chip. */
+  a.comprobar(await P.evaluate(() =>
+    /\bnota\b/.test(document.querySelector('#olvideMsg > *')?.className || '')),
+    'Y va en una nota, no en una píldora que no sabe partir líneas');
+
+  await P.goto(`${BASE}/plataforma/index.html?motivo=vencida&next=admin/estudiantes.html`,
+    { waitUntil: 'domcontentloaded' });
+  await P.waitForTimeout(900);
 
   await P.fill('#email', 'admin@cem.demo');
   await P.fill('#pass', CLAVE);
