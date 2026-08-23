@@ -70,23 +70,36 @@ export default async function correr(navegador) {
   const antes = await colorDe(D, '#graficos .gr-relleno');
   a.comprobar(!!antes, `Una barra pinta con un color (${antes})`);
 
+  /* Se espera a que el color CAMBIE, no un número de milisegundos.
+     ─────────────────────────────────────────────────────────────────────────
+     Aquí había dos esperas de 700 ms. Corriendo este caso solo bastaban; en la
+     tanda de 889, con veintitantos navegadores que han pasado antes, no
+     siempre. Y entonces la prueba decía «el modo noche no cambia el color»
+     cuando lo que pasaba es que aún no le había dado tiempo: un fallo que
+     acusa al programa de algo que no hizo es peor que no tener la prueba.
+
+     Con un tope, para que si de verdad dejara de cambiar siguiera fallando. */
+  const cambiarYEsperar = async (ajuste, distintoDe) => {
+    await D.evaluate(async (a2) => {
+      const t = await import('/plataforma/assets/temas.js?v=2026-08-23-13');
+      t.aplicarApariencia(a2);
+    }, ajuste);
+    await D.waitForFunction((previo) => {
+      const el = document.querySelector('#graficos .gr-relleno');
+      if (!el) return false;
+      const c = getComputedStyle(el).backgroundColor;
+      return c && c !== previo;
+    }, distintoDe, { timeout: 8000 }).catch(() => {});
+    return colorDe(D, '#graficos .gr-relleno');
+  };
+
   // Paleta violeta: si la barra estuviera pintada a mano, no se movería.
-  await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-13');
-    t.aplicarApariencia({ paleta: 'violeta' });
-  });
-  await D.waitForTimeout(700);
-  const conVioleta = await colorDe(D, '#graficos .gr-relleno');
+  const conVioleta = await cambiarYEsperar({ paleta: 'violeta' }, antes);
   a.comprobar(conVioleta && conVioleta !== antes,
     `Al cambiar la paleta en Configuración, la barra cambia con ella (${antes} → ${conVioleta})`);
 
   // Modo noche: mismo asunto, otra dimensión.
-  await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-13');
-    t.aplicarApariencia({ tema: 'oscuro' });
-  });
-  await D.waitForTimeout(700);
-  const deNoche = await colorDe(D, '#graficos .gr-relleno');
+  const deNoche = await cambiarYEsperar({ tema: 'oscuro' }, conVioleta);
   a.comprobar(deNoche && deNoche !== conVioleta,
     `Y en modo noche también (${conVioleta} → ${deNoche})`);
 
