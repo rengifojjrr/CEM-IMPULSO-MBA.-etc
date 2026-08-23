@@ -8,7 +8,31 @@
 import { chromium } from 'playwright';
 
 export const BASE = process.env.CEM_BASE || 'http://localhost:8125';
-export const CLAVE = process.env.CEM_PASS || 'CemDemo2026!';
+
+/* La contraseña de las cuentas de prueba NO se escribe aquí.
+   ═══════════════════════════════════════════════════════════════════════════
+   Este repositorio es público. Durante meses el valor por omisión de esta
+   constante fue una contraseña que funcionaba de verdad, y además la pantalla
+   de entrar la enseñaba en negrita a cualquiera que abriera el sitio. Mientras
+   las cuentas existieran, ahí había seis accesos —uno de ellos de
+   administrador— publicados en dos sitios a la vez.
+
+   Ahora sale del entorno. Se ve una vez, al sembrar los datos de prueba, y
+   quien vaya a correr la suite la pone al lanzarla:
+
+     CEM_PASS='…' node pruebas/correr.mjs
+
+   Si falta, esto se para en seco en vez de intentarlo con una contraseña
+   inventada y hacer creer que lo que falla es el inicio de sesión. */
+export const CLAVE = process.env.CEM_PASS;
+if (!CLAVE) {
+  console.error(
+    '\nFalta CEM_PASS: es la contraseña de las cuentas @pruebas.local.\n'
+    + 'La devuelve cem_sembrar_datos_de_prueba() al sembrarlas, y la enseña\n'
+    + 'una vez la pantalla de Configuración → Datos de prueba.\n\n'
+    + "  CEM_PASS='…' node pruebas/correr.mjs\n");
+  process.exit(1);
+}
 
 /* Las cuentas con las que entran las pruebas.
    ═══════════════════════════════════════════════════════════════════════════
@@ -221,7 +245,7 @@ export async function entrar(pagina, cuenta, destino) {
 export function conLaBase(pagina, fn, ...args) {
   return pagina.evaluate(
     async ({ cuerpo, args }) => {
-      const modulo = await import('/plataforma/assets/app.js?v=2026-08-23-14');
+      const modulo = await import('/plataforma/assets/app.js?v=2026-08-23-15');
       // eslint-disable-next-line no-new-func
       return new Function('sb', 'args', `return (${cuerpo})(sb, ...args)`)(modulo.sb, args);
     },
