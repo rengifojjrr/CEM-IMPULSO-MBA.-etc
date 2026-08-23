@@ -2000,17 +2000,30 @@ html:root:not([data-estilo="plano"]){
 :root[data-publico="si"] body{ background:#fff; }
 
 :root[data-publico="si"] body::after{
+  /* Cada mancha lleva un NÚCLEO sólido antes de empezar a desvanecerse, y esa
+     es la diferencia entre que se vea el color y que no.
+
+     Con dos paradas —color en el centro, transparente en el borde— el color
+     puro existe en un solo punto: el resto de la mancha es alfa cada vez más
+     baja, y encima se le aplica la opacidad de la capa. El resultado sobre
+     blanco era un pastel grisáceo que no se parecía a la marca. Con la parada
+     intermedia, el 22 % interior de cada mancha es color de verdad y el
+     desvanecido empieza desde ahí. Se ve el azul y se ve el verde.
+
+     El desvanecido termina más tarde (68-72 % en vez de 54-60 %) para que las
+     manchas se solapen y se mezclen en los bordes en vez de dejar el blanco
+     asomando entre ellas como cinco pegotes sueltos. */
   background:
-    radial-gradient(30vmax 28vmax at 14% 16%,
-      var(--vivo-azul), transparent 58%),
-    radial-gradient(26vmax 24vmax at 86% 10%,
-      var(--vivo-verde), transparent 56%),
-    radial-gradient(32vmax 29vmax at 76% 86%,
-      var(--vivo-indigo), transparent 60%),
-    radial-gradient(24vmax 22vmax at 24% 84%,
-      var(--vivo-oro), transparent 55%),
-    radial-gradient(20vmax 19vmax at 50% 50%,
-      var(--vivo-verde), transparent 54%);
+    radial-gradient(32vmax 30vmax at 14% 16%,
+      var(--vivo-azul) 0%, var(--vivo-azul) 22%, transparent 70%),
+    radial-gradient(28vmax 26vmax at 86% 10%,
+      var(--vivo-verde) 0%, var(--vivo-verde) 20%, transparent 68%),
+    radial-gradient(34vmax 31vmax at 76% 86%,
+      var(--vivo-indigo) 0%, var(--vivo-indigo) 22%, transparent 72%),
+    radial-gradient(26vmax 24vmax at 24% 84%,
+      var(--vivo-oro) 0%, var(--vivo-oro) 18%, transparent 68%),
+    radial-gradient(22vmax 21vmax at 50% 50%,
+      var(--vivo-verde) 0%, var(--vivo-verde) 18%, transparent 66%);
   /* La opacidad la lleva la capa entera y no cada mancha: así el mando de la
      intensidad sigue funcionando igual que dentro de la plataforma. */
   /* Saturación de verdad.
@@ -2033,10 +2046,50 @@ html:root:not([data-estilo="plano"]){
   transition:translate 1.2s cubic-bezier(.22,.61,.36,1);
 }
 
-/* Sobre blanco hace falta un velo suave bajo el texto, o los titulares
-   oscuros pelean con una mancha saturada que les pase por debajo. */
+/* ── que el texto se siga leyendo con las manchas debajo ─────────────────
+   Esto no es un detalle de acabado, es la parte que hace que lo de arriba se
+   pueda usar. Medido sobre los píxeles de la captura, no sobre la hoja: con
+   las manchas saturadas el párrafo del hero daba 3,34 de contraste y el ojal
+   3,20, cuando hace falta 4,5. Se leían mal.
+
+   Y no se arregla oscureciendo el texto, porque EL FONDO SE MUEVE: dentro de
+   medio minuto ese mismo párrafo tiene otro color detrás. Cualquier color fijo
+   que se elija estará bien en un momento del giro y mal en otro. Lo único que
+   funciona con un fondo que cambia es poner algo entre el fondo y el texto.
+
+   Así que la columna de texto lleva su propio velo: casi blanco donde están
+   las letras, desvaneciéndose hacia fuera para que no se vea el borde y el
+   color siga llegando al resto de la pantalla. El velo va DETRÁS del texto
+   (z-index) y no le come los clics a los botones (pointer-events). */
 :root[data-publico="si"] .portada-cem{position:relative;}
-:root[data-publico="si"] .franja.tenue{background:rgba(255,255,255,.62);}
+:root[data-publico="si"] .portada-dicho{position:relative;}
+/* La caja del velo es MUCHO más grande que el texto y el degradado se apaga
+   muy antes de llegar a su borde. Con la caja justa se veía lo contrario de
+   lo que se busca: un rectángulo blanco con las esquinas rectas recortado
+   sobre el color, que llamaba más la atención que las manchas. Un degradado
+   radial se corta en seco en el borde de su caja si todavía le queda opacidad,
+   y con `120% 100%` en el borde derecho aún iba por la mitad del recorrido.
+   Ahora la elipse mide el 70 % de una caja un tercio más ancha, así que llega
+   a transparente del todo dentro de ella y no hay borde que ver. */
+:root[data-publico="si"] .portada-dicho::before{
+  content:'';position:absolute;z-index:0;pointer-events:none;
+  inset:-38% -34% -34% -30%;
+  background:radial-gradient(62% 56% at 34% 48%,
+    rgba(255,255,255,.95) 0%, rgba(255,255,255,.92) 34%,
+    rgba(255,255,255,.62) 58%, rgba(255,255,255,.22) 74%, transparent 86%);
+}
+:root[data-publico="si"] .portada-dicho > *{position:relative;z-index:1;}
+/* El ojal es el texto más pequeño de la portada y va en el verde de la marca,
+   que sobre claro es el color con menos contraste que tenemos. Aquí se le baja
+   un punto para que llegue al mínimo sin dejar de ser el verde del CEM. */
+:root[data-publico="si"] .ojal{color:#0a5f57;}
+/* El párrafo del hero va en el gris secundario, y con el velo puesto seguía
+   dando 3,96. El número no se elige a ojo: con el fondo medido detrás
+   —rgb(203,206,209)— este gris da 5,4, o sea que aguanta también cuando el
+   giro traiga debajo el tono más oscuro del recorrido y no sólo el de la
+   captura. Sigue siendo gris de texto secundario, no negro. */
+:root[data-publico="si"] .portada-cem .lema{color:#464d56;}
+:root[data-publico="si"] .franja.tenue{background:rgba(255,255,255,.72);}
 
 @media (prefers-reduced-motion:reduce){
   :root[data-publico="si"] body::after{transition:none;}
