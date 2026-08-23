@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es" data-publico="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Cambia tu contraseña</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-15">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo"><span class="material-symbols-outlined">account_balance</span>
+      <div><b>CEM International</b><span>Centro de Estudios de Marketing</span></div></div>
+
+    <div id="pidiendo">
+      <h1>Cambia tu contraseña antes de seguir</h1>
+      <p class="muted">Esta cuenta todavía tiene la contraseña con la que se creó. Con ella
+        se ve la cédula de cada estudiante, se mueve dinero y se reparten roles, así que
+        no se puede dejar puesta.</p>
+      <p class="nota">Cuando la cambies, este aviso desaparece solo. No hay ninguna casilla
+        que marcar: la plataforma mira si la contraseña sigue siendo la de fábrica.</p>
+
+      <form id="fClave" autocomplete="on">
+        <input type="email" id="quien" autocomplete="username" hidden>
+        <div class="field">
+          <label for="c1">Tu contraseña nueva *</label>
+          <input id="c1" type="password" required minlength="8" autocomplete="new-password">
+          <p class="tiny muted" id="fuerza">Ocho caracteres como mínimo. Cuanto más larga, mejor:
+            una frase que recuerdes vale más que ocho símbolos raros.</p>
+        </div>
+        <div class="field">
+          <label for="c2">Repítela *</label>
+          <input id="c2" type="password" required minlength="8" autocomplete="new-password">
+        </div>
+        <p class="nota err" id="error" hidden></p>
+        <button class="btn ancho" type="submit" id="btn">Guardar y continuar</button>
+      </form>
+
+      <p class="tiny muted" style="margin-top:14px">
+        <a href="#" id="salir">Salir de la sesión</a> — si esta cuenta no es tuya.
+      </p>
+    </div>
+
+    <div id="hecho" hidden>
+      <h1>Listo</h1>
+      <p class="muted">Ya tienes tu contraseña. Te llevo a donde ibas.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, $, aplicarApariencia } from './assets/app.js?v=2026-08-23-15';
+
+/* Esta pantalla NO llama a mount(), y no puede: mount() es justo quien manda
+   aquí a la gente, así que llamarlo desde dentro sería un bucle. La comprueba
+   ella misma, y con la misma pregunta al servidor. */
+aplicarApariencia({});
+
+const destino = new URLSearchParams(location.search).get('next') || '';
+
+const { data: { user } } = await sb.auth.getUser();
+if (!user) { location.href = 'index.html'; }
+$('#quien').value = user?.email || '';
+
+/* Si alguien llega aquí con la clave ya cambiada, no se le entretiene. */
+const { data: pendiente } = await sb.rpc('cem_debe_cambiar_clave');
+if (pendiente !== true) location.href = destino || 'index.html';
+
+$('#salir').onclick = async (e) => {
+  e.preventDefault();
+  await sb.auth.signOut();
+  location.href = 'index.html';
+};
+
+/* Se avisa de una clave floja, pero no se prohíbe: quien tiene que decidir
+   cuánto vale su cuenta es quien la usa, y una regla de «una mayúscula y un
+   número» produce «Admin123!», que es peor que una frase larga. */
+$('#c1').oninput = () => {
+  const v = $('#c1').value;
+  const nota = $('#fuerza');
+  if (!v) { nota.textContent = 'Ocho caracteres como mínimo. Cuanto más larga, mejor: '
+    + 'una frase que recuerdes vale más que ocho símbolos raros.'; return; }
+  nota.textContent = v.length < 8 ? `Te faltan ${8 - v.length} caracteres.`
+    : v.length < 12 ? 'Vale, pero una frase de tres o cuatro palabras sería mucho más difícil de adivinar.'
+    : 'Buena longitud.';
+};
+
+$('#fClave').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const err = $('#error'); err.hidden = true;
+  const c1 = $('#c1').value, c2 = $('#c2').value;
+  if (c1 !== c2) {
+    err.textContent = 'Las dos no son iguales. Míralas otra vez.';
+    err.hidden = false; $('#c2').focus(); return;
+  }
+  const btn = $('#btn'); btn.disabled = true; btn.textContent = 'Guardando…';
+
+  const { error } = await sb.auth.updateUser({ password: c1 });
+  if (error) {
+    btn.disabled = false; btn.textContent = 'Guardar y continuar';
+    err.textContent = /same/i.test(error.message)
+      ? 'Ésa es la que ya tenías. Pon una distinta.'
+      : error.message;
+    err.hidden = false; return;
+  }
+
+  /* Se vuelve a preguntar al servidor en vez de dar por hecho que cambió. Si
+     por lo que sea no cuajó, es mejor que la persona lo intente otra vez aquí
+     que dejarla entrar creyendo que ya está. */
+  const { data: sigue } = await sb.rpc('cem_debe_cambiar_clave');
+  if (sigue === true) {
+    btn.disabled = false; btn.textContent = 'Guardar y continuar';
+    err.textContent = 'No se llegó a guardar. Inténtalo otra vez.';
+    err.hidden = false; return;
+  }
+
+  $('#pidiendo').hidden = true; $('#hecho').hidden = false;
+  setTimeout(() => { location.href = destino || 'index.html'; }, 900);
+});
+</script>
+</body>
+</html>

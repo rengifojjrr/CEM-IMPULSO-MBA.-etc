@@ -1,6 +1,6 @@
 # Lo que falta
 
-Estado a **19 de agosto de 2026**. Las cifras salen de mirar la base, no de
+Estado a **23 de agosto de 2026**. Las cifras salen de mirar la base, no de
 memoria; si algo aquí no cuadra con lo que ves, gana lo que ves.
 
 Está ordenado por lo que cuesta que salga mal, no por lo que cuesta hacerlo.
@@ -11,10 +11,15 @@ Está ordenado por lo que cuesta que salga mal, no por lo que cuesta hacerlo.
 
 Nada de esto lo arregla el código: hacen falta cuentas, dinero o material.
 
-### 1.1 · El correo no sale — **26 avisos parados**
+### 1.1 · El correo no sale — **138 avisos parados**
 
 No hay proveedor de correo configurado. Los avisos se encolan y **no se pierden**,
-pero tampoco salen: ahora mismo hay 26 esperando.
+pero tampoco salen: ahora mismo hay 138 esperando, el más viejo del 14 de agosto.
+
+La cifra sube sola cada día que pasa. En este documento llegó a decir 26; no es
+que se corrigiera un error de cuentas, es que la cola **crece**, y cada número de
+esos es alguien que está esperando un correo que no va a llegar. Entre ellos, los
+de confirmar la cuenta: sin proveedor, nadie que se registre hoy puede entrar.
 
 Esto es lo primero de la lista por una razón concreta: la escalera de cobro
 —aviso a −3 días, el día del vencimiento, +3, +15, +30, y a los 60 pasa a
@@ -197,21 +202,55 @@ Mientras tanto los apuntes por lección sí funcionan, y son privados.
 
 ## 3 · Deuda que conviene mirar, aunque hoy no duela
 
-### 3.1 · 88 funciones del servidor abiertas a quien no ha entrado
+### 3.1 · ~~88 funciones del servidor abiertas~~ — cerrado el 23 de agosto
 
-De las 176 funciones `cem_*`, **88 las puede llamar un visitante sin cuenta**, y
-82 de esas se ejecutan con permisos de dueño (`security definer`).
+**Quedan 19, y las 19 tienen que estar abiertas.** Conviene dejar escrito cómo se
+cerró, porque el mismo error se cometió tres veces antes.
 
-Eso **no significa que haya un agujero**: casi todas comprueban por dentro quién
-llama, o son de cosas públicas —el catálogo, el formulario de contacto— que
-tienen que ser abiertas. Postgres las deja abiertas al crearlas, y esa es la
-trampa: no es una decisión que alguien tomó, es lo que pasa si nadie decide.
+Lo que fallaba: se hacía `revoke execute … from anon`, y **eso no cierra nada**.
+Postgres le concede EXECUTE a PUBLIC al crear cada función, y `anon` hereda de
+PUBLIC, así que el permiso seguía llegando por la otra puerta. La tabla de
+permisos se veía bien y las funciones seguían contestando. Hay que revocar
+`from public, anon` y volver a conceder a `authenticated`, que también heredaba
+de PUBLIC y si no se queda fuera el equipo entero.
 
-Ya existe la pantalla que las lista (**Gobierno → Seguridad de mi cuenta**) y las
-que se crearon este mes se cerraron una a una. Lo que falta es **repasar las
-otras**, decidir para cada una si tiene que estar abierta, y cerrar las que no.
-Es un rato de trabajo aburrido y sin resultado visible; también es exactamente el
-tipo de cosa que aparece en el peor momento.
+Lo que se hizo ahora, y es lo que hay que mantener: **se invirtió la regla**. En
+vez de ir tapando agujeros uno a uno, se cerraron todas y se abrieron sólo las
+que se comprobó que hacen falta:
+
+- **13 predicados** que viven dentro de las políticas RLS (`cem_is_staff`,
+  `cem_can_read_all`, `cem_owns_enrollment`…). Una política se evalúa con los
+  permisos de **quien consulta**, no de quien creó la tabla: si a `anon` le
+  quitas EXECUTE ahí, el catálogo público deja de leerse entero.
+- **6 que llaman las páginas públicas**: los países de la portada, las estrellas
+  del catálogo, verificar un certificado, la tasa del día, el perfil que se
+  comparte por enlace y el formulario de contacto.
+
+Y se cambió el permiso **por omisión** (`alter default privileges`), para que la
+próxima función nazca cerrada y haya que abrirla a propósito. Si algún día una
+pantalla pública falla con «permission denied for function …», la respuesta no es
+volver a abrirlo todo: es añadir esa función a la lista, después de mirar si de
+verdad tiene que verla alguien sin sesión.
+
+Dos avisos de lo que costó:
+
+1. Al conceder `authenticated` en bloque se **reabrieron** funciones que estaban
+   cerradas a todo el mundo a propósito: `cem_correo_config`, que lee la clave
+   del proveedor de correo, y las catorce de disparador. Lo cazó la prueba de
+   correo. Una función que sólo llaman otras funciones no necesita que nadie
+   tenga EXECUTE: al llamarse desde dentro de una `security definer`, el permiso
+   se comprueba contra su dueño. Están otra vez cerradas a todos.
+2. La comprobación que vale **no es leer la tabla de permisos**, es llamar a las
+   funciones sin sesión con la clave publicable, que es la que va escrita en el
+   código del sitio. Eso es lo que hace `pruebas/casos/puertas.mjs`, y comprueba
+   las dos direcciones: que lo cerrado esté cerrado **y que el sitio público siga
+   funcionando**. Sin la segunda mitad, la forma más fácil de pasar la prueba
+   sería cerrarlo todo y dejar la portada rota.
+
+Sigue pendiente, y no es de esta familia: `/proyectos.html` usa `upsert_quote` y
+`upsert_pm_project`, que **sí escriben** y siguen abiertas a cualquiera que sepa
+un identificador. Cerrarlas rompe el tablero, que funciona sin cuenta a
+propósito. Es una decisión tuya, no un descuido.
 
 ### 3.2 · La conciliación bancaria no se ha usado con un extracto real
 

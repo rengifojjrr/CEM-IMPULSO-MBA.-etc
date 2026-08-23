@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-15">
 <style>
   /* sin-caja: un valor en monoespaciada, no un panel */
   .dato-tec{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);word-break:break-all;
@@ -141,7 +141,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY, chipEstado, avisar } from '../assets/app.js?v=2026-08-21-53';
+import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail, run, audit, modal, confirmDialog, mejorarSelects, SUPABASE_URL, SUPABASE_KEY, chipEstado, avisar } from '../assets/app.js?v=2026-08-23-15';
 
 /* Cobranza entra: conciliar el extracto contra los pagos reportados es
    exactamente su trabajo. Lo que no ve nadie más que administración son las
@@ -303,7 +303,7 @@ $('#btnTasa').onclick = async () => {
     $('#tasas').innerHTML = Array.isArray(lista) && lista.length
       ? lista.map(t=>`<div class="list-item"><div class="grow"><div class="s">${esc(t.descripcion||t.idTasa||'Tasa')}</div>
           <div class="t">${esc(String(t.valor))} Bs${t.fechaArch?` · ${esc(String(t.fechaArch))}`:''}</div></div></div>`).join('')
-      : `<div class="chip warn">El banco respondió sin tasas</div>
+      : `<div class="nota warn">El banco respondió sin tasas</div>
          <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
          <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(r.datos,null,2)).slice(0,1500)}</pre></details>`;
   } catch(e){ avisar('#tasas', e.message, 'err'); }
@@ -318,7 +318,7 @@ $('#btnSaldo').onclick = async () => {
     $('#saldo').innerHTML = disp != null
       ? `<div class="list-item"><div class="grow"><div class="s">Disponible</div>
          <div class="t" style="font-size:22px;font-weight:700;color:var(--primary)">${esc(String(disp))} ${esc(d?.moneda?.codigo||'')}</div></div></div>`
-      : `<div class="chip warn">El banco respondió sin saldo</div>
+      : `<div class="nota warn">El banco respondió sin saldo</div>
          <details style="margin-top:8px"><summary class="tiny muted">Ver respuesta cruda</summary>
          <pre class="dato-tec" style="white-space:pre-wrap;margin-top:6px">${esc(JSON.stringify(d,null,2)).slice(0,1500)}</pre></details>`;
   } catch(e){ avisar('#saldo', e.message, 'err'); }

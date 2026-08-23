@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Quiénes son los estudiantes</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-15">
+<style>
+  /* La rejilla de cobertura: una casilla por dato, con el color diciendo si
+     hay bastante gente que lo ha rellenado como para fiarse del gráfico.
+
+     El recuadro y su relleno los pone «caja», que es lo que hace que estas
+     casillas sigan el estilo que cada quien haya elegido —plano, escarcha, lo
+     que sea— en vez de dibujarse un filete propio que no cambia con nada. Lo
+     único de aquí es la franja de color, que es la señal. */
+  .cobertura{ display:grid; gap:10px;
+              grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+  .cob-dato{ padding:10px 12px; }
+  .cob-dato .cob-n{ font-size:1.35rem; font-weight:700; line-height:1.1;
+                    font-variant-numeric:tabular-nums; }
+  .cob-dato .cob-q{ font-size:.78rem; }
+  .cob-dato[data-tono]{ box-shadow:inset 3px 0 0 var(--linea,#e3e6ee); }
+  .cob-dato[data-tono="err"]{ box-shadow:inset 3px 0 0 var(--err,#d14343); }
+  .cob-dato[data-tono="warn"]{ box-shadow:inset 3px 0 0 var(--warn,#d98324); }
+  .cob-dato[data-tono="ok"]{ box-shadow:inset 3px 0 0 var(--ok,#1f9d55); }
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Quiénes son los estudiantes <button type="button" class="ayuda-btn" data-ayuda="Antes de cada gráfico se dice cuánta gente ha rellenado ese dato. Un gráfico hecho con tres respuestas de cuarenta alumnos no describe a los alumnos, describe a esos tres.">?</button></h1>
+      <p>De dónde vienen, cómo llegaron y qué temas dicen que les interesan.</p></div>
+    <div class="actions">
+      <div class="row" style="gap:4px" id="rangos"></div>
+      <button class="btn outline" id="btnCsv"><span class="material-symbols-outlined">download</span> CSV</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Esta tarjeta va primero a propósito. Todo lo de abajo se dibuja con lo que
+       la gente ha rellenado, y ahora mismo hay campos que no ha rellenado nadie.
+       Poner los gráficos antes que esto haría creer que a nadie le interesa
+       ningún tema, cuando lo que pasa es que aún no se lo hemos preguntado. -->
+  <div class="card">
+    <div class="row between">
+      <h2 class="sec">Cuánto sabemos de verdad</h2>
+      <span class="tiny muted" id="cobPie"></span>
+    </div>
+    <div class="cobertura" id="cobertura"></div>
+    <p class="tiny muted" id="cobAviso" style="margin-top:10px"></p>
+  </div>
+
+  <div class="grid graficos">
+    <div class="card" id="gPaises"></div>
+    <div class="card" id="gCanales"></div>
+    <div class="card" id="gIntereses"></div>
+    <div class="card" id="gEdades"></div>
+    <div class="card" id="gAltas"></div>
+    <div class="card" id="gEmbudo"></div>
+  </div>
+
+  <div class="card" id="cardCiudades" hidden>
+    <div class="row between"><h2 class="sec">En qué ciudades están</h2>
+      <span class="tiny muted">sólo de quien ha dicho la suya</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Ciudad</th><th>País</th><th class="num">Estudiantes</th></tr></thead>
+      <tbody id="tbCiudades"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, num, kpi, emptyRow, toCSV, download } from '../assets/app.js?v=2026-08-23-15';
+import { barras, columnas } from '../assets/graficos.js?v=2026-08-23-15';
+import { paisNombre, paisConBandera } from '../assets/paises.js?v=2026-08-23-15';
+
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'metricas-estudiantes.html', area:'admin' });
+let rango = 365, m = null;
+
+const RANGOS = [[90,'Trimestre'],[365,'Año'],[0,'Todo']];
+$('#rangos').innerHTML = RANGOS.map(([v,l]) =>
+  `<button class="chip chip-btn ${v===rango?'on':''}" data-r="${v}">${l}</button>`).join('');
+$$('[data-r]').forEach(b => b.onclick = () => {
+  rango = Number(b.dataset.r);
+  $$('[data-r]').forEach(x => x.classList.toggle('on', x === b));
+  cargar();
+});
+
+if (p) cargar();
+
+async function cargar(){
+  const { data, error } = await sb.rpc('cem_metricas_estudiantes', { p_dias: rango });
+  if (error) {
+    $('#cobertura').innerHTML = '';
+    $('#cobAviso').textContent = 'No se pudieron traer las métricas: ' + error.message;
+    return;
+  }
+  m = data || {};
+  pintar();
+}
+
+/* Con menos de esta proporción de gente que ha contestado, el gráfico se sigue
+   dibujando pero avisando: no es lo mismo «el 60 % está en Colombia» sobre
+   cuarenta respuestas que sobre tres. */
+const FIABLE = 0.5;
+
+function tono(n, total){
+  if (!total || !n) return 'err';
+  return n / total >= FIABLE ? 'ok' : 'warn';
+}
+
+function vacio(titulo, texto){
+  return `<figure class="gr"><figcaption class="gr-tit">${esc(titulo)}</figcaption>`
+       + `<p class="gr-vacio">${esc(texto)}</p></figure>`;
+}
+
+function pintar(){
+  const total = Number(m.alumnos || 0);
+  const cob = m.cobertura || {};
+  const paises = m.paises || [];
+
+  $('#kpis').innerHTML = [
+    kpi('Estudiantes', num(total), 'group',
+        rango ? `dados de alta en el periodo` : 'desde el principio'),
+    kpi('Países', num(paises.length), 'public',
+        paises[0] ? `el mayor es ${paisNombre(paises[0].pais) || paises[0].pais}` : 'nadie ha dicho el suyo'),
+    kpi('Con la cédula subida', num(cob.documento || 0), 'badge',
+        `de ${num(total)} estudiante(s)`),
+    kpi('Han dicho qué les interesa', num(cob.intereses || 0), 'interests',
+        cob.intereses ? 'sirve para saber qué abrir' : 'aún no lo pregunta nadie'),
+  ].join('');
+
+  /* La rejilla de cobertura. El número grande es cuánta gente ha rellenado ese
+     campo; debajo, sobre cuántos. */
+  const CAMPOS = [
+    ['pais',       'País'],
+    ['ciudad',     'Ciudad'],
+    ['canal',      'Cómo nos conoció'],
+    ['intereses',  'Temas que le interesan'],
+    ['nacimiento', 'Fecha de nacimiento'],
+    ['documento',  'Cédula subida'],
+  ];
+  $('#cobertura').innerHTML = CAMPOS.map(([k, etq]) => {
+    const n = Number(cob[k] || 0);
+    const pc = total ? Math.round(100 * n / total) : 0;
+    return `<div class="caja cob-dato" data-tono="${tono(n, total)}">
+      <div class="cob-n">${num(n)} <span class="tiny muted">de ${num(total)}</span></div>
+      <div class="cob-q">${esc(etq)}</div>
+      <div class="tiny muted">${pc}%</div></div>`;
+  }).join('');
+  $('#cobPie').textContent = `sobre ${num(total)} estudiante(s) del periodo`;
+
+  const flojos = CAMPOS.filter(([k]) => total && Number(cob[k] || 0) / total < FIABLE)
+                       .map(([, etq]) => etq.toLowerCase());
+  $('#cobAviso').textContent = !total
+    ? 'No hay estudiantes dados de alta en este periodo, así que no hay nada que medir todavía.'
+    : flojos.length
+      ? `Menos de la mitad de los estudiantes ha rellenado: ${flojos.join(', ')}. `
+        + 'Los gráficos de esos datos describen a quien contestó, no a todos.'
+      : 'Todos los campos los ha rellenado más de la mitad de los estudiantes.';
+
+  // ---- de dónde son ----
+  $('#gPaises').innerHTML = paises.length
+    ? barras({
+        titulo: 'De qué países son', col:'País', colN:'Estudiantes', tope: 8,
+        pie: `De ${num(cob.pais || 0)} estudiante(s) que han dicho su país. `
+           + 'Es la lista con la que se decide qué países enseñar en la portada.',
+        datos: paises.map(x => ({ etq: paisConBandera(x.pais) || x.pais, n: Number(x.alumnos) })),
+      })
+    : vacio('De qué países son', 'Todavía nadie ha dicho de dónde es.');
+
+  // ---- cómo llegaron ----
+  const canales = (m.canales || []).filter(c => c.canal !== '(no lo dijeron)');
+  $('#gCanales').innerHTML = canales.length
+    ? barras({
+        titulo: 'Cómo nos conocieron', col:'Canal', colN:'Personas', tope: 8,
+        pie: 'Junta a quien ya tiene cuenta con quien sólo dejó su contacto: es la '
+           + 'misma pregunta hecha en dos momentos, y separarlas partía el canal en dos.',
+        datos: canales.map(c => ({ etq: c.canal,
+                                   n: Number(c.alumnos) + Number(c.contactos) })),
+      })
+    : vacio('Cómo nos conocieron',
+            'Nadie lo ha dicho todavía. El campo existe en el registro y en el formulario de contacto.');
+
+  // ---- qué les interesa ----
+  const temas = m.intereses || [];
+  $('#gIntereses').innerHTML = temas.length
+    ? barras({
+        titulo: 'Qué temas les interesan', col:'Tema', colN:'Estudiantes', tope: 10,
+        pie: 'Lo que marcan en «Mis datos». Un tema que se repite y del que no hay '
+           + 'curso es un curso que falta.',
+        datos: temas.map(t => ({ etq: t.tema, n: Number(t.alumnos) })),
+      })
+    : vacio('Qué temas les interesan',
+            'Aún no lo ha marcado nadie. Se pregunta en «Mis datos», dentro del área del estudiante.');
+
+  // ---- edades ----
+  const edades = m.edades || [];
+  $('#gEdades').innerHTML = edades.length
+    ? columnas({
+        titulo: 'Qué edad tienen', alto: 140,
+        pie: `De ${num(cob.nacimiento || 0)} estudiante(s) que han puesto su fecha de nacimiento.`,
+        datos: edades.map(e => ({ etq: e.tramo, n: Number(e.alumnos) })),
+      })
+    : vacio('Qué edad tienen', 'Nadie ha puesto su fecha de nacimiento.');
+
+  // ---- cuándo entraron ----
+  const altas = m.altas || [];
+  $('#gAltas').innerHTML = altas.length
+    ? columnas({
+        titulo: 'Cuándo se dieron de alta', alto: 140,
+        pie: 'Cuentas nuevas por mes. No es lo mismo que inscripciones: hay quien se '
+           + 'hace la cuenta y tarda semanas en pagar.',
+        datos: altas.map(a => ({ etq: a.mes.slice(5) + '/' + a.mes.slice(2,4), n: Number(a.alumnos) })),
+      })
+    : vacio('Cuándo se dieron de alta', 'No hay altas en este periodo.');
+
+  // ---- el embudo, corto ----
+  const e = m.embudo || {};
+  const pasos = [
+    { etq:'Dejaron su contacto', n:Number(e.contactos || 0) },
+    { etq:'Se hicieron la cuenta', n:Number(e.cuentas || 0) },
+    { etq:'Se inscribieron', n:Number(e.inscritos || 0) },
+    { etq:'Están estudiando', n:Number(e.estudiando || 0) },
+    { etq:'Terminaron', n:Number(e.terminados || 0) },
+  ];
+  /* Barras en orden, NO un embudo, y la diferencia importa.
+
+     Con forma de embudo esto dibujaba «−25 %» y «−67 %» entre un escalón y el
+     siguiente, y esos porcentajes eran mentira: los dos primeros no contienen
+     al tercero. Hay quien se inscribe sin haber dejado antes su contacto, así
+     que «se hicieron la cuenta» puede ser mayor que «dejaron su contacto» y el
+     dibujo salía creciendo hacia abajo mientras las cifras decían que caía.
+
+     La pregunta que contesta esta pantalla es «cuánta gente hay en cada sitio».
+     La de «cuánta pasa de un sitio al siguiente» es otra, y tiene su embudo
+     bien hecho —sólo sobre las inscripciones, que sí se contienen— en Centro de
+     reportes. `ordenar: false` mantiene el orden del recorrido; ordenadas por
+     tamaño volverían a insinuar una secuencia que no es. */
+  $('#gEmbudo').innerHTML = pasos.some(x => x.n)
+    ? barras({
+        titulo: 'Cuánta gente hay en cada punto',
+        col: 'Punto', colN: 'Personas', ordenar: false,
+        pie: 'No es un embudo: los dos primeros no son pasos de los siguientes, porque '
+           + 'hay quien se inscribe sin dejar antes sus datos. Para ver dónde se cae la '
+           + 'gente de verdad, Centro de reportes.'
+           + (e.esperando ? ` Hay ${num(e.esperando)} esperando a que se les active el acceso.` : '')
+           + (e.anuladas ? ` Y ${num(e.anuladas)} inscripción(es) anuladas, que no salen arriba.` : ''),
+        datos: pasos,
+      })
+    : vacio('Cuánta gente hay en cada punto', 'No hay movimiento en este periodo.');
+
+  // ---- ciudades ----
+  const ciudades = m.ciudades || [];
+  $('#cardCiudades').hidden = ciudades.length === 0;
+  if (ciudades.length) {
+    $('#tbCiudades').innerHTML = ciudades.map(c => `<tr>
+      <td class="wrap"><b>${esc(c.ciudad)}</b></td>
+      <td>${esc(paisNombre(c.pais) || c.pais || '—')}</td>
+      <td class="num">${num(c.alumnos)}</td></tr>`).join('')
+      || emptyRow(3, 'Nadie ha dicho su ciudad.');
+  }
+}
+
+$('#btnCsv').onclick = () => {
+  if (!m) return;
+  const filas = [
+    ...(m.paises || []).map(x => ({ bloque:'País', concepto: paisNombre(x.pais) || x.pais, estudiantes: x.alumnos })),
+    ...(m.ciudades || []).map(x => ({ bloque:'Ciudad', concepto: `${x.ciudad} (${x.pais || '—'})`, estudiantes: x.alumnos })),
+    ...(m.canales || []).map(x => ({ bloque:'Canal', concepto: x.canal, estudiantes: Number(x.alumnos) + Number(x.contactos) })),
+    ...(m.intereses || []).map(x => ({ bloque:'Tema', concepto: x.tema, estudiantes: x.alumnos })),
+    ...(m.edades || []).map(x => ({ bloque:'Edad', concepto: x.tramo, estudiantes: x.alumnos })),
+  ];
+  download(`estudiantes_cem_${rango || 'todo'}d.csv`, toCSV(filas));
+};
+</script>
+</body>
+</html>

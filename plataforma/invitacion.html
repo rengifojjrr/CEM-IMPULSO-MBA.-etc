@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es" data-publico="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Te han invitado</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-15">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card" id="tarjeta">
+    <div class="auth-logo"><span class="material-symbols-outlined">account_balance</span>
+      <div><b>CEM International</b><span>Centro de Estudios de Marketing</span></div></div>
+
+    <!-- Mientras se comprueba el enlace. Sin esto, durante el segundo que tarda
+         la consulta se vería la pantalla de «este enlace no vale», que es
+         justo el mensaje que no hay que enseñarle a alguien cuyo enlace sí
+         vale. -->
+    <div id="mirando">
+      <p class="muted">Comprobando la invitación…</p>
+    </div>
+
+    <!-- El enlace no sirve. Se dice POR QUÉ, porque las tres razones se
+         arreglan de forma distinta: caducada y anulada se piden de nuevo, y
+         usada quiere decir que ya tiene cuenta y lo que necesita es entrar. -->
+    <div id="noVale" hidden>
+      <h1>Este enlace ya no vale</h1>
+      <p class="muted" id="porQue"></p>
+      <div class="auth-acciones">
+        <a class="btn" href="index.html">Ir a iniciar sesión</a>
+        <a class="btn outline" href="inicio.html">Ver el CEM</a>
+      </div>
+    </div>
+
+    <!-- El formulario. -->
+    <form id="fInv" hidden autocomplete="on">
+      <h1 id="saludo">Te han invitado al CEM</h1>
+      <p class="muted" id="quienYComo"></p>
+      <p class="nota" id="mensajeSuyo" hidden></p>
+
+      <div class="field">
+        <label for="iCorreo">Tu correo</label>
+        <input id="iCorreo" type="email" readonly autocomplete="username">
+        <p class="tiny muted">Es el correo al que te invitaron y no se puede cambiar aquí.
+          Si no es el tuyo, pide que te inviten al bueno.</p>
+      </div>
+
+      <div class="row">
+        <div class="field medio"><label for="iNombre">Nombre *</label>
+          <input id="iNombre" required autocomplete="given-name"></div>
+        <div class="field medio"><label for="iApellido">Apellido</label>
+          <input id="iApellido" autocomplete="family-name"></div>
+      </div>
+
+      <div class="field">
+        <label for="iClave">Elige tu contraseña *</label>
+        <input id="iClave" type="password" required minlength="8" autocomplete="new-password">
+        <p class="tiny muted">Ocho caracteres como mínimo. La eliges tú: nadie del CEM la ve.</p>
+      </div>
+      <div class="field">
+        <label for="iClave2">Repítela *</label>
+        <input id="iClave2" type="password" required minlength="8" autocomplete="new-password">
+      </div>
+
+      <div class="row">
+        <div class="field medio"><label for="iTel">Teléfono</label>
+          <input id="iTel" autocomplete="tel" placeholder="+58 412 1234567"></div>
+        <div class="field medio"><label for="iPais">País</label>
+          <select id="iPais"></select></div>
+      </div>
+      <div class="field"><label for="iCiudad">Ciudad</label>
+        <input id="iCiudad" autocomplete="address-level2"></div>
+
+      <p class="nota err" id="error" hidden></p>
+      <button class="btn ancho" type="submit" id="btnEntrar">Crear mi cuenta y entrar</button>
+    </form>
+
+    <!-- Hecho. -->
+    <div id="listo" hidden>
+      <h1>Ya estás dentro</h1>
+      <p class="muted" id="listoTexto"></p>
+      <div class="auth-acciones"><a class="btn" href="index.html">Entrar</a></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { sb, $, esc, etiqueta, QUE_HACE_EL_ROL, aplicarApariencia } from './assets/app.js?v=2026-08-23-15';
+import { opcionesDePais } from './assets/paises.js?v=2026-08-23-15';
+
+/* Esta pantalla NO llama a mount(): la abre alguien que todavía no tiene
+   cuenta, que es justo lo que mount() rechaza. La única llave es el token que
+   viene en la dirección, y la comprueba el servidor. */
+aplicarApariencia({});
+
+$('#iPais').innerHTML = opcionesDePais('', 'Selecciona tu país');
+
+const token = new URLSearchParams(location.search).get('t') || '';
+
+const POR_QUE = {
+  no_existe: 'Puede que el enlace se haya copiado a medias, o que ya no exista. '
+           + 'Pide que te lo manden otra vez.',
+  anulada:   'Quien te invitó anuló esta invitación. Si crees que es un error, díselo.',
+  usada:     'Ya se usó, así que tu cuenta existe. Lo que necesitas es entrar '
+           + 'con tu correo y la contraseña que pusiste.',
+  caducada:  'Se pasó la fecha. Pide que te inviten de nuevo: el enlace nuevo dura otra vez.',
+};
+
+function enseñar(cual){
+  for (const id of ['mirando','noVale','fInv','listo']) $('#'+id).hidden = (id !== cual);
+}
+
+const { data, error } = await sb.rpc('cem_invitacion_ver', { p_token: token });
+
+if (error || !data || data.ok !== true) {
+  $('#porQue').textContent = POR_QUE[data?.motivo] || POR_QUE.no_existe;
+  enseñar('noVale');
+} else {
+  $('#saludo').textContent = data.nombre ? `Hola, ${data.nombre}` : 'Te han invitado al CEM';
+  /* Se le dice QUÉ VA A PODER HACER, no sólo cómo se llama su rol. «Te
+     invitaron como coordinador» no significa nada para quien llega de fuera. */
+  $('#quienYComo').innerHTML = 'Te han invitado a la plataforma del CEM International como '
+    + `<b>${esc(etiqueta(data.rol))}</b>. ${esc(QUE_HACE_EL_ROL[data.rol] || '')}`;
+  if (data.mensaje) { $('#mensajeSuyo').textContent = data.mensaje; $('#mensajeSuyo').hidden = false; }
+  $('#iCorreo').value = data.email;
+  $('#iNombre').value = data.nombre || '';
+  $('#iApellido').value = data.apellido || '';
+  enseñar('fInv');
+  $('#iNombre').focus();
+}
+
+$('#fInv').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const err = $('#error');
+  err.hidden = true;
+  const clave = $('#iClave').value;
+  if (clave !== $('#iClave2').value) {
+    err.textContent = 'Las dos contraseñas no son iguales. Míralas otra vez.';
+    err.hidden = false; $('#iClave2').focus(); return;
+  }
+  const btn = $('#btnEntrar');
+  btn.disabled = true; btn.textContent = 'Creando tu cuenta…';
+
+  const { data: r, error: e } = await sb.rpc('cem_invitacion_aceptar', {
+    p_token: token,
+    p_clave: clave,
+    p_nombre: $('#iNombre').value.trim(),
+    p_apellido: $('#iApellido').value.trim() || null,
+    p_telefono: $('#iTel').value.trim() || null,
+    p_pais: $('#iPais').value || null,
+    p_ciudad: $('#iCiudad').value.trim() || null,
+  });
+
+  if (e || !r?.ok) {
+    btn.disabled = false; btn.textContent = 'Crear mi cuenta y entrar';
+    err.textContent = e?.message || 'No se pudo crear la cuenta.';
+    err.hidden = false;
+    return;
+  }
+
+  /* Se le entra directamente, sin mandarle a escribir otra vez lo que acaba de
+     escribir. Si por lo que sea no cuaja, se le dice y va a la pantalla de
+     entrar: la cuenta ya existe, así que no ha perdido nada. */
+  const { error: eLogin } = await sb.auth.signInWithPassword({
+    email: r.email, password: clave,
+  });
+  if (eLogin) {
+    $('#listoTexto').textContent = 'Tu cuenta ya está creada. Entra con tu correo y la '
+      + 'contraseña que acabas de elegir.';
+    enseñar('listo');
+    return;
+  }
+  location.href = r.rol === 'estudiante' ? 'estudiante/panel.html'
+                : r.rol === 'profesor'   ? 'docente/panel.html'
+                : 'admin/index.html';
+});
+</script>
+</body>
+</html>

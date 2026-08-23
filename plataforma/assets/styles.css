@@ -723,11 +723,40 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 .pub-brand{display:flex;align-items:center;gap:var(--e1);font-weight:var(--peso-fuerte);
   color:var(--tinta);white-space:nowrap;}
 .pub-cta{margin-left:auto;display:flex;gap:var(--e1);align-items:center;}
+/* El botón del menú: sólo existe en pantallas estrechas. */
+.pub-menu-btn{display:none;border:1px solid var(--filete);background:var(--papel);
+  color:var(--tinta);border-radius:var(--r);width:42px;height:42px;cursor:pointer;
+  align-items:center;justify-content:center;flex:none;}
+.pub-menu-btn:hover{border-color:var(--filete-fuerte);}
+
 @media(max-width:720px){
-  .pub-inner{padding:var(--e1) var(--e2);gap:var(--e1) var(--e2);}
-  .pub-inner nav{order:3;width:100%;gap:var(--e2);flex-wrap:nowrap;overflow-x:auto;
-    white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px;}
-  .pub-inner nav::-webkit-scrollbar{display:none;}
+  /* ── una sola fila, y lo demás cuando se pida ──────────────────────────
+     Esto eran TRES filas apiladas —la marca, los dos botones y los enlaces—
+     y los enlaces además se salían por la derecha: en un teléfono de 390 px
+     «Verificar certificado» aparecía cortado por la mitad. Ciento veinte
+     píxeles de los setecientos ochenta que hay, pegados arriba todo el rato
+     mientras se lee.
+
+     Ahora la fila mide lo que mide un botón. El menú se despliega debajo, se
+     cierra al elegir, con Escape y tocando fuera. */
+  .pub-inner{padding:var(--e1) var(--e2);gap:var(--e1);flex-wrap:wrap;min-height:0;}
+  .pub-menu-btn{display:inline-flex;order:2;margin-left:auto;}
+  .pub-brand{order:1;}
+
+  .pub-inner nav,
+  .pub-inner .pub-cta{display:none;order:3;width:100%;}
+  .pub-header.abierto nav{display:flex;flex-direction:column;gap:0;
+    border-top:1px solid var(--filete);padding-top:var(--e1);margin-top:var(--e1);}
+  .pub-header.abierto nav a{padding:var(--e2) 0;font-size:var(--t-md);}
+  .pub-header.abierto .pub-cta{display:flex;margin-left:0;gap:var(--e1);
+    padding:var(--e1) 0 var(--e2);}
+  /* Los dos botones, a mitad y mitad: en una columna estrecha, dos botones de
+     ancho distinto se leen como si uno importara más que el otro. */
+  .pub-header.abierto .pub-cta > .btn{flex:1;justify-content:center;}
+
+  /* Desplegado puede pasar de la pantalla: que se desplace él, no la página
+     de debajo, que si no se pierde el sitio donde se estaba leyendo. */
+  .pub-header.abierto .pub-inner{max-height:100dvh;overflow-y:auto;}
 }
 .pub-inner nav a.on{color:var(--primary);font-weight:var(--peso-fuerte);}
 .pub-main{max-width:1200px;margin:0 auto;padding:var(--e3) var(--e3) var(--e5);}
@@ -742,18 +771,42 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 .franja h2{font-size:var(--t-xl);margin:0 0 var(--e1);}
 .franja > .dentro > p.entrada{color:var(--tinta-2);max-width:62ch;margin:0 0 var(--e3);}
 
-.portada-cem{text-align:center;padding:var(--e5) var(--e3) var(--e4);}
-.portada-cem h1{font-size:clamp(28px, 5vw, 44px);line-height:1.12;margin:0 auto var(--e2);
-  max-width:16ch;}
-.portada-cem .lema{color:var(--tinta-2);font-size:var(--t-md);max-width:56ch;
-  margin:0 auto var(--e3);}
+.portada-cem{padding:var(--e5) var(--e3) var(--e4);}
+/* Dos columnas: lo que decimos y algo que se puede hacer.
+   La derecha no baja de 340 px porque debajo lleva un formulario, y un campo
+   de texto más estrecho que eso se vuelve incómodo de escribir. */
+.portada-dos{display:grid;gap:var(--e4);align-items:center;
+  grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr);}
+.portada-cem h1{font-size:clamp(28px, 4.4vw, 46px);line-height:1.08;margin:0 0 var(--e2);
+  max-width:15ch;letter-spacing:-.02em;}
+.portada-cem .lema{color:var(--tinta-2);font-size:var(--t-md);max-width:52ch;
+  margin:0 0 var(--e3);}
+/* El ojal: quién habla y desde cuándo, antes del titular. Dos datos que una
+   escuela sí puede decir y que ninguna plantilla trae puestos. */
+.ojal{display:inline-block;font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--secondary);
+  margin-bottom:var(--e2);}
+.portada-manos{display:flex;gap:var(--e1);flex-wrap:wrap;margin-bottom:var(--e3);}
+
+/* El comprobador de títulos. Es la única cosa de esta portada que la
+   competencia no puede copiar pegando texto: funciona. */
+.comprobador{align-self:start;}
+.comprobador .sello{color:var(--ok);font-size:34px;}
+.comprobador .buscador-grande,.comprobador input{margin:0;}
+
+@media (max-width:900px){
+  /* En una columna el orden manda: primero lo que se dice, y el comprobador
+     debajo. Quien llega por el móvil viene a mirar qué hay, no a verificar. */
+  .portada-dos{grid-template-columns:minmax(0,1fr);gap:var(--e3);}
+  .portada-cem h1{max-width:none;}
+}
 /* El buscador grande. Es el elemento con más peso de la página a propósito. */
-.buscador-grande{max-width:620px;margin:0 auto;position:relative;}
+.buscador-grande{max-width:620px;position:relative;}
 .buscador-grande .material-symbols-outlined{position:absolute;left:14px;top:50%;
   transform:translateY(-50%);color:var(--tinta-3);pointer-events:none;}
 .buscador-grande input{padding-left:44px;min-height:52px;font-size:var(--t-md);
   border-radius:var(--r-full);}
-.atajos{display:flex;flex-wrap:wrap;gap:var(--e1);justify-content:center;margin-top:var(--e2);}
+.atajos{display:flex;flex-wrap:wrap;gap:var(--e1);margin-top:var(--e2);}
 
 /* ── escribir para encontrar a alguien ────────────────────────────────────
    Sustituye al desplegable de quinientos nombres. La lista flota sobre lo
@@ -992,6 +1045,27 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
   overflow:hidden;display:flex;flex-direction:column;transition:border-color var(--rapido);}
 .course-card:hover{border-color:var(--filete-fuerte);}
 .course-card img{width:100%;height:148px;object-fit:cover;background:var(--hueco);}
+/* ── la portada dibujada, cuando el curso no tiene foto ───────────────────
+   Seis de los ocho cursos publicados no tienen imagen, y un recuadro en blanco
+   de 148 px no se lee como «falta la foto»: se lee como «esto no está
+   terminado». Cada categoría trae su motivo —lo dibuja `portadaDeCurso()` en
+   app.js— y el color sale del tema elegido, así que sigue la paleta como todo
+   lo demás en vez de ser un morado fijo.
+
+   `currentColor` es lo que deja que el motivo se pinte solo: el SVG hereda el
+   color del contenedor y no hay que repetirlo dentro de cada trazo. */
+.portada-curso{width:100%;display:block;object-fit:cover;background:var(--hueco);}
+.portada-tema{position:relative;overflow:hidden;color:var(--on-primary);
+  background:linear-gradient(135deg,
+    color-mix(in oklab, var(--primary) calc(var(--mezcla, 50) * 1%), var(--secondary)),
+    color-mix(in oklab, var(--primary) 78%, #000));}
+.portada-tema svg{position:absolute;inset:0;width:100%;height:100%;opacity:.72;}
+/* El nombre de la categoría, abajo a la izquierda: es el único texto, porque el
+   título del curso ya va ocho píxeles más abajo en la propia ficha. */
+.portada-tema .etiqueta{position:absolute;left:var(--e2);bottom:var(--e1);
+  font-size:var(--t-xs);font-weight:var(--peso-fuerte);letter-spacing:.08em;
+  text-transform:uppercase;opacity:.9;}
+@media (prefers-reduced-transparency:reduce){ .portada-tema svg{opacity:1;} }
 .course-card .body{padding:var(--e2);flex:1;display:flex;flex-direction:column;gap:var(--e1);}
 .course-card h3{margin:0;font-size:var(--t-md);line-height:1.3;font-weight:var(--peso-fuerte);}
 /* El título de una tarjeta dentro del portal, con la misma voz. */
@@ -1869,11 +1943,158 @@ html:root:not([data-estilo="plano"]){
   :root:not([data-estilo="plano"]) th{
     background:var(--papel);-webkit-backdrop-filter:none;backdrop-filter:none;
     box-shadow:none;}
+
+
+
   :root:not([data-estilo="plano"]) :is(.card,.caja)::before,
   :root:not([data-estilo="plano"]) :is(.card,.caja)::after,
   :root:not([data-estilo="plano"]) .kpi::before,
   :root:not([data-estilo="plano"]) .kpi::after{display:none;}
 }
+
+/* Este bloque va DESPUÉS de todo lo del ambiente a propósito.
+   ─────────────────────────────────────────────────────────────────────────
+   La primera versión estaba más arriba y no se aplicaba NADA: misma
+   especificidad que la regla base, así que ganaba la que venía después. Se
+   veía exactamente igual que antes y costó dos intentos entender que el CSS
+   ni siquiera estaba llegando. Si alguien mueve esto hacia arriba, el
+   escaparate se apaga sin dar ningún error. */
+/* ── el escaparate: blanco, y la marca dando vueltas encima ───────────────
+   Sólo en las pantallas públicas. Dentro de la plataforma el fondo tiene que
+   dejar trabajar; aquí tiene que llamar la atención, y además puede: no hay
+   barra lateral ni una rejilla de tarjetas tapando la pantalla entera, así que
+   por primera vez el movimiento se ve de verdad.
+
+   Blanco de base y las manchas ENCIMA, no mezcladas: sobre blanco, un color
+   saturado se ve saturado. Si el blanco se pusiera encima con transparencia,
+   todo acabaría en el mismo pastel de siempre.
+
+   Y responde al ratón. Es la única parte de la página que se mueve por lo que
+   hace la persona, así que es donde ese gesto se nota. Muy poco recorrido —un
+   3%— porque un fondo que persigue el cursor marea; lo justo para que se
+   perciba que la página está viva. */
+/* Los mismos tonos de la marca, a plena intensidad.
+   ───────────────────────────────────────────────────────────────────────
+   El azul del CEM es #0d2440 y el verde #0b7268: colores OSCUROS, elegidos
+   para llevar texto encima. Sobre blanco y a media opacidad no dan color,
+   dan gris — se probó dos veces, y las dos veces la franja parecía una nube
+   sucia. Subirles la saturación con un filtro tampoco arregla nada: no se
+   puede sacar color de donde no lo hay.
+
+   Estos son los MISMOS tonos —el mismo azul, el mismo verde, el mismo
+   dorado— con la luminosidad y el croma que hacen falta para que se vean
+   como color sobre blanco. No es otra paleta: es la de la casa encendida.
+   Sólo viven aquí, en el escaparate; dentro de la plataforma no se usan. */
+/* Dos atributos y no uno: `[data-animacion][data-estilo="plano"]` pone
+   `--ambiente-movil:.5` y con un solo atributo esta regla perdía por
+   especificidad. El síntoma era que la intensidad salía a la mitad sin que
+   nada lo dijera: la variable decía 1,6 y la opacidad salía como si fuera 0,8. */
+:root[data-publico="si"][data-animacion="si"],
+:root[data-publico="si"]{
+  --ambiente-movil:1;
+  --vivo-azul:#1f5fd8;
+  --vivo-verde:#06b6a4;
+  --vivo-oro:#f0a913;
+  --vivo-indigo:#6b4ce0;
+}
+:root[data-publico="si"] body{ background:#fff; }
+
+:root[data-publico="si"] body::after{
+  /* Cada mancha lleva un NÚCLEO sólido antes de empezar a desvanecerse, y esa
+     es la diferencia entre que se vea el color y que no.
+
+     Con dos paradas —color en el centro, transparente en el borde— el color
+     puro existe en un solo punto: el resto de la mancha es alfa cada vez más
+     baja, y encima se le aplica la opacidad de la capa. El resultado sobre
+     blanco era un pastel grisáceo que no se parecía a la marca. Con la parada
+     intermedia, el 22 % interior de cada mancha es color de verdad y el
+     desvanecido empieza desde ahí. Se ve el azul y se ve el verde.
+
+     El desvanecido termina más tarde (68-72 % en vez de 54-60 %) para que las
+     manchas se solapen y se mezclen en los bordes en vez de dejar el blanco
+     asomando entre ellas como cinco pegotes sueltos. */
+  background:
+    radial-gradient(32vmax 30vmax at 14% 16%,
+      var(--vivo-azul) 0%, var(--vivo-azul) 22%, transparent 70%),
+    radial-gradient(28vmax 26vmax at 86% 10%,
+      var(--vivo-verde) 0%, var(--vivo-verde) 20%, transparent 68%),
+    radial-gradient(34vmax 31vmax at 76% 86%,
+      var(--vivo-indigo) 0%, var(--vivo-indigo) 22%, transparent 72%),
+    radial-gradient(26vmax 24vmax at 24% 84%,
+      var(--vivo-oro) 0%, var(--vivo-oro) 18%, transparent 68%),
+    radial-gradient(22vmax 21vmax at 50% 50%,
+      var(--vivo-verde) 0%, var(--vivo-verde) 18%, transparent 66%);
+  /* La opacidad la lleva la capa entera y no cada mancha: así el mando de la
+     intensidad sigue funcionando igual que dentro de la plataforma. */
+  /* Saturación de verdad.
+     ─────────────────────────────────────────────────────────────────────
+     La paleta de la casa es sobria a propósito —azul marino y verde apagados,
+     «más peso que color»— y eso, mezclado sobre blanco a media opacidad, da
+     GRIS. Se probó: la primera versión de esta franja parecía una nube sucia.
+
+     Así que aquí, y sólo aquí, se les sube la saturación. La identidad no
+     cambia: siguen siendo el azul y el verde del CEM, sólo que enseñando el
+     color que ya tenían en vez de dejarlo apagado contra el blanco. Dentro de
+     la plataforma no se toca nada. */
+  /* Sin filtro: el color ya viene vivo de origen. Un `saturate()` encima de
+     algo casi transparente sólo ensucia los bordes. */
+  opacity:calc(var(--ambiente-movil, 1) * var(--ambiente-fuerza, 1) * .40);
+  /* El desplazamiento del ratón se suma al giro. Va en variables para que la
+     animación siga siendo de CSS: mover esto desde JavaScript en cada
+     movimiento del ratón repintaría la pantalla sesenta veces por segundo. */
+  translate:calc(var(--raton-x, 0) * 3%) calc(var(--raton-y, 0) * 3%);
+  transition:translate 1.2s cubic-bezier(.22,.61,.36,1);
+}
+
+/* ── que el texto se siga leyendo con las manchas debajo ─────────────────
+   Esto no es un detalle de acabado, es la parte que hace que lo de arriba se
+   pueda usar. Medido sobre los píxeles de la captura, no sobre la hoja: con
+   las manchas saturadas el párrafo del hero daba 3,34 de contraste y el ojal
+   3,20, cuando hace falta 4,5. Se leían mal.
+
+   Y no se arregla oscureciendo el texto, porque EL FONDO SE MUEVE: dentro de
+   medio minuto ese mismo párrafo tiene otro color detrás. Cualquier color fijo
+   que se elija estará bien en un momento del giro y mal en otro. Lo único que
+   funciona con un fondo que cambia es poner algo entre el fondo y el texto.
+
+   Así que la columna de texto lleva su propio velo: casi blanco donde están
+   las letras, desvaneciéndose hacia fuera para que no se vea el borde y el
+   color siga llegando al resto de la pantalla. El velo va DETRÁS del texto
+   (z-index) y no le come los clics a los botones (pointer-events). */
+:root[data-publico="si"] .portada-cem{position:relative;}
+:root[data-publico="si"] .portada-dicho{position:relative;}
+/* La caja del velo es MUCHO más grande que el texto y el degradado se apaga
+   muy antes de llegar a su borde. Con la caja justa se veía lo contrario de
+   lo que se busca: un rectángulo blanco con las esquinas rectas recortado
+   sobre el color, que llamaba más la atención que las manchas. Un degradado
+   radial se corta en seco en el borde de su caja si todavía le queda opacidad,
+   y con `120% 100%` en el borde derecho aún iba por la mitad del recorrido.
+   Ahora la elipse mide el 70 % de una caja un tercio más ancha, así que llega
+   a transparente del todo dentro de ella y no hay borde que ver. */
+:root[data-publico="si"] .portada-dicho::before{
+  content:'';position:absolute;z-index:0;pointer-events:none;
+  inset:-38% -34% -34% -30%;
+  background:radial-gradient(62% 56% at 34% 48%,
+    rgba(255,255,255,.95) 0%, rgba(255,255,255,.92) 34%,
+    rgba(255,255,255,.62) 58%, rgba(255,255,255,.22) 74%, transparent 86%);
+}
+:root[data-publico="si"] .portada-dicho > *{position:relative;z-index:1;}
+/* El ojal es el texto más pequeño de la portada y va en el verde de la marca,
+   que sobre claro es el color con menos contraste que tenemos. Aquí se le baja
+   un punto para que llegue al mínimo sin dejar de ser el verde del CEM. */
+:root[data-publico="si"] .ojal{color:#0a5f57;}
+/* El párrafo del hero va en el gris secundario, y con el velo puesto seguía
+   dando 3,96. El número no se elige a ojo: con el fondo medido detrás
+   —rgb(203,206,209)— este gris da 5,4, o sea que aguanta también cuando el
+   giro traiga debajo el tono más oscuro del recorrido y no sólo el de la
+   captura. Sigue siendo gris de texto secundario, no negro. */
+:root[data-publico="si"] .portada-cem .lema{color:#464d56;}
+:root[data-publico="si"] .franja.tenue{background:rgba(255,255,255,.72);}
+
+@media (prefers-reduced-motion:reduce){
+  :root[data-publico="si"] body::after{transition:none;}
+}
+
 
 /* ── la muestra de un estilo, en Configuración ────────────────────────────
    Elegir a ciegas entre siete nombres no es elegir. Cada botón lleva dentro

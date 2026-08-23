@@ -3,7 +3,7 @@
 
    Es el caso más delicado del sistema: un fallo aquí no se ve, se cobra mal. */
 
-import { acta, nuevaPestana, entrar, conLaBase, BASE } from '../entorno.mjs';
+import { acta, nuevaPestana, entrar, conLaBase, BASE, CUENTAS } from '../entorno.mjs';
 
 export default async function correr(navegador) {
   const a = acta('dinero');
@@ -159,7 +159,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-23-15');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -378,7 +378,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-15');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -406,7 +406,7 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-15');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });
@@ -502,8 +502,10 @@ export default async function correr(navegador) {
   /* A qué programa se puede invitar: uno publicado donde el estudiante de
      demostración no esté ya. Preguntándoselo a la base y no fijando un
      identificador, que cambia con cada juego de datos. */
-  const destino = await conLaBase(A, async (sb) => {
-    const { data: yo } = await sb.from('cem_profiles').select('id').eq('email', 'estudiante@cem.demo').maybeSingle();
+  /* El correo va como argumento: lo de dentro de conLaBase() corre en el
+     navegador, donde las constantes de este archivo no existen. */
+  const destino = await conLaBase(A, async (sb, correo) => {
+    const { data: yo } = await sb.from('cem_profiles').select('id').eq('email', correo).maybeSingle();
     const { data: mios } = await sb.from('cem_enrollments').select('course_id')
       .eq('profile_id', yo.id).not('estado', 'in', '("cancelada","finalizada")');
     const tomados = new Set((mios || []).map((x) => x.course_id));
@@ -511,7 +513,7 @@ export default async function correr(navegador) {
       .eq('estado', 'publicado').order('nombre');
     const libre = (cursos || []).find((c) => !tomados.has(c.id) && Number(c.precio) > 0);
     return { perfil: yo.id, curso: libre || null };
-  });
+  }, CUENTAS.estudiante);
 
   if (!destino.curso) {
     a.comprobar(false, 'Hay algún programa publicado al que invitar al estudiante de prueba');
@@ -519,7 +521,13 @@ export default async function correr(navegador) {
     await A.click('#btnNueva');
     await A.waitForSelector('#nEst', { timeout: 10000 });
 
-    await A.fill('#nEst', 'estudiante@cem');
+    /* Se escribe un TROZO del correo a propósito: lo que se comprueba es que el
+       buscador encuentra escribiendo, no que acepta la dirección entera. Y ese
+       trozo se saca de la constante en vez de escribirlo aquí: la versión
+       anterior decía «estudiante@cem» a mano, y el día que las cuentas de
+       prueba cambiaron de dominio siguió buscando el viejo y no encontró a
+       nadie. La prueba falló por sí misma, no por la pantalla. */
+    await A.fill('#nEst', CUENTAS.estudiante.split('.')[0]);
     await A.waitForTimeout(1500);
     const encontrados = await A.$$eval('#nEstLista li[data-k]', (ls) => ls.length);
     a.comprobar(encontrados >= 1,

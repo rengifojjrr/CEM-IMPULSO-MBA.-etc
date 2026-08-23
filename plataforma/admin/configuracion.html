@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-21-53">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-15">
 <style>
 </style>
 </head>
@@ -138,13 +138,20 @@
       <thead><tr><th>Clave</th><th>Valor</th><th>Descripción</th></tr></thead>
       <tbody id="tbAll"></tbody></table></div>
   </div>
+
+  <!-- Va la última de la pantalla a propósito: es lo que se toca una vez antes
+       de abrir al público y nunca más, no algo que se ajuste a menudo. -->
+  <div class="card">
+    <h2 class="sec">Datos de prueba <button type="button" class="ayuda-btn" data-ayuda="Alumnos, programas y pagos inventados que existen para que las comprobaciones automáticas puedan correr. Se quitan de un botón, y el botón sólo borra lo que sembró: nunca puede llevarse por delante un dato real.">?</button></h2>
+    <div id="estadoPruebas"><p class="muted">Mirando…</p></div>
+  </div>
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, ok, fail, run, audit, confirmDialog,
-         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-21-53';
-import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-21-53';
-import { panelApariencia } from '../assets/apariencia.js?v=2026-08-21-53';
+import { sb, mount, $, $$, esc, ok, fail, run, audit, confirmDialog, modal,
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-23-15';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-23-15';
+import { panelApariencia } from '../assets/apariencia.js?v=2026-08-23-15';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
 
 /* El panel de apariencia vive en assets/apariencia.js: el mismo que abre
@@ -262,6 +269,96 @@ $('#ppAnadir').onclick = () => {
   $('#ppNuevo').value = '';
   pintarPaisesPortada();
 };
+
+/* ══════════════ los datos de prueba ══════════════
+   Las 889 comprobaciones automáticas entran como seis personas distintas,
+   abren programas y pagan cuotas: necesitan datos. Y el banco de pruebas se
+   conecta a ESTA base, no a una aparte. Antes eso se resolvía solo, porque los
+   datos de ensayo vivían mezclados con los de verdad —por eso nueve de once
+   cuentas eran «@cem.demo»—. Ahora están apuntados fila por fila y se van de
+   un botón. */
+async function pintarPruebas(){
+  const host = $('#estadoPruebas');
+  const { data, error } = await sb.rpc('cem_hay_datos_de_prueba');
+  if (error) { host.innerHTML = `<p class="nota err">${esc(error.message)}</p>`; return; }
+  const hay = Number(data?.filas || 0);
+
+  host.innerHTML = hay ? `
+    <p class="nota warn"><b>Hay ${hay.toLocaleString('es-ES')} filas de prueba puestas</b>,
+      entre ellas ${data.cuentas} cuenta(s) con correo <code>@pruebas.local</code>.
+      Los programas salen con <b>[PRUEBA]</b> delante del nombre.
+      <b>Quítalos antes de abrir al público</b>: mientras estén, tus cifras de
+      estudiantes y de dinero los cuentan.</p>
+    <p class="tiny muted">El borrado se lleva lo que sembró <b>y lo que cuelgue de ello</b>:
+      si una prueba creó después un pago de un alumno inventado, ese pago es igual de
+      inventado. Lo que apunta sólo a datos de verdad no se toca. Después, las
+      comprobaciones automáticas dejarán de poder correr hasta que se vuelvan a sembrar.</p>
+    <button class="btn err" id="btnQuitarPruebas">
+      <span class="material-symbols-outlined">delete_sweep</span> Borrar los datos de prueba</button>`
+  : `
+    <p class="muted">No hay ninguno. La base sólo tiene datos de verdad.</p>
+    <p class="tiny muted">Sin ellos, las comprobaciones automáticas no pueden entrar a la
+      plataforma y quedan dormidas. Se siembran para revisar un cambio y se quitan después.</p>
+    <button class="btn outline" id="btnSembrarPruebas">
+      <span class="material-symbols-outlined">science</span> Sembrar datos de prueba</button>`;
+
+  const quitar = $('#btnQuitarPruebas');
+  if (quitar) quitar.onclick = async () => {
+    if (!await confirmDialog(`¿Borrar las ${hay.toLocaleString('es-ES')} filas de prueba? `
+      + 'Se van las cuentas @pruebas.local, sus programas y sus pagos. '
+      + 'Tus datos de verdad no se tocan.')) return;
+    quitar.disabled = true; quitar.textContent = 'Borrando…';
+    const { data: r, error: e } = await sb.rpc('cem_borrar_datos_de_prueba');
+    if (e) { fail(e.message); pintarPruebas(); return; }
+    /* Se dicen las dos cifras por separado: una cosa es lo que se sembró y otra
+       lo que las pruebas fueron dejando encima. Juntarlas escondería que el
+       borrado hace algo más que deshacer la siembra. */
+    ok(`Fuera ${Number(r.filas).toLocaleString('es-ES')} filas de prueba`
+      + (Number(r.colgando) ? ` y ${Number(r.colgando).toLocaleString('es-ES')} que colgaban de ellas.` : '.'));
+    pintarPruebas();
+  };
+
+  const sembrar = $('#btnSembrarPruebas');
+  if (sembrar) sembrar.onclick = async () => {
+    if (!await confirmDialog('¿Sembrar datos de prueba? Se añaden cuentas, programas y pagos '
+      + 'inventados, marcados y borrables después desde aquí mismo.')) return;
+    sembrar.disabled = true; sembrar.textContent = 'Sembrando…';
+    const { data: r, error: e } = await sb.rpc('cem_sembrar_datos_de_prueba');
+    if (e) { fail(e.message); pintarPruebas(); return; }
+    ok(`Sembradas ${Number(r.filas).toLocaleString('es-ES')} filas.`);
+    enseñarLaClave(r);
+    pintarPruebas();
+  };
+}
+
+/* La contraseña se enseña UNA vez, aquí, igual que el enlace de una invitación.
+   Antes era una constante escrita en el repositorio —que es público— y además
+   impresa en la pantalla de entrar, con seis botones al lado que la rellenaban
+   sola. Uno de administrador. Ahora se genera al sembrar y no queda escrita en
+   ningún sitio del que se pueda volver a leer: si se pierde, se siembra otra
+   vez y sale una nueva. */
+function enseñarLaClave(r){
+  const m = modal({ title: 'Datos de prueba sembrados', wide: true, body: `
+    <p>${Number(r.filas).toLocaleString('es-ES')} filas y ${r.cuentas} cuenta(s)
+      <code>@pruebas.local</code>: <code>admin@</code>, <code>coordinador@</code>,
+      <code>cobranza@</code>, <code>profesor@</code>, <code>estudiante@</code> y
+      <code>auditor@</code>.</p>
+    <p class="nota">Esta contraseña <b>sólo se enseña ahora</b>. Se generó al sembrar y no
+      queda guardada en ninguna parte que pueda leerse después. Si la pierdes, vuelve a
+      sembrar y sale otra.</p>
+    <div class="field"><label for="pwPrueba">La contraseña de las seis cuentas</label>
+      <input id="pwPrueba" value="${esc(r.clave || '')}" readonly onclick="this.select()"></div>
+    <p class="tiny muted">Para correr las comprobaciones automáticas:
+      <code>CEM_PASS='…' node pruebas/correr.mjs</code></p>`,
+    footer: `<button class="btn outline" data-x>Cerrar</button>
+             <button class="btn" data-c><span class="material-symbols-outlined">content_copy</span> Copiar</button>` });
+  $('[data-x]', m).onclick = m.close;
+  $('[data-c]', m).onclick = async () => {
+    try { await navigator.clipboard.writeText(r.clave); ok('Contraseña copiada.'); }
+    catch { $('#pwPrueba', m).select(); fail('Cópiala a mano: el navegador no me deja hacerlo solo.'); }
+  };
+}
+pintarPruebas();
 </script>
 </body>
 </html>

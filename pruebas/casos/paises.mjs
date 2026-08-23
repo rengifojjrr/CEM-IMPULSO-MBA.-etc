@@ -136,7 +136,7 @@ export default async function correr(navegador) {
      una copia del razonamiento escrita aquí: una prueba que reimplementa lo
      que comprueba pasa siempre. */
   const traduce = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/paises.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/paises.js?v=2026-08-23-15');
     return {
       usa: m.paisDesdeTexto('usa'),
       venezuela: m.paisDesdeTexto('Venezuela'),
@@ -163,9 +163,25 @@ export default async function correr(navegador) {
      La lista de estudiantes es donde el código en crudo se vería primero. */
   const A = await nuevaPestana(navegador, { ancho: 1400 });
   await entrar(A, 'admin', 'admin/estudiantes.html');
-  /* Se espera a las celdas de país, no a «alguna fila»: mientras carga ya hay
-     una fila puesta —la de «cargando»— y la prueba miraba esa. */
-  await A.waitForSelector('td[data-col="País"]', { timeout: 25000 });
+  /* Se espera a una celda de país CON TEXTO, no a que exista la celda.
+     ─────────────────────────────────────────────────────────────────────────
+     Ya se corrigió una vez esperando a «alguna fila», porque la de «cargando»
+     también era una fila. Esperar a `td[data-col="País"]` tenía el mismo
+     problema por detrás: el esqueleto de carga se dibuja con el mismo número
+     de columnas y el vigilante de tablas le pone `data-col` igual que a las
+     de verdad. Así que la espera se cumplía con el esqueleto y se leían cuatro
+     celdas vacías.
+
+     Se notaba sólo en la tanda completa: al correr este caso solo, la pantalla
+     carga antes de que nadie mire. Bajo la carga de las 889, el esqueleto
+     ganaba la carrera. Una prueba que depende de quién llegue antes no está
+     comprobando lo que dice comprobar. */
+  await A.waitForFunction(() => {
+    const celdas = [...document.querySelectorAll('td[data-col="País"]')];
+    return celdas.length > 0
+      && !document.querySelector('.esqueleto-fila')
+      && celdas.some((t) => t.textContent.trim().length > 0);
+  }, null, { timeout: 25000 });
   const columna = await A.evaluate(() => [...document.querySelectorAll('td[data-col="País"]')]
     .map((t) => t.textContent.trim()).filter((t) => t && t !== '—'));
   a.comprobar(columna.length > 0, `La lista de estudiantes trae países (${columna.length})`);

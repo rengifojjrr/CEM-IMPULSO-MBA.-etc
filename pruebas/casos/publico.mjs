@@ -61,7 +61,7 @@ export default async function correr(navegador) {
      que lo que se comprueba es que la función responda y que si hay nota, se
      enseñe; no que exista un número concreto. */
   const valoraciones = await P.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-15');
     const { data, error } = await m.sb.rpc('cem_valoracion_cursos', { p_minimo: 5 });
     return { error: error?.message || null, cuantas: Object.keys(data || {}).length };
   });
@@ -241,6 +241,123 @@ export default async function correr(navegador) {
     await H.close();
   }
 
+  /* ============ 4b · el encabezado en un teléfono ============
+     En 390 px eran TRES filas apiladas —la marca, los dos botones y los
+     enlaces— y los enlaces además se salían por la derecha: «Verificar
+     certificado» salía cortado. Ciento veinte píxeles de los setecientos
+     ochenta que tiene la pantalla, pegados arriba mientras se lee.
+
+     Se mide el alto de verdad, no si «existe el botón»: un menú plegable que
+     ocupe lo mismo que antes no ha arreglado nada. */
+  const T = await nuevaPestana(navegador, { ancho: 390, alto: 780 });
+  await T.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
+  await T.waitForSelector('.pub-header', { timeout: 30000 });
+  await T.waitForTimeout(2500);
+
+  const medir = () => T.evaluate(() => ({
+    alto: Math.round(document.querySelector('.pub-header').getBoundingClientRect().height),
+    /* Que la página no se vaya a lo ancho: un menú que desborda obliga a
+       desplazar de lado para leer, y eso no se nota en el escritorio. */
+    desborde: Math.round(document.documentElement.scrollWidth - innerWidth),
+  }));
+
+  const cerrado = await medir();
+  a.comprobar(cerrado.alto <= 70,
+    `En un teléfono el encabezado ocupa una sola fila (${cerrado.alto} px; eran 120)`);
+  a.comprobar(cerrado.desborde <= 0,
+    `Y no empuja la página a lo ancho (${cerrado.desborde} px de desborde)`);
+  a.comprobar(await T.locator('#pubMenu').isVisible(),
+    'Con un botón para abrir el menú');
+  a.comprobar(!(await T.locator('#pubNav').isVisible()),
+    'Y los enlaces recogidos hasta que se pidan');
+
+  await T.click('#pubMenu');
+  await T.waitForTimeout(500);
+  a.comprobar(await T.locator('#pubNav').isVisible()
+    && (await T.getAttribute('#pubMenu', 'aria-expanded')) === 'true',
+    'Al pulsarlo se abren, y lo dice también para quien no lo ve');
+  const abierto = await medir();
+  a.comprobar(abierto.desborde <= 0,
+    `Abierto tampoco desborda (${abierto.desborde} px)`);
+  /* Los cuatro enlaces enteros, no tres y medio: lo que se salía por la
+     derecha era justamente el último. */
+  a.comprobar(await T.evaluate(() => {
+    const caja = document.querySelector('.pub-header').getBoundingClientRect();
+    return [...document.querySelectorAll('#pubNav a')]
+      .every((a) => a.getBoundingClientRect().right <= caja.right + 1);
+  }), 'Y ninguno se sale por el lado, como hacía «Verificar certificado»');
+
+  /* Se cierra al elegir. Si no, tapa la página a la que acabas de ir. */
+  await T.click('#pubNav a[href*="catalogo"]');
+  await T.waitForTimeout(2500);
+  a.comprobar(/catalogo\.html/.test(T.url())
+    && (await T.getAttribute('#pubMenu', 'aria-expanded')) === 'false',
+    'Elegir una entrada navega y cierra el menú detrás de ti');
+
+  /* Y con Escape, que es lo que todo el mundo intenta. */
+  await T.click('#pubMenu');
+  await T.waitForTimeout(400);
+  await T.keyboard.press('Escape');
+  await T.waitForTimeout(400);
+  a.comprobar((await T.getAttribute('#pubMenu', 'aria-expanded')) === 'false',
+    'Escape también lo cierra');
+  a.comprobar(T.errores.length === 0, `Sin errores en el teléfono ${JSON.stringify(T.errores.slice(0, 2))}`);
+  await T.close();
+
+  /* ============ 4c · el escaparate se ve igual para todos ============
+     La apariencia es de cada quien DENTRO de la plataforma. La portada no: es
+     un escaparate, y uno que cambia de color según quién pase no es un
+     escaparate. Se abre con el navegador en modo NOCHE a propósito — es el
+     caso que lo rompía. */
+  const ESC = await nuevaPestana(navegador, { ancho: 1300, alto: 900, oscuro: true });
+  await ESC.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
+  await ESC.waitForTimeout(4000);
+
+  const esc = await ESC.evaluate(() => {
+    const r = document.documentElement;
+    const cs = getComputedStyle(document.body, '::after');
+    return { tema: r.dataset.theme, paleta: r.dataset.paleta,
+             fondo: getComputedStyle(document.body).backgroundColor,
+             opacidad: Number(cs.opacity), anim: cs.animationName,
+             /* Que el color que se pinta sea COLOR y no un gris: los tonos de
+                la casa son oscuros y sobre blanco se apagaban. */
+             vivo: getComputedStyle(r).getPropertyValue('--vivo-azul').trim() };
+  });
+  a.comprobar(esc.tema === 'light',
+    `Con el navegador en modo noche, la portada sale clara igual (${esc.tema})`);
+  a.comprobar(esc.fondo === 'rgb(255, 255, 255)',
+    `Sobre blanco (${esc.fondo})`);
+  a.comprobar(esc.anim === 'cem-ambiente',
+    'Con los colores de la marca girando');
+  /* Se mide la opacidad porque es lo que decide si el color se ve o se queda
+     en un gris. Estuvo a la mitad sin que nada lo dijera: una regla del estilo
+     «Plano» ganaba por especificidad. */
+  a.comprobar(esc.opacidad >= 0.5,
+    `Y con color de verdad, no apagado a la mitad (opacidad ${esc.opacidad})`);
+  a.comprobar(/^#|rgb/.test(esc.vivo),
+    `Con los tonos de la casa encendidos (${esc.vivo || 'no llegaron'})`);
+  a.comprobar(ESC.errores.length === 0,
+    `Sin errores en la portada ${JSON.stringify(ESC.errores.slice(0, 2))}`);
+  await ESC.close();
+
+  /* ============ 4d · el título del programa se lee sobre su foto ============
+     `--on-primary` es el color que se lee sobre el color de marca, y en modo
+     noche vale AZUL OSCURO. Debajo de la cabecera de un programa no hay color
+     de marca: hay una foto con un velo oscuro, oscuro en los dos temas. Así
+     que en noche el título salía azul oscuro sobre azul oscuro. */
+  for (const oscuro of [false, true]) {
+    const C = await nuevaPestana(navegador, { ancho: 1300, alto: 800, oscuro });
+    await C.goto(`${BASE}/plataforma/curso.html?id=${unCurso}`, { waitUntil: 'domcontentloaded' });
+    await C.waitForSelector('#hero h1', { timeout: 30000 });
+    await C.waitForTimeout(2500);
+    const color = await C.evaluate(() =>
+      getComputedStyle(document.querySelector('#hero h1')).color);
+    a.comprobar(color === 'rgb(255, 255, 255)',
+      `El título del programa va en blanco sobre su foto, también en ${
+        oscuro ? 'modo noche' : 'modo día'} (${color})`);
+    await C.close();
+  }
+
   /* ============ 5 · dejar los datos ============ */
   const L = await nuevaPestana(navegador, { ancho: 1300, alto: 950 });
   await L.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
@@ -301,7 +418,7 @@ export default async function correr(navegador) {
   await entrar(E, 'estudiante', 'estudiante/panel.html');
   await E.waitForTimeout(2000);
   const fuga = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-21-53');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-15');
     const directo = await m.sb.from('cem_leads').select('*').limit(5);
     const porFuncion = await m.sb.rpc('cem_leads_listar');
     return {

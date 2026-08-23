@@ -282,26 +282,17 @@
       </div>
 
       <h3>Cuentas de prueba</h3>
-      <p>La pantalla de acceso trae accesos directos a cinco cuentas de demostración, todas con la
-        contraseña <code>CemDemo2026!</code>. Ya tienen datos reales cargados (programas, cohortes,
-        inscripciones, pagos, evaluaciones y un certificado emitido), así que sirven para recorrer la
-        plataforma sin tener que crear nada primero.</p>
-      <div class="tw">
-        <table>
-          <thead><tr><th>Cuenta</th><th>Rol</th><th>Qué vas a encontrar</th></tr></thead>
-          <tbody>
-            <tr><td><code>admin@cem.demo</code></td><td>admin</td><td>Portal institucional completo, los 7 programas y las 6 cohortes sembradas.</td></tr>
-            <tr><td><code>coordinador@cem.demo</code></td><td>coordinador</td><td>Mismo portal institucional que admin, sin Configuración ni Usuarios/Permisos.</td></tr>
-            <tr><td><code>profesor@cem.demo</code></td><td>profesor</td><td>Asignado como docente del MBA Ejecutivo y del Diplomado de Trading.</td></tr>
-            <tr><td><code>estudiante@cem.demo</code></td><td>estudiante (Ana)</td><td>Inscrita y activa en el MBA (42% de avance, pagando en 6 cuotas) y con el Diplomado de Trading <b>finalizado</b>, con certificado emitido e insignias.</td></tr>
-            <tr><td><code>auditor@cem.demo</code></td><td>auditor</td><td>Ve todo el portal institucional, sin ningún botón de escritura.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="tiny muted">También existen <code>profesor2@cem.demo</code> (Alan, docente de Marketing y
-        Liderazgo), <code>estudiante2@cem.demo</code> (Michael, con una inscripción pendiente de pago) y
-        <code>estudiante3@cem.demo</code> (Sarah, con una cuota vencida y una apelación resuelta), con la
-        misma contraseña.</p>
+      <p>La plataforma puede llevar datos de ensayo puestos —alumnos, programas y pagos
+        inventados— para que las comprobaciones automáticas tengan contra qué correr. Se ponen y
+        se quitan desde <b>Configuración → Datos de prueba</b>, y se reconocen a simple vista:
+        los correos acaban en <code>@pruebas.local</code> y los programas llevan
+        <code>[PRUEBA]</code> delante del nombre.</p>
+      <p>Aquí no van escritos ni los correos ni la contraseña. Esta página no pide sesión: la
+        puede abrir cualquiera desde internet, y hasta hoy publicaba seis cuentas con su
+        contraseña al lado. Quien administre la plataforma tiene esos datos en el repositorio,
+        que es donde corresponde.</p>
+      <p class="tiny muted">Antes de abrir al público hay que quitarlos. Mientras estén, cuentan
+        en tus cifras de estudiantes y de dinero.</p>
     </section>
 
     <!-- 2 -->
@@ -816,7 +807,7 @@
       <p>Estos puntos usan las cuentas de demostración de la Sección 1 tal cual quedaron cargadas —
         no hace falta inscribir ni pagar nada antes de verificarlos.</p>
       <ul class="check">
-        <li><div>Entrar como <code>estudiante@cem.demo</code> (Ana) y abrir su panel.
+        <li><div>Entrar como una cuenta de estudiante y abrir su panel.
           <div class="exp">Debe verse el MBA Ejecutivo activo al 42% de avance y el Diplomado de
             Trading como finalizado al 100%.</div></div></li>
         <li><div>Como Ana, abrir <b>Certificados</b>.
@@ -824,7 +815,7 @@
             Trading, junto con la insignia "Graduado CEM".</div></div></li>
         <li><div>Copiar ese código y abrir el verificador público (sin iniciar sesión).
           <div class="exp">Debe validarlo y mostrar el nombre del programa y la fecha de emisión.</div></div></li>
-        <li><div>Como <code>admin@cem.demo</code>, abrir <b>Inscripciones y pagos</b> del MBA Ejecutivo.
+        <li><div>Como administrador, abrir <b>Inscripciones y pagos</b> del MBA Ejecutivo.
           <div class="exp">Michael debe verse con estado <code>pendiente</code> (todavía no pagó
             ninguna cuota) y Ana con <code>activa</code> (2 de 6 cuotas pagadas).</div></div></li>
         <li><div>Como admin, abrir <b>Apelaciones</b>.

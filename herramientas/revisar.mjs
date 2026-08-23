@@ -277,8 +277,39 @@ for (const f of paginas) {
     chiposos.push(`${f}:${linea} mete ${texto.length} caracteres en un chip: «${texto.slice(0, 46)}…». Un mensaje va en .nota`);
   }
 }
-if (chiposos.length) chiposos.forEach((c) => mal(c.split(':')[0], c));
-else bien(`Ninguno de los chips de las ${paginas.length} pantallas lleva un mensaje dentro`);
+/* Y la regla que de verdad los caza.
+   ─────────────────────────────────────────────────────────────────────────
+   La cuenta de caracteres de arriba dejó pasar veintidós casos, y el fallo
+   llegó hasta el dominio en producción: el aviso de «ya salió el enlace»
+   asomando por los dos lados de la tarjeta de recuperar contraseña.
+
+   ¿Por qué no los vio? Porque el texto no estaba en el HTML: se armaba en
+   JavaScript a partir de un dato —`${esc(correo)}`, `${mensajeError(error)}`—
+   y esta comprobación borra los `${…}` antes de medir, así que veía una frase
+   de diez caracteres donde había una de ciento veinte.
+
+   La regla que no depende del texto: **un chip nunca es un `<div>`**. Un chip
+   es una etiqueta que va dentro de una línea; un `<div class="chip">` es
+   siempre alguien usando una píldora como bloque de mensaje. Eso se ve en el
+   marcado, venga el texto de donde venga.
+
+   Se nota además en los remiendos que dejó: tres de los veintidós llevaban
+   `white-space:normal;height:auto` a mano, o sea que ya le habían quitado al
+   chip lo que lo hace chip para que el mensaje cupiera. */
+const chipsDeBloque = [];
+for (const f of paginas) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  for (const m of html.matchAll(/<div class=(["'`])(?:\$\{[^}]*\}\s*)?chip[\s"'`]/g)) {
+    const linea = html.slice(0, m.index).split('\n').length;
+    chipsDeBloque.push(`${f}:${linea} usa un chip como bloque (<div class="chip">). `
+      + 'Un chip es una etiqueta en línea; un mensaje va en .nota');
+  }
+}
+if (chiposos.length || chipsDeBloque.length) {
+  [...chiposos, ...chipsDeBloque].forEach((c) => mal(c.split(':')[0], c));
+} else {
+  bien(`Ninguno de los chips de las ${paginas.length} pantallas lleva un mensaje dentro`);
+}
 
 /* ══════════ 10. Ningún recuadro se dibuja por su cuenta ══════════
    Los ocho estilos de la plataforma no son ocho hojas de CSS: son ocho juegos

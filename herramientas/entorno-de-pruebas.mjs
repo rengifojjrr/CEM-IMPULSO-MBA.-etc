@@ -8,6 +8,17 @@
  * probar el formulario), así que las pruebas fallaban por el estado de los
  * datos y no por un error del programa.
  *
+ * DESDE EL 23 DE AGOSTO HAY OTRO CAMINO, Y ES EL BUENO.
+ * Al vaciar la base se montó la siembra dentro de la propia base:
+ *
+ *   select cem_sembrar_datos_de_prueba();
+ *   select cem_borrar_datos_de_prueba();
+ *
+ * o el botón de Configuración → Datos de prueba. Aquélla apunta fila por fila
+ * lo que mete, así que el borrado es exacto y no puede llevarse por delante un
+ * dato real. Ésta de aquí no lleva esa cuenta, así que se queda como está por
+ * si hace falta, pero para el uso normal usa la otra.
+ *
  *   node herramientas/entorno-de-pruebas.mjs --sembrar
  *   node herramientas/entorno-de-pruebas.mjs --limpiar-rastros
  *   node herramientas/entorno-de-pruebas.mjs --ver
@@ -93,12 +104,12 @@ async function asegurar(tabla, consulta, fila) {
 /* ══════════ las cuentas ══════════ */
 
 const CUENTAS = [
-  ['admin@cem.demo',       'Ana',    'Administradora', 'admin'],
-  ['coordinador@cem.demo', 'Carlos', 'Coordinador',    'coordinador'],
-  ['cobranza@cem.demo',    'Carmen', 'Cobranza',       'cobranza'],
-  ['profesor@cem.demo',    'Pedro',  'Profesor',       'profesor'],
-  ['estudiante@cem.demo',  'Elena',  'Estudiante',     'estudiante'],
-  ['auditor@cem.demo',     'Aurora', 'Auditora',       'auditor'],
+  ['admin@pruebas.local',       'Ana',    'Administradora', 'admin'],
+  ['coordinador@pruebas.local', 'Carlos', 'Coordinador',    'coordinador'],
+  ['cobranza@pruebas.local',    'Carmen', 'Cobranza',       'cobranza'],
+  ['profesor@pruebas.local',    'Pedro',  'Profesor',       'profesor'],
+  ['estudiante@pruebas.local',  'Elena',  'Estudiante',     'estudiante'],
+  ['auditor@pruebas.local',     'Aurora', 'Auditora',       'auditor'],
 ];
 
 /** Crea la cuenta en auth si no existe. Devuelve su id. */
