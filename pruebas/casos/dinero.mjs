@@ -159,7 +159,7 @@ export default async function correr(navegador) {
        demostración y la siguiente fallaba sin que nadie hubiera tocado nada:
        una prueba que sólo pasa la primera vez no es una prueba. */
     const devuelto = await A.evaluate(async (ref) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-08-23-7');
+      const m = await import('/plataforma/assets/app.js?v=2026-08-23-9');
       const { data: pagos } = await m.sb.from('cem_payments')
         .select('id, installment_id').eq('referencia', ref).eq('estado', 'confirmado');
       if (!pagos?.length) return { ok: false, motivo: 'no se encontró el pago aprobado' };
@@ -378,7 +378,7 @@ export default async function correr(navegador) {
      (no tienen por qué) sino que el reflejo exista y no se haya quedado a
      medias. */
   const stripe = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-23-7');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-9');
     const { data, error } = await m.sb.from('cem_courses')
       .select('nombre,estado,stripe_product_id,stripe_sync_en,stripe_sync_error')
       .limit(200);
@@ -406,7 +406,7 @@ export default async function correr(navegador) {
   /* El código fiscal sale de la modalidad, no de un campo que alguien rellena.
      Sin él, Stripe rechaza el cobro en las cuentas con «Managed Payments». */
   const fiscales = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-23-7');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-9');
     const { data, error } = await m.sb.rpc('cem_stripe_codigo_fiscal', { p_modalidad: 'en_vivo' });
     return { data, error: error?.message };
   });

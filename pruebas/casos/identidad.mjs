@@ -206,6 +206,21 @@ export default async function correr(navegador) {
     return { error: error?.message || null, apuntado: (rastro || []).length > 0 };
   });
 
+  /* ── la pantalla del equipo ── */
+  await A.goto(`${BASE}/plataforma/admin/estudiante.html?id=${idAjeno}`,
+    { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await A.waitForSelector('#tabs button[data-t="documento"]', { timeout: 30000 }).catch(() => {});
+  const hayPestana = await A.locator('#tabs button[data-t="documento"]').count();
+  a.comprobar(hayPestana === 1,
+    'La ficha del estudiante tiene su pestaña de Documento');
+  if (hayPestana) {
+    await A.click('#tabs button[data-t="documento"]');
+    await A.waitForTimeout(2500);
+    const texto = await A.locator('#panel').textContent();
+    a.comprobar(/registrado|Todavía no ha subido/.test(texto || ''),
+      'Y al abrirla avisa de que la consulta queda registrada, o dice que aún no hay foto');
+  }
+
   if (comoAdmin.salto) {
     a.comprobar(true, `(se salta: ${comoAdmin.salto})`);
   } else {

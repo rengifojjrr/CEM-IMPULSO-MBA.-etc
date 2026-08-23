@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-7">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-9">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -22,6 +22,11 @@
     <button data-t="evaluaciones">Evaluaciones</button>
     <button data-t="certificados">Certificados</button>
     <button data-t="pagos">Pagos</button>
+    <!-- El documento va en su propia pestaña, no dentro de «Resumen»: abrirlo
+         queda registrado con riesgo alto, así que tiene que hacer falta ir a
+         buscarlo. Si estuviera en el resumen se abriría cada vez que alguien
+         mira una ficha, y el registro dejaría de decir nada. -->
+    <button data-t="documento">Documento</button>
   </div>
   <div id="panel"></div>
 </div>
@@ -29,9 +34,9 @@
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
          modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
          etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, mensajeError,
-         campoDescuento, saldo as saldoCelda } from '../assets/app.js?v=2026-08-23-7';
-import { paisConBandera } from '../assets/paises.js?v=2026-08-23-7';
-import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-23-7';
+         campoDescuento, saldo as saldoCelda } from '../assets/app.js?v=2026-08-23-9';
+import { paisConBandera } from '../assets/paises.js?v=2026-08-23-9';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-23-9';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -126,6 +131,96 @@ function hero(){
   }
 }
 
+/* ── el documento de identidad, para el equipo ────────────────────────────
+   Las imágenes viven en un depósito privado y NO se piden a la tabla: se pasa
+   por `cem_identidad_para_revisar`, que comprueba el rol y APUNTA quién lo
+   abrió antes de devolver las rutas. Con esas rutas se pide un enlace firmado
+   que caduca en cinco minutos.
+
+   Cinco minutos y no una hora: un enlace de estos, copiado a un chat, deja de
+   servir antes de que a nadie le dé tiempo a reenviarlo. */
+async function pintarDocumento(){
+  const P = $('#panel');
+  P.innerHTML = '<div class="card"><span class="cargando"></span></div>';
+
+  const { data, error } = await sb.rpc('cem_identidad_para_revisar', { p_profile_id:id });
+  if (error){ P.innerHTML = `<div class="card"><div class="nota err">${esc(mensajeError(error))}</div></div>`; return; }
+  const d = (data||[])[0];
+
+  if (!d || (!d.frente_ruta && !d.dorso_ruta)){
+    P.innerHTML = `<div class="card"><h2 class="sec">Documento de identidad</h2>
+      <div class="nota">Todavía no ha subido ninguna foto. Se le pide en «Mis datos»,
+      y hasta que no esté no se le puede emitir un certificado a su nombre.</div></div>`;
+    return;
+  }
+
+  const firmar = async (ruta) => {
+    if (!ruta) return null;
+    const { data: f } = await sb.storage.from('cem-identidad').createSignedUrl(ruta, 300);
+    return f?.signedUrl || null;
+  };
+  const [uFrente, uDorso] = await Promise.all([firmar(d.frente_ruta), firmar(d.dorso_ruta)]);
+
+  const cara = (titulo, url) => `<div>
+    <div class="tiny muted" style="font-weight:600;margin-bottom:6px">${titulo}</div>
+    ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">
+        <img src="${esc(url)}" alt="${titulo}" style="width:100%;border-radius:var(--r);
+          border:1px solid var(--filete);display:block"></a>`
+          : '<div class="nota warn">No la ha subido.</div>'}</div>`;
+
+  P.innerHTML = `<div class="card">
+    <div class="row between"><h2 class="sec">Documento de identidad</h2>
+      <span class="chip ${{aprobado:'ok',rechazado:'err',pendiente:'warn'}[d.estado]||'neutral'}">${esc(d.estado)}</span></div>
+    <p class="tiny muted sin-margen">Subido el ${esc(fdate(d.subido_en))}.
+      <b>Que hayas abierto esto queda registrado</b> con tu nombre y la hora, en Auditoría.
+      Los enlaces de las imágenes caducan en cinco minutos.</p>
+    <div class="sep" style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      ${cara('Por delante', uFrente)}${cara('Por detrás', uDorso)}
+    </div>
+    ${editable ? `<div class="row sep">
+      <button class="btn" id="btnAprobar"><span class="material-symbols-outlined">check</span> Aprobar</button>
+      <button class="btn outline" id="btnRechazar"><span class="material-symbols-outlined">close</span> Pedir que lo corrija</button>
+    </div>` : '<div class="nota sep">Sólo lectura: tu rol no resuelve documentos.</div>'}
+    <div id="msgDoc"></div></div>`;
+
+  if (!editable) return;
+  $('#btnAprobar').onclick = async () => {
+    await run(sb.rpc('cem_identidad_resolver', { p_profile_id:id, p_estado:'aprobado' }),
+      'No se pudo aprobar');
+    ok('Documento verificado.');
+    pintarDocumento();
+  };
+  /* Rechazar SIN decir por qué obliga a la persona a adivinar, y lo normal es
+     que vuelva a subir exactamente lo mismo. La función lo exige; aquí se pide
+     antes para no llegar al servidor con las manos vacías. */
+  $('#btnRechazar').onclick = async () => {
+    const motivo = await pedirTexto();
+    if (!motivo) return;
+    await run(sb.rpc('cem_identidad_resolver',
+      { p_profile_id:id, p_estado:'rechazado', p_motivo:motivo }), 'No se pudo rechazar');
+    ok('Se le pidió que lo corrija, con el motivo.');
+    pintarDocumento();
+  };
+}
+
+function pedirTexto(){
+  return new Promise((resolver) => {
+    const m = modal({ title:'¿Qué hay que corregir?', body:`
+      <p class="tiny muted sin-margen">Lo va a leer la persona tal cual. Sé concreto:
+        «la foto de atrás está movida y no se lee el número» sirve; «no es válido» no.</p>
+      <div class="field sep"><textarea id="motivoDoc" rows="3"
+        placeholder="Ej.: la foto de delante está cortada y falta el número."></textarea></div>`,
+      footer:`<button class="btn outline" data-x>Cancelar</button>
+              <button class="btn" id="okMotivo">Enviar</button>` });
+    $('#okMotivo', m).onclick = () => {
+      const t = $('#motivoDoc', m).value.trim();
+      if (!t){ fail('Escribe qué está mal, o la persona no sabrá qué corregir.'); return; }
+      m.querySelector('[data-x]')?.click();
+      resolver(t);
+    };
+  });
+}
+
 $$('#tabs button').forEach(b=>b.onclick=()=>{ $$('#tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); tab(b.dataset.t); });
 
 const ICONO_HITO = {
@@ -158,6 +253,8 @@ function tab(t){
         : `<p class="muted tiny">Todavía no hay nada registrado de esta persona.</p>`}
     </div>`;
   }
+
+  if (t==='documento'){ pintarDocumento(); return; }
 
   if (t==='resumen'){
     // Los gráficos van del curso en el que está más avanzado sin terminar,

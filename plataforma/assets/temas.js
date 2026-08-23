@@ -523,8 +523,21 @@ function pedirLaLetra(familia) {
 const APARIENCIA_PUBLICA = {
   paleta: 'cem', tema: 'claro', estilo: 'plano',
   forma: 'suave', densidad: 'normal',
-  animacion: true, fuerza: 1.6, ritmo: 1.2,
+  fuerza: 1.6, ritmo: 1.2,
 };
+/* Aquí NO hay `animacion`, y es a propósito.
+
+   La primera versión ponía `animacion: true`, para que la portada llegara
+   siempre con el fondo girando. Eso le pasaba por encima a quien tiene activada
+   la opción de «reducir movimiento» en su sistema operativo: gente que la activa
+   porque el movimiento le marea o le dispara un mareo de verdad. El escaparate
+   puede imponer el color y la forma —eso no le hace daño a nadie—; el movimiento
+   no.
+
+   Lo que decide sigue siendo animacionActual(), que ya hacía lo correcto: manda
+   lo que esa persona haya elegido, y si no ha elegido nada, decide su sistema.
+   Sin nada elegido y sin la opción activada devuelve `true`, que es justo la
+   portada girando que se buscaba. */
 const esPantallaPublica = () => {
   try { return document.documentElement.dataset.publico === 'si'; } catch { return false; }
 };
@@ -554,7 +567,8 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, anima
     estilo:   () => pub ? APARIENCIA_PUBLICA.estilo   : estiloActual(),
     forma:    () => pub ? APARIENCIA_PUBLICA.forma    : formaActual(),
     densidad: () => pub ? APARIENCIA_PUBLICA.densidad : densidadActual(),
-    animacion:() => pub ? APARIENCIA_PUBLICA.animacion: animacionActual(),
+    // El movimiento no se impone ni en público: ver el comentario de arriba.
+    animacion:() => animacionActual(),
     fuerza:   () => pub ? APARIENCIA_PUBLICA.fuerza   : fuerzaActual(),
     ritmo:    () => pub ? APARIENCIA_PUBLICA.ritmo    : ritmoActual(),
   };

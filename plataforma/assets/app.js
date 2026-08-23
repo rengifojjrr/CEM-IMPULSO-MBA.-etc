@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-23-7';
+         vidrioActual } from './temas.js?v=2026-08-23-9';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1071,6 +1071,12 @@ const ADMIN_NAV = [
   ]},
   { lbl: 'Gobierno', items: [
     ['reportes.html', 'analytics', 'Reportes', ['coordinador','admin','superadmin','auditor']],
+    /* Separada de Reportes a propósito. Reportes contesta «cómo va el
+       instituto»: cuánto entró, cuánto se debe, cómo van las notas. Ésta
+       contesta «quién es la gente»: de dónde son, cómo nos encontraron y qué
+       temas dicen que les interesan. Son dos preguntas distintas y juntarlas
+       hacía una pantalla de veinte gráficos que no se lee entera. */
+    ['metricas-estudiantes.html', 'travel_explore', 'Quiénes son los estudiantes', ['coordinador','admin','superadmin','auditor']],
     /* Qué porcentaje tiene cada socio no es información de operación: quien
        cobra y quien coordina no la necesitan para su trabajo, y verla les
        cambia la relación con la casa. El auditor sí entra, porque auditar los
@@ -1142,6 +1148,7 @@ const AUDITOR_NAV = [
   ]},
   { lbl: 'Consulta', items: [
     ['estudiantes.html', 'person', 'Estudiantes'],
+    ['metricas-estudiantes.html', 'travel_explore', 'Quiénes son los estudiantes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
     ['certificados.html', 'workspace_premium', 'Certificados'],
     ['cursos.html', 'school', 'Cursos'],
@@ -1918,7 +1925,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-23-7');
+    const m = await import('./apariencia.js?v=2026-08-23-9');
 
     m.abrirApariencia();
 

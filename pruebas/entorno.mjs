@@ -210,7 +210,7 @@ export async function entrar(pagina, cuenta, destino) {
 export function conLaBase(pagina, fn, ...args) {
   return pagina.evaluate(
     async ({ cuerpo, args }) => {
-      const modulo = await import('/plataforma/assets/app.js?v=2026-08-23-7');
+      const modulo = await import('/plataforma/assets/app.js?v=2026-08-23-9');
       // eslint-disable-next-line no-new-func
       return new Function('sb', 'args', `return (${cuerpo})(sb, ...args)`)(modulo.sb, args);
     },
