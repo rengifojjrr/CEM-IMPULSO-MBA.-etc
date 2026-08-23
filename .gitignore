@@ -1,3 +1,10 @@
 node_modules
 .DS_Store
 *.log
+
+# La copia local de los artefactos publicados (la lista de apertura, etc.).
+# NO entra en el repositorio: es público, y esa lista dice con detalle qué está
+# sin configurar, cuántas cuentas de prueba quedan y por dónde no se ha pasado
+# todavía. Es justo el mapa que no conviene dejar a la vista. La copia sirve
+# para poder actualizar el artefacto sin volver a bajarlo entero.
+.artefactos/
