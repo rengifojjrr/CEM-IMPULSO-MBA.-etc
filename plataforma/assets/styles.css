@@ -777,6 +777,26 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
    de texto más estrecho que eso se vuelve incómodo de escribir. */
 .portada-dos{display:grid;gap:var(--e4);align-items:center;
   grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr);}
+
+/* La portada de una sola columna, centrada.
+   ───────────────────────────────────────────────────────────────────────────
+   Todo lo de dentro se centra —incluidos el buscador y los atajos, que llevan
+   su propio `max-width` y sin el margen automático se quedarían pegados a la
+   izquierda dentro de una caja centrada, que es peor que no centrar nada—.
+
+   El texto se limita a 62ch: una línea que cruza mil quinientos píxeles hace
+   que el ojo pierda el principio de la siguiente. */
+.portada-una{display:flex;flex-direction:column;align-items:center;text-align:center;}
+.portada-una .portada-dicho{display:flex;flex-direction:column;align-items:center;
+  max-width:62ch;width:100%;}
+.portada-una h1{max-width:none;}
+.portada-una .lema{margin-left:auto;margin-right:auto;}
+.portada-una .portada-manos{justify-content:center;}
+.portada-una .buscador-grande{width:100%;max-width:620px;margin-left:auto;margin-right:auto;}
+.portada-una .atajos{justify-content:center;}
+/* El campo del buscador sí lleva el texto a la izquierda: centrar lo que se
+   escribe hace que el cursor salte con cada letra. */
+.portada-una .buscador-grande input{text-align:left;}
 .portada-cem h1{font-size:clamp(28px, 4.4vw, 46px);line-height:1.08;margin:0 0 var(--e2);
   max-width:15ch;letter-spacing:-.02em;}
 .portada-cem .lema{color:var(--tinta-2);font-size:var(--t-md);max-width:52ch;
@@ -2077,6 +2097,15 @@ html:root:not([data-estilo="plano"]){
   background:radial-gradient(62% 56% at 34% 48%,
     rgba(255,255,255,.95) 0%, rgba(255,255,255,.92) 34%,
     rgba(255,255,255,.62) 58%, rgba(255,255,255,.22) 74%, transparent 86%);
+}
+/* Con la portada centrada, el velo también: estaba puesto al 34 % porque el
+   texto vivía en la columna izquierda. Dejarlo ahí iluminaría el hueco de la
+   izquierda y dejaría el final de cada línea sobre el color. */
+:root[data-publico="si"] .portada-una .portada-dicho::before{
+  inset:-40% -26%;
+  background:radial-gradient(58% 54% at 50% 48%,
+    rgba(255,255,255,.95) 0%, rgba(255,255,255,.92) 36%,
+    rgba(255,255,255,.62) 60%, rgba(255,255,255,.22) 76%, transparent 88%);
 }
 :root[data-publico="si"] .portada-dicho > *{position:relative;z-index:1;}
 /* El ojal es el texto más pequeño de la portada y va en el verde de la marca,

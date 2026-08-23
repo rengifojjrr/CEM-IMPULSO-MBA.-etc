@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-15">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-17">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -18,23 +18,15 @@
   <!-- Lo primero es el buscador, no el discurso. Quien llega buscando
        «marketing» quiere escribir «marketing»; la misión la lee después, si le
        interesa, y para eso está la página de al lado. -->
-  <!-- La portada.
-       ═══════════════════════════════════════════════════════════════════════
-       Antes era un titular centrado, un párrafo y un buscador sobre un
-       degradado: la portada que tendría cualquier escuela, cualquier academia
-       y cualquier producto. No decía nada que no dijeran las demás.
-
-       Ahora la mitad derecha COMPRUEBA UN TÍTULO. No es un adorno ni una
-       promesa: es la función pública de verdad, la misma que usa el QR impreso
-       en cada diploma, funcionando en la primera pantalla. Es lo único que
-       esta escuela puede enseñar y la de al lado no, y quien llega dudando
-       —«¿esto es serio?»— tiene la respuesta antes de bajar.
-
-       El buscador se queda, pero deja de ser el centro: quien viene a mirar
-       qué hay pulsa «Ver los programas», que es un paso, no una búsqueda a
-       ciegas contra ocho fichas. -->
+  <!-- Una sola columna, centrada.
+       ─────────────────────────────────────────────────────────────────────
+       Aquí hubo un cuadro para comprobar un certificado, a la derecha. Se
+       quitó porque decía lo mismo que «Verificar certificado» del menú de
+       arriba, y de paso empujaba el titular a un lado: la portada se leía
+       torcida sin que nada la sujetara por la derecha. El comprobador entero
+       sigue en verificar.html, que es donde lleva ese menú. -->
   <section class="portada-cem">
-    <div class="dentro portada-dos">
+    <div class="dentro portada-una">
       <div class="portada-dicho">
         <span class="ojal">Centro de Estudios de Marketing · desde 2016</span>
         <h1>Educamos hoy, lideras mañana</h1>
@@ -57,27 +49,6 @@
         <div class="atajos" id="atajos"></div>
       </div>
 
-      <div class="card comprobador">
-        <div class="row" style="gap:var(--e1);align-items:center">
-          <span class="material-symbols-outlined sello">verified_user</span>
-          <div>
-            <h2 class="sec sin-margen">Comprueba un certificado</h2>
-            <p class="tiny muted sin-margen">Sin cuenta y sin registrarte, aquí mismo.</p>
-          </div>
-        </div>
-        <form id="formSello" class="sep">
-          <div class="field">
-            <label for="sello">Código del certificado</label>
-            <input id="sello" placeholder="CEM-2026-00000" autocomplete="off"
-              spellcheck="false" enterkeyhint="search">
-          </div>
-          <button class="btn block" type="submit">
-            <span class="material-symbols-outlined">search</span> Comprobar</button>
-        </form>
-        <div id="selloMsg"></div>
-        <p class="tiny muted sep-poco">Cada diploma que emitimos lleva su código y su QR.
-          Quien te contrate puede comprobarlo sin llamarnos.</p>
-      </div>
     </div>
   </section>
 
@@ -198,7 +169,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, qs, fdate, portadaDeCurso } from './assets/app.js?v=2026-08-23-15';
+import { sb, mount, $, $$, esc, money, qs, fdate, portadaDeCurso } from './assets/app.js?v=2026-08-23-17';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -209,46 +180,6 @@ $('#formBuscar').onsubmit = (e) => {
   e.preventDefault();
   const t = $('#q').value.trim();
   location.href = 'catalogo.html' + (t ? `?q=${encodeURIComponent(t)}` : '');
-};
-
-/* ── comprobar un título desde la propia portada ──────────────────────────
-   Llama a `cem_verify_certificate`, que es pública a propósito: es la que
-   responde al QR impreso en cada diploma, y tiene que contestarle a quien
-   está a punto de contratar a alguien, no sólo a quien tiene cuenta aquí.
-
-   El resultado se responde aquí mismo, sin cambiar de página. Sólo el nombre,
-   el programa y la fecha —lo que hace falta para creerse el papel—; para el
-   detalle completo está `verificar.html`, que es donde lleva el enlace. */
-const selloMsg = $('#selloMsg');
-$('#formSello').onsubmit = async (e) => {
-  e.preventDefault();
-  const codigo = $('#sello').value.trim();
-  if (!codigo) { selloMsg.innerHTML = '<div class="nota">Escribe el código que aparece en el certificado.</div>'; return; }
-
-  const btn = $('#formSello button[type=submit]');
-  btn.disabled = true;
-  selloMsg.innerHTML = '<div class="nota">Comprobando…</div>';
-  const { data, error } = await sb.rpc('cem_verify_certificate', { p_codigo: codigo });
-  btn.disabled = false;
-
-  if (error || !data || !data.codigo) {
-    /* Un código que no existe no es un error del sistema, así que no se
-       responde como si algo se hubiera roto: se dice qué mirar. Las letras y
-       los números se confunden al copiar a mano de un papel. */
-    selloMsg.innerHTML = `<div class="nota err">No hay ningún certificado con ese código.
-      Comprueba que esté copiado tal cual: se distinguen las letras de los números.</div>`;
-    return;
-  }
-  if (data.anulado_en) {
-    selloMsg.innerHTML = `<div class="nota err"><b>Ese certificado fue anulado.</b>
-      Existió, pero ya no es válido. <a href="verificar.html?codigo=${encodeURIComponent(codigo)}">Ver el detalle</a></div>`;
-    return;
-  }
-  selloMsg.innerHTML = `<div class="nota ok">
-    <b>Certificado válido.</b><br>
-    ${esc([data.nombre, data.apellido].filter(Boolean).join(' '))} · ${esc(data.titulo || data.curso || '')}
-    ${data.emitido_en ? `<br><span class="tiny muted">Emitido el ${esc(fdate(data.emitido_en))}</span>` : ''}
-    <br><a href="verificar.html?codigo=${encodeURIComponent(codigo)}">Ver el detalle completo</a></div>`;
 };
 
 const { data: cursos, error: errCursos } = await sb.from('cem_courses')
@@ -369,7 +300,7 @@ $('#formLead').onsubmit = async (e) => {
   const { data: codigos, error } = await sb.rpc('cem_paises_de_la_portada');
   if (error || !codigos?.length) return;
 
-  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-08-23-15');
+  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-08-23-17');
 
   /* La cuenta sale de la lista, no de un número escrito en el texto. */
   const cuantos = codigos.length;
@@ -394,7 +325,7 @@ $('#formLead').onsubmit = async (e) => {
   fila.hidden = false;
 
   try {
-    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-08-23-15');
+    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-08-23-17');
     for (const t of $$('.pais-tarjeta', fila)) {
       const d = CONTORNOS[t.dataset.pais];
       /* Los países muy pequeños no tienen contorno a esta resolución. Se
