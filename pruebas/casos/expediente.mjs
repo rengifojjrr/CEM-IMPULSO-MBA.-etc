@@ -131,12 +131,16 @@ export default async function correr(navegador) {
      en las dos direcciones: apagada NO sale, encendida SÍ. Con sólo la primera
      mitad, un campo que no se guardara nunca también pasaría la prueba. */
   const OFICIO = 'Fotógrafa de prueba automática';
-  const antes = await conLaBase(E, async (sb, oficio) => {
+  /* El correo va como ARGUMENTO y no leído de fuera: lo de dentro de conLaBase()
+     se serializa y corre en el navegador, donde las constantes de este archivo
+     no existen. Ponerlo directamente daba «CUENTAS is not defined» y tumbaba el
+     caso entero. */
+  const antes = await conLaBase(E, async (sb, x) => {
     const { data: yo } = await sb.from('cem_profiles').select('id,ocupacion,perfil_muestra')
-      .eq('email', CUENTAS.estudiante).single();
-    await sb.from('cem_profiles').update({ ocupacion: oficio }).eq('id', yo.id);
+      .eq('email', x.correo).single();
+    await sb.from('cem_profiles').update({ ocupacion: x.oficio }).eq('id', yo.id);
     return { id: yo.id, ocupacion: yo.ocupacion, muestra: yo.perfil_muestra };
-  }, OFICIO);
+  }, { oficio: OFICIO, correo: CUENTAS.estudiante });
 
   await conLaBase(E, async (sb, m) => sb.rpc('cem_publicar_perfil',
     { p_publicar: true, p_muestra: { ...(m || {}), ocupacion: false } }), antes.muestra);
@@ -162,11 +166,11 @@ export default async function correr(navegador) {
     await sb.rpc('cem_publicar_perfil',
       { p_publicar: true, p_muestra: { ...(x.muestra || {}), programas: x.encendido } });
     const { data: yo } = await sb.from('cem_profiles').select('perfil_slug')
-      .eq('email', CUENTAS.estudiante).single();
+      .eq('email', x.correo).single();
     const { data } = await sb.rpc('cem_perfil_publico', { p_slug: yo.perfil_slug });
     const certs = data?.certificados || [];
     return { titulos: certs.length, conNombre: certs.filter((c) => c.programa).length };
-  }, { muestra: antes.muestra, encendido });
+  }, { muestra: antes.muestra, encendido, correo: CUENTAS.estudiante });
 
   const conProgramas = await mirarProgramas(true);
   const sinProgramas = await mirarProgramas(false);
