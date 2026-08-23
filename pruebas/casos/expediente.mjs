@@ -10,7 +10,7 @@
    la verificación diciendo que fue anulado —y no como «no existe», que es lo
    que hacía antes y sugiere que el papel es falso. */
 
-import { acta, nuevaPestana, nuevoContexto, entrar, conLaBase, BASE } from '../entorno.mjs';
+import { acta, nuevaPestana, nuevoContexto, entrar, conLaBase, BASE, CUENTAS } from '../entorno.mjs';
 
 export default async function correr(navegador) {
   const a = acta('expediente');
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
   const OFICIO = 'Fotógrafa de prueba automática';
   const antes = await conLaBase(E, async (sb, oficio) => {
     const { data: yo } = await sb.from('cem_profiles').select('id,ocupacion,perfil_muestra')
-      .eq('email', 'estudiante@cem.demo').single();
+      .eq('email', CUENTAS.estudiante).single();
     await sb.from('cem_profiles').update({ ocupacion: oficio }).eq('id', yo.id);
     return { id: yo.id, ocupacion: yo.ocupacion, muestra: yo.perfil_muestra };
   }, OFICIO);
@@ -162,7 +162,7 @@ export default async function correr(navegador) {
     await sb.rpc('cem_publicar_perfil',
       { p_publicar: true, p_muestra: { ...(x.muestra || {}), programas: x.encendido } });
     const { data: yo } = await sb.from('cem_profiles').select('perfil_slug')
-      .eq('email', 'estudiante@cem.demo').single();
+      .eq('email', CUENTAS.estudiante).single();
     const { data } = await sb.rpc('cem_perfil_publico', { p_slug: yo.perfil_slug });
     const certs = data?.certificados || [];
     return { titulos: certs.length, conNombre: certs.filter((c) => c.programa).length };

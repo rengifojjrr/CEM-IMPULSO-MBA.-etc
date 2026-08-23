@@ -1,7 +1,7 @@
 /* Entrar, salir y recuperar la contraseña.
    Si esto se rompe, nadie puede usar la plataforma. */
 
-import { acta, nuevaPestana, entrar, BASE, CLAVE } from '../entorno.mjs';
+import { acta, nuevaPestana, entrar, BASE, CLAVE, CUENTAS } from '../entorno.mjs';
 
 export default async function correr(navegador) {
   const a = acta('acceso');
@@ -12,10 +12,10 @@ export default async function correr(navegador) {
   await P.waitForSelector('#toOlvide', { timeout: 15000 });
   a.comprobar(true, 'La pantalla de entrada ofrece "Olvidé mi contraseña"');
 
-  await P.fill('#email', 'estudiante@cem.demo');
+  await P.fill('#email', CUENTAS.estudiante);
   await P.click('#toOlvide');
   await P.waitForSelector('#cardOlvide:not(.hidden)', { timeout: 8000 });
-  a.comprobar((await P.inputValue('#oEmail')) === 'estudiante@cem.demo',
+  a.comprobar((await P.inputValue('#oEmail')) === CUENTAS.estudiante,
     'Arrastra el correo ya escrito en vez de hacerlo teclear otra vez');
 
   // La respuesta es la misma exista o no la cuenta: si dijéramos "ese correo no
@@ -120,7 +120,7 @@ export default async function correr(navegador) {
     { waitUntil: 'domcontentloaded' });
   await P.waitForTimeout(900);
 
-  await P.fill('#email', 'admin@cem.demo');
+  await P.fill('#email', CUENTAS.admin);
   await P.fill('#pass', CLAVE);
   await P.click('#formLogin button[type=submit]');
   await P.waitForURL(/admin\/estudiantes\.html/, { timeout: 30000, waitUntil: 'domcontentloaded' })
@@ -132,7 +132,7 @@ export default async function correr(navegador) {
   const Q = await nuevaPestana(navegador);
   await Q.goto(`${BASE}/plataforma/index.html?next=https://ejemplo.invalido/robo`,
     { waitUntil: 'domcontentloaded' });
-  await Q.fill('#email', 'estudiante@cem.demo');
+  await Q.fill('#email', CUENTAS.estudiante);
   await Q.fill('#pass', CLAVE);
   await Q.click('#formLogin button[type=submit]');
   await Q.waitForTimeout(7000);

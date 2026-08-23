@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-11">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-13">
 <style>
   .builder{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr);gap:var(--aire);align-items:start;}
   @media(max-width:900px){ .builder{grid-template-columns:1fr;} }
@@ -49,7 +49,7 @@
 import { sb, mount, $, $$, esc, chip, modal, ok, fail, run, audit, qs, confirmDialog,
          abrirSubidaVideo, subirImagenCurso, subirDocumentoLeccion, campoArchivo, opciones,
          etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, migas,
-         idDeYoutube } from '../assets/app.js?v=2026-08-23-11';
+         idDeYoutube } from '../assets/app.js?v=2026-08-23-13';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor'], active:'contenido.html', area:'admin' });
 let cursos=[], cursoId=null, mods=[], sel=null, docs=[];
 const ICO_DOC = t => t==='pdf'?'picture_as_pdf':t==='excel'?'table_chart':t==='video'?'play_circle':t==='imagen'?'image':'attach_file';

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-11">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-13">
 </head>
 <body>
 <div class="auth-wrap">
@@ -31,17 +31,15 @@
       <button type="button" class="btn ghost sm" id="toReg">¿No tienes cuenta? Regístrate</button>
       <a class="btn ghost sm" href="catalogo.html">Ver catálogo público</a>
     </div>
-    <div class="demo-list">
-      Cuentas de prueba (contraseña <b>CemDemo2026!</b>):
-      <div class="sep-poco">
-        <button type="button" class="btn outline sm" data-demo="admin@cem.demo">Administrador</button>
-        <button type="button" class="btn outline sm" data-demo="coordinador@cem.demo">Coordinador</button>
-        <button type="button" class="btn outline sm" data-demo="profesor@cem.demo">Profesor</button>
-        <button type="button" class="btn outline sm" data-demo="cobranza@cem.demo">Cobranza</button>
-        <button type="button" class="btn outline sm" data-demo="estudiante@cem.demo">Estudiante</button>
-        <button type="button" class="btn outline sm" data-demo="auditor@cem.demo">Auditor</button>
-      </div>
-    </div>
+    <!-- Aquí había seis botones de acceso rápido a las cuentas de demostración,
+         con la contraseña escrita al lado en negrita, en la pantalla de entrar
+         de un sitio público. Servía para desarrollar y no tenía por qué seguir
+         ahí: cualquiera que abriera escuelacem.com veía «Administrador» y una
+         contraseña. Estaba inerte sólo porque esas cuentas dejaron de existir
+         al vaciar la base, que es una casualidad y no una defensa.
+
+         Las cuentas de prueba, cuando están sembradas, se escriben a mano: son
+         seis y se saben. No hace falta anunciarlas al mundo para eso. -->
   </div>
 
   <!-- Todos los campos llevan `for`, `name` y `autocomplete`. Sonará a detalle y
@@ -196,8 +194,8 @@
 
 <script type="module">
 import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave } from './assets/app.js?v=2026-08-23-11';
-import { opcionesDePais } from './assets/paises.js?v=2026-08-23-11';
+         medidorDeClave } from './assets/app.js?v=2026-08-23-13';
+import { opcionesDePais } from './assets/paises.js?v=2026-08-23-13';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');
@@ -320,10 +318,6 @@ $('#formOlvide').onsubmit = async (e) => {
   olvideMsg.innerHTML = `<div class="nota ok sep">
     Si <b>${esc(correo)}</b> tiene una cuenta, ya salió el enlace. Revisa también la carpeta de correo no deseado.</div>`;
 };
-
-document.querySelectorAll('[data-demo]').forEach(b => b.onclick = () => {
-  $('#email').value = b.dataset.demo; $('#pass').value = 'CemDemo2026!';
-});
 
 $('#formLogin').onsubmit = async (e) => {
   e.preventDefault();

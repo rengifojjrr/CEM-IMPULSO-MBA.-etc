@@ -10,13 +10,24 @@ import { chromium } from 'playwright';
 export const BASE = process.env.CEM_BASE || 'http://localhost:8125';
 export const CLAVE = process.env.CEM_PASS || 'CemDemo2026!';
 
+/* Las cuentas con las que entran las pruebas.
+   ═══════════════════════════════════════════════════════════════════════════
+   El dominio es «pruebas.local» a propósito, y no un dominio de verdad: está
+   reservado y no existe, así que si un día se escapa un correo a una de estas
+   direcciones rebota en vez de llegarle a un desconocido.
+
+   Estas cuentas NO están siempre. Viven mientras estén sembrados los datos de
+   prueba, que se ponen y se quitan desde Configuración → Datos de prueba, o
+   llamando a cem_sembrar_datos_de_prueba(). Si toda la suite falla en el
+   inicio de sesión, es que no están sembrados: es lo primero que hay que
+   mirar antes de buscar el fallo en otra parte. */
 export const CUENTAS = {
-  admin: 'admin@cem.demo',
-  coordinador: 'coordinador@cem.demo',
-  cobranza: 'cobranza@cem.demo',
-  profesor: 'profesor@cem.demo',
-  estudiante: 'estudiante@cem.demo',
-  auditor: 'auditor@cem.demo',
+  admin: 'admin@pruebas.local',
+  coordinador: 'coordinador@pruebas.local',
+  cobranza: 'cobranza@pruebas.local',
+  profesor: 'profesor@pruebas.local',
+  estudiante: 'estudiante@pruebas.local',
+  auditor: 'auditor@pruebas.local',
 };
 
 /** Resultados de una prueba, para que el corredor los junte todos. */
@@ -210,7 +221,7 @@ export async function entrar(pagina, cuenta, destino) {
 export function conLaBase(pagina, fn, ...args) {
   return pagina.evaluate(
     async ({ cuerpo, args }) => {
-      const modulo = await import('/plataforma/assets/app.js?v=2026-08-23-11');
+      const modulo = await import('/plataforma/assets/app.js?v=2026-08-23-13');
       // eslint-disable-next-line no-new-func
       return new Function('sb', 'args', `return (${cuerpo})(sb, ...args)`)(modulo.sb, args);
     },
