@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-publico="si">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-22-11">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-7">
 </head>
 <body>
 <div class="auth-wrap">
@@ -152,6 +152,24 @@
     <button type="button" class="btn outline block sep" id="btnReenviar">
       <span class="material-symbols-outlined">forward_to_inbox</span> Enviármelo otra vez</button>
     <div id="revisaMsg"></div>
+
+    <!-- Escribí mal el correo.
+         ─────────────────────────────────────────────────────────────────────
+         Es el callejón sin salida más tonto de todo el registro: la persona ve
+         su dirección mal escrita en la pantalla, sabe exactamente cuál es el
+         problema, y lo único que se le ofrecía era «enviármelo otra vez» — al
+         mismo sitio equivocado. La única salida era volver a empezar, y quien
+         lo intenta se encuentra con que ese correo malo ya está registrado.
+
+         No se puede cambiar la dirección de una cuenta sin confirmar desde el
+         navegador, así que lo que se hace es lo honesto: se dice qué pasó y se
+         vuelve al registro con el campo listo para escribirlo bien. -->
+    <div class="sep" style="text-align:center">
+      <button type="button" class="btn ghost sm" id="btnOtroCorreo">
+        <span class="material-symbols-outlined">edit</span> Me equivoqué de correo</button>
+    </div>
+    <div id="otroCorreoMsg"></div>
+
     <div style="margin-top:12px;text-align:center">
       <button type="button" class="btn ghost sm" id="toLogin3">Ya lo confirmé, quiero entrar</button>
     </div>
@@ -178,8 +196,8 @@
 
 <script type="module">
 import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave } from './assets/app.js?v=2026-08-22-11';
-import { opcionesDePais } from './assets/paises.js?v=2026-08-22-11';
+         medidorDeClave } from './assets/app.js?v=2026-08-23-7';
+import { opcionesDePais } from './assets/paises.js?v=2026-08-23-7';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');
@@ -247,6 +265,26 @@ $('#toReg').onclick = () => mostrar('cardReg');
 $('#toLogin').onclick = () => mostrar('cardLogin');
 $('#toLogin2').onclick = () => mostrar('cardLogin');
 $('#toLogin3').onclick = () => mostrar('cardLogin');
+
+/* Volver al registro con el correo listo para corregir.
+   La cuenta a medio crear se queda ahí —no se puede borrar desde el navegador,
+   y fingir que sí sería mentir—, así que se dice claramente qué va a pasar: si
+   la dirección equivocada era de alguien, esa persona recibirá un correo que
+   no pidió y no pasará nada más; el enlace caduca solo. */
+$('#btnOtroCorreo').onclick = () => {
+  const malo = $('#revisaCorreo').textContent.trim();
+  mostrar('cardReg');
+  const campo = $('#rEmail');
+  if (campo) {
+    campo.value = '';
+    campo.focus();
+    campo.placeholder = 'Escríbelo bien esta vez';
+  }
+  regMsg.innerHTML = `<div class="nota warn">Estabas registrándote con
+    <b>${esc(malo)}</b>. Escribe la dirección correcta y vuelve a enviar.
+    <br><span class="tiny">Si esa dirección era de otra persona, recibirá un correo que no pidió
+    y ahí acaba: el enlace caduca solo y nadie entra a nada.</span></div>`;
+};
 $('#toOlvide').onclick = () => {
   $('#oEmail').value = $('#email').value.trim();  // si ya escribió el correo, no lo repite
   mostrar('cardOlvide');

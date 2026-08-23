@@ -507,6 +507,28 @@ function pedirLaLetra(familia) {
  * Deja la página con la apariencia que toque. Se llama sola al cargar y cada
  * vez que se cambia algo en Configuración.
  */
+/* ── la cara pública se ve igual para todo el mundo ───────────────────────
+   Dentro de la plataforma la apariencia es de cada quien: quien estudia de
+   noche pone el modo oscuro y hace bien. Pero la portada del CEM es un
+   escaparate, y un escaparate que cambia de color según quién pase no es un
+   escaparate. Quien la recomienda quiere que el otro vea lo mismo que vio él.
+
+   Así que las pantallas públicas llevan `data-publico="si"` en el `<html>` y
+   se pintan siempre igual: claro, con la paleta de la casa, y con el fondo en
+   movimiento encendido — que ahí sí luce, porque no hay barra ni una rejilla
+   de tarjetas tapando la pantalla entera.
+
+   Lo guardado NO se toca. Quien entre después a su panel se lo encuentra tal y
+   como lo dejó: esto sólo decide cómo se pinta esta pantalla. */
+const APARIENCIA_PUBLICA = {
+  paleta: 'cem', tema: 'claro', estilo: 'plano',
+  forma: 'suave', densidad: 'normal',
+  animacion: true, fuerza: 1.6, ritmo: 1.2,
+};
+const esPantallaPublica = () => {
+  try { return document.documentElement.dataset.publico === 'si'; } catch { return false; }
+};
+
 export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, animacion,
                                     fuerza, ritmo, vidrio } = {}) {
   const raiz = document.documentElement;
@@ -522,7 +544,22 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, anima
   if (fuerza !== undefined) guardar(LLAVE.fuerza, String(fuerza));
   if (ritmo !== undefined) guardar(LLAVE.ritmo, String(ritmo));
 
-  const clave = paletaActual();
+  /* En público mandan los valores fijos, no lo guardado. Se resuelve aquí y no
+     en cada lectura para que sea imposible que una parte de la pantalla siga
+     lo guardado y otra lo público. */
+  const pub = esPantallaPublica();
+  const dilo = {
+    paleta:   () => pub ? APARIENCIA_PUBLICA.paleta   : paletaActual(),
+    tema:     () => pub ? APARIENCIA_PUBLICA.tema     : temaActual(),
+    estilo:   () => pub ? APARIENCIA_PUBLICA.estilo   : estiloActual(),
+    forma:    () => pub ? APARIENCIA_PUBLICA.forma    : formaActual(),
+    densidad: () => pub ? APARIENCIA_PUBLICA.densidad : densidadActual(),
+    animacion:() => pub ? APARIENCIA_PUBLICA.animacion: animacionActual(),
+    fuerza:   () => pub ? APARIENCIA_PUBLICA.fuerza   : fuerzaActual(),
+    ritmo:    () => pub ? APARIENCIA_PUBLICA.ritmo    : ritmoActual(),
+  };
+
+  const clave = dilo.paleta();
   let hoja = document.getElementById('cemPaletaHoja');
   if (!hoja) {
     hoja = document.createElement('style');
@@ -538,19 +575,19 @@ export function aplicarApariencia({ paleta, tema, estilo, forma, densidad, anima
   raiz.dataset.paleta = clave;
   pedirLaLetra(PALETAS[clave]?.fuente);
 
-  const t = temaActual();
+  const t = dilo.tema();
   if (t === 'auto') delete raiz.dataset.theme;
   else raiz.dataset.theme = t === 'oscuro' ? 'dark' : 'light';
 
-  raiz.dataset.estilo = estiloActual();
-  raiz.dataset.forma = formaActual();
-  raiz.dataset.densidad = densidadActual();
-  raiz.dataset.animacion = animacionActual() ? 'si' : 'no';
+  raiz.dataset.estilo = dilo.estilo();
+  raiz.dataset.forma = dilo.forma();
+  raiz.dataset.densidad = dilo.densidad();
+  raiz.dataset.animacion = dilo.animacion() ? 'si' : 'no';
   /* Los dos números van como variables y no como clases: son continuos, y una
      clase por cada paso sería trece clases que además habría que inventar. */
-  raiz.style.setProperty('--ambiente-fuerza', String(fuerzaActual()));
+  raiz.style.setProperty('--ambiente-fuerza', String(dilo.fuerza()));
   raiz.style.setProperty('--ambiente-ciclo',
-    (AMBIENTE.ritmo.cicloBase / ritmoActual()).toFixed(1) + 's');
+    (AMBIENTE.ritmo.cicloBase / dilo.ritmo()).toFixed(1) + 's');
   return {
     paleta: clave, tema: t, estilo: estiloActual(),
     forma: formaActual(), densidad: densidadActual(),

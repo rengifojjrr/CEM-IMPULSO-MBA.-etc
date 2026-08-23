@@ -61,7 +61,7 @@ export default async function correr(navegador) {
      que lo que se comprueba es que la función responda y que si hay nota, se
      enseñe; no que exista un número concreto. */
   const valoraciones = await P.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-7');
     const { data, error } = await m.sb.rpc('cem_valoracion_cursos', { p_minimo: 5 });
     return { error: error?.message || null, cuantas: Object.keys(data || {}).length };
   });
@@ -304,6 +304,60 @@ export default async function correr(navegador) {
   a.comprobar(T.errores.length === 0, `Sin errores en el teléfono ${JSON.stringify(T.errores.slice(0, 2))}`);
   await T.close();
 
+  /* ============ 4c · el escaparate se ve igual para todos ============
+     La apariencia es de cada quien DENTRO de la plataforma. La portada no: es
+     un escaparate, y uno que cambia de color según quién pase no es un
+     escaparate. Se abre con el navegador en modo NOCHE a propósito — es el
+     caso que lo rompía. */
+  const ESC = await nuevaPestana(navegador, { ancho: 1300, alto: 900, oscuro: true });
+  await ESC.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
+  await ESC.waitForTimeout(4000);
+
+  const esc = await ESC.evaluate(() => {
+    const r = document.documentElement;
+    const cs = getComputedStyle(document.body, '::after');
+    return { tema: r.dataset.theme, paleta: r.dataset.paleta,
+             fondo: getComputedStyle(document.body).backgroundColor,
+             opacidad: Number(cs.opacity), anim: cs.animationName,
+             /* Que el color que se pinta sea COLOR y no un gris: los tonos de
+                la casa son oscuros y sobre blanco se apagaban. */
+             vivo: getComputedStyle(r).getPropertyValue('--vivo-azul').trim() };
+  });
+  a.comprobar(esc.tema === 'light',
+    `Con el navegador en modo noche, la portada sale clara igual (${esc.tema})`);
+  a.comprobar(esc.fondo === 'rgb(255, 255, 255)',
+    `Sobre blanco (${esc.fondo})`);
+  a.comprobar(esc.anim === 'cem-ambiente',
+    'Con los colores de la marca girando');
+  /* Se mide la opacidad porque es lo que decide si el color se ve o se queda
+     en un gris. Estuvo a la mitad sin que nada lo dijera: una regla del estilo
+     «Plano» ganaba por especificidad. */
+  a.comprobar(esc.opacidad >= 0.5,
+    `Y con color de verdad, no apagado a la mitad (opacidad ${esc.opacidad})`);
+  a.comprobar(/^#|rgb/.test(esc.vivo),
+    `Con los tonos de la casa encendidos (${esc.vivo || 'no llegaron'})`);
+  a.comprobar(ESC.errores.length === 0,
+    `Sin errores en la portada ${JSON.stringify(ESC.errores.slice(0, 2))}`);
+  await ESC.close();
+
+  /* ============ 4d · el título del programa se lee sobre su foto ============
+     `--on-primary` es el color que se lee sobre el color de marca, y en modo
+     noche vale AZUL OSCURO. Debajo de la cabecera de un programa no hay color
+     de marca: hay una foto con un velo oscuro, oscuro en los dos temas. Así
+     que en noche el título salía azul oscuro sobre azul oscuro. */
+  for (const oscuro of [false, true]) {
+    const C = await nuevaPestana(navegador, { ancho: 1300, alto: 800, oscuro });
+    await C.goto(`${BASE}/plataforma/curso.html?id=${unCurso}`, { waitUntil: 'domcontentloaded' });
+    await C.waitForSelector('#hero h1', { timeout: 30000 });
+    await C.waitForTimeout(2500);
+    const color = await C.evaluate(() =>
+      getComputedStyle(document.querySelector('#hero h1')).color);
+    a.comprobar(color === 'rgb(255, 255, 255)',
+      `El título del programa va en blanco sobre su foto, también en ${
+        oscuro ? 'modo noche' : 'modo día'} (${color})`);
+    await C.close();
+  }
+
   /* ============ 5 · dejar los datos ============ */
   const L = await nuevaPestana(navegador, { ancho: 1300, alto: 950 });
   await L.goto(`${BASE}/plataforma/inicio.html`, { waitUntil: 'domcontentloaded' });
@@ -364,7 +418,7 @@ export default async function correr(navegador) {
   await entrar(E, 'estudiante', 'estudiante/panel.html');
   await E.waitForTimeout(2000);
   const fuga = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-22-11');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-23-7');
     const directo = await m.sb.from('cem_leads').select('*').limit(5);
     const porFuncion = await m.sb.rpc('cem_leads_listar');
     return {

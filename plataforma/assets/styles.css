@@ -1943,11 +1943,105 @@ html:root:not([data-estilo="plano"]){
   :root:not([data-estilo="plano"]) th{
     background:var(--papel);-webkit-backdrop-filter:none;backdrop-filter:none;
     box-shadow:none;}
+
+
+
   :root:not([data-estilo="plano"]) :is(.card,.caja)::before,
   :root:not([data-estilo="plano"]) :is(.card,.caja)::after,
   :root:not([data-estilo="plano"]) .kpi::before,
   :root:not([data-estilo="plano"]) .kpi::after{display:none;}
 }
+
+/* Este bloque va DESPUÉS de todo lo del ambiente a propósito.
+   ─────────────────────────────────────────────────────────────────────────
+   La primera versión estaba más arriba y no se aplicaba NADA: misma
+   especificidad que la regla base, así que ganaba la que venía después. Se
+   veía exactamente igual que antes y costó dos intentos entender que el CSS
+   ni siquiera estaba llegando. Si alguien mueve esto hacia arriba, el
+   escaparate se apaga sin dar ningún error. */
+/* ── el escaparate: blanco, y la marca dando vueltas encima ───────────────
+   Sólo en las pantallas públicas. Dentro de la plataforma el fondo tiene que
+   dejar trabajar; aquí tiene que llamar la atención, y además puede: no hay
+   barra lateral ni una rejilla de tarjetas tapando la pantalla entera, así que
+   por primera vez el movimiento se ve de verdad.
+
+   Blanco de base y las manchas ENCIMA, no mezcladas: sobre blanco, un color
+   saturado se ve saturado. Si el blanco se pusiera encima con transparencia,
+   todo acabaría en el mismo pastel de siempre.
+
+   Y responde al ratón. Es la única parte de la página que se mueve por lo que
+   hace la persona, así que es donde ese gesto se nota. Muy poco recorrido —un
+   3%— porque un fondo que persigue el cursor marea; lo justo para que se
+   perciba que la página está viva. */
+/* Los mismos tonos de la marca, a plena intensidad.
+   ───────────────────────────────────────────────────────────────────────
+   El azul del CEM es #0d2440 y el verde #0b7268: colores OSCUROS, elegidos
+   para llevar texto encima. Sobre blanco y a media opacidad no dan color,
+   dan gris — se probó dos veces, y las dos veces la franja parecía una nube
+   sucia. Subirles la saturación con un filtro tampoco arregla nada: no se
+   puede sacar color de donde no lo hay.
+
+   Estos son los MISMOS tonos —el mismo azul, el mismo verde, el mismo
+   dorado— con la luminosidad y el croma que hacen falta para que se vean
+   como color sobre blanco. No es otra paleta: es la de la casa encendida.
+   Sólo viven aquí, en el escaparate; dentro de la plataforma no se usan. */
+/* Dos atributos y no uno: `[data-animacion][data-estilo="plano"]` pone
+   `--ambiente-movil:.5` y con un solo atributo esta regla perdía por
+   especificidad. El síntoma era que la intensidad salía a la mitad sin que
+   nada lo dijera: la variable decía 1,6 y la opacidad salía como si fuera 0,8. */
+:root[data-publico="si"][data-animacion="si"],
+:root[data-publico="si"]{
+  --ambiente-movil:1;
+  --vivo-azul:#1f5fd8;
+  --vivo-verde:#06b6a4;
+  --vivo-oro:#f0a913;
+  --vivo-indigo:#6b4ce0;
+}
+:root[data-publico="si"] body{ background:#fff; }
+
+:root[data-publico="si"] body::after{
+  background:
+    radial-gradient(30vmax 28vmax at 14% 16%,
+      var(--vivo-azul), transparent 58%),
+    radial-gradient(26vmax 24vmax at 86% 10%,
+      var(--vivo-verde), transparent 56%),
+    radial-gradient(32vmax 29vmax at 76% 86%,
+      var(--vivo-indigo), transparent 60%),
+    radial-gradient(24vmax 22vmax at 24% 84%,
+      var(--vivo-oro), transparent 55%),
+    radial-gradient(20vmax 19vmax at 50% 50%,
+      var(--vivo-verde), transparent 54%);
+  /* La opacidad la lleva la capa entera y no cada mancha: así el mando de la
+     intensidad sigue funcionando igual que dentro de la plataforma. */
+  /* Saturación de verdad.
+     ─────────────────────────────────────────────────────────────────────
+     La paleta de la casa es sobria a propósito —azul marino y verde apagados,
+     «más peso que color»— y eso, mezclado sobre blanco a media opacidad, da
+     GRIS. Se probó: la primera versión de esta franja parecía una nube sucia.
+
+     Así que aquí, y sólo aquí, se les sube la saturación. La identidad no
+     cambia: siguen siendo el azul y el verde del CEM, sólo que enseñando el
+     color que ya tenían en vez de dejarlo apagado contra el blanco. Dentro de
+     la plataforma no se toca nada. */
+  /* Sin filtro: el color ya viene vivo de origen. Un `saturate()` encima de
+     algo casi transparente sólo ensucia los bordes. */
+  opacity:calc(var(--ambiente-movil, 1) * var(--ambiente-fuerza, 1) * .40);
+  /* El desplazamiento del ratón se suma al giro. Va en variables para que la
+     animación siga siendo de CSS: mover esto desde JavaScript en cada
+     movimiento del ratón repintaría la pantalla sesenta veces por segundo. */
+  translate:calc(var(--raton-x, 0) * 3%) calc(var(--raton-y, 0) * 3%);
+  transition:translate 1.2s cubic-bezier(.22,.61,.36,1);
+}
+
+/* Sobre blanco hace falta un velo suave bajo el texto, o los titulares
+   oscuros pelean con una mancha saturada que les pase por debajo. */
+:root[data-publico="si"] .portada-cem{position:relative;}
+:root[data-publico="si"] .franja.tenue{background:rgba(255,255,255,.62);}
+
+@media (prefers-reduced-motion:reduce){
+  :root[data-publico="si"] body::after{transition:none;}
+}
+
 
 /* ── la muestra de un estilo, en Configuración ────────────────────────────
    Elegir a ciegas entre siete nombres no es elegir. Cada botón lleva dentro

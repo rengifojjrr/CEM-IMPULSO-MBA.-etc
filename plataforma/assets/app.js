@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-22-11';
+         vidrioActual } from './temas.js?v=2026-08-23-7';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1209,7 +1209,12 @@ export async function mount(opts = {}) {
   const p = await profile();
   const area = opts.area || 'admin';
 
-  if (opts.pub) { document.body.classList.add('cem-publico'); renderPublicHeader(p); return p; }
+  if (opts.pub) {
+    document.body.classList.add('cem-publico');
+    renderPublicHeader(p);
+    seguirElRaton();
+    return p;
+  }
 
   if (!p) {
     location.href = base() + 'index.html?next=' + encodeURIComponent(rutaRelativaActual());
@@ -1913,7 +1918,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-22-11');
+    const m = await import('./apariencia.js?v=2026-08-23-7');
 
     m.abrirApariencia();
 
@@ -2016,6 +2021,39 @@ async function montarCampana() {
    404 desde la mitad de ellas. Se calcula de dónde se está mirando. */
 const enSubcarpeta = () => /\/(estudiante|admin|docente)\//.test(location.pathname);
 export const raizPublica = () => (enSubcarpeta() ? '../' : './');
+
+/* ── el fondo responde al ratón ────────────────────────────────────────────
+   Sólo en las pantallas públicas, y sólo con ratón: en un teléfono no hay
+   puntero, y `pointermove` con el dedo daría un salto brusco al tocar.
+
+   Lo que se escribe son dos números entre -1 y 1; el desplazamiento lo hace el
+   CSS. Mover el fondo desde aquí obligaría a repintar en cada movimiento —unas
+   sesenta veces por segundo— y en un portátil eso se oye en el ventilador.
+
+   Con `requestAnimationFrame` se escribe UNA vez por cuadro como mucho, por
+   muchos eventos que lleguen: el ratón dispara bastantes más que sesenta por
+   segundo y sin esto se harían escrituras que nadie llega a ver. */
+function seguirElRaton() {
+  if (!window.matchMedia?.('(pointer:fine)').matches) return;
+  try {
+    if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  } catch { /* si no se puede preguntar, se sigue */ }
+
+  let x = 0, y = 0, pedido = false;
+  const pintar = () => {
+    pedido = false;
+    document.documentElement.style.setProperty('--raton-x', x.toFixed(3));
+    document.documentElement.style.setProperty('--raton-y', y.toFixed(3));
+  };
+  window.addEventListener('pointermove', (e) => {
+    /* Del centro hacia fuera, entre -1 y 1. Al revés que el cursor: el fondo
+       se aparta en vez de perseguirlo, que es lo que da sensación de fondo y
+       no de calcomanía pegada al ratón. */
+    x = -((e.clientX / window.innerWidth) * 2 - 1);
+    y = -((e.clientY / window.innerHeight) * 2 - 1);
+    if (!pedido) { pedido = true; requestAnimationFrame(pintar); }
+  }, { passive: true });
+}
 
 function renderPublicHeader(p) {
   const r = raizPublica();
