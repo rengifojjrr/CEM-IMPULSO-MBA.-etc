@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-13">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-14">
 <style>
 </style>
 </head>
@@ -149,9 +149,9 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, ok, fail, run, audit, confirmDialog,
-         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-23-13';
-import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-23-13';
-import { panelApariencia } from '../assets/apariencia.js?v=2026-08-23-13';
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-23-14';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-23-14';
+import { panelApariencia } from '../assets/apariencia.js?v=2026-08-23-14';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
 
 /* El panel de apariencia vive en assets/apariencia.js: el mismo que abre
@@ -289,9 +289,10 @@ async function pintarPruebas(){
       Los programas salen con <b>[PRUEBA]</b> delante del nombre.
       <b>Quítalos antes de abrir al público</b>: mientras estén, tus cifras de
       estudiantes y de dinero los cuentan.</p>
-    <p class="tiny muted">El borrado usa la lista de lo que sembró y nada más, así que
-      no puede tocar un dato real ni equivocándose. Después, las comprobaciones
-      automáticas dejarán de poder correr hasta que se vuelvan a sembrar.</p>
+    <p class="tiny muted">El borrado se lleva lo que sembró <b>y lo que cuelgue de ello</b>:
+      si una prueba creó después un pago de un alumno inventado, ese pago es igual de
+      inventado. Lo que apunta sólo a datos de verdad no se toca. Después, las
+      comprobaciones automáticas dejarán de poder correr hasta que se vuelvan a sembrar.</p>
     <button class="btn err" id="btnQuitarPruebas">
       <span class="material-symbols-outlined">delete_sweep</span> Borrar los datos de prueba</button>`
   : `
@@ -309,7 +310,11 @@ async function pintarPruebas(){
     quitar.disabled = true; quitar.textContent = 'Borrando…';
     const { data: r, error: e } = await sb.rpc('cem_borrar_datos_de_prueba');
     if (e) { fail(e.message); pintarPruebas(); return; }
-    ok(`Fuera ${Number(r.filas).toLocaleString('es-ES')} filas de prueba.`);
+    /* Se dicen las dos cifras por separado: una cosa es lo que se sembró y otra
+       lo que las pruebas fueron dejando encima. Juntarlas escondería que el
+       borrado hace algo más que deshacer la siembra. */
+    ok(`Fuera ${Number(r.filas).toLocaleString('es-ES')} filas de prueba`
+      + (Number(r.colgando) ? ` y ${Number(r.colgando).toLocaleString('es-ES')} que colgaban de ellas.` : '.'));
     pintarPruebas();
   };
 

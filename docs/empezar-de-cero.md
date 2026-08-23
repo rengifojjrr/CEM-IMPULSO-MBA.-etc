@@ -202,6 +202,41 @@ vez de mantener a mano una lista de sesenta tablas ordenadas por dependencias
 lo que falla por no tener todavía a su padre se deja para la vuelta siguiente. En
 cuatro vueltas está todo. El borrado hace lo mismo al revés.
 
+### Lo que apunta a un dato de prueba es también dato de prueba
+
+Esto no estaba en el diseño inicial y sólo se supo **al pulsar el botón de
+verdad**. La primera versión falló, y falló bien —no borró nada y dijo qué la
+sujetaba— pero falló:
+
+```
+Quedaron filas de prueba que algo de verdad está usando:
+cem_carteras, cem_courses, cem_profiles.
+```
+
+El registro sabe qué filas *metió* la siembra. Pero las 889 comprobaciones, al
+correr, **crean filas nuevas encima**: 99 entradas de auditoría, 42 avisos, 3
+inscripciones y 6 pagos que apuntaban a los perfiles y programas sembrados sin
+estar en el registro. Ésas sujetaban a las de abajo.
+
+La regla que faltaba: un pago de un alumno inventado es inventado aunque lo
+haya creado la suite cinco minutos después de la siembra. Y se puede seguir sin
+listas a mano, porque Postgres sabe qué claves ajenas apuntan a cada tabla: se
+recorren, se borra lo que apunta a una fila del registro, y se repite hasta que
+deje de caer nada.
+
+Sigue sin poder tocar un dato real: una fila que apunta sólo a datos de verdad
+no cumple ninguna de las dos condiciones. Si un alumno de verdad se inscribiera
+en un programa `[PRUEBA]`, su inscripción sí se iría —correcto, porque el
+programa se va con ella— pero él no.
+
+Verificado el recorrido entero: sembrar (4.056 filas) → correr las 889 → borrar
+(3.780 del registro + 171 que colgaban, en dos vueltas) → comprobar que
+`cemadmin`, la configuración, las claves y la aplicación de los árboles siguen
+intactas → volver a sembrar y que las seis cuentas entren.
+
+**La lección general:** un botón destructivo que nunca se ha pulsado no está
+probado. Éste parecía correcto leyéndolo.
+
 ### Dos tropiezos que quedaron por el camino
 
 `auth.users` no es de `postgres` sino del servicio de autenticación: no se le
