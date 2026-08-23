@@ -9,13 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-10">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-11">
 </head>
 <body>
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Gestión de usuarios y roles</h1><p>Todas las cuentas de la plataforma y qué rol tiene cada una. El rol decide qué pantallas ve esa persona.</p></div>
     <div class="actions">
+      <button class="btn" id="btnInvitar"><span class="material-symbols-outlined">person_add</span> Invitar a alguien</button>
       <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
       <a class="btn outline" href="permisos.html"><span class="material-symbols-outlined">admin_panel_settings</span> Matriz de permisos</a>
     </div>
@@ -42,14 +43,32 @@
       <thead><tr><th data-ord="nombre">Usuario</th><th data-ord="email">Correo</th><th>Rol <button type="button" class="ayuda-btn" data-ayuda="El rol decide qué pantallas ve la persona y qué puede tocar. Se cambia desde la fila; el detalle de cada rol está en Permisos.">?</button></th><th>Documento</th><th data-ord="pais">País</th><th data-ord="created_at">Registro</th><th data-ord="activo">Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
+
+  <!-- Las invitaciones van DEBAJO de las cuentas y no en su propia pantalla
+       porque son la misma pregunta en dos momentos: quién está dentro y quién
+       está en camino. Separarlas obligaría a mirar en dos sitios para saber si
+       a alguien ya se le escribió. -->
+  <div class="card">
+    <div class="row between">
+      <h2 class="sec">Invitaciones <button type="button" class="ayuda-btn" data-ayuda="Escribes el correo, eliges el rol y la persona recibe un enlace para poner su clave y sus datos. El rol lo decides tú al invitar; ella no lo puede cambiar.">?</button></h2>
+      <span class="tiny muted" id="pieInvit"></span>
+    </div>
+    <div id="avisoCorreo"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Correo</th><th>Rol</th><th>Estado</th><th>Invitó</th><th>Caduca</th><th></th></tr></thead>
+      <tbody id="tbInvit"></tbody></table></div>
+  </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog, opciones, ordenable, ordenarPor, etiqueta, QUE_HACE_EL_ROL } from '../assets/app.js?v=2026-08-23-10';
-import { paisConBandera, opcionesDePais } from '../assets/paises.js?v=2026-08-23-10';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, match, kpi, initials, modal, ok, fail, run, audit, toCSV, download, confirmDialog, opciones, ordenable, ordenarPor, etiqueta, QUE_HACE_EL_ROL } from '../assets/app.js?v=2026-08-23-11';
+import { paisConBandera, opcionesDePais } from '../assets/paises.js?v=2026-08-23-11';
 const p = await mount({ require:['admin','superadmin','auditor'], active:'usuarios.html', area:'admin' });
 const puede = p && ['admin','superadmin'].includes(p.rol);
 let rows=[];
-if (p) load();
+/* El auditor entra a esta pantalla a mirar, no a repartir cuentas. Ofrecerle un
+   botón que el servidor le va a negar es prometerle algo que no puede hacer. */
+if (!puede) $('#btnInvitar').hidden = true;
+if (p) { load(); cargarInvitaciones(); avisoDelCorreo(); }
 
 async function load(){
   const { data } = await sb.from('cem_profiles').select('*').order('created_at',{ascending:false}).limit(500);
@@ -148,6 +167,125 @@ function form(u){
     if (nuevoRol!==u.rol) await audit('rol_cambiado','cem_profiles',u.id,'alto',{de:u.rol, a:nuevoRol, email:u.email});
     else await audit('usuario_actualizado','cem_profiles',u.id,'medio',{email:u.email});
     m.close(); ok('Usuario actualizado'); load();
+  };
+}
+
+/* ══════════════ invitar a alguien ══════════════
+   Quien invita elige el rol; quien acepta no lo puede tocar. Eso se decide en
+   el servidor —el rol viaja en la fila de la invitación, no en la petición—,
+   así que esta pantalla es sólo la cara: aquí no hay ninguna comprobación de
+   seguridad que valga la pena falsificar. */
+
+const ESTADO_INVIT = {
+  pendiente:['warn','esperando'], aceptada:['ok','ya entró'],
+  caducada:['neutral','se pasó la fecha'], anulada:['err','cancelada'],
+};
+
+async function cargarInvitaciones(){
+  const { data, error } = await sb.rpc('cem_invitaciones_equipo_listar');
+  if (error) { $('#tbInvit').innerHTML = emptyRow(6, 'No se pudieron traer las invitaciones.'); return; }
+  const lista = data || [];
+  const pend = lista.filter(x => x.estado === 'pendiente').length;
+  $('#pieInvit').textContent = lista.length
+    ? `${pend} sin aceptar todavía, de ${lista.length}`
+    : 'todavía no has invitado a nadie';
+
+  $('#tbInvit').innerHTML = lista.length ? lista.map(i => {
+    const [tono, dice] = ESTADO_INVIT[i.estado] || ['neutral', i.estado];
+    return `<tr>
+      <td class="wrap"><b>${esc(i.email)}</b>${i.nombre ? `<div class="tiny muted">${esc(i.nombre)} ${esc(i.apellido||'')}</div>` : ''}</td>
+      <td><span class="chip neutral" title="${esc(QUE_HACE_EL_ROL[i.rol]||'')}">${esc(etiqueta(i.rol))}</span></td>
+      <td>${chip(i.estado, tono)} <span class="tiny muted">${dice}</span></td>
+      <td class="tiny muted">${esc(i.invitada_por_nombre || '—')}</td>
+      <td class="tiny muted">${fdate(i.vence_en)}</td>
+      <td class="nowrap">${i.estado === 'pendiente' && puede
+        ? `<button class="btn ghost sm" data-anular="${i.id}" title="Anular"><span class="material-symbols-outlined">link_off</span></button>` : ''}</td>
+    </tr>`;
+  }).join('') : emptyRow(6, 'Todavía no has invitado a nadie. El botón de arriba abre el formulario.');
+
+  $$('[data-anular]').forEach(b => b.onclick = async () => {
+    if (!await confirmDialog('¿Anular esa invitación? El enlace que ya mandaste dejará de funcionar.')) return;
+    const { error: e } = await sb.rpc('cem_invitacion_anular', { p_id: b.dataset.anular });
+    if (e) { fail(e.message); return; }
+    ok('Invitación anulada'); cargarInvitaciones();
+  });
+}
+
+/* Si no hay proveedor de correo, la invitación se encola y NO SALE. Callarlo
+   aquí sería dejar que alguien escriba tres correos, se quede tan tranquilo, y
+   se entere dentro de una semana de que nadie recibió nada. */
+async function avisoDelCorreo(){
+  const { data } = await sb.rpc('cem_correo_en_pausa');
+  $('#avisoCorreo').innerHTML = data === true
+    ? `<p class="nota warn">El correo está en pausa: no hay proveedor configurado, así que
+       la invitación se guarda pero <b>no sale</b>. Copia el enlace que te doy al crearla y
+       mándalo tú por donde quieras. Cuando conectes el proveedor en
+       <a href="correo.html">Envío de correo</a>, las invitaciones saldrán solas.</p>`
+    : '';
+}
+
+$('#btnInvitar').onclick = () => {
+  const m = modal({ title:'Invitar a alguien', wide:true, body:`
+    <p class="tiny muted">Escribe su correo y elige qué va a poder hacer. Recibirá un enlace
+      para poner su contraseña y sus datos; el rol lo decides tú aquí y esa persona no lo
+      puede cambiar.</p>
+    <div class="field"><label for="iEmail">Correo *</label>
+      <input type="email" id="iEmail" required placeholder="nombre@dominio.com" autocomplete="off"></div>
+    <div class="row">
+      <div class="field medio"><label for="iRol">Rol *</label><select id="iRol" required>
+        ${opciones(['estudiante','profesor','coordinador','cobranza','admin','auditor','superadmin'],'profesor')}</select>
+        <p class="tiny muted" id="iQueHace"></p></div>
+      <div class="field medio"><label for="iDias">El enlace caduca en</label>
+        <select id="iDias"><option value="7">7 días</option><option value="3">3 días</option>
+        <option value="15">15 días</option><option value="30">30 días</option></select></div>
+    </div>
+    <div class="row">
+      <div class="field medio"><label for="iNom">Nombre</label><input id="iNom" placeholder="para saludarle en el correo"></div>
+      <div class="field medio"><label for="iApe">Apellido</label><input id="iApe"></div>
+    </div>
+    <div class="field"><label for="iMsg">Un mensaje suyo (opcional)</label>
+      <textarea id="iMsg" style="min-height:56px" placeholder="Va al principio del correo."></textarea></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Crear la invitación</button>` });
+
+  const explicar = () => { $('#iQueHace',m).textContent = QUE_HACE_EL_ROL[$('#iRol',m).value] || ''; };
+  $('#iRol',m).onchange = explicar; explicar();
+  $('[data-x]',m).onclick = m.close;
+  $('[data-s]',m).onclick = async () => {
+    const email = $('#iEmail',m).value.trim();
+    if (!email) { fail('Hace falta el correo.'); return; }
+    const { data, error } = await sb.rpc('cem_invitar', {
+      p_email: email, p_rol: $('#iRol',m).value,
+      p_nombre: $('#iNom',m).value.trim() || null,
+      p_apellido: $('#iApe',m).value.trim() || null,
+      p_mensaje: $('#iMsg',m).value.trim() || null,
+      p_dias: Number($('#iDias',m).value),
+    });
+    if (error) { fail(error.message); return; }
+    m.close();
+    enseñarElEnlace(data);
+    cargarInvitaciones();
+  };
+};
+
+/* El enlace se enseña UNA vez, aquí, y no vuelve a aparecer en la lista. No es
+   por incordiar: ese enlace es la credencial de esa persona, y una pantalla
+   que lo tenga siempre a la vista es una pantalla donde quien pase por detrás
+   con el móvil se lleva una cuenta de profesor. Si se pierde, se invita otra
+   vez y el enlace viejo se anula solo. */
+function enseñarElEnlace(inv){
+  const m = modal({ title:'Invitación creada', wide:true, body:`
+    <p>Ya está guardada para <b>${esc(inv.email)}</b> como <b>${esc(etiqueta(inv.rol))}</b>.</p>
+    <p class="nota">Este enlace <b>sólo se enseña ahora</b>. Es la llave de esa cuenta, así que
+      no se queda escrito en la lista. Si lo pierdes, invítala otra vez: el enlace viejo se
+      anula solo y se hace uno nuevo.</p>
+    <div class="field"><label for="iEnlace">El enlace</label>
+      <input id="iEnlace" value="${esc(inv.enlace)}" readonly onclick="this.select()"></div>`,
+    footer:`<button class="btn outline" data-x>Cerrar</button>
+            <button class="btn" data-c><span class="material-symbols-outlined">content_copy</span> Copiar el enlace</button>` });
+  $('[data-x]',m).onclick = m.close;
+  $('[data-c]',m).onclick = async () => {
+    try { await navigator.clipboard.writeText(inv.enlace); ok('Enlace copiado.'); }
+    catch { $('#iEnlace',m).select(); fail('Cópialo a mano: el navegador no me deja hacerlo solo.'); }
   };
 }
 </script>

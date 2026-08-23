@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-23-10';
+         vidrioActual } from './temas.js?v=2026-08-23-11';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1234,6 +1234,28 @@ export async function mount(opts = {}) {
       <p class="sub">Tu cuenta está desactivada. Escríbele al administrador para reactivarla.</p></div></div>`;
     return DETENER_LA_PAGINA;
   }
+  /* Con la clave de fábrica todavía puesta no se entra a ningún sitio.
+     ─────────────────────────────────────────────────────────────────────
+     La primera cuenta nace con «admin123», que es cómoda para arrancar y
+     pésima para dejarla: esa cuenta ve la cédula de cada estudiante, mueve
+     dinero y reparte roles.
+
+     Quién lo decide es el servidor, comparando el hash que tiene la cuenta
+     ahora con el que tenía al crearse. No hay ninguna casilla que apagar
+     desde aquí, así que no hay nada que saltarse abriendo la consola.
+
+     Va DESPUÉS de comprobar la sesión y ANTES del rol: alguien con la clave de
+     fábrica no debería llegar ni al mensaje de «sin acceso», que ya cuenta
+     cosas de la plataforma. */
+  if (!rutaRelativaActual().endsWith('cambiar-clave.html')) {
+    const { data: pendiente } = await sb.rpc('cem_debe_cambiar_clave');
+    if (pendiente === true) {
+      location.href = base() + 'cambiar-clave.html?next='
+        + encodeURIComponent(rutaRelativaActual());
+      return DETENER_LA_PAGINA;
+    }
+  }
+
   if (opts.require && !opts.require.includes(p.rol)) {
     document.body.innerHTML = `<div class="auth-wrap"><div class="auth-card">
       <div class="brand-badge"><span class="material-symbols-outlined">lock</span></div>
@@ -1925,7 +1947,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-23-10');
+    const m = await import('./apariencia.js?v=2026-08-23-11');
 
     m.abrirApariencia();
 
