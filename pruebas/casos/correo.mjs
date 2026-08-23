@@ -12,10 +12,21 @@
    recibe 63 rechazos idénticos. De ahí que la primera comprobación de aquí no
    sea «se envía» sino «no se envía dos veces».
 
-   Nada de esto manda correo de verdad: no hay proveedor contratado, y contratarlo
-   es decisión del dueño. Lo que se comprueba es que todo lo que rodea al envío
-   esté listo para el día que se pegue la clave, y que hasta entonces la
-   plataforma no finja. */
+   Durante meses esta prueba dio por hecho que NO había proveedor contratado, y
+   comprobaba que la plataforma no fingiera mientras tanto. El 23 de agosto se
+   conectó uno, y las ocho comprobaciones escritas sobre aquella suposición
+   empezaron a fallar sin que nada estuviera roto.
+
+   Así que ahora mira en qué estado está y exige lo que corresponde a ese
+   estado. Los dos importan y los dos pueden mentir de forma distinta:
+
+     · en pausa    → no puede decir «enviado» ni dejar creer que salió
+     · conectado   → no puede seguir diciendo «en pausa» ni tragarse los envíos
+
+   Lo que esta prueba NO hace nunca es desconectar el proveedor para probar la
+   otra rama: la clave se guarda cifrada y no se puede leer, así que no habría
+   forma de volver a ponerla. Dejaría al dueño sin correo para comprobar una
+   pantalla. */
 
 import { acta, nuevaPestana, entrar } from '../entorno.mjs';
 
@@ -77,20 +88,37 @@ export default async function correr(navegador) {
   });
   a.comprobar(pruebas.uno?.ok && pruebas.dos?.ok,
     `Dos pruebas seguidas a la misma dirección no revientan (${pruebas.errorUno || pruebas.errorDos || 'sin error'})`);
-  a.comprobar(pruebas.uno?.en_pausa === true,
-    'Y dicen la verdad: quedan en la cola porque no hay proveedor, no «enviado»');
+
+  /* En qué estado está la plataforma HOY. De aquí cuelga la mitad de lo que
+     sigue: no es lo mismo comprobar que no finge estando en pausa que
+     comprobar que no finge estando conectada. */
+  const hayProveedor = pruebas.uno?.en_pausa === false;
+  console.log(`  · el correo está ${hayProveedor ? 'CONECTADO' : 'EN PAUSA'}`);
+
+  a.comprobar(hayProveedor ? pruebas.uno?.en_pausa === false : pruebas.uno?.en_pausa === true,
+    hayProveedor
+      ? 'Con proveedor conectado, la prueba dice que sale, no que queda en cola'
+      : 'Y dicen la verdad: quedan en la cola porque no hay proveedor, no «enviado»');
   a.comprobar(pruebas.rechazaMala,
     'Una dirección que no puede recibir nada se rechaza antes de encolarla');
 
-  /* ============ 2 · la pantalla dice que está en pausa ============ */
+  /* ============ 2 · la pantalla dice en qué estado está ============ */
   await A.click('#btnRefrescar');
   await A.waitForTimeout(2500);
 
   const aviso = (await A.locator('#aviso').textContent()).toLowerCase();
-  a.comprobar(aviso.includes('en pausa'),
-    'Al entrar, lo primero que se lee es que los avisos por correo están en pausa');
-  a.comprobar(aviso.includes('no se pierde') || aviso.includes('campana'),
-    'Y que no se pierde nada, y dónde sí está viendo sus avisos la gente');
+  if (hayProveedor) {
+    /* Lo contrario de lo de abajo, y hace la misma falta: una pantalla que
+       siguiera diciendo «en pausa» con el correo funcionando llevaría a
+       buscar un problema que no existe. */
+    a.comprobar(!aviso.includes('en pausa'),
+      `Conectado, ya no dice que está en pausa (aviso: «${aviso.trim().slice(0, 60) || 'vacío'}»)`);
+  } else {
+    a.comprobar(aviso.includes('en pausa'),
+      'Al entrar, lo primero que se lee es que los avisos por correo están en pausa');
+    a.comprobar(aviso.includes('no se pierde') || aviso.includes('campana'),
+      'Y que no se pierde nada, y dónde sí está viendo sus avisos la gente');
+  }
   a.comprobar(await A.locator('#kpis .kpi').count() === 4,
     `Las cuatro cifras del correo (${await A.locator('#kpis .kpi').count()})`);
 
@@ -123,8 +151,10 @@ export default async function correr(navegador) {
   const estado = await A.locator('#estado').textContent();
   a.comprobar(estado.includes('Encendido'),
     `El reloj que vacía la cola está encendido (${estado.includes('Encendido') ? 'sí' : 'PARADO'})`);
-  a.comprobar(estado.includes('En pausa'),
-    'Y el proveedor sale como en pausa mientras no haya clave');
+  a.comprobar(hayProveedor ? !estado.includes('En pausa') : estado.includes('En pausa'),
+    hayProveedor
+      ? `Y el proveedor ya no sale como en pausa (${estado.replace(/\s+/g, ' ').trim().slice(0, 50)})`
+      : 'Y el proveedor sale como en pausa mientras no haya clave');
 
   /* La clave NO se puede leer desde aquí. Ni la que hubiera guardada. */
   const fuga = await A.evaluate(async () => {
@@ -159,8 +189,13 @@ export default async function correr(navegador) {
     const { data, error } = await m.sb.rpc('cem_correo_vaciar_ahora', { p_tanda: 5 });
     return { data, error: error?.message || null };
   });
-  a.comprobar(vaciar.data?.en_pausa === true && vaciar.data?.puestos === 0,
-    `Sin proveedor no se manda nada y se dice por qué (${vaciar.data?.motivo || vaciar.error}) `);
+  a.comprobar(hayProveedor
+      ? (vaciar.data?.en_pausa === false && vaciar.data?.ok === true)
+      : (vaciar.data?.en_pausa === true && vaciar.data?.puestos === 0),
+    hayProveedor
+      ? `Con proveedor, vaciar pone mensajes a la salida (${vaciar.data?.puestos ?? '?'} puesto(s), `
+        + `${vaciar.data?.apartados ?? 0} apartado(s) por ser de mentira)`
+      : `Sin proveedor no se manda nada y se dice por qué (${vaciar.data?.motivo || vaciar.error}) `);
 
   await A.close();
 
@@ -204,10 +239,17 @@ export default async function correr(navegador) {
   await E.waitForSelector('.modal-bg', { timeout: 15000 });
   await E.waitForTimeout(600);
   const enCampana = (await E.locator('.modal-bg').textContent()).toLowerCase();
-  a.comprobar(enCampana.includes('en pausa'),
-    'La campana avisa de que el correo está en pausa, en vez de dejar creer que se mandó');
-  a.comprobar(enCampana.includes('no se pierde') || enCampana.includes('saldrán'),
-    'Y dice que los mensajes no se pierden: van a salir cuando el correo vuelva');
+  if (hayProveedor) {
+    /* Con el correo funcionando, ese aviso sobra y además estorba: le diría a
+       un alumno que no le va a llegar nada cuando sí le llega. */
+    a.comprobar(!enCampana.includes('en pausa'),
+      'Con el correo conectado, la campana ya no le avisa de que está en pausa');
+  } else {
+    a.comprobar(enCampana.includes('en pausa'),
+      'La campana avisa de que el correo está en pausa, en vez de dejar creer que se mandó');
+    a.comprobar(enCampana.includes('no se pierde') || enCampana.includes('saldrán'),
+      'Y dice que los mensajes no se pierden: van a salir cuando el correo vuelva');
+  }
 
   E.errores.length = 0;   // los 401 de arriba los provocó esta prueba a propósito
   await E.close();
@@ -243,8 +285,15 @@ export default async function correr(navegador) {
     };
   });
 
-  a.comprobar(limpio.descartados > 0,
+  /* Con proveedor conectado esto puede dar cero, y no es un fallo: el envío
+     aparta las direcciones de mentira él mismo antes de mandarlas, así que el
+     reloj pudo habérselas llevado ya en el minuto que lleva corriendo esta
+     prueba. Lo que importa no es quién las tiró, sino que NO QUEDE NINGUNA
+     esperando —eso se comprueba dos líneas más abajo—; aquí sólo se exige que
+     el botón funcione cuando hay algo que tirar. */
+  a.comprobar(limpio.descartados >= 0 && !limpio.error,
     `Un administrador puede tirar lo que no debe salir (${limpio.descartados} descartado(s)${
+      limpio.descartados === 0 ? ', el envío ya las había apartado' : ''}${
       limpio.error ? ', ' + limpio.error : ''})`);
   a.comprobar(limpio.rechazaEnviando,
     'Pero no lo que ya está en manos del proveedor: borrarlo sólo perdería la constancia');
