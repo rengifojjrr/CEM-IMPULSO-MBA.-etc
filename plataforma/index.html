@@ -10,6 +10,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css?v=2026-08-24">
+<style>
+  /* La barra de avance del registro. Cuatro trazos, no un porcentaje: quien
+     está rellenando quiere saber cuánto le queda, y «3 de 4» se entiende de un
+     vistazo mejor que un 75%. */
+  .pasos-barra{display:flex;gap:6px;margin:var(--e2) 0 var(--e1);}
+  .pasos-barra i{flex:1;height:4px;border-radius:2px;background:var(--filete);
+    transition:background var(--rapido);}
+  .pasos-barra i.hecho{background:var(--primary);}
+  /* Sin animación para quien la ha desactivado en su sistema. */
+  @media (prefers-reduced-motion:reduce){ .pasos-barra i{transition:none;} }
+</style>
 </head>
 <body>
 <div class="auth-wrap">
@@ -53,15 +64,32 @@
     <div class="sub">Regístrate como estudiante para inscribirte en nuestros programas.
       Sólo se pide una vez: después queda en tu perfil.</div>
     <div id="volveras"></div>
+    <!-- El registro va por pasos cortos, no en una sola pantalla larga.
+         ─────────────────────────────────────────────────────────────────────
+         Eran once campos de golpe, y once campos de golpe delante de alguien
+         que sólo quería comprar un curso es una pared. Ahora se pregunta de
+         tres en tres, empezando por lo más fácil de contestar —tu nombre— y
+         dejando la contraseña para el final, cuando ya se ha invertido algo
+         de esfuerzo y cuesta más abandonar.
+
+         Los campos son los mismos y el envío es uno solo al final: no se crea
+         nada a medias por el camino. Lo escrito no se pierde al ir y volver
+         porque los pasos se ocultan, no se destruyen. -->
+    <div class="pasos-barra" id="rBarra" aria-hidden="true"></div>
+    <p class="tiny muted" id="rPasoTit" style="text-align:center;margin:0 0 var(--e2)"></p>
+
     <form id="formReg" novalidate>
-      <fieldset class="grupo-campos">
-        <legend>Quién eres</legend>
+      <div class="paso-reg" data-paso="1">
         <div class="row">
           <div class="field medio"><label for="rNombre">Nombre</label>
             <input type="text" id="rNombre" name="nombre" required autocomplete="given-name"></div>
           <div class="field medio"><label for="rApellido">Apellido</label>
             <input type="text" id="rApellido" name="apellido" required autocomplete="family-name"></div>
         </div>
+        <p class="tiny muted">Tal como quieres que aparezca en tu certificado.</p>
+      </div>
+
+      <div class="paso-reg hidden" data-paso="2">
         <div class="row">
           <div class="field medio"><label for="rDocTipo">Tipo de documento</label>
             <select id="rDocTipo" name="documento_tipo">
@@ -76,10 +104,9 @@
         <div class="field corto"><label for="rNac">Fecha de nacimiento</label>
           <input type="date" id="rNac" name="fecha_nacimiento" required autocomplete="bday">
           <span class="tiny muted">Va en el certificado y nos dice a qué grupo de edad acompañarte.</span></div>
-      </fieldset>
+      </div>
 
-      <fieldset class="grupo-campos">
-        <legend>Cómo ubicarte</legend>
+      <div class="paso-reg hidden" data-paso="3">
         <div class="row">
           <div class="field medio"><label for="rTel">Teléfono</label>
             <input type="tel" id="rTel" name="telefono" autocomplete="tel"
@@ -107,10 +134,10 @@
             <option value="whatsapp">Por WhatsApp</option>
             <option value="otro">Otro</option>
           </select></div>
-      </fieldset>
+        <p class="tiny muted">Este paso es opcional: puedes seguir sin rellenarlo.</p>
+      </div>
 
-      <fieldset class="grupo-campos">
-        <legend>Con qué entras</legend>
+      <div class="paso-reg hidden" data-paso="4">
         <div class="field"><label for="rEmail">Correo</label>
           <input type="email" id="rEmail" name="email" required autocomplete="username">
           <span class="tiny muted">Aquí llega la confirmación y todos los avisos del curso.</span></div>
@@ -123,14 +150,20 @@
               minlength="8" autocomplete="new-password"></div>
         </div>
         <div class="medida-clave" id="rFuerza" data-nivel="vacia" aria-live="polite"></div>
-      </fieldset>
 
-      <label class="casilla">
-        <input type="checkbox" id="rAcepta" name="acepta" required>
-        <span class="tiny muted">Acepto que el CEM guarde estos datos para gestionar mi
-          formación y me escriba sobre los programas en los que me inscriba.</span></label>
+        <label class="casilla sep">
+          <input type="checkbox" id="rAcepta" name="acepta" required>
+          <span class="tiny muted">Acepto que el CEM guarde estos datos para gestionar mi
+            formación y me escriba sobre los programas en los que me inscriba.</span></label>
+      </div>
 
-      <button class="btn gold block sep" type="submit">Crear mi cuenta</button>
+      <div class="row sep" style="gap:10px">
+        <button class="btn outline" type="button" id="rAtras" hidden>
+          <span class="material-symbols-outlined">arrow_back</span> Atrás</button>
+        <button class="btn gold grow" type="button" id="rSigue">
+          Siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
+        <button class="btn gold grow" type="submit" id="rCrear" hidden>Crear mi cuenta</button>
+      </div>
       <div id="regMsg"></div>
     </form>
     <div style="margin-top:12px;text-align:center">
@@ -194,7 +227,7 @@
 </div>
 
 <script type="module">
-import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
+import { sb, $, $$, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
          medidorDeClave, rutaSegura, recordarRumbo } from './assets/app.js?v=2026-08-24';
 import { opcionesDePais } from './assets/paises.js?v=2026-08-24';
 
@@ -287,6 +320,9 @@ $('#toLogin3').onclick = () => mostrar('cardLogin');
 $('#btnOtroCorreo').onclick = () => {
   const malo = $('#revisaCorreo').textContent.trim();
   mostrar('cardReg');
+  /* Al último paso, que es donde está el correo. Devolver al paso 1 obligaría
+     a recorrer otra vez tres pantallas ya rellenadas para cambiar una línea. */
+  pasoActual = PASOS.length; pintarPaso();
   const campo = $('#rEmail');
   if (campo) {
     campo.value = '';
@@ -367,6 +403,67 @@ const claveLista = medidorDeClave({ clave: '#rPass', repetir: '#rPass2', donde: 
   nac.min = aFecha(new Date(hoy.getFullYear() - 110, 0, 1));
 })();
 
+/* ============ el registro, paso a paso ============
+ * Los cuatro pasos y lo que cada uno exige. Se valida AL AVANZAR, no al final:
+ * decirle a alguien en la última pantalla que le falta el apellido de la
+ * primera es mandarlo a buscar un campo que ya no ve.
+ *
+ * El paso 3 no exige nada a propósito. Son datos que ayudan a la escuela pero
+ * que no hacen falta para tener una cuenta, y poner una barrera obligatoria
+ * donde no la hay sólo sirve para perder gente. */
+const PASOS = [
+  { n: 1, titulo: 'Empecemos por tu nombre',
+    falta: () => (!$('#rNombre').value.trim() && 'Falta tu nombre.')
+               || (!$('#rApellido').value.trim() && 'Falta tu apellido.') },
+  { n: 2, titulo: 'Tu documento de identidad',
+    falta: () => (!$('#rDoc').value.trim() && 'Falta el número de documento.')
+               || (!$('#rNac').value && 'Falta tu fecha de nacimiento.') },
+  { n: 3, titulo: 'Cómo ubicarte (opcional)', falta: () => null },
+  { n: 4, titulo: 'Con qué vas a entrar',
+    falta: () => (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('#rEmail').value.trim())
+                    && 'Revisa el correo: no parece una dirección válida.')
+               || claveLista()
+               || (!$('#rAcepta').checked
+                    && 'Hace falta que aceptes el uso de tus datos para poder crear la cuenta.') },
+];
+let pasoActual = 1;
+
+function pintarPaso() {
+  const p = PASOS.find((x) => x.n === pasoActual);
+  $$('.paso-reg').forEach((el) =>
+    el.classList.toggle('hidden', Number(el.dataset.paso) !== pasoActual));
+  $('#rBarra').innerHTML = PASOS.map((x) =>
+    `<i class="${x.n <= pasoActual ? 'hecho' : ''}"></i>`).join('');
+  $('#rPasoTit').textContent = `Paso ${pasoActual} de ${PASOS.length} · ${p.titulo}`;
+  $('#rAtras').hidden = pasoActual === 1;
+  const ultimo = pasoActual === PASOS.length;
+  $('#rSigue').hidden = ultimo;
+  $('#rCrear').hidden = !ultimo;
+  regMsg.innerHTML = '';
+  // El foco al primer campo del paso: en el teléfono evita tener que buscarlo.
+  const primero = $(`.paso-reg[data-paso="${pasoActual}"] input, .paso-reg[data-paso="${pasoActual}"] select`);
+  if (primero) setTimeout(() => primero.focus({ preventScroll: false }), 60);
+}
+
+function avanzar() {
+  const mal = PASOS.find((x) => x.n === pasoActual).falta();
+  if (mal) { regMsg.innerHTML = `<div class="nota err sep">${esc(mal)}</div>`; return; }
+  pasoActual = Math.min(pasoActual + 1, PASOS.length);
+  pintarPaso();
+}
+
+$('#rSigue').onclick = avanzar;
+$('#rAtras').onclick = () => { pasoActual = Math.max(1, pasoActual - 1); pintarPaso(); };
+
+/* Enter avanza en vez de enviar. Sin esto, pulsar Enter en el primer campo
+   mandaría el formulario entero con tres pasos sin rellenar. */
+$('#formReg').addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter' || ev.target.tagName === 'TEXTAREA') return;
+  if (pasoActual < PASOS.length) { ev.preventDefault(); avanzar(); }
+});
+
+pintarPaso();
+
 // El correo al que se registró, para poder reenviarle la confirmación.
 let correoPendiente = '';
 
@@ -377,23 +474,23 @@ $('#formReg').onsubmit = async (e) => {
 
   /* Se valida aquí y no con el `required` del navegador porque el formulario
      lleva `novalidate`: el globo nativo sale en el idioma del navegador, tapa el
-     campo y no se puede leer con lector de pantalla. */
-  /* En el orden en que están en pantalla, y la casilla de aceptar al final,
-     que es donde está. Si se comprueba antes, alguien que se equivocó al
-     repetir la contraseña recibe «acepta los datos» y no entiende nada. */
-  const correo = $('#rEmail').value.trim();
-  const falta = [
-    [!$('#rNombre').value.trim(), 'Falta tu nombre.'],
-    [!$('#rApellido').value.trim(), 'Falta tu apellido.'],
-    [!$('#rDoc').value.trim(), 'Falta el número de documento.'],
-    [!$('#rNac').value, 'Falta tu fecha de nacimiento.'],
-    [!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo), 'Revisa el correo: no parece una dirección válida.'],
-    [!!claveLista(), claveLista()],
-    [!$('#rAcepta').checked, 'Hace falta que aceptes el uso de tus datos para poder crear la cuenta.'],
-  ].find(([mal]) => mal);
-  if (falta) { queja(falta[1]); return; }
+     campo y no se puede leer con lector de pantalla.
 
-  const btn = $('#formReg button[type=submit]');
+     Cada paso ya se comprueba al avanzar, así que esto no debería saltar casi
+     nunca. Cuando salta —autocompletar que borra algo, alguien que vuelve
+     atrás y vacía un campo— se VUELVE al paso donde está el problema: enseñar
+     «falta tu apellido» en la última pantalla manda a buscar un campo que no
+     se ve. */
+  const correo = $('#rEmail').value.trim();
+  const roto = PASOS.map((p) => [p, p.falta()]).find(([, mal]) => mal);
+  if (roto) {
+    const [paso, mal] = roto;
+    if (paso.n !== pasoActual) { pasoActual = paso.n; pintarPaso(); }
+    queja(mal);
+    return;
+  }
+
+  const btn = $('#rCrear');
   btn.disabled = true;
   const { error } = await sb.auth.signUp({
     email: correo, password: $('#rPass').value,
@@ -440,6 +537,8 @@ $('#formReg').onsubmit = async (e) => {
 
   correoPendiente = correo;
   $('#formReg').reset();
+  // Y el paseo vuelve al principio, por si alguien registra una segunda cuenta.
+  pasoActual = 1; pintarPaso();
   $('#revisaCorreo').textContent = correo;
   revisaMsg.innerHTML = '';
   mostrar('cardRevisa');
