@@ -86,7 +86,7 @@ caduca en silencio produce un error sin explicación al día siguiente.
 
 | Dónde | Qué hace |
 |---|---|
-| `plataforma/admin/recursos.html` | Crear, editar, apagar y ver quién lo pidió. |
+| `plataforma/admin/recursos.html` | Crear, editar, apagar, y **pulsar la fila** para ver el archivo y quién lo pidió. |
 | `plataforma/recurso.html` | La página pública del enlace, con el muro de datos. |
 | `supabase/functions/cem-recurso` | Comprueba, anota el contacto, firma el enlace y encola el correo. |
 | `cem_recursos` · `cem_recurso_entregas` | Los recursos y quién reclamó cada uno. |
@@ -130,3 +130,32 @@ sólo un enlace firmado que caduca.
 La pantalla de **Recursos para redes** lo comprueba al abrirse y avisa en rojo
 si no está puesta, para no descubrirlo porque alguien escriba diciendo que el
 enlace no le dio nada.
+
+## Mirar un recurso
+
+Se pulsa **la fila entera** —no un botón de la esquina— y se abre debajo con
+dos cosas al lado: el archivo tal como lo recibe la gente, y la lista de quién
+lo pidió con lo que hizo después (sólo contacto, se hizo cuenta, o alumno con
+N inscripciones).
+
+Están juntas porque son las dos preguntas que uno tiene delante de un recurso
+—«¿qué estoy repartiendo?» y «¿a quién le está llegando?»— y separarlas en dos
+botones obligaba a dos clics para responder una sola.
+
+El archivo lo firma el propio equipo, no la función de servidor: mirarlo desde
+aquí **no cuenta como una entrega**, así que no ensucia la cifra con la que se
+decide si la publicación sirvió.
+
+### Por qué la fila y no un botón
+
+Antes había un botón «Quiénes» en la última columna. La tabla tenía siete
+columnas y la dirección de ManyChat —sesenta caracteres, en un elemento en
+línea sin ancho máximo— se llevaba todo el espacio que pedía, así que la tabla
+se desbordaba y esa última columna quedaba fuera del borde, detrás de un
+desplazamiento horizontal que nadie ve. Los botones estaban ahí y era como si
+no existieran.
+
+Se arregló por los dos lados: la dirección va en bloque y acotada para que
+parta la línea, «Personas» y «Con cuenta» se juntaron en una columna, y entre
+720 y 1200 px se esconde la fecha —que vuelve a salir, por persona, al abrir la
+fila—. Medido a 1600, 1280, 1024 y 700 px.
