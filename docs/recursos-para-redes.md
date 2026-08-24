@@ -146,16 +146,24 @@ El archivo lo firma el propio equipo, no la función de servidor: mirarlo desde
 aquí **no cuenta como una entrega**, así que no ensucia la cifra con la que se
 decide si la publicación sirvió.
 
-### Por qué la fila y no un botón
+### Por qué fichas y no una tabla
 
-Antes había un botón «Quiénes» en la última columna. La tabla tenía siete
-columnas y la dirección de ManyChat —sesenta caracteres, en un elemento en
-línea sin ancho máximo— se llevaba todo el espacio que pedía, así que la tabla
-se desbordaba y esa última columna quedaba fuera del borde, detrás de un
-desplazamiento horizontal que nadie ve. Los botones estaban ahí y era como si
-no existieran.
+Se intentó dos veces con una tabla y las dos se rompió por lo mismo.
 
-Se arregló por los dos lados: la dirección va en bloque y acotada para que
-parta la línea, «Personas» y «Con cuenta» se juntaron en una columna, y entre
-720 y 1200 px se esconde la fecha —que vuelve a salir, por persona, al abrir la
-fila—. Medido a 1600, 1280, 1024 y 700 px.
+La dirección de ManyChat son sesenta caracteres, y una tabla reparte el ancho
+entre columnas sin que ninguna pueda decir «yo me parto». La primera vez la
+tabla se desbordaba y los botones de la última columna quedaban fuera del
+borde, detrás de un desplazamiento horizontal que nadie ve: estaban ahí y era
+como si no existieran. La segunda, con la dirección acotada, la línea seguía
+sin partirse — porque la regla global del sitio pone `white-space: nowrap` a
+TODA celda de tabla, y `word-break` no puede romper una línea a la que se le ha
+prohibido romperse. La dirección se salía de su caja y se escribía encima de la
+columna vecina.
+
+Se podía parchear otra vez, pero una tabla con una URL larga dentro va a seguir
+peleándose siempre. Una ficha por recurso no tiene ese problema —cada cosa
+ocupa su renglón— y encima se lee mejor: aquí no se comparan veinte filas de un
+vistazo, se mira un recurso concreto y se pregunta qué es y a quién le llega.
+
+Comprobado a 1100 y 420 px: la página no se desborda y la dirección se queda
+dentro de su caja.

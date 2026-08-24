@@ -9,55 +9,64 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24-3">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24-4">
 <style>
-  /* En bloque y con ancho máximo, y no por gusto: siendo un elemento EN LÍNEA
-     sin límite, la dirección se llevaba todo el ancho que pedía —son sesenta
-     caracteres— y empujaba la tabla más allá del borde de la tarjeta. Los
-     botones de la última columna quedaban fuera, detrás de un desplazamiento
-     horizontal que nadie ve, así que era como si no existieran.
-     `word-break` sólo parte la línea cuando hay una anchura que respetar. */
-  /* sin-caja: un enlace en monoespaciada para copiarlo, no un panel */
-  .enlace-manychat{display:block;max-width:26ch;
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
-    background:var(--hueco);padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--filete);
-    word-break:break-all;}
+  /* Una ficha por recurso. Ver el comentario de `pintar()` para por qué esto
+     no es una tabla. */
+  .ficha-recurso{display:flex;flex-direction:column;gap:var(--e2);}
 
-  /* La fila se pulsa entera. Sin la mano y el resalte al pasar por encima,
-     nadie adivina que se puede pulsar: un botón pequeño en la esquina era
-     justo lo que no se encontraba. */
-  .fila-recurso{cursor:pointer;}
-  .fila-recurso:hover{background:var(--hueco);}
-  .fila-recurso:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}
-  .fila-recurso .flecha{font-size:20px;color:var(--tinta-2);
-    transition:transform var(--rapido);}
-  .fila-recurso.abierta .flecha{transform:rotate(90deg);color:var(--primary);}
-  @media (prefers-reduced-motion:reduce){ .fila-recurso .flecha{transition:none;} }
-
-  /* En una pantalla estrecha sobra una columna, y la que sobra es la fecha.
-     ───────────────────────────────────────────────────────────────────────
-     Entre 720 y 1200 px la tabla no cabe: por debajo de 720 se apila sola en
-     tarjetas, y por encima de 1200 caben las seis. En esa franja hay que
-     quitar algo, y la última entrega es lo más prescindible —sale otra vez,
-     y por persona, en cuanto se abre la fila—. Lo que NO puede desaparecer
-     son los botones, que es justo lo que pasaba antes. */
-  @media (min-width:721px) and (max-width:1200px){
-    .col-fecha{display:none;}
+  .ficha-cab{display:flex;align-items:flex-start;gap:var(--e1);flex-wrap:wrap;}
+  .ficha-ico{font-size:26px;color:var(--primary);flex:none;margin-top:2px;}
+  .ficha-tit{margin:0;font-size:var(--t-lg);line-height:1.2;}
+  .ficha-mandos{display:flex;align-items:center;gap:6px;flex:none;margin-left:auto;}
+  /* En el teléfono la cabecera se parte en dos renglones, y ahí el
+     `margin-left:auto` deja los mandos flotando solos en el borde derecho,
+     lejos de lo que gobiernan. Pegados a la izquierda se leen como parte de
+     la ficha. */
+  @media (max-width:560px){
+    .ficha-mandos{margin-left:0;width:100%;}
   }
 
-  /* La fila que se abre debajo. Fondo distinto para que se vea que pertenece
-     a la de arriba y no es una fila más de la tabla. */
-  .desplegado{background:var(--hueco);padding:14px 16px;}
-  /* El archivo a la izquierda y la gente a la derecha mientras quepan; en un
-     portátil estrecho o en el teléfono, uno debajo del otro. */
-  .dos-lados{display:grid;gap:var(--e3);
-    grid-template-columns:repeat(auto-fit,minmax(330px,1fr));align-items:start;}
+  /* La dirección: en su propio renglón y con permiso para partirse.
+     ═══════════════════════════════════════════════════════════════════════
+     `white-space:normal` no es decoración. La regla global del sitio pone
+     `nowrap` a toda celda de tabla, y una línea que tiene prohibido romperse
+     no la parte `word-break` ni nada: la dirección se salía de su caja y se
+     escribía encima de la columna vecina. Aquí ya no hay celda, pero se deja
+     dicho a propósito para que no vuelva a heredarse de ningún sitio. */
+  .ficha-enlace{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .ficha-enlace code{flex:1;min-width:min(100%,260px);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r-sm);
+    padding:9px 11px;white-space:normal;word-break:break-all;line-height:1.5;}
 
-  /* sin-caja: el marco del archivo, que no es un panel de la interfaz */
+  .ficha-cifras{display:flex;gap:var(--e3);flex-wrap:wrap;
+    border-top:1px solid var(--filete);border-bottom:1px solid var(--filete);
+    padding:var(--e1) 0;}
+  .ficha-cifras > div{display:flex;flex-direction:column;}
+  /* La tipografía de cifras alinea los dígitos en columna, que es para lo que
+     está. Una fecha no es una cifra que se compare con otra de arriba: en
+     monoespaciada se lee como un número de serie. */
+  .ficha-cifras b{font-family:var(--cifra);font-size:var(--t-md);line-height:1.2;}
+  .ficha-cifras b.fecha{font-family:inherit;font-size:var(--t-sm);
+    padding-top:2px;font-weight:var(--peso-fuerte);}
+  .ficha-cifras span{font-size:var(--t-xs);color:var(--tinta-2);}
+
+  .abrir-ficha{justify-content:flex-start;gap:6px;}
+  .abrir-ficha .flecha{transition:transform var(--rapido);}
+  .abrir-ficha[aria-expanded="true"] .flecha{transform:rotate(180deg);}
+  @media (prefers-reduced-motion:reduce){ .abrir-ficha .flecha{transition:none;} }
+
+  .desplegado{border-top:1px solid var(--filete);padding-top:var(--e2);}
+  /* El archivo a un lado y la gente al otro mientras quepan; si no, apilados. */
+  .dos-lados{display:grid;gap:var(--e3);
+    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start;}
+
+  /* sin-caja: el marco del archivo, no un panel de la interfaz */
   .ojeada{border:1px solid var(--filete);border-radius:var(--r);overflow:hidden;
     background:var(--hueco);}
-  .ojeada iframe{display:block;width:100%;height:min(60vh,520px);border:0;}
-  .ojeada img{display:block;width:100%;height:auto;max-height:min(60vh,520px);
+  .ojeada iframe{display:block;width:100%;height:min(50vh,430px);border:0;}
+  .ojeada img{display:block;width:100%;height:auto;max-height:min(50vh,430px);
     object-fit:contain;}
 </style>
 </head>
@@ -91,8 +100,8 @@
    viene de comentar una palabra en Instagram es donde se cae la mitad de la
    gente, y lo que se buscaba era justamente traerla. */
 import { sb, mount, $, $$, esc, num, chip, fdate, ok, fail, toast, modal, avisar,
-         confirmDialog, mensajeError, emptyRow, ocupado, subirRegalo, SUPABASE_URL }
-  from '../assets/app.js?v=2026-08-24-3';
+         confirmDialog, mensajeError, ocupado, subirRegalo, SUPABASE_URL }
+  from '../assets/app.js?v=2026-08-24-4';
 
 await mount({ require:['coordinador','admin','superadmin'], area:'admin', active:'recursos.html' });
 
@@ -169,194 +178,75 @@ function pintar(){
   ].join('');
 
   if (!RECURSOS.length) {
-    $('#cuerpo').innerHTML = `<div class="card"><div class="table-wrap"><table>
-      <thead><tr><th>Recurso</th></tr></thead><tbody>
-      ${emptyRow(1, 'Todavía no hay ningún recurso. Aquí se crean los documentos y vídeos que '
-        + 'se regalan en redes a cambio de un contacto.',
-        { texto:'Crear el primero', id:'vacioRec', icono:'redeem' })}
-      </tbody></table></div></div>`;
+    $('#cuerpo').innerHTML = `<div class="card"><div class="empty">
+      Todavía no hay ningún recurso. Aquí se crean los documentos y vídeos que se
+      regalan en redes a cambio de un contacto.
+      <button class="btn sm" id="vacioRec" style="margin-top:10px">
+        <span class="material-symbols-outlined">redeem</span> Crear el primero</button>
+    </div></div>`;
     $('#vacioRec').onclick = () => editar(null);
     return;
   }
 
-  /* Seis columnas, no ocho.
+  /* Fichas, no una tabla.
      ═══════════════════════════════════════════════════════════════════════
-     La versión anterior tenía siete y no cabían: la tabla se desbordaba y los
-     botones de la última columna —«Quiénes», editar, borrar— quedaban fuera
-     del borde, detrás de un desplazamiento horizontal que nadie ve. Estaban
-     ahí y era como si no existieran.
+     Se intentó dos veces con una tabla y las dos se rompió por lo mismo: la
+     dirección de ManyChat son sesenta caracteres, y una tabla reparte el
+     ancho entre las columnas sin que ninguna pueda decir «yo me parto». La
+     regla global de este sitio, además, pone `white-space: nowrap` a TODA
+     celda, y `word-break` no puede partir una línea a la que se le ha
+     prohibido romperse: la dirección se salía de su caja y se metía encima
+     de la columna de al lado.
 
-     Se juntan «Personas» y «Con cuenta» en una sola celda, porque las dos
-     cifras se leen juntas o no dicen nada: dos personas está bien o está mal
-     según cuántas se quedaron. */
-  $('#cuerpo').innerHTML = `<div class="card"><div class="table-wrap"><table class="tarjetas">
-    <thead><tr>
-      <th>Recurso</th><th>Enlace para ManyChat</th><th>Gente</th>
-      <th class="col-fecha">Última</th><th>Estado</th><th></th>
-    </tr></thead>
-    <tbody>${RECURSOS.map(r => `<tr class="fila-recurso" data-abrir="${esc(r.id)}"
-        role="button" tabindex="0" aria-expanded="false" aria-controls="gente-${esc(r.id)}"
-        title="Pulsa para ver quién lo pidió">
-      <td data-col="Recurso">
-        <div class="t" style="display:flex;align-items:center;gap:7px">
-          <span class="material-symbols-outlined flecha">chevron_right</span>
-          <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary)">${ICONO[r.tipo] || 'redeem'}</span>
-          ${esc(r.titulo)}</div>
-        <div class="s" style="padding-left:25px">${esc(COMO_SE_LLAMA[r.tipo] || r.tipo)}${
-          r.gancho ? ` · comentan «${esc(r.gancho)}»` : ''}</div>
-      </td>
-      <td data-col="Enlace para ManyChat">
-        <code class="enlace-manychat">${esc(enlaceDe(r.codigo))}</code>
-        <button class="btn ghost sm" data-copiar="${esc(r.codigo)}" type="button" style="margin-top:5px">
+     Se podía parchear, pero una tabla con una URL larga dentro va a seguir
+     peleándose siempre. Una ficha por recurso no tiene ese problema —cada
+     cosa ocupa su renglón— y encima se lee mejor: aquí no se comparan veinte
+     filas de un vistazo, se mira un recurso concreto y se pregunta qué es y
+     a quién le llega. */
+  $('#cuerpo').innerHTML = RECURSOS.map(r => {
+    const gente = Number(r.personas || 0);
+    const cuentas = Number(r.con_cuenta || 0);
+    return `<article class="card ficha-recurso" data-ficha="${esc(r.id)}">
+      <header class="ficha-cab">
+        <span class="material-symbols-outlined ficha-ico">${ICONO[r.tipo] || 'redeem'}</span>
+        <div class="grow">
+          <h2 class="ficha-tit">${esc(r.titulo)}</h2>
+          <p class="tiny muted sin-margen">${esc(COMO_SE_LLAMA[r.tipo] || r.tipo)}${
+            r.gancho ? ` · comentan «${esc(r.gancho)}»` : ''}${
+            r.archivo_nombre ? ` · ${esc(r.archivo_nombre)}` : ''}</p>
+        </div>
+        <div class="ficha-mandos">
+          ${r.activo ? chip('Activo','ok') : chip('Apagado','')}
+          <button class="btn ghost sm" data-editar="${esc(r.id)}" type="button" title="Editar">
+            <span class="material-symbols-outlined">edit</span></button>
+          <button class="btn ghost sm" data-borrar="${esc(r.id)}" type="button" title="Borrar">
+            <span class="material-symbols-outlined">delete</span></button>
+        </div>
+      </header>
+
+      <div class="ficha-enlace">
+        <code>${esc(enlaceDe(r.codigo))}</code>
+        <button class="btn outline sm" data-copiar="${esc(r.codigo)}" type="button">
           <span class="material-symbols-outlined">content_copy</span> Copiar</button>
-      </td>
-      <td data-col="Gente" class="nowrap">
-        <div class="t">${num(r.personas || 0)} ${Number(r.personas) === 1 ? 'persona' : 'personas'}</div>
-        <div class="s">${Number(r.personas)
-          ? `${num(r.con_cuenta || 0)} con cuenta · ${Math.round((r.con_cuenta || 0) / r.personas * 100)} %`
-          : 'nadie todavía'}</div>
-      </td>
-      <td data-col="Última" class="nowrap col-fecha">${r.ultima ? fdate(r.ultima) : '—'}</td>
-      <td data-col="Estado">${r.activo ? chip('Activo','ok') : chip('Apagado','')}</td>
-      <td class="acciones nowrap">
-        <button class="btn ghost sm" data-editar="${esc(r.id)}" type="button" title="Editar">
-          <span class="material-symbols-outlined">edit</span></button>
-        <button class="btn ghost sm" data-borrar="${esc(r.id)}" type="button" title="Borrar">
-          <span class="material-symbols-outlined">delete</span></button>
-      </td></tr>
-      <!-- Lo que se abre debajo, en lugar de un diálogo. Un diálogo tapa la
-           tabla, así que comparar dos recursos obliga a abrir, leer, cerrar y
-           abrir el otro. Desplegados se pueden tener los dos a la vez. -->
-      <tr class="hidden" data-gente="${esc(r.id)}" id="gente-${esc(r.id)}">
-        <td colspan="6" class="desplegado"></td></tr>`).join('')}</tbody></table></div></div>`;
-}
+      </div>
 
-/* ── crear y editar ─────────────────────────────────────────────────────── */
-function editar(r){
-  const esNuevo = !r;
-  const m = modal({
-    title: esNuevo ? 'Nuevo recurso' : 'Editar recurso',
-    wide: true,
-    body: `
-      <div class="field"><label for="rTitulo">Título</label>
-        <input id="rTitulo" value="${esc(r?.titulo || '')}" placeholder="Clase: IA aplicada al marketing">
-        <span class="pista">Es lo que se lee arriba del todo cuando alguien abre el enlace.</span></div>
+      <div class="ficha-cifras">
+        <div><b>${num(gente)}</b><span>${gente === 1 ? 'persona' : 'personas'}</span></div>
+        <div><b>${num(cuentas)}</b><span>con cuenta${
+          gente ? ` · ${Math.round(cuentas / gente * 100)} %` : ''}</span></div>
+        <div><b class="fecha">${r.ultima ? fdate(r.ultima) : '—'}</b><span>última entrega</span></div>
+      </div>
 
-      <div class="field"><label for="rCodigo">Código del enlace</label>
-        <input id="rCodigo" value="${esc(r?.codigo || '')}" placeholder="clase-ia" autocomplete="off">
-        <span class="pista">Minúsculas, números y guiones. Es lo que va al final del enlace, así que
-          conviene que se lea: <code>clase-ia</code> mejor que <code>c7f3</code>.
-          <b>Si lo cambias, el enlace de antes deja de funcionar.</b></span></div>
+      <button class="btn ghost block abrir-ficha" type="button" data-abrir="${esc(r.id)}"
+        aria-expanded="false" aria-controls="detalle-${esc(r.id)}">
+        <span class="material-symbols-outlined flecha">expand_more</span>
+        Ver el archivo y quién lo pidió</button>
 
-      <div class="field"><label for="rDesc">De qué va</label>
-        <textarea id="rDesc" rows="2" placeholder="Dos líneas para que sepa qué va a recibir.">${esc(r?.descripcion || '')}</textarea></div>
-
-      <div class="field"><label for="rGancho">Palabra que se comenta <span class="tiny muted">(opcional)</span></label>
-        <input id="rGancho" value="${esc(r?.gancho || '')}" placeholder="IA">
-        <span class="pista">No lo usa el programa: sirve para que dentro de seis meses sepas qué
-          publicación trajo a esta gente.</span></div>
-
-      <div class="field"><label for="rTipo">Qué se entrega</label>
-        <select id="rTipo">
-          <option value="documento"${r?.tipo === 'documento' ? ' selected' : ''}>Un documento (PDF, Word, presentación…)</option>
-          <option value="video"${r?.tipo === 'video' ? ' selected' : ''}>Un vídeo de YouTube</option>
-          <option value="enlace"${r?.tipo === 'enlace' ? ' selected' : ''}>Un enlace a otro sitio</option>
-        </select></div>
-
-      <div id="segunTipo"></div>
-
-      <label class="casilla sep"><input type="checkbox" id="rActivo"${r?.activo !== false ? ' checked' : ''}>
-        <span class="tiny muted">El enlace funciona. Si lo apagas, quien lo abra verá que ya no está
-          disponible en vez de un error.</span></label>
-      <div id="rMsg"></div>`,
-    footer: `<button class="btn ghost" data-x>Cancelar</button>
-             <button class="btn" id="rGuardar">Guardar</button>`,
-  });
-
-  /* Lo subido en esta sesión, si se cambió el archivo. `null` quiere decir
-     «déjalo como estaba», que es lo que espera la función de la base. */
-  let subido = null;
-
-  const pintarSegunTipo = () => {
-    const t = $('#rTipo', m).value;
-    const host = $('#segunTipo', m);
-    if (t === 'documento') {
-      host.innerHTML = `<div class="field"><label for="rArchivo">El documento</label>
-        <input type="file" id="rArchivo"
-          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*">
-        <span class="pista" id="rArchivoPista">${
-          r?.archivo_nombre
-            ? `Ahora mismo se entrega <b>${esc(r.archivo_nombre)}</b>. Elige otro sólo si quieres cambiarlo.`
-            : 'Se guarda en privado: sólo se puede abrir con un enlace que caduca a la hora.'}</span></div>`;
-      $('#rArchivo', m).onchange = async (ev) => {
-        const f = ev.target.files?.[0];
-        if (!f) return;
-        const pista = $('#rArchivoPista', m);
-        pista.textContent = 'Subiendo…';
-        try {
-          subido = await subirRegalo(f);
-          pista.innerHTML = `Listo: <b>${esc(subido.nombre)}</b>. Se guardará al pulsar «Guardar».`;
-        } catch (e) { subido = null; pista.innerHTML = `<span class="err-text">${esc(e.message)}</span>`; }
-      };
-    } else if (t === 'video') {
-      host.innerHTML = `<div class="field"><label for="rVideo">El vídeo de YouTube</label>
-        <input id="rVideo" value="${esc(r?.video_id || '')}" placeholder="https://youtu.be/… o el identificador">
-        <span class="pista">Pega la dirección entera y se queda con lo que hace falta.
-          Puede ser un vídeo oculto: se ve incrustado aquí sin salir a YouTube.</span></div>`;
-    } else {
-      host.innerHTML = `<div class="field"><label for="rUrl">La dirección</label>
-        <input id="rUrl" value="${esc(r?.url || '')}" placeholder="https://…" inputmode="url">
-        <span class="pista">Por ejemplo, un formulario para agendar la asesoría.</span></div>`;
-    }
-  };
-  pintarSegunTipo();
-  $('#rTipo', m).onchange = pintarSegunTipo;
-
-  /* Escribir el título rellena el código solo, pero sólo mientras se está
-     creando y sólo si nadie lo ha tocado: cambiárselo a un recurso que ya está
-     repartido rompería los enlaces que hay dando vueltas. */
-  let codigoTocado = !esNuevo;
-  $('#rCodigo', m).oninput = () => { codigoTocado = true; };
-  $('#rTitulo', m).oninput = () => {
-    if (codigoTocado) return;
-    $('#rCodigo', m).value = $('#rTitulo', m).value
-      .replace(/[ñÑ]/g, 'n').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  };
-
-  $('#rGuardar', m).onclick = () => ocupado($('#rGuardar', m), 'Guardando…', async () => {
-    const tipo = $('#rTipo', m).value;
-    const video = $('#rVideo', m)?.value.trim() || '';
-    /* De una dirección de YouTube sólo interesa el identificador, y llega de
-       cuatro formas distintas según de dónde se copie. */
-    const idVideo = (video.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{6,})/) || [, video])[1];
-
-    if (tipo === 'documento' && !subido && !r?.storage_path) {
-      return avisar('#rMsg', 'Falta el documento que se va a entregar.', 'err');
-    }
-    if (tipo === 'video' && !idVideo) return avisar('#rMsg', 'Falta el vídeo.', 'err');
-    if (tipo === 'enlace' && !$('#rUrl', m)?.value.trim()) {
-      return avisar('#rMsg', 'Falta la dirección a la que se manda.', 'err');
-    }
-
-    const { error } = await sb.rpc('cem_recurso_guardar', {
-      p_id: r?.id || null,
-      p_codigo: $('#rCodigo', m).value.trim(),
-      p_titulo: $('#rTitulo', m).value.trim(),
-      p_descripcion: $('#rDesc', m).value.trim() || null,
-      p_tipo: tipo,
-      p_storage_path: subido?.ruta || null,
-      p_archivo_nombre: subido?.nombre || null,
-      p_video_id: tipo === 'video' ? idVideo : null,
-      p_url: tipo === 'enlace' ? $('#rUrl', m).value.trim() : null,
-      p_gancho: $('#rGancho', m).value.trim() || null,
-      p_activo: $('#rActivo', m).checked,
-    });
-    if (error) return avisar('#rMsg', mensajeError(error), 'err');
-    m.close();
-    ok(esNuevo ? 'Recurso creado. Ya puedes copiar su enlace.' : 'Guardado.');
-    cargar();
-  });
+      <div class="hidden ficha-detalle" id="detalle-${esc(r.id)}" data-gente="${esc(r.id)}">
+        <div class="desplegado"></div>
+      </div>
+    </article>`;
+  }).join('');
 }
 
 /* ── lo que se abre al pulsar la fila ────────────────────────────────────── */
@@ -364,20 +254,18 @@ function editar(r){
    uno tiene delante de un recurso —«¿qué estoy repartiendo?» y «¿a quién le
    está llegando?»— y separarlas en dos botones obligaba a hacer dos clics
    para responder una sola. */
-async function abrir(r, fila){
+async function abrir(r, boton){
   const panel = $(`[data-gente="${r.id}"]`);
   const celda = $('.desplegado', panel);
 
-  // Segundo clic sobre la misma fila: se cierra.
+  // Segundo clic: se cierra.
   if (!panel.classList.contains('hidden')) {
     panel.classList.add('hidden');
-    fila.setAttribute('aria-expanded', 'false');
-    fila.classList.remove('abierta');
+    boton.setAttribute('aria-expanded', 'false');
     return;
   }
   panel.classList.remove('hidden');
-  fila.setAttribute('aria-expanded', 'true');
-  fila.classList.add('abierta');
+  boton.setAttribute('aria-expanded', 'true');
   celda.innerHTML = '<p class="tiny muted">Buscando…</p>';
 
   const [archivo, { data, error }] = await Promise.all([
@@ -477,14 +365,8 @@ document.addEventListener('click', async (ev) => {
   const ed = ev.target.closest('[data-editar]');
   if (ed) { editar(RECURSOS.find(r => r.id === ed.dataset.editar)); return; }
 
-  /* La fila entera abre el desplegable, PERO sólo si no se pulsó algo de
-     dentro. Sin esta comprobación, copiar el enlace abriría además el panel, y
-     borrar abriría el panel del recurso que se está borrando. */
-  const fila = ev.target.closest('.fila-recurso');
-  if (fila && !ev.target.closest('button, a, code')) {
-    abrir(RECURSOS.find(r => r.id === fila.dataset.abrir), fila);
-    return;
-  }
+  const ab = ev.target.closest('[data-abrir]');
+  if (ab) { abrir(RECURSOS.find(r => r.id === ab.dataset.abrir), ab); return; }
 
   const br = ev.target.closest('[data-borrar]');
   if (br) {
@@ -502,19 +384,6 @@ document.addEventListener('click', async (ev) => {
     ok('Recurso borrado.');
     cargar();
   }
-});
-
-/* Y con el teclado, porque la fila dice ser un botón (`role="button"`) y un
-   botón que sólo responde al ratón es una promesa rota para quien navega con
-   el tabulador o con lector de pantalla. */
-document.addEventListener('keydown', (ev) => {
-  if (ev.key !== 'Enter' && ev.key !== ' ') return;
-  const fila = ev.target?.closest?.('.fila-recurso');
-  // Sólo si el foco está en la fila misma: dentro hay botones con su propio
-  // Enter, y robárselo haría que «Copiar» abriera el panel.
-  if (!fila || ev.target !== fila) return;
-  ev.preventDefault();
-  abrir(RECURSOS.find(r => r.id === fila.dataset.abrir), fila);
 });
 
 cargar();
