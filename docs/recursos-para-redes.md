@@ -112,4 +112,21 @@ una vez.
 
 La función `cem-recurso` tiene que estar desplegada en Supabase. Sin ella, la
 página enseña la ficha y el formulario pero al enviar dice que no se pudo
-preparar el material.
+preparar el material — y **el contacto tampoco se anota**, porque es la misma
+función la que lo hace.
+
+Desde el repositorio:
+
+```bash
+supabase functions deploy cem-recurso --no-verify-jwt
+```
+
+El `--no-verify-jwt` no es opcional ni un descuido: quien llama a esta función
+no tiene cuenta, que es justamente el punto del embudo. Lo que la protege es
+que no se cree nada de lo que llega —los datos se validan en la base y el
+recurso se busca por su código— y que nunca devuelve dónde está el archivo,
+sólo un enlace firmado que caduca.
+
+La pantalla de **Recursos para redes** lo comprueba al abrirse y avisa en rojo
+si no está puesta, para no descubrirlo porque alguien escriba diciendo que el
+enlace no le dio nada.

@@ -29,6 +29,7 @@
     </div>
   </div>
 
+  <div id="avisoMotor"></div>
   <div class="kpis" id="kpis"></div>
   <div id="cuerpo"><span class="cargando"></span></div>
 </div>
@@ -46,7 +47,7 @@
    viene de comentar una palabra en Instagram es donde se cae la mitad de la
    gente, y lo que se buscaba era justamente traerla. */
 import { sb, mount, $, $$, esc, num, chip, fdate, ok, fail, toast, modal, avisar,
-         confirmDialog, mensajeError, emptyRow, ocupado, subirRegalo }
+         confirmDialog, mensajeError, emptyRow, ocupado, subirRegalo, SUPABASE_URL }
   from '../assets/app.js?v=2026-08-24';
 
 await mount({ require:['coordinador','admin','superadmin'], area:'admin', active:'recursos.html' });
@@ -63,7 +64,40 @@ let RECURSOS = [];
 const COMO_SE_LLAMA = { documento: 'Documento', video: 'Vídeo', enlace: 'Enlace' };
 const ICONO = { documento: 'description', video: 'play_circle', enlace: 'link' };
 
+/* ¿Está el motor puesto?
+   ═══════════════════════════════════════════════════════════════════════════
+   Quien entrega los recursos es una función de servidor: es la única que puede
+   firmar el enlace de un documento guardado en privado. Si no está desplegada,
+   esta pantalla funciona entera —se crean recursos, se copian enlaces— y lo
+   que falla es lo que pasa al otro lado, donde no lo ve nadie del equipo.
+
+   Así que se pregunta al abrir. Vale la pena la llamada: descubrir esto porque
+   alguien te escribe diciendo que el enlace no le dio nada es descubrirlo
+   tarde y con público delante. */
+async function mirarElMotor(){
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-recurso`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      // Sin código: la función contesta que falta, y con eso ya sabemos que está.
+      body: '{}',
+    });
+    if (res.status !== 404) return;
+  } catch { /* sin red: no se puede afirmar que falte, así que no se dice nada */
+    return;
+  }
+  $('#avisoMotor').innerHTML = `<div class="nota err">
+    <b>Falta desplegar el motor de entrega.</b>
+    Puedes crear recursos y copiar sus enlaces, pero <b>quien los abra no
+    recibirá nada</b>: la función que firma el enlace del documento y anota el
+    contacto no está publicada en Supabase.
+    <br><br>Se arregla con un comando, desde el repositorio:
+    <code>supabase functions deploy cem-recurso --no-verify-jwt</code>
+    <br><span class="tiny muted">Mientras tanto conviene no repartir los
+    enlaces por redes.</span></div>`;
+}
+
 async function cargar(){
+  mirarElMotor();
   const { data, error } = await sb.rpc('cem_recursos_listar');
   if (error) { avisar('#cuerpo', mensajeError(error)); return; }
   RECURSOS = data || [];
