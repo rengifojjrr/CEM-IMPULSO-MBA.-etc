@@ -9,12 +9,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24-2">
 <style>
   /* sin-caja: un enlace en monoespaciada para copiarlo, no un panel */
   .enlace-manychat{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
     background:var(--hueco);padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--filete);
     word-break:break-all;}
+
+  /* La fila que se abre debajo con la gente. Fondo distinto para que se vea
+     que pertenece a la de arriba y no es una fila más de la tabla. */
+  .desplegado{background:var(--hueco);padding:14px 16px;}
+
+  /* sin-caja: el marco del archivo, que no es un panel de la interfaz */
+  .ojeada{border:1px solid var(--filete);border-radius:var(--r);overflow:hidden;
+    background:var(--hueco);}
+  .ojeada iframe{display:block;width:100%;height:min(60vh,520px);border:0;}
+  .ojeada img{display:block;width:100%;height:auto;max-height:min(60vh,520px);
+    object-fit:contain;}
 </style>
 </head>
 <body>
@@ -48,7 +59,7 @@
    gente, y lo que se buscaba era justamente traerla. */
 import { sb, mount, $, $$, esc, num, chip, fdate, ok, fail, toast, modal, avisar,
          confirmDialog, mensajeError, emptyRow, ocupado, subirRegalo, SUPABASE_URL }
-  from '../assets/app.js?v=2026-08-24';
+  from '../assets/app.js?v=2026-08-24-2';
 
 await mount({ require:['coordinador','admin','superadmin'], area:'admin', active:'recursos.html' });
 
@@ -107,12 +118,21 @@ async function cargar(){
 function pintar(){
   const activos = RECURSOS.filter(r => r.activo).length;
   const personas = RECURSOS.reduce((s, r) => s + Number(r.personas || 0), 0);
+  const conCuenta = RECURSOS.reduce((s, r) => s + Number(r.con_cuenta || 0), 0);
+  const pct = personas ? Math.round(conCuenta / personas * 100) : 0;
 
+  /* Tres cifras y la tercera es la que importa.
+     ───────────────────────────────────────────────────────────────────────
+     Cuánta gente pidió el material dice si la publicación gustó. Cuánta acabó
+     con cuenta dice si sirvió. Cien descargas y ningún alumno es una
+     publicación que entretuvo. */
   $('#kpis').innerHTML = [
     `<div class="kpi"><div class="k-lbl">Recursos</div><div class="k-val">${num(RECURSOS.length)}</div>
       <div class="k-sub">${num(activos)} con el enlace vivo</div></div>`,
     `<div class="kpi"><div class="k-lbl">Contactos traídos</div><div class="k-val">${num(personas)}</div>
       <div class="k-sub">personas que dejaron sus datos</div></div>`,
+    `<div class="kpi"><div class="k-lbl">Ya con cuenta</div><div class="k-val">${num(conCuenta)}</div>
+      <div class="k-sub">${personas ? `${pct} % de los que pidieron algo` : 'todavía nadie ha pedido nada'}</div></div>`,
   ].join('');
 
   if (!RECURSOS.length) {
@@ -129,7 +149,7 @@ function pintar(){
   $('#cuerpo').innerHTML = `<div class="card"><div class="table-wrap"><table>
     <thead><tr>
       <th>Recurso</th><th>Enlace para ManyChat</th><th class="num">Personas</th>
-      <th>Última</th><th>Estado</th><th></th>
+      <th class="num">Con cuenta</th><th>Última</th><th>Estado</th><th></th>
     </tr></thead>
     <tbody>${RECURSOS.map(r => `<tr>
       <td data-col="Recurso">
@@ -138,6 +158,9 @@ function pintar(){
           ${esc(r.titulo)}</div>
         <div class="s">${esc(COMO_SE_LLAMA[r.tipo] || r.tipo)}${
           r.gancho ? ` · comentan «${esc(r.gancho)}»` : ''}</div>
+        ${r.tipo === 'documento' || r.tipo === 'video' ? `
+          <button class="btn ghost sm" data-ver="${esc(r.id)}" type="button" style="margin-top:5px">
+            <span class="material-symbols-outlined">visibility</span> Ver el archivo</button>` : ''}
       </td>
       <td data-col="Enlace para ManyChat">
         <code class="enlace-manychat">${esc(enlaceDe(r.codigo))}</code>
@@ -145,16 +168,26 @@ function pintar(){
           <span class="material-symbols-outlined">content_copy</span> Copiar</button>
       </td>
       <td class="num" data-col="Personas">${num(r.personas || 0)}</td>
+      <td class="num" data-col="Con cuenta">${
+        Number(r.personas) ? `${num(r.con_cuenta || 0)}
+          <div class="s">${Math.round((r.con_cuenta || 0) / r.personas * 100)} %</div>` : '—'}</td>
       <td data-col="Última">${r.ultima ? fdate(r.ultima) : '—'}</td>
       <td data-col="Estado">${r.activo ? chip('Activo','ok') : chip('Apagado','')}</td>
       <td class="acciones">
-        <button class="btn ghost sm" data-quien="${esc(r.id)}" type="button">
+        <button class="btn ghost sm" data-quien="${esc(r.id)}" type="button"
+          aria-expanded="false" aria-controls="gente-${esc(r.id)}">
           <span class="material-symbols-outlined">group</span> Quiénes</button>
         <button class="btn ghost sm" data-editar="${esc(r.id)}" type="button">
           <span class="material-symbols-outlined">edit</span></button>
         <button class="btn ghost sm" data-borrar="${esc(r.id)}" type="button">
           <span class="material-symbols-outlined">delete</span></button>
-      </td></tr>`).join('')}</tbody></table></div></div>`;
+      </td></tr>
+      <!-- La fila que se despliega debajo, en lugar de un diálogo.
+           Un diálogo tapa la tabla, así que para comparar dos recursos hay que
+           abrir, leer, cerrar y abrir el otro. Desplegado se pueden tener los
+           dos abiertos y mirarlos a la vez. -->
+      <tr class="hidden" data-gente="${esc(r.id)}" id="gente-${esc(r.id)}">
+        <td colspan="7" class="desplegado"></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 /* ── crear y editar ─────────────────────────────────────────────────────── */
@@ -285,34 +318,92 @@ function editar(r){
   });
 }
 
-/* ── quiénes lo pidieron ────────────────────────────────────────────────── */
-async function quienes(r){
-  const m = modal({ title: `Quiénes pidieron «${r.titulo}»`, wide: true,
-    body: '<p class="tiny muted">Buscando…</p>' });
+/* ── quiénes lo pidieron, y qué hicieron después ─────────────────────────── */
+async function quienes(r, boton){
+  const fila = $(`[data-gente="${r.id}"]`);
+  const celda = $('.desplegado', fila);
 
-  const { data, error } = await sb.from('cem_recurso_entregas')
-    .select('created_at, email, origen, cem_leads(nombre, apellido, telefono, estado)')
-    .eq('recurso_id', r.id).order('created_at', { ascending: false }).limit(500);
+  // Segundo clic: se cierra.
+  if (!fila.classList.contains('hidden')) {
+    fila.classList.add('hidden');
+    boton.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  fila.classList.remove('hidden');
+  boton.setAttribute('aria-expanded', 'true');
+  celda.innerHTML = '<p class="tiny muted">Buscando…</p>';
 
-  if (error) { $('.modal-b', m).innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+  const { data, error } = await sb.rpc('cem_recurso_quienes', { p_recurso_id: r.id });
+  if (error) { celda.innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
   if (!data?.length) {
-    $('.modal-b', m).innerHTML = '<p class="muted tiny">Todavía no lo ha pedido nadie.</p>';
+    celda.innerHTML = '<p class="muted tiny">Todavía no lo ha pedido nadie.</p>';
     return;
   }
 
-  $('.modal-b', m).innerHTML = `
-    <p class="tiny muted">${data.length} persona${data.length === 1 ? '' : 's'}.
-      Están también en <a href="leads.html">Contactos de la web</a>, donde se les puede
-      dar seguimiento.</p>
+  const conCuenta = data.filter(p => p.perfil_id).length;
+  celda.innerHTML = `
+    <p class="tiny muted">${data.length} persona${data.length === 1 ? '' : 's'} lo pidieron;
+      <b>${conCuenta}</b> ${conCuenta === 1 ? 'ya tiene cuenta' : 'ya tienen cuenta'}.
+      Están todas en <a href="leads.html">Contactos de la web</a>, donde se les puede dar
+      seguimiento.</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Cuándo</th><th>Quién</th><th>Contacto</th><th>De dónde</th></tr></thead>
-      <tbody>${data.map(e => `<tr>
-        <td data-col="Cuándo">${fdate(e.created_at)}</td>
-        <td data-col="Quién">${esc([e.cem_leads?.nombre, e.cem_leads?.apellido].filter(Boolean).join(' ') || '—')}</td>
-        <td data-col="Contacto"><div class="t">${esc(e.email || '—')}</div>
-          <div class="s">${esc(e.cem_leads?.telefono || '')}</div></td>
-        <td data-col="De dónde">${esc(e.origen || '—')}</td>
+      <thead><tr><th>Cuándo</th><th>Quién</th><th>Contacto</th>
+        <th>De dónde</th><th>Qué pasó después</th></tr></thead>
+      <tbody>${data.map(p => `<tr>
+        <td data-col="Cuándo">${fdate(p.cuando)}</td>
+        <td data-col="Quién">${esc(p.nombre || '—')}</td>
+        <td data-col="Contacto"><div class="t">${esc(p.email || '—')}</div>
+          <div class="s">${esc(p.telefono || '')}</div></td>
+        <td data-col="De dónde">${esc(p.origen || '—')}</td>
+        <td data-col="Qué pasó después">${
+          !p.perfil_id ? '<span class="tiny muted">Sólo contacto</span>'
+          : Number(p.inscripciones) > 0
+            ? chip(`Alumno · ${num(p.inscripciones)} inscripción(es)`, 'ok')
+            : chip('Se hizo cuenta', 'info')}</td>
       </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ── ver el archivo sin salir de aquí ────────────────────────────────────── */
+/* El equipo SÍ puede firmar su propia dirección: la política del cubo privado
+   le deja leer. Así que no hace falta pasar por la función de servidor, que
+   está pensada para quien no tiene cuenta — y de paso, mirar el archivo no
+   ensucia el recuento de personas que lo pidieron. */
+async function verElArchivo(r){
+  const m = modal({ title: r.titulo, wide: true,
+    body: '<p class="tiny muted">Preparando…</p>' });
+  const donde = $('.modal-b', m);
+
+  if (r.tipo === 'video') {
+    donde.innerHTML = `<div class="ojeada"><iframe
+      src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(r.video_id)}?rel=0"
+      title="${esc(r.titulo)}" allowfullscreen loading="lazy"></iframe></div>`;
+    return;
+  }
+
+  const { data, error } = await sb.storage.from('cem-regalos')
+    .createSignedUrl(r.storage_path, 300);   // cinco minutos: es para mirarlo ahora
+  if (error || !data?.signedUrl) {
+    donde.innerHTML = `<div class="nota err">No se pudo abrir el archivo:
+      ${esc(error?.message || 'el almacén no lo encontró')}.<br>
+      <span class="tiny">Si acabas de subirlo, vuelve a guardarlo. Si no, el archivo
+      pudo borrarse del almacén y habría que subirlo otra vez.</span></div>`;
+    return;
+  }
+
+  const ext = (r.archivo_nombre || '').split('.').pop().toLowerCase();
+  const dentro = ext === 'pdf' ? `<div class="ojeada"><iframe src="${esc(data.signedUrl)}"
+      title="${esc(r.titulo)}" loading="lazy"></iframe></div>`
+    : ['png','jpg','jpeg','webp','gif','avif'].includes(ext)
+      ? `<div class="ojeada"><img src="${esc(data.signedUrl)}" alt="${esc(r.titulo)}"></div>`
+      : `<p class="tiny muted">Un <b>.${esc(ext)}</b> no se puede ojear desde el navegador.
+          Descárgalo para comprobar que es el archivo correcto.</p>`;
+
+  donde.innerHTML = `${dentro}
+    <p class="tiny muted sep-poco">${esc(r.archivo_nombre || '')}</p>
+    <a class="btn outline sm" href="${esc(data.signedUrl)}" target="_blank" rel="noopener">
+      <span class="material-symbols-outlined">download</span> Descargarlo</a>
+    <p class="tiny muted sep-poco">Esta dirección es sólo para ti y caduca en cinco minutos.
+      Mirarlo desde aquí no cuenta como una entrega.</p>`;
 }
 
 /* ── los botones ────────────────────────────────────────────────────────── */
@@ -330,7 +421,10 @@ document.addEventListener('click', async (ev) => {
   if (ed) { editar(RECURSOS.find(r => r.id === ed.dataset.editar)); return; }
 
   const qn = ev.target.closest('[data-quien]');
-  if (qn) { quienes(RECURSOS.find(r => r.id === qn.dataset.quien)); return; }
+  if (qn) { quienes(RECURSOS.find(r => r.id === qn.dataset.quien), qn); return; }
+
+  const vr = ev.target.closest('[data-ver]');
+  if (vr) { verElArchivo(RECURSOS.find(r => r.id === vr.dataset.ver)); return; }
 
   const br = ev.target.closest('[data-borrar]');
   if (br) {
