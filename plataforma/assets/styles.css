@@ -801,6 +801,19 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
   max-width:15ch;letter-spacing:-.02em;}
 .portada-cem .lema{color:var(--tinta-2);font-size:var(--t-md);max-width:52ch;
   margin:0 0 var(--e3);}
+
+/* La portada de una página que sólo tiene texto —«Quiénes somos»— va centrada.
+   ───────────────────────────────────────────────────────────────────────────
+   Sin esto el titular y el lema se quedaban pegados al borde izquierdo mientras
+   todo lo que viene debajo —las tres tarjetas— está centrado, y la página se
+   veía descuadrada de arriba.
+   Los márgenes automáticos hacen falta porque el h1 y el lema llevan su propio
+   `max-width`: centrar el texto sin centrar la caja deja la caja a la
+   izquierda con el texto centrado dentro, que se nota aún más. */
+.portada-cem.centrada{display:flex;flex-direction:column;align-items:center;
+  text-align:center;}
+.portada-cem.centrada h1{max-width:22ch;margin-left:auto;margin-right:auto;}
+.portada-cem.centrada .lema{margin-left:auto;margin-right:auto;}
 /* El ojal: quién habla y desde cuándo, antes del titular. Dos datos que una
    escuela sí puede decir y que ninguna plantilla trae puestos. */
 .ojal{display:inline-block;font-size:var(--t-xs);font-weight:var(--peso-fuerte);

@@ -36,7 +36,7 @@ export default async function correr(navegador) {
   await D.waitForSelector('#page:not(.hidden)', { timeout: 40000 });
   // Con vidrio, que es donde el fallo aparecía: en plano todo es opaco de serie.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     t.aplicarApariencia({ estilo: 'escarcha', tema: 'oscuro' });
   });
   await D.waitForTimeout(700);
@@ -133,7 +133,7 @@ export default async function correr(navegador) {
       // Devolverlo a fábrica: la apariencia se guarda, y si se queda puesta la
       // hereda la prueba siguiente y falla por algo que no es suyo.
       await U.evaluate(async () => {
-        const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+        const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
         t.aplicarApariencia(t.aparienciaDeFabrica());
       });
       await U.waitForTimeout(400);
@@ -166,7 +166,7 @@ export default async function correr(navegador) {
     await C.waitForTimeout(2500);
 
     const r = await C.evaluate(async () => {
-      const m = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+      const m = await import('/plataforma/assets/temas.js?v=2026-08-24');
       const cajas = [...document.querySelectorAll('.card, .caja, .kpi')]
         .filter((e) => e.offsetParent !== null).slice(0, 40);
       if (!cajas.length) return { n: 0, sordas: 0 };
@@ -218,7 +218,7 @@ export default async function correr(navegador) {
     `Recién abierta, sin tocar nada, el fondo ya se mueve (estilo de fábrica, ${deFabrica.anim})`);
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true });
   });
   await M.waitForTimeout(600);
@@ -227,7 +227,7 @@ export default async function correr(navegador) {
 
   /* Y en los ocho estilos, no en el que le venga bien a la prueba. */
   const porEstilo = await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     const antes = t.estiloActual();
     const mudos = [];
     for (const e of Object.keys(t.ESTILOS)) {
@@ -301,7 +301,7 @@ export default async function correr(navegador) {
      Se mide donde el fondo asoma de verdad —debajo de la última tarjeta—,
      porque con el estilo «Plano» la barra y las tarjetas tapan el resto. */
   const visible = await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     t.aplicarApariencia({ animacion: true, fuerza: t.AMBIENTE.fuerza.max, ritmo: t.AMBIENTE.ritmo.max });
     /* La zona de fondo NO se supone: se busca. Preguntar por el rectángulo de
        la última tarjeta daba una franja que caía dentro de otra tarjeta cuando
@@ -377,7 +377,7 @@ export default async function correr(navegador) {
      descubiertas la mayor parte del tiempo. Así que se acelera el ciclo al
      mínimo y se vigila el ciclo COMPLETO, quedándose con el peor momento. */
   const cubre = await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     t.aplicarApariencia({ animacion: true, ritmo: t.AMBIENTE.ritmo.max });
     const ciclo = parseFloat(getComputedStyle(document.body, '::after').animationDuration) || 25;
     let peor = null;
@@ -407,7 +407,7 @@ export default async function correr(navegador) {
      deslizadores. Se comprueba que muevan de verdad lo que dicen mover, en el
      estilo de fábrica y no en uno elegido a conveniencia. */
   const mandos = await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     const leer = () => {
       const cs = getComputedStyle(document.body, '::after');
       return { opacidad: Number(cs.opacity), ciclo: cs.animationDuration };
@@ -449,7 +449,7 @@ export default async function correr(navegador) {
     `De fábrica los dos mandos vuelven a su sitio (${mandos.serie.fuerza} · ${mandos.serie.ciclo})`);
 
   await M.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     t.aplicarApariencia({ animacion: false });
   });
   await M.waitForTimeout(500);
@@ -474,7 +474,7 @@ export default async function correr(navegador) {
 
   // Sin nada elegido: el sistema decide y el fondo llega quieto.
   await QP.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     localStorage.removeItem('cemAnimacion');
     t.aplicarApariencia({ estilo: 'escarcha' });
   });
@@ -486,7 +486,7 @@ export default async function correr(navegador) {
 
   // Encendido a mano: la elección de la persona gana al valor de partida.
   await QP.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     t.aplicarApariencia({ estilo: 'escarcha', animacion: true, ritmo: 2 });
   });
   await QP.waitForTimeout(400);
@@ -501,7 +501,7 @@ export default async function correr(navegador) {
 
   // Dejar esta pestaña como estaba, por lo mismo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-08-23-17');
+    const t = await import('/plataforma/assets/temas.js?v=2026-08-24');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   a.comprobar(D.errores.length === 0, `Sin errores ${JSON.stringify(D.errores.slice(0, 2))}`);

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-17">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24">
 <style>
   .plan{border:2px solid var(--filete);border-radius:var(--r);padding:14px;cursor:pointer;flex:1;min-width:190px;}
   .plan.on{border-color:var(--primary);background:var(--primary-suave);}
@@ -68,31 +68,31 @@
         <div class="card pegajosa" style="top:80px">
           <h2 class="sec">Resumen del pedido</h2>
           <div id="resumen"></div>
-          <button class="btn block" id="btnConfirmar" style="margin-top:14px">
-            Confirmar inscripción <span class="material-symbols-outlined">arrow_forward</span></button>
-          <p class="tiny muted" style="margin-top:10px;text-align:center">
-            <span class="material-symbols-outlined" style="font-size:15px">shield</span>
-            Tu inscripción queda registrada y un asesor validará tu pago.</p>
+          <div id="botones" style="margin-top:14px"><span class="cargando"></span></div>
+          <p class="tiny muted" style="margin-top:10px;text-align:center" id="piePago"></p>
         </div>
       </div>
     </div>
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta, ocupado, avisar } from '../assets/app.js?v=2026-08-23-17';
-import { opcionesDePais } from '../assets/paises.js?v=2026-08-23-17';
+import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta, ocupado, avisar,
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-24';
+import { opcionesDePais } from '../assets/paises.js?v=2026-08-24';
 const me = await mount({ require:['estudiante','admin','superadmin','coordinador'], area:'estudiante', active:'catalogo.html' });
 const cursoId = qs('curso');
-let curso, cohortes=[], plan=1, descuento=0;
+let curso, cohortes=[], plan=1, descuento=0, hayTarjeta=false;
 
 $('#back').onclick = (e)=>{ e.preventDefault(); history.back(); };
 if (me) { if (!cursoId) location.href='catalogo.html'; else load(); }
 
 async function load(){
-  const [{data:c},{data:cs}] = await Promise.all([
+  const [{data:c},{data:cs},{data:stripe}] = await Promise.all([
     sb.from('cem_courses').select('*').eq('id',cursoId).maybeSingle(),
     sb.from('cem_cohorts').select('*').eq('course_id',cursoId).in('estado',['inscripciones_abiertas','en_curso','planificada']).order('fecha_inicio'),
+    sb.rpc('cem_stripe_estado'),
   ]);
+  hayTarjeta = stripe?.listo === true;
   if (!c) { fail('Curso no encontrado'); setTimeout(()=>location.href='catalogo.html',900); return; }
   curso=c; cohortes=cs||[];
 
@@ -109,7 +109,43 @@ async function load(){
     ? cohortes.map(c=>`<option value="${c.id}">${esc(c.nombre)} — ${c.fecha_inicio?'inicia '+fdate(c.fecha_inicio):'fecha por definir'}</option>`).join('')
     : '<option value="">Sin cohorte disponible (te asignaremos una)</option>';
 
-  renderPlanes(); resumen();
+  renderPlanes(); resumen(); renderBotones();
+}
+
+/* Los botones del final: uno por camino, y el de tarjeta lleva a Stripe SIN
+   pasar por ninguna pantalla intermedia.
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes esto era un solo botón, «Confirmar inscripción», y al pulsarlo dejaba
+   a la persona en la pantalla de pagos con la lista de todas sus cuotas para
+   que encontrase la que acababa de crear, eligiera forma de pago y volviera a
+   pulsar. Cuatro paradas más después de haber decidido comprar.
+
+   Ahora la decisión se toma AQUÍ, donde la persona ya está mirando el precio,
+   y el botón hace lo que dice: si elige tarjeta, lo siguiente que ve es la
+   pantalla de pago de Stripe. */
+function renderBotones(){
+  const total = totalPlan();
+  const primera = plan > 1 ? total/plan : total;
+  $('#botones').innerHTML = `
+    ${hayTarjeta ? `<button class="btn block" id="btnTarjeta">
+      <span class="material-symbols-outlined">credit_card</span>
+      Inscribirme y pagar ${money(primera, curso.moneda)}</button>` : ''}
+    <button class="btn ${hayTarjeta ? 'outline' : ''} block" id="btnOtra" style="margin-top:8px">
+      ${hayTarjeta
+        ? 'Prefiero transferencia u otra forma'
+        : `Inscribirme y ver dónde pagar <span class="material-symbols-outlined">arrow_forward</span>`}</button>`;
+
+  $('#piePago').innerHTML = hayTarjeta
+    ? `<span class="material-symbols-outlined" style="font-size:15px">lock</span>
+       Pagas en Stripe. Tu tarjeta no pasa por nosotros${plan>1
+         ? `, y hoy sólo se cobra la primera de ${plan} cuotas` : ''}.`
+    : `<span class="material-symbols-outlined" style="font-size:15px">shield</span>
+       Tu inscripción queda registrada y un asesor validará tu pago.`;
+
+  if (hayTarjeta) $('#btnTarjeta').onclick = () =>
+    ocupado('#btnTarjeta', 'Abriendo el pago…', () => inscribir('tarjeta'));
+  $('#btnOtra').onclick = () =>
+    ocupado('#btnOtra', 'Registrando tu inscripción…', () => inscribir('otra'));
 }
 
 /* item 45 · las tres opciones cambiaban el número final sin decir por qué: no
@@ -138,7 +174,7 @@ function renderPlanes(){
       <div class="tiny muted">${o.n>1?`${o.n} pagos mensuales · `:''}total ${money(total, curso.moneda)}</div>
       <div class="tiny sep-poco">${nota}</div></div>`;
   }).join('');
-  const elegir = (el) => { plan=Number(el.dataset.plan); renderPlanes(); resumen(); };
+  const elegir = (el) => { plan=Number(el.dataset.plan); renderPlanes(); resumen(); renderBotones(); };
   $$('[data-plan]').forEach(el=>{
     el.onclick = () => elegir(el);
     el.onkeydown = (ev) => { if (ev.key==='Enter'||ev.key===' ') { ev.preventDefault(); elegir(el); } };
@@ -171,10 +207,16 @@ $('#btnCupon').onclick = () => {
     descuento = Math.round((Number(curso.precio)||0)*(Number(curso.descuento_pct)/100)*100)/100;
     avisar('#cuponMsg', `Cupón aplicado: ${curso.descuento_pct}% de descuento`, 'ok');
   } else { descuento=0; avisar('#cuponMsg', 'Cupón no válido', 'err'); }
-  resumen();
+  resumen(); renderBotones();
 };
 
-$('#btnConfirmar').onclick = () => ocupado('#btnConfirmar', 'Registrando tu inscripción…', async () => {
+/**
+ * Inscribe y, según el camino elegido, lleva directo a pagar.
+ *
+ * `via` es 'tarjeta' u 'otra'. La inscripción es la misma en los dos casos: lo
+ * único que cambia es a dónde va la persona después.
+ */
+async function inscribir(via){
   try{
     await sb.from('cem_profiles').update({
       nombre:$('#dNombre').value.trim(), apellido:$('#dApellido').value.trim(),
@@ -187,27 +229,67 @@ $('#btnConfirmar').onclick = () => ocupado('#btnConfirmar', 'Registrando tu insc
       p_cuotas:plan, p_codigo_descuento:$('#cupon').value.trim()||null,
     }),'No se pudo completar la inscripción');
 
-    await audit('inscripcion_estudiante','cem_enrollments',enr?.id,'medio',{curso:curso.nombre, plan});
+    await audit('inscripcion_estudiante','cem_enrollments',enr?.id,'medio',{curso:curso.nombre, plan, via});
 
-    /* Al terminar se va A PAGAR, no al panel. Antes decía «revisa tu panel» y
-       dejaba a quien acababa de decidir comprar buscando por su cuenta dónde
-       se paga — que es el momento exacto en que se pierde una venta. El curso
-       no se abre hasta que el pago se confirme, así que llevarlo al panel era
-       además llevarlo a una pantalla donde no puede hacer nada todavía.
-
-       Si el programa fuera gratuito o ya estuviera pagado, `cem_mi_acceso`
-       dice que la puerta está abierta y entonces sí se va al aula. */
+    /* Si el programa fuera gratuito o ya estuviera pagado, `cem_mi_acceso` dice
+       que la puerta está abierta y entonces no hay nada que cobrar. */
     const { data: acceso } = await sb.rpc('cem_mi_acceso');
-    const abierto = acceso?.[enr?.id]?.abierto === true;
-    if (abierto) {
+    if (acceso?.[enr?.id]?.abierto === true) {
       ok('¡Listo! Ya puedes empezar.');
       setTimeout(()=>location.href=`clase.html?curso=${cursoId}`, 1100);
-    } else {
-      ok('Inscripción registrada. Ahora el pago para abrir el curso.');
-      setTimeout(()=>location.href=`pagos.html?enr=${enr?.id||''}`, 1100);
+      return;
     }
+
+    if (via === 'tarjeta' && await irAStripe(enr?.id)) return;
+
+    /* Sin tarjeta —o si Stripe no pudo abrir el cobro— se va a la pantalla de
+       pagos con la inscripción en la dirección, que la destaca en vez de
+       enseñar la lista entera de cuotas. */
+    ok('Inscripción registrada. Ahora el pago para abrir el curso.');
+    setTimeout(()=>location.href=`pagos.html?enr=${enr?.id||''}`, 1100);
   } catch(e){ /* `run` ya explicó qué pasó; el botón vuelve solo */ }
-});
+}
+
+/**
+ * Abre el cobro de la PRIMERA cuota y lleva a Stripe. Devuelve `true` si se
+ * fue; `false` si no se pudo, para que quien llama tenga a dónde caer.
+ *
+ * El importe no se manda desde aquí: al servidor se le dice qué cuota es y él
+ * mira en la base cuánto se debe. Si el importe viniera del navegador,
+ * cualquiera podría pedir un cobro de un euro por una cuota de mil.
+ */
+async function irAStripe(enrollmentId){
+  if (!enrollmentId) return false;
+  try{
+    const { data: cuotas } = await sb.from('cem_installments')
+      .select('id,numero,estado').eq('enrollment_id', enrollmentId)
+      .neq('estado','pagada').order('numero').limit(1);
+    const primera = cuotas?.[0];
+    if (!primera) return false;
+
+    const { data:{ session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-stripe-checkout`, {
+      method:'POST',
+      headers:{ Authorization:`Bearer ${session?.access_token}`,
+                apikey:SUPABASE_KEY, 'Content-Type':'application/json' },
+      /* Al volver de Stripe se cae en la pantalla de pagos de ESTA inscripción,
+         no en una dirección suelta: si el pago se completó ya se ve pagada, y
+         si se canceló se ve el botón para reintentar. */
+      body: JSON.stringify({ installment_id: primera.id,
+        volver_a: new URL(`pagos.html?enr=${enrollmentId}`, location.href).href }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.url) throw new Error(json.error || 'No se pudo abrir el cobro.');
+    location.href = json.url;
+    return true;
+  } catch(e){
+    /* La inscripción YA está hecha, así que esto no es un callejón: se avisa y
+       se sigue por el otro camino. Perder aquí el hilo sería dejar a alguien
+       inscrito y convencido de que no se registró nada. */
+    fail(`${e.message} Te llevamos a la pantalla de pago.`);
+    return false;
+  }
+}
 </script>
 </body>
 </html>

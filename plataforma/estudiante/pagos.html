@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-23-17">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24">
 <style>
   .cuota{border:1px solid var(--filete);border-radius:var(--r);padding:14px 16px;background:var(--papel);
     display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -102,7 +102,7 @@ import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail
          SUPABASE_URL, SUPABASE_KEY,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
          metodosDePago, explicaConversion, MONEDA_BASE,
-         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-23-17';
+         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-24';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
@@ -120,7 +120,9 @@ const NOMBRE_MONEDA = { EUR:'euros', USD:'dólares', VES:'bolívares' };
 
 if (p) cargar();
 
-async function cargar(){
+/* `callado` lo usa la espera de después de pagar: recarga los datos SIN volver
+   a mirar la dirección, porque si lo hiciera se llamaría a sí misma sin fin. */
+async function cargar({ callado = false } = {}){
   const [eur, usd, mets, { data: dest }, { data: stripe }] = await Promise.all([
     tasaVigente('EUR'), tasaVigente('USD'), metodosDePago(),
     sb.rpc('cem_donde_pagar'),
@@ -147,24 +149,59 @@ async function cargar(){
      necesita saber cuál es la próxima por pagar para ofrecer pagarla. */
   renderDondePagar();
   renderKpis(); renderCuotas(); renderPagos();
-  avisarVueltaDeStripe();
+  if (!callado) avisarVueltaDeStripe();
 }
 
 /* Al volver de la pasarela. El aviso es deliberadamente prudente: quien
    confirma el cobro es Stripe avisando al servidor, no esta pantalla, y ese
    aviso puede tardar unos segundos. Decir «ya está pagado» aquí sería
-   afirmarlo antes de saberlo. */
+   afirmarlo antes de saberlo.
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes esto miraba UNA vez, a los seis segundos, y si en ese momento el aviso
+   todavía no había llegado la pantalla se quedaba diciendo «en unos segundos»
+   para siempre. Pasó de verdad: el aviso fallaba, Stripe lo reintentaba durante
+   horas, y quien había pagado veía el mismo mensaje tranquilizador sin que
+   nada cambiara nunca. Un mensaje que promete algo tiene que dejar de
+   prometerlo cuando deja de ser verdad.
+
+   Ahora se pregunta varias veces, se para en cuanto la cuota queda saldada, y
+   si al cabo de medio minuto sigue sin constar se dice claramente —con el
+   dato importante delante: el dinero está cobrado y no se ha perdido. */
 function avisarVueltaDeStripe(){
   const r = qs('pago');
   if (!r) return;
-  if (r === 'ok') {
-    ok('Pago recibido. En unos segundos verás la cuota saldada.');
-    // Se vuelve a mirar una vez, cuando al aviso de Stripe le ha dado tiempo.
-    setTimeout(() => cargar(), 6000);
-  } else if (r === 'cancelado') {
-    toast('No se completó el pago. No se te cobró nada.');
-  }
-  history.replaceState(null, '', location.pathname);
+
+  /* Se quita SÓLO `pago`, no la consulta entera: `enr` dice de qué inscripción
+     venimos, y hace falta tanto aquí —para no dar por buena la cuota de otro
+     programa que ya estuviera pagada— como en la lista, que la destaca. */
+  const suya = qs('enr');
+  const limpia = new URL(location.href);
+  limpia.searchParams.delete('pago');
+  history.replaceState(null, '', limpia.pathname + limpia.search);
+
+  if (r === 'cancelado') { toast('No se completó el pago. No se te cobró nada.'); return; }
+  if (r !== 'ok') return;
+
+  const yaConsta = () => cuotas.some(c =>
+    c.estado === 'pagada' && (!suya || c.enrollment_id === suya));
+  if (yaConsta()) { ok('¡Pago confirmado! Tu programa ya está abierto.'); return; }
+
+  ok('Pago recibido. Confirmando con el banco…');
+  let intentos = 0;
+  const reloj = setInterval(async () => {
+    intentos++;
+    await cargar({ callado: true });
+    if (yaConsta()) {
+      clearInterval(reloj);
+      ok('¡Pago confirmado! Tu programa ya está abierto.');
+    } else if (intentos >= 12) {          // ~36 segundos
+      clearInterval(reloj);
+      avisar('#focoCuota', `<b>Tu pago se hizo y está cobrado.</b> Lo que falta es que nos
+        llegue la confirmación, y está tardando más de lo normal. No hace falta que
+        pagues otra vez ni que hagas nada: se registra solo en cuanto llegue.
+        Si dentro de un rato sigue igual, escríbenos y lo miramos con tu comprobante.`, 'warn');
+    }
+  }, 3000);
 }
 
 /* ── Dónde pagar ───────────────────────────────────────────────────────────

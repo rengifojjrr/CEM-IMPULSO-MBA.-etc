@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-17">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-24">
 </head>
 <body>
 <div class="auth-wrap">
@@ -52,6 +52,7 @@
     <h1>Crear cuenta</h1>
     <div class="sub">Regístrate como estudiante para inscribirte en nuestros programas.
       Sólo se pide una vez: después queda en tu perfil.</div>
+    <div id="volveras"></div>
     <form id="formReg" novalidate>
       <fieldset class="grupo-campos">
         <legend>Quién eres</legend>
@@ -194,8 +195,8 @@
 
 <script type="module">
 import { sb, $, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave } from './assets/app.js?v=2026-08-23-17';
-import { opcionesDePais } from './assets/paises.js?v=2026-08-23-17';
+         medidorDeClave, rutaSegura, recordarRumbo } from './assets/app.js?v=2026-08-24';
+import { opcionesDePais } from './assets/paises.js?v=2026-08-24';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');
@@ -212,12 +213,25 @@ const AQUI = location.href.replace(/[^/?#]*(\?.*)?(#.*)?$/, '');
 
 /* A dónde iba la persona antes de que la mandáramos a entrar. Se acepta sólo
    una ruta relativa dentro de la plataforma: si alguien manipula el enlace
-   con una dirección externa, se ignora y va a su panel de siempre. */
-function destinoSeguro() {
-  const n = qs('next');
-  if (!n) return null;
-  if (/^[a-z]+:|^\/\/|\.\./i.test(n)) return null;
-  return /^(admin|estudiante|docente)\/[\w.-]+\.html/.test(n) ? n : null;
+   con una dirección externa, se ignora y va a su panel de siempre.
+   La regla vive ahora en app.js, para que la confirmación por correo use
+   exactamente la misma y no dos copias que se separan con el tiempo. */
+const destinoSeguro = () => rutaSegura(qs('next'));
+
+/* Y se guarda en cuanto se llega, no sólo al entrar: quien viene de pulsar
+   «Inscribirme» puede tardar en volver del correo, cerrar la pestaña, o
+   registrarse en vez de entrar. */
+recordarRumbo(destinoSeguro());
+
+/* Y se le dice para qué está creando la cuenta. Sin esto, quien pulsa comprar
+   y aterriza en un formulario largo ya no sabe si sigue comprando algo: el
+   programa desaparece de la pantalla y de la cabeza. */
+function anunciarADondeVuelve() {
+  const d = destinoSeguro();
+  if (!d || !/inscripcion\.html/.test(d)) return;
+  $('#volveras').innerHTML = `<div class="nota ok sep-poco">
+    <b>Estás a un paso.</b> Al crear tu cuenta te devolvemos a completar tu
+    inscripción, con el programa que elegiste ya puesto.</div>`;
 }
 
 const tarjetas = ['cardLogin', 'cardReg', 'cardOlvide', 'cardRevisa'];
@@ -258,6 +272,7 @@ if (qs('motivo') === 'vencida') {
   loginMsg.innerHTML = '<div class="nota warn">Tu sesión venció por inactividad. Vuelve a entrar y seguimos donde ibas.</div>';
 }
 
+anunciarADondeVuelve();
 if (qs('registro')) mostrar('cardReg');
 $('#toReg').onclick = () => mostrar('cardReg');
 $('#toLogin').onclick = () => mostrar('cardLogin');
@@ -385,8 +400,16 @@ $('#formReg').onsubmit = async (e) => {
     options: {
       /* Sin esto el enlace del correo va al «Site URL» del proyecto, que puede
          ser cualquier cosa —era localhost:3000— y la confirmación termina en una
-         dirección que no existe. Aquí se dice a dónde volver. */
-      emailRedirectTo: AQUI + 'confirmar.html',
+         dirección que no existe. Aquí se dice a dónde volver.
+
+         Y va con el rumbo pegado, que es lo que faltaba: entrar sí conservaba
+         a dónde ibas, pero registrarse no, así que quien pulsaba «Inscribirme»
+         sin tener cuenta acababa en un panel que le decía «todavía no estás
+         inscrito en ningún programa» justo después de decidir inscribirse.
+         El enlace del correo suele abrirse en otro navegador, así que la
+         dirección es el único carril que aguanta el viaje. */
+      emailRedirectTo: AQUI + 'confirmar.html'
+        + (destinoSeguro() ? '?next=' + encodeURIComponent(destinoSeguro()) : ''),
       data: {
         cem_signup: 'true',
         nombre: $('#rNombre').value.trim(), apellido: $('#rApellido').value.trim(),

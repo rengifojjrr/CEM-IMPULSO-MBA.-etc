@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-23-17">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-24">
 </head>
 <body>
 <div class="auth-wrap">
@@ -58,7 +58,8 @@
    correo que lo abren solos para revisar si es peligroso, y con eso lo gastan.
    Por eso lo importante de esta pantalla no es la felicitación, es el botón de
    pedir otro. */
-import { sb, $, esc, mensajeError, homeForRoot } from './assets/app.js?v=2026-08-23-17';
+import { sb, $, esc, mensajeError, homeForRoot, rutaSegura, recogerRumbo }
+  from './assets/app.js?v=2026-08-24';
 
 const titulo = $('#titulo'), sub = $('#sub'), msg = $('#msg'), ico = $('#ico');
 const formOtro = $('#formOtro'), acciones = $('#acciones');
@@ -81,7 +82,19 @@ function pedirOtro(correoSugerido = '') {
   if (correoSugerido) $('#cEmail').value = correoSugerido;
 }
 
+/* A dónde va quien acaba de confirmar.
+   ═══════════════════════════════════════════════════════════════════════════
+   Si venía de pulsar «Inscribirme» en un programa, vuelve ahí y no a su panel.
+   Se mira primero la dirección —que aguanta que el correo se abra en otro
+   navegador— y después lo guardado, que cubre el caso de la pestaña de al lado.
+   Si no hay nada, su panel de siempre, como antes. */
+function aDondeIba() {
+  return rutaSegura(params.get('next')) || recogerRumbo() || null;
+}
+
 async function entrar() {
+  const vuelta = aDondeIba();
+  if (vuelta) return vuelta;
   const { data } = await sb.rpc('cem_my_profile');
   const perfil = Array.isArray(data) ? data[0] : data;
   return (perfil && perfil.id) ? homeForRoot(perfil.rol) : 'index.html';
@@ -136,10 +149,14 @@ async function haySesion(intentos = 12) {
     ico.textContent = 'check_circle';
     titulo.textContent = '¡Cuenta confirmada!';
     sub.innerHTML = `Ya puedes entrar con <b>${esc(correo)}</b>.`;
-    aviso('Te llevamos a tu panel…', 'ok');
     const destino = await entrar();
+    const volviendo = /inscripcion\.html/.test(destino);
+    aviso(volviendo
+      ? 'Te devolvemos a completar tu inscripción…'
+      : 'Te llevamos a tu panel…', 'ok');
     acciones.classList.remove('hidden');
-    acciones.innerHTML = `<a class="btn" href="${esc(destino)}">Entrar ahora</a>
+    acciones.innerHTML = `<a class="btn" href="${esc(destino)}">${
+      volviendo ? 'Seguir con mi inscripción' : 'Entrar ahora'}</a>
       <a class="btn outline" href="catalogo.html">Ver los programas</a>`;
     setTimeout(() => { location.href = destino; }, 1800);
     return;

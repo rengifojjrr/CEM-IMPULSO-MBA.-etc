@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-23-17';
+         vidrioActual } from './temas.js?v=2026-08-24';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -930,6 +930,55 @@ function rutaRelativaActual() {
   const i = partes.indexOf('plataforma');
   const cola = i >= 0 ? partes.slice(i + 1) : partes.slice(-2);
   return cola.join('/') + location.search;
+}
+
+/* ============ a dónde iba la persona ============
+ * Alguien pulsa «Inscribirme» en un programa, no tiene cuenta, y la plataforma
+ * lo manda a registrarse. Si al volver no se acuerda de qué iba a comprar, esa
+ * persona aparece en un panel vacío que le dice «todavía no estás inscrito en
+ * ningún programa» — justo después de haber decidido inscribirse. Es el sitio
+ * donde más ventas se caen, y pasaba de verdad: entrar sí conservaba el rumbo,
+ * pero registrarse no.
+ *
+ * El rumbo viaja por DOS carriles a la vez, porque ninguno basta solo:
+ *
+ *   · La dirección del correo de confirmación. Es el único que aguanta que el
+ *     enlace se abra en otro navegador —el del móvil, el que use la aplicación
+ *     de correo—, que es lo más habitual.
+ *   · El almacén del navegador. Cubre lo otro: que la confirmación se abra en
+ *     una pestaña nueva y la compra siga en la de al lado.
+ *
+ * Se valida SIEMPRE al leerlo, venga de donde venga: una dirección de fuera
+ * metida en `next` convertiría el correo de confirmación en un salto a
+ * cualquier sitio, con la marca del CEM delante.
+ */
+const LLAVE_RUMBO = 'cem_a_donde_iba';
+const RUMBO_CADUCA = 24 * 60 * 60 * 1000;   // un día: confirmar un correo puede tardar
+
+/** Deja pasar sólo rutas relativas de dentro de la plataforma. */
+export function rutaSegura(n) {
+  if (!n) return null;
+  if (/^[a-z]+:|^\/\/|\.\./i.test(n)) return null;
+  return /^(admin|estudiante|docente)\/[\w.-]+\.html/.test(n) ? n : null;
+}
+
+export function recordarRumbo(ruta) {
+  const limpia = rutaSegura(ruta);
+  if (!limpia) return;
+  try { localStorage.setItem(LLAVE_RUMBO, JSON.stringify({ ruta: limpia, cuando: Date.now() })); }
+  catch { /* modo incógnito o almacén lleno: se sigue por la dirección */ }
+}
+
+/** Lo devuelve UNA vez y lo borra: si se quedara puesto, el siguiente viaje al
+ *  panel acabaría desviado a una compra que ya se hizo. */
+export function recogerRumbo() {
+  let guardado = null;
+  try {
+    guardado = JSON.parse(localStorage.getItem(LLAVE_RUMBO) || 'null');
+    localStorage.removeItem(LLAVE_RUMBO);
+  } catch { return null; }
+  if (!guardado?.ruta || Date.now() - (guardado.cuando || 0) > RUMBO_CADUCA) return null;
+  return rutaSegura(guardado.ruta);
 }
 
 /* ============ enterarse de que algo se rompió ============
@@ -1947,7 +1996,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-23-17');
+    const m = await import('./apariencia.js?v=2026-08-24');
 
     m.abrirApariencia();
 
