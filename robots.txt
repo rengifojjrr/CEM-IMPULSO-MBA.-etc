@@ -1,0 +1,32 @@
+# CEM International — https://escuelacem.com
+
+User-agent: *
+Allow: /
+
+# Las pantallas privadas no tienen nada que buscar y además rebotan a quien no
+# ha entrado: dejarlas abiertas gasta el presupuesto de rastreo en 404 lógicos.
+Disallow: /plataforma/admin/
+Disallow: /plataforma/docente/
+Disallow: /plataforma/estudiante/
+Disallow: /plataforma/cambiar-clave.html
+Disallow: /plataforma/nueva-clave.html
+Disallow: /plataforma/invitacion.html
+Disallow: /plataforma/confirmar.html
+
+# catalogo.html y curso.html NO se bloquean aquí, y es a propósito.
+# ─────────────────────────────────────────────────────────────────────────────
+# Enseñan lo mismo que /programas/ pero pintado con JavaScript, así que no
+# deben competir con ellas. Eso ya se resuelve DENTRO de cada página: el
+# catálogo lleva un canonical hacia /programas/ y la ficha lleva noindex.
+#
+# Bloquearlas además sería contraproducente: una página que no se puede
+# rastrear tampoco se puede leer, así que el buscador nunca vería ni el
+# canonical ni el noindex — y acabaría indexándolas a ciegas, sólo por los
+# enlaces que apuntan a ellas. Prohibir y etiquetar son excluyentes.
+
+# Restos de cuando esto era un repositorio de herramientas sueltas.
+Disallow: /proyectos.html
+Disallow: /mejorasparaelCEM.html
+Disallow: /admin.html
+
+Sitemap: https://escuelacem.com/sitemap.xml

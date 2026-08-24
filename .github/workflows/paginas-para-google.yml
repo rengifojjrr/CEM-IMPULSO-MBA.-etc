@@ -1,0 +1,81 @@
+# Las páginas de programa, regeneradas solas cada día.
+#
+# El problema que resuelve: las fichas de curso que un buscador puede leer son
+# archivos HTML escritos de antemano, porque GitHub Pages no tiene servidor que
+# las arme al vuelo. Si nadie las vuelve a escribir, un programa nuevo no
+# existe para Google y uno despublicado se queda colgando con su precio viejo.
+#
+# Pedirle a una persona que se acuerde de ejecutar un comando cada vez que
+# toca el catálogo es pedirle que se le olvide. Así que se hace solo.
+#
+# NO HACE FALTA CONFIGURAR NINGÚN SECRETO. El generador lee los cursos
+# publicados con la misma clave publicable que usa el catálogo del sitio para
+# enseñárselos a quien no ha entrado: son datos públicos por definición.
+#
+# Si un día no quieres que se publique solo, quita el `schedule` de abajo y
+# déjalo en `workflow_dispatch`: seguirá estando el botón para lanzarlo a mano.
+
+name: Páginas para Google
+
+on:
+  schedule:
+    # 05:10 UTC = poco después de medianoche en Caracas y a media mañana en
+    # España. A esa hora nadie está publicando cursos, así que la regeneración
+    # no pilla un catálogo a medio editar.
+    - cron: '10 5 * * *'
+  # El botón de «ejecutar ahora», para cuando publiques algo y no quieras
+  # esperar al día siguiente: Actions → Páginas para Google → Run workflow.
+  workflow_dispatch:
+
+# Sólo el permiso que necesita: escribir en el repositorio para poder subir las
+# páginas regeneradas. Nada más.
+permissions:
+  contents: write
+
+# Si se solapan dos ejecuciones —la del reloj y una lanzada a mano— la segunda
+# espera en vez de pelearse por el mismo commit.
+concurrency:
+  group: paginas-para-google
+  cancel-in-progress: false
+
+jobs:
+  generar:
+    name: Regenerar y publicar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # La rama que publica el sitio.
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generar las páginas
+        run: node herramientas/generar-seo.mjs
+
+      - name: Comprobar que no se rompió nada
+        run: node herramientas/revisar.mjs
+
+      - name: Publicar si algo cambió
+        run: |
+          # Sin cambios no se hace commit: un historial lleno de commits vacíos
+          # esconde los que sí importan.
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "El catálogo no cambió desde ayer. Nada que publicar."
+            exit 0
+          fi
+
+          git config user.name  'Páginas para Google'
+          git config user.email 'actions@users.noreply.github.com'
+          git add programas sitemap.xml robots.txt
+          git commit -m "Páginas de programa al día ($(date -u +%d/%m/%Y))
+
+          Regeneradas desde el catálogo publicado por
+          .github/workflows/paginas-para-google.yml. No se editan a mano:
+          los cambios se harían en Admin → Cursos, o en
+          herramientas/generar-seo.mjs si es la plantilla lo que hay que
+          cambiar."
+          git push
+          echo "Publicado."
