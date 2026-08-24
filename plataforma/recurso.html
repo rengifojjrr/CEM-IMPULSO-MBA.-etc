@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="es" data-publico="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tu material del CEM | CEM International</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-24">
+<meta name="description" content="Recibe el material que pediste del CEM. Déjanos cuatro datos y lo tienes al instante.">
+<!-- Cada recurso es una dirección distinta con la misma página, así que no hay
+     un canonical que valga para todas y ninguna debe indexarse: son enlaces
+     que se reparten por mensaje privado, no páginas que se busquen en Google.
+     Y si se indexaran, el título sería el mismo para todas. -->
+<meta name="robots" content="noindex,follow">
+<style>
+  .regalo{max-width:560px;margin:0 auto;}
+  .regalo .tipo{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-xs);
+    font-weight:var(--peso-fuerte);letter-spacing:.06em;text-transform:uppercase;
+    color:var(--primary);}
+  .marco-video{position:relative;padding-top:56.25%;border-radius:var(--r);overflow:hidden;
+    background:#000;margin-top:var(--e2);}
+  .marco-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  .cuenta-atras{font-variant-numeric:tabular-nums;}
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card regalo" id="tarjeta">
+    <div class="brand-badge"><span class="material-symbols-outlined">redeem</span></div>
+    <div id="cuerpo"><p class="tiny muted">Un momento…</p></div>
+  </div>
+</div>
+
+<script type="module">
+/* La página a la que llega quien comentó una palabra en Instagram.
+   ═══════════════════════════════════════════════════════════════════════════
+   Todo lo que hay aquí está pensado para una persona que llega desde un mensaje
+   de ManyChat, en el teléfono, con poca paciencia y ninguna cuenta:
+
+   · Cuatro campos y ya. Nada de contraseña ni de confirmar el correo antes de
+     recibir lo que se le prometió.
+   · Se recuerda a quien ya dejó sus datos. Alguien que pide tres recursos en
+     una semana no tiene por qué escribir su teléfono tres veces — y si no es
+     él quien está delante, hay un enlace para decirlo.
+   · Ni la ruta del archivo ni el identificador del vídeo llegan al navegador
+     antes de dejar los datos: la ficha que se pide al principio sólo trae el
+     título y de qué va. El muro no se salta mirando la respuesta de la red. */
+import { sb, $, esc, qs, mensajeError, SUPABASE_URL, SUPABASE_KEY }
+  from './assets/app.js?v=2026-08-24';
+
+const codigo = (qs('c') || '').trim().toLowerCase();
+/* De dónde viene. ManyChat puede añadir `?o=instagram-ia-septiembre` al enlace
+   y así en Contactos se ve qué publicación trajo a cada persona. */
+const origen = (qs('o') || '').trim() || null;
+const LLAVE = 'cem_mis_datos';
+const cuerpo = $('#cuerpo');
+
+const recordado = () => {
+  try { return JSON.parse(localStorage.getItem(LLAVE) || 'null'); } catch { return null; }
+};
+const recordar = (d) => {
+  try { localStorage.setItem(LLAVE, JSON.stringify(d)); } catch { /* incógnito */ }
+};
+
+const aviso = (t, clase = 'err') => `<div class="nota ${clase} sep">${t}</div>`;
+
+const ICONO = { documento: 'description', video: 'play_circle', enlace: 'link' };
+const COMO_SE_LLAMA = { documento: 'Documento', video: 'Vídeo', enlace: 'Enlace' };
+
+async function arrancar() {
+  if (!codigo) {
+    cuerpo.innerHTML = `<h1>Falta el enlace</h1>
+      <div class="sub">Esta dirección tiene que llevar el código del material.
+        Si llegaste desde un mensaje nuestro, vuelve a abrir el enlace que te
+        mandamos; si lo copiaste a mano, seguramente se perdió un trozo.</div>
+      <div class="demo-list"><a href="inicio.html">Ir a la portada del CEM</a></div>`;
+    return;
+  }
+
+  const { data, error } = await sb.rpc('cem_recurso_ficha', { p_codigo: codigo });
+  if (error) { cuerpo.innerHTML = aviso(esc(mensajeError(error))); return; }
+
+  if (!data?.existe) {
+    cuerpo.innerHTML = `<h1>No encontramos ese material</h1>
+      <div class="sub">Puede que el enlace esté mal copiado o que ya no esté
+        disponible. Escríbenos por donde nos escribiste y te lo mandamos.</div>
+      <div class="demo-list"><a href="catalogo.html">Ver los programas del CEM</a></div>`;
+    return;
+  }
+  if (!data.activo) {
+    cuerpo.innerHTML = `<h1>${esc(data.titulo)}</h1>
+      <div class="sub">Este material ya no está disponible. Escríbenos y te
+        decimos si hay algo parecido.</div>
+      <div class="demo-list"><a href="catalogo.html">Ver los programas del CEM</a></div>`;
+    return;
+  }
+
+  pedirDatos(data);
+}
+
+function pedirDatos(ficha) {
+  const yo = recordado() || {};
+  cuerpo.innerHTML = `
+    <span class="tipo"><span class="material-symbols-outlined" style="font-size:16px">${
+      ICONO[ficha.tipo] || 'redeem'}</span> ${COMO_SE_LLAMA[ficha.tipo] || 'Material'}</span>
+    <h1 style="margin:6px 0 4px">${esc(ficha.titulo)}</h1>
+    ${ficha.descripcion ? `<div class="sub">${esc(ficha.descripcion)}</div>` : ''}
+
+    <form id="f" novalidate>
+      <p class="tiny muted">Sólo esto y es tuyo. No hace falta crear cuenta.</p>
+      <div class="row">
+        <div class="field medio"><label for="n">Nombre</label>
+          <input type="text" id="n" name="nombre" autocomplete="given-name"
+            value="${esc(yo.nombre || '')}" required></div>
+        <div class="field medio"><label for="a">Apellido</label>
+          <input type="text" id="a" name="apellido" autocomplete="family-name"
+            value="${esc(yo.apellido || '')}" required></div>
+      </div>
+      <div class="field"><label for="e">Correo</label>
+        <input type="email" id="e" name="email" autocomplete="email" inputmode="email"
+          value="${esc(yo.email || '')}" required></div>
+      <div class="field"><label for="t">Teléfono o WhatsApp</label>
+        <input type="tel" id="t" name="telefono" autocomplete="tel" inputmode="tel"
+          placeholder="+58 412 1234567" value="${esc(yo.telefono || '')}" required></div>
+
+      <button class="btn gold block sep" type="submit" id="btn">
+        Recibir ${esc((COMO_SE_LLAMA[ficha.tipo] || 'material').toLowerCase())}
+        <span class="material-symbols-outlined">arrow_forward</span></button>
+      <div id="msg"></div>
+      <p class="tiny muted sep-poco">Te escribiremos sobre los programas del CEM.
+        Puedes decirnos que pares cuando quieras.</p>
+      ${yo.email ? `<div class="demo-list">
+        <button type="button" class="btn ghost sm" id="noSoyYo">No soy ${esc(yo.nombre || 'yo')}</button>
+      </div>` : ''}
+    </form>`;
+
+  if ($('#noSoyYo')) $('#noSoyYo').onclick = () => {
+    try { localStorage.removeItem(LLAVE); } catch { /* nada */ }
+    pedirDatos(ficha);
+  };
+
+  $('#f').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const datos = {
+      nombre: $('#n').value.trim(), apellido: $('#a').value.trim(),
+      email: $('#e').value.trim(), telefono: $('#t').value.trim(),
+    };
+    const falta = (!datos.nombre && 'Falta tu nombre.')
+      || (!datos.apellido && 'Falta tu apellido.')
+      || (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(datos.email)
+          && 'Revisa el correo: no parece una dirección válida.')
+      || (!datos.telefono && 'Falta tu teléfono.');
+    if (falta) { $('#msg').innerHTML = aviso(esc(falta)); return; }
+
+    const btn = $('#btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined">hourglass_top</span> Preparándolo…';
+    $('#msg').innerHTML = '';
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/cem-recurso`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, ...datos, origen, sitio: location.origin }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) throw new Error(j.error || 'No se pudo preparar el material.');
+      recordar(datos);
+      entregar(j, datos);
+    } catch (e) {
+      $('#msg').innerHTML = aviso(esc(e.message));
+      btn.disabled = false;
+      btn.innerHTML = 'Volver a intentarlo <span class="material-symbols-outlined">refresh</span>';
+    }
+  };
+}
+
+function entregar(r, datos) {
+  const seguir = `
+    <div class="caja sep" style="padding:16px">
+      <b>¿Quieres el resto?</b>
+      <p class="tiny muted" style="margin:4px 0 10px">Con estos mismos datos puedes
+        terminar tu cuenta en un minuto y tener aquí todo lo que vayas pidiendo.
+        Te mandamos el enlace por correo también.</p>
+      <a class="btn outline sm" href="index.html?registro=1&correo=${encodeURIComponent(datos.email)}">
+        Terminar mi cuenta</a>
+      <a class="btn ghost sm" href="catalogo.html">Ver los programas</a>
+    </div>`;
+
+  if (r.tipo === 'video') {
+    cuerpo.innerHTML = `
+      <h1 style="margin-bottom:4px">${esc(r.titulo)}</h1>
+      <div class="sub">Ahí lo tienes. Puedes verlo las veces que quieras.</div>
+      <div class="marco-video">
+        <iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(r.video)}?rel=0&modestbranding=1"
+          title="${esc(r.titulo)}" allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+          allowfullscreen loading="lazy"></iframe>
+      </div>
+      ${seguir}`;
+    return;
+  }
+
+  const externo = r.externo;
+  cuerpo.innerHTML = `
+    <h1 style="margin-bottom:4px">${esc(r.titulo)}</h1>
+    <div class="sub">Listo${datos.nombre ? `, ${esc(datos.nombre)}` : ''}. Aquí lo tienes.</div>
+    <a class="btn gold block sep" id="abrir" href="${esc(r.enlace)}"
+       ${externo ? 'target="_blank" rel="noopener"' : ''}>
+      <span class="material-symbols-outlined">${externo ? 'open_in_new' : 'download'}</span>
+      ${externo ? 'Abrir' : 'Descargar'}${r.archivo ? ` ${esc(r.archivo)}` : ''}</a>
+    ${externo ? '' : `<p class="tiny muted sep-poco" id="caduca"></p>`}
+    ${seguir}`;
+
+  /* La cuenta atrás no es un adorno: el enlace caduca de verdad, y si alguien
+     deja la pestaña abierta y lo pulsa mañana se encuentra un error sin
+     explicación. Diciéndolo, sabe que tiene que volver a pedirlo. */
+  if (!externo && r.caducaEn) {
+    let quedan = Number(r.caducaEn);
+    const pinta = () => {
+      const p = $('#caduca');
+      if (!p) return;
+      if (quedan <= 0) {
+        p.innerHTML = '<b>Este enlace ya caducó.</b> Vuelve a abrir el enlace que te mandamos '
+          + 'y te preparamos otro: no hace falta que escribas tus datos de nuevo.';
+        return;
+      }
+      const m = Math.floor(quedan / 60);
+      p.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px">schedule</span>
+        El enlace de descarga vale <b class="cuenta-atras">${m} minuto${m === 1 ? '' : 's'}</b>.
+        Guárdate el archivo, no el enlace.`;
+    };
+    pinta();
+    setInterval(() => { quedan -= 30; pinta(); }, 30000);
+  }
+}
+
+arrancar();
+</script>
+</body>
+</html>

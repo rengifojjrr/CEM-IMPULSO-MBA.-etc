@@ -306,6 +306,17 @@ if (qs('motivo') === 'vencida') {
 }
 
 anunciarADondeVuelve();
+
+/* Quien llega desde el correo de un recurso trae su dirección en el enlace, y
+   ya la escribió una vez para recibirlo. Volver a pedírsela es la clase de
+   fricción pequeña que hace abandonar un formulario que ya era largo.
+   Se valida igual que cualquier otra cosa que venga de fuera: si lo que llega
+   no parece un correo, se ignora en vez de dejarlo puesto. */
+(() => {
+  const c = (qs('correo') || '').trim().toLowerCase();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c)) $('#rEmail').value = c;
+})();
+
 if (qs('registro')) mostrar('cardReg');
 $('#toReg').onclick = () => mostrar('cardReg');
 $('#toLogin').onclick = () => mostrar('cardLogin');

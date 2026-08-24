@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Recursos para redes</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24">
+<style>
+  /* sin-caja: un enlace en monoespaciada para copiarlo, no un panel */
+  .enlace-manychat{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--filete);
+    word-break:break-all;}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Recursos para redes</h1>
+      <p>Lo que se regala a cambio de un contacto: «comenta IA y te mando la clase».
+         Cada recurso tiene su enlace, y ese enlace es el que se pega en ManyChat.</p></div>
+    <div class="actions">
+      <button class="btn" id="btnNuevo">
+        <span class="material-symbols-outlined">add</span> Nuevo recurso</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+  <div id="cuerpo"><span class="cargando"></span></div>
+</div>
+
+<script type="module">
+/* Los imanes de captación.
+   ═══════════════════════════════════════════════════════════════════════════
+   Cómo encaja con el resto: quien reclama un recurso NO se convierte en
+   alumno. Queda en «Contactos de la web» —la misma tabla que el formulario de
+   la portada— con el recurso que pidió apuntado como interés. Después se le
+   invita por correo a terminar la cuenta, y si lo hace entra por el registro
+   normal como cualquiera.
+
+   Es a propósito: pedirle contraseña y confirmación de correo a alguien que
+   viene de comentar una palabra en Instagram es donde se cae la mitad de la
+   gente, y lo que se buscaba era justamente traerla. */
+import { sb, mount, $, $$, esc, num, chip, fdate, ok, fail, toast, modal, avisar,
+         confirmDialog, mensajeError, emptyRow, ocupado, subirRegalo }
+  from '../assets/app.js?v=2026-08-24';
+
+await mount({ require:['coordinador','admin','superadmin'], area:'admin', active:'recursos.html' });
+
+/* La dirección que se reparte. Sale del sitio donde está publicada la
+   plataforma y no escrita a mano: en local es 127.0.0.1 y publicada es el
+   dominio, y copiar un enlace de localhost a ManyChat es un error que no
+   avisa hasta que alguien lo pulsa. */
+const SITIO = location.origin + location.pathname.replace(/\/admin\/[^/]*$/, '');
+const enlaceDe = (codigo) => `${SITIO}/recurso.html?c=${codigo}`;
+
+let RECURSOS = [];
+
+const COMO_SE_LLAMA = { documento: 'Documento', video: 'Vídeo', enlace: 'Enlace' };
+const ICONO = { documento: 'description', video: 'play_circle', enlace: 'link' };
+
+async function cargar(){
+  const { data, error } = await sb.rpc('cem_recursos_listar');
+  if (error) { avisar('#cuerpo', mensajeError(error)); return; }
+  RECURSOS = data || [];
+  pintar();
+}
+
+function pintar(){
+  const activos = RECURSOS.filter(r => r.activo).length;
+  const personas = RECURSOS.reduce((s, r) => s + Number(r.personas || 0), 0);
+
+  $('#kpis').innerHTML = [
+    `<div class="kpi"><div class="k-lbl">Recursos</div><div class="k-val">${num(RECURSOS.length)}</div>
+      <div class="k-sub">${num(activos)} con el enlace vivo</div></div>`,
+    `<div class="kpi"><div class="k-lbl">Contactos traídos</div><div class="k-val">${num(personas)}</div>
+      <div class="k-sub">personas que dejaron sus datos</div></div>`,
+  ].join('');
+
+  if (!RECURSOS.length) {
+    $('#cuerpo').innerHTML = `<div class="card"><div class="table-wrap"><table>
+      <thead><tr><th>Recurso</th></tr></thead><tbody>
+      ${emptyRow(1, 'Todavía no hay ningún recurso. Aquí se crean los documentos y vídeos que '
+        + 'se regalan en redes a cambio de un contacto.',
+        { texto:'Crear el primero', id:'vacioRec', icono:'redeem' })}
+      </tbody></table></div></div>`;
+    $('#vacioRec').onclick = () => editar(null);
+    return;
+  }
+
+  $('#cuerpo').innerHTML = `<div class="card"><div class="table-wrap"><table>
+    <thead><tr>
+      <th>Recurso</th><th>Enlace para ManyChat</th><th class="num">Personas</th>
+      <th>Última</th><th>Estado</th><th></th>
+    </tr></thead>
+    <tbody>${RECURSOS.map(r => `<tr>
+      <td data-col="Recurso">
+        <div class="t" style="display:flex;align-items:center;gap:7px">
+          <span class="material-symbols-outlined" style="font-size:18px;color:var(--primary)">${ICONO[r.tipo] || 'redeem'}</span>
+          ${esc(r.titulo)}</div>
+        <div class="s">${esc(COMO_SE_LLAMA[r.tipo] || r.tipo)}${
+          r.gancho ? ` · comentan «${esc(r.gancho)}»` : ''}</div>
+      </td>
+      <td data-col="Enlace para ManyChat">
+        <code class="enlace-manychat">${esc(enlaceDe(r.codigo))}</code>
+        <button class="btn ghost sm" data-copiar="${esc(r.codigo)}" type="button" style="margin-top:5px">
+          <span class="material-symbols-outlined">content_copy</span> Copiar</button>
+      </td>
+      <td class="num" data-col="Personas">${num(r.personas || 0)}</td>
+      <td data-col="Última">${r.ultima ? fdate(r.ultima) : '—'}</td>
+      <td data-col="Estado">${r.activo ? chip('Activo','ok') : chip('Apagado','')}</td>
+      <td class="acciones">
+        <button class="btn ghost sm" data-quien="${esc(r.id)}" type="button">
+          <span class="material-symbols-outlined">group</span> Quiénes</button>
+        <button class="btn ghost sm" data-editar="${esc(r.id)}" type="button">
+          <span class="material-symbols-outlined">edit</span></button>
+        <button class="btn ghost sm" data-borrar="${esc(r.id)}" type="button">
+          <span class="material-symbols-outlined">delete</span></button>
+      </td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+/* ── crear y editar ─────────────────────────────────────────────────────── */
+function editar(r){
+  const esNuevo = !r;
+  const m = modal({
+    title: esNuevo ? 'Nuevo recurso' : 'Editar recurso',
+    wide: true,
+    body: `
+      <div class="field"><label for="rTitulo">Título</label>
+        <input id="rTitulo" value="${esc(r?.titulo || '')}" placeholder="Clase: IA aplicada al marketing">
+        <span class="pista">Es lo que se lee arriba del todo cuando alguien abre el enlace.</span></div>
+
+      <div class="field"><label for="rCodigo">Código del enlace</label>
+        <input id="rCodigo" value="${esc(r?.codigo || '')}" placeholder="clase-ia" autocomplete="off">
+        <span class="pista">Minúsculas, números y guiones. Es lo que va al final del enlace, así que
+          conviene que se lea: <code>clase-ia</code> mejor que <code>c7f3</code>.
+          <b>Si lo cambias, el enlace de antes deja de funcionar.</b></span></div>
+
+      <div class="field"><label for="rDesc">De qué va</label>
+        <textarea id="rDesc" rows="2" placeholder="Dos líneas para que sepa qué va a recibir.">${esc(r?.descripcion || '')}</textarea></div>
+
+      <div class="field"><label for="rGancho">Palabra que se comenta <span class="tiny muted">(opcional)</span></label>
+        <input id="rGancho" value="${esc(r?.gancho || '')}" placeholder="IA">
+        <span class="pista">No lo usa el programa: sirve para que dentro de seis meses sepas qué
+          publicación trajo a esta gente.</span></div>
+
+      <div class="field"><label for="rTipo">Qué se entrega</label>
+        <select id="rTipo">
+          <option value="documento"${r?.tipo === 'documento' ? ' selected' : ''}>Un documento (PDF, Word, presentación…)</option>
+          <option value="video"${r?.tipo === 'video' ? ' selected' : ''}>Un vídeo de YouTube</option>
+          <option value="enlace"${r?.tipo === 'enlace' ? ' selected' : ''}>Un enlace a otro sitio</option>
+        </select></div>
+
+      <div id="segunTipo"></div>
+
+      <label class="casilla sep"><input type="checkbox" id="rActivo"${r?.activo !== false ? ' checked' : ''}>
+        <span class="tiny muted">El enlace funciona. Si lo apagas, quien lo abra verá que ya no está
+          disponible en vez de un error.</span></label>
+      <div id="rMsg"></div>`,
+    footer: `<button class="btn ghost" data-x>Cancelar</button>
+             <button class="btn" id="rGuardar">Guardar</button>`,
+  });
+
+  /* Lo subido en esta sesión, si se cambió el archivo. `null` quiere decir
+     «déjalo como estaba», que es lo que espera la función de la base. */
+  let subido = null;
+
+  const pintarSegunTipo = () => {
+    const t = $('#rTipo', m).value;
+    const host = $('#segunTipo', m);
+    if (t === 'documento') {
+      host.innerHTML = `<div class="field"><label for="rArchivo">El documento</label>
+        <input type="file" id="rArchivo"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*">
+        <span class="pista" id="rArchivoPista">${
+          r?.archivo_nombre
+            ? `Ahora mismo se entrega <b>${esc(r.archivo_nombre)}</b>. Elige otro sólo si quieres cambiarlo.`
+            : 'Se guarda en privado: sólo se puede abrir con un enlace que caduca a la hora.'}</span></div>`;
+      $('#rArchivo', m).onchange = async (ev) => {
+        const f = ev.target.files?.[0];
+        if (!f) return;
+        const pista = $('#rArchivoPista', m);
+        pista.textContent = 'Subiendo…';
+        try {
+          subido = await subirRegalo(f);
+          pista.innerHTML = `Listo: <b>${esc(subido.nombre)}</b>. Se guardará al pulsar «Guardar».`;
+        } catch (e) { subido = null; pista.innerHTML = `<span class="err-text">${esc(e.message)}</span>`; }
+      };
+    } else if (t === 'video') {
+      host.innerHTML = `<div class="field"><label for="rVideo">El vídeo de YouTube</label>
+        <input id="rVideo" value="${esc(r?.video_id || '')}" placeholder="https://youtu.be/… o el identificador">
+        <span class="pista">Pega la dirección entera y se queda con lo que hace falta.
+          Puede ser un vídeo oculto: se ve incrustado aquí sin salir a YouTube.</span></div>`;
+    } else {
+      host.innerHTML = `<div class="field"><label for="rUrl">La dirección</label>
+        <input id="rUrl" value="${esc(r?.url || '')}" placeholder="https://…" inputmode="url">
+        <span class="pista">Por ejemplo, un formulario para agendar la asesoría.</span></div>`;
+    }
+  };
+  pintarSegunTipo();
+  $('#rTipo', m).onchange = pintarSegunTipo;
+
+  /* Escribir el título rellena el código solo, pero sólo mientras se está
+     creando y sólo si nadie lo ha tocado: cambiárselo a un recurso que ya está
+     repartido rompería los enlaces que hay dando vueltas. */
+  let codigoTocado = !esNuevo;
+  $('#rCodigo', m).oninput = () => { codigoTocado = true; };
+  $('#rTitulo', m).oninput = () => {
+    if (codigoTocado) return;
+    $('#rCodigo', m).value = $('#rTitulo', m).value
+      .replace(/[ñÑ]/g, 'n').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  };
+
+  $('#rGuardar', m).onclick = () => ocupado($('#rGuardar', m), 'Guardando…', async () => {
+    const tipo = $('#rTipo', m).value;
+    const video = $('#rVideo', m)?.value.trim() || '';
+    /* De una dirección de YouTube sólo interesa el identificador, y llega de
+       cuatro formas distintas según de dónde se copie. */
+    const idVideo = (video.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{6,})/) || [, video])[1];
+
+    if (tipo === 'documento' && !subido && !r?.storage_path) {
+      return avisar('#rMsg', 'Falta el documento que se va a entregar.', 'err');
+    }
+    if (tipo === 'video' && !idVideo) return avisar('#rMsg', 'Falta el vídeo.', 'err');
+    if (tipo === 'enlace' && !$('#rUrl', m)?.value.trim()) {
+      return avisar('#rMsg', 'Falta la dirección a la que se manda.', 'err');
+    }
+
+    const { error } = await sb.rpc('cem_recurso_guardar', {
+      p_id: r?.id || null,
+      p_codigo: $('#rCodigo', m).value.trim(),
+      p_titulo: $('#rTitulo', m).value.trim(),
+      p_descripcion: $('#rDesc', m).value.trim() || null,
+      p_tipo: tipo,
+      p_storage_path: subido?.ruta || null,
+      p_archivo_nombre: subido?.nombre || null,
+      p_video_id: tipo === 'video' ? idVideo : null,
+      p_url: tipo === 'enlace' ? $('#rUrl', m).value.trim() : null,
+      p_gancho: $('#rGancho', m).value.trim() || null,
+      p_activo: $('#rActivo', m).checked,
+    });
+    if (error) return avisar('#rMsg', mensajeError(error), 'err');
+    m.close();
+    ok(esNuevo ? 'Recurso creado. Ya puedes copiar su enlace.' : 'Guardado.');
+    cargar();
+  });
+}
+
+/* ── quiénes lo pidieron ────────────────────────────────────────────────── */
+async function quienes(r){
+  const m = modal({ title: `Quiénes pidieron «${r.titulo}»`, wide: true,
+    body: '<p class="tiny muted">Buscando…</p>' });
+
+  const { data, error } = await sb.from('cem_recurso_entregas')
+    .select('created_at, email, origen, cem_leads(nombre, apellido, telefono, estado)')
+    .eq('recurso_id', r.id).order('created_at', { ascending: false }).limit(500);
+
+  if (error) { $('.modal-b', m).innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+  if (!data?.length) {
+    $('.modal-b', m).innerHTML = '<p class="muted tiny">Todavía no lo ha pedido nadie.</p>';
+    return;
+  }
+
+  $('.modal-b', m).innerHTML = `
+    <p class="tiny muted">${data.length} persona${data.length === 1 ? '' : 's'}.
+      Están también en <a href="leads.html">Contactos de la web</a>, donde se les puede
+      dar seguimiento.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Cuándo</th><th>Quién</th><th>Contacto</th><th>De dónde</th></tr></thead>
+      <tbody>${data.map(e => `<tr>
+        <td data-col="Cuándo">${fdate(e.created_at)}</td>
+        <td data-col="Quién">${esc([e.cem_leads?.nombre, e.cem_leads?.apellido].filter(Boolean).join(' ') || '—')}</td>
+        <td data-col="Contacto"><div class="t">${esc(e.email || '—')}</div>
+          <div class="s">${esc(e.cem_leads?.telefono || '')}</div></td>
+        <td data-col="De dónde">${esc(e.origen || '—')}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ── los botones ────────────────────────────────────────────────────────── */
+document.addEventListener('click', async (ev) => {
+  const copiar = ev.target.closest('[data-copiar]');
+  if (copiar) {
+    const enlace = enlaceDe(copiar.dataset.copiar);
+    try { await navigator.clipboard.writeText(enlace); ok('Enlace copiado. Pégalo en ManyChat.'); }
+    catch { toast('Selecciónalo y cópialo con Ctrl+C: ' + enlace); }
+    return;
+  }
+  if (ev.target.closest('#btnNuevo')) { editar(null); return; }
+
+  const ed = ev.target.closest('[data-editar]');
+  if (ed) { editar(RECURSOS.find(r => r.id === ed.dataset.editar)); return; }
+
+  const qn = ev.target.closest('[data-quien]');
+  if (qn) { quienes(RECURSOS.find(r => r.id === qn.dataset.quien)); return; }
+
+  const br = ev.target.closest('[data-borrar]');
+  if (br) {
+    const r = RECURSOS.find(x => x.id === br.dataset.borrar);
+    if (!await confirmDialog(
+      `El enlace <b>${esc(enlaceDe(r.codigo))}</b> dejará de funcionar, y si está puesto en un
+       flujo de ManyChat esa gente se encontrará con que no existe.<br><br>
+       Las ${num(r.personas || 0)} persona(s) que ya lo pidieron <b>siguen en Contactos</b>:
+       lo que se pierde es el recuento de este recurso.<br><br>
+       Si sólo quieres dejar de repartirlo, <b>apágalo</b> en vez de borrarlo: quien abra el
+       enlace verá que ya no está disponible en lugar de un error.`,
+      `Borrar «${r.titulo}»`)) return;
+    const { error } = await sb.rpc('cem_recurso_borrar', { p_id: r.id });
+    if (error) return fail(mensajeError(error));
+    ok('Recurso borrado.');
+    cargar();
+  }
+});
+
+cargar();
+</script>
+</body>
+</html>

@@ -1099,6 +1099,7 @@ const ADMIN_NAV = [
     ['contenido.html', 'import_contacts', 'Contenidos', ['coordinador','admin','superadmin','profesor']],
     ['videos.html', 'smart_display', 'Vídeo de cada lección', ['coordinador','admin','superadmin']],
     ['multimedia.html', 'perm_media', 'Biblioteca', ['coordinador','admin','superadmin','profesor','auditor']],
+    ['recursos.html', 'redeem', 'Recursos para redes', ['coordinador','admin','superadmin']],
     ['profesores.html', 'psychology', 'Profesores', ['coordinador','admin','superadmin','auditor']],
     ['revision.html', 'fact_check', 'Revisión de contenido', ['coordinador','admin','superadmin','profesor','auditor']],
   ]},
@@ -3135,6 +3136,29 @@ export async function subirDocumentoLeccion(file){
   const tipo = /pdf/.test(file.type) ? 'pdf' : /sheet|excel|csv/.test(file.type) ? 'excel'
     : /image\//.test(file.type) ? 'imagen' : /video\//.test(file.type) ? 'video' : 'enlace';
   return { url: data.publicUrl, tamanoBytes: file.size, tipo, nombre: file.name };
+}
+
+/* ============ lo que se regala en redes ============
+   Va a un cubo PRIVADO, y ésa es toda la diferencia con la función de arriba.
+   ═══════════════════════════════════════════════════════════════════════════
+   Un material de curso vive en un cubo público: quien está matriculado lo abre
+   y su dirección funciona para cualquiera que la tenga, que da igual porque el
+   valor está en el curso entero.
+
+   Un regalo de captación es lo contrario: SU valor es que hay que dejar unos
+   datos para conseguirlo. Si el archivo tuviera dirección pública, el primero
+   que lo recibiera podría publicar el enlace directo y el formulario quedaría
+   de adorno — se seguirían entregando documentos y ya no entraría ni un
+   contacto. Así que aquí se devuelve la RUTA, no una dirección: para verlo hay
+   que pedirle al servidor un enlace firmado, y eso sólo pasa después de dejar
+   los datos. */
+export async function subirRegalo(file){
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const ruta = `regalos/${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from('cem-regalos')
+    .upload(ruta, file, { contentType: file.type || 'application/octet-stream' });
+  if (error) throw new Error(error.message || 'No se pudo subir el documento.');
+  return { ruta, nombre: file.name, tamanoBytes: file.size };
 }
 
 /* ============ comprobantes de pago ============

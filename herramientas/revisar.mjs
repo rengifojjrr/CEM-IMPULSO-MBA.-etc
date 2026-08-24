@@ -200,6 +200,13 @@ const PUBLICAS = new Set([
   // autorizó, y lo filtra el servidor en `cem_perfil_publico`, no el navegador.
   'plataforma/perfil-publico.html',
   'plataforma/manual.html',       // documentación
+  /* La página de un recurso de captación. Es pública por definición: se llega
+     desde un mensaje de ManyChat después de comentar una palabra en Instagram,
+     y quien llega no tiene cuenta —ni se le pide, que es justamente el punto—.
+     Lo que hay que proteger no es la pantalla sino el archivo, y eso lo hace el
+     servidor: la ficha que se pide al abrir sólo trae el título, y la ruta del
+     documento no viaja nunca al navegador. */
+  'plataforma/recurso.html',
   // El catálogo y la ficha del programa: públicos, y en la raíz por eso mismo.
   'plataforma/catalogo.html',
   'plataforma/curso.html',
