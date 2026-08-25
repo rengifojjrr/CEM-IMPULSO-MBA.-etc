@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-25-2';
+         vidrioActual } from './temas.js?v=2026-08-25-3';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -176,6 +176,9 @@ export const ETIQUETAS = {
   en_progreso: 'En progreso', entregada: 'Entregada', calificada: 'Calificada', tarde: 'Entregada tarde',
   // clases
   programada: 'Programada', dictada: 'Dictada', reprogramada: 'Reprogramada',
+  // mensajes guardados para los contactos de la web
+  'primer-contacto': 'Primer contacto', promocion: 'Promoción',
+  seguimiento: 'Seguimiento', recuperacion: 'Se quedó a medias', otro: 'Otro',
   // prioridad y dificultad
   baja: 'Baja', media: 'Media', alta: 'Alta', urgente: 'Urgente',
   // tickets
@@ -403,10 +406,26 @@ function botonesQueAvisan(raiz) {
   });
 }
 
-export function confirmDialog(msg, title = 'Confirmar') {
+/**
+ * Preguntar antes de hacer algo que no se puede deshacer.
+ *
+ * Por defecto el mensaje se escapa, que es lo correcto cuando lleva dentro el
+ * nombre de algo que escribió otra persona. Pero dos avisos necesitan negritas
+ * y saltos de línea de verdad —los que dan cifras antes de un envío en tanda o
+ * antes de borrar—, y escapados salían con los `<b>` a la vista, como texto.
+ * De ahí `html: true`: es explícito, y quien lo pide se hace responsable de
+ * escapar los datos que meta dentro.
+ *
+ * @param {string} msg
+ * @param {string} title
+ * @param {{html?: boolean, confirmar?: string, peligro?: boolean}} opciones
+ */
+export function confirmDialog(msg, title = 'Confirmar', opciones = {}) {
+  const { html = false, confirmar = 'Confirmar', peligro = false } = opciones;
   return new Promise(res => {
-    const m = modal({ title, body: `<p>${esc(msg)}</p>`,
-      footer: `<button class="btn outline" data-no>Cancelar</button><button class="btn" data-si>Confirmar</button>` });
+    const m = modal({ title, body: `<p>${html ? msg : esc(msg)}</p>`,
+      footer: `<button class="btn outline" data-no>Cancelar</button>
+        <button class="btn${peligro ? ' danger' : ''}" data-si>${esc(confirmar)}</button>` });
     $('[data-no]', m).onclick = () => { m.close(); res(false); };
     $('[data-si]', m).onclick = () => { m.close(); res(true); };
   });
@@ -1997,7 +2016,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-25-2');
+    const m = await import('./apariencia.js?v=2026-08-25-3');
 
     m.abrirApariencia();
 

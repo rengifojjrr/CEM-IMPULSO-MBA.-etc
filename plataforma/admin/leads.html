@@ -9,7 +9,50 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-2">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-3">
+<style>
+  /* Las marcas de «ya recibió este mensaje». Van dentro de la celda, así que
+     no dibujan caja: heredan la de la fila. */
+  .sellos{display:flex;flex-wrap:wrap;gap:4px;}
+  .sellos .chip{margin:0;}
+
+  /* `td.wrap` reserva 180px para toda la plataforma, que está bien cuando una
+     celda lleva un párrafo. Aquí dos de ellas llevan una fecha y un par de
+     sellos, y esos 180px de más eran justo lo que empujaba el botón de abrir
+     la ficha fuera de la pantalla en un portátil normal. Se afinan sólo estas
+     dos, en esta pantalla: la regla de fuera sigue como estaba. */
+  #tb td:nth-child(3){min-width:140px;}
+  #tb td:nth-child(4){min-width:104px;}
+
+  /* Un correo largo puede partirse donde haga falta; un teléfono no. Apilado en
+     el móvil salía «134636 62418» en dos líneas, que no se lee ni se copia. */
+  #tb a[href^="tel:"]{white-space:nowrap;}
+  #tb a[href^="mailto:"]{overflow-wrap:anywhere;}
+
+  /* sin-caja: la barra vive dentro de la tarjeta de filtros y hereda la suya;
+     lo único propio es la raya de arriba que la separa de los filtros. */
+  .barra-tanda{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e2);
+    margin-top:var(--e2);padding-top:var(--e2);border-top:1px solid var(--filete);}
+  .barra-tanda .cuenta{font-family:var(--cifra);font-variant-numeric:tabular-nums;
+    font-weight:var(--peso-fuerte);}
+  .barra-tanda .crece{flex:1;min-width:200px;}
+
+  /* sin-caja: es una fila de la lista de mensajes guardados, dentro del modal. */
+  .fila-msj{display:flex;align-items:center;gap:var(--e2);padding:var(--e1) 0;
+    border-bottom:1px solid var(--filete);}
+  .fila-msj:last-child{border-bottom:0;}
+  .fila-msj .quien{flex:1;min-width:0;}
+  .fila-msj .quien b{display:block;overflow-wrap:anywhere;}
+
+  /* La vista previa del mensaje ya con los huecos rellenos con los datos de
+     esta persona. Se lee como lo va a leer quien lo reciba, que es el único
+     modo de darse cuenta de que algo suena raro antes de mandarlo.
+     sin-caja: la caja la pone .nota, que ya la trae del sistema. */
+  .previa-msj{white-space:pre-wrap;font-size:var(--t-sm);line-height:1.5;
+    max-height:280px;overflow:auto;}
+  .huecos code{background:var(--hueco);padding:1px 5px;border-radius:4px;
+    font-size:var(--t-xs);}
+</style>
 </head>
 <body>
 <div id="page" class="hidden">
@@ -17,6 +60,10 @@
     <div><h1>Contactos de la web
       <button type="button" class="ayuda-btn" data-ayuda="Gente que dejó sus datos en la web pública sin llegar a crear cuenta. Cada ficha se mueve de «nuevo» a «contactado» y de ahí a lo que pase. Un contacto sin mover es un contacto que nadie llamó.">?</button></h1>
       <p>Quien preguntó por un programa y todavía no se ha inscrito.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnMensajes">
+        <span class="material-symbols-outlined">mark_email_read</span> Mensajes guardados</button>
+    </div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -36,10 +83,41 @@
         </select></div>
       <div class="field"><label for="fOrigen">Llegó desde</label>
         <select id="fOrigen"><option value="">Todas las páginas</option></select></div>
+
+      <!-- Filtrar por lo que ya se les mandó.
+           ─────────────────────────────────────────────────────────────────
+           Esto es lo que convierte el historial en algo útil: «enséñame a
+           quién le falta el primer contacto» es una pregunta que antes había
+           que contestar abriendo las fichas de una en una. -->
+      <div class="field"><label for="fMsj">Mensaje</label>
+        <select id="fMsj"><option value="">Cualquiera</option></select></div>
+      <div class="field"><label for="fRecibio">¿Lo recibió?</label>
+        <select id="fRecibio">
+          <option value="">Da igual</option>
+          <option value="no">Todavía no</option>
+          <option value="si">Ya lo recibió</option>
+        </select></div>
     </div>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Quién</th><th>Cómo contactarle</th><th>Qué le interesa</th>
-        <th>Llegó</th><th>Estado</th><th></th></tr></thead>
+
+    <!-- La tanda sólo aparece cuando hay un mensaje elegido: un botón de envío
+         masivo permanente es un botón que algún día se pulsa sin querer. -->
+    <div class="barra-tanda" id="barraTanda" hidden>
+      <div class="crece">
+        <b class="cuenta" id="cuentaTanda"></b>
+        <div class="tiny muted" id="pieTanda"></div>
+      </div>
+      <button class="btn" id="btnTanda">
+        <span class="material-symbols-outlined">send</span> <span id="txtTanda">Enviar a la lista</span></button>
+    </div>
+
+    <!-- Seis columnas, no siete. Con «Qué le interesa» aparte la tabla medía
+         1120px y no cabía ni en una pantalla de 1440: el ojo de abrir la ficha
+         —lo único que se pulsa en cada fila— quedaba fuera y había que
+         desplazar de lado para llegar a él. El interés se ha metido bajo el
+         nombre, que es donde ya estaba lo que escribió esa persona. -->
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>Quién</th><th>Cómo contactarle</th>
+        <th>Ya recibió</th><th>Llegó</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 
@@ -55,17 +133,36 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, fdate, fdatetime, kpi, num, emptyRow, match, modal,
-         ok, chipEstado, etiqueta, mensajeError, montarAyudas } from '../assets/app.js?v=2026-08-25-2';
-import { barras } from '../assets/graficos.js?v=2026-08-25-2';
+         ok, chipEstado, etiqueta, mensajeError, montarAyudas, avisar, ocupado,
+         confirmDialog } from '../assets/app.js?v=2026-08-25-3';
+import { barras } from '../assets/graficos.js?v=2026-08-25-3';
 const p = await mount({ require: ['cobranza', 'coordinador', 'admin', 'superadmin'],
                         active: 'leads.html', area: 'admin' });
 let filas = [];
+let PLANTILLAS = [];
+/* Quién recibió qué, indexado por contacto: { leadId: [{clave,nombre,cuando}] }.
+   Se arma una vez por carga en vez de buscar dentro del array en cada celda —
+   con mil contactos y cinco mensajes eso son cinco mil recorridos por pintado. */
+let ENVIOS = {};
+let visibles = [];
+
 if (p) cargar();
 
 async function cargar() {
-  const { data, error } = await sb.rpc('cem_leads_listar');
+  const [{ data, error }, { data: pls }, { data: envs }] = await Promise.all([
+    sb.rpc('cem_leads_listar'),
+    sb.rpc('cem_plantillas_mensaje_listar', { p_todas: true }),
+    sb.rpc('cem_lead_envios_listar'),
+  ]);
   if (error) { $('#tb').innerHTML = emptyRow(6, mensajeError(error)); return; }
   filas = data || [];
+  PLANTILLAS = pls || [];
+
+  ENVIOS = {};
+  (envs || []).forEach((e) => {
+    (ENVIOS[e.lead_id] ||= []).push(
+      { clave: e.plantilla_clave, nombre: e.plantilla_nombre, cuando: e.enviado_en });
+  });
 
   const cuenta = (e) => filas.filter((x) => x.estado === e).length;
   const nuevos7 = filas.filter((x) =>
@@ -83,14 +180,32 @@ async function cargar() {
         'Todos los contactos que ha recogido la web, desde el primero.'),
   ].join('');
 
+  /* Los dos desplegables se rellenan con lo que hay en la base, así que hay
+     que rehacerlos en cada carga — y rehacerlos borra lo que había elegido.
+     Eso importa justo después de enviar una tanda: la pantalla se recarga
+     sola, los filtros se iban al garete y la lista pasaba de las 3 personas
+     que acababas de mirar a las 300 de siempre, sin avisar. Se guarda la
+     elección antes y se devuelve después, si esa opción sigue existiendo. */
+  const eraOrigen = $('#fOrigen').value;
+  const eraMsj = $('#fMsj').value;
+
   const origenes = [...new Set(filas.map((x) => x.origen).filter(Boolean))];
   $('#fOrigen').innerHTML = '<option value="">Todas las páginas</option>'
     + origenes.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+
+  $('#fMsj').innerHTML = '<option value="">Cualquiera</option>'
+    + PLANTILLAS.map((t) => `<option value="${esc(t.clave)}">${
+        esc(t.nombre)}${t.activa ? '' : ' (apagado)'}</option>`).join('');
+
+  if (eraOrigen && origenes.includes(eraOrigen)) $('#fOrigen').value = eraOrigen;
+  if (eraMsj && PLANTILLAS.some((t) => t.clave === eraMsj)) $('#fMsj').value = eraMsj;
 
   pintarGraficos();
   render();
   montarAyudas();
 }
+
+const recibio = (leadId, clave) => (ENVIOS[leadId] || []).find((e) => e.clave === clave);
 
 function pintarGraficos() {
   const porOrigen = {};
@@ -123,36 +238,124 @@ function render() {
   const q = $('#q').value.trim();
   const est = $('#fEstado').value;
   const ori = $('#fOrigen').value;
-  const lista = filas.filter((x) =>
-    match(x, q, ['nombre', 'email', 'telefono', 'mensaje', 'interes'])
-    && (!est || x.estado === est) && (!ori || x.origen === ori));
+  const msj = $('#fMsj').value;
+  const rec = $('#fRecibio').value;
 
-  $('#tb').innerHTML = lista.length ? lista.map((x) => `<tr>
-    <td class="wrap"><b>${esc(x.nombre)}</b>
+  visibles = filas.filter((x) =>
+    match(x, q, ['nombre', 'email', 'telefono', 'mensaje', 'interes'])
+    && (!est || x.estado === est) && (!ori || x.origen === ori)
+    && (!msj || !rec || (rec === 'si' ? !!recibio(x.id, msj) : !recibio(x.id, msj))));
+
+  $('#tb').innerHTML = visibles.length ? visibles.map((x) => {
+    const suyos = ENVIOS[x.id] || [];
+    return `<tr>
+    <td class="wrap" data-col="Quién"><b>${esc(x.nombre)}</b>
+      ${x.interes ? `<div class="tiny">${esc(x.interes)}</div>` : ''}
       ${x.mensaje ? `<div class="tiny muted recorta">${esc(x.mensaje.slice(0, 70))}</div>` : ''}</td>
-    <td class="nowrap">
+    <td class="wrap" data-col="Cómo contactarle">
       ${x.email ? `<a href="mailto:${esc(x.email)}">${esc(x.email)}</a><br>` : ''}
       ${x.telefono ? `<a href="tel:${esc(x.telefono.replace(/\s/g, ''))}">${esc(x.telefono)}</a>` : ''}</td>
-    <td class="wrap">${esc(x.interes || '—')}</td>
-    <td class="muted nowrap">${fdate(x.created_at)}<div class="tiny">${esc(x.origen || '')}</div></td>
-    <td>${chipEstado(x.estado)}</td>
+    <td class="wrap" data-col="Ya recibió">${suyos.length
+      ? `<div class="sellos">${suyos.map((e) =>
+          `<span class="chip ok" title="Salió el ${fdatetime(e.cuando)}">${esc(e.nombre)}</span>`).join('')}</div>`
+      : '<span class="tiny muted">nada todavía</span>'}</td>
+    <td class="muted wrap" data-col="Llegó">${fdate(x.created_at)}
+      <div class="tiny">${esc(x.origen || '')}</div></td>
+    <td data-col="Estado">${chipEstado(x.estado)}</td>
     <td class="nowrap">
       <button class="btn ghost sm" data-ver="${x.id}" title="Ver la ficha completa">
         <span class="material-symbols-outlined">visibility</span></button>
-    </td></tr>`).join('')
+    </td></tr>`; }).join('')
     : emptyRow(6, filas.length
         ? 'Ningún contacto cuadra con lo que buscas. Prueba a limpiar los filtros.'
         : 'Todavía no ha escrito nadie desde la web. Cuando lo hagan, aparecen aquí.');
 
   $$('[data-ver]').forEach((b) => b.onclick = () => ficha(filas.find((x) => x.id === b.dataset.ver)));
+  pintarBarraTanda();
 }
 
-['#q', '#fEstado', '#fOrigen'].forEach((s) => {
+/* ── la tanda ──────────────────────────────────────────────────────────────
+   Los números que se enseñan aquí son una estimación del navegador; los que
+   deciden son los del servidor, que se piden justo antes de enviar. Se ponen
+   igualmente porque tener que abrir un diálogo para saber a cuánta gente
+   apuntas convierte el filtro en algo que se prueba a ciegas. */
+function pintarBarraTanda() {
+  const clave = $('#fMsj').value;
+  const barra = $('#barraTanda');
+  const t = PLANTILLAS.find((x) => x.clave === clave);
+  if (!t) { barra.hidden = true; return; }
+  barra.hidden = false;
+
+  const conCorreo = visibles.filter((x) => (x.email || '').trim());
+  const pendientes = conCorreo.filter((x) => !recibio(x.id, clave));
+  const yaLoTienen = conCorreo.length - pendientes.length;
+  const sinCorreo = visibles.length - conCorreo.length;
+
+  $('#cuentaTanda').textContent = `${num(pendientes.length)} ${
+    pendientes.length === 1 ? 'persona' : 'personas'} recibirían «${t.nombre}»`;
+  $('#pieTanda').textContent = [
+    yaLoTienen ? `${num(yaLoTienen)} ya lo tienen y se saltan` : null,
+    sinCorreo ? `${num(sinCorreo)} sin correo, hay que llamarles` : null,
+    t.activa ? null : 'este mensaje está apagado: enciéndelo para poder mandarlo',
+  ].filter(Boolean).join(' · ') || 'De los que estás viendo ahora mismo.';
+
+  const btn = $('#btnTanda');
+  btn.disabled = !pendientes.length || !t.activa;
+  $('#txtTanda').textContent = pendientes.length
+    ? `Enviar a ${num(pendientes.length)}` : 'No hay a quién';
+}
+
+$('#btnTanda').onclick = () => ocupado($('#btnTanda'), 'Comprobando…', async () => {
+  const clave = $('#fMsj').value;
+  const t = PLANTILLAS.find((x) => x.clave === clave);
+  if (!t) return;
+  const ids = visibles.map((x) => x.id);
+
+  /* Se pregunta al servidor a cuántos va ANTES de enseñar el aviso, y con la
+     misma función que luego enviará. Un aviso que dice «van 40» y un envío que
+     manda 47 es peor que no avisar: enseña a no leer los avisos. */
+  const { data: cuenta, error } = await sb.rpc('cem_leads_enviar_masivo', {
+    p_plantilla_id: t.id, p_ids: ids, p_forzar: false, p_solo_contar: true,
+  });
+  if (error) { alert(mensajeError(error)); return; }
+  if (!cuenta.a_enviar) {
+    alert('No queda nadie a quien mandárselo con estos filtros: '
+      + `${num(cuenta.ya_recibieron)} ya lo recibieron y ${num(cuenta.sin_correo)} no dejaron correo.`);
+    return;
+  }
+
+  const detalle = [
+    cuenta.ya_recibieron ? `<li>${num(cuenta.ya_recibieron)} ya lo recibieron: <b>se saltan</b>.</li>` : '',
+    cuenta.sin_correo ? `<li>${num(cuenta.sin_correo)} no dejaron correo: a esos hay que llamarles.</li>` : '',
+  ].join('');
+
+  if (!await confirmDialog(
+    `Va a salir <b>«${esc(t.nombre)}»</b> a <b>${num(cuenta.a_enviar)} ${
+      cuenta.a_enviar === 1 ? 'persona' : 'personas'}</b>.<br><br>
+     ${detalle ? `<ul>${detalle}</ul>` : ''}
+     El correo sale de verdad y <b>no se puede recoger</b>. Repásalo antes:
+     si el texto tiene una errata, la van a leer ${num(cuenta.a_enviar)} personas.`,
+    'Mandar a toda la lista',
+    { html: true, confirmar: `Enviar a ${num(cuenta.a_enviar)}` })) return;
+
+  const { data: res, error: err2 } = await sb.rpc('cem_leads_enviar_masivo', {
+    p_plantilla_id: t.id, p_ids: ids, p_forzar: false, p_solo_contar: false,
+  });
+  if (err2) { alert(mensajeError(err2)); return; }
+  ok(`${num(res.enviados)} en cola. Salen con el próximo envío.`
+    + (res.no_salieron ? ` ${num(res.no_salieron)} no salieron.` : ''));
+  cargar();
+});
+
+['#q', '#fEstado', '#fOrigen', '#fMsj', '#fRecibio'].forEach((s) => {
   const el = $(s); el.oninput = render; el.onchange = render;
 });
 
+/* ── la ficha de una persona ───────────────────────────────────────────── */
 function ficha(x) {
   if (!x) return;
+  const suyos = ENVIOS[x.id] || [];
+  const activas = PLANTILLAS.filter((t) => t.activa);
   const m = modal({
     title: x.nombre, wide: true,
     body: `
@@ -170,8 +373,11 @@ function ficha(x) {
         <div>${esc(x.interes || 'No lo dijo')}</div></div>
       ${x.mensaje ? `<div class="sep"><b class="tiny">Lo que escribió</b>
         <p class="sin-margen" style="white-space:pre-wrap">${esc(x.mensaje)}</p></div>` : ''}
-      ${x.atendido_en ? `<p class="tiny muted sep">Última vez que alguien lo movió: ${
-        fdatetime(x.atendido_en)}.</p>` : ''}
+
+      <div class="sep"><b class="tiny">Lo que ya se le ha mandado</b>
+        ${suyos.length ? `<div class="sellos sep-poco">${suyos.map((e) =>
+          `<span class="chip ok">${esc(e.nombre)} · ${fdate(e.cuando)}</span>`).join('')}</div>`
+        : '<div class="tiny muted">Nada todavía.</div>'}</div>
 
       <!-- Contestarle desde aquí.
            ───────────────────────────────────────────────────────────────
@@ -180,21 +386,36 @@ function ficha(x) {
            resto del texto en código.)
 
            El correo estaba como un enlace de «mailto»: se salía a Gmail, se
-           escribía allí, y lo que se le dijo no quedaba en ningún sitio. El siguiente
-           que abría la ficha veía «sin contactar» y volvía a escribirle — o no
-           le escribía nadie, porque cada uno suponía que ya lo había hecho el
-           otro. Ahora sale por la misma cola que el resto del correo, se
-           apunta en la ficha y el contacto pasa a «contactado» solo. -->
+           escribía allí, y lo que se le dijo no quedaba en ningún sitio. El
+           siguiente que abría la ficha veía «sin contactar» y volvía a
+           escribirle — o no le escribía nadie, porque cada uno suponía que ya
+           lo había hecho el otro. Ahora sale por la misma cola que el resto del
+           correo, se apunta en la ficha y el contacto pasa a «contactado» solo. -->
       ${x.email ? `
       <details class="card sep" style="background:var(--hueco);box-shadow:none" id="cajaResponder">
         <summary style="cursor:pointer;font-weight:var(--peso-fuerte)">
-          <span class="material-symbols-outlined">reply</span> Contestarle por correo</summary>
+          <span class="material-symbols-outlined">reply</span> Escribirle</summary>
+
+        ${activas.length ? `
+        <div class="field sep-poco"><label for="rPlantilla">Usar un mensaje guardado</label>
+          <select id="rPlantilla">
+            <option value="">Escribir a mano</option>
+            ${activas.map((t) => {
+              const ya = suyos.find((e) => e.clave === t.clave);
+              return `<option value="${esc(t.id)}">${esc(t.nombre)}${
+                ya ? ` — ya se le mandó el ${fdate(ya.cuando)}` : ''}</option>`;
+            }).join('')}
+          </select>
+          <span class="tiny muted">Al elegirlo se rellenan el asunto y el mensaje con
+            los datos de esta persona. Puedes retocarlo: los cambios valen sólo
+            para este envío, no tocan el mensaje guardado.</span></div>` : ''}
+
         <div class="field sep-poco"><label for="rAsunto">Asunto</label>
           <input id="rAsunto" maxlength="140"
             value="Sobre tu consulta en CEM International"></div>
         <div class="field"><label for="rCuerpo">Mensaje</label>
-          <textarea id="rCuerpo" rows="5" placeholder="Hola ${esc((x.nombre||'').split(' ')[0])}, gracias por escribirnos…">${
-            esc(`Hola ${(x.nombre||'').split(' ')[0]}:\n\nGracias por escribirnos${
+          <textarea id="rCuerpo" rows="8">${
+            esc(`Hola ${(x.nombre || '').split(' ')[0]}:\n\nGracias por escribirnos${
               x.interes ? ` sobre ${x.interes}` : ''}. `)}</textarea></div>
         <div id="rMsg"></div>
         <button class="btn" id="btnResponder">
@@ -211,28 +432,63 @@ function ficha(x) {
       <div class="field"><label for="nuevoEstado">Mover a</label>
         <select id="nuevoEstado">
           ${['nuevo', 'contactado', 'interesado', 'inscrito', 'descartado'].map((e) =>
-            `<option value="${e}"${e === x.estado ? ' selected' : ''}>${e}</option>`).join('')}
+            `<option value="${e}"${e === x.estado ? ' selected' : ''}>${etiqueta(e)}</option>`).join('')}
         </select></div>`,
     footer: `<button class="btn outline" data-x>Cerrar</button>
              <button class="btn" data-g>Guardar</button>`,
   });
   $('[data-x]', m).onclick = m.close;
 
+  /* Elegir un mensaje guardado rellena los dos campos con los huecos ya
+     pintados. Se hace en el navegador con las mismas reglas que el servidor
+     —mismo relleno de reserva— para que lo que se ve aquí sea lo que sale. */
+  const sel = $('#rPlantilla', m);
+  let elegida = null;
+  if (sel) sel.onchange = () => {
+    elegida = PLANTILLAS.find((t) => t.id === sel.value) || null;
+    if (!elegida) return;
+    $('#rAsunto', m).value = pintarHuecos(elegida.asunto, x);
+    $('#rCuerpo', m).value = pintarHuecos(elegida.cuerpo, x);
+  };
+
   const btnResp = $('#btnResponder', m);
-  if (btnResp) btnResp.onclick = async () => {
+  if (btnResp) btnResp.onclick = () => ocupado(btnResp, 'Enviando…', async () => {
     const cuerpo = $('#rCuerpo', m).value.trim();
+    const asunto = $('#rAsunto', m).value.trim();
     if (cuerpo.length < 20) {
       avisar($('#rMsg', m), 'Escríbele algo más: con dos líneas sueltas no se contesta una consulta.', 'err');
       return;
     }
-    const fin = ocupado(btnResp);
-    const { error } = await sb.rpc('cem_lead_responder', {
-      p_id: x.id, p_asunto: $('#rAsunto', m).value.trim(), p_cuerpo: cuerpo,
-    });
-    fin();
+    if (!asunto) { avisar($('#rMsg', m), 'Ponle un asunto: sin asunto casi nadie abre.', 'err'); return; }
+
+    /* Dos caminos a propósito. Con plantilla se llama a la función que además
+       apunta el envío en el historial —es lo que hace que el filtro de «ya lo
+       recibió» diga la verdad—. A mano, se manda por la de siempre: apuntarlo
+       como si fuera una plantilla sería mentir sobre qué se mandó. */
+    let error;
+    if (elegida) {
+      const ya = suyos.find((e) => e.clave === elegida.clave);
+      if (ya && !await confirmDialog(
+        `A ${esc(x.nombre)} ya se le mandó «${esc(elegida.nombre)}» el ${fdate(ya.cuando)}.`
+        + ' ¿Se lo mando otra vez?', 'Repetir un mensaje',
+        { html: true, confirmar: 'Mandarlo otra vez' })) return;
+      const r = await sb.rpc('cem_lead_enviar_plantilla',
+        { p_lead_id: x.id, p_plantilla_id: elegida.id, p_forzar: !!ya });
+      error = r.error;
+      if (!error && r.data && r.data.enviado === false) {
+        avisar($('#rMsg', m), r.data.motivo === 'ya_en_cola'
+          ? 'Ese mismo mensaje ya está esperando en la cola para esta persona.'
+          : 'Ya lo había recibido.', 'err');
+        return;
+      }
+    } else {
+      const r = await sb.rpc('cem_lead_responder',
+        { p_id: x.id, p_asunto: asunto, p_cuerpo: cuerpo });
+      error = r.error;
+    }
     if (error) { avisar($('#rMsg', m), mensajeError(error), 'err'); return; }
-    m.close(); ok('Respuesta encolada. Sale con el próximo envío.'); cargar();
-  };
+    m.close(); ok('En cola. Sale con el próximo envío.'); cargar();
+  });
 
   $('[data-g]', m).onclick = async () => {
     const { error } = await sb.rpc('cem_lead_atender', {
@@ -240,6 +496,129 @@ function ficha(x) {
     });
     if (error) { alert(mensajeError(error)); return; }
     m.close(); ok('Contacto actualizado.'); cargar();
+  };
+}
+
+/* El mismo relleno que cem_mensaje_pintar() en la base de datos. Si algún día
+   se añade un hueco allí, hay que añadirlo aquí: mientras la vista previa y lo
+   que sale no coincidan, la vista previa no sirve para nada. */
+function pintarHuecos(texto, x) {
+  return String(texto || '')
+    .replaceAll('{nombre}', (x.nombre || '').split(' ')[0] || 'hola')
+    .replaceAll('{nombre_completo}', `${x.nombre || ''} ${x.apellido || ''}`.trim() || 'hola')
+    .replaceAll('{interes}', (x.interes || '').trim() || 'nuestra formación')
+    .replaceAll('{origen}', (x.origen || '').trim() || 'la web');
+}
+
+/* ── los mensajes guardados ────────────────────────────────────────────── */
+$('#btnMensajes').onclick = () => listaDeMensajes();
+
+function listaDeMensajes() {
+  const usos = {};
+  Object.values(ENVIOS).flat().forEach((e) => { usos[e.clave] = (usos[e.clave] || 0) + 1; });
+
+  const m = modal({
+    title: 'Mensajes guardados', wide: true,
+    body: `
+      <p class="tiny muted">Los que puedes mandar de un clic desde una ficha, o a toda
+        una lista de golpe. Escribe una vez, manda muchas.</p>
+      <div class="nota huecos sep">Dentro del texto puedes poner
+        <code>{nombre}</code>, <code>{nombre_completo}</code>, <code>{interes}</code> y
+        <code>{origen}</code>: se cambian por los datos de cada persona al enviar.
+        Si a alguien le falta ese dato se pone algo genérico en su lugar, nunca un hueco vacío.</div>
+      <div id="listaMsj" class="sep"></div>
+      <button class="btn sep" id="btnNuevoMsj">
+        <span class="material-symbols-outlined">add</span> Escribir uno nuevo</button>`,
+    footer: `<button class="btn outline" data-x>Cerrar</button>`,
+  });
+
+  const pinta = () => {
+    $('#listaMsj', m).innerHTML = PLANTILLAS.length ? PLANTILLAS.map((t) => `
+      <div class="fila-msj">
+        <div class="quien"><b>${esc(t.nombre)}</b>
+          <span class="tiny muted">${esc(etiqueta(t.tipo))} ·
+            ${usos[t.clave] ? `mandado a ${num(usos[t.clave])}` : 'nunca mandado'}</span></div>
+        ${t.activa ? '<span class="chip ok">Encendido</span>'
+                   : '<span class="chip neutral">Apagado</span>'}
+        <button class="btn ghost sm" data-edm="${esc(t.id)}" title="Editar">
+          <span class="material-symbols-outlined">edit</span></button>
+        <button class="btn ghost sm" data-bom="${esc(t.id)}" title="Borrar">
+          <span class="material-symbols-outlined">delete</span></button>
+      </div>`).join('')
+      : '<p class="muted">Todavía no hay ninguno. Escribe el primero.</p>';
+
+    $$('[data-edm]', m).forEach((b) => b.onclick = () => {
+      m.close(); editarMensaje(PLANTILLAS.find((t) => t.id === b.dataset.edm));
+    });
+    $$('[data-bom]', m).forEach((b) => b.onclick = async () => {
+      const t = PLANTILLAS.find((z) => z.id === b.dataset.bom);
+      if (!await confirmDialog(
+        `Se borra <b>«${esc(t.nombre)}»</b> de la lista de mensajes.<br><br>
+         Lo que ya se mandó <b>sigue en el historial</b> de cada contacto: borrar el
+         mensaje no reescribe lo que la gente ya recibió.<br><br>
+         Si sólo quieres dejar de usarlo, <b>apágalo</b> al editarlo: así se conserva
+         por si vuelve a hacer falta.`,
+        `Borrar «${t.nombre}»`, { html: true, confirmar: 'Borrar', peligro: true })) return;
+      const { error } = await sb.rpc('cem_plantilla_mensaje_borrar', { p_id: t.id });
+      if (error) { alert(mensajeError(error)); return; }
+      ok('Mensaje borrado.'); m.close(); await cargar(); listaDeMensajes();
+    });
+  };
+  pinta();
+  $('#btnNuevoMsj', m).onclick = () => { m.close(); editarMensaje(null); };
+}
+
+function editarMensaje(t) {
+  const TIPOS = [
+    ['primer-contacto', 'Primer contacto'],
+    ['promocion', 'Promoción / descuento'],
+    ['seguimiento', 'Seguimiento'],
+    ['recuperacion', 'Se quedó a medias'],
+    ['otro', 'Otro'],
+  ];
+  const m = modal({
+    title: t ? `Editar «${t.nombre}»` : 'Mensaje nuevo', wide: true,
+    body: `
+      <div class="grid g2">
+        <div class="field"><label for="mNombre">Cómo lo llamas</label>
+          <input id="mNombre" maxlength="80" value="${esc(t?.nombre || '')}"
+            placeholder="Primer contacto">
+          <span class="tiny muted">Sólo lo ve el equipo.</span></div>
+        <div class="field"><label for="mTipo">De qué tipo es</label>
+          <select id="mTipo">${TIPOS.map(([v, n]) =>
+            `<option value="${v}"${t?.tipo === v ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label for="mAsunto">Asunto del correo</label>
+        <input id="mAsunto" maxlength="140" value="${esc(t?.asunto || '')}"
+          placeholder="Hola {nombre}, te escribimos desde CEM International"></div>
+      <div class="field"><label for="mCuerpo">Mensaje</label>
+        <textarea id="mCuerpo" rows="14" placeholder="Hola {nombre}: …">${esc(t?.cuerpo || '')}</textarea>
+        <span class="tiny muted">Puedes usar {nombre}, {nombre_completo}, {interes} y {origen}.</span></div>
+      <label class="check"><input type="checkbox" id="mActiva"${t?.activa !== false ? ' checked' : ''}>
+        <span>Encendido: aparece para mandarlo</span></label>
+      <div id="mMsg"></div>
+      ${t ? '' : `<p class="tiny muted sep">Escríbelo pensando en quien lo va a recibir, no en
+        quien lo manda: quien lo lee no sabe que es un mensaje guardado, y no debería notarlo.</p>`}`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" data-s>Guardar</button>`,
+  });
+
+  $('[data-s]', m).onclick = async () => {
+    const nombre = $('#mNombre', m).value.trim();
+    const asunto = $('#mAsunto', m).value.trim();
+    const cuerpo = $('#mCuerpo', m).value.trim();
+    if (!nombre) return avisar($('#mMsg', m), 'Ponle un nombre para reconocerlo.', 'err');
+    if (!asunto) return avisar($('#mMsg', m), 'Hace falta un asunto: sin asunto casi nadie abre.', 'err');
+    if (cuerpo.length < 20) return avisar($('#mMsg', m), 'El mensaje es demasiado corto.', 'err');
+
+    const { error } = await sb.rpc('cem_plantilla_mensaje_guardar', {
+      p_id: t?.id || null, p_clave: t?.clave || nombre, p_nombre: nombre,
+      p_tipo: $('#mTipo', m).value, p_asunto: asunto, p_cuerpo: cuerpo,
+      p_activa: $('#mActiva', m).checked, p_orden: t?.orden ?? PLANTILLAS.length + 1,
+    });
+    if (error) return avisar($('#mMsg', m), mensajeError(error), 'err');
+    m.close(); ok(t ? 'Mensaje actualizado.' : 'Mensaje guardado.');
+    await cargar(); listaDeMensajes();
   };
 }
 </script>
