@@ -589,6 +589,19 @@ td.wrap{white-space:normal;min-width:180px;}
 .nota.ok{border-left-color:var(--ok);}
 .nota.warn{border-left-color:var(--warn);}
 
+/* Un aviso que pide algo tiene que enseñar por dónde se hace. Como arriba
+   dejamos `a{color:inherit;text-decoration:none}` para que los enlaces de
+   tarjetas y filas no salieran azules y subrayados, dentro de un aviso el
+   enlace quedaba del mismo color que la frase y sin subrayar: se leía como
+   texto, nadie lo pulsaba. Aquí se le devuelve la pinta de enlace.
+   El :not(.btn) no es adorno —`.nota a` pesa más que `.btn`, así que sin
+   él este color le pisaría el suyo a cualquier botón puesto en un aviso. */
+.nota a:not(.btn){color:var(--tinta);text-decoration:underline;
+  text-underline-offset:2px;font-weight:var(--peso-fuerte);}
+.nota a:not(.btn):hover{text-decoration-thickness:2px;}
+/* sin-caja: la caja la pone .btn; esto sólo baja la acción a su propia línea. */
+.nota .btn{margin-top:var(--e1);}
+
 /* Aquí me equivoqué antes: escondía las acciones de fila y las sacaba al pasar
    el cursor, para que 51 iconos grises no compitieran con los datos. El efecto
    real es que los botones desaparecen, y un botón que a veces está y a veces
