@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-3">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-4">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -35,8 +35,8 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, chipEstado, filtrosEnLaDireccion, idDeYoutube, previaDeMaterial } from '../assets/app.js?v=2026-08-25-3';
-import { crearReproductor } from '../assets/reproductor.js?v=2026-08-25-3';
+import { sb, mount, $, $$, esc, chip, fdate, emptyRow, match, kpi, num, modal, ok, run, audit, chipEstado, filtrosEnLaDireccion, idDeYoutube, previaDeMaterial } from '../assets/app.js?v=2026-08-25-4';
+import { crearReproductor } from '../assets/reproductor.js?v=2026-08-25-4';
 const p = await mount({ require:['coordinador','admin','superadmin','profesor','auditor'], active:'revision.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 let rows=[], perfiles={};
