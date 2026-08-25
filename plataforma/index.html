@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-25-4">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-25-5">
 <style>
   /* La barra de avance del registro. Cuatro trazos, no un porcentaje: quien
      está rellenando quiere saber cuánto le queda, y «3 de 4» se entiende de un
@@ -228,8 +228,8 @@
 
 <script type="module">
 import { sb, $, $$, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave, rutaSegura, recordarRumbo } from './assets/app.js?v=2026-08-25-4';
-import { opcionesDePais } from './assets/paises.js?v=2026-08-25-4';
+         medidorDeClave, rutaSegura, recordarRumbo } from './assets/app.js?v=2026-08-25-5';
+import { opcionesDePais } from './assets/paises.js?v=2026-08-25-5';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');
@@ -422,13 +422,49 @@ const claveLista = medidorDeClave({ clave: '#rPass', repetir: '#rPass2', donde: 
  * El paso 3 no exige nada a propósito. Son datos que ayudan a la escuela pero
  * que no hacen falta para tener una cuenta, y poner una barrera obligatoria
  * donde no la hay sólo sirve para perder gente. */
+/* La fecha de nacimiento, con los pies en la tierra.
+   ═══════════════════════════════════════════════════════════════════════════
+   Un <input type="date"> pelado acepta cualquier año, y ya hay dos alumnos
+   guardados con año 4567 y 4365 —el dedo se va al teclear— y otro con la fecha
+   de hoy. La etiqueta de al lado dice «va en el certificado», así que ese 4567
+   acabaría impreso en un diploma. Se comprueba aquí, mientras se escribe, que
+   es cuando la persona todavía se acuerda de cuál era su fecha. */
+const MIN_EDAD = 14, MAX_EDAD = 100;
+function nacimientoRaro() {
+  const v = $('#rNac').value;
+  if (!v) return null;
+  const nac = new Date(v + 'T00:00:00');
+  if (Number.isNaN(nac.getTime())) return 'Esa fecha no se entiende.';
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  if (edad < 0) return 'Esa fecha es del futuro. Revisa el año.';
+  if (edad < MIN_EDAD) return `Con esa fecha tendrías ${edad} año(s). Revisa el año.`;
+  if (edad > MAX_EDAD) return `Con esa fecha tendrías ${edad} años. Revisa el año.`;
+  return null;
+}
+/* El calendario del navegador también se acota, para que ni siquiera se pueda
+   elegir un año imposible: avisar después es peor que no dejar equivocarse. */
+{
+  const nac = $('#rNac');
+  if (nac) {
+    const hoy = new Date();
+    const aAnos = (n) => new Date(hoy.getFullYear() - n, hoy.getMonth(), hoy.getDate())
+      .toISOString().slice(0, 10);
+    nac.max = aAnos(MIN_EDAD);
+    nac.min = aAnos(MAX_EDAD);
+  }
+}
+
 const PASOS = [
   { n: 1, titulo: 'Empecemos por tu nombre',
     falta: () => (!$('#rNombre').value.trim() && 'Falta tu nombre.')
                || (!$('#rApellido').value.trim() && 'Falta tu apellido.') },
   { n: 2, titulo: 'Tu documento de identidad',
     falta: () => (!$('#rDoc').value.trim() && 'Falta el número de documento.')
-               || (!$('#rNac').value && 'Falta tu fecha de nacimiento.') },
+               || (!$('#rNac').value && 'Falta tu fecha de nacimiento.')
+               || nacimientoRaro() },
   { n: 3, titulo: 'Cómo ubicarte (opcional)', falta: () => null },
   { n: 4, titulo: 'Con qué vas a entrar',
     falta: () => (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('#rEmail').value.trim())

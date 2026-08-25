@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-25-4';
+         vidrioActual } from './temas.js?v=2026-08-25-5';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -40,6 +40,38 @@ export const fdateCorta = (d) => {
 };
 export const fdatetime = (d) => d ? new Date(d).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 export const initials = (a, b) => ((a || '?')[0] + (b ? b[0] : '')).toUpperCase();
+
+/**
+ * El redondel de una persona: su foto si la tiene, y si no sus iniciales.
+ *
+ * Existía la clase `.avatar` pero no había una sola forma de pintarla, así que
+ * cada pantalla resolvía lo suyo — y las de administración resolvían siempre
+ * con iniciales, aunque la persona hubiera subido una foto. Se veía la foto en
+ * su propio perfil y en el perfil público, y no se veía en la ficha que mira
+ * el equipo, que es donde sirve para reconocer a alguien de un vistazo.
+ *
+ * Las iniciales se escriben SIEMPRE, y la foto va encima. Así, si la imagen no
+ * carga —el archivo se borró, la dirección caducó, no hay red— lo que queda
+ * debajo es el redondel de siempre y no el icono de imagen rota.
+ *
+ * @param {{nombre?:string, apellido?:string, avatar_url?:string}} p
+ * @param {string} extra  clases sueltas, «lg» para el tamaño grande
+ */
+export const avatar = (p, extra = '') => {
+  const url = (p?.avatar_url || '').trim();
+  return `<span class="avatar ${esc(extra)}">${esc(initials(p?.nombre, p?.apellido))}${
+    url ? `<img src="${esc(url)}" alt="" loading="lazy">` : ''}</span>`;
+};
+
+/* El `error` de una imagen no burbujea, así que se escucha en la fase de
+   captura. Una sola vez para toda la plataforma: quitar la foto que no cargó
+   deja a la vista las iniciales que ya estaban debajo. */
+document.addEventListener('error', (ev) => {
+  const img = ev.target;
+  if (img instanceof HTMLImageElement && img.parentElement?.classList.contains('avatar')) {
+    img.remove();
+  }
+}, true);
 export const qs = (k) => new URLSearchParams(location.search).get(k);
 export const pct = (n) => `${Math.round(Number(n) || 0)}%`;
 
@@ -2016,7 +2048,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-25-4');
+    const m = await import('./apariencia.js?v=2026-08-25-5');
 
     m.abrirApariencia();
 

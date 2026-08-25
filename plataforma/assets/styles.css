@@ -669,8 +669,12 @@ td .chip .material-symbols-outlined, .list-item > .chip .material-symbols-outlin
 
 .avatar{width:32px;height:32px;border-radius:var(--r-full);background:var(--primary-suave);
   color:var(--primary);display:inline-flex;align-items:center;justify-content:center;
-  font-weight:var(--peso-fuerte);font-size:var(--t-xs);flex-shrink:0;}
+  font-weight:var(--peso-fuerte);font-size:var(--t-xs);flex-shrink:0;
+  position:relative;overflow:hidden;}
 .avatar.lg{width:56px;height:56px;font-size:var(--t-lg);}
+/* La foto va encima de las iniciales, tapándolas. Si no carga, `avatar()` la
+   quita y debajo sigue estando el redondel con las iniciales de siempre. */
+.avatar > img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 
 /* Una barra de 10 px con canal y borde es un objeto; a 3 px informa igual y
    deja de pedir atención. */
