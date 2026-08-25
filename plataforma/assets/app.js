@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-25-5';
+         vidrioActual } from './temas.js?v=2026-08-25-12';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -2048,7 +2048,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-25-5');
+    const m = await import('./apariencia.js?v=2026-08-25-12');
 
     m.abrirApariencia();
 
@@ -2760,6 +2760,149 @@ export async function encogerImagen(file, ladoMax = 1600, calidad = 0.85) {
     if (!blob || blob.size >= file.size) return file;   // si no mejora, se deja el original
     return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
   } catch { return file; }
+}
+
+/* ============ encuadrar la foto antes de subirla ============================
+   El redondel del avatar recorta al centro con `object-fit:cover`, y el centro
+   de una foto casi nunca es la cara: sale el cuello, o media frente, o la
+   persona descentrada. Se subía a ciegas y no había forma de arreglarlo salvo
+   recortar la imagen en otro programa y volver a subirla.
+
+   Esto enseña el recuadro que de verdad se va a guardar, con la máscara
+   redonda encima para que se vea igual que después, y deja mover y acercar
+   hasta que cuadre. Lo que se sube es exactamente lo que se ve.
+
+   Funciona con el dedo y con el ratón: los eventos de puntero cubren los dos,
+   que es la razón de usarlos en vez de `mousemove` y `touchmove` por separado.
+   ========================================================================= */
+
+/**
+ * Abre el encuadre y devuelve un File cuadrado, o null si se cancela.
+ * @param {File} file
+ * @param {number} lado  píxeles del lado del resultado
+ * @returns {Promise<File|null>}
+ */
+export function recortarCuadrado(file, lado = 600) {
+  return new Promise((resolver) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onerror = () => { URL.revokeObjectURL(url); resolver(file); };
+    img.onload = () => {
+      const m = modal({
+        title: 'Encuadra tu foto', wide: false,
+        body: `
+          <p class="tiny muted sin-margen">Arrastra para mover y usa la barra para acercar.
+            Lo que quede dentro del círculo es lo que se guarda.</p>
+          <div class="recorte" id="recorteCaja">
+            <img id="recorteImg" alt="">
+            <div class="recorte-mascara" aria-hidden="true"></div>
+          </div>
+          <div class="field sep-poco">
+            <label for="recorteZoom">Acercar</label>
+            <input type="range" id="recorteZoom" min="1" max="4" step="0.01" value="1">
+          </div>`,
+        footer: `<button class="btn outline" data-x>Cancelar</button>
+                 <button class="btn" data-usar>
+                   <span class="material-symbols-outlined">check</span> Usar esta foto</button>`,
+      });
+
+      const caja = $('#recorteCaja', m);
+      const vista = $('#recorteImg', m);
+      const zoom = $('#recorteZoom', m);
+      vista.src = url;
+
+      const C = () => caja.clientWidth;          // el recuadro es cuadrado
+      let escalaMin = 1, escala = 1, tx = 0, ty = 0;
+
+      function encajar() {
+        const c = C();
+        escalaMin = Math.max(c / img.naturalWidth, c / img.naturalHeight);
+        escala = escalaMin;
+        zoom.min = String(escalaMin);
+        zoom.max = String(escalaMin * 4);
+        zoom.step = String(escalaMin / 100);
+        zoom.value = String(escala);
+        // centrado
+        tx = (c - img.naturalWidth * escala) / 2;
+        ty = (c - img.naturalHeight * escala) / 2;
+        pintar();
+      }
+
+      function limitar() {
+        const c = C();
+        const anchoV = img.naturalWidth * escala;
+        const altoV = img.naturalHeight * escala;
+        tx = Math.min(0, Math.max(c - anchoV, tx));
+        ty = Math.min(0, Math.max(c - altoV, ty));
+      }
+
+      function pintar() {
+        limitar();
+        vista.style.width = `${img.naturalWidth * escala}px`;
+        vista.style.height = `${img.naturalHeight * escala}px`;
+        vista.style.transform = `translate(${tx}px, ${ty}px)`;
+      }
+
+      zoom.oninput = () => {
+        const c = C();
+        const antes = escala;
+        escala = Number(zoom.value);
+        // Se acerca hacia el centro del recuadro, no hacia la esquina: si no,
+        // al acercar la cara se escapa por arriba.
+        const centro = c / 2;
+        tx = centro - (centro - tx) * (escala / antes);
+        ty = centro - (centro - ty) * (escala / antes);
+        pintar();
+      };
+
+      let arrastrando = false, x0 = 0, y0 = 0;
+      caja.addEventListener('pointerdown', (e) => {
+        arrastrando = true; x0 = e.clientX - tx; y0 = e.clientY - ty;
+        caja.setPointerCapture(e.pointerId);
+      });
+      caja.addEventListener('pointermove', (e) => {
+        if (!arrastrando) return;
+        e.preventDefault();
+        tx = e.clientX - x0; ty = e.clientY - y0;
+        pintar();
+      });
+      const soltar = (e) => {
+        arrastrando = false;
+        try { caja.releasePointerCapture(e.pointerId); } catch { /* ya soltado */ }
+      };
+      caja.addEventListener('pointerup', soltar);
+      caja.addEventListener('pointercancel', soltar);
+
+      const cerrar = (resultado) => {
+        URL.revokeObjectURL(url);
+        m.close();
+        resolver(resultado);
+      };
+      $('[data-x]', m).onclick = () => cerrar(null);
+
+      $('[data-usar]', m).onclick = () => {
+        const c = C();
+        const lienzo = document.createElement('canvas');
+        lienzo.width = lado; lienzo.height = lado;
+        const ctx = lienzo.getContext('2d');
+        // De coordenadas de pantalla a coordenadas de la imagen original.
+        const sx = -tx / escala, sy = -ty / escala, sl = c / escala;
+        ctx.drawImage(img, sx, sy, sl, sl, 0, 0, lado, lado);
+        lienzo.toBlob((blob) => {
+          if (!blob) return cerrar(file);
+          cerrar(new File([blob], (file.name || 'foto').replace(/\.\w+$/, '') + '.jpg',
+                          { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.9);
+      };
+
+      // El recuadro no tiene ancho hasta que el modal está en el documento.
+      requestAnimationFrame(encajar);
+      addEventListener('resize', encajar, { once: false });
+    };
+
+    img.src = url;
+  });
 }
 
 /**

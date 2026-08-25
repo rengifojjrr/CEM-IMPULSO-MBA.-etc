@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-5">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-12">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
   .cert{background:var(--papel);border:1px solid var(--filete);
@@ -60,7 +60,8 @@
   <div class="grid g4" id="badges"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-25-5';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-08-25-12';
+import { lienzoCertificado } from '../assets/certificado.js?v=2026-08-25-12';
 const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
 if (me) load();
 
@@ -204,24 +205,12 @@ async function load(){
    dos, la miniatura acabaría enseñando un certificado que ya no es el que se
    imprime, y eso es peor que no enseñar ninguno. Sólo cambia el marco que lo
    contiene. */
-function lienzo(c, { id = '' } = {}){
-  const url = new URL('../verificar.html', location.href).href + '?codigo=' + encodeURIComponent(c.codigo);
-  const qr = qrcode(0,'M'); qr.addData(url); qr.make();
-  return `<div ${id ? `id="${id}"` : ''} style="border:8px double var(--tertiary-container);padding:32px;text-align:center;background:#fff">
-      <div class="tiny" style="letter-spacing:.2em;text-transform:uppercase;color:var(--on-surface-variant)">CEM International Education</div>
-      <h2 style="margin:14px 0 6px;font-size:24px;color:var(--primary)">Certificado de finalización</h2>
-      <p class="tiny muted sin-margen">Se otorga el presente certificado a</p>
-      <div style="font-size:26px;font-weight:700;margin:12px 0">${esc(me.nombre)} ${esc(me.apellido||'')}</div>
-      <p class="tiny muted sin-margen">por haber completado satisfactoriamente el programa</p>
-      <div style="font-size:17px;font-weight:600;margin:10px 0">${esc(c.titulo)}</div>
-      <div class="row" style="justify-content:center;gap:26px;margin-top:22px;align-items:flex-end">
-        <div>${qr.createImgTag(3,4)}<div class="tiny muted">Verificación</div></div>
-        <div style="text-align:center"><div style="border-top:1px solid var(--outline);padding-top:6px;min-width:190px">
-          Dirección Académica</div></div>
-      </div>
-      <div class="tiny muted sep-mucho">Código: ${esc(c.codigo)} · Emitido el ${fdate(c.emitido_en)}</div>
-    </div>`;
-}
+/* El dibujo del diploma vive en assets/certificado.js: el mismo se enseña en
+   la ficha del equipo y, con marca de agua, en el perfil que se comparte. Aquí
+   va limpio — es su certificado y ésta es su cuenta. */
+const lienzo = (c, opciones = {}) =>
+  lienzoCertificado(c, `${me.nombre} ${me.apellido || ''}`.trim(),
+                    { ...opciones, qr: window.qrcode });
 
 function verCertificado(c){
   const m = modal({ title:'Certificado', wide:true, body: lienzo(c, { id:'lienzo' }),

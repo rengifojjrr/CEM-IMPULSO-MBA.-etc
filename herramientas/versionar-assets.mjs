@@ -45,7 +45,13 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
    ve, porque mira con esta misma lista. */
 /* El más largo primero: con `paises` delante, «paises-contornos.js» empezaría
    a casar por `paises` y el resto del nombre dejaría de encajar. */
-const MODULOS = 'app|temas|aula|preguntas|apariencia|graficos|reproductor|paises-contornos|paises';
+/* La lista va a mano, y esa es su trampa: un módulo compartido nuevo que no se
+   apunte aquí NO recibe marca de versión, y entonces los navegadores se quedan
+   con la copia vieja para siempre sin que nada avise. Pasó con `certificado`
+   el mismo día que se creó. Si añades un archivo a assets/ que importe más de
+   una pantalla, añádelo también aquí. */
+const MODULOS = 'app|temas|aula|preguntas|apariencia|graficos|reproductor'
+  + '|certificado|paises-contornos|paises';
 const COMPARTIDOS = new RegExp(
   `(?<=["'(])(` +
     // desde una pantalla: ../assets/app.js, ./assets/styles.css

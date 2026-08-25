@@ -3285,3 +3285,75 @@ details.card h3.sec{margin-top:var(--e3);}
 .enlace-compartir{display:flex;align-items:center;gap:var(--e1);flex-wrap:wrap;
   padding:var(--e1) var(--e2);font-family:var(--cifra);font-size:var(--t-sm);
   word-break:break-all;}
+
+/* ══════════════════════════ EL DIPLOMA ═══════════════════════════════════
+   El dibujo del certificado. Vive aquí y no en la pantalla del estudiante
+   porque el mismo diploma se enseña en tres sitios —su cuenta, la ficha del
+   equipo y el perfil que reparte— y sólo cambia una cosa entre ellos: si
+   lleva marca de agua o no.
+
+   El papel es blanco y la tinta oscura A PROPÓSITO, en los dos temas: un
+   diploma que en modo noche saliera con el fondo negro se imprimiría negro,
+   y quien lo comparte lo comparte como imagen. Es un documento, no una
+   pantalla, así que no sigue el tema de la interfaz. */
+/* sin-caja: es la hoja del diploma, no un panel de la interfaz. */
+.diploma{position:relative;overflow:hidden;border-radius:var(--r);
+  background:#fff;color:#15181c;}
+.diploma-hoja{border:8px double #cfd8e3;padding:32px 26px;text-align:center;}
+.diploma-casa{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#5b6572;}
+.diploma-titulo{margin:14px 0 6px;font-size:24px;color:#0d2440;}
+.diploma-pie-linea{margin:0;font-size:12px;color:#5b6572;}
+.diploma-nombre{font-size:26px;font-weight:700;margin:12px 0;overflow-wrap:anywhere;}
+.diploma-programa{font-size:17px;font-weight:600;margin:10px 0;overflow-wrap:anywhere;}
+.diploma-dentro-de{font-size:12px;color:#5b6572;}
+.diploma-firmas{display:flex;justify-content:center;gap:26px;margin-top:22px;
+  align-items:flex-end;flex-wrap:wrap;}
+.diploma-qr img{display:block;margin:0 auto;}
+.diploma-firma{border-top:1px solid #8b96a4;padding-top:6px;min-width:190px;font-size:13px;}
+.diploma-mini{font-size:11px;color:#5b6572;}
+.diploma-codigo{margin-top:20px;overflow-wrap:anywhere;}
+
+/* La marca de agua.
+   ───────────────────────────────────────────────────────────────────────
+   La dibuja `capaDeMarca()` en assets/certificado.js: una baldosa de SVG con
+   el código repetido, que se TESELA por toda la hoja. Aquí sólo se coloca y
+   se gira. El giro va en la capa entera y no en cada baldosa para que no
+   queden costuras, y la capa se sale por los cuatro lados (`inset:-50%`)
+   para que al girar no aparezca ninguna esquina sin cubrir.
+
+   Un primer intento puso el texto centrado con `::after`: cubría las
+   esquinas y dejaba el centro del diploma limpio, que es justo el trozo que
+   alguien recortaría.
+
+   No deja pulsarse, así que el código de debajo se sigue leyendo y copiando:
+   la marca disuade de hacer pasar una captura por el original, no de leer el
+   documento. */
+.diploma-marca{position:absolute;inset:-50%;
+  transform:rotate(-28deg);transform-origin:50% 50%;
+  background-repeat:repeat;
+  pointer-events:none;user-select:none;}
+@media print{
+  /* Al imprimir se refuerza: muchas impresoras aclaran tanto los grises
+     claros que la marca desaparece y el papel sale como si fuera original. */
+  .diploma-marca{filter:contrast(1.5) saturate(0);opacity:1.35;}
+}
+
+/* ══════════════════ ENCUADRAR LA FOTO DE PERFIL ══════════════════════════
+   El recuadro donde se mueve la imagen. Es cuadrado porque el resultado lo
+   es, y lleva encima una máscara redonda para que se vea desde ya lo que va
+   a quedar dentro del avatar: enseñar un cuadrado y guardar un círculo es
+   pedirle a la persona que adivine.
+   sin-caja: el recuadro ES el recorte, no un panel de la interfaz. */
+.recorte{position:relative;width:100%;aspect-ratio:1/1;max-width:320px;margin:var(--e2) auto 0;
+  overflow:hidden;border-radius:var(--r);background:#111;
+  cursor:grab;touch-action:none;user-select:none;}
+.recorte:active{cursor:grabbing;}
+.recorte img{position:absolute;top:0;left:0;transform-origin:0 0;
+  max-width:none;pointer-events:none;-webkit-user-drag:none;}
+/* El velo de fuera del círculo. `box-shadow` con un radio enorme pinta todo
+   lo que queda por fuera sin necesidad de un segundo elemento. */
+.recorte-mascara{position:absolute;inset:0;pointer-events:none;
+  border-radius:var(--r);
+  box-shadow:0 0 0 9999px rgba(0,0,0,.45) inset;
+  -webkit-mask:radial-gradient(circle at 50% 50%, transparent 49.5%, #000 50%);
+  mask:radial-gradient(circle at 50% 50%, transparent 49.5%, #000 50%);}

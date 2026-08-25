@@ -9,7 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-5">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-12">
+<!-- El QR del diploma, que es como se comprueba sin teclear el código. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
   .sub-perfil{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
     margin-bottom:var(--e1);}
@@ -17,6 +19,21 @@
     background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r);
     padding:var(--e1) var(--e2);font-family:var(--cifra);font-size:var(--t-sm);
     word-break:break-all;}
+
+  /* La lista de mis diplomas. Cada fila entera es el botón: en un teléfono
+     apuntar a un enlace pequeño dentro de una fila es la diferencia entre
+     abrirlo a la primera y pelearse con el dedo.
+     sin-caja: las filas van dentro de la tarjeta y sólo se separan por rayas. */
+  .lista-diplomas{display:flex;flex-direction:column;}
+  .fila-diploma{display:flex;align-items:center;gap:var(--e1);width:100%;
+    padding:var(--e2) var(--e1);background:none;border:0;border-bottom:1px solid var(--filete);
+    text-align:left;color:inherit;font:inherit;cursor:pointer;min-height:56px;}
+  .fila-diploma:last-child{border-bottom:0;}
+  .fila-diploma:hover{background:var(--hueco);}
+  .fila-diploma .crece{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .fila-diploma .crece b{overflow-wrap:anywhere;}
+  .fila-diploma > .material-symbols-outlined{color:var(--gold,#C9A227);flex:none;}
+  .fila-diploma .flecha{color:var(--tinta-3);}
 </style>
 </head>
 <body>
@@ -47,16 +64,26 @@
     <div class="perfil-cifras" id="cifrasPerfil"></div>
   </div>
 
+  <!-- Los certificados, aquí y ahora.
+       ═══════════════════════════════════════════════════════════════════════
+       Esto era un cartel que decía «ya tienes certificados emitidos» y nada
+       más: ni un enlace, ni un botón. Alguien lo pulsaba —claro que lo
+       pulsaba— y no pasaba nada, porque nunca fue pulsable. Decirle a una
+       persona que tiene un diploma y no dejarle verlo es de las cosas que peor
+       sientan de una plataforma.
+
+       Ahora están aquí, con su miniatura, y se abren de un toque. -->
   <div class="card" id="avisoCert" hidden>
-    <div class="row" style="gap:10px;align-items:flex-start">
-      <span class="material-symbols-outlined" style="color:var(--gold,#C9A227)">workspace_premium</span>
-      <div>
-        <b>Ya tienes certificados emitidos.</b>
-        <p class="tiny muted" style="margin:4px 0 0">
-          Por eso el cambio de nombre o de documento lo revisa el equipo antes de aplicarse:
-          esos datos ya están impresos en un documento firmado. El resto lo cambias tú directamente.</p>
-      </div>
+    <div class="row between" style="align-items:flex-start;gap:10px">
+      <h2 class="sec sin-margen"><span class="material-symbols-outlined"
+        style="color:var(--gold,#C9A227);vertical-align:-4px">workspace_premium</span>
+        Mis certificados</h2>
+      <a class="btn outline sm" href="certificados.html">Ver todos</a>
     </div>
+    <div id="misDiplomas" class="sep"></div>
+    <p class="tiny muted sep-poco">
+      Al tener certificados emitidos, cambiar tu nombre o tu documento pasa antes por el
+      equipo: esos datos ya están impresos en un documento firmado. El resto lo cambias tú.</p>
   </div>
 
   <div class="card">
@@ -163,22 +190,29 @@
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, confirmDialog, chipEstado, avisar, vacio, ocupado,
-         campoArchivo, compartir, encogerImagen,
-         TIPOS_ARCHIVO } from '../assets/app.js?v=2026-08-25-5';
-import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-25-5';
+         campoArchivo, compartir, encogerImagen, recortarCuadrado,
+         TIPOS_ARCHIVO } from '../assets/app.js?v=2026-08-25-12';
+import { lienzoCertificado } from '../assets/certificado.js?v=2026-08-25-12';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-25-12';
 
 const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
 const me = p;   // el portafolio y la foto son de quien entró
 let tieneCertificados = false;
+let CERTIFICADOS = [];
 let originales = {};
 
 if (p) cargar();
 
 async function cargar(){
-  const [{ data: perfil }, { count: certs }, { count: vigentes }, { count: medallas },
+  const [{ data: perfil }, { data: misCerts }, { count: vigentes }, { count: medallas },
          { data: ens }, { data: solP }, { data: solI }] = await Promise.all([
     sb.from('cem_profiles').select('*').eq('id', p.id).single(),
-    sb.from('cem_certificates').select('id', { count:'exact', head:true }).eq('profile_id', p.id),
+    /* Antes sólo se contaban. Ahora se traen: el aviso de «ya tienes
+       certificados» era un cartel sin salida —lo decía y no dejaba verlos—
+       y esta pantalla es donde alguien va a mirarlos. */
+    sb.from('cem_certificates')
+      .select('id,codigo,titulo,emitido_en,anulado_en,cem_courses(nombre)')
+      .eq('profile_id', p.id).order('emitido_en', { ascending:false }).limit(200),
     /* Para la cabecera sólo cuentan los que siguen en pie, porque es lo que
        enseña la página pública. Para el aviso de más abajo cuentan todos: un
        certificado anulado también se imprimió, y por eso el nombre sigue
@@ -194,7 +228,8 @@ async function cargar(){
       .select('*,cem_enrollments(cem_courses(nombre))').order('created_at', { ascending:false }),
   ]);
 
-  tieneCertificados = (certs || 0) > 0;
+  CERTIFICADOS = misCerts || [];
+  tieneCertificados = CERTIFICADOS.length > 0;
 
   cabecera = {
     nombre: perfil?.nombre || '', apellido: perfil?.apellido || '',
@@ -211,6 +246,7 @@ async function cargar(){
   };
   pintarPerfilPublico();
   $('#avisoCert').hidden = !tieneCertificados;
+  pintarMisCertificados();
 
   originales = {
     nombre: perfil?.nombre || '', apellido: perfil?.apellido || '',
@@ -487,7 +523,7 @@ async function subirMia(file){
 /* Tocar la imagen la cambia. Antes había que bajar a otra tarjeta a buscar el
    botón, que es justo donde nadie mira: la foto se quedaba sin poner y el
    perfil que se repartía salía sin cara. */
-function elegirImagen(ladoMax, alSubir){
+function elegirImagen(ladoMax, alSubir, { encuadrar = false } = {}){
   const inp = document.createElement('input');
   inp.type = 'file';
   inp.accept = TIPOS_ARCHIVO.imagen.accept;
@@ -495,7 +531,13 @@ function elegirImagen(ladoMax, alSubir){
     const file = inp.files?.[0];
     if (!file) return;
     try {
-      const listo = await encogerImagen(file, ladoMax);
+      /* La foto de perfil pasa por el encuadre; la portada no, porque es
+         ancha y el recorte cuadrado no le sirve de nada. Si se cancela el
+         encuadre no se sube nada: cancelar tiene que cancelar de verdad. */
+      const elegida = encuadrar ? await recortarCuadrado(file, ladoMax) : file;
+      if (!elegida) return;
+
+      const listo = await encogerImagen(elegida, ladoMax);
       const max = TIPOS_ARCHIVO.imagen.maxMB * 1024 * 1024;
       if (listo.size > max) {
         fail(`La imagen pesa ${(listo.size / 1048576).toFixed(1)} MB y el máximo son ${
@@ -559,7 +601,7 @@ function pintarCabecera(){
 
   $('#miFoto').onclick = () => elegirImagen(600, async (url) => {
     await guardarImagen({ avatar_url: url }, 'Foto guardada.');
-  });
+  }, { encuadrar: true });
   $('#btnPortada').onclick = () => elegirImagen(1600, async (url) => {
     await guardarImagen({ portada_url: url }, 'Portada guardada.');
   });
@@ -567,9 +609,84 @@ function pintarCabecera(){
     guardarImagen({ portada_url: null }, 'Portada quitada.');
 }
 
+/* Guardar de verdad, y sólo cantar victoria si de verdad se guardó.
+   ═══════════════════════════════════════════════════════════════════════════
+   Un `update` que no encuentra ninguna fila —porque una regla de la base lo
+   bloquea, o porque el id no cuadra— NO devuelve error: devuelve cero filas y
+   se queda tan tranquilo. Así que esto decía «Foto guardada» aunque no se
+   hubiera guardado nada, y quien lo veía volvía a intentarlo. Pasó de verdad:
+   siete fotos subidas al almacén en medio minuto, y el perfil sin foto.
+
+   El `.select()` obliga a que la base devuelva la fila que tocó. Si vuelve
+   vacía, no se guardó, y hay que decirlo en vez de felicitar a nadie. */
+/* ============ mis certificados, en pequeño ============
+   Una fila por diploma con lo justo para reconocerlo, y al tocarla se abre
+   entero. Los anulados se enseñan igual, marcados: esconderlos haría que
+   alguien creyera que se le perdió, y lo que pasó es otra cosa. */
+function pintarMisCertificados(){
+  const host = $('#misDiplomas');
+  if (!host) return;
+  if (!CERTIFICADOS.length) { host.innerHTML = ''; return; }
+
+  host.innerHTML = `<div class="lista-diplomas">${CERTIFICADOS.map((c, i) => `
+    <button type="button" class="fila-diploma" data-diploma="${i}">
+      <span class="material-symbols-outlined">workspace_premium</span>
+      <span class="crece">
+        <b>${esc(c.titulo || c.cem_courses?.nombre || 'Certificado')}</b>
+        <span class="tiny muted">${esc(c.codigo)} · ${fdate(c.emitido_en)}</span>
+      </span>
+      ${c.anulado_en ? '<span class="chip err">Anulado</span>'
+                     : '<span class="chip ok">Vigente</span>'}
+      <span class="material-symbols-outlined flecha">chevron_right</span>
+    </button>`).join('')}</div>`;
+
+  $$('[data-diploma]', host).forEach((b) => b.onclick = () => {
+    const c = CERTIFICADOS[Number(b.dataset.diploma)];
+    if (!c) return;
+    /* Sin marca de agua: es su certificado y ésta es su cuenta. La marca sólo
+       aparece en el perfil público, que lo abre cualquiera. */
+    const m = modal({
+      title: c.titulo || 'Certificado', wide: true,
+      body: lienzoCertificado(c, `${cabecera.nombre} ${cabecera.apellido || ''}`.trim(),
+                              { id: 'diplomaAqui', qr: window.qrcode })
+        + (c.anulado_en ? '<p class="nota err sep">Este certificado está anulado. '
+            + 'Si crees que es un error, escríbenos por soporte.</p>' : ''),
+      footer: `<button class="btn outline" data-x>Cerrar</button>
+        <button class="btn" data-imprimir>
+          <span class="material-symbols-outlined">print</span> Imprimir o guardar en PDF</button>`,
+    });
+    $('[data-x]', m).onclick = m.close;
+    $('[data-imprimir]', m).onclick = () => imprimirDiploma($('#diplomaAqui', m), c.codigo);
+  });
+}
+
+/* Imprimir se lleva el mismo dibujo y la misma hoja de estilos. Antes se
+   copiaba el HTML a una ventana en blanco con dos reglas escritas a mano, y
+   salía sin bordes ni tipografía: un folio con texto suelto. */
+function imprimirDiploma(nodo, codigo){
+  if (!nodo) return;
+  const w = window.open('', '_blank');
+  if (!w) { fail('El navegador bloqueó la ventana. Permite las ventanas emergentes y vuelve a intentarlo.'); return; }
+  const hojas = [...document.querySelectorAll('link[rel=stylesheet]')]
+    .map((l) => `<link rel="stylesheet" href="${l.href}">`).join('');
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8">
+    <title>${esc(codigo || 'Certificado')}</title>${hojas}
+    <style>body{margin:0;padding:24px;background:#fff}
+      @page{size:A4 landscape;margin:12mm}</style></head>
+    <body>${nodo.outerHTML}
+    <script>addEventListener('load',()=>setTimeout(()=>print(),400))<\/script></body></html>`);
+  w.document.close();
+}
+
 async function guardarImagen(campos, mensaje){
-  const { error } = await sb.from('cem_profiles').update(campos).eq('id', me.id);
+  const { data, error } = await sb.from('cem_profiles')
+    .update(campos).eq('id', me.id).select('id');
   if (error) { fail(mensajeError(error)); return; }
+  if (!data || !data.length) {
+    fail('No se pudo guardar en tu perfil. La imagen sí se subió: vuelve a intentarlo '
+       + 'y, si sigue igual, avísanos — es cosa nuestra, no tuya.');
+    return;
+  }
   Object.assign(cabecera, campos);
   pintarCabecera();
   ok(mensaje);
