@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · El asistente</title>
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-22">
+<style>
+  /* La mascota y el botón de actualizar, uno al lado del otro. */
+  .cab-asistente{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;}
+  .cab-asistente .retrato{flex:0 0 120px;}
+  .cab-asistente .retrato img{width:120px;height:auto;display:block;}
+  .cab-asistente .dicho{flex:1;min-width:min(100%,280px);}
+
+  /* Una ficha de lo que sabe. No es tabla: el contenido es un párrafo de
+     varias líneas y en una celda con `nowrap` heredado se sale de la caja.
+     El recuadro y el relleno los pone `card`, que es la caja de la casa: aquí
+     sólo va cómo se colocan las cosas por dentro. */
+  .ficha-saber{display:flex;flex-direction:column;gap:var(--e1);}
+  .ficha-saber.apagada{opacity:.55;}
+  .ficha-saber .cab{display:flex;align-items:flex-start;gap:var(--e1);flex-wrap:wrap;}
+  .ficha-saber .cab b{flex:1;min-width:min(100%,200px);}
+  .ficha-saber p{margin:0;font-size:var(--t-sm);color:var(--tinta-2);line-height:1.6;
+    white-space:pre-wrap;}
+  .rejilla-saber{display:grid;gap:var(--e2);
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}
+
+  /* La conversación leída desde el panel. */
+  .hilo{display:flex;flex-direction:column;gap:var(--e1);max-height:60vh;overflow-y:auto;}
+  .hilo .linea{display:flex;flex-direction:column;gap:2px;}
+  .hilo .linea .txt{padding:8px 12px;border-radius:var(--r);background:var(--hueco);
+    font-size:var(--t-sm);line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap;}
+  .hilo .linea.persona{align-items:flex-end;}
+  .hilo .linea.persona .txt{background:var(--primary-suave);}
+  .hilo .linea .pie{font-size:var(--t-xs);color:var(--tinta-3);}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>El asistente</h1>
+      <p>Qué sabe, con quién ha hablado y si está respondiendo bien.
+         Son dos asistentes con el mismo motor: uno atiende a los alumnos y otro al equipo.</p></div>
+    <div class="actions">
+      <button class="btn primary" id="btnRefrescar">
+        <span class="material-symbols-outlined">sync</span> Actualizar lo que sabe</button>
+    </div>
+  </div>
+
+  <div class="card cab-asistente" id="retrato"></div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs" id="tabs">
+    <button class="active" data-t="saber">Lo que sabe</button>
+    <button data-t="charlas">Conversaciones</button>
+    <button data-t="salud">Cómo va</button>
+    <button data-t="cara">Ajustes</button>
+  </div>
+
+  <section id="tSaber">
+    <div class="filters">
+      <div class="field"><label for="fAmbito">De qué asistente</label>
+        <select id="fAmbito">
+          <option value="">De los dos</option>
+          <option value="estudiante">Sólo el de alumnos</option>
+          <option value="equipo">Sólo el del equipo</option>
+          <option value="ambos">Lo que vale para los dos</option>
+        </select></div>
+      <div class="field"><label>&nbsp;</label>
+        <label class="check"><input type="checkbox" id="fApagadas"> Ver también las apagadas</label></div>
+      <!-- `grow` iría aquí si esto fuera un campo, y no lo es: con `grow` el
+           botón se estiraba de lado a lado y pesaba más que la pantalla
+           entera. El hueco que sobra lo ocupa un separador vacío. -->
+      <div class="field grow"><label>&nbsp;</label><span></span></div>
+      <div class="field"><label>&nbsp;</label>
+        <button class="btn" id="btnNuevaFicha">
+          <span class="material-symbols-outlined">add</span> Enseñarle algo</button></div>
+    </div>
+    <div id="listaSaber"><span class="cargando"></span></div>
+  </section>
+
+  <section id="tCharlas" class="hidden">
+    <div class="filters">
+      <div class="field"><label for="cAmbito">Asistente</label>
+        <select id="cAmbito">
+          <option value="">Los dos</option>
+          <option value="estudiante">Alumnos</option>
+          <option value="equipo">Equipo</option>
+        </select></div>
+      <div class="field"><label for="cDias">Desde cuándo</label>
+        <select id="cDias">
+          <option value="7">Última semana</option>
+          <option value="30" selected>Último mes</option>
+          <option value="365">Último año</option>
+        </select></div>
+      <div class="field grow"><label>&nbsp;</label>
+        <label class="check"><input type="checkbox" id="cEscaladas"> Sólo las que pidieron una persona</label></div>
+    </div>
+    <div class="table-wrap"><table id="tablaCharlas">
+      <thead><tr>
+        <th>Quién</th><th>Asistente</th><th>Canal</th>
+        <th>Mensajes</th><th>Último</th><th>Estado</th><th></th>
+      </tr></thead>
+      <tbody><tr><td colspan="7"><span class="cargando"></span></td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section id="tSalud" class="hidden">
+    <div class="card" id="salud"></div>
+  </section>
+
+  <!-- Su nombre y su cara.
+       ═══════════════════════════════════════════════════════════════════════
+       El dibujo que trae la plataforma es un vector hecho a partir de la
+       lámina de la casa. Se le parece, pero NO es el render: el original tiene
+       pelo de verdad, sombras y tela, y eso un SVG no lo hace.
+
+       Por eso está este cuadro. En cuanto se suba aquí el PNG de la lámina, la
+       plataforma lo usa en el botón del chat, en cada respuesta y en esta
+       pantalla, y el dibujo deja de verse. Es la única forma de que se vea
+       exactamente igual: enseñar el original. -->
+  <section id="tCara" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">Cómo se llama</h2>
+      <div class="field" style="max-width:320px">
+        <label for="mNombre">El nombre con el que se presenta</label>
+        <input id="mNombre" maxlength="40" placeholder="Cemi">
+      </div>
+      <button class="btn primary" id="btnNombre">Guardar el nombre</button>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Su cara</h2>
+      <p class="muted">Ahora mismo se ve un dibujo vectorial hecho a partir de la
+        lámina de la mascota. Se le parece, pero no es el render: sube aquí el
+        PNG original y la plataforma lo usará en todas partes.</p>
+      <div class="row" style="align-items:flex-start;gap:var(--e3)">
+        <div style="flex:0 0 160px" id="caraActual"></div>
+        <div style="flex:1;min-width:min(100%,260px)">
+          <div class="field">
+            <label for="mFoto">El render de la mascota (PNG con fondo transparente)</label>
+            <input type="file" id="mFoto" accept="image/png,image/webp,image/jpeg">
+            <span class="tiny muted">Cuadrado o casi. Se ve pequeño en el botón del
+              chat, así que conviene que sea el bicho entero y centrado.</span>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btnFoto">Subir y usar esta</button>
+            <button class="btn" id="btnQuitarFoto">Volver al dibujo de casa</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mi WhatsApp.
+         ═════════════════════════════════════════════════════════════════════
+         Por WhatsApp no hay sesión: lo único que llega es un número, y un
+         número no es una contraseña. Quien tenga el teléfono en la mano ES esa
+         línea.
+
+         Por eso las cifras del centro no se dan por WhatsApp sólo porque
+         alguien tenga un rol. Hace falta que esa persona, ya dentro de la
+         plataforma y con su sesión abierta, diga «este número es mío». Ésa es
+         la diferencia entre «este número parece de fulano» y «fulano dijo que
+         es suyo», y es la única que se sostiene. -->
+    <div class="card">
+      <h2 style="margin-top:0">Mi WhatsApp</h2>
+      <p class="muted">Si registras aquí tu número, el asistente te reconoce cuando
+        le escribas por WhatsApp y te contesta como al equipo. Sin registrarlo,
+        por WhatsApp sólo habla de lo público.</p>
+      <div class="row" style="align-items:flex-end">
+        <div class="field" style="max-width:260px;margin-bottom:0">
+          <label for="mTel">Mi número, con código de país</label>
+          <input id="mTel" placeholder="+58 412 000 0000" maxlength="24">
+        </div>
+        <button class="btn primary" id="btnTel">Registrar este número</button>
+      </div>
+      <div id="misNumeros" style="margin-top:var(--e2)"></div>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+/* La sección del asistente.
+   ═══════════════════════════════════════════════════════════════════════════
+   El manual que trajo este encargo dedica su capítulo más largo a una cosa:
+   un bot que atiende sin que nadie mire lo que dice acaba diciendo cualquier
+   cosa, y se descubre por un cliente enfadado. Ésta es la pantalla de mirar.
+
+   Tres preguntas, tres pestañas:
+     · Lo que sabe      — de dónde saca lo que contesta, y qué se le puede enseñar
+     · Conversaciones   — con quién ha hablado y qué le dijo
+     · Cómo va          — si responde, si tarda y si falla
+
+   Lo que NO hay aquí, y es a propósito: un botón de «borrar conversación».
+   Lo que dijo el asistente es la única prueba de lo que dijo el asistente. */
+import { sb, mount, $, $$, esc, num, chip, fdatetime, fdesde, ok, fail, modal,
+         confirmDialog, mensajeError, ocupado, avisar, kpi, vacio, emptyRow,
+         filasEsqueleto, montarAyudas, subirImagenCurso }
+  from '../assets/app.js?v=2026-08-25-22';
+import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-25-22';
+
+const yo = await mount({ require:['coordinador','admin','superadmin','auditor'], area:'admin',
+                         active:'asistente.html' });
+
+/* El auditor entra y lo lee todo, pero no cambia nada: auditar los libros sin
+   poder ver el asistente sería auditar la mitad, y poder reescribirle lo que
+   sabe dejaría de ser auditar. El botón no se esconde por seguridad —eso está
+   en la base— sino para no ofrecer algo que va a rebotar. */
+const puedeEditar = yo.rol !== 'auditor';
+
+/* ── El retrato ──────────────────────────────────────────────────────────── */
+$('#retrato').innerHTML = `
+  <div class="retrato">${mascotaEntera()}</div>
+  <div class="dicho">
+    <h2 style="margin:0 0 8px">Así se presenta</h2>
+    <p class="muted" style="margin:0 0 12px">
+      Habla como alguien del equipo, en español, y en dos frases. No dice precios
+      que no tenga, no confirma pagos y no promete plazos. Si le piden una persona,
+      no lo discute: avisa al equipo.</p>
+    <p class="tiny muted" style="margin:0">
+      Un alumno sólo ve lo suyo, y eso no lo decide una frase del guion: lo decide
+      la base de datos con el permiso de quien pregunta. Aunque alguien le pidiera
+      los datos de otro, no llegan.</p>
+  </div>`;
+
+/* ── El botón de ponerlo al día ──────────────────────────────────────────── */
+/* Esto contesta a «que el bot se actualice solo cuando subamos un diplomado».
+   Hay dos caminos y están los dos: este botón, para cuando se quiere ya, y un
+   disparador en la base que marca el catálogo como cambiado en cuanto se
+   publica o se retira un programa. */
+$('#btnRefrescar').onclick = (e) => ocupado(e.currentTarget, 'Actualizando…', async () => {
+  try {
+    const r = await refrescarAsistente();
+    ok(`Al día: ${r?.fichas ?? 0} fichas, ${r?.programas ?? 0} programas publicados.`);
+    await cargarPanel();
+    await cargarSaber();
+  } catch (err) { fail(mensajeError(err)); }
+});
+
+/* ── Las cifras ──────────────────────────────────────────────────────────── */
+async function cargarPanel() {
+  const { data, error } = await sb.rpc('cem_bot_panel');
+  if (error) { avisar('#kpis', mensajeError(error)); return; }
+  const d = data ?? {};
+  $('#kpis').innerHTML = [
+    kpi('Mensajes hoy', num(d.mensajes_hoy ?? 0), 'forum'),
+    kpi('Conversaciones esta semana', num(d.conversaciones_semana ?? 0), 'chat'),
+    kpi('Pidieron una persona', num(d.escaladas ?? 0), 'support_agent',
+        '', (d.escaladas > 0 ? 'warn' : ''),
+        'Cuántas veces alguien pidió hablar con alguien de verdad. No es un fallo: '
+        + 'es la señal de qué preguntas no sabe contestar todavía.'),
+    kpi('Fichas que sabe', num(d.fichas ?? 0), 'menu_book',
+        `${num(d.fichas_automaticas ?? 0)} las hace la plataforma`),
+  ].join('');
+  $('#salud').innerHTML = `
+    <h2 style="margin-top:0">Cómo va</h2>
+    <div class="kpis">
+      ${kpi('Tarda normalmente', d.mediana_ms ? `${(d.mediana_ms / 1000).toFixed(1)} s` : '—',
+            'timer', 'la mitad de las respuestas tardan menos', '',
+            'Es la mediana, no la media. Un solo reintento de treinta segundos '
+            + 'sube la media y hace creer que va lento cuando las demás fueron en dos.')}
+      ${kpi('Fallos esta semana', num(d.fallos_semana ?? 0), 'error',
+            '', (d.fallos_semana > 0 ? 'err' : ''),
+            'Veces que ningún modelo de la cadena respondió y hubo que dar la '
+            + 'frase de cortesía. Con más de dos o tres, algo pasa con el proveedor.')}
+    </div>
+    <p class="tiny muted" style="margin-bottom:0">
+      Lo que sabe se actualizó por última vez
+      ${d.ultimo_refresco ? esc(fdatetime(d.ultimo_refresco)) : 'nunca'}.
+      Se pone al día solo cuando se publica o se retira un programa, y con el
+      botón de arriba cuando haga falta antes.</p>`;
+  // Los «?» de los KPI se conectan al montar la pantalla; éstos nacen después,
+  // así que hay que volver a conectarlos o no se abren.
+  montarAyudas($('#kpis'));
+  montarAyudas($('#salud'));
+}
+
+/* ── Lo que sabe ─────────────────────────────────────────────────────────── */
+let FICHAS = [];
+
+async function cargarSaber() {
+  const { data, error } = await sb.rpc('cem_bot_fichas',
+    { p_ambito: $('#fAmbito').value || null });
+  if (error) { avisar('#listaSaber', mensajeError(error)); return; }
+  FICHAS = data ?? [];
+  pintarSaber();
+}
+
+function pintarSaber() {
+  const verApagadas = $('#fApagadas').checked;
+  const lista = FICHAS.filter((f) => verApagadas || f.activo);
+  if (!lista.length) {
+    $('#listaSaber').innerHTML = vacio({
+      icono: 'menu_book',
+      titulo: 'Todavía no sabe nada de esto',
+      texto: 'Pulsa «Actualizar lo que sabe» para que lea el catálogo, o enséñale algo tú.',
+    });
+    return;
+  }
+  $('#listaSaber').innerHTML = `<div class="rejilla-saber">${lista.map((f) => `
+    <article class="card ficha-saber ${f.activo ? '' : 'apagada'}">
+      <div class="cab">
+        <b>${esc(f.titulo)}</b>
+        ${chip(f.ambito === 'ambos' ? 'Los dos' : (f.ambito === 'equipo' ? 'Equipo' : 'Alumnos'))}
+        ${f.origen === 'plataforma'
+          ? chip('La hace la plataforma', 'info')
+          : chip('Escrita a mano', 'ok')}
+        ${f.activo ? '' : chip('Apagada', 'warn')}
+      </div>
+      <p>${esc(f.contenido)}</p>
+      <div class="row">
+        ${puedeEditar ? `
+          <button class="btn sm" data-editar="${esc(f.id)}">
+            <span class="material-symbols-outlined">edit</span> Cambiar</button>
+          <button class="btn sm" data-apagar="${esc(f.id)}" data-a="${f.activo ? '0' : '1'}">
+            <span class="material-symbols-outlined">${f.activo ? 'visibility_off' : 'visibility'}</span>
+            ${f.activo ? 'Que deje de decirlo' : 'Volver a decirlo'}</button>` : ''}
+        <span class="tiny muted">${esc(fdesde(f.actualizado_en))}</span>
+      </div>
+    </article>`).join('')}</div>`;
+}
+
+/* Las fichas que hace la plataforma se pueden cambiar, y al hacerlo pasan a
+   ser «escritas a mano». Es lo que impide que el siguiente «actualizar» pise
+   un texto que alguien afinó a propósito. Se avisa antes, porque desde fuera
+   parece que sólo se está corrigiendo una errata. */
+function editorDeFicha(f = null) {
+  const esGenerada = f?.origen === 'plataforma';
+  const caja = modal({
+    title: f ? 'Cambiar lo que sabe' : 'Enseñarle algo',
+    body: `
+      ${esGenerada ? `<div class="nota warn">Esta ficha la escribe la plataforma sola
+        a partir del catálogo. Si la cambias, deja de actualizarse: a partir de
+        ahora manda lo que escribas aquí.</div>` : ''}
+      <label>Para quién
+        <select id="mAmbito" class="input">
+          <option value="ambos">Los dos asistentes</option>
+          <option value="estudiante">Sólo el de alumnos</option>
+          <option value="equipo">Sólo el del equipo</option>
+        </select></label>
+      <label>De qué es
+        <input id="mTitulo" class="input" maxlength="120"
+               placeholder="Por ejemplo: Cómo se pide una constancia">
+        <span class="tiny muted">Es para vosotros, para encontrarla. El asistente lo lee igual.</span>
+      </label>
+      <label>Qué tiene que saber
+        <textarea id="mTexto" class="input" rows="6" maxlength="2000"
+          placeholder="Escríbelo como se lo dirías a alguien nuevo del equipo."></textarea>
+        <span class="tiny muted">Concreto y corto. Lo que aquí no esté, para el asistente no existe.</span>
+      </label>`,
+    footer: `<button class="btn" data-x>Cancelar</button>
+             <button class="btn primary" id="mGuardar">Guardar</button>`,
+  });
+  if (f) {
+    $('#mAmbito').value = f.ambito;
+    $('#mTitulo').value = f.titulo;
+    $('#mTexto').value = f.contenido;
+  }
+  $('#mGuardar').onclick = (e) => ocupado(e.currentTarget, 'Guardando…', async () => {
+    const titulo = $('#mTitulo').value.trim();
+    const texto = $('#mTexto').value.trim();
+    if (!titulo || !texto) { fail('Hace falta el título y el texto.'); return; }
+    const { error } = await sb.rpc('cem_bot_ficha_guardar', {
+      p_id: f?.id ?? null, p_ambito: $('#mAmbito').value,
+      p_titulo: titulo, p_contenido: texto, p_etiquetas: [], p_activo: f ? f.activo : true,
+    });
+    if (error) { fail(mensajeError(error)); return; }
+    caja.close();
+    ok('Ya lo sabe.');
+    cargarSaber();
+  });
+}
+
+$('#listaSaber').addEventListener('click', async (e) => {
+  const ed = e.target.closest('[data-editar]');
+  if (ed) { editorDeFicha(FICHAS.find((f) => f.id === ed.dataset.editar)); return; }
+  const ap = e.target.closest('[data-apagar]');
+  if (!ap) return;
+  const activo = ap.dataset.a === '1';
+  if (!activo && !(await confirmDialog(
+    'Dejará de usarlo para contestar. No se borra: se puede volver a encender.',
+    'Que deje de decirlo'))) return;
+  const { error } = await sb.rpc('cem_bot_ficha_apagar', { p_id: ap.dataset.apagar, p_activo: activo });
+  if (error) { fail(mensajeError(error)); return; }
+  ok(activo ? 'Vuelve a decirlo.' : 'Ya no lo dice.');
+  cargarSaber();
+});
+
+$('#btnNuevaFicha').onclick = () => editorDeFicha(null);
+if (!puedeEditar) {
+  $('#btnNuevaFicha').remove();
+  $('#btnRefrescar').remove();
+}
+/* Sólo `change`, nunca `input`, en los filtros que repintan la lista.
+   Atado a los dos, salir de un campo repinta entre el clic hacia abajo y el
+   clic hacia arriba, y el botón que se estaba pulsando desaparece a mitad. */
+['#fAmbito', '#fApagadas'].forEach((s) => { $(s).onchange = () => {
+  if (s === '#fAmbito') cargarSaber(); else pintarSaber();
+}; });
+
+/* ── Las conversaciones ──────────────────────────────────────────────────── */
+async function cargarCharlas() {
+  const tb = $('#tablaCharlas tbody');
+  tb.innerHTML = filasEsqueleto(7, 4);
+  const { data, error } = await sb.rpc('cem_bot_conversaciones_listar', {
+    p_dias: Number($('#cDias').value),
+    p_ambito: $('#cAmbito').value || null,
+    p_solo_escaladas: $('#cEscaladas').checked,
+  });
+  if (error) { tb.innerHTML = emptyRow(7, mensajeError(error)); return; }
+  if (!data?.length) { tb.innerHTML = emptyRow(7, 'Nadie ha hablado con el asistente todavía.'); return; }
+  tb.innerHTML = data.map((c) => `<tr>
+    <td class="wrap">${esc(c.persona || c.telefono || 'Sin identificar')}
+      <div class="tiny muted">${esc(c.correo || '')}</div></td>
+    <td>${c.ambito === 'equipo' ? 'Equipo' : 'Alumnos'}</td>
+    <td>${esc(c.canal || 'web')}</td>
+    <td class="num">${num(c.mensajes)}</td>
+    <td>${c.ultimo ? esc(fdatetime(c.ultimo)) : '—'}</td>
+    <td>${c.escalado_en ? chip('Pidió una persona', 'warn')
+        : (c.fallos > 0 ? chip(`${c.fallos} fallo(s)`, 'err') : chip('Bien', 'ok'))}</td>
+    <td><button class="icon-btn" data-ver="${esc(c.id)}" title="Leer la conversación">
+      <span class="material-symbols-outlined">visibility</span></button></td>
+  </tr>`).join('');
+}
+
+$('#tablaCharlas').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-ver]');
+  if (!b) return;
+  const { data, error } = await sb.rpc('cem_bot_conversacion_ver', { p_conversacion: b.dataset.ver });
+  if (error) { fail(mensajeError(error)); return; }
+  modal({
+    title: 'La conversación entera',
+    wide: true,
+    body: `<div class="hilo">${(data ?? []).map((m) => `
+      <div class="linea ${m.quien === 'persona' ? 'persona' : 'asistente'}">
+        <div class="txt">${esc(m.texto)}</div>
+        <div class="pie">${esc(fdatetime(m.cuando))}
+          ${m.modelo ? ' · ' + esc(m.modelo) : ''}
+          ${m.ms ? ' · ' + (m.ms / 1000).toFixed(1) + ' s' : ''}
+          ${m.error ? ' · <span class="err">' + esc(m.error) + '</span>' : ''}</div>
+      </div>`).join('') || '<p class="muted">Esta conversación está vacía.</p>'}</div>`,
+    footer: '<button class="btn" data-x>Cerrar</button>',
+  });
+});
+
+['#cAmbito', '#cDias', '#cEscaladas'].forEach((s) => { $(s).onchange = cargarCharlas; });
+
+/* ── Su nombre y su cara ─────────────────────────────────────────────────── */
+async function cargarCara() {
+  const { data } = await sb.from('cem_settings').select('clave, valor')
+    .in('clave', ['asistente_nombre', 'mascota_url']);
+  const v = {};
+  for (const f of data ?? []) v[f.clave] = typeof f.valor === 'string' ? f.valor : f.valor?.valor ?? f.valor;
+  $('#mNombre').value = v.asistente_nombre || '';
+  $('#caraActual').innerHTML = v.mascota_url
+    ? `<img src="${esc(String(v.mascota_url))}" alt="La mascota del CEM"
+            style="width:100%;height:auto;display:block;border-radius:var(--r)">
+       <p class="tiny muted" style="margin-top:8px">El render de la casa</p>`
+    : `${mascotaEntera()}<p class="tiny muted" style="margin-top:8px">
+         El dibujo de respaldo. No es el render.</p>`;
+}
+
+async function cargarMisNumeros() {
+  const { data, error } = await sb.rpc('cem_bot_mis_numeros');
+  if (error) { avisar('#misNumeros', mensajeError(error)); return; }
+  if (!data?.length) {
+    $('#misNumeros').innerHTML =
+      '<p class="tiny muted">No tienes ningún número registrado.</p>';
+    return;
+  }
+  $('#misNumeros').innerHTML = data.map((n) => `<div class="row">
+    <b style="font-variant-numeric:tabular-nums">…${esc(n.telefono)}</b>
+    ${chip(n.ambito === 'equipo' ? 'Como equipo' : 'Como alumno',
+           n.ambito === 'equipo' ? 'ok' : '')}
+    <button class="btn sm" data-olvidar="${esc(n.telefono)}">Quitar</button>
+  </div>`).join('');
+}
+
+$('#misNumeros').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-olvidar]');
+  if (!b) return;
+  if (!(await confirmDialog(
+    'El asistente dejará de reconocerte cuando le escribas por WhatsApp.',
+    'Quitar el número'))) return;
+  const { error } = await sb.rpc('cem_bot_olvidar_mi_numero', { p_telefono: b.dataset.olvidar });
+  if (error) { fail(mensajeError(error)); return; }
+  ok('Quitado.');
+  cargarMisNumeros();
+});
+
+$('#btnTel').onclick = (e) => ocupado(e.currentTarget, 'Registrando…', async () => {
+  const { error } = await sb.rpc('cem_bot_registrar_mi_numero',
+    { p_telefono: $('#mTel').value });
+  if (error) { fail(mensajeError(error)); return; }
+  $('#mTel').value = '';
+  ok('Registrado. El asistente ya te reconoce por WhatsApp.');
+  cargarMisNumeros();
+});
+
+async function guardarAjuste(clave, valor, descripcion) {
+  /* `.select('id')` no sirve aquí: la tabla no tiene `id`. Se pide la clave, y
+     se comprueba que vuelva una fila. Un upsert que no toca nada NO devuelve
+     error —devuelve cero filas—, y sin esta comprobación la pantalla diría
+     «guardado» sin haber guardado. */
+  const { data, error } = await sb.from('cem_settings')
+    .upsert({ clave, valor, descripcion }, { onConflict: 'clave' })
+    .select('clave');
+  if (error) throw error;
+  if (!data?.length) throw new Error('No se guardó: la base no aceptó el cambio.');
+}
+
+$('#btnNombre').onclick = (e) => ocupado(e.currentTarget, 'Guardando…', async () => {
+  try {
+    const n = $('#mNombre').value.trim();
+    if (!n) { fail('Ponle un nombre.'); return; }
+    await guardarAjuste('asistente_nombre', n, 'El nombre con el que se presenta el asistente');
+    ok(`Ahora se presenta como ${n}. Recarga para verlo en el botón del chat.`);
+  } catch (err) { fail(mensajeError(err)); }
+});
+
+$('#btnFoto').onclick = (e) => ocupado(e.currentTarget, 'Subiendo…', async () => {
+  try {
+    const f = $('#mFoto').files?.[0];
+    if (!f) { fail('Elige primero el archivo.'); return; }
+    const url = await subirImagenCurso(f, 'mascota');
+    await guardarAjuste('mascota_url', url, 'El render de la mascota del CEM');
+    ok('Listo. Recarga la página para verla en todas partes.');
+    await cargarCara();
+  } catch (err) { fail(mensajeError(err)); }
+});
+
+$('#btnQuitarFoto').onclick = async (e) => {
+  if (!(await confirmDialog('Vuelve a verse el dibujo vectorial en todas partes.',
+    'Quitar el render'))) return;
+  await ocupado(e.currentTarget, 'Quitando…', async () => {
+    try {
+      await guardarAjuste('mascota_url', null, 'El render de la mascota del CEM');
+      ok('Quitado. Recarga la página.');
+      await cargarCara();
+    } catch (err) { fail(mensajeError(err)); }
+  });
+};
+
+/* Al auditor se le deja registrar SU número —es suyo, y sin él no puede
+   preguntarle nada al asistente por WhatsApp— pero no tocar el nombre ni la
+   cara, que son de la casa. */
+if (!puedeEditar) {
+  ['#btnNombre', '#btnFoto', '#btnQuitarFoto', '#mFoto', '#mNombre']
+    .forEach((s) => $(s)?.setAttribute('disabled', ''));
+}
+
+/* ── Las pestañas ────────────────────────────────────────────────────────── */
+let charlasCargadas = false;
+let caraCargada = false;
+$('#tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-t]');
+  if (!b) return;
+  $$('#tabs button').forEach((x) => x.classList.toggle('active', x === b));
+  $('#tSaber').classList.toggle('hidden', b.dataset.t !== 'saber');
+  $('#tCharlas').classList.toggle('hidden', b.dataset.t !== 'charlas');
+  $('#tSalud').classList.toggle('hidden', b.dataset.t !== 'salud');
+  $('#tCara').classList.toggle('hidden', b.dataset.t !== 'cara');
+  if (b.dataset.t === 'cara' && !caraCargada) {
+    caraCargada = true; cargarCara(); cargarMisNumeros();
+  }
+  // Las conversaciones se piden la primera vez que se abre la pestaña, no al
+  // cargar la pantalla: son 300 filas que casi nadie mira cada día.
+  if (b.dataset.t === 'charlas' && !charlasCargadas) { charlasCargadas = true; cargarCharlas(); }
+});
+
+await cargarPanel();
+await cargarSaber();
+$('#page').classList.remove('hidden');
+</script>
+</body>
+</html>

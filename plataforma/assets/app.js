@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-25-19';
+         vidrioActual } from './temas.js?v=2026-08-25-22';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1169,6 +1169,11 @@ const ADMIN_NAV = [
     ['comunicaciones.html', 'mail', 'Comunicaciones', ['coordinador','admin','superadmin','profesor','auditor']],
     ['correo.html', 'outgoing_mail', 'Envío de correo', ['admin','superadmin']],
     ['soporte.html', 'support_agent', 'Soporte', ['coordinador','admin','superadmin','auditor']],
+    /* El asistente vive aquí y no en Gobierno porque no es una pieza de
+       configuración: es quien habla con la gente cuando no hay nadie. Se abre
+       por la misma razón por la que se abre Soporte —para ver qué se está
+       diciendo—, y quien lo hace es el mismo. */
+    ['asistente.html', 'smart_toy', 'El asistente', ['coordinador','admin','superadmin','auditor']],
   ]},
   { lbl: 'Gobierno', items: [
     ['reportes.html', 'analytics', 'Reportes', ['coordinador','admin','superadmin','auditor']],
@@ -1383,7 +1388,28 @@ export async function mount(opts = {}) {
   tablasExportables();
   buscadorDePantallaCompleta();
   esqueletosDeTabla();
+  montarElAsistente(area);
   return p;
+}
+
+/* ============ el asistente, en todas las pantallas y sin tocar ninguna ======
+   Se monta desde aquí y no desde cada archivo por la misma razón que las
+   ayudas y los esqueletos: 82 pantallas son 82 sitios donde olvidarse. Y una
+   pantalla sin asistente no da error —simplemente no está—, que es la clase de
+   fallo que nadie reporta y nadie arregla.
+
+   Va por `import()` y no arriba del archivo por dos motivos. Uno práctico: el
+   asistente importa de `app.js`, así que ponerlo arriba haría un círculo entre
+   los dos módulos. Otro de peso: la pantalla de entrada carga `app.js` y no
+   necesita el chat, y así no se lo baja.
+
+   El ámbito que se manda es sólo una pista. Quién puede ver las cifras del
+   centro lo decide `cem_bot_contexto` en el servidor mirando el rol de quien
+   pregunta: escribir «equipo» aquí desde la consola no abre nada. */
+function montarElAsistente(area) {
+  import('./asistente.js?v=2026-08-25-22')
+    .then((m) => m.montarAsistente({ ambito: area === 'estudiante' ? 'estudiante' : 'equipo' }))
+    .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
 
 /* ============ un botón de icono también tiene que tener nombre (item 11) ============
@@ -2055,7 +2081,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-25-19');
+    const m = await import('./apariencia.js?v=2026-08-25-22');
 
     m.abrirApariencia();
 
