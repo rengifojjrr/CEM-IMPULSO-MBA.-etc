@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-12">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-15">
 <!-- El QR del diploma, que es como se comprueba sin teclear el código. -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
@@ -34,6 +34,19 @@
   .fila-diploma .crece b{overflow-wrap:anywhere;}
   .fila-diploma > .material-symbols-outlined{color:var(--gold,#C9A227);flex:none;}
   .fila-diploma .flecha{color:var(--tinta-3);}
+
+  /* Los datos, para mirarlos. Dos columnas en pantalla ancha y una en el
+     teléfono; lo que falta se marca, porque un hueco vacío en una lista pasa
+     desapercibido y «falta» no.
+     sin-caja: va dentro de la tarjeta, separada sólo por rayas. */
+  .datos-mirar{display:grid;gap:0;margin:var(--e2) 0 0;
+    grid-template-columns:repeat(auto-fit,minmax(240px,1fr));}
+  .datos-mirar .dato{padding:10px 0;border-bottom:1px solid var(--filete);
+    display:flex;flex-direction:column;gap:2px;padding-right:var(--e2);}
+  .datos-mirar dt{font-size:var(--t-xs);color:var(--tinta-3);
+    font-weight:var(--peso-fuerte);}
+  .datos-mirar dd{margin:0;overflow-wrap:anywhere;}
+  .datos-mirar dd.falta{color:var(--warn);font-weight:var(--peso-fuerte);}
 </style>
 </head>
 <body>
@@ -86,40 +99,27 @@
       equipo: esos datos ya están impresos en un documento firmado. El resto lo cambias tú.</p>
   </div>
 
+  <!-- Los datos: aquí se MIRAN, en «Mis datos» se cambian.
+       ═══════════════════════════════════════════════════════════════════════
+       Este mismo formulario estaba también, campo por campo, en la pantalla de
+       Mis datos. Dos pantallas con los mismos campos y dos entradas de menú
+       que sonaban igual: la pregunta al usarlo era siempre «¿y esto dónde lo
+       cambio, aquí o allá?».
+
+       Ahora se parece a lo que hace cualquier red social: el perfil enseña, y
+       un botón lleva a editar. El formulario existe en un solo sitio, así que
+       no hay dos sitios donde arreglarlo el día que cambie. -->
   <div class="card">
-    <h2 class="sec">Datos personales <button type="button" class="ayuda-btn" data-ayuda="Tu nombre y tu documento salen impresos en los certificados tal como los escribas aquí. Si ya tienes alguno emitido, cambiarlos pasa antes por aprobación.">?</button></h2>
-    <p class="tiny muted" style="margin-top:-6px">Esto no se publica: lo que escribas aquí es lo que
-      aparece en tus certificados. Tu cédula, tu teléfono y tu correo no salen nunca en el perfil
-      que compartes.</p>
-    <form id="fPerfil">
-      <div class="row">
-        <div class="field medio"><label>Nombre</label>
-          <input id="nombre" required></div>
-        <div class="field medio"><label>Apellido</label>
-          <input id="apellido" required></div>
-      </div>
-      <div class="row">
-        <div class="field medio"><label>Tipo de documento</label>
-          <select id="docTipo"><option>Cédula</option><option>DNI</option><option>Pasaporte</option></select></div>
-        <div class="field medio"><label>Número de documento</label>
-          <input id="documento"></div>
-      </div>
-      <div class="row">
-        <div class="field medio"><label>Teléfono</label>
-          <input id="telefono" type="tel" placeholder="+58 412 1234567"></div>
-        <div class="field medio"><label for="pais">País</label>
-          <select id="pais"></select></div>
-        <div class="field medio"><label>Ciudad</label>
-          <input id="ciudad"></div>
-      </div>
-      <div class="field"><label>Correo</label>
-        <input id="email" disabled>
-        <span class="tiny muted">El correo es tu forma de entrar. Para cambiarlo, escríbenos por soporte.</span></div>
-      <div class="field" id="campoMotivo" hidden><label>¿Por qué hay que corregirlo?</label>
-        <textarea id="motivo" rows="2" placeholder="Ej.: mi cédula está escrita con un dígito de más."></textarea></div>
-      <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar cambios</button>
-      <div id="msgPerfil"></div>
-    </form>
+    <div class="row between" style="align-items:flex-start;gap:10px">
+      <h2 class="sec sin-margen">Mis datos
+        <button type="button" class="ayuda-btn" data-ayuda="Tu nombre y tu documento salen impresos en los certificados tal como los escribas. Si ya tienes alguno emitido, cambiarlos pasa antes por aprobación del equipo.">?</button></h2>
+      <a class="btn outline" href="mis-datos.html">
+        <span class="material-symbols-outlined">edit</span> Editar mis datos</a>
+    </div>
+    <p class="tiny muted" style="margin-top:-2px">Esto no se publica nunca: tu cédula, tu
+      teléfono y tu correo no salen en el perfil que compartes.</p>
+    <dl class="datos-mirar" id="datosMirar"></dl>
+    <div id="faltaAlgo"></div>
   </div>
 
   <div class="card" id="cardSolPerfil" hidden>
@@ -191,15 +191,14 @@
 import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, modal, ok, fail, run,
          mensajeError, confirmDialog, chipEstado, avisar, vacio, ocupado,
          campoArchivo, compartir, encogerImagen, recortarCuadrado,
-         TIPOS_ARCHIVO } from '../assets/app.js?v=2026-08-25-12';
-import { lienzoCertificado } from '../assets/certificado.js?v=2026-08-25-12';
-import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-08-25-12';
+         TIPOS_ARCHIVO } from '../assets/app.js?v=2026-08-25-15';
+import { lienzoCertificado } from '../assets/certificado.js?v=2026-08-25-15';
+import { paisConBandera } from '../assets/paises.js?v=2026-08-25-15';
 
 const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
 const me = p;   // el portafolio y la foto son de quien entró
 let tieneCertificados = false;
 let CERTIFICADOS = [];
-let originales = {};
 
 if (p) cargar();
 
@@ -248,61 +247,43 @@ async function cargar(){
   $('#avisoCert').hidden = !tieneCertificados;
   pintarMisCertificados();
 
-  originales = {
-    nombre: perfil?.nombre || '', apellido: perfil?.apellido || '',
-    documento: perfil?.documento || '', documento_tipo: perfil?.documento_tipo || 'Cédula',
-  };
-  $('#nombre').value = originales.nombre;
-  $('#apellido').value = originales.apellido;
-  $('#documento').value = originales.documento;
-  $('#docTipo').value = originales.documento_tipo;
-  $('#telefono').value = perfil?.telefono || '';
-  $('#pais').innerHTML = opcionesDePais(perfil?.pais || '');
-  $('#ciudad').value = perfil?.ciudad || '';
-  $('#email').value = perfil?.email || '';
-
+  pintarDatosParaMirar(perfil);
   pintarSolicitudesPerfil(solP || []);
   pintarInscripciones(ens || []);
   pintarSolicitudesInscripcion(solI || []);
   cargarPortafolio();
-  vigilarCamposSensibles();
 }
 
-/* El campo de motivo sólo aparece cuando de verdad hace falta: si la persona
-   ya tiene certificados y está tocando su nombre o su documento. */
-function vigilarCamposSensibles(){
-  const revisar = () => {
-    const cambio = tieneCertificados && (
-      $('#nombre').value.trim() !== originales.nombre ||
-      $('#apellido').value.trim() !== originales.apellido ||
-      $('#documento').value.trim() !== originales.documento ||
-      $('#docTipo').value !== originales.documento_tipo);
-    $('#campoMotivo').hidden = !cambio;
-  };
-  ['#nombre','#apellido','#documento'].forEach(s => $(s).oninput = revisar);
-  $('#docTipo').onchange = revisar;
-  revisar();
-}
+/* ============ los datos, para mirarlos ============
+   El formulario vive en «Mis datos» y sólo allí. Aquí se leen, y lo que falta
+   se dice sin rodeos: un hueco vacío en una lista pasa desapercibido, pero
+   «Documento — falta» no. Es lo mismo que sale impreso en el certificado, así
+   que enterarse de que falta cuando ya está emitido es tarde. */
+function pintarDatosParaMirar(perfil){
+  const p2 = perfil || {};
+  const campos = [
+    ['Nombre', [p2.nombre, p2.apellido].filter(Boolean).join(' '), true],
+    ['Documento', p2.documento ? `${p2.documento_tipo || 'Doc'} ${p2.documento}` : '', true],
+    ['Fecha de nacimiento', p2.fecha_nacimiento ? fdate(p2.fecha_nacimiento) : '', true],
+    ['Teléfono', p2.telefono || '', false],
+    ['Dónde vives', [p2.ciudad, p2.pais ? paisConBandera(p2.pais) : ''].filter(Boolean).join(' · '), false],
+    ['Correo', p2.email || '', true],
+  ];
 
-$('#fPerfil').onsubmit = async (e) => {
-  e.preventDefault();
-  const msg = $('#msgPerfil');
-  msg.innerHTML = '';
-  const { data, error } = await sb.rpc('cem_actualizar_mi_perfil', { p_datos: {
-    nombre: $('#nombre').value.trim(), apellido: $('#apellido').value.trim(),
-    documento: $('#documento').value.trim(), documento_tipo: $('#docTipo').value,
-    telefono: $('#telefono').value.trim(), pais: $('#pais').value,
-    ciudad: $('#ciudad').value.trim(), motivo: $('#motivo').value.trim(),
-  }});
-  if (error) { msg.innerHTML = `<div class="nota err sep">${esc(mensajeError(error))}</div>`; return; }
-  if (data?.requiere_aprobacion) {
-    msg.innerHTML = `<div class="nota warn sep">${esc(data.aviso)}</div>`;
-  } else {
-    ok('Datos guardados.');
-  }
-  $('#motivo').value = '';
-  cargar();
-};
+  $('#datosMirar').innerHTML = campos.map(([que, valor]) => `
+    <div class="dato">
+      <dt>${esc(que)}</dt>
+      <dd${valor ? '' : ' class="falta"'}>${valor ? esc(valor) : 'falta'}</dd>
+    </div>`).join('');
+
+  const faltan = campos.filter(([, v, obligatorio]) => obligatorio && !v).map(([q]) => q.toLowerCase());
+  $('#faltaAlgo').innerHTML = faltan.length
+    ? `<div class="nota warn">Para poder emitirte el certificado falta ${
+        esc(faltan.join(', ').replace(/, ([^,]*)$/, ' y $1'))}.
+        <br><a class="btn" href="mis-datos.html">
+          <span class="material-symbols-outlined">edit_note</span> Completarlo ahora</a></div>`
+    : '';
+}
 
 function pintarSolicitudesPerfil(lista){
   $('#cardSolPerfil').hidden = lista.length === 0;

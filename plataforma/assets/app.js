@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-25-12';
+         vidrioActual } from './temas.js?v=2026-08-25-15';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1208,12 +1208,19 @@ const STUDENT_NAV = [
   ['biblioteca.html', 'local_library', 'Biblioteca'],
   ['certificados.html', 'workspace_premium', 'Certificados'],
   ['perfil.html', 'account_circle', 'Mi perfil'],
-  /* Separado de «Mi perfil» a propósito: el perfil es lo que se enseña —foto,
-     trabajo, lo que se comparte— y esto es lo que hace falta para que el
-     certificado salga a nombre de quien estudió. Mezclarlos hacía que los
-     campos del documento parecieran opcionales, porque estaban entre cosas que
-     de verdad lo son. */
-  ['mis-datos.html', 'badge', 'Mis datos'],
+  /* «Mis datos» ya no está en el menú, y no porque haya dejado de importar.
+     ─────────────────────────────────────────────────────────────────────
+     La idea original era buena: separar lo que se enseña —foto, trabajo, lo
+     que se comparte— de lo que hace falta para que el certificado salga a
+     nombre de quien estudió. Pero acabó con el MISMO formulario en las dos
+     pantallas, campo por campo, y con dos entradas de menú que sonaban a lo
+     mismo. Al usarlo de verdad la pregunta era siempre «¿y esto dónde lo
+     cambio, en perfil o en mis datos?».
+
+     Ahora hay un solo sitio donde mirar —el perfil— y un botón que lleva a
+     editar, como en cualquier red social. La pantalla de datos sigue
+     existiendo y sigue pesando lo suyo: se llega a ella desde el perfil, con
+     el aviso de lo que falta a la vista. */
   ['ayuda.html', 'help', 'Ayuda'],
 ];
 const TEACHER_NAV = [
@@ -2048,7 +2055,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-25-12');
+    const m = await import('./apariencia.js?v=2026-08-25-15');
 
     m.abrirApariencia();
 
