@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-24-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25">
 <style>
   /* Una ficha por recurso. Ver el comentario de `pintar()` para por qué esto
      no es una tabla. */
@@ -58,9 +58,20 @@
   @media (prefers-reduced-motion:reduce){ .abrir-ficha .flecha{transition:none;} }
 
   .desplegado{border-top:1px solid var(--filete);padding-top:var(--e2);}
-  /* El archivo a un lado y la gente al otro mientras quepan; si no, apilados. */
-  .dos-lados{display:grid;gap:var(--e3);
-    grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start;}
+  /* El archivo a un lado y la gente al otro, pero NO a partes iguales.
+     ═══════════════════════════════════════════════════════════════════════
+     Repartir al 50 % dejaba a la tabla de personas con media pantalla, y ahí
+     su última columna —«Qué pasó después», que es justo la que se viene a
+     mirar— quedaba cortada por el borde. Otra vez.
+
+     La vista previa se conforma con poco: es una ojeada para reconocer el
+     archivo, no para leerlo. Así que se le da un ancho corto y fijo y el
+     resto es para la tabla. Y por debajo de 1000 px no se reparte nada: uno
+     encima del otro, cada uno con todo el ancho. */
+  .dos-lados{display:grid;gap:var(--e3);align-items:start;}
+  @media (min-width:1000px){
+    .dos-lados{grid-template-columns:minmax(260px,320px) 1fr;}
+  }
 
   /* sin-caja: el marco del archivo, no un panel de la interfaz */
   .ojeada{border:1px solid var(--filete);border-radius:var(--r);overflow:hidden;
@@ -101,7 +112,7 @@
    gente, y lo que se buscaba era justamente traerla. */
 import { sb, mount, $, $$, esc, num, chip, fdate, ok, fail, toast, modal, avisar,
          confirmDialog, mensajeError, ocupado, subirRegalo, SUPABASE_URL }
-  from '../assets/app.js?v=2026-08-24-4';
+  from '../assets/app.js?v=2026-08-25';
 
 await mount({ require:['coordinador','admin','superadmin'], area:'admin', active:'recursos.html' });
 
@@ -249,6 +260,134 @@ function pintar(){
   }).join('');
 }
 
+/* ── crear y editar ─────────────────────────────────────────────────────── */
+function editar(r){
+  const esNuevo = !r;
+  const m = modal({
+    title: esNuevo ? 'Nuevo recurso' : 'Editar recurso',
+    wide: true,
+    body: `
+      <div class="field"><label for="rTitulo">Título</label>
+        <input id="rTitulo" value="${esc(r?.titulo || '')}" placeholder="Clase: IA aplicada al marketing">
+        <span class="pista">Es lo que se lee arriba del todo cuando alguien abre el enlace.</span></div>
+
+      <div class="field"><label for="rCodigo">Código del enlace</label>
+        <input id="rCodigo" value="${esc(r?.codigo || '')}" placeholder="clase-ia" autocomplete="off">
+        <span class="pista">Minúsculas, números y guiones. Es lo que va al final del enlace, así que
+          conviene que se lea: <code>clase-ia</code> mejor que <code>c7f3</code>.
+          <b>Si lo cambias, el enlace de antes deja de funcionar.</b></span></div>
+
+      <div class="field"><label for="rDesc">De qué va</label>
+        <textarea id="rDesc" rows="2" placeholder="Dos líneas para que sepa qué va a recibir.">${esc(r?.descripcion || '')}</textarea></div>
+
+      <div class="field"><label for="rGancho">Palabra que se comenta <span class="tiny muted">(opcional)</span></label>
+        <input id="rGancho" value="${esc(r?.gancho || '')}" placeholder="IA">
+        <span class="pista">No lo usa el programa: sirve para que dentro de seis meses sepas qué
+          publicación trajo a esta gente.</span></div>
+
+      <div class="field"><label for="rTipo">Qué se entrega</label>
+        <select id="rTipo">
+          <option value="documento"${r?.tipo === 'documento' ? ' selected' : ''}>Un documento (PDF, Word, presentación…)</option>
+          <option value="video"${r?.tipo === 'video' ? ' selected' : ''}>Un vídeo de YouTube</option>
+          <option value="enlace"${r?.tipo === 'enlace' ? ' selected' : ''}>Un enlace a otro sitio</option>
+        </select></div>
+
+      <div id="segunTipo"></div>
+
+      <label class="casilla sep"><input type="checkbox" id="rActivo"${r?.activo !== false ? ' checked' : ''}>
+        <span class="tiny muted">El enlace funciona. Si lo apagas, quien lo abra verá que ya no está
+          disponible en vez de un error.</span></label>
+      <div id="rMsg"></div>`,
+    footer: `<button class="btn ghost" data-x>Cancelar</button>
+             <button class="btn" id="rGuardar">Guardar</button>`,
+  });
+
+  /* Lo subido en esta sesión, si se cambió el archivo. `null` quiere decir
+     «déjalo como estaba», que es lo que espera la función de la base. */
+  let subido = null;
+
+  const pintarSegunTipo = () => {
+    const t = $('#rTipo', m).value;
+    const host = $('#segunTipo', m);
+    if (t === 'documento') {
+      host.innerHTML = `<div class="field"><label for="rArchivo">El documento</label>
+        <input type="file" id="rArchivo"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,image/*">
+        <span class="pista" id="rArchivoPista">${
+          r?.archivo_nombre
+            ? `Ahora mismo se entrega <b>${esc(r.archivo_nombre)}</b>. Elige otro sólo si quieres cambiarlo.`
+            : 'Se guarda en privado: sólo se puede abrir con un enlace que caduca a la hora.'}</span></div>`;
+      $('#rArchivo', m).onchange = async (ev) => {
+        const f = ev.target.files?.[0];
+        if (!f) return;
+        const pista = $('#rArchivoPista', m);
+        pista.textContent = 'Subiendo…';
+        try {
+          subido = await subirRegalo(f);
+          pista.innerHTML = `Listo: <b>${esc(subido.nombre)}</b>. Se guardará al pulsar «Guardar».`;
+        } catch (e) { subido = null; pista.innerHTML = `<span class="err-text">${esc(e.message)}</span>`; }
+      };
+    } else if (t === 'video') {
+      host.innerHTML = `<div class="field"><label for="rVideo">El vídeo de YouTube</label>
+        <input id="rVideo" value="${esc(r?.video_id || '')}" placeholder="https://youtu.be/… o el identificador">
+        <span class="pista">Pega la dirección entera y se queda con lo que hace falta.
+          Puede ser un vídeo oculto: se ve incrustado aquí sin salir a YouTube.</span></div>`;
+    } else {
+      host.innerHTML = `<div class="field"><label for="rUrl">La dirección</label>
+        <input id="rUrl" value="${esc(r?.url || '')}" placeholder="https://…" inputmode="url">
+        <span class="pista">Por ejemplo, un formulario para agendar la asesoría.</span></div>`;
+    }
+  };
+  pintarSegunTipo();
+  $('#rTipo', m).onchange = pintarSegunTipo;
+
+  /* Escribir el título rellena el código solo, pero sólo mientras se está
+     creando y sólo si nadie lo ha tocado: cambiárselo a un recurso que ya está
+     repartido rompería los enlaces que hay dando vueltas. */
+  let codigoTocado = !esNuevo;
+  $('#rCodigo', m).oninput = () => { codigoTocado = true; };
+  $('#rTitulo', m).oninput = () => {
+    if (codigoTocado) return;
+    $('#rCodigo', m).value = $('#rTitulo', m).value
+      .replace(/[ñÑ]/g, 'n').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  };
+
+  $('#rGuardar', m).onclick = () => ocupado($('#rGuardar', m), 'Guardando…', async () => {
+    const tipo = $('#rTipo', m).value;
+    const video = $('#rVideo', m)?.value.trim() || '';
+    /* De una dirección de YouTube sólo interesa el identificador, y llega de
+       cuatro formas distintas según de dónde se copie. */
+    const idVideo = (video.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{6,})/) || [, video])[1];
+
+    if (tipo === 'documento' && !subido && !r?.storage_path) {
+      return avisar('#rMsg', 'Falta el documento que se va a entregar.', 'err');
+    }
+    if (tipo === 'video' && !idVideo) return avisar('#rMsg', 'Falta el vídeo.', 'err');
+    if (tipo === 'enlace' && !$('#rUrl', m)?.value.trim()) {
+      return avisar('#rMsg', 'Falta la dirección a la que se manda.', 'err');
+    }
+
+    const { error } = await sb.rpc('cem_recurso_guardar', {
+      p_id: r?.id || null,
+      p_codigo: $('#rCodigo', m).value.trim(),
+      p_titulo: $('#rTitulo', m).value.trim(),
+      p_descripcion: $('#rDesc', m).value.trim() || null,
+      p_tipo: tipo,
+      p_storage_path: subido?.ruta || null,
+      p_archivo_nombre: subido?.nombre || null,
+      p_video_id: tipo === 'video' ? idVideo : null,
+      p_url: tipo === 'enlace' ? $('#rUrl', m).value.trim() : null,
+      p_gancho: $('#rGancho', m).value.trim() || null,
+      p_activo: $('#rActivo', m).checked,
+    });
+    if (error) return avisar('#rMsg', mensajeError(error), 'err');
+    m.close();
+    ok(esNuevo ? 'Recurso creado. Ya puedes copiar su enlace.' : 'Guardado.');
+    cargar();
+  });
+}
+
 /* ── lo que se abre al pulsar la fila ────────────────────────────────────── */
 /* Dos cosas a la vez: el archivo y la gente. Son justo las dos preguntas que
    uno tiene delante de un recurso —«¿qué estoy repartiendo?» y «¿a quién le
@@ -283,17 +422,22 @@ async function abrir(r, boton){
           return `<p class="tiny muted">${data.length} persona${data.length === 1 ? '' : 's'};
             <b>${conCuenta}</b> ${conCuenta === 1 ? 'ya tiene cuenta' : 'ya tienen cuenta'}.
             Están todas en <a href="leads.html">Contactos de la web</a>.</p>
+          <!-- Tres columnas, no cinco.
+               El panel ocupa media pantalla, y con cinco columnas la última
+               —«Qué pasó después», que es justo la que se viene a mirar—
+               quedaba cortada por el borde. La fecha se lleva su origen
+               debajo, y el nombre su correo y su teléfono: es la misma
+               información con la mitad de columnas. -->
           <div class="table-wrap"><table>
-            <thead><tr><th>Cuándo</th><th>Quién</th><th>Contacto</th>
-              <th>De dónde</th><th>Qué pasó después</th></tr></thead>
+            <thead><tr><th>Cuándo</th><th>Quién</th><th>Qué pasó después</th></tr></thead>
             <tbody>${data.map(p => `<tr>
-              <td data-col="Cuándo" class="nowrap">${fdate(p.cuando)}</td>
-              <td data-col="Quién">${esc(p.nombre || '—')}</td>
-              <td data-col="Contacto"><div class="t">${
-                p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '—'}</div>
-                <div class="s">${p.telefono
-                  ? `<a href="tel:${esc(String(p.telefono).replace(/\s/g,''))}">${esc(p.telefono)}</a>` : ''}</div></td>
-              <td data-col="De dónde">${esc(p.origen || '—')}</td>
+              <td data-col="Cuándo" class="nowrap">${fdate(p.cuando)}
+                <div class="s">${esc(p.origen || 'sin origen')}</div></td>
+              <td data-col="Quién"><div class="t">${esc(p.nombre || '—')}</div>
+                <div class="s">${
+                  p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ''}${
+                  p.telefono ? ` · <a href="tel:${esc(String(p.telefono).replace(/\s/g,''))}">${
+                    esc(p.telefono)}</a>` : ''}</div></td>
               <td data-col="Qué pasó después">${
                 !p.perfil_id ? '<span class="tiny muted">Sólo contacto</span>'
                 : Number(p.inscripciones) > 0
