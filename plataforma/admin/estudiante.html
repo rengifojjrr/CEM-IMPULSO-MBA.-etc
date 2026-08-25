@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-15">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-19">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -34,9 +34,9 @@
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, money, pct, fdate, fdatetime, emptyRow, initials, qs, kpi,
          modal, ok, okDeshacer, fail, run, audit, confirmDialog, campoArchivo, subirComprobante, opciones,
          etiqueta, chipEstado, montoPagado, enDolares, migas, mejorarSelects, nota, filaTotales, mensajeError,
-         campoDescuento, saldo as saldoCelda, avatar} from '../assets/app.js?v=2026-08-25-15';
-import { paisConBandera } from '../assets/paises.js?v=2026-08-25-15';
-import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-25-15';
+         campoDescuento, saldo as saldoCelda, avatar, avisar } from '../assets/app.js?v=2026-08-25-19';
+import { paisConBandera } from '../assets/paises.js?v=2026-08-25-19';
+import { barras, linea, hitos } from '../assets/graficos.js?v=2026-08-25-19';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -67,7 +67,10 @@ async function load(){
     ]);
     subs=sb1||[]; insts=i1||[]; pays=p1||[];
   }
-  hero(); tab('resumen');
+  /* Se vuelve a la pestaña donde estabas, no siempre al resumen. Recargar
+     después de registrar un pago o emitir un título te sacaba de donde
+     trabajabas y había que volver a buscarla. */
+  hero(); tab(pestanaActual);
 }
 
 function hero(){
@@ -243,7 +246,9 @@ const CLASE_HITO = {
   pago_ok:'ok', nota:'ok', pago_no:'mal', certificado:'hito', insignia:'hito',
 };
 
+let pestanaActual = 'resumen';
 function tab(t){
+  pestanaActual = t;
   const P = $('#panel');
 
   /* item 02 · la misma información que las otras pestañas, pero contada en el
@@ -336,9 +341,104 @@ function tab(t){
         <td class="wrap">${esc(c.cem_courses?.nombre||'')}</td><td class="muted">${fdate(c.emitido_en)}</td>
         <td>${chipEstado(c.estado)}</td>
         <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"><span class="material-symbols-outlined">verified</span></a></td>
-      </tr>`).join('') : emptyRow(6, 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>`;
+      </tr>`).join('') : emptyRow(6, 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>
+      <div id="porModulos"></div>`;
+    pintarModulos();
   }
   if (t==='pagos') pintarPagos(P);
+}
+
+/* Los títulos de cada módulo.
+   ═══════════════════════════════════════════════════════════════════════════
+   Un diplomado se parte en módulos —Fotografía, IA, Ads— y cada uno vale su
+   propio certificado. Al terminar uno sale solo; esto es para el otro caso:
+   alguien que no lo terminó al 100 % pero al que hay razón para dárselo
+   igual —convalidación, un examen presencial, lo que sea—.
+
+   Se pide el motivo y queda asentado con riesgo alto. No es burocracia: un
+   título emitido sin cumplir es una decisión de una persona concreta, y
+   dentro de dos años alguien va a querer saber quién y por qué. */
+async function pintarModulos(){
+  const host = $('#porModulos');
+  if (!host || !ens.length) return;
+
+  const porInscripcion = await Promise.all(ens.map(async (e) => {
+    const { data } = await sb.rpc('cem_modulos_de_la_inscripcion', { p_enrollment_id: e.id });
+    return { e, modulos: (data || []).filter((m) => m.certifica) };
+  }));
+  const conModulos = porInscripcion.filter((x) => x.modulos.length);
+  if (!conModulos.length) { host.innerHTML = ''; return; }
+
+  host.innerHTML = conModulos.map(({ e, modulos }) => `
+    <div class="card sep">
+      <h2 class="sec">Títulos por módulo · ${esc(e.cem_courses?.nombre || '')}</h2>
+      <p class="tiny muted" style="margin-top:-6px">Al terminar un módulo el certificado sale
+        solo. Aquí se emite el de quien no lo terminó, explicando por qué.</p>
+      <div class="table-wrap"><table class="tarjetas">
+        <thead><tr><th>Módulo</th><th>Quién lo da</th><th>Cómo va</th><th>Título</th><th></th></tr></thead>
+        <tbody>${modulos.map((m) => `<tr>
+          <td class="wrap" data-col="Módulo"><b>${esc(m.titulo)}</b>
+            ${m.horas ? `<div class="tiny muted">${esc(String(m.horas))} horas</div>` : ''}</td>
+          <td class="wrap" data-col="Quién lo da">${m.profesor
+            ? esc(m.profesor) : '<span class="tiny muted">sin asignar</span>'}</td>
+          <td data-col="Cómo va">${bar(m.avance)}
+            <span class="tiny muted">${pct(m.avance)}</span></td>
+          <td class="wrap" data-col="Título">${m.certificado_codigo
+            ? `<code>${esc(m.certificado_codigo)}</code>
+               <div class="tiny muted">${fdate(m.emitido_en)}</div>`
+            : '<span class="tiny muted">sin emitir</span>'}</td>
+          <td class="nowrap">${m.certificado_codigo ? '' : `
+            <button class="btn outline sm" data-emitir="${esc(e.id)}|${esc(m.module_id)}"
+              data-mod="${esc(m.titulo)}" data-avance="${esc(String(m.avance))}">
+              <span class="material-symbols-outlined">workspace_premium</span> Emitir</button>`}</td>
+        </tr>`).join('')}</tbody></table></div>
+    </div>`).join('');
+
+  $$('[data-emitir]', host).forEach((b) => b.onclick = () => emitirModulo(b));
+}
+
+async function emitirModulo(boton){
+  const [enrId, modId] = boton.dataset.emitir.split('|');
+  const titulo = boton.dataset.mod;
+  const avance = Number(boton.dataset.avance);
+  const terminado = avance >= 100;
+
+  let motivo = '';
+  if (!terminado) {
+    const m = modal({
+      title: `Emitir «${titulo}» sin terminarlo`,
+      body: `<div class="nota warn">Lleva <b>${pct(avance)}</b> del módulo. Emitirlo ahora es
+          una excepción y queda asentada con tu nombre.</div>
+        <div class="field sep"><label for="porQue">¿Por qué se le emite igualmente?</label>
+          <textarea id="porQue" rows="3"
+            placeholder="Ej.: convalidado por experiencia previa, acordado con dirección."></textarea></div>
+        <div id="msgEmitir"></div>`,
+      footer: `<button class="btn outline" data-x>Cancelar</button>
+               <button class="btn" data-s>Emitirlo como excepción</button>`,
+    });
+    $('[data-x]', m).onclick = m.close;
+    motivo = await new Promise((res) => {
+      $('[data-s]', m).onclick = () => {
+        const v = $('#porQue', m).value.trim();
+        if (v.length < 10) {
+          avisar($('#msgEmitir', m), 'Escribe el motivo: dentro de dos años alguien va a querer saber por qué.', 'err');
+          return;
+        }
+        m.close(); res(v);
+      };
+    });
+    if (!motivo) return;
+  } else if (!await confirmDialog(
+      `Se le emite el certificado de «${esc(titulo)}», que ya tiene terminado.`,
+      'Emitir el título del módulo', { html: true, confirmar: 'Emitir' })) return;
+
+  const { error } = await sb.rpc('cem_emitir_certificado_modulo', {
+    p_enrollment_id: enrId, p_module_id: modId,
+    p_forzar: !terminado, p_motivo: motivo || null,
+  });
+  if (error) { fail(mensajeError(error)); return; }
+  ok('Certificado emitido.');
+  load();
 }
 
 /* items 38 y 41 · las dos notas piden lo mismo desde dos sitios: quien cobra
