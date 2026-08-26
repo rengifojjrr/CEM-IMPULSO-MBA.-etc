@@ -8,16 +8,38 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=EB+Garamond:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=PT+Serif:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Cinzel:wght@400;700&family=Marcellus&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Raleway:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Great+Vibes&family=Dancing+Script&family=Pacifico&family=Sacramento&family=Alex+Brush&family=Allura&family=Parisienne&family=UnifrakturMaguntia&family=UnifrakturCook:wght@700&family=Pirata+One&display=swap" rel="stylesheet">
 <style>
+  /* Esta página se abre fuera del portal, así que la hoja compartida no está y
+     con ella no están sus colores. El motor los pide por su nombre del portal
+     (--fondo, --papel, --primary…), de modo que basta con declararlos aquí para
+     que la herramienta suelta se vea igual que dentro — y cambie de día a noche
+     como el resto. Lo demás (body, header, main) ya lo pone el motor: repetirlo
+     era lo que hacía falta cambiar dos veces cada vez. */
   :root{
-    --navy:#132743; --navy-2:#1c3a5e; --teal:#1b7f76; --gold:#c9a227;
-    --bg:#f4f6f8; --card:#ffffff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
+    --fondo:#f4f6f8; --papel:#ffffff; --hueco:#eef0f3;
+    --filete:#dde3ea; --filete-fuerte:#c2c8d0;
+    --tinta:#1f2937; --tinta-2:#6b7280;
+    --primary:#132743; --on-primary:#ffffff;
+    --secondary:#1b7f76; --secondary-container:#d6f2ee;
+    --gold:#c9a227;    --on-gold:#20200a;
+    --ok:#065f46;      --ok-suave:#e7f7f0;
+    --warn:#92400e;    --warn-suave:#fef3c7;
+    --error:#b91c1c;   --error-suave:#fdecec;
+    color-scheme:light;
   }
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:var(--bg);color:var(--text);}
-  header{background:var(--navy);color:#fff;padding:14px 18px;}
-  header h1{font-size:16px;margin:0;}
-  header p{margin:4px 0 0;font-size:12.5px;color:#cfe0ea;}
-  main{max-width:1150px;margin:0 auto;padding:20px 16px 60px;}
+  @media (prefers-color-scheme:dark){
+    :root{
+      --fondo:#111418; --papel:#181b20; --hueco:#212630;
+      --filete:#2a2f38; --filete-fuerte:#3d4450;
+      --tinta:#e9ecef; --tinta-2:#a6adb8;
+      --primary:#a9c6ec; --on-primary:#0d2440;
+      --secondary:#5ecfc2; --secondary-container:#12332f;
+      --gold:#d9b154;    --on-gold:#231a04;
+      --ok:#6cc98a;      --ok-suave:#122a1a;
+      --warn:#e0a955;    --warn-suave:#332612;
+      --error:#f08a86;   --error-suave:#331a1a;
+      color-scheme:dark;
+    }
+  }
 </style>
 </head>
 <body>
@@ -36,7 +58,7 @@
 /* Esta página es un envoltorio: el motor del generador vive en generador.js y
    lo comparte con la pantalla equivalente del portal institucional. */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { montarGenerador, ESTILOS_GENERADOR } from './generador.js?v=2026-08-20';
+import { montarGenerador, ESTILOS_GENERADOR } from './generador.js?v=2026-08-26-6';
 
 const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';

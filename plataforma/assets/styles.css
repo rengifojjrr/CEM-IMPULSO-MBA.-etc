@@ -44,6 +44,11 @@
      legible. Oscurecido conserva el tono y llega a 4,6. */
   --gold:#856517;           /* el dorado, sólo en credenciales */
   --on-gold:#ffffff;        /* lo que se escribe ENCIMA del dorado */
+  /* Lo que se escribe ENCIMA del teal. No lo fija ninguna paleta: en todas, el
+     secundario sigue la misma polaridad que el primario —oscuro de día, claro
+     de noche—, así que la tinta del primario vale también aquí. Una paleta que
+     algún día necesite otra cosa sólo tiene que declarar este nombre. */
+  --on-secondary:var(--on-primary);
   --gold-suave:#f6ecd2;
 
   --ok:#166534;      --ok-suave:#e3f2e7;
@@ -111,6 +116,12 @@
   --inverse-surface:#22262c; --inverse-on-surface:#f2f4f6;
   --radius:var(--r); --radius-sm:var(--r); --radius-lg:var(--r);
   --shadow:none; --shadow-lg:var(--sombra);
+
+  /* Lo que dibuja el navegador y no esta hoja: barras de desplazamiento, el
+     botón de «Elegir archivo», el calendario de una fecha, la muestra de un
+     selector de color. Nada de eso lee los tokens — lee esto. Sin declararlo,
+     de noche salían trozos blancos sueltos en medio de pantallas oscuras. */
+  color-scheme:light;
 }
 
 /* ── de noche ──────────────────────────────────────────────────────────────
@@ -118,6 +129,7 @@
    blanca entera. Sólo cambian los tokens: ningún componente sabe del tema. */
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
+    color-scheme:dark;
     --fondo:#111418; --papel:#181b20; --hueco:#212630;
     --tinta:#e9ecef; --tinta-2:#a6adb8; --tinta-3:#88909a;
     --filete:#2a2f38; --filete-fuerte:#3d4450;
@@ -134,6 +146,7 @@
   }
 }
 :root[data-theme="dark"]{
+  color-scheme:dark;
   --fondo:#111418; --papel:#181b20; --hueco:#212630;
   --tinta:#e9ecef; --tinta-2:#a6adb8; --tinta-3:#88909a;
   --filete:#2a2f38; --filete-fuerte:#3d4450;
@@ -404,9 +417,12 @@ p{max-width:68ch;}
 .btn.ghost:hover{background:var(--hueco);color:var(--tinta);}
 /* De noche el dorado se aclara para verse sobre fondo oscuro, y la letra
    blanca encima se quedaba en 2,03:1. Lo que va sobre el dorado tiene su
-   propio token y cambia con el tema. */
+   propio token y cambia con el tema.
+   Al teal le pasaba exactamente lo mismo y se quedó sin arreglar: con la
+   paleta nocturna el secundario es un lila claro y la letra blanca encima
+   daba 1,4:1 — el botón «Guardar plantilla» de los certificados no se leía. */
 .btn.gold{background:var(--gold);border-color:var(--gold);color:var(--on-gold);}
-.btn.teal{background:var(--secondary);border-color:var(--secondary);color:#fff;}
+.btn.teal{background:var(--secondary);border-color:var(--secondary);color:var(--on-secondary);}
 .btn.danger{background:transparent;color:var(--error);border-color:var(--error);}
 .btn.danger:hover{background:var(--error-suave);}
 .btn.sm{padding:var(--e0) var(--e1);font-size:var(--t-xs);min-height:32px;}

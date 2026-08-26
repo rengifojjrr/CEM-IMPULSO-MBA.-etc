@@ -76,13 +76,24 @@ Define el juego completo en `:root`. Como mínimo:
 superficies   --fondo  --papel  --hueco
 texto         --tinta  --tinta-2  --tinta-3
 líneas        --filete  --filete-fuerte
-marca         --primary  --primary-suave  --on-primary  --secondary
+marca         --primary  --primary-suave  --on-primary
+              --secondary  --on-secondary
 estado        --ok  --warn  --error  (+ sus versiones suaves)
 gráficos      --serie-1 … --serie-8
 forma         --r  --r-full
 espaciado     --e0 … --e5  y  --aire
 tipografía    --t-xs … --t-2xl  --peso  --peso-fuerte
 ```
+
+**Todo color que sirva de fondo necesita su pareja de encima.** Por cada
+`--x` sobre el que se escriba, un `--on-x`. Suena obvio y es justo lo que se
+olvida: de noche un color de marca se aclara para verse sobre fondo oscuro, y
+la letra blanca que llevaba encima —escrita a mano, hace meses, cuando ese
+color era oscuro— se queda en 1,4:1. Aquí pasó dos veces, con el dorado y con
+el teal, y la segunda estaba en la línea de al lado de la primera. Si una
+pareja `--on-x` no existe todavía, decláratela apuntando a la que sí:
+`--on-secondary:var(--on-primary)` resuelve sola en todas las paletas donde el
+secundario sigue la misma polaridad que el primario.
 
 **Los colores de estado NO cambian con la paleta.** «Correcto», «atención» y
 «error» significan lo mismo siempre: no son decoración, son señales. Una paleta
@@ -110,8 +121,16 @@ DOM; sólo una elección explícita la deja. Entonces:
 :root[data-theme="dark"]{ --fondo:#111418; --tinta:#e9ecef; /* … */ }
 ```
 
-Dos reglas que se siguen de esto:
+Tres reglas que se siguen de esto:
 
+- **En esos mismos tres bloques va `color-scheme`** — `light` en el primero,
+  `dark` en los otros dos. No es un token: es lo único que lee el navegador
+  para dibujar lo que no dibuja tu hoja —barras de desplazamiento, el botón de
+  «Elegir archivo», el calendario de un `input[type=date]`, la muestra de un
+  `input[type=color]`—. Sin declararlo, esas piezas se quedan claras y salen
+  como recortes blancos sueltos en medio de una pantalla oscura. Va en la raíz
+  del documento y sólo ahí: una copia acotada a un contenedor deja los
+  controles de un tema y el resto de la página del otro.
 - **Ningún color puede tener su única definición dentro de un `@media` o de un
   `[data-theme]`.** Si la tiene, en el estado sin marcar no se aplica y acabas
   pintando el texto de un tema sobre el fondo del otro.

@@ -39,12 +39,30 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
     --text:var(--tinta, #1f2937);
     --muted:var(--tinta-2, #6b7280);
     --sobre-marca:var(--on-primary, #ffffff);
+    --border-fuerte:var(--filete-fuerte, #c2c8d0);
+    --sobre-dorado:var(--on-gold, #20200a);
+    --teal-suave:var(--secondary-container, #e7f7f0);
+    --peligro:var(--error, #b91c1c);
+    --peligro-suave:var(--error-suave, #fdecec);
+    --bien:var(--ok, #065f46);
+    --bien-suave:var(--ok-suave, #e7f7f0);
+    --ojo:var(--warn, #92400e);
+    --ojo-suave:var(--warn-suave, #fef3c7);
   }
+
+  /* Los controles que dibuja el navegador —«Elegir archivo», las casillas, la
+     barra de desplazamiento— no leen esta hoja: leen color-scheme, y esa va
+     en la raíz del documento, no aquí. La declara cada página anfitriona
+     (styles.css del portal y el estilo propio de certificados/generar.html).
+     Ponerla
+     también acá, acotada al generador, dejaría los controles de un tema y el
+     resto de la página del otro en cuanto alguien montara el motor en una
+     pantalla clara. */
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
-  header{background:var(--navy);color:#fff;padding:14px 18px;}
+  header{background:var(--navy);color:var(--sobre-marca);padding:14px 18px;}
   header h1{font-size:16px;margin:0;}
-  header p{margin:4px 0 0;font-size:12.5px;color:#cfe0ea;}
+  header p{margin:4px 0 0;font-size:12.5px;color:var(--sobre-marca);opacity:.78;}
   main{max-width:1150px;margin:0 auto;padding:20px 16px 60px;}
   .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px;}
   .panel h2{margin-top:0;font-size:15px;color:var(--navy);}
@@ -53,47 +71,54 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .panel-head .btn{flex:0 0 auto;}
   .panel-body.collapsed{display:none;}
   .gen-entry{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;}
-  .gen-entry-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:10px 12px;background:#f8fafb;cursor:pointer;}
+  .gen-entry-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;padding:10px 12px;background:var(--hundido);cursor:pointer;}
   .gen-entry-body{padding:10px 12px;border-top:1px solid var(--border);}
-  .btn{cursor:pointer;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:6px;padding:8px 14px;font-size:13px;}
-  .btn.outline{background:#fff;color:var(--navy);}
+  .btn{cursor:pointer;border:1px solid var(--navy);background:var(--navy);color:var(--sobre-marca);border-radius:6px;padding:8px 14px;font-size:13px;}
+  .btn.outline{background:var(--card);color:var(--navy);}
   .btn.teal{background:var(--teal);border-color:var(--teal);}
-  .btn.gold{background:var(--dorado);border-color:var(--dorado);color:#20200a;}
-  .btn.danger{background:#fff;color:#b91c1c;border-color:#b91c1c;}
+  .btn.gold{background:var(--dorado);border-color:var(--dorado);color:var(--sobre-dorado);}
+  .btn.danger{background:var(--card);color:var(--peligro);border-color:var(--peligro);}
   .btn:disabled{cursor:not-allowed;opacity:1;background:var(--hundido);
     color:var(--muted);border-color:var(--border);}
   .btn.small{padding:4px 9px;font-size:11.5px;}
   input[type=email], input[type=text], input[type=number], input[type=date], input[type=color], select, textarea{
-    padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
+    padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;
+    background:var(--card);color:var(--text);}
   textarea{width:100%;min-height:110px;font-family:ui-monospace,monospace;font-size:12px;}
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
   th,td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left;}
   th{color:var(--muted);text-transform:uppercase;font-size:10.5px;}
   .msg{padding:10px 12px;border-radius:8px;font-size:13px;margin-top:10px;}
-  .msg.ok{background:#e7f7f0;color:#065f46;}
-  .msg.err{background:#fdecec;color:#7a1212;}
-  .msg.warn{background:#fef3c7;color:#92400e;}
+  .msg.ok{background:var(--bien-suave);color:var(--bien);}
+  .msg.err{background:var(--peligro-suave);color:var(--peligro);}
+  .msg.warn{background:var(--ojo-suave);color:var(--ojo);}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
   /* ---- reglas y guías, al estilo de un procesador de textos ---- */
   .lienzo-con-reglas{display:grid;grid-template-columns:20px auto;grid-template-rows:20px auto;
     width:max-content;max-width:100%;}
-  .regla-esquina{background:#e9edf1;border:1px solid var(--border);border-radius:4px 0 0 0;
+  .regla-esquina{background:var(--hundido);border:1px solid var(--border);border-radius:4px 0 0 0;
     display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);
     cursor:pointer;user-select:none;}
-  .regla-esquina:hover{background:#dbe2e9;color:#b91c1c;}
-  .regla{position:relative;background:#f1f4f7;border:1px solid var(--border);overflow:hidden;
+  .regla-esquina:hover{background:var(--border);color:var(--peligro);}
+  .regla{position:relative;background:var(--hundido);border:1px solid var(--border);overflow:hidden;
     touch-action:none;user-select:none;}
   .regla-h{grid-column:2;grid-row:1;cursor:col-resize;}
   .regla-v{grid-column:1;grid-row:2;cursor:row-resize;}
-  .regla .marca{position:absolute;background:#9aa7b4;}
+  .regla .marca{position:absolute;background:var(--border-fuerte);}
   .regla-h .marca{bottom:0;width:1px;}
   .regla-v .marca{right:0;height:1px;}
-  .regla .num{position:absolute;font-size:8.5px;color:#5d6b7a;line-height:1;}
+  .regla .num{position:absolute;font-size:8.5px;color:var(--muted);line-height:1;}
   .regla-h .num{top:3px;transform:translateX(-50%);}
   .regla-v .num{left:3px;transform:translateY(-50%) rotate(-90deg);transform-origin:center;}
   .regla .fantasma{position:absolute;background:var(--teal);opacity:.55;}
   .regla-h .fantasma{top:0;bottom:0;width:2px;}
   .regla-v .fantasma{left:0;right:0;height:2px;}
+
+  /* Ojo con lo que viene de aquí a la caja de los campos: etiquetas, marcas,
+     guías y recuadros van pintados ENCIMA de la lámina del certificado, que es
+     arte claro tanto de día como de noche. Sus colores están escritos a mano a
+     propósito: si siguieran el tema, de noche se volverían claros sobre claro
+     y desaparecerían justo sobre el papel que hay que colocar. */
 
   /* Por debajo de las etiquetas y las marcas de los campos (z 3-5): una guía
      nunca debe impedir agarrar un campo que quede justo encima de ella. */
@@ -151,7 +176,7 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .img-handle.inactive{opacity:.4;}
   .modal-fondo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:flex-start;
     justify-content:center;padding:24px 12px;overflow-y:auto;}
-  .modal-caja{background:#fff;border-radius:10px;max-width:760px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+  .modal-caja{background:var(--card);border-radius:10px;max-width:760px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);}
   .modal-cab{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
   .modal-cab b{flex:1;min-width:0;}
   .modal-cuerpo{padding:14px 16px 18px;}
@@ -159,23 +184,23 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .field-settings label{color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;}
 
   /* ---- lista de campos ---- */
-  .campo{border:1px solid var(--border);border-radius:8px;margin-bottom:7px;background:#fff;}
+  .campo{border:1px solid var(--border);border-radius:8px;margin-bottom:7px;background:var(--card);}
   .campo.abierto{border-color:var(--teal);box-shadow:0 1px 6px rgba(27,127,118,.12);}
-  .campo.apagado{background:#fafbfc;}
+  .campo.apagado{background:var(--hundido);}
   .campo-cab{display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer;}
-  .campo-cab:hover{background:#f6f8fa;}
+  .campo-cab:hover{background:var(--hundido);}
   .campo-orden{display:flex;flex-direction:column;gap:1px;}
   .campo-orden .mini{width:20px;height:15px;line-height:1;padding:0;font-size:9px;border:1px solid var(--border);
-    background:#fff;border-radius:3px;color:var(--muted);cursor:pointer;}
+    background:var(--card);border-radius:3px;color:var(--muted);cursor:pointer;}
   .campo-orden .mini:disabled{opacity:1;cursor:default;color:var(--muted);
     background:var(--hundido);border-color:var(--border);}
   .campo-nombre{flex:1;min-width:90px;font-weight:600;}
   .campo-tipo{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
     border:1px solid var(--border);border-radius:10px;padding:2px 8px;white-space:nowrap;}
   .campo-resumen{font-size:11px;color:var(--muted);}
-  .campo-flecha{color:var(--navy);font-size:11px;background:#eef2f6;border:1px solid var(--border);
+  .campo-flecha{color:var(--navy);font-size:11px;background:var(--hundido);border:1px solid var(--border);
     border-radius:6px;padding:4px 9px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
-  .campo-flecha:hover{background:#e2e8f0;}
+  .campo-flecha:hover{background:var(--border);}
   .campo-cuerpo{padding:4px 11px 11px;border-top:1px solid var(--border);}
   .campo-fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:9px;font-size:12.5px;}
   .campo-fila label{color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap;}
@@ -183,21 +208,21 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   /* fondo a cuadros: deja ver una imagen blanca o transparente */
   .img-muestra{width:56px;height:38px;border:1px solid var(--border);border-radius:5px;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;overflow:hidden;
-    background-image:linear-gradient(45deg,#dfe5ec 25%,transparent 25%,transparent 75%,#dfe5ec 75%),
-                     linear-gradient(45deg,#dfe5ec 25%,transparent 25%,transparent 75%,#dfe5ec 75%);
-    background-size:10px 10px;background-position:0 0,5px 5px;background-color:#fff;}
+    background-image:linear-gradient(45deg,var(--border) 25%,transparent 25%,transparent 75%,var(--border) 75%),
+                     linear-gradient(45deg,var(--border) 25%,transparent 25%,transparent 75%,var(--border) 75%);
+    background-size:10px 10px;background-position:0 0,5px 5px;background-color:var(--card);}
   .img-muestra img{max-width:100%;max-height:100%;object-fit:contain;}
   .img-muestra i{font-size:10px;color:var(--muted);}
   @media (max-width:640px){ .campo-fila{gap:8px;} .campo-nombre{min-width:0;} }
   .resaltado-muestra{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:18px;
-    background:#fff;cursor:text;user-select:text;line-height:1.5;word-break:break-word;}
+    background:var(--card);cursor:text;user-select:text;line-height:1.5;word-break:break-word;}
   .resaltado-muestra span{white-space:pre;}
   .plantilla-editor{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:14px;
-    background:#fff;min-height:36px;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+    background:var(--card);min-height:36px;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
   .plantilla-editor:focus{outline:2px solid var(--teal);outline-offset:1px;}
-  .var-chip{display:inline-block;background:var(--dorado);color:#132743;border-radius:10px;padding:1px 8px;
+  .var-chip{display:inline-block;background:var(--dorado);color:var(--sobre-dorado);border-radius:10px;padding:1px 8px;
     margin:0 1px;font-size:12.5px;font-weight:600;cursor:pointer;user-select:none;}
-  .var-chip:hover{background:#b8901f;color:#fff;}
+  .var-chip:hover{filter:brightness(.9);}
   .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;color:#fff;}
   .badge.vigente{background:#16a34a;}
   .badge.revocado{background:#dc2626;}
@@ -208,7 +233,7 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
      Una tanda de graduación se emite de una sentada, así que la fecha es lo que
      de verdad separa un grupo de otro. Es una fila y no una caja: meter cada día
      en su propio recuadro rompería la alineación de las columnas. */
-  tr.grupo-fecha td{background:#eef2f6;border-bottom:1px solid var(--border);padding:7px 8px;}
+  tr.grupo-fecha td{background:var(--hundido);border-bottom:1px solid var(--border);padding:7px 8px;}
   tr.grupo-fecha .dia{font-weight:700;color:var(--navy);}
   tr.grupo-fecha .row{margin-bottom:0;gap:8px;}
   td.hora{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
@@ -216,10 +241,10 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   /* La previa de un grupo: un diploma por módulo, con su fecha debajo.
      Se mira para comprobar que cada módulo lleva su diseño y su fecha ANTES de
      ponerse a dibujar doscientos PDF, que son varios minutos. */
-  td.previa-lote{background:#f7f9fb;padding:12px;}
+  td.previa-lote{background:var(--hundido);padding:12px;}
   .previa-rejilla{display:grid;gap:14px;
     grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
-  .previa-uno{margin:0;background:#fff;border:1px solid var(--border);border-radius:8px;
+  .previa-uno{margin:0;background:var(--card);border:1px solid var(--border);border-radius:8px;
     padding:8px;display:flex;flex-direction:column;gap:6px;}
   .previa-uno img{width:100%;height:auto;display:block;border-radius:4px;
     border:1px solid var(--border);}
@@ -228,48 +253,48 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   /* Cartel de «esto está tardando a propósito». Abajo a la derecha, sin tapar
      la tabla y sin robar el foco: no hay nada que decidir mientras dura. */
   .aviso-progreso{position:fixed;right:18px;bottom:18px;z-index:60;
-    background:var(--navy);color:#fff;border-radius:10px;padding:12px 16px;
+    background:var(--navy);color:var(--sobre-marca);border-radius:10px;padding:12px 16px;
     box-shadow:0 8px 24px rgba(0,0,0,.22);display:flex;flex-direction:column;gap:2px;
     font-size:13px;}
-  .aviso-progreso .hint{color:#cfe0ea;}
-  .badge.borrador{background:var(--dorado);color:#132743;}
-  .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:#eef2f6;color:var(--muted);margin-top:2px;}
+  .aviso-progreso .hint{color:var(--sobre-marca);opacity:.78;}
+  .badge.borrador{background:var(--dorado);color:var(--sobre-dorado);}
+  .carpeta-chip{display:inline-block;font-size:10px;padding:1px 7px;border-radius:8px;background:var(--hundido);color:var(--muted);margin-top:2px;}
 
   /* ---- botón de ayuda "?": reemplaza los párrafos largos de explicación ---- */
   .ayuda-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
-    border-radius:50%;border:1px solid var(--border);background:#f3f5f7;color:var(--muted);
+    border-radius:50%;border:1px solid var(--border);background:var(--hundido);color:var(--muted);
     font-size:11px;font-weight:700;cursor:help;flex:none;padding:0;line-height:1;}
-  .ayuda-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy);}
-  .ayuda-pop{position:absolute;z-index:500;max-width:320px;background:#132743;color:#fff;font-size:12.5px;
+  .ayuda-btn:hover{background:var(--navy);color:var(--sobre-marca);border-color:var(--navy);}
+  .ayuda-pop{position:absolute;z-index:500;max-width:320px;background:var(--navy);color:var(--sobre-marca);font-size:12.5px;
     line-height:1.45;padding:10px 12px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);}
 
   /* ---- tablero visual de carpetas: arrastrar y soltar para organizar ---- */
   .carpetas-board{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px;align-items:flex-start;}
-  .carpeta-card{border:1px solid var(--border);border-radius:10px;background:#fbfcfd;min-width:230px;
+  .carpeta-card{border:1px solid var(--border);border-radius:10px;background:var(--hundido);min-width:230px;
     flex:1 1 230px;max-width:460px;}
-  .carpeta-card.sin-carpeta{background:#f8fafb;border-style:dashed;}
+  .carpeta-card.sin-carpeta{background:transparent;border-style:dashed;}
   .carpeta-card-head{font-size:12.5px;font-weight:600;padding:7px 10px;border-bottom:1px solid var(--border);
     display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;user-select:none;}
-  .carpeta-card-head:hover{background:#f3f5f7;}
+  .carpeta-card-head:hover{background:var(--border);}
   .carpeta-flecha{display:inline-block;width:10px;color:var(--muted);}
   .carpeta-card-acciones{display:flex;align-items:center;gap:3px;}
   .carpeta-accion{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;
     padding:2px 4px;border-radius:4px;line-height:1;}
   .carpeta-accion:hover{background:rgba(0,0,0,.08);color:var(--navy);}
   .carpeta-card-body{padding:8px;display:flex;flex-wrap:wrap;gap:8px;min-height:38px;align-content:flex-start;}
-  .carpeta-card-body.drag-over{background:#e7f7f0;outline:2px dashed var(--teal);outline-offset:-2px;}
+  .carpeta-card-body.drag-over{background:var(--teal-suave);outline:2px dashed var(--teal);outline-offset:-2px;}
   /* carpetas dentro de carpetas: la subcarpeta ocupa todo el ancho de su padre,
      apiladas verticalmente, con una guía punteada que marca el nivel */
   .carpeta-subcarpetas{display:flex;flex-direction:column;gap:8px;margin:8px 0 0;padding:8px 0 0 12px;border-left:2px dashed var(--border);}
   .carpeta-card--anidada{width:100%;max-width:none;min-width:0;flex:none;}
   .plantilla-chip{position:relative;display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);
-    background:#fff;border-radius:7px;padding:5px;font-size:11px;cursor:grab;width:104px;}
-  .plantilla-chip-img{width:100%;height:60px;object-fit:cover;border-radius:4px;background:#eef2f6;
+    background:var(--card);border-radius:7px;padding:5px;font-size:11px;cursor:grab;width:104px;}
+  .plantilla-chip-img{width:100%;height:60px;object-fit:cover;border-radius:4px;background:var(--hundido);
     border:1px solid var(--border);display:block;}
   .plantilla-chip-nombre{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
   .plantilla-chip:hover{border-color:var(--teal);}
   .plantilla-chip.sel{border-color:var(--teal);background:rgba(27,127,118,.08);font-weight:600;}
-  .plantilla-chip.marcada{border-color:#dc2626;background:rgba(220,38,38,.06);}
+  .plantilla-chip.marcada{border-color:var(--peligro);background:rgba(220,38,38,.12);}
   .plantilla-chip-check{position:absolute;top:3px;left:3px;width:15px;height:15px;cursor:pointer;z-index:2;}
   .plantilla-chip:active{cursor:grabbing;}
   progress{width:100%;height:14px;}
@@ -277,17 +302,17 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   .matrix-wrap{overflow-x:auto;}
   .matrix-wrap table{white-space:nowrap;}
   .matrix-wrap th, .matrix-wrap td{text-align:center;}
-  .matrix-wrap td:first-child, .matrix-wrap th:first-child{text-align:left;position:sticky;left:0;background:#fff;}
+  .matrix-wrap td:first-child, .matrix-wrap th:first-child{text-align:left;position:sticky;left:0;background:var(--card);}
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px;}
-  .gallery figure{margin:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fafbfc;}
+  .gallery figure{margin:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--hundido);}
   .gallery img{width:100%;display:block;}
   .gallery figcaption{padding:6px 8px;font-size:11px;color:var(--muted);}
   .gallery figcaption b{color:var(--text);display:block;font-size:11.5px;}
   .font-picker{position:relative;display:inline-block;}
-  .font-picker-btn{padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:13px;cursor:pointer;min-width:150px;max-width:220px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .font-picker-list{position:absolute;top:100%;left:0;z-index:20;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:260px;overflow-y:auto;min-width:230px;margin-top:2px;}
+  .font-picker-btn{padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:13px;cursor:pointer;min-width:150px;max-width:220px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .font-picker-list{position:absolute;top:100%;left:0;z-index:20;background:var(--card);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.15);max-height:260px;overflow-y:auto;min-width:230px;margin-top:2px;}
   .font-picker-opt{padding:9px 12px;font-size:15px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .font-picker-opt:hover, .font-picker-opt:active{background:#f4f6f8;}
+  .font-picker-opt:hover, .font-picker-opt:active{background:var(--hundido);}
   @media (max-width:640px){
     .btn{width:100%;}
     .row{flex-direction:column;align-items:stretch;}
@@ -341,12 +366,12 @@ export const CONTROLES_GENERADOR = String.raw`  <div id="appContent">
         <input type="file" id="inputSubirCarpetaCompleta" webkitdirectory directory multiple hidden>
         <button type="button" class="ayuda-btn" data-ayuda-texto="«Subir diseños» crea una plantilla por cada PNG, JPG o PDF que elijas, todas dentro de la carpeta que hayas escrito arriba (si no existe, se crea). «Subir carpeta de la computadora» hace lo mismo pero de una vez con todos los archivos de una carpeta de tu equipo, usando el nombre de esa carpeta como carpeta aquí. Cada plantilla nueva sale con los campos por defecto; usa después «Copiar a TODA una carpeta» para aplicarles a todas el diseño de campos que quieras.">?</button>
       </div>
-      <div id="carpetasSeleccionBar" class="row" style="display:none;align-items:center;background:#fdecec;
-        border:1px solid #f3b4b4;border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
+      <div id="carpetasSeleccionBar" class="row" style="display:none;align-items:center;background:var(--peligro-suave);
+        border:1px solid var(--peligro);border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
       <div id="carpetasMsg" class="hint" style="min-height:18px;margin-bottom:4px;"></div>
       <div class="carpetas-board" id="carpetasBoard"></div>
 
-      <div class="row" style="background:#fff8ec;border:1px solid var(--gold);border-radius:8px;padding:10px 12px;align-items:center;">
+      <div class="row" style="background:var(--ojo-suave);border:1px solid var(--gold);border-radius:8px;padding:10px 12px;align-items:center;">
         <label class="hint" style="min-width:150px;">Copiar a TODA una carpeta:</label>
         <select id="selCarpetaDestinoMasivo" style="min-width:170px;"></select>
         <span class="hint">desde</span>
@@ -355,7 +380,7 @@ export const CONTROLES_GENERADOR = String.raw`  <div id="appContent">
         <button type="button" class="ayuda-btn" data-ayuda-texto="Aplica de una sola vez los mismos campos —textos, imágenes con su archivo, códigos QR, márgenes, tipografías y opacidades— de la plantilla elegida a TODAS las plantillas de la carpeta que selecciones, y las guarda de una vez. Útil recién creaste varias plantillas para un diplomado y quieres arrancarlas todas desde el mismo diseño. El fondo de cada certificado no se toca. Además te pregunta aparte si también quieres copiar los valores fijos de esa plantilla (por ejemplo una Fecha puesta a mano) a las demás, o si cada una debe conservar los suyos.">?</button>
       </div>
 
-      <div class="row" style="background:#f8fafb;border:1px solid var(--border);border-radius:8px;padding:10px 12px;align-items:center;">
+      <div class="row" style="background:var(--hundido);border:1px solid var(--border);border-radius:8px;padding:10px 12px;align-items:center;">
         <label class="hint" style="min-width:150px;">Copiar todos los campos de:</label>
         <select id="selCopiarEstilo" style="flex:1;min-width:180px;"></select>
         <button class="btn outline" id="btnCopiarEstilo">Copiar a esta plantilla</button>
@@ -508,7 +533,7 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
         <button class="btn danger" id="btnBorrarHistorial">Borrar todo el historial</button>
         <button type="button" class="ayuda-btn" data-ayuda-texto="Marca uno o varios certificados con su casilla para editar sus datos (por ejemplo, corregir una cédula mal escrita) y volver a descargarlos listos para imprimir. Editar NO borra el certificado original: lo marca como «reemplazado» y crea uno nuevo con los datos corregidos y su propio código QR. También puedes descargar de nuevo sin cambiar nada, uno o varios a la vez.">?</button>
       </div>
-      <div id="emitidosSeleccionBar" class="row" style="display:none;align-items:center;background:#eef2f6;
+      <div id="emitidosSeleccionBar" class="row" style="display:none;align-items:center;background:var(--hundido);
         border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
       <div id="listaEmitidosWrap">Cargando…</div>
       </div>
@@ -897,7 +922,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
          diseños. Se dice qué pasó, se deja claro que nada se perdió y se ofrece
          el único paso que suele resolverlo. */
       contenedor.insertAdjacentHTML('afterbegin', `
-        <div style="background:#fdecea;border:1px solid #f5c6c2;border-left:4px solid #c0392b;
+        <div style="background:var(--peligro-suave);border:1px solid var(--peligro);border-left:4px solid var(--peligro);
                     border-radius:10px;padding:16px 18px;margin-bottom:16px;">
           <b style="color:#a5281d;">No se pudo cargar tu biblioteca de plantillas</b>
           <p style="margin:6px 0 0;white-space:pre-line;color:#5b2b26;line-height:1.55;">${
