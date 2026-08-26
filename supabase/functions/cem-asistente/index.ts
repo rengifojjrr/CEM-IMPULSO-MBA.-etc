@@ -346,6 +346,46 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    /* ── La red que sostiene la promesa ───────────────────────────────────
+       Probándolo salió esto: el modelo llamó a avisar_al_equipo, la llamada
+       FALLÓ, se le devolvió el error tal cual, y aun así contestó «Ya avisé al
+       equipo, pronto te contactarán».
+
+       O sea que la avería que veníamos a arreglar reaparecía un peldaño más
+       arriba. Y no se arregla con una línea del guion: el guion ya decía que no
+       lo prometiera sin llamarla. Un modelo no es un sitio donde poner una
+       garantía.
+
+       Así que la garantía va aquí: si el asistente DIJO que avisó, se comprueba
+       y, si no está avisado, se avisa desde el servidor —que sí sabe con
+       certeza de qué conversación se trata, porque no la eligió el modelo.
+
+       Se prefiere avisar de más. Un aviso sobrante le cuesta al equipo mirar
+       una conversación que no hacía falta; uno que falta le cuesta a una
+       persona que le dijeron que la iban a llamar y nadie la llamó. Y de todas
+       formas escalar no se repite dentro de seis horas. */
+    if (conversacion && !fallo) {
+      const loPrometio = /\bavis[oéó]\b|aviso al equipo|le paso tu|paso tu mensaje|te escrib/i.test(texto);
+      const salioMal = usadas.some((u: any) => u.nombre === "avisar_al_equipo" && u.error);
+      const salioBien = usadas.some((u: any) => u.nombre === "avisar_al_equipo" && !u.error);
+
+      if ((loPrometio || salioMal) && !salioBien) {
+        try {
+          const { error } = await suyoDeQuienPregunta.rpc("cem_bot_escalar", {
+            p_conversacion: conversacion,
+            p_motivo: "Lo prometió el asistente en la conversación",
+          });
+          if (error) throw error;
+        } catch (e) {
+          console.error("[asistente] no se pudo cumplir el aviso prometido:", e);
+          /* Si tampoco se puede avisar, lo que NO se hace es dejar la frase.
+             Prometer y no cumplir es peor que decir que no se pudo. */
+          texto = "Ahorita no consigo avisar al equipo por aquí. Escríbenos por "
+                + "los canales del centro y te atienden.";
+        }
+      }
+    }
+
     // Se guarda DESPUÉS de tener la respuesta, nunca antes. Confirmar antes de
     // completar convierte cualquier caída en pérdida definitiva.
     if (conversacion) {

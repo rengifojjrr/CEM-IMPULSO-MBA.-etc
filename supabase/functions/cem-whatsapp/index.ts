@@ -292,6 +292,7 @@ async function atender(
                     { role: "user", content: texto }];
 
   let respuesta = "", modelo = "", uso: any = {}, fallo: string | null = null;
+  let usadas: any[] = [];
   try {
     const r = await conversar({
       cliente: sb,
@@ -302,7 +303,7 @@ async function atender(
       delServidor: { p_conversacion: conv },
       tope: TOPE_RESPUESTA,
     });
-    modelo = r.modelo; uso = r.uso;
+    modelo = r.modelo; uso = r.uso; usadas = r.usadas;
     // Si el filtro se lo come todo, gana el original: borrar una respuesta
     // buena y decir que estamos caidos es peor que dejar pasar una frase torpe.
     respuesta = limpiar(r.texto, true) || r.texto.trim();
@@ -319,6 +320,29 @@ async function atender(
         });
       } catch (e2) {
         console.error("[whatsapp] tampoco se pudo escalar:", e2);
+      }
+    }
+  }
+
+  /* La misma red que en la web, y por el mismo motivo: probándolo, el modelo
+     llamó a avisar_al_equipo, la llamada falló, y aun así contestó «Ya avisé al
+     equipo». Si lo dijo, se cumple desde aquí. Ver el comentario largo en
+     cem-asistente. */
+  if (conv && !fallo) {
+    const loPrometio = /\bavis[oéó]\b|aviso al equipo|le paso tu|paso tu mensaje|te escrib/i.test(respuesta);
+    const salioMal = (usadas ?? []).some((u: any) => u.nombre === "avisar_al_equipo" && u.error);
+    const salioBien = (usadas ?? []).some((u: any) => u.nombre === "avisar_al_equipo" && !u.error);
+    if ((loPrometio || salioMal) && !salioBien) {
+      try {
+        const { error } = await sb.rpc("cem_bot_escalar", {
+          p_conversacion: conv,
+          p_motivo: "Lo prometió el asistente por WhatsApp",
+        });
+        if (error) throw error;
+      } catch (e) {
+        console.error("[whatsapp] no se pudo cumplir el aviso prometido:", e);
+        respuesta = "Ahorita no consigo avisar al equipo por aqui. "
+                  + "Escribenos por los canales del centro y te atienden.";
       }
     }
   }
