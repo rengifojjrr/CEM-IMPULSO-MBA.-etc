@@ -11,32 +11,37 @@ Está ordenado por lo que cuesta que salga mal, no por lo que cuesta hacerlo.
 
 Nada de esto lo arregla el código: hacen falta cuentas, dinero o material.
 
-### 1.0 · GitHub Actions no coge trabajos — **el sitio no se está publicando**
+### 1.0 · La rama por defecto es una rama de trabajo
 
-Detectado el 26 de agosto. Tres ejecuciones de «pages build and deployment»
-—178, 179 y 180— llevan **más de una hora en cola** sin que su `updated_at` se
-mueva ni un segundo. La 177 había terminado bien a las 15:04; a partir de las
-15:09 no arranca nada.
+El repositorio tiene como rama por defecto
+`claude/automatizar-certificados-graduacion-ycz2kv`, no `main`. Quien entre a
+GitHub ve esa, y es la que usan por omisión los lanzamientos manuales de un
+workflow. Lo que publica el sitio es `main`, y la tarea de las páginas para
+Google hace `checkout` de `main` de forma explícita, así que hoy no rompe nada
+— pero es una trampa esperando: el día que alguien añada un workflow sin fijar
+la rama, correrá sobre la de trabajo.
 
-Lo que eso significa, y por qué está lo primero de esta lista:
+Se cambia en **Settings → General → Default branch** del repositorio.
 
-- **escuelacem.com se quedó en el commit `b37d86b`.** Todo lo posterior está en
-  el repositorio y no en el sitio.
-- La tarea diaria «Páginas para Google» tampoco va a correr. Las páginas de
-  programa dejan de actualizarse.
-- «Desplegar funciones del asistente» falló con `startup_failure` y **cero
-  trabajos creados**, que es lo que pasa cuando ni siquiera puede empezar. El
-  archivo del workflow es YAML válido —comprobado— así que no es eso. Al
-  segundo intento, una hora después, sí arrancó y desplegó.
-
-Lo más probable es que se hayan agotado los minutos incluidos de Actions del
-mes, o que haya saltado un límite de gasto. Se mira en **Settings → Billing and
-plans → Plans and usage** de la cuenta. Si el repositorio es privado, pasarlo a
-público devuelve los minutos ilimitados; si no, hay que subir el límite.
-
-Mientras esté así, cualquier cambio que se suba **no se ve en el sitio**, y eso
-no da ningún error: el commit entra, la ejecución se queda en cola, y el sitio
-sigue sirviendo lo de antes. Es la clase de avería que se descubre tarde.
+> **Nota sobre las ejecuciones «en cola» de Pages, para que nadie vuelva a dar
+> la falsa alarma que di yo.** La API de GitHub deja ejecuciones de
+> `pages build and deployment` marcadas como `queued` indefinidamente —una hora,
+> dos— **aunque el despliegue haya ocurrido**. Comprobé el 26 de agosto que tres
+> ejecuciones seguían en cola mientras el sitio ya servía ese mismo commit.
+>
+> La forma fiable de saber si algo está publicado NO es mirar Actions: es pedir
+> el archivo y comparar.
+>
+> ```
+> curl -s https://escuelacem.com/plataforma/inicio.html | grep -o 'styles.css?v=[^"]*'
+> ```
+>
+> Si coincide con lo que hay en el repositorio, está publicado.
+>
+> Aparte de eso, `desplegar-funciones.yml` falló una vez con `startup_failure` y
+> cero trabajos creados —el YAML es válido, comprobado— y al relanzarlo una hora
+> después desplegó sin tocar nada. Si vuelve a pasar: relanzar antes de buscar
+> la causa en el código.
 
 ### 1.1 · El correo no sale — **138 avisos parados**
 
