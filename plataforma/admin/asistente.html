@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-5">
 <style>
   /* La mascota y el botón de actualizar, uno al lado del otro. */
   .cab-asistente{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;}
@@ -261,8 +261,8 @@
 import { sb, mount, $, $$, esc, num, chip, fdatetime, fdesde, ok, fail, modal,
          confirmDialog, mensajeError, ocupado, avisar, kpi, vacio, emptyRow,
          filasEsqueleto, montarAyudas, subirImagenCurso, botonesConNombre, etiqueta }
-  from '../assets/app.js?v=2026-08-26-4';
-import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-26-4';
+  from '../assets/app.js?v=2026-08-26-5';
+import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-26-5';
 
 const yo = await mount({ require:['coordinador','admin','superadmin','auditor'], area:'admin',
                          active:'asistente.html' });
@@ -506,10 +506,8 @@ async function cargarCharlas() {
   </tr>`).join('');
 }
 
-$('#tablaCharlas').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-ver]');
-  if (!b) return;
-  const { data, error } = await sb.rpc('cem_bot_conversacion_ver', { p_conversacion: b.dataset.ver });
+async function leerConversacion(id) {
+  const { data, error } = await sb.rpc('cem_bot_conversacion_ver', { p_conversacion: id });
   if (error) { fail(mensajeError(error)); return; }
   modal({
     title: 'La conversación entera',
@@ -526,6 +524,17 @@ $('#tablaCharlas').addEventListener('click', async (e) => {
         seguía en pantalla. Recarga para ver las que hay ahora.</div>`}</div>`,
     footer: '<button class="btn" data-x>Cerrar</button>',
   });
+}
+
+/* El ojo de «leer la conversación» sale en DOS sitios: la pestaña de
+   Conversaciones y el modal de lo que ha hablado una persona. Este escucha
+   está en el documento y no en una tabla concreta por eso mismo: los modales
+   se cuelgan del `body`, fuera de cualquier tabla, así que un escucha pegado a
+   `#tablaCharlas` nunca se entera de los clics del modal — el botón se dibuja
+   y no hace nada. Es exactamente lo que pasó. */
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ver]');
+  if (b) leerConversacion(b.dataset.ver);
 });
 
 ['#cAmbito', '#cDias', '#cEscaladas'].forEach((s) => { $(s).onchange = cargarCharlas; });
