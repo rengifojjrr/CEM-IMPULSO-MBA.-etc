@@ -239,10 +239,25 @@
     <div class="card">
       <h2 style="margin-top:0">Cómo se llama</h2>
       <div class="field" style="max-width:320px">
-        <label for="mNombre">El nombre con el que se presenta</label>
+        <label for="mNombre">En la plataforma</label>
         <input id="mNombre" maxlength="40" placeholder="Cemi">
+        <span class="tiny muted">Aquí dentro se ve la mascota al lado de cada
+          respuesta, así que se sabe que habla la casa.</span>
       </div>
-      <button class="btn primary" id="btnNombre">Guardar el nombre</button>
+
+      <!-- Por WhatsApp lleva otro nombre, y no es un capricho de configuración:
+           allí esto entra en la agenda de la persona como un nombre de pila, y
+           quien escriba va a creer que hay alguien al otro lado. Se dice aquí
+           en vez de dejarlo escondido en el código. -->
+      <div class="field" style="max-width:320px">
+        <label for="mNombreWa">Por WhatsApp</label>
+        <input id="mNombreWa" maxlength="40" placeholder="Verónica">
+        <span class="tiny muted">Un nombre de pila en el teléfono de la gente:
+          van a creer que hablan con una persona. Lo que sostiene eso es que en
+          cuanto pidan hablar con alguien —o duden— avisa al equipo de verdad, y
+          que por ahí no puede consultar ni cambiar los datos de nadie.</span>
+      </div>
+      <button class="btn primary" id="btnNombre">Guardar los nombres</button>
     </div>
 
     <div class="card">
@@ -665,10 +680,11 @@ $('#tablaPreguntan').addEventListener('click', async (e) => {
 /* ── Su nombre y su cara ─────────────────────────────────────────────────── */
 async function cargarCara() {
   const { data } = await sb.from('cem_settings').select('clave, valor')
-    .in('clave', ['asistente_nombre', 'mascota_url']);
+    .in('clave', ['asistente_nombre', 'asistente_nombre_whatsapp', 'mascota_url']);
   const v = {};
   for (const f of data ?? []) v[f.clave] = typeof f.valor === 'string' ? f.valor : f.valor?.valor ?? f.valor;
   $('#mNombre').value = v.asistente_nombre || '';
+  $('#mNombreWa').value = v.asistente_nombre_whatsapp || '';
   $('#caraActual').innerHTML = v.mascota_url
     ? `<img src="${esc(String(v.mascota_url))}" alt="La mascota del CEM"
             style="width:100%;height:auto;display:block;border-radius:var(--r)">
@@ -784,12 +800,37 @@ async function guardarAjuste(clave, valor, descripcion) {
   if (!data?.length) throw new Error('No se guardó: la base no aceptó el cambio.');
 }
 
+/* Quitar un ajuste es BORRAR LA FILA, no ponerle null.
+   ─────────────────────────────────────────────────────────────────────────
+   `cem_settings.valor` es NOT NULL, así que un null se rechaza. Y para una
+   columna jsonb tampoco está claro si un `null` de JavaScript llega como NULL
+   de SQL o como el literal jsonb `null`: depende de PostgREST, no de nosotros.
+   Sin fila no hay ambigüedad, y es lo que significa de verdad — que ese ajuste
+   no está puesto. Las dos lecturas (aquí y en la base) ya tratan la ausencia
+   como «usa lo de siempre». */
+async function borrarAjuste(clave) {
+  const { error } = await sb.from('cem_settings').delete().eq('clave', clave);
+  if (error) throw error;
+}
+
 $('#btnNombre').onclick = (e) => ocupado(e.currentTarget, 'Guardando…', async () => {
   try {
     const n = $('#mNombre').value.trim();
-    if (!n) { fail('Ponle un nombre.'); return; }
-    await guardarAjuste('asistente_nombre', n, 'El nombre con el que se presenta el asistente');
-    ok(`Ahora se presenta como ${n}. Recarga para verlo en el botón del chat.`);
+    if (!n) { fail('Ponle un nombre para la plataforma.'); return; }
+    const wa = $('#mNombreWa').value.trim();
+    await guardarAjuste('asistente_nombre', n,
+      'El nombre con el que se presenta el asistente');
+    /* El de WhatsApp se puede dejar en blanco a propósito: entonces la base cae
+       al de arriba y el asistente se llama igual por los dos sitios. */
+    if (wa) {
+      await guardarAjuste('asistente_nombre_whatsapp', wa,
+        'Con qué nombre se presenta el asistente por WhatsApp');
+    } else {
+      await borrarAjuste('asistente_nombre_whatsapp');
+    }
+    ok(wa && wa !== n
+      ? `Aquí es ${n} y por WhatsApp, ${wa}. Recarga para verlo en el botón del chat.`
+      : `Se presenta como ${n} en los dos sitios. Recarga para verlo en el botón del chat.`);
   } catch (err) { fail(mensajeError(err)); }
 });
 
@@ -809,7 +850,9 @@ $('#btnQuitarFoto').onclick = async (e) => {
     'Quitar el render'))) return;
   await ocupado(e.currentTarget, 'Quitando…', async () => {
     try {
-      await guardarAjuste('mascota_url', null, 'El render de la mascota del CEM');
+      // Antes ponía null aquí, y `valor` es NOT NULL: no quitaba nada, daba
+      // error. Salió al añadir el nombre de WhatsApp, que tiene el mismo caso.
+      await borrarAjuste('mascota_url');
       ok('Quitado. Recarga la página.');
       await cargarCara();
     } catch (err) { fail(mensajeError(err)); }
@@ -820,7 +863,7 @@ $('#btnQuitarFoto').onclick = async (e) => {
    preguntarle nada al asistente por WhatsApp— pero no tocar el nombre ni la
    cara, que son de la casa. */
 if (!puedeEditar) {
-  ['#btnNombre', '#btnFoto', '#btnQuitarFoto', '#mFoto', '#mNombre',
+  ['#btnNombre', '#btnFoto', '#btnQuitarFoto', '#mFoto', '#mNombre', '#mNombreWa',
    '#btnRegistrarNumero', '#qTel', '#qPersona']
     .forEach((s) => $(s)?.setAttribute('disabled', ''));
 }
