@@ -459,6 +459,30 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
       </div>
     </div>
 
+    <!-- Grupos de graduación.
+         ═══════════════════════════════════════════════════════════════════
+         La lista de emitidos agrupa POR DÍA, y eso funcionaba mientras cada
+         promoción se generaba un día distinto. En cuanto se registran cuatro
+         grupos la misma tarde, los cuatro caen en un solo montón de
+         doscientos y pico y no hay forma de bajar uno solo.
+
+         Aquí cada grupo tiene nombre y su propio botón. Y va por su propia
+         puerta —list_cert_lotes— porque la lista de emitidos trae sólo los
+         últimos 300: registrar una promoción grande empujaba fuera justo a
+         los grupos viejos que uno quiere poder volver a descargar. -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Grupos de graduación</h2>
+        <button class="btn outline small" data-collapse-toggle="secLotesBody">Minimizar</button>
+      </div>
+      <div class="panel-body" id="secLotesBody">
+        <p class="hint">Cada promoción, con su nombre. Descargar un grupo lo vuelve a
+          dibujar entero con la fecha que tenía cuando se emitió, aunque la plantilla
+          haya cambiado desde entonces.</p>
+        <div id="listaLotesWrap">Cargando…</div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head">
         <h2>Certificados emitidos</h2>
@@ -834,6 +858,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     try {
       await loadTemplates();
       await loadIssued();
+      await loadLotes();
     } catch (e) {
       /* Si el arranque falla, la pantalla no puede quedarse a medias fingiendo
          que está vacía: eso fue lo que hizo creer que se habían borrado 27
@@ -3796,6 +3821,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       g.registrando = false;
       renderGenerationHistory();
       await loadIssued();
+      await loadLotes();
       if(fallos) alert(`${fallos} certificado(s) no se pudieron registrar. Vuelve a pulsar "Registrar" para reintentar sólo esos.`);
     }));
   }
@@ -3931,6 +3957,75 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     document.getElementById('btnGenerar').disabled = false;
   });
 
+  // ---------- Grupos de graduación ----------
+  let lotes = [];
+
+  async function loadLotes(){
+    const wrap = document.getElementById('listaLotesWrap');
+    const { data, error } = await supabase.rpc('list_cert_lotes');
+    if(error){ wrap.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+    lotes = data || [];
+    renderLotes();
+  }
+
+  function renderLotes(){
+    const wrap = document.getElementById('listaLotesWrap');
+    if(!lotes.length){ wrap.innerHTML = '<p class="hint">Todavía no hay ningún grupo registrado.</p>'; return; }
+    wrap.innerHTML = `<table><thead><tr>
+      <th>Grupo</th><th>Graduados</th><th>Módulos</th><th>Certificados</th><th>Emitido</th><th>Acciones</th>
+    </tr></thead><tbody>${lotes.map(l => `<tr>
+      <td><b>${escapeHtml(l.nombre)}</b>
+        ${l.nota ? `<br><span class="hint">${escapeHtml(l.nota)}</span>` : ''}</td>
+      <td>${l.personas}</td>
+      <td>${l.plantillas}</td>
+      <td>${l.cuantos}${Number(l.vigentes) !== Number(l.cuantos)
+            ? ` <span class="hint">(${l.vigentes} vigentes)</span>` : ''}</td>
+      <td class="hora">${new Date(l.emitido_en).toLocaleDateString('es-ES')}</td>
+      <td>
+        <button class="btn outline small" data-bajar-lote="${l.lote_id}"
+          data-nombre="${escapeHtml(l.nombre)}" data-cuantos="${l.cuantos}"
+          title="Descargar los ${l.cuantos} en un ZIP">⬇ Descargar los ${l.cuantos}</button>
+        · <button class="btn outline small" data-renombrar-lote="${l.lote_id}"
+            data-nombre="${escapeHtml(l.nombre)}">Renombrar</button>
+      </td>
+    </tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('[data-bajar-lote]').forEach(b => b.addEventListener('click', () =>
+      descargarLote(b.dataset.bajarLote, b.dataset.nombre, Number(b.dataset.cuantos))));
+
+    wrap.querySelectorAll('[data-renombrar-lote]').forEach(b => b.addEventListener('click', async () => {
+      const nuevo = prompt('Nombre del grupo:', b.dataset.nombre);
+      if(nuevo === null || !nuevo.trim()) return;
+      const { error } = await supabase.rpc('cert_lote_guardar',
+        { p_id: b.dataset.renombrarLote, p_nombre: nuevo.trim() });
+      if(error){ alert('Error: ' + error.message); return; }
+      await loadLotes();
+    }));
+  }
+
+  /** Descarga un grupo entero. Se piden sus certificados por su propia puerta,
+      sin el tope de 300 de la lista general. */
+  async function descargarLote(loteId, nombre, cuantos){
+    if(cuantos > 40 && !await preguntar({
+      titulo: `Descargar ${cuantos} certificados`,
+      cuerpo: `<p>Se van a volver a dibujar los <b>${cuantos}</b> certificados de
+        «${escapeHtml(nombre)}», uno por uno, para meterlos en un ZIP. Tardará un rato largo
+        y conviene no cerrar ni recargar la pestaña mientras tanto.</p>`,
+      aceptar: `Sí, descargar los ${cuantos}`,
+    })) return;
+
+    const { data, error } = await supabase.rpc('list_cert_certificates_de_lote', { p_lote: loteId });
+    if(error){ alert('Error: ' + error.message); return; }
+    const delLote = data || [];
+    if(!delLote.length){ alert('Ese grupo no tiene certificados.'); return; }
+
+    /* Los del grupo pueden no estar en `issued` —la lista general trae sólo los
+       últimos 300— así que se añaden a mano antes de dibujar: descargarCertificados
+       los busca ahí por id. */
+    delLote.forEach(c => { if(!issued.some(x => x.id === c.id)) issued.push(c); });
+    await descargarCertificados(delLote.map(c => c.id), sanitizeName(nombre), { saltarAviso: true });
+  }
+
   // ---------- Certificados emitidos ----------
   async function loadIssued(){
     const { data, error } = await supabase.rpc('list_cert_certificates');
@@ -4043,7 +4138,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   }
 
   /** Reconstruye y descarga uno o varios certificados ya emitidos, sin cambiar sus datos. */
-  async function descargarCertificados(ids, nombreZip = 'certificados'){
+  async function descargarCertificados(ids, nombreZip = 'certificados', opciones = {}){
     const certs = ids.map(id => issued.find(c => c.id === id)).filter(Boolean);
     if(!certs.length) return;
 
@@ -4052,7 +4147,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
        si a mitad se cierra la pestaña no queda nada. Se avisa antes, con el
        número delante, porque el botón dice «los 208» pero nadie calcula lo que
        eso tarda hasta que ya está esperando. */
-    if(certs.length > 40 && !await preguntar({
+    if(certs.length > 40 && !opciones.saltarAviso && !await preguntar({
       titulo: `Descargar ${certs.length} certificados`,
       cuerpo: `<p>Se van a volver a dibujar <b>${certs.length}</b> certificados, uno por uno, para
         meterlos en un ZIP. Tardará un rato largo y conviene no cerrar ni recargar la pestaña
@@ -4076,7 +4171,22 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       if(!tpl){ sinPlantilla.push(c); continue; }
       await ensureFontsLoadedForConfig(tpl.config);
       const verifyUrl = new URL(RUTA_VERIFICAR, location.href).href + '?c=' + c.id;
-      const canvas = await renderCertificateCanvas(c.datos || {}, verifyUrl, tpl.config);
+      /* La fecha guardada en ESTE certificado manda sobre la fija de la plantilla.
+         ─────────────────────────────────────────────────────────────────────
+         El valor fijo de la plantilla es el mismo para todo el mundo, y la fecha
+         no lo es: dos promociones hacen el mismo módulo en meses distintos. Sin
+         esto, volver a descargar un grupo de abril lo imprime con la fecha que
+         la plantilla tenga hoy — un documento con una fecha que no ocurrió, en
+         manos de un graduado.
+
+         Va acotado a la fecha a propósito. Los demás valores fijos (el nombre
+         del módulo, la firma) sí son iguales para todos y deben seguir saliendo
+         de la plantilla, que es donde se corrigen de una vez para todos. Y sólo
+         actúa si el certificado trae fecha: los emitidos antes de esto la tienen
+         vacía y siguen comportándose igual que siempre. */
+      const suFecha = (c.datos && c.datos.fecha) ? String(c.datos.fecha).trim() : '';
+      const ajustes = suFecha ? { fecha: { texto: suFecha } } : undefined;
+      const canvas = await renderCertificateCanvas(c.datos || {}, verifyUrl, tpl.config, ajustes);
       const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
       const widthPt = canvas.width * 72 / 96, heightPt = canvas.height * 72 / 96;
       const orientation = widthPt > heightPt ? 'landscape' : 'portrait';
@@ -4286,6 +4396,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     if(error){ alert('Error: ' + error.message); return; }
     issuedSeleccionados.clear();
     await loadIssued();
+    await loadLotes();
   });
 
   init();
