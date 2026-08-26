@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { conversar, limpiar } from "../_shared/cerebro.ts";
 import { paraQuien } from "../_shared/herramientas.ts";
+import { aDondeLlevar } from "../_shared/pantallas.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // El asistente del CEM
@@ -405,11 +406,27 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    /* A dónde puede ir quien preguntó.
+       ─────────────────────────────────────────────────────────────────────
+       Se decide AQUÍ y no en el navegador, por dos razones. La primera es que
+       aquí se sabe qué herramienta se usó de verdad —si acaba de mirarse la
+       cartera, el destino no hay que adivinarlo—. La segunda es el rol: el
+       servidor ya lo tiene comprobado contra la base, y el navegador no es
+       sitio para decidir a qué pantallas puede entrar alguien.
+
+       Sale null muy a menudo, y está bien. Un botón que lleva a la pantalla
+       equivocada gasta más tiempo del que ahorra. */
+    const ir = fallo ? null : aDondeLlevar({
+      pregunta, respuesta: texto, rol: String(rol || ""),
+      herramientasUsadas: usadas.filter((u: any) => !u.error).map((u: any) => u.nombre),
+    });
+
     return new Response(JSON.stringify({
       respuesta: texto, ambito, modelo: modelo || null,
       ms: Date.now() - t0, degradado: !!fallo,
       // Qué herramientas usó, para poder verlo en el panel sin adivinar.
       hizo: usadas.map((u: any) => ({ que: u.nombre, error: u.error ?? null })),
+      ir,
     }), { headers: JSON_HEADERS });
 
   } catch (err) {

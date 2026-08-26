@@ -4305,6 +4305,12 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
         <a href="${escapeHtml(urlDeVerificar(c.id))}" target="_blank" class="hint">Ver</a>
         ${c.estado === 'vigente' ? ` · <button data-editar-emitido="${c.id}" class="btn outline small">Editar</button>` : ''}
         ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger small">Revocar</button>` : ''}
+        ${/* Anular era un camino de ida. Un clic en la fila de al lado dejaba a
+              un graduado con el papel invalidado y sin vuelta atrás. El de
+              «reemplazado» no lleva botón a propósito: ya tiene otro más nuevo
+              ocupando su sitio, y la base lo rechazaría. */''}
+        ${c.estado === 'revocado' ? ` · <button data-devolver="${c.id}" class="btn outline small"
+            title="Volver a darlo por válido">↩ Devolver a vigente</button>` : ''}
       </td>
     </tr>`;
     }).join('')}`).join('')}</tbody></table>`;
@@ -4338,6 +4344,27 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const { error } = await supabase.rpc('revoke_certificate', { p_id: b.dataset.revocar, p_motivo: motivo });
       if(error) alert('Error: ' + error.message);
       await loadIssued();
+    }));
+
+    wrap.querySelectorAll('[data-devolver]').forEach(b => b.addEventListener('click', async () => {
+      const c = issued.find(x => x.id === b.dataset.devolver);
+      if(!await preguntar({
+        titulo: 'Devolver el certificado a vigente',
+        cuerpo: `<p>Vuelve a darse por válido: quien escanee su QR verá otra vez un
+            certificado en regla.</p>
+          ${c && c.motivo_revocacion
+            ? `<p class="hint">Se había anulado por: «${escapeHtml(c.motivo_revocacion)}».</p>`
+            : ''}`,
+        aceptar: 'Sí, devolverlo',
+      })) return;
+      const motivo = prompt('¿Por qué vuelve a estar vigente?\n\nQueda escrito en el registro '
+        + 'de auditoría junto al motivo por el que se anuló.');
+      if(motivo === null) return;
+      const { error } = await supabase.rpc('restore_certificate',
+        { p_id: b.dataset.devolver, p_motivo: motivo });
+      if(error){ alert('No se pudo devolver: ' + error.message); return; }
+      await loadIssued();
+      await loadLotes();      // el grupo cuenta cuántos siguen vigentes
     }));
   }
 

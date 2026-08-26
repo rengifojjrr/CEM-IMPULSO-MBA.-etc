@@ -3423,9 +3423,29 @@ details.card h3.sec{margin-top:var(--e3);}
   /* Sin esto una dirección larga o un código de certificado estira la caja y
      saca la conversación de la pantalla. */
   overflow-wrap:anywhere;}
-.chat-linea.mia .chat-burbuja{background:var(--primary);color:#fff;}
+/* La tinta sale del token, no de un blanco fijo: de noche el primario se
+   aclara y la letra blanca encima se quedaba en 1,4:1. Mismo caso que el
+   botón teal. */
+.chat-linea.mia .chat-burbuja{background:var(--primary);color:var(--on-primary);}
 .chat-aviso{margin-top:6px;padding-top:6px;border-top:1px solid var(--filete);
   font-size:var(--t-xs);color:var(--warn);}
+
+/* El botón que lleva a la pantalla de la que Cemi acaba de hablar. Va DENTRO
+   de la burbuja y no debajo: pertenece a esa respuesta, no a la conversación. */
+.chat-ir{display:inline-flex;align-items:center;gap:var(--e0);margin-top:8px;
+  padding:6px 12px 6px 8px;border:1px solid var(--primary);border-radius:var(--r-full);
+  background:var(--papel);color:var(--primary);font-size:var(--t-xs);
+  font-weight:var(--peso-fuerte);text-decoration:none;white-space:nowrap;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.chat-ir:hover{background:var(--primary);color:var(--on-primary);}
+.chat-ir .material-symbols-outlined{font-size:16px;flex:none;}
+
+/* Un punto en el botón de la mascota cuando hay conversación a medias: se ve
+   que sigue ahí sin tener que abrirla. */
+.chat-boton.con-hilo{position:fixed;}
+.chat-boton.con-hilo::after{content:'';position:absolute;top:4px;right:4px;
+  width:9px;height:9px;border-radius:var(--r-full);background:var(--secondary);
+  border:2px solid var(--papel);}
 .chat-sugerencias{display:flex;flex-wrap:wrap;gap:var(--e0);margin-left:34px;}
 .chat-sug{padding:6px 10px;border:1px solid var(--filete);border-radius:var(--r-full);
   background:var(--papel);color:var(--tinta-2);font-size:var(--t-xs);cursor:pointer;}

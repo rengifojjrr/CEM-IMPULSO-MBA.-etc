@@ -17,7 +17,7 @@
    a una tabla de personas: si la hubiera, el permiso viviría en el navegador,
    que es el único sitio donde no se puede defender. */
 
-import { sb, $, esc, profile } from './app.js?v=2026-08-26-10';
+import { sb, $, esc, profile } from './app.js?v=2026-08-26-11';
 
 /* ── Cómo se llama y qué cara tiene ──────────────────────────────────────── */
 /* El nombre y el render salen de `cem_settings`, no de aquí. El dibujo
@@ -99,6 +99,48 @@ let ambitoActual = 'estudiante';
 let enviando = false;
 let montado = false;
 
+/* ── La conversación sobrevive a cambiar de pantalla ─────────────────────
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes, minimizar y seguir en la misma pantalla conservaba el hilo, pero
+   pasar a otra pantalla lo borraba: el módulo se vuelve a cargar y con él las
+   variables. Y es justo lo que pasa siempre — se le pregunta a Cemi dónde se
+   hace algo, se va uno a hacerlo, y al volver el hilo no está.
+
+   Se guarda en `sessionStorage` y no en `localStorage` a propósito: vive
+   mientras dure la pestaña. Una conversación de trabajo de hace tres días
+   reaparecida al abrir el portal no es memoria, es ruido.
+
+   Lo que se guarda es el HTML de las burbujas, no los mensajes sueltos. El
+   registro de verdad está en la base (`cem_bot_mensajes`); esto es sólo para
+   no perder de vista lo que ya se leyó. */
+const CAJON = 'cemChatHilo';
+
+function guardarHilo() {
+  const lista = $('#chatLista');
+  if (!lista) return;
+  try {
+    sessionStorage.setItem(CAJON, JSON.stringify({
+      conversacion, ambito: ambitoActual,
+      html: lista.innerHTML.replace(/<div class="chat-linea suya" id="chatPensando">[\s\S]*?<\/div><\/div>/g, ''),
+    }));
+  } catch { /* modo privado, cuota llena: no perder el hilo no vale un error */ }
+}
+
+function hiloGuardado() {
+  try {
+    const g = JSON.parse(sessionStorage.getItem(CAJON) || 'null');
+    // El ámbito importa: el hilo del equipo no se le enseña a un estudiante
+    // que entre después en la misma pestaña.
+    if (!g || !g.html || g.ambito !== ambitoActual) return null;
+    return g;
+  } catch { return null; }
+}
+
+function olvidarHilo() {
+  conversacion = null;
+  try { sessionStorage.removeItem(CAJON); } catch {}
+}
+
 const PRIMERAS = {
   estudiante: [
     'Como voy en mi curso?',
@@ -128,6 +170,24 @@ function pintar(quien, texto, extra = '') {
   if (!lista) return;
   lista.insertAdjacentHTML('beforeend', burbuja(quien, texto, extra));
   lista.scrollTop = lista.scrollHeight;
+  guardarHilo();
+}
+
+/* ── El botón que lleva a la pantalla de la que se está hablando ──────────
+   Quién decide el destino es el servidor: allí se sabe qué herramienta se usó
+   y, sobre todo, qué rol tiene quien pregunta. Aquí sólo se dibuja.
+
+   La ruta llega desde la raíz del sitio («plataforma/admin/…») y hay que
+   volverla relativa a la pantalla actual, que puede estar a dos carpetas de
+   profundidad. Se hace con `new URL` sobre el origen y no pegando trozos de
+   texto: pegar trozos es como se llega a «../../plataforma/plataforma/». */
+function botonDeIr(ir) {
+  if (!ir?.ruta || !ir?.titulo) return '';
+  let destino;
+  try { destino = new URL(ir.ruta, location.origin + '/').href; } catch { return ''; }
+  return `<a class="chat-ir" href="${esc(destino)}">
+    <span class="material-symbols-outlined">arrow_forward</span>
+    <span>Ir a ${esc(ir.titulo)}</span></a>`;
 }
 
 function pensando(si) {
@@ -176,7 +236,8 @@ async function preguntar(texto) {
     const aviso = data?.degradado
       ? '<div class="chat-aviso">No pude consultar bien ahora mismo. Ya avisé al equipo.</div>'
       : '';
-    pintar('asistente', data?.respuesta || 'No pude responder ahora mismo.', aviso);
+    pintar('asistente', data?.respuesta || 'No pude responder ahora mismo.',
+      aviso + botonDeIr(data?.ir));
   } catch (e) {
     pensando(false);
     /* El mismo aviso que cuando el servidor marca `degradado`.
@@ -207,6 +268,25 @@ async function abrirVentana() {
 
   if ($('#chatLista')?.children.length) return;   // ya se cargó antes
 
+  /* ¿Había una conversación a medias? Se retoma donde estaba, con el mismo
+     identificador, así que el servidor sigue teniendo el hilo entero y Cemi
+     no vuelve a preguntar lo que ya le dijeron. */
+  const guardado = hiloGuardado();
+  if (guardado) {
+    conversacion = guardado.conversacion || null;
+    const lista = $('#chatLista');
+    lista.innerHTML = guardado.html;
+    lista.scrollTop = lista.scrollHeight;
+    ponerLaCaraDeVerdad(lista);
+    $('#chatNuevo')?.removeAttribute('hidden');
+    return;
+  }
+
+  await saludar();
+}
+
+/** El saludo y las cuatro sugerencias del principio. */
+async function saludar() {
   const a = await ajustes();
   const sug = (PRIMERAS[ambitoActual] || PRIMERAS.estudiante)
     .map((s) => `<button type="button" class="chat-sug">${esc(s)}</button>`).join('');
@@ -215,6 +295,22 @@ async function abrirVentana() {
     : `Hola. Soy ${a.nombre}, del CEM. En qué te ayudo?`);
   $('#chatLista').insertAdjacentHTML('beforeend',
     `<div class="chat-sugerencias" id="chatSugerencias">${sug}</div>`);
+  guardarHilo();
+}
+
+/* Empezar de cero. La conversación anterior NO se borra de la base —queda en
+   el registro, que es donde tiene que quedar—: lo que se suelta es el hilo que
+   se le manda al modelo, para que una pregunta nueva no arrastre el contexto
+   de la anterior. Eso es justamente lo que se pide cuando se pide empezar de
+   nuevo. */
+async function empezarDeNuevo() {
+  if (enviando) return;
+  olvidarHilo();
+  const lista = $('#chatLista');
+  if (lista) lista.innerHTML = '';
+  $('#chatNuevo')?.setAttribute('hidden', '');
+  await saludar();
+  $('#chatTexto')?.focus();
 }
 
 function cerrarVentana() {
@@ -255,7 +351,13 @@ export async function montarAsistente({ ambito = 'estudiante' } = {}) {
           <b>${esc(a.nombre)}</b>
           <span class="tiny muted">${ambitoActual === 'equipo' ? 'Asistente del equipo' : 'Asistente del CEM'}</span>
         </div>
-        <button type="button" class="icon-btn" id="chatCerrar" title="Cerrar">
+        <!-- Sólo aparece cuando hay algo que dejar atrás. Un botón de
+             «empezar de nuevo» sobre una conversación vacía no hace nada y
+             ocupa el sitio del que sí importa. -->
+        <button type="button" class="icon-btn" id="chatNuevo" hidden
+                title="Empezar una conversación nueva">
+          <span class="material-symbols-outlined">refresh</span></button>
+        <button type="button" class="icon-btn" id="chatCerrar" title="Minimizar">
           <span class="material-symbols-outlined">close</span></button>
       </header>
       <div class="chat-lista" id="chatLista"></div>
@@ -270,12 +372,18 @@ export async function montarAsistente({ ambito = 'estudiante' } = {}) {
   $('#cemChatBoton').onclick = () =>
     ($('#cemChat').hidden ? abrirVentana() : cerrarVentana());
   $('#chatCerrar').onclick = cerrarVentana;
+  $('#chatNuevo').onclick = empezarDeNuevo;
   $('#chatForm').onsubmit = (e) => {
     e.preventDefault();
     const t = $('#chatTexto').value;
     $('#chatTexto').value = '';
+    $('#chatNuevo')?.removeAttribute('hidden');   // ya hay algo que dejar atrás
     preguntar(t);
   };
+
+  /* El botón de la mascota avisa cuando hay una conversación a medias, para
+     que se note que sigue ahí sin tener que abrirla. */
+  if (hiloGuardado()) $('#cemChatBoton').classList.add('con-hilo');
   /* Delegado y no un `onclick` por botón: las sugerencias se borran en cuanto
      se manda la primera pregunta, así que atarlas una a una obliga a volver a
      atarlas cada vez que se repintan. */
