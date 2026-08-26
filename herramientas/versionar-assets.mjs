@@ -51,7 +51,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
    el mismo día que se creó. Si añades un archivo a assets/ que importe más de
    una pantalla, añádelo también aquí. */
 const MODULOS = 'app|temas|aula|preguntas|apariencia|graficos|reproductor'
-  + '|certificado|paises-contornos|paises';
+  + '|certificado|asistente|paises-contornos|paises';
 const COMPARTIDOS = new RegExp(
   `(?<=["'(])(` +
     // desde una pantalla: ../assets/app.js, ./assets/styles.css

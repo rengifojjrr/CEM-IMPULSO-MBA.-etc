@@ -1,0 +1,30 @@
+# Configuración de las funciones del servidor.
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# Este archivo existe por una razón concreta, y conviene entenderla antes de
+# tocarlo: `verify_jwt`.
+#
+# Cuando se sube una función desde el panel de Supabase, esa casilla se marca
+# a mano y se queda como se dejó. Cuando se sube con la CLI, la CLI decide — y
+# si no se le dice nada, la pone en `true` para todas.
+#
+# Para `cem-whatsapp` eso la rompe en silencio. WhatsApp no manda sesiones de
+# Supabase: manda un webhook de Meta. Con `verify_jwt = true`, Meta recibe un
+# 401, el webhook deja de llegar, y no hay ningún error visible en ningún
+# sitio — simplemente el bot no contesta por WhatsApp y nadie sabe por qué.
+#
+# Escribirlo aquí es lo que impide que un despliegue automático deshaga a
+# ciegas una casilla que alguien marcó a conciencia.
+
+project_id = "vajbsfgojtunamhrzrpf"
+
+[functions.cem-asistente]
+# Habla con quien ya entró a la plataforma: siempre trae su sesión.
+verify_jwt = true
+
+[functions.cem-whatsapp]
+# El webhook de Meta. No trae sesión y no puede traerla: quien lo llama es
+# WhatsApp, no una persona con cuenta. Lo que sí comprueba la función es el
+# `hub.verify_token` que Meta y nosotros compartimos, y que quien escribe es
+# un número — y a partir de ahí manda la base de datos, no esta casilla.
+verify_jwt = false

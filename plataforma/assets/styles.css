@@ -3357,3 +3357,79 @@ details.card h3.sec{margin-top:var(--e3);}
   box-shadow:0 0 0 9999px rgba(0,0,0,.45) inset;
   -webkit-mask:radial-gradient(circle at 50% 50%, transparent 49.5%, #000 50%);
   mask:radial-gradient(circle at 50% 50%, transparent 49.5%, #000 50%);}
+
+/* ══════════════════════ EL ASISTENTE ═════════════════════════════════════
+   El botón flota abajo a la derecha en todas las pantallas y la ventana se
+   abre encima. En el teléfono la ventana ocupa la pantalla entera: una caja
+   de 380 px en un móvil deja un teclado tapando media conversación.
+
+   El z-index va por debajo de los modales a propósito. Si un diálogo pide
+   confirmar algo, el chat NO debe poder taparlo. */
+/* El contenido se aparta del botón. Sin esto, la última tarjeta de cualquier
+   pantalla queda debajo del asistente y no se puede pulsar: el elemento que
+   flota tapa justo la esquina donde acaban las listas. */
+.content{padding-bottom:calc(var(--e5) + 56px);}
+.chat-boton{position:fixed;right:var(--e2);bottom:var(--e2);z-index:60;
+  display:flex;align-items:center;gap:var(--e0);
+  padding:6px 14px 6px 6px;border:1px solid var(--filete);border-radius:var(--r-full);
+  background:var(--papel);color:var(--tinta);box-shadow:var(--sombra);
+  cursor:pointer;transition:transform var(--rapido);}
+.chat-boton:hover{transform:translateY(-2px);}
+.chat-boton-txt{font-size:var(--t-sm);font-weight:var(--peso-fuerte);}
+.mascota{width:44px;height:44px;border-radius:var(--r-full);object-fit:cover;
+  background:var(--hueco);display:block;}
+.mascota.chica{width:30px;height:30px;flex:0 0 30px;}
+.mascota-entera{width:100%;max-width:260px;height:auto;display:block;margin-inline:auto;}
+
+.chat-caja{position:fixed;right:var(--e2);bottom:calc(var(--e2) + 64px);z-index:60;
+  width:min(380px, calc(100vw - var(--e2) * 2));height:min(560px, calc(100vh - 140px));
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
+  box-shadow:var(--sombra);animation:subir var(--entra) ease-out;}
+.chat-cab{display:flex;align-items:center;gap:var(--e1);
+  padding:var(--e1) var(--e2);border-bottom:1px solid var(--filete);background:var(--hueco);}
+.chat-cab > div{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25;}
+.chat-lista{flex:1;overflow-y:auto;padding:var(--e2);
+  display:flex;flex-direction:column;gap:var(--e1);}
+.chat-linea{display:flex;gap:var(--e0);align-items:flex-end;max-width:100%;}
+.chat-linea.mia{justify-content:flex-end;}
+.chat-burbuja{max-width:78%;padding:8px 12px;border-radius:var(--r);
+  background:var(--hueco);font-size:var(--t-sm);line-height:1.5;
+  /* Sin esto una dirección larga o un código de certificado estira la caja y
+     saca la conversación de la pantalla. */
+  overflow-wrap:anywhere;}
+.chat-linea.mia .chat-burbuja{background:var(--primary);color:#fff;}
+.chat-aviso{margin-top:6px;padding-top:6px;border-top:1px solid var(--filete);
+  font-size:var(--t-xs);color:var(--warn);}
+.chat-sugerencias{display:flex;flex-wrap:wrap;gap:var(--e0);margin-left:34px;}
+.chat-sug{padding:6px 10px;border:1px solid var(--filete);border-radius:var(--r-full);
+  background:var(--papel);color:var(--tinta-2);font-size:var(--t-xs);cursor:pointer;}
+.chat-sug:hover{border-color:var(--primary);color:var(--primary);}
+.chat-pie{display:flex;gap:var(--e0);padding:var(--e1);border-top:1px solid var(--filete);}
+.chat-pie input{flex:1;min-width:0;}
+
+/* Los tres puntos de «está escribiendo». Es la única animación en bucle de la
+   plataforma, y existe porque sin ella una respuesta que tarda cuatro segundos
+   se lee como que el chat se rompió. */
+.chat-burbuja.pensando{display:flex;gap:5px;padding:12px;}
+.chat-burbuja.pensando span{width:7px;height:7px;border-radius:var(--r-full);
+  background:var(--tinta-3);animation:latir 1.1s infinite ease-in-out;}
+.chat-burbuja.pensando span:nth-child(2){animation-delay:.15s;}
+.chat-burbuja.pensando span:nth-child(3){animation-delay:.3s;}
+@keyframes latir{0%,60%,100%{opacity:.25;transform:translateY(0);}
+  30%{opacity:1;transform:translateY(-3px);}}
+@media (prefers-reduced-motion:reduce){
+  /* La regla global deja la animación en 0,01 ms, lo que aquí congela los tres
+     puntos apagados y parece un fallo. Se quedan encendidos y quietos. */
+  .chat-burbuja.pensando span{opacity:.6;}
+}
+
+@media (max-width:640px){
+  .chat-caja{right:0;bottom:0;width:100vw;height:100dvh;max-height:none;
+    border-radius:0;border:0;}
+  .chat-boton-txt{display:none;}
+  .chat-boton{padding:5px;}
+  /* Con la ventana a pantalla completa el botón queda debajo y se ve el borde
+     asomando por una esquina. */
+  body.con-chat-abierto .chat-boton{display:none;}
+}

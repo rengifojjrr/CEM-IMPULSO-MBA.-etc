@@ -1,0 +1,84 @@
+# Subir las funciones del servidor solas, al empujar cambios.
+#
+# Por qué existe
+# ─────────────────────────────────────────────────────────────────────────────
+# Hasta ahora, cambiar una línea del asistente obligaba a abrir el panel de
+# Supabase, borrar el código viejo y pegar trescientas líneas a mano. Dos veces
+# seguidas. Eso no es sólo pesado: es la clase de tarea que se hace mal cuando
+# hay prisa —se pega a medias, se olvida una de las dos funciones, se
+# desmarca una casilla— y el fallo aparece días después sin relación aparente
+# con nada.
+#
+# Ahora: se empuja el cambio y las funciones se suben solas. Y sólo cuando de
+# verdad han cambiado, mirando los archivos tocados.
+#
+# Lo que hace falta una vez, y ya nunca más
+# ─────────────────────────────────────────────────────────────────────────────
+# Un secreto del repositorio llamado SUPABASE_ACCESS_TOKEN.
+#   1. supabase.com/dashboard/account/tokens → Generate new token
+#   2. En GitHub: Settings → Secrets and variables → Actions → New repository
+#      secret, con ese nombre exacto.
+#
+# El token vale para toda la cuenta de Supabase, así que se pone ahí —cifrado y
+# sin que nadie lo vuelva a ver— y no en ningún archivo del repositorio.
+#
+# Lo que NO hace, a propósito
+# ─────────────────────────────────────────────────────────────────────────────
+# No toca las otras once funciones. Sólo sube las dos del asistente, nombradas
+# una por una. Un despliegue que sube «todo» acaba pisando algún día una
+# función que alguien había ajustado a mano en el panel, y averiguar por qué
+# dejó de funcionar el cobro con tarjeta cuesta una tarde entera.
+
+name: Desplegar funciones del asistente
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'supabase/functions/cem-asistente/**'
+      - 'supabase/functions/cem-whatsapp/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/desplegar-funciones.yml'
+  workflow_dispatch:
+
+jobs:
+  desplegar:
+    name: Subir a Supabase
+    runs-on: ubuntu-latest
+    # Sin el token no se puede, y se dice claramente en vez de fallar con un
+    # error de autenticación que no explica nada.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Comprobar que hay token
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "::error::Falta el secreto SUPABASE_ACCESS_TOKEN."
+            echo "Se saca en supabase.com/dashboard/account/tokens y se pone en"
+            echo "Settings → Secrets and variables → Actions de este repositorio."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # El orden importa poco, pero se suben las dos siempre: comparten el
+      # guion y el filtro de salida, y dejarlas con versiones distintas es
+      # tener dos asistentes que contestan distinto por dos canales.
+      - name: cem-asistente
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy cem-asistente --project-ref vajbsfgojtunamhrzrpf
+
+      - name: cem-whatsapp
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy cem-whatsapp --project-ref vajbsfgojtunamhrzrpf
+
+      - name: Recordar lo que el despliegue NO trae
+        run: |
+          echo "Subidas cem-asistente y cem-whatsapp."
+          echo "Los secretos (GROQ_API_KEY, CEM_ASISTENTE_MODELOS, los de WhatsApp)"
+          echo "viven en Supabase y NO se tocan desde aquí: cambiarlos ahí surte"
+          echo "efecto al momento, sin volver a desplegar."

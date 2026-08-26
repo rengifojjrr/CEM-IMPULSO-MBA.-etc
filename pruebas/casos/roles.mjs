@@ -203,7 +203,7 @@ export default async function correr(navegador) {
     'Un estudiante no entra a la pantalla del correo de la institución');
 
   const seQueja = await E2.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-08-25-19');
+    const m = await import('/plataforma/assets/app.js?v=2026-08-25-22');
     try { await m.mount({ roles: ['admin'] }); return 'NO SE QUEJÓ'; }
     catch (e) { return e.message; }
   });
