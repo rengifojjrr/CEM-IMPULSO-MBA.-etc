@@ -145,7 +145,26 @@ Nada más arrancar, los registros dicen si el secreto coincide. Si sale
 `EL SECRETO NO COINCIDE`, párate ahí: el puente se conectaría a WhatsApp y no
 anotaría nada.
 
-### 3. Escanear el QR
+### 3. Vincular el teléfono
+
+Hay dos vías. **Si no estás sentado delante de la máquina, usa la segunda.**
+
+#### a) Con un código de 8 caracteres — la que sirve a distancia
+
+```
+npx pm2 stop cem-puente
+node index.mjs --vincular-con 584121234567    # tu número, con código de país
+```
+
+Sale un código tipo `5QP8-WNZ7`. En el teléfono del negocio: **WhatsApp →
+Dispositivos vinculados → Vincular dispositivo → «Vincular con número de
+teléfono»** y lo tecleas. Dura minutos, no segundos, así que se puede pasar por
+chat, por teléfono o por correo.
+
+Cuando diga `Conectado como +…`, córtalo y arráncalo ya con pm2 — la sesión
+queda guardada y no vuelve a pedir nada.
+
+#### b) Con el QR — sólo si estás delante de la máquina
 
 Abre **`http://127.0.0.1:3000/qr`**: ahí sale el código dibujado, y la página se
 recarga sola porque WhatsApp lo caduca cada pocos segundos. Se escanea desde el
@@ -163,6 +182,10 @@ y abres esa dirección en tu propio navegador.
 El QR también sale pintado en `npx pm2 logs cem-puente`, pero **es el último
 recurso**: con caracteres de bloque, según la fuente y los colores del terminal
 el teléfono no lo lee.
+
+Y ojo con el reloj: **cada QR caduca en unos veinte segundos** y WhatsApp genera
+otro. Por eso mandar una captura por chat no funciona — llega caducada. Para eso
+está el código de arriba.
 
 Cuando diga `Conectado como +XXXX`, está.
 

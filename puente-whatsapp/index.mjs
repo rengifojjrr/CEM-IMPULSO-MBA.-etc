@@ -36,8 +36,11 @@
  * ---------------------------------------------------------------------------
  *   cp .env.ejemplo .env     y se rellena
  *   npm install
- *   npx pm2 start index.mjs --name cem-puente
- *   npx pm2 logs cem-puente          ← aquí sale el QR
+ *   node index.mjs --vincular-con 584121234567   ← da un código de 8 caracteres
+ *   npx pm2 start index.mjs --name cem-puente    ← y ya queda vinculado
+ *
+ * El QR sigue estando (en la terminal y en /qr) para quien esté delante de la
+ * máquina. A distancia no sirve: caduca en veinte segundos.
  */
 
 import { readFileSync, existsSync, rmSync } from 'node:fs';
@@ -106,6 +109,32 @@ const MODO = (process.env.CEM_PUENTE_MODO || 'escucha').trim();
 const PUERTO = Number(process.env.CEM_PUENTE_PUERTO || 3000);
 const CARPETA_AUTH = junto(process.env.CEM_PUENTE_AUTH || './auth');
 
+/* ── Vincular con un código en vez de con el QR ───────────────────────────
+   El QR de WhatsApp caduca en unos veinte segundos. Eso está bien delante de
+   la máquina, y no sirve de nada cuando quien la monta no está sentado en
+   ella: para cuando la imagen llega por chat o por correo, ya caducó.
+
+   WhatsApp tiene la otra vía: un código de ocho caracteres que se teclea en
+   el teléfono, y que dura minutos en vez de segundos. Se pide así, con el
+   número del negocio y su código de país, sin signos:
+
+     node index.mjs --vincular-con 584121234567
+
+   El código sale en pantalla. En el teléfono: WhatsApp → Dispositivos
+   vinculados → Vincular dispositivo → **Vincular con número de teléfono**.
+
+   Sólo hace falta la primera vez. Después la sesión vive en auth/ y el puente
+   reconecta solo. */
+const iVincular = process.argv.indexOf('--vincular-con');
+const NUMERO_A_VINCULAR = iVincular > -1
+  ? String(process.argv[iVincular + 1] ?? '').replace(/[^0-9]/g, '')
+  : '';
+if (iVincular > -1 && NUMERO_A_VINCULAR.length < 8) {
+  console.error('\n--vincular-con necesita el número con código de país y sin signos.'
+    + '\nPor ejemplo:  node index.mjs --vincular-con 584121234567\n');
+  process.exit(1);
+}
+
 if (!SECRETO) {
   console.error(`
 No hay CEM_PUENTE_SECRETO.
@@ -133,7 +162,7 @@ const arrancadoISO = new Date().toISOString();
 const VERSION = '1.1.0';
 
 const estado = {
-  conectado: false, numero: null, qr: null, secreto: 'sin comprobar',
+  conectado: false, numero: null, qr: null, codigo: null, secreto: 'sin comprobar',
   desde: ahora(), mensajes: 0, respondidos: 0, fallos: 0, ultimo: null,
   ultimo_latido: null,
 };
@@ -272,6 +301,7 @@ function yaVisto(id) {
 
 /* ── El enlace con WhatsApp ───────────────────────────────────────────────── */
 let reintentos = 0;
+let yaPedidoElCodigo = false;
 
 async function conectar() {
   const { state, saveCreds } = await useMultiFileAuthState(CARPETA_AUTH);
@@ -289,10 +319,41 @@ async function conectar() {
 
   sock.ev.on('creds.update', saveCreds);
 
+  /* Si se pidió el código de vinculación, se pide UNA vez y sólo cuando no
+     hay sesión: pedirlo con una sesión ya abierta la tira. */
+  if (NUMERO_A_VINCULAR && !state.creds.registered && !yaPedidoElCodigo) {
+    yaPedidoElCodigo = true;
+    // Un respiro antes de pedirlo: recién abierto el socket, WhatsApp todavía
+    // no está listo y devuelve un error que no dice eso.
+    setTimeout(async () => {
+      try {
+        const codigo = await sock.requestPairingCode(NUMERO_A_VINCULAR);
+        estado.codigo = codigo;
+        const bonito = String(codigo).replace(/(.{4})(.{4})/, '$1-$2');
+        console.log(`
+╔══════════════════════════════════════════════════════╗
+║  CÓDIGO DE VINCULACIÓN:  ${bonito.padEnd(28)}║
+╚══════════════════════════════════════════════════════╝
+
+En el teléfono +${NUMERO_A_VINCULAR}:
+  WhatsApp → Dispositivos vinculados → Vincular dispositivo
+  → «Vincular con número de teléfono» → teclea el código.
+
+Dura unos minutos. Si caduca, se vuelve a arrancar y sale otro.
+`);
+      } catch (e) {
+        console.error('No se pudo pedir el código de vinculación:', String(e).slice(0, 200));
+        console.error('Comprueba que el número lleve código de país y sin signos.');
+      }
+    }, 4000);
+  }
+
   sock.ev.on('connection.update', (u) => {
     const { connection, lastDisconnect, qr: codigo } = u;
 
-    if (codigo) {
+    /* Con código de vinculación no hay QR que enseñar, y pintarlo sólo
+       confunde a quien está esperando ocho caracteres. */
+    if (codigo && !NUMERO_A_VINCULAR) {
       estado.qr = codigo;
       console.log('\nEscanea este QR desde el teléfono del negocio:');
       console.log('WhatsApp → Dispositivos vinculados → Vincular dispositivo\n');
@@ -390,6 +451,12 @@ async function conectar() {
 
    Va como SVG y se recarga sola: WhatsApp caduca cada QR en unos veinte
    segundos y genera otro. */
+/* Nada de lo que se pinta aquí lo escribe un desconocido, pero el número y el
+   código vienen de fuera de este proceso y acaban dentro de HTML. Escapar sale
+   gratis; acordarse de por qué no hacía falta, no. */
+const esc = (s) => String(s).replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 const pagina = (cuerpo, recarga) =>
   `<!doctype html><meta charset="utf-8"><title>Vincular el WhatsApp del CEM</title>`
   + (recarga ? `<meta http-equiv="refresh" content="5">` : '')
@@ -408,7 +475,15 @@ createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     if (estado.conectado) {
       res.end(pagina(`<h1>Ya está vinculado</h1>
-        <p>Conectado como <code>+${estado.numero}</code>. No hay QR que escanear.</p>`, false));
+        <p>Conectado como <code>+${esc(estado.numero)}</code>. No hay QR que escanear.</p>`, false));
+      return;
+    }
+    if (estado.codigo) {
+      res.end(pagina(`<h1>Código de vinculación</h1>
+        <p style="font:700 40px/1.2 ui-monospace,monospace;letter-spacing:4px;margin:16px 0">
+          ${esc(String(estado.codigo).replace(/(.{4})(.{4})/, '$1-$2'))}</p>
+        <p>En el teléfono del negocio:<br><b>WhatsApp → Dispositivos vinculados →
+        Vincular dispositivo → Vincular con número de teléfono</b></p>`, true));
       return;
     }
     if (!estado.qr) {
@@ -428,7 +503,7 @@ createServer(async (req, res) => {
       res.end(pagina(`<h1>No se pudo dibujar el QR</h1>
         <p>${String(e).slice(0, 120)}</p>
         <p>Mira la terminal, o pega esto en un generador de QR:</p>
-        <p><code style="word-break:break-all">${estado.qr}</code></p>`, true));
+        <p><code style="word-break:break-all">${esc(estado.qr)}</code></p>`, true));
     }
     return;
   }
