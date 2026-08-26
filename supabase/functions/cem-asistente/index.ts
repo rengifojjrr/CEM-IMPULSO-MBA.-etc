@@ -70,6 +70,7 @@ function oficio(): string {
     "- Breve. Una o dos frases. Nada de introducciones ni de explicar tu propio papel.",
     "- Sin ¿ ni ¡ de apertura: sólo ? y ! al final.",
     "- Emojis casi nunca. Y JAMAS repitas el emoji de tu mensaje anterior.",
+    "- Texto plano. Nada de asteriscos, negritas, titulos ni listas con guiones.",
     "- NUNCA repitas palabra por palabra algo que ya dijiste. Si insisten, dilo distinto o mas corto.",
     "",
     "LO QUE NO HACES NUNCA:",
@@ -261,15 +262,37 @@ async function preguntar(mensajes: any[], intento = 0, porQue: string[] = []): P
 // garantía». Todo lo que se prohíbe y se puede detectar por texto se limpia
 // también en código, antes de enviar.
 function limpiar(t: string): string {
-  let s = t
+  return t
+    /* Caracteres de control. Los gpt-oss se dejan escapar de vez en cuando un
+       byte suelto de sus marcas internas —se vio un \u0003 al final de la
+       primera respuesta buena— y en la burbuja sale un cuadradito o nada,
+       según el navegador. Se van todos menos el salto de línea y el tabulador. */
+    // deno-lint-ignore no-control-regex
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    /* Markdown. El modelo escribe «pantalla **Certificados**» y la burbuja
+       escapa el HTML —hace bien— así que salen los asteriscos en crudo. Se
+       quitan las marcas y se queda el texto. */
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|[.,;:!?)]|$)/g, "$1$2")
+    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
     .replace(/^¿/gm, "").replace(/^¡/gm, "")
     .replace(/\s¿/g, " ").replace(/\s¡/g, " ")
     // Las frases que delatan al modelo por defecto. La instrucción genérica
     // de «actúa como X» no las apaga: hay que nombrarlas una por una.
-    .replace(/\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA|no puedo ver imágenes|no tengo acceso a)\b[^.]*\.?/gi, "")
+    /* Las frases que delatan al modelo. La lista es CORTA a propósito.
+       ─────────────────────────────────────────────────────────────────
+       Antes incluía «no tengo acceso a», y eso borró de verdad una
+       respuesta buena: a «ya pagué, me confirmas?» el asistente contestó
+       «No tengo acceso a esa confirmación.», el filtro se la comió entera
+       y la pantalla enseñó una avería que no existía. Decir que no se
+       tiene acceso a algo es honesto y es justo lo que queremos que diga;
+       lo que no queremos es que se presente como una IA. */
+    .replace(/\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA)\b[^.]*\.?/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return s;
 }
 
 Deno.serve(async (req: Request) => {
@@ -334,8 +357,16 @@ Deno.serve(async (req: Request) => {
     let texto = "", modelo = "", uso: any = {}, fallo: string | null = null;
     try {
       const r = await preguntar(mensajes);
-      texto = limpiar(r.texto); modelo = r.modelo; uso = r.uso;
-      if (!texto) throw new Error("quedó vacío tras limpiar");
+      modelo = r.modelo; uso = r.uso;
+      /* Si el filtro se lo come todo, gana el original.
+         ───────────────────────────────────────────────────────────────
+         Antes esto lanzaba un error y la pantalla enseñaba la frase de
+         avería. O sea: el modelo contestaba bien, mi filtro lo borraba, y
+         al cliente le decíamos que estábamos caídos. Dejar pasar una frase
+         algo torpe es mucho menos malo que tirar una respuesta buena y
+         además mentir sobre por qué. */
+      texto = limpiar(r.texto) || r.texto.trim();
+      if (!texto) throw new Error("el modelo devolvio texto vacio");
     } catch (e) {
       fallo = String(e).slice(0, 300);
       // Una salida NATURAL para el fallo técnico. Si no se le da una forma

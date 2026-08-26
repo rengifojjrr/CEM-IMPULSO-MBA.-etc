@@ -169,9 +169,28 @@ async function preguntar(mensajes: any[], intento = 0): Promise<{ texto: string;
 
 function limpiar(t: string): string {
   return t
-    .replace(/^¿/gm, "").replace(/^¡/gm, "")
-    .replace(/\s¿/g, " ").replace(/\s¡/g, " ")
-    .replace(/\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA|no tengo acceso a)\b[^.]*\.?/gi, "")
+    // Bytes de control: los gpt-oss se dejan escapar marcas internas sueltas.
+    // deno-lint-ignore no-control-regex
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    // En WhatsApp el asterisco SIMPLE es negrita y el doble no es nada, asi
+    // que el markdown del modelo no se borra: se traduce. Al reves que en la
+    // web, donde la burbuja escapa el HTML y hay que quitarlo.
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")
+    .replace(/__(.+?)__/g, "*$1*")
+    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\u00bf/gm, "").replace(/^\u00a1/gm, "")
+    .replace(/\s\u00bf/g, " ").replace(/\s\u00a1/g, " ")
+    /* Las frases que delatan al modelo. La lista es CORTA a propósito.
+       ─────────────────────────────────────────────────────────────────
+       Antes incluía «no tengo acceso a», y eso borró de verdad una
+       respuesta buena: a «ya pagué, me confirmas?» el asistente contestó
+       «No tengo acceso a esa confirmación.», el filtro se la comió entera
+       y la pantalla enseñó una avería que no existía. Decir que no se
+       tiene acceso a algo es honesto y es justo lo que queremos que diga;
+       lo que no queremos es que se presente como una IA. */
+    .replace(/\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA)\b[^.]*\.?/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -251,8 +270,16 @@ Deno.serve(async (req: Request) => {
     let texto = "", modelo = "", uso: any = {}, fallo: string | null = null;
     try {
       const r = await preguntar(mensajes);
-      texto = limpiar(r.texto); modelo = r.modelo; uso = r.uso;
-      if (!texto) throw new Error("quedo vacio tras limpiar");
+      modelo = r.modelo; uso = r.uso;
+      /* Si el filtro se lo come todo, gana el original.
+         ───────────────────────────────────────────────────────────────
+         Antes esto lanzaba un error y la pantalla enseñaba la frase de
+         avería. O sea: el modelo contestaba bien, mi filtro lo borraba, y
+         al cliente le decíamos que estábamos caídos. Dejar pasar una frase
+         algo torpe es mucho menos malo que tirar una respuesta buena y
+         además mentir sobre por qué. */
+      texto = limpiar(r.texto) || r.texto.trim();
+      if (!texto) throw new Error("el modelo devolvio texto vacio");
     } catch (e) {
       fallo = String(e).slice(0, 300);
       texto = "Ahorita no te puedo responder bien. Ya aviso al equipo para que te escriban.";

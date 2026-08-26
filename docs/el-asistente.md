@@ -108,10 +108,8 @@ editar, porque desde fuera parece que sólo se está corrigiendo una errata.
 
 ## 5 · Lo que hay que hacer para encenderlo
 
-Ahora mismo el asistente **está montado y no responde**: le falta desplegar la
-función y darle una clave de modelo. Hasta entonces contesta con la frase de
-cortesía y la pantalla marca el aviso de que algo va mal —que es exactamente lo
-que tiene que hacer, pero no es estar encendido.
+El asistente **ya está encendido y responde**. Esta sección queda como receta
+para montarlo de cero en otro sitio, o para cuando haya que rehacerlo.
 
 ### a) Desplegar las funciones
 
@@ -131,21 +129,27 @@ En Supabase → Edge Functions → Secrets:
 | Secreto | Para qué |
 |---|---|
 | `GROQ_API_KEY` | La clave del proveedor del modelo. **Sin esto no habla.** |
-| `CEM_ASISTENTE_MODELOS` | Opcional. La cadena de modelos, separados por coma. |
+| `CEM_ASISTENTE_MODELOS` | La cadena de modelos, separados por coma. **No es opcional en la práctica**: los modelos se retiran. |
 
 **No la pegues en el chat.** Se pone en esa pantalla, que la guarda cifrada del
 lado del servidor, y desde aquí se puede comprobar que funciona sin verla.
 
 Los modelos van en configuración y no escritos en el código porque el manual
 documenta que el proveedor **retiró dos modelos sin avisar** y el bot se quedó
-mudo con gente escribiendo. El valor por omisión es:
+mudo con gente escribiendo. Nos pasó el primer día: la cadena apuntaba a
+`llama-3.3-70b-versatile` y `llama-3.1-8b-instant`, y Groq apagó los dos el
+**16 de agosto de 2026**. El valor de ahora es:
 
 ```
-groq:llama-3.3-70b-versatile,groq:llama-3.1-8b-instant
+groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b
 ```
 
-Cuando haya un segundo proveedor, conviene mezclar familias: una cadena cuyos
-eslabones son todos de la misma casa se cae entera el mismo día.
+Dalo por caducado también. Cuando el asistente empiece a contestar la frase de
+cortesía sin motivo, mira en **Conversaciones** si el error dice
+`model_not_found` y cambia el secreto. **No hace falta volver a desplegar.**
+
+Y una debilidad que sigue ahí: los dos eslabones son de la misma casa, así que
+cayeron juntos. Una cadena de respaldo de verdad mezcla proveedores.
 
 ### c) WhatsApp
 
@@ -232,8 +236,16 @@ encima** del real, con total naturalidad.
 
 **El filtro de salida existe aparte del guion.** El guion es una preferencia;
 el filtro es la garantía. Todo lo que se prohíbe y se puede detectar por texto
-—los signos de apertura, las frases que delatan al modelo— se limpia también en
-código antes de enviar.
+—los signos de apertura, el markdown, los bytes de control, las frases que
+delatan al modelo— se limpia también en código antes de enviar.
+
+**Y el filtro NUNCA puede dejar la respuesta vacía.** Si al limpiar no queda
+nada, gana el texto original. Esto salió de una avería de verdad: la lista de
+frases prohibidas incluía «no tengo acceso a», y a la pregunta «ya pagué, me
+confirmas?» el asistente contestó «No tengo acceso a esa confirmación» —una
+respuesta honesta y correcta— que el filtro se comió entera. La pantalla
+enseñó una avería que no existía. Un filtro demasiado ancho no sólo censura de
+más: convierte una respuesta buena en una mentira sobre el estado del sistema.
 
 **`reasoning_effort: 'low'`.** Los modelos que razonan gastan el presupuesto de
 respuesta razonando y devuelven contenido **vacío sin lanzar error**. El cliente
