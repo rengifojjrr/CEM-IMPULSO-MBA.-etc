@@ -182,17 +182,39 @@ function encargo(ambito: string): string {
 }
 
 /* ── Llamar al modelo, con la cadena de respaldo ─────────────────────────── */
-async function preguntar(mensajes: any[], intento = 0): Promise<{ texto: string; modelo: string; uso: any }> {
+async function preguntar(mensajes: any[], intento = 0, porQue: string[] = []): Promise<{ texto: string; modelo: string; uso: any }> {
   if (intento >= CADENA.length) {
-    // Del manual: «la cadena de respaldo terminaba en silencio». Nunca se
-    // acaba callando: si se agota, se dice que no se pudo y alguien lo ve.
-    throw new Error("Ningun modelo de la cadena respondio.");
+    /* Del manual: «la cadena de respaldo terminaba en silencio». Nunca se
+       acaba callando.
+
+       Y arrastra el motivo de CADA eslabón, no sólo «falló la cadena».
+       La primera vez que esto falló de verdad, lo único que quedó guardado
+       fue «Ningun modelo de la cadena respondio», que no distingue entre
+       una clave que falta, una clave inválida y un modelo retirado — que
+       son tres arreglos distintos. El sitio donde se mira la avería tiene
+       que decir qué arreglar. */
+    throw new Error("Ningun modelo respondio. " + porQue.join(" | "));
   }
   const [proveedor, modelo] = CADENA[intento].split(":");
   try {
     if (proveedor !== "groq") throw new Error(`Proveedor desconocido: ${proveedor}`);
     const clave = Deno.env.get("GROQ_API_KEY");
-    if (!clave) throw new Error("Falta GROQ_API_KEY");
+    if (!clave) {
+      /* Se dice qué secretos PARECIDOS existen, sólo los nombres, nunca los
+         valores. «Falta GROQ_API_KEY» a secas no distingue entre no haberla
+         puesto y haberla puesto como GROQ_KEY, y son dos arreglos distintos
+         que se tarda media hora en separar a ciegas. */
+      const parecidos = Object.keys(Deno.env.toObject())
+        .filter((k) => /GROQ|API_KEY/i.test(k));
+      throw new Error("Falta el secreto GROQ_API_KEY."
+        + (parecidos.length ? ` Hay estos parecidos: ${parecidos.join(", ")}.`
+                            : " No hay ningun secreto con un nombre parecido."));
+    }
+    if (!clave.startsWith("gsk_")) {
+      throw new Error("GROQ_API_KEY existe pero no parece una clave de Groq"
+        + " (las de Groq empiezan por gsk_). Puede haberse pegado con espacios"
+        + " o haberse copiado a medias.");
+    }
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -200,11 +222,19 @@ async function preguntar(mensajes: any[], intento = 0): Promise<{ texto: string;
       body: JSON.stringify({
         model: modelo, messages: mensajes,
         max_tokens: TOPE_RESPUESTA, temperature: 0.6,
-        // Los modelos que razonan gastan el presupuesto de respuesta
-        // razonando y devuelven contenido VACIO sin lanzar error. Es un
-        // error documentado en el manual: el cliente no recibe nada y el
-        // bot parece colgado.
-        reasoning_effort: "low",
+        /* `reasoning_effort` SÓLO donde existe.
+           ───────────────────────────────────────────────────────────────
+           Los modelos que razonan gastan el presupuesto de respuesta
+           razonando y devuelven contenido vacío sin lanzar error — el
+           manual lo documenta y por eso se pone a «low».
+
+           Pero es un parámetro de esos modelos, no de todos. Mandárselo a
+           un llama es mandar un campo que no existe, y la API rechaza la
+           petición entera. Se lo mandé a los dos eslabones de la cadena y
+           tumbé los dos a la vez, que es justo lo que la cadena de
+           respaldo existe para que no pase: si el fallo es del que
+           pregunta y no del proveedor, tener dos no salva de nada. */
+        ...(/gpt-oss|qwen/i.test(modelo) ? { reasoning_effort: "low" } : {}),
       }),
     });
     const j = await res.json().catch(() => ({}));
@@ -215,7 +245,8 @@ async function preguntar(mensajes: any[], intento = 0): Promise<{ texto: string;
     return { texto, modelo, uso: j?.usage ?? {} };
   } catch (e) {
     console.error(`[asistente] falló ${CADENA[intento]}: ${e}`);
-    return preguntar(mensajes, intento + 1);
+    return preguntar(mensajes, intento + 1,
+      [...porQue, `${CADENA[intento]}: ${String(e).replace(/^Error:\s*/, "")}`]);
   }
 }
 

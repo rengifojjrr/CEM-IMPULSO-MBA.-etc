@@ -145,7 +145,10 @@ async function preguntar(mensajes: any[], intento = 0): Promise<{ texto: string;
       body: JSON.stringify({
         model: modelo, messages: mensajes,
         max_tokens: TOPE_RESPUESTA, temperature: 0.6,
-        reasoning_effort: "low",
+        // Solo donde existe: es un parametro de los modelos que razonan.
+        // Mandarselo a un llama es mandar un campo inexistente y la API
+        // rechaza la peticion entera, en los dos eslabones a la vez.
+        ...(/gpt-oss|qwen/i.test(modelo) ? { reasoning_effort: "low" } : {}),
       }),
     });
     const j = await res.json().catch(() => ({}));
