@@ -892,14 +892,21 @@ document.addEventListener('click', async (e) => {
   const c = e.target.closest('[data-confirmar]');
   if (c) {
     const cual = c.dataset.confirmar;
-    if (!await confirmDialog({
-      title: 'Confirmar y mandar',
-      body: 'Esto lo manda de verdad a la gente de la lista. No se puede deshacer.',
-      okText: 'Sí, mandarlo',
-    })) return;
-    const soltar = ocupado(c);
-    const { data, error } = await sb.rpc('cem_bot_borrador_confirmar', { p_id: cual });
-    soltar();
+    /* Ojo con la firma: es confirmDialog(mensaje, titulo, opciones). Pasarle un
+       objeto como primer argumento no da error —lo escapa y lo pinta— así que
+       el aviso desaparece sin que nada avise. Se vio en el navegador: el
+       diálogo salía con «Cancelar / Confirmar» y sin la frase de que esto no se
+       deshace, que es justo lo único que ese diálogo tiene que decir. */
+    if (!await confirmDialog(
+      'Esto se manda de verdad a la gente de la lista, y un mensaje enviado no '
+      + 'se puede deshacer. Mira antes a quién le llega.',
+      'Confirmar y mandar', { confirmar: 'Sí, mandarlo', peligro: true })) return;
+    /* ocupado(boton, verbo, accion) ENVUELVE la acción; no devuelve un «soltar».
+       Llamarlo con un solo argumento no da error de sintaxis: revienta después,
+       en tiempo de ejecución, con «soltar is not a function», y para entonces la
+       petición ya salió. Se vio en el navegador. */
+    const { data, error } = await ocupado(c, 'Mandando…',
+      () => sb.rpc('cem_bot_borrador_confirmar', { p_id: cual }));
     if (error) { fail(mensajeError(error)); return; }
     if (!data?.hecho) {
       /* Se dice POR QUÉ no se hizo. «No se pudo» a secas deja a la persona sin
@@ -920,9 +927,8 @@ document.addEventListener('click', async (e) => {
 
   const d = e.target.closest('[data-descartar]');
   if (d) {
-    const soltar = ocupado(d);
-    const { error } = await sb.rpc('cem_bot_borrador_descartar', { p_id: d.dataset.descartar });
-    soltar();
+    const { error } = await ocupado(d, 'Descartando…',
+      () => sb.rpc('cem_bot_borrador_descartar', { p_id: d.dataset.descartar }));
     if (error) { fail(mensajeError(error)); return; }
     ok('Descartado.');
     await cargarConfirmar();
@@ -970,15 +976,11 @@ async function cargarHizo() {
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-deshacer]');
   if (!b) return;
-  if (!await confirmDialog({
-    title: 'Deshacer esto',
-    body: 'Se revierte lo que hizo Cemi y queda anotado en Auditoría quién lo deshizo.',
-    okText: 'Sí, deshacerlo',
-  })) return;
-  const soltar = ocupado(b);
-  const { data, error } = await sb.rpc('cem_bot_deshacer',
-                                       { p_evento: b.dataset.deshacer, p_motivo: null });
-  soltar();
+  if (!await confirmDialog(
+    'Se revierte lo que hizo Cemi, y queda anotado en Auditoría quién lo deshizo.',
+    'Deshacer esto', { confirmar: 'Sí, deshacerlo', peligro: true })) return;
+  const { data, error } = await ocupado(b, 'Deshaciendo…',
+    () => sb.rpc('cem_bot_deshacer', { p_evento: b.dataset.deshacer, p_motivo: null }));
   if (error) { fail(mensajeError(error)); return; }
   if (!data?.hecho) {
     // El «qué hacer» viene de la base, que es quien sabe por qué no se pudo.

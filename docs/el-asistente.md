@@ -69,9 +69,107 @@ al rol de quien pregunta, no el que se le pida. Un estudiante que escriba
 | `plataforma/assets/asistente.js` | La ventana de chat. Se monta desde `mount()`. |
 | `plataforma/admin/asistente.html` | La sección del panel. |
 | `plataforma/assets/mascota.svg` | La mascota, dibujada por `herramientas/dibujar-mascota.mjs`. |
+| `supabase/functions/_shared/cerebro.ts` | La cadena de modelos, el filtro de salida y el bucle de herramientas. Uno solo para los dos. |
+| `supabase/functions/_shared/herramientas.ts` | El catálogo de lo que Cemi puede hacer. |
 
 Las tres tablas tienen RLS encendido y **cero políticas**: no se llega a ellas
 más que por las funciones, y cada función comprueba primero quién llama.
+
+---
+
+## 3 bis · Las veinte cosas que puede hacer
+
+Hasta hace poco el asistente sólo **contaba**: se le metía un resumen en el
+guion y hablaba de él. Ahora además **hace**, y lo hace llamando a herramientas.
+
+Cada herramienta es una función de la base **sin `security definer`**, así que
+corre con el permiso de quien pregunta. Eso significa que no hay ni un control
+de permisos escrito a mano en las veinte: si a alguien no le toca ver algo, la
+base no le da las filas. Está comprobado ejecutándolo — la misma función, en el
+mismo instante, le devuelve al admin la cuota vencida de una persona con su
+teléfono, y a otro alumno una lista vacía.
+
+Van en tres niveles, y el nivel dice lo que cuesta:
+
+| Nivel | Qué implica |
+|---|---|
+| **Cuenta** | Sólo lee. La seguridad ya está resuelta. |
+| **Prepara** | Redacta la acción y una persona la confirma en *Asistente → Por confirmar*. |
+| **Hace** | Escribe en la base. Queda en Auditoría como `asistente.*` y se puede deshacer. |
+
+**El alumno**
+
+| # | Dice | Herramienta | Nivel |
+|---|---|---|---|
+| 01 | «por dónde iba» | `cem_bot_donde_me_quede` | Cuenta |
+| 02 | «mándame mi certificado» | `cem_bot_mis_certificados` | Cuenta |
+| 03 | «cuánto debo, cómo pago» | `cem_bot_como_pago` | Cuenta |
+| 04 | «avísame antes de que venza» | `cem_bot_avisame_antes` | Hace |
+| 05 | «dónde explicaron X» | `cem_bot_buscar_en_lecciones` | Cuenta |
+| 06 | «apúntame en ese diplomado» | `cem_bot_apuntarme` | Hace |
+
+**El profesor**
+
+| # | Dice | Herramienta | Nivel |
+|---|---|---|---|
+| 07 | «quién no ha entregado» | `cem_bot_quien_no_ha_entregado` | Cuenta |
+| 08 | «recuérdales que entreguen» | `cem_bot_redactar_recordatorio_entrega` | Prepara |
+| 09 | «hoy faltaron Ana y Luis» | `cem_bot_pasar_asistencia` | Hace |
+| 10 | «qué tengo por corregir» | `cem_bot_mi_cola_de_correccion` | Cuenta |
+
+**Cobranza**
+
+| # | Dice | Herramienta | Nivel |
+|---|---|---|---|
+| 11 | «a quién llamo hoy» | `cem_bot_a_quien_llamo_hoy` | Cuenta |
+| 12 | «manda el recordatorio de los que vencen» | `cem_bot_redactar_tanda_cuotas` | Prepara |
+| 13 | «registra este pago» | `cem_bot_registrar_pago` | Hace |
+| 14 | «cuánto entró y por qué método» | `cem_bot_cuanto_entro` | Cuenta |
+
+**Coordinación**
+
+| # | Dice | Herramienta | Nivel |
+|---|---|---|---|
+| 15 | «quién está en riesgo de dejarlo» | `cem_bot_quien_esta_en_riesgo` | Cuenta |
+| 16 | «qué falta para cerrar el mes» | `cem_bot_que_falta_para_cerrar` | Cuenta |
+| 17 | «emite los certificados» | `cem_bot_preparar_certificados` | Prepara |
+| 18 | «matricula a Fulano» | `cem_bot_matricular` | Hace |
+
+**Dirección**
+
+| # | Dice | Herramienta | Nivel |
+|---|---|---|---|
+| 19 | «resúmeme la semana» | `cem_bot_resumen_semana` | Cuenta |
+| 20 | «por qué bajó la matrícula» | `cem_bot_por_que_bajo` | Cuenta |
+
+La 19 además se manda sola los lunes a las 8:00 de Caracas
+(`cem_bot_resumen_semanal_enviar`, en el reloj de la base).
+
+### Lo que estas herramientas encuentran menos de lo que suena
+
+- **La 05 no busca dentro de los vídeos.** Busca por título, descripción y
+  nombre del módulo. La columna `cem_lessons.contenido` está cerrada **por
+  columna** junto con `url` y `video_id` — es lo que impide que alguien se baje
+  la lista de enlaces de YouTube con una consulta. Para buscar dentro de lo que
+  se dijo en clase hacen falta transcripciones guardadas en su propia tabla.
+- **La 13 no lee la imagen del comprobante.** Recibe los datos ya leídos y los
+  escribe como pago *registrado*, nunca *confirmado*. Que el dinero entró lo
+  dice quien mira la cuenta.
+- **La 07 filtra a mano por `cem_docente_de_curso`, y no es redundante.**
+  `cem_can_read_all()` incluye al rol profesor, así que hoy, por las reglas de
+  fila, un profesor puede leer entregas de cursos que no son suyos. Es el único
+  sitio de las veinte donde el permiso no basta.
+
+### Por WhatsApp sólo se puede avisar
+
+`cem-whatsapp` entra con la **llave de servicio**, porque quien escribe no tiene
+sesión. Ahí las reglas de fila no se aplican, así que ejecutar herramientas
+`SECURITY INVOKER` correría con permiso de dios: un desconocido podría pedir la
+cartera entera. Por eso allí sólo se ofrece `avisar_al_equipo`, que es
+`SECURITY DEFINER` y comprueba por dentro.
+
+Para que el equipo pueda **mandar** cosas por WhatsApp hace falta antes una
+sesión de verdad. Un número de teléfono no es una contraseña.
 
 ---
 
@@ -279,3 +377,60 @@ preguntar lo que le acaban de decir.
 - Las pruebas de navegador (`pruebas/casos/asistente.mjs`) están escritas pero
   **no se han podido correr**: necesitan las cuentas `@pruebas.local`, que
   ahora mismo no están sembradas.
+- **Transcripciones de las lecciones**, para que la 05 encuentre lo que se dijo
+  dentro de un vídeo y no sólo lo que hay escrito alrededor.
+- **Lectura del comprobante** en la 13. Hoy la herramienta escribe el pago; leer
+  el monto y la referencia de una foto es un modelo con vista, y es un trabajo
+  aparte.
+- **Los dos eslabones de la cadena de modelos son del mismo proveedor.** Cuando
+  Groq apagó los dos modelos que había, cayeron a la vez. Una cadena de verdad
+  mezcla proveedores.
+
+---
+
+## 10 · «Aviso al equipo»: por qué hay tres capas para una frase
+
+Es la promesa que más caro sale incumplir, y costó tres intentos que fuera
+verdad. Vale la pena dejar escrito el porqué de cada capa, porque las tres
+parecen redundantes y ninguna lo es.
+
+**Capa 1 — que la función haga algo.** `cem_bot_escalar` existía desde el primer
+día y sólo ponía una marca de tiempo en la conversación. Para enterarse había
+que entrar al panel y mirar. Ahora notifica y encola correo a coordinación y
+dirección, más cobranza si el motivo huele a dinero, con enlace a la
+conversación y sin repetir dentro de seis horas.
+
+**Capa 2 — que alguien la llame.** Nadie lo hacía. Ni una línea del proyecto la
+invocaba. Ahora es una herramienta que el modelo puede usar, y el guion le dice
+que la use.
+
+**Capa 3 — que el servidor lo compruebe.** Y ésta es la que enseñó lo demás.
+Probándolo, el modelo llamó a la herramienta, la llamada **falló**, se le
+devolvió el error tal cual, y aun así contestó *«Ya avisé al equipo, pronto te
+contactarán»*.
+
+O sea que la capa 2 no basta y no iba a bastar nunca: **un modelo no es un sitio
+donde poner una garantía**. Así que ahora, después de cada respuesta, el
+servidor mira si el texto dice que se avisó; si lo dice y no está avisado,
+escala él mismo — con la conversación que conoce el servidor, no la que eligiera
+el modelo. Y si tampoco puede, cambia la frase por una que no promete nada.
+
+Se avisa de más a propósito. Un aviso sobrante le cuesta al equipo mirar una
+conversación que no hacía falta; uno que falta le cuesta a una persona que le
+dijeron que la iban a llamar y nadie la llamó.
+
+### Lo que apareció debajo
+
+Al empezar a llamar a `cem_avisar_equipo` todos los días, saltó que **estaba
+rota desde que se escribió**: comparaba `rol = any(p_roles)`, que es un enum
+contra un `text[]`, y Postgres no tiene ese operador. No falla al crear la
+función: sólo al ejecutarla, y sólo cuando el bucle llega a correr.
+
+Eso la mantuvo escondida, porque sus cuatro llamadas están en ramas
+excepcionales. Y una de ellas es `cem_revisar_cuotas`, que corre **todos los
+días a las 11:00 UTC**: el primer día que alguien llegara a 60 días de mora, el
+motor de cuotas entero se habría caído —sin marcar vencidas, sin avisos
+previos— y en un reloj nadie mira el error.
+
+Está arreglado. La lección es la de siempre en este proyecto: **una avería
+latente deja de serlo cuando algo empieza a usar el camino que nadie usaba.**
