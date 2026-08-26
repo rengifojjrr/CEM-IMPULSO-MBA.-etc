@@ -213,6 +213,18 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   tr.grupo-fecha .row{margin-bottom:0;gap:8px;}
   td.hora{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
 
+  /* La previa de un grupo: un diploma por módulo, con su fecha debajo.
+     Se mira para comprobar que cada módulo lleva su diseño y su fecha ANTES de
+     ponerse a dibujar doscientos PDF, que son varios minutos. */
+  td.previa-lote{background:#f7f9fb;padding:12px;}
+  .previa-rejilla{display:grid;gap:14px;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
+  .previa-uno{margin:0;background:#fff;border:1px solid var(--border);border-radius:8px;
+    padding:8px;display:flex;flex-direction:column;gap:6px;}
+  .previa-uno img{width:100%;height:auto;display:block;border-radius:4px;
+    border:1px solid var(--border);}
+  .previa-uno figcaption{font-size:12px;line-height:1.35;}
+
   /* Cartel de «esto está tardando a propósito». Abajo a la derecha, sin tapar
      la tabla y sin robar el foco: no hay nada que decidir mientras dura. */
   .aviso-progreso{position:fixed;right:18px;bottom:18px;z-index:60;
@@ -3982,13 +3994,20 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
             ? ` <span class="hint">(${l.vigentes} vigentes)</span>` : ''}</td>
       <td class="hora">${new Date(l.emitido_en).toLocaleDateString('es-ES')}</td>
       <td>
-        <button class="btn outline small" data-bajar-lote="${l.lote_id}"
+        <button class="btn teal small" data-ver-lote="${l.lote_id}"
+          data-nombre="${escapeHtml(l.nombre)}"
+          title="Ver cómo quedan antes de bajarse los ${l.cuantos}">👁 Ver</button>
+        · <button class="btn outline small" data-bajar-lote="${l.lote_id}"
           data-nombre="${escapeHtml(l.nombre)}" data-cuantos="${l.cuantos}"
           title="Descargar los ${l.cuantos} en un ZIP">⬇ Descargar los ${l.cuantos}</button>
         · <button class="btn outline small" data-renombrar-lote="${l.lote_id}"
             data-nombre="${escapeHtml(l.nombre)}">Renombrar</button>
       </td>
-    </tr>`).join('')}</tbody></table>`;
+    </tr>
+    <tr id="previa-${l.lote_id}" style="display:none;"><td colspan="6" class="previa-lote"></td></tr>`).join('')}</tbody></table>`;
+
+    wrap.querySelectorAll('[data-ver-lote]').forEach(b => b.addEventListener('click', () =>
+      previsualizarLote(b.dataset.verLote, b.dataset.nombre)));
 
     wrap.querySelectorAll('[data-bajar-lote]').forEach(b => b.addEventListener('click', () =>
       descargarLote(b.dataset.bajarLote, b.dataset.nombre, Number(b.dataset.cuantos))));
@@ -4001,6 +4020,90 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       if(error){ alert('Error: ' + error.message); return; }
       await loadLotes();
     }));
+  }
+
+  /* ── Ver cómo queda un grupo antes de bajárselo ──────────────────────────
+     Bajarse 266 PDF para descubrir que una fecha está mal es caro: son varios
+     minutos de dibujo y luego hay que mirarlos uno a uno. Aquí se dibuja UNO
+     por cada módulo del grupo —con los datos de una persona de verdad y la
+     fecha que ese grupo guardó— y se ven los siete u ocho de un vistazo.
+
+     Se enseña un diploma por MÓDULO y no uno por persona a propósito: lo que
+     cambia entre personas es el nombre, y lo que se está comprobando es que
+     cada módulo lleve su diseño y su fecha. Para revisar a alguien concreto
+     está el selector. */
+  const previasDeLote = new Map();   // loteId -> certificados, para no repedirlos
+
+  async function previsualizarLote(loteId, nombre){
+    const fila = document.getElementById(`previa-${loteId}`);
+    if(!fila) return;
+    const celda = fila.querySelector('.previa-lote');
+
+    if(fila.style.display !== 'none'){ fila.style.display = 'none'; return; }
+    fila.style.display = '';
+    celda.innerHTML = '<p class="hint">Dibujando…</p>';
+
+    let certs = previasDeLote.get(loteId);
+    if(!certs){
+      const { data, error } = await supabase.rpc('list_cert_certificates_de_lote', { p_lote: loteId });
+      if(error){ celda.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+      certs = data || [];
+      previasDeLote.set(loteId, certs);
+    }
+    if(!certs.length){ celda.innerHTML = '<p class="hint">Ese grupo no tiene certificados.</p>'; return; }
+
+    const personas = [...new Set(certs.map(c => (c.datos || {}).Nombre).filter(Boolean))].sort();
+    const elegida = celda.dataset.persona && personas.includes(celda.dataset.persona)
+      ? celda.dataset.persona : personas[0];
+
+    celda.innerHTML = `<div class="row" style="align-items:center;margin-bottom:8px;">
+        <b>${escapeHtml(nombre)}</b>
+        <label>Con los datos de
+          <select data-persona-previa="${loteId}">
+            ${personas.map(p => `<option ${p === elegida ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+          </select></label>
+        <span class="hint">${personas.length} graduado${personas.length === 1 ? '' : 's'} en el grupo</span>
+      </div>
+      <div class="previa-rejilla" data-rejilla="${loteId}"><p class="hint">Dibujando…</p></div>`;
+
+    celda.querySelector('[data-persona-previa]').addEventListener('change', (e) => {
+      celda.dataset.persona = e.target.value;
+      pintarPreviaDe(loteId, e.target.value);
+    });
+
+    await pintarPreviaDe(loteId, elegida);
+  }
+
+  async function pintarPreviaDe(loteId, persona){
+    const rejilla = document.querySelector(`[data-rejilla="${loteId}"]`);
+    if(!rejilla) return;
+    const certs = previasDeLote.get(loteId) || [];
+    const suyos = certs.filter(c => (c.datos || {}).Nombre === persona);
+    if(!suyos.length){ rejilla.innerHTML = '<p class="hint">Sin certificados de esa persona.</p>'; return; }
+
+    rejilla.innerHTML = `<p class="hint">Dibujando ${suyos.length}…</p>`;
+    const trozos = [];
+    const sinPlantilla = [];
+    for(const c of suyos){
+      const tpl = tplPorNombreEmitido(c.plantilla_nombre);
+      if(!tpl){ sinPlantilla.push(c.plantilla_nombre); continue; }
+      await ensureFontsLoadedForConfig(tpl.config);
+      const verifyUrl = new URL(RUTA_VERIFICAR, location.href).href + '?c=' + c.id;
+      const suFecha = (c.datos && c.datos.fecha) ? String(c.datos.fecha).trim() : '';
+      const canvas = await renderCertificateCanvas(
+        c.datos || {}, verifyUrl, tpl.config, suFecha ? { fecha: { texto: suFecha } } : undefined);
+      trozos.push(`<figure class="previa-uno">
+        <img loading="lazy" decoding="async" src="${canvas.toDataURL('image/jpeg', 0.75)}"
+             alt="${escapeHtml(c.plantilla_nombre)}">
+        <figcaption><b>${escapeHtml(c.plantilla_nombre)}</b>
+          <br><span class="hint">${escapeHtml(suFecha || 'sin fecha propia — sale la de la plantilla')}</span>
+          <br><a href="verificar.html?c=${c.id}" target="_blank" class="hint">Ver el certificado</a></figcaption>
+      </figure>`);
+    }
+    rejilla.innerHTML = trozos.join('')
+      + (sinPlantilla.length
+         ? `<div class="msg err">No se pudo dibujar: la plantilla «${escapeHtml(sinPlantilla.join('», «'))}» ya no existe.</div>`
+         : '');
   }
 
   /** Descarga un grupo entero. Se piden sus certificados por su propia puerta,
