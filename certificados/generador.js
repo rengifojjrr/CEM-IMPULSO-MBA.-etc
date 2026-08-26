@@ -567,12 +567,32 @@ export function agruparPorDia(certs){
  * @param {object}  opciones
  * @param {object}  opciones.supabase      cliente ya autenticado
  * @param {Element} opciones.contenedor    dónde dibujar los controles
- * @param {string}  opciones.rutaVerificar ruta relativa a la página pública
- *                                         de verificación, para los QR
+ * @param {string}  opciones.rutaVerificar ruta relativa a la página pública de
+ *                                         verificación. La usan los QR Y los
+ *                                         enlaces «Ver» de la pantalla: decía
+ *                                         «para los QR» y por eso los enlaces
+ *                                         se quedaron con la ruta escrita a
+ *                                         mano y rota desde el panel.
  */
 export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verificar.html' }) {
   if (!supabase) throw new Error('El generador necesita un cliente de Supabase.');
   const RUTA_VERIFICAR = rutaVerificar;
+
+  /* La direccion de la pagina publica de un certificado.
+     ═══════════════════════════════════════════════════════════════════════
+     Existe porque este motor se monta desde DOS sitios: certificados/generar.html
+     y plataforma/admin/certificados-plantillas.html. Cada uno pasa su propia
+     `rutaVerificar` — y los QR ya la usaban.
+
+     Los enlaces que pulsa una persona, no. Escribian «verificar.html» a pelo,
+     que desde el panel resuelve a /plataforma/admin/verificar.html y da un 404.
+     El QR del papel iba bien y el boton de la pantalla no, que es la clase de
+     fallo que nadie relaciona con nada.
+
+     Se resuelve contra location.href igual que el QR, asi que las dos puertas
+     dan la misma direccion. */
+  const urlDeVerificar = (id) =>
+    new URL(RUTA_VERIFICAR, location.href).href + '?c=' + encodeURIComponent(id);
 
   // pdf.js se carga por <script> en la página; su worker se configura una vez.
   if (window.pdfjsLib) {
@@ -4097,7 +4117,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
              alt="${escapeHtml(c.plantilla_nombre)}">
         <figcaption><b>${escapeHtml(c.plantilla_nombre)}</b>
           <br><span class="hint">${escapeHtml(suFecha || 'sin fecha propia — sale la de la plantilla')}</span>
-          <br><a href="verificar.html?c=${c.id}" target="_blank" class="hint">Ver el certificado</a></figcaption>
+          <br><a href="${escapeHtml(urlDeVerificar(c.id))}" target="_blank" class="hint">Ver el certificado</a></figcaption>
       </figure>`);
     }
     rejilla.innerHTML = trozos.join('')
@@ -4202,7 +4222,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       <td><span class="badge ${c.estado}">${c.estado}</span>${reemplazoPor ? `<br><a href="#" data-ir-a="${reemplazoPor.id}" class="hint">→ ver el que lo reemplaza</a>` : ''}</td>
       <td class="hora">${new Date(c.created_at).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</td>
       <td>
-        <a href="verificar.html?c=${c.id}" target="_blank" class="hint">Ver</a>
+        <a href="${escapeHtml(urlDeVerificar(c.id))}" target="_blank" class="hint">Ver</a>
         ${c.estado === 'vigente' ? ` · <button data-editar-emitido="${c.id}" class="btn outline small">Editar</button>` : ''}
         ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger small">Revocar</button>` : ''}
       </td>
