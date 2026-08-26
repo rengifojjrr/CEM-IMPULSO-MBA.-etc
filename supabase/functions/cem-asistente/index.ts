@@ -365,7 +365,7 @@ Deno.serve(async (req: Request) => {
        persona que le dijeron que la iban a llamar y nadie la llamó. Y de todas
        formas escalar no se repite dentro de seis horas. */
     if (conversacion && !fallo) {
-      const loPrometio = /\bavis[oéó]\b|aviso al equipo|le paso tu|paso tu mensaje|te escrib/i.test(texto);
+      const loPrometio = /avis|notific|le paso|paso tu mensaje|te escrib|te contact/i.test(texto);
       const salioMal = usadas.some((u: any) => u.nombre === "avisar_al_equipo" && u.error);
       const salioBien = usadas.some((u: any) => u.nombre === "avisar_al_equipo" && !u.error);
 

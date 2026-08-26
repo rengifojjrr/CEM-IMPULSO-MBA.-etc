@@ -329,7 +329,7 @@ async function atender(
      equipo». Si lo dijo, se cumple desde aquí. Ver el comentario largo en
      cem-asistente. */
   if (conv && !fallo) {
-    const loPrometio = /\bavis[oéó]\b|aviso al equipo|le paso tu|paso tu mensaje|te escrib/i.test(respuesta);
+    const loPrometio = /avis|notific|le paso|paso tu mensaje|te escrib|te contact/i.test(respuesta);
     const salioMal = (usadas ?? []).some((u: any) => u.nombre === "avisar_al_equipo" && u.error);
     const salioBien = (usadas ?? []).some((u: any) => u.nombre === "avisar_al_equipo" && !u.error);
     if ((loPrometio || salioMal) && !salioBien) {
