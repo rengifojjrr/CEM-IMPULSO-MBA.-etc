@@ -136,7 +136,20 @@
     </table></div>
   </section>
 
+  <!-- El WhatsApp.
+       ═══════════════════════════════════════════════════════════════════════
+       El puente corre en una máquina que no es la plataforma —hoy, una de
+       casa— y hasta ahora la única forma de saber si estaba vivo era entrar en
+       ella y pedirle el estado a mano. Eso significa que nadie lo miraba, y
+       que una caída se descubría porque un cliente se quejaba días después.
+
+       Ahora el puente manda un latido cada dos minutos y esto lo enseña. Son
+       TRES estados y no dos: sin montar, en pie pero sin vincular, y
+       conectado. El del medio es el que más se ha visto y el que peor se
+       diagnostica: la máquina está perfecta, el proceso corre, y no hay
+       ninguna sesión de WhatsApp enlazada. -->
   <section id="tSalud" class="hidden">
+    <div class="card" id="puente"><span class="cargando"></span></div>
     <div class="card" id="salud"></div>
   </section>
 
@@ -370,6 +383,88 @@ $('#retrato').innerHTML = `
       la base de datos con el permiso de quien pregunta. Aunque alguien le pidiera
       los datos de otro, no llegan.</p>
   </div>`;
+
+/* ── El WhatsApp: si el puente está vivo ─────────────────────────────────
+   El hueco de tiempo lo calcula el SERVIDOR y aquí sólo se le da forma. Si lo
+   calculara el navegador, un portátil con la hora mal diría «caído» de uno que
+   va bien, o al revés — y ésta es justo la pantalla que se mira cuando ya se
+   duda de todo. */
+/* Corto a propósito. La primera versión ponía «hace menos de un minuto» dentro
+   del KPI, y el valor de un KPI se pinta grande: la frase desbordaba la
+   columna y se comía el cuarto indicador, que quedaba cortado por la derecha.
+   Un KPI es para una cifra. */
+function haceCuanto(seg) {
+  if (seg == null) return '—';
+  if (seg < 90) return 'ahora';
+  const min = Math.round(seg / 60);
+  if (min < 60) return `${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `${h} h`;
+  return `${Math.round(h / 24)} días`;
+}
+
+const PUENTE = {
+  'sin montar': { chip: ['Sin montar', 'info'],
+    que: 'Todavía no se ha enlazado ningún WhatsApp. El asistente funciona aquí '
+       + 'dentro, pero al número del centro no le contesta nadie.',
+    hacer: 'Los pasos están en <code>puente-whatsapp/LEEME.md</code>.' },
+  'caido': { chip: ['Caído', 'err'],
+    que: 'La máquina donde corre el puente no está dando señales. Mientras siga '
+       + 'así, a quien escriba al número no se le contesta <b>ni se le anota la '
+       + 'pregunta</b>.',
+    hacer: 'Mira que esté encendida y que no se haya dormido. Para levantarlo: '
+         + '<code>npx pm2 restart cem-puente</code>.' },
+  'sin vincular': { chip: ['Sin vincular', 'warn'],
+    que: 'El puente está encendido y funcionando, pero no hay ninguna sesión de '
+       + 'WhatsApp enlazada. Todo parece bien y el número no atiende a nadie.',
+    hacer: 'Hay que escanear el QR desde el teléfono del negocio: <b>WhatsApp → '
+         + 'Dispositivos vinculados</b>. El código sale en '
+         + '<code>http://127.0.0.1:3000/qr</code> de esa máquina.' },
+  'conectado': { chip: ['Conectado', 'ok'], que: '', hacer: '' },
+};
+
+async function cargarPuente() {
+  const { data, error } = await sb.rpc('cem_puente_ver');
+  if (error) {
+    $('#puente').innerHTML = vacio({ icono: 'wifi_off',
+      titulo: 'No se pudo leer el estado del WhatsApp', texto: mensajeError(error) });
+    return;
+  }
+  const p = data ?? { estado: 'sin montar' };
+  const t = PUENTE[p.estado] ?? PUENTE['sin montar'];
+
+  const modo = p.modo === 'responde'
+    ? chip('Contesta', 'ok')
+    : chip('Sólo escucha', 'info');
+
+  $('#puente').innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center;gap:var(--e2)">
+      <h2 style="margin:0">El WhatsApp</h2>
+      ${chip(...t.chip)}
+    </div>
+    ${p.hay ? `
+      <div class="kpis" style="margin-top:var(--e2)">
+        ${kpi('Número', p.numero ? `+${esc(String(p.numero))}` : '—', 'call')}
+        ${/* El chip va de VALOR y no de subtítulo: `sub` se escapa, así que ahí
+              saldría la etiqueta en crudo en vez del chip. */''}
+        ${kpi('Cómo atiende', modo, 'hearing', '', '',
+              'En «sólo escucha» anota lo que preguntan y no contesta nada. Es como '
+              + 'conviene empezar: aprende de las preguntas de verdad mientras el '
+              + 'equipo sigue contestando a mano.')}
+        ${kpi('Última señal', haceCuanto(p.segundos_sin_latir), 'favorite',
+              'da una cada 2 min', (p.en_pie ? '' : 'err'),
+              'El puente avisa de que sigue vivo cada dos minutos. Si pasa un cuarto '
+              + 'de hora sin ninguna señal, se da por caído y se avisa al equipo.')}
+        ${kpi('Preguntas recibidas', num(p.mensajes ?? 0), 'forum',
+              `${num(p.respondidos ?? 0)} contestadas`)}
+      </div>` : ''}
+    ${t.que ? `<p class="nota" style="margin-top:var(--e2)">${t.que}<br>${t.hacer}</p>` : ''}
+    <p class="tiny muted" style="margin-bottom:0">
+      Esto corre fuera de la plataforma, en una máquina aparte. Si deja de dar
+      señales durante un cuarto de hora, se avisa al equipo solo — no hace falta
+      que nadie vigile esta pantalla.</p>`;
+  montarAyudas($('#puente'));
+}
 
 /* ── El botón de ponerlo al día ──────────────────────────────────────────── */
 /* Esto contesta a «que el bot se actualice solo cuando subamos un diplomado».
@@ -1062,6 +1157,10 @@ $('#tabs').addEventListener('click', (e) => {
      enseñar la lista de hace un rato haría confirmar dos veces lo mismo. */
   if (b.dataset.t === 'confirmar') cargarConfirmar();
   if (b.dataset.t === 'hizo') cargarHizo();
+  /* El estado del puente también, cada vez: es lo que se viene a mirar cuando
+     alguien avisa de que el WhatsApp no contesta, y enseñar el de hace media
+     hora sería justo lo contrario de para lo que sirve. */
+  if (b.dataset.t === 'salud') cargarPuente();
   if (b.dataset.t === 'cara' && !caraCargada) {
     caraCargada = true; cargarCara(); cargarQuienHabla();
   }
@@ -1072,6 +1171,9 @@ $('#tabs').addEventListener('click', (e) => {
 
 await cargarPanel();
 await cargarSaber();
+/* Sin await: la pestaña de «Cómo va» no es la que se abre primero, y esperar a
+   esto retrasaría lo que sí se está mirando. */
+cargarPuente();
 
 /* El contador de pendientes se pide al cargar la pantalla, no al abrir la
    pestaña: si sólo se supiera al abrirla, nadie la abriría — que es justo el

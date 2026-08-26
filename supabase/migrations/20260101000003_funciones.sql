@@ -8464,6 +8464,174 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_puente_latido(p_estado jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_antes boolean;
+  v_habia boolean;
+  v_ahora boolean := coalesce((p_estado->>'conectado')::boolean, false);
+begin
+  select conectado, true into v_antes, v_habia from cem_puente_estado where id;
+
+  insert into cem_puente_estado as e
+    (id, conectado, numero, modo, version, ultimo_latido, arrancado,
+     mensajes, respondidos, fallos, actualizado)
+  values (true, v_ahora,
+     nullif(p_estado->>'numero', ''),
+     nullif(p_estado->>'modo', ''),
+     nullif(p_estado->>'version', ''),
+     now(),
+     nullif(p_estado->>'arrancado', '')::timestamptz,
+     coalesce((p_estado->>'mensajes')::int, 0),
+     coalesce((p_estado->>'respondidos')::int, 0),
+     coalesce((p_estado->>'fallos')::int, 0),
+     now())
+  on conflict (id) do update set
+     conectado = excluded.conectado,
+     numero = coalesce(excluded.numero, e.numero),
+     modo = coalesce(excluded.modo, e.modo),
+     version = coalesce(excluded.version, e.version),
+     ultimo_latido = now(),
+     -- El arranque es el del proceso que late AHORA: si se reinició, la cuenta
+     -- de «lleva dos horas sin vincular» tiene que empezar de nuevo.
+     arrancado = coalesce(excluded.arrancado, e.arrancado),
+     mensajes = excluded.mensajes,
+     respondidos = excluded.respondidos,
+     fallos = excluded.fallos,
+     -- Al volver se limpian las marcas, para que la próxima caída sí avise.
+     avisado_caida = case when excluded.conectado then null else e.avisado_caida end,
+     avisado_sin_vincular = case when excluded.conectado then null else e.avisado_sin_vincular end,
+     actualizado = now();
+
+  -- Volvió después de una caída: se dice. Si no, el equipo se queda con el
+  -- susto y sin la resolución, y acaba ignorando los dos avisos.
+  if v_ahora and v_habia and v_antes is distinct from true then
+    perform cem_avisar_equipo(
+      'puente_whatsapp',
+      'El WhatsApp volvió a estar conectado',
+      case when nullif(p_estado->>'numero','') is not null
+           then 'Conectado como +' || (p_estado->>'numero') || '.'
+           else 'El puente volvió a conectar.' end,
+      '/plataforma/admin/asistente.html',
+      array['coordinador','admin','superadmin']);
+  end if;
+
+  return jsonb_build_object('ok', true);
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_puente_ver()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+declare e record; v_seg numeric; v_en_pie boolean;
+begin
+  select * into e from cem_puente_estado where id;
+  if not found then
+    return jsonb_build_object('hay', false, 'estado', 'sin montar');
+  end if;
+  v_seg := extract(epoch from (now() - e.ultimo_latido));
+  -- «En pie» es que el PROCESO late. «Conectado» es que además WhatsApp está
+  -- vinculado. Son tres estados y no dos: sin montar, en pie pero sin
+  -- vincular, y conectado. Confundir los dos últimos manda a mirar la máquina
+  -- cuando lo que falta es escanear un QR.
+  v_en_pie := v_seg < 600;
+  return jsonb_build_object(
+    'hay', true,
+    'estado', case when not v_en_pie then 'caido'
+                   when e.conectado then 'conectado'
+                   else 'sin vincular' end,
+    'en_pie', v_en_pie,
+    'conectado', e.conectado,
+    'vivo', v_en_pie and e.conectado,
+    'numero', e.numero,
+    'modo', e.modo,
+    'version', e.version,
+    'segundos_sin_latir', floor(v_seg),
+    'ultimo_latido', e.ultimo_latido,
+    'arrancado', e.arrancado,
+    'mensajes', e.mensajes,
+    'respondidos', e.respondidos,
+    'fallos', e.fallos);
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_puente_vigilar()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare e record; v_min numeric; v_avisados int; v_desvinculado_min numeric;
+begin
+  select * into e from cem_puente_estado where id;
+  if not found or e.ultimo_latido is null then
+    return jsonb_build_object('estado', 'sin montar');
+  end if;
+
+  v_min := extract(epoch from (now() - e.ultimo_latido)) / 60;
+
+  /* ── Caído: ni late ────────────────────────────────────────────────────
+     Quince minutos, no tres. El puente late cada dos, pero una máquina de
+     casa pierde el wifi un rato y Baileys reconecta solo con espera creciente
+     de hasta un minuto. Avisar a los tres sería avisar por cosas que se
+     arreglan solas, y un aviso que suele ser falso deja de leerse — que es
+     peor que no tenerlo. */
+  if v_min >= 15 then
+    if e.avisado_caida is not null then
+      return jsonb_build_object('estado', 'caido', 'ya_avisado', e.avisado_caida,
+                                'minutos_sin_latir', round(v_min, 1));
+    end if;
+    v_avisados := cem_avisar_equipo(
+      'puente_whatsapp',
+      'El WhatsApp lleva ' || round(v_min) || ' minutos sin dar señales',
+      'La máquina donde corre el puente no está respondiendo. Mientras siga así, '
+      || 'a quien escriba al número no se le contesta NI se le anota la pregunta. '
+      || 'Mira que esté encendida y que no se haya dormido; si hizo falta, se '
+      || 'arranca con: npx pm2 restart cem-puente',
+      '/plataforma/admin/asistente.html',
+      array['coordinador','admin','superadmin']);
+    update cem_puente_estado set avisado_caida = now(), conectado = false where id;
+    return jsonb_build_object('estado', 'caido', 'avisados', v_avisados,
+                              'minutos_sin_latir', round(v_min, 1));
+  end if;
+
+  /* ── En pie pero sin vincular ──────────────────────────────────────────
+     Late, o sea que la máquina está bien, pero WhatsApp no está enlazado.
+     Pasa de verdad y en silencio: WhatsApp cierra la sesión desde el
+     teléfono, el proceso se reinicia solo, y se queda esperando un QR que
+     nadie escanea. Todo «funciona» y el número no atiende a nadie.
+
+     Dos horas de margen para no avisar mientras se está montando. */
+  if not e.conectado then
+    v_desvinculado_min := extract(epoch from (now() - coalesce(e.arrancado, e.ultimo_latido))) / 60;
+    if v_desvinculado_min >= 120 and e.avisado_sin_vincular is null then
+      v_avisados := cem_avisar_equipo(
+        'puente_whatsapp',
+        'El WhatsApp está sin vincular',
+        'El puente está encendido y funcionando, pero no hay ninguna sesión de '
+        || 'WhatsApp enlazada: hay que escanear el QR otra vez desde el teléfono '
+        || 'del negocio (WhatsApp → Dispositivos vinculados). Mientras tanto el '
+        || 'número no atiende ni anota nada.',
+        '/plataforma/admin/asistente.html',
+        array['coordinador','admin','superadmin']);
+      update cem_puente_estado set avisado_sin_vincular = now() where id;
+      return jsonb_build_object('estado', 'sin vincular', 'avisados', v_avisados);
+    end if;
+    return jsonb_build_object('estado', 'sin vincular',
+                              'ya_avisado', e.avisado_sin_vincular,
+                              'minutos', round(v_desvinculado_min, 1));
+  end if;
+
+  return jsonb_build_object('estado', 'conectado', 'minutos_sin_latir', round(v_min, 1));
+end $function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_puede_cobranza()
  RETURNS boolean
  LANGUAGE sql

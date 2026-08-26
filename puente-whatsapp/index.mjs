@@ -129,9 +129,13 @@ const ahora = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 const log = (...a) => console.log(ahora(), ...a);
 
 /* ── Estado, para la página de salud ──────────────────────────────────────── */
+const arrancadoISO = new Date().toISOString();
+const VERSION = '1.1.0';
+
 const estado = {
   conectado: false, numero: null, qr: null, secreto: 'sin comprobar',
   desde: ahora(), mensajes: 0, respondidos: 0, fallos: 0, ultimo: null,
+  ultimo_latido: null,
 };
 
 /* ── Hablar con el cerebro ────────────────────────────────────────────────── */
@@ -143,6 +147,53 @@ async function preguntarAlCerebro(telefono, texto) {
   });
   if (!r.ok) throw new Error(`el cerebro respondió ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return r.json();
+}
+
+/* ── El latido ────────────────────────────────────────────────────────────
+   «Sigo vivo», cada dos minutos. Sin esto, que esta máquina se apague no lo
+   nota nadie: el número deja de contestar Y de anotar, y la primera señal es
+   un cliente quejándose días después.
+
+   Con esto, la base avisa al equipo a los quince minutos de silencio, y en la
+   plataforma se ve si está conectado sin entrar aquí a mirar. Importa
+   especialmente mientras esto corra en una máquina de casa y no en un
+   servidor.
+
+   Los fallos se anotan y no se gritan: perder un latido porque se cayó el wifi
+   diez segundos es normal, y llenar el registro de eso esconde lo que sí
+   importa. Quien decide que hay una caída es la base, contando el silencio. */
+const LATIDO_CADA = 2 * 60 * 1000;
+let quejaDeLatido = 0;
+
+async function mandarLatido() {
+  try {
+    const r = await fetch(CEREBRO, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-cem-puente': SECRETO },
+      body: JSON.stringify({
+        latido: true,
+        estado: {
+          conectado: estado.conectado,
+          numero: estado.numero,
+          modo: MODO,
+          version: VERSION,
+          arrancado: arrancadoISO,
+          mensajes: estado.mensajes,
+          respondidos: estado.respondidos,
+          fallos: estado.fallos,
+        },
+      }),
+    });
+    if (!r.ok) throw new Error(`el cerebro respondió ${r.status}`);
+    estado.ultimo_latido = ahora();
+    quejaDeLatido = 0;
+  } catch (e) {
+    // Una queja cada diez intentos fallidos: ni silencio total ni un renglón
+    // cada dos minutos durante toda la noche.
+    if (quejaDeLatido++ % 10 === 0) {
+      log('!! no se pudo mandar el latido:', String(e).slice(0, 120));
+    }
+  }
 }
 
 /* ── ¿Coincide el secreto? Se comprueba al arrancar, no al primer cliente ──
@@ -258,10 +309,12 @@ async function conectar() {
       if (MODO === 'escucha') {
         log('En ESCUCHA: anota lo que preguntan y no contesta. Nadie nota que está.');
       }
+      mandarLatido();   // que la plataforma lo sepa ya, sin esperar dos minutos
     }
 
     if (connection === 'close') {
       estado.conectado = false;
+      mandarLatido();   // decir que se cortó, en vez de dejar de latir sin más
       const codigoSalida = lastDisconnect?.error?.output?.statusCode;
       const cerroSesion = codigoSalida === DisconnectReason.loggedOut;
 
@@ -390,6 +443,18 @@ if (process.argv.includes('--reiniciar-sesion')) {
   log('Carpeta auth/ borrada: va a pedir el QR otra vez.');
 }
 comprobarSecreto();     // sin await: que no retrase el QR
+
+/* Un latido nada más arrancar, antes de que nadie escanee nada. Así la
+   plataforma distingue tres cosas que no son la misma: que esto no se ha
+   montado, que está en pie esperando el QR, y que está conectado. Sin el
+   primer latido, «arrancado sin vincular» y «muerto» se ven igual. */
+mandarLatido();
+
+/* El latido va con `unref` para que no sea lo que mantenga vivo el proceso:
+   si algún día todo lo demás termina, esto no debe ser el motivo de que el
+   puente siga en pie sin hacer nada. */
+setInterval(mandarLatido, LATIDO_CADA).unref();
+
 conectar().catch((e) => {
   console.error('No se pudo arrancar:', e);
   process.exit(1);

@@ -854,6 +854,23 @@ create table if not exists public.cem_profiles (
   intereses text[]
 );
 
+create table if not exists public.cem_puente_estado (
+  id boolean not null default true,
+  conectado boolean not null default false,
+  numero text,
+  modo text,
+  version text,
+  ultimo_latido timestamp with time zone,
+  arrancado timestamp with time zone,
+  mensajes integer not null default 0,
+  respondidos integer not null default 0,
+  fallos integer not null default 0,
+  avisado_caida timestamp with time zone,
+  actualizado timestamp with time zone not null default now(),
+  avisado_sin_vincular timestamp with time zone
+);
+comment on table public.cem_puente_estado is 'Una fila: el estado del puente de WhatsApp. La escribe el propio puente por medio de cem-whatsapp.';
+
 create table if not exists public.cem_questions (
   id uuid not null default gen_random_uuid(),
   course_id uuid,

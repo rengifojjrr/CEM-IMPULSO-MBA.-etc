@@ -429,6 +429,29 @@ Deno.serve(async (req: Request) => {
         { status: 403, headers: { "Content-Type": "application/json" } });
     }
     const cuerpo = await req.json().catch(() => ({}));
+
+    /* ── El latido ─────────────────────────────────────────────────────
+       El puente dice «sigo vivo» cada dos minutos. Entra por aqui y no por
+       una funcion aparte porque ya trae el secreto comprobado, y una segunda
+       puerta con su propia comprobacion es una segunda puerta que algun dia
+       se abre sola.
+
+       Esto existe porque el puente corre en una maquina que no es nuestra. La
+       averia que cuesta dinero no es que se caiga: es que se caiga sin que
+       nadie se entere, y la gente escriba a un numero que ya no contesta ni
+       anota. */
+    if (cuerpo?.latido) {
+      const sb = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        { auth: { persistSession: false } },
+      );
+      const { error } = await sb.rpc("cem_puente_latido", { p_estado: cuerpo.estado ?? {} });
+      if (error) console.error("[puente] no se pudo anotar el latido:", error);
+      return new Response(JSON.stringify({ ok: !error }),
+        { headers: { "Content-Type": "application/json" } });
+    }
+
     const telefono = String(cuerpo?.telefono ?? "").trim();
     const texto = String(cuerpo?.texto ?? "").trim().slice(0, TOPE_PREGUNTA);
     const modo = cuerpo?.modo === "responde" ? "responde" : "escucha";

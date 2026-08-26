@@ -63,6 +63,7 @@ alter table public.cem_permissions add constraint cem_permissions_pkey PRIMARY K
 alter table public.cem_plantillas_mensaje add constraint cem_plantillas_mensaje_pkey PRIMARY KEY (id);
 alter table public.cem_portafolio add constraint cem_portafolio_pkey PRIMARY KEY (id);
 alter table public.cem_profiles add constraint cem_profiles_pkey PRIMARY KEY (id);
+alter table public.cem_puente_estado add constraint cem_puente_estado_pkey PRIMARY KEY (id);
 alter table public.cem_questions add constraint cem_questions_pkey PRIMARY KEY (id);
 alter table public.cem_rate_limit add constraint cem_rate_limit_pkey PRIMARY KEY (clave);
 alter table public.cem_recurso_entregas add constraint cem_recurso_entregas_pkey PRIMARY KEY (id);
@@ -169,6 +170,7 @@ alter table public.cem_liquidaciones add constraint cem_liquidaciones_tasa CHECK
 alter table public.cem_mensajes_plantilla add constraint cem_mensajes_plantilla_tipo_check CHECK ((tipo = ANY (ARRAY['primer-contacto'::text, 'promocion'::text, 'seguimiento'::text, 'recuperacion'::text, 'otro'::text])));
 alter table public.cem_metodos_pago add constraint cem_metodo_moneda_valida CHECK ((moneda = ANY (ARRAY['EUR'::text, 'USD'::text, 'VES'::text])));
 alter table public.cem_metodos_pago add constraint cem_metodo_regla_valida CHECK ((regla = ANY (ARRAY['uno_a_uno'::text, 'tasa_bcv'::text, 'directo'::text])));
+alter table public.cem_puente_estado add constraint cem_puente_estado_una_fila CHECK (id);
 alter table public.cem_recursos add constraint cem_recurso_completo CHECK (
 CASE tipo
     WHEN 'documento'::text THEN (storage_path IS NOT NULL)

@@ -63,6 +63,7 @@ alter table public.cem_permissions enable row level security;
 alter table public.cem_plantillas_mensaje enable row level security;
 alter table public.cem_portafolio enable row level security;
 alter table public.cem_profiles enable row level security;
+alter table public.cem_puente_estado enable row level security;
 alter table public.cem_questions enable row level security;
 alter table public.cem_rate_limit enable row level security;
 alter table public.cem_recurso_entregas enable row level security;
@@ -562,6 +563,8 @@ create policy cem_profiles_select on public.cem_profiles as permissive for selec
 create policy cem_profiles_update_own on public.cem_profiles as permissive for update to authenticated
   using (((id = auth.uid()) OR cem_is_staff()))
   with check (((id = auth.uid()) OR cem_is_staff()));
+create policy cem_puente_estado_leer on public.cem_puente_estado as permissive for select to authenticated
+  using (cem_is_staff());
 create policy cem_auditor_no_delete_cem_questions on public.cem_questions as restrictive for delete to public
   using ((NOT cem_es_auditor()));
 create policy cem_auditor_no_insert_cem_questions on public.cem_questions as restrictive for insert to public

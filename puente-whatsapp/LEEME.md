@@ -52,11 +52,72 @@ bot sería entregarle a un alumno lo que otro contó en privado.
 
 ---
 
-## Montarlo
+## Dónde ponerlo, si no se quiere pagar todavía
 
-Necesita **una máquina encendida siempre**. Un VPS de 5 €/mes sobra. **No un
-portátil**: el manual lo midió — la máquina se dormía, 312 reconexiones en un
-día y 1 h 46 min de caída en plena hora de venta.
+Esto tiene que correr en una máquina **encendida y despierta**. Un VPS de 5 €/mes
+lo resuelve, pero se puede empezar sin gastar nada — y mudarlo después es copiar
+una carpeta.
+
+Lo que **no** hay que hacer es dejarlo en un portátil tal cual. El manual lo
+midió: la máquina se dormía, 312 reconexiones en un día y 1 h 46 min de caída en
+plena hora de venta. El problema no es el portátil, es que se duerme. Abajo está
+cómo evitarlo en cada sistema.
+
+Ordenado por lo bien que aguanta, sin coste:
+
+| Dónde | Qué tal | Qué cuesta |
+|---|---|---|
+| **Un Android viejo con Termux** | Lo mejor de lo gratis. Ya está hecho para estar enchufado y no dormirse | Nada, si tienes uno en un cajón |
+| **Un PC de la oficina que no se apaga** | Bien, si de verdad no se apaga | Nada |
+| **Tu portátil** | Vale para empezar y para probar. Se cierra la tapa y se acabó | Nada |
+| Un VPS | Lo que toca cuando esto ya venda | 5 €/mes |
+
+**El aviso automático es lo que hace viable lo gratis.** El puente manda una
+señal cada dos minutos, y si pasa un cuarto de hora sin ninguna, la plataforma
+avisa al equipo sola. Así, que la máquina de casa se apague deja de ser una
+avería invisible: alguien se entera el mismo día en vez de dentro de dos
+semanas. Se ve en **El asistente → Cómo va**.
+
+### Que no se duerma
+
+Da igual dónde lo pongas, esto hay que hacerlo:
+
+- **Windows** — Configuración → Sistema → Inicio/apagado: *Suspensión* en
+  «Nunca». Y en Panel de control → Opciones de energía → Cambiar la
+  configuración avanzada, **desactiva la suspensión selectiva de USB** si va por
+  wifi USB.
+- **macOS** — `sudo pmset -a sleep 0 disablesleep 1`. Con la tapa cerrada
+  necesita además estar enchufado.
+- **Linux** — `sudo systemctl mask sleep.target suspend.target hibernate.target`.
+- **Android/Termux** — `termux-wake-lock`, y en los ajustes de batería del
+  teléfono pon Termux en «Sin restricciones».
+
+### Que arranque solo al encender
+
+Sin esto, cada corte de luz deja el WhatsApp mudo hasta que alguien se acuerde.
+
+```
+npx pm2 start index.mjs --name cem-puente
+npx pm2 save
+npx pm2 startup        # imprime un comando; cópialo y ejecútalo
+```
+
+En Android con Termux no hay `pm2 startup`; se usa Termux:Boot (de F-Droid) con
+un guion en `~/.termux/boot/`.
+
+### Lo que se pierde cuando está apagado, y lo que no
+
+- **Se pierde**: lo que la gente escriba mientras tanto no se contesta ni se
+  anota. WhatsApp le entrega los mensajes al teléfono del negocio igual, así que
+  ahí siguen — pero para el asistente es como si no hubieran existido.
+- **No se pierde**: la sesión. La carpeta `auth/` se queda en el disco, así que
+  al volver a arrancar reconecta **sin pedir el QR otra vez**.
+- **No se pierde**: nada de la plataforma. Esto es un cable; los datos están en
+  la base y no pasan por aquí.
+
+---
+
+## Montarlo
 
 ### 1. El secreto, en los dos lados
 
@@ -115,6 +176,11 @@ Debe decir `"conectado": true` y `"secreto": "bien"`. Escríbele al número desd
 otro teléfono: en `escucha` **no** debe contestar, y la pregunta debe aparecer
 en **El asistente → Lo que preguntan**.
 
+Y sin entrar en esta máquina: en la plataforma, **El asistente → Cómo va**, el
+recuadro «El WhatsApp» debe decir **Conectado** con el número y la última señal
+de hace menos de dos minutos. Ése es el sitio donde mirarlo a diario; esto de
+aquí es para cuando algo va mal.
+
 ### 5. Encenderlo, cuando lleve unos días escuchando
 
 En `.env`, `CEM_PUENTE_MODO=responde`, y `npx pm2 restart cem-puente`.
@@ -147,6 +213,27 @@ qué le hablan y uno que se estrena delante de un cliente.
   `npm install` traía la última de Baileys y el puente moría al arrancar con
   «useMultiFileAuthState is not a function» — pasó de verdad, con la 6.7.24.
   Para actualizar a propósito: `npm update && npx pm2 restart cem-puente`.
+- **Si se cae, alguien se entera.** Manda una señal cada dos minutos; a los
+  quince sin ninguna, la plataforma avisa al equipo sola. También avisa del caso
+  que peor se diagnostica: el puente encendido y funcionando **sin ninguna sesión
+  de WhatsApp enlazada** — todo parece bien y el número no atiende a nadie.
+
+---
+
+## Mudarlo a un servidor, el día que toque
+
+No hay migración que hacer. Se copia la carpeta con su `.env` y su `auth/`, y
+sigue conectado **sin escanear el QR otra vez**:
+
+```
+npx pm2 stop cem-puente                       # en la máquina vieja
+rsync -a puente-whatsapp/ usuario@servidor:~/puente-whatsapp/
+# y en el servidor: npm install && npx pm2 start index.mjs --name cem-puente
+```
+
+Que la carpeta `auth/` viaje es justo lo que evita el reescaneo — y por lo mismo,
+**borra la de la máquina vieja** cuando termines: con esos archivos se puede leer
+y escribir como el CEM.
 
 ## Cuando algo va mal
 

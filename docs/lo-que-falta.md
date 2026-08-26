@@ -141,9 +141,21 @@ puesto y si no está puesto en Supabase dan exactamente lo mismo, un 403. El
 puente ahora lo comprueba al arrancar y lo dice, pero no puede decirte cuál de
 los dos es. Si sale `EL SECRETO NO COINCIDE`, mira **los dos** sitios.
 
-**b) Una máquina encendida siempre.** Un VPS de 5 €/mes sobra. **No un
-portátil**: está medido en el manual —312 reconexiones en un día y 1 h 46 min de
-caída en plena hora de venta, por una máquina que se suspendía.
+**b) Una máquina encendida y despierta.** No hace falta pagar nada todavía: sirve
+un Android viejo con Termux, un PC de la oficina que no se apague, o tu propio
+portátil para empezar. Lo único que hay que hacer sí o sí es **impedir que se
+duerma** — está medido en el manual: 312 reconexiones en un día y 1 h 46 min de
+caída en plena hora de venta, por una máquina que se suspendía. Los comandos
+para cada sistema están en `puente-whatsapp/LEEME.md`.
+
+Y lo que hace que lo gratis se aguante: el puente manda una señal cada dos
+minutos y, si pasa un cuarto de hora en silencio, **la plataforma avisa al equipo
+sola**. Que la máquina de casa se apague deja de ser una avería invisible. Se ve
+en **El asistente → Cómo va**, y también avisa del caso que peor se diagnostica:
+el puente encendido pero sin ninguna sesión de WhatsApp enlazada.
+
+Mudarlo a un VPS el día que toque es copiar la carpeta: se lleva la sesión y no
+hay que escanear el QR otra vez.
 
 Los pasos están en `puente-whatsapp/LEEME.md`. Arranca en modo `escucha`, que es
 lo que viene puesto: anota las preguntas reales sin contestar ninguna. Déjalo
