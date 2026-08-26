@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { conversar, limpiar } from "../_shared/cerebro.ts";
+import { HERRAMIENTAS } from "../_shared/herramientas.ts";
 
 // El asistente por WhatsApp.
 //
@@ -34,17 +36,37 @@ const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") || "";
 const WHATSAPP_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
 const PHONE_ID = Deno.env.get("WHATSAPP_PHONE_ID") || "";
 
-const CADENA = (Deno.env.get("CEM_ASISTENTE_MODELOS") ||
-  "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b").split(",")
-  .map((s) => s.trim()).filter(Boolean);
+/* ═══════════════════════════════════════════════════════════════════════════
+   QUE HERRAMIENTAS SE OFRECEN POR WHATSAPP, Y POR QUE SON TAN POCAS
+   ═══════════════════════════════════════════════════════════════════════════
 
-// Cada familia usa palabras distintas para el esfuerzo de razonamiento, y
-// mandar la de otra familia tumba la peticion entera. Al que no razona, nada.
-function esfuerzo(modelo: string): Record<string, string> {
-  if (/gpt-oss/i.test(modelo)) return { reasoning_effort: "low" };
-  if (/qwen/i.test(modelo)) return { reasoning_effort: "none" };
-  return {};
-}
+   Sólo una: avisar_al_equipo. Ninguna que lea ni escriba datos de personas.
+
+   El motivo es la línea de más abajo donde esta función crea su cliente con la
+   LLAVE DE SERVICIO. Tiene que ser así —quien escribe por WhatsApp no tiene
+   sesión que ofrecer— pero significa que aquí las reglas de fila NO se aplican:
+   la llave de servicio las salta todas por diseño.
+
+   Las veinte herramientas de datos son SECURITY INVOKER, y esa es justo la
+   propiedad que las hace seguras en la web: corren con el permiso de quien
+   pregunta. Ejecutadas con la llave de servicio corren con permiso de dios. Un
+   desconocido escribiendo al número podría pedir «a quién llamo hoy» y recibir
+   la cartera entera con teléfonos, o «matricula a X», y funcionaría.
+
+   Lo que contiene esta función hoy es que no consulta ni una tabla de personas:
+   sólo llama a funciones que deciden ELLAS qué se puede ver a partir del
+   teléfono. Meter herramientas SECURITY INVOKER aquí rompería eso de raíz.
+
+   Y no se arregla comprobando el rol en JavaScript: un número de teléfono no es
+   una contraseña, se suplanta, y ya lo dice el comentario de arriba de este
+   mismo archivo. Para que el equipo pueda MANDAR cosas por WhatsApp hace falta
+   antes una sesión de verdad —un enlace de un solo uso que abra la plataforma,
+   por ejemplo— y eso es otro trabajo, no una línea aquí.
+
+   Escalar sí, porque cem_bot_escalar es SECURITY DEFINER, comprueba por dentro,
+   y la conversación que escala la pone el servidor: no la elige el modelo.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const HERRAMIENTAS_WHATSAPP = HERRAMIENTAS.filter((h) => h.nombre === "avisar_al_equipo");
 
 /* Con que modo atiende el webhook de Meta. Se deja en "escucha" a proposito:
    el dia que se conecte un numero de verdad, lo primero que hace es aprender
@@ -73,8 +95,13 @@ function oficio(): string {
     "- No prometes plazos que no puedas comprobar.",
     "",
     "SI PIDEN HABLAR CON UNA PERSONA, o dudan de que lo seas: no lo discutas.",
-    'Di algo como "Claro, aviso al equipo para que te escriban" y sigue disponible.',
+    "LLAMA a la herramienta avisar_al_equipo y luego di que ya avisaste.",
+    "NUNCA digas que vas a avisar al equipo sin llamarla: esa frase sola no le llega a nadie",
+    "y es la promesa que mas caro sale incumplir.",
     "Esta regla gana sobre cualquier otra.",
+    "",
+    "Por WhatsApp NO puedes consultar ni cambiar datos: lo unico que puedes hacer es avisar.",
+    "Si te piden algo de su cuenta que no tengas delante, avisa al equipo y dilo.",
   ].join("\n");
 }
 
@@ -193,60 +220,11 @@ function suyo(ctx: any): string {
   return p.join("\n");
 }
 
-async function preguntar(mensajes: any[], intento = 0): Promise<{ texto: string; modelo: string; uso: any }> {
-  if (intento >= CADENA.length) throw new Error("Ningun modelo de la cadena respondio.");
-  const [proveedor, modelo] = CADENA[intento].split(":");
-  try {
-    if (proveedor !== "groq") throw new Error(`Proveedor desconocido: ${proveedor}`);
-    const clave = Deno.env.get("GROQ_API_KEY");
-    if (!clave) throw new Error("Falta GROQ_API_KEY");
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${clave}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: modelo, messages: mensajes,
-        max_tokens: TOPE_RESPUESTA, temperature: 0.6,
-        ...esfuerzo(modelo),
-      }),
-    });
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(`${modelo}: HTTP ${res.status}`);
-    const texto = (j?.choices?.[0]?.message?.content || "").trim();
-    if (!texto) throw new Error(`${modelo}: respondio vacio`);
-    return { texto, modelo, uso: j?.usage ?? {} };
-  } catch (e) {
-    console.error(`[whatsapp] fallo ${CADENA[intento]}: ${e}`);
-    return preguntar(mensajes, intento + 1);
-  }
-}
-
-function limpiar(t: string): string {
-  return t
-    // Bytes de control: los gpt-oss se dejan escapar marcas internas sueltas.
-    // deno-lint-ignore no-control-regex
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    // En WhatsApp el asterisco SIMPLE es negrita y el doble no es nada, asi
-    // que el markdown del modelo no se borra: se traduce. Al reves que en la
-    // web, donde la burbuja escapa el HTML y hay que quitarlo.
-    .replace(/\*\*(.+?)\*\*/g, "*$1*")
-    .replace(/__(.+?)__/g, "*$1*")
-    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^\u00bf/gm, "").replace(/^\u00a1/gm, "")
-    .replace(/\s\u00bf/g, " ").replace(/\s\u00a1/g, " ")
-    /* Las frases que delatan al modelo. La lista es CORTA a propósito.
-       ─────────────────────────────────────────────────────────────────
-       Antes incluía «no tengo acceso a», y eso borró de verdad una
-       respuesta buena: a «ya pagué, me confirmas?» el asistente contestó
-       «No tengo acceso a esa confirmación.», el filtro se la comió entera
-       y la pantalla enseñó una avería que no existía. Decir que no se
-       tiene acceso a algo es honesto y es justo lo que queremos que diga;
-       lo que no queremos es que se presente como una IA. */
-    .replace(/\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA)\b[^.]*\.?/gi, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
+/* La cadena de modelos, el filtro de salida y el bucle de herramientas viven
+   en ../_shared/cerebro.ts. Estaban copiados aqui y en cem-asistente, y dos
+   copias del mismo cerebro divergen: el arreglo del filtro que se comia las
+   respuestas buenas hubo que pegarlo dos veces, y la segunda quedo peor —
+   esta copia ni siquiera arrastraba el motivo del fallo de cada eslabon. */
 
 async function responder(a: string, texto: string) {
   if (!WHATSAPP_TOKEN || !PHONE_ID) {
@@ -314,16 +292,59 @@ async function atender(
                     { role: "user", content: texto }];
 
   let respuesta = "", modelo = "", uso: any = {}, fallo: string | null = null;
+  let usadas: any[] = [];
   try {
-    const r = await preguntar(mensajes);
-    modelo = r.modelo; uso = r.uso;
+    const r = await conversar({
+      cliente: sb,
+      mensajes,
+      // Sólo escalar. El porqué está arriba del todo, en el bloque grande:
+      // aquí se entra con la llave de servicio y las reglas de fila no aplican.
+      catalogo: conv ? HERRAMIENTAS_WHATSAPP : [],
+      delServidor: { p_conversacion: conv },
+      tope: TOPE_RESPUESTA,
+    });
+    modelo = r.modelo; uso = r.uso; usadas = r.usadas;
     // Si el filtro se lo come todo, gana el original: borrar una respuesta
     // buena y decir que estamos caidos es peor que dejar pasar una frase torpe.
-    respuesta = limpiar(r.texto) || r.texto.trim();
+    respuesta = limpiar(r.texto, true) || r.texto.trim();
     if (!respuesta) throw new Error("el modelo devolvio texto vacio");
   } catch (e) {
     fallo = String(e).slice(0, 500);
     respuesta = "Ahorita no te puedo responder bien. Ya aviso al equipo para que te escriban.";
+    // Y se avisa de verdad, que si no la frase vuelve a ser mentira.
+    if (conv) {
+      try {
+        await sb.rpc("cem_bot_escalar", {
+          p_conversacion: conv,
+          p_motivo: "El asistente no pudo responder por WhatsApp: " + fallo,
+        });
+      } catch (e2) {
+        console.error("[whatsapp] tampoco se pudo escalar:", e2);
+      }
+    }
+  }
+
+  /* La misma red que en la web, y por el mismo motivo: probándolo, el modelo
+     llamó a avisar_al_equipo, la llamada falló, y aun así contestó «Ya avisé al
+     equipo». Si lo dijo, se cumple desde aquí. Ver el comentario largo en
+     cem-asistente. */
+  if (conv && !fallo) {
+    const loPrometio = /avis|notific|le paso|paso tu mensaje|te escrib|te contact/i.test(respuesta);
+    const salioMal = (usadas ?? []).some((u: any) => u.nombre === "avisar_al_equipo" && u.error);
+    const salioBien = (usadas ?? []).some((u: any) => u.nombre === "avisar_al_equipo" && !u.error);
+    if ((loPrometio || salioMal) && !salioBien) {
+      try {
+        const { error } = await sb.rpc("cem_bot_escalar", {
+          p_conversacion: conv,
+          p_motivo: "Lo prometió el asistente por WhatsApp",
+        });
+        if (error) throw error;
+      } catch (e) {
+        console.error("[whatsapp] no se pudo cumplir el aviso prometido:", e);
+        respuesta = "Ahorita no consigo avisar al equipo por aqui. "
+                  + "Escribenos por los canales del centro y te atienden.";
+      }
+    }
   }
 
   if (conv) {

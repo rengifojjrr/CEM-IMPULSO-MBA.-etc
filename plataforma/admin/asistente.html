@@ -38,6 +38,25 @@
   .hilo .linea.persona{align-items:flex-end;}
   .hilo .linea.persona .txt{background:var(--primary-suave);}
   .hilo .linea .pie{font-size:var(--t-xs);color:var(--tinta-3);}
+
+  /* El contador de la pestaña. Vacío no ocupa nada: una burbuja con un cero
+     dentro invita a mirar algo que no existe. */
+  .pendientes{display:none;}
+  .pendientes.hay{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;
+    border-radius:9px;background:var(--primary);color:#fff;
+    font-size:var(--t-xs);line-height:18px;text-align:center;font-variant-numeric:tabular-nums;}
+
+  .borrador{display:flex;flex-direction:column;gap:var(--e1);margin-bottom:var(--e2);}
+  .borrador .cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .borrador .resumen{margin:0;color:var(--tinta-2);}
+  .borrador .mensaje{padding:8px 12px;border-radius:var(--r);background:var(--hueco);
+    border-left:3px solid var(--primary);white-space:pre-wrap;}
+  .borrador .a-quien{margin:6px 0 0;padding-left:20px;color:var(--tinta-2);
+    font-size:var(--t-s);max-height:220px;overflow-y:auto;}
+  .borrador .acciones{display:flex;gap:8px;flex-wrap:wrap;}
+  /* Lo caducado, lo descartado y lo ya deshecho se quedan a la vista en gris.
+     Si desaparecieran, no habría forma de distinguir «se mandó» de «se cayó». */
+  .apagado{opacity:.55;}
 </style>
 </head>
 <body>
@@ -61,6 +80,8 @@
     <button data-t="charlas">Conversaciones</button>
     <button data-t="salud">Cómo va</button>
     <button data-t="preguntan">Lo que preguntan</button>
+    <button data-t="confirmar">Por confirmar <span class="pendientes" id="cuantosPendientes"></span></button>
+    <button data-t="hizo">Lo que hizo</button>
     <button data-t="cara">Ajustes</button>
   </div>
 
@@ -114,6 +135,50 @@
 
   <section id="tSalud" class="hidden">
     <div class="card" id="salud"></div>
+  </section>
+
+  <!-- Por confirmar.
+       ═══════════════════════════════════════════════════════════════════════
+       Aquí para lo que Cemi prepara y no manda solo: recordatorios a varias
+       personas y lotes de certificados.
+
+       La razón de que exista este peldaño es que esas acciones no se pueden
+       deshacer de verdad. Un certificado emitido por error se anula, pero queda
+       el rastro de la anulación y eso se ve. Un mensaje mandado a doce personas
+       ya lo leyó alguien.
+
+       Y por eso caduca a las dos horas: la lista se calculó con lo que había
+       entonces, y mandar la de hace tres horas es decirle a alguien que le
+       falta una entrega que ya hizo. -->
+  <section id="tConfirmar" class="hidden">
+    <p class="nota">Cemi prepara, una persona confirma. Lo que lleva más de dos
+      horas esperando caduca: la lista ya no es la de ahora y hay que pedírsela
+      otra vez.</p>
+    <div id="listaConfirmar"><span class="cargando"></span></div>
+  </section>
+
+  <!-- Lo que hizo.
+       ═══════════════════════════════════════════════════════════════════════
+       Todo lo que Cemi ESCRIBE en la base queda aquí, y se puede deshacer desde
+       aquí. Sin esto, dentro de un mes nadie podría distinguir una inscripción
+       que creó una persona de una que creó el asistente — y ésa es justo la
+       pregunta que se hace cuando algo sale raro. -->
+  <section id="tHizo" class="hidden">
+    <div class="filters">
+      <div class="field"><label for="hDias">Desde cuándo</label>
+        <select id="hDias">
+          <option value="1">Hoy</option>
+          <option value="7" selected>Última semana</option>
+          <option value="30">Último mes</option>
+        </select></div>
+      <div class="field grow"><label>&nbsp;</label><span></span></div>
+    </div>
+    <div class="table-wrap"><table id="tablaHizo">
+      <thead><tr>
+        <th>Qué hizo</th><th>Sobre</th><th>A pedido de</th><th>Cuándo</th><th></th>
+      </tr></thead>
+      <tbody><tr><td colspan="5"><span class="cargando"></span></td></tr></tbody>
+    </table></div>
   </section>
 
   <!-- Lo que preguntan.
@@ -757,6 +822,177 @@ if (!puedeEditar) {
     .forEach((s) => $(s)?.setAttribute('disabled', ''));
 }
 
+/* ── Por confirmar ───────────────────────────────────────────────────────── */
+const COMO_SE_LLAMA = {
+  recordatorio_entrega: 'Recordar una entrega',
+  recordatorio_cuota:  'Recordar una cuota',
+  certificados_lote:   'Emitir certificados',
+};
+
+async function cargarConfirmar() {
+  const caja = $('#listaConfirmar');
+  caja.innerHTML = '<span class="cargando"></span>';
+  const { data, error } = await sb.rpc('cem_bot_borradores_listar',
+                                       { p_solo_pendientes: false });
+  if (error) { caja.innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+
+  const todos = data ?? [];
+  const pendientes = todos.filter((b) => b.estado === 'pendiente');
+  marcarPendientes(pendientes.length);
+
+  if (!todos.length) {
+    caja.innerHTML = vacio('Cemi no ha preparado nada todavía.',
+      'Cuando le pidas mandar recordatorios o emitir certificados, lo dejará aquí para que lo mires antes.');
+    return;
+  }
+
+  caja.innerHTML = todos.map((b) => {
+    /* Un borrador vencido se enseña igual, en gris. Que desaparezca sin más
+       hace pensar que se mandó. */
+    const vivo = b.estado === 'pendiente' && b.vigente;
+    const caduco = b.estado === 'pendiente' && !b.vigente;
+    const gente = (b.a_quien ?? []).map((q) =>
+      typeof q === 'string' ? q : [q.quien, q.debe, q.vence].filter(Boolean).join(' · '));
+
+    return `<div class="card borrador ${vivo ? '' : 'apagado'}">
+      <div class="cab">
+        <strong>${esc(COMO_SE_LLAMA[b.tipo] || b.tipo)}</strong>
+        ${b.estado === 'confirmado' ? chip('Ya se hizo', 'ok')
+          : b.estado === 'descartado' ? chip('Descartado', '')
+          : caduco ? chip('Caducó', 'warn') : chip('Esperando', 'warn')}
+        <span class="tiny muted">Lo pidió ${esc(b.pidio || 'alguien')} · ${esc(b.cuando)}</span>
+      </div>
+      <p class="resumen">${esc(b.resumen)}</p>
+      ${b.mensaje ? `<div class="mensaje">${esc(b.mensaje)}</div>` : ''}
+      <details><summary>Ver a quién le llega (${num(b.cuantos)})</summary>
+        <ul class="a-quien">${gente.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>
+      </details>
+      ${b.resultado ? `<p class="tiny muted">Hechos: ${num(b.resultado.hechos ?? 0)}${
+        (b.resultado.fallos ?? []).length
+          ? ` · <span class="err">${num(b.resultado.fallos.length)} fallaron</span>` : ''}</p>` : ''}
+      ${caduco ? `<p class="nota warn">Se preparó hace más de dos horas. La lista ya no es
+        la de ahora, así que no se puede mandar: pídeselo otra vez a Cemi.</p>` : ''}
+      ${vivo && puedeEditar ? `<div class="acciones">
+        <button class="btn" data-confirmar="${esc(b.id)}">
+          <span class="material-symbols-outlined">send</span> Confirmar y mandar</button>
+        <button class="btn ghost" data-descartar="${esc(b.id)}">Descartar</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function marcarPendientes(n) {
+  const c = $('#cuantosPendientes');
+  if (!c) return;
+  c.textContent = n > 0 ? String(n) : '';
+  c.classList.toggle('hay', n > 0);
+}
+
+document.addEventListener('click', async (e) => {
+  const c = e.target.closest('[data-confirmar]');
+  if (c) {
+    const cual = c.dataset.confirmar;
+    /* Ojo con la firma: es confirmDialog(mensaje, titulo, opciones). Pasarle un
+       objeto como primer argumento no da error —lo escapa y lo pinta— así que
+       el aviso desaparece sin que nada avise. Se vio en el navegador: el
+       diálogo salía con «Cancelar / Confirmar» y sin la frase de que esto no se
+       deshace, que es justo lo único que ese diálogo tiene que decir. */
+    if (!await confirmDialog(
+      'Esto se manda de verdad a la gente de la lista, y un mensaje enviado no '
+      + 'se puede deshacer. Mira antes a quién le llega.',
+      'Confirmar y mandar', { confirmar: 'Sí, mandarlo', peligro: true })) return;
+    /* ocupado(boton, verbo, accion) ENVUELVE la acción; no devuelve un «soltar».
+       Llamarlo con un solo argumento no da error de sintaxis: revienta después,
+       en tiempo de ejecución, con «soltar is not a function», y para entonces la
+       petición ya salió. Se vio en el navegador. */
+    const { data, error } = await ocupado(c, 'Mandando…',
+      () => sb.rpc('cem_bot_borrador_confirmar', { p_id: cual }));
+    if (error) { fail(mensajeError(error)); return; }
+    if (!data?.hecho) {
+      /* Se dice POR QUÉ no se hizo. «No se pudo» a secas deja a la persona sin
+         saber si insistir, si esperar o si pedírselo otra vez a Cemi. */
+      fail(data?.porque === 'caducado'
+        ? 'Se preparó hace más de dos horas y la lista ya no vale. Pídeselo otra vez a Cemi.'
+        : data?.porque === 'ya_estaba_confirmado' ? 'Esto ya se había mandado.'
+        : 'No se hizo: ' + (data?.porque || 'sin motivo'));
+      await cargarConfirmar();
+      return;
+    }
+    const fallos = (data.fallos ?? []).length;
+    if (fallos) ok(`Hechos ${data.hechos}. ${fallos} no se pudieron: míralos abajo.`);
+    else ok(`Hecho: ${data.hechos}.`);
+    await cargarConfirmar();
+    return;
+  }
+
+  const d = e.target.closest('[data-descartar]');
+  if (d) {
+    const { error } = await ocupado(d, 'Descartando…',
+      () => sb.rpc('cem_bot_borrador_descartar', { p_id: d.dataset.descartar }));
+    if (error) { fail(mensajeError(error)); return; }
+    ok('Descartado.');
+    await cargarConfirmar();
+  }
+});
+
+/* ── Lo que hizo, y deshacerlo ───────────────────────────────────────────── */
+const QUE_HIZO = {
+  matricular: 'Matriculó a alguien',
+  apuntarme: 'Se apuntó a un programa',
+  registrar_pago: 'Registró un pago',
+  pasar_asistencia: 'Pasó asistencia',
+  avisame_antes: 'Guardó un recordatorio',
+  borrador_confirmado: 'Se confirmó un borrador',
+};
+
+async function cargarHizo() {
+  const tb = $('#tablaHizo tbody');
+  tb.innerHTML = filasEsqueleto(5, 4);
+  const { data, error } = await sb.rpc('cem_bot_lo_que_hizo',
+                                       { p_dias: Number($('#hDias').value) });
+  if (error) { tb.innerHTML = emptyRow(5, mensajeError(error)); return; }
+  if (!data?.length) {
+    tb.innerHTML = emptyRow(5, 'Cemi no ha escrito nada en la base en este periodo.');
+    return;
+  }
+  tb.innerHTML = data.map((a) => {
+    const args = a.detalle?.argumentos ?? {};
+    const sobre = [args.p_quien, args.p_programa, args.p_clase, args.p_monto]
+      .filter(Boolean).join(' · ');
+    return `<tr class="${a.deshecho ? 'apagado' : ''}">
+      <td class="wrap"><strong>${esc(QUE_HIZO[a.que] || a.que)}</strong>
+        ${a.riesgo === 'alto' ? ' ' + chip('Delicado', 'warn') : ''}
+        ${a.deshecho ? ' ' + chip('Deshecho', '') : ''}</td>
+      <td class="wrap tiny">${esc(sobre || a.entidad)}</td>
+      <td class="tiny">${esc(a.quien)}</td>
+      <td class="tiny">${esc(a.cuando)}</td>
+      <td>${!a.deshecho && puedeEditar
+        ? `<button class="btn ghost small" data-deshacer="${esc(a.evento)}">Deshacer</button>`
+        : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-deshacer]');
+  if (!b) return;
+  if (!await confirmDialog(
+    'Se revierte lo que hizo Cemi, y queda anotado en Auditoría quién lo deshizo.',
+    'Deshacer esto', { confirmar: 'Sí, deshacerlo', peligro: true })) return;
+  const { data, error } = await ocupado(b, 'Deshaciendo…',
+    () => sb.rpc('cem_bot_deshacer', { p_evento: b.dataset.deshacer, p_motivo: null }));
+  if (error) { fail(mensajeError(error)); return; }
+  if (!data?.hecho) {
+    // El «qué hacer» viene de la base, que es quien sabe por qué no se pudo.
+    fail(data?.que_hacer || 'No se pudo deshacer: ' + (data?.porque || 'sin motivo'));
+    return;
+  }
+  ok('Deshecho.');
+  await cargarHizo();
+});
+
+$('#hDias').onchange = () => cargarHizo();
+
 /* ── Las pestañas ────────────────────────────────────────────────────────── */
 let charlasCargadas = false;
 let caraCargada = false;
@@ -769,10 +1005,17 @@ $('#tabs').addEventListener('click', (e) => {
   $('#tCharlas').classList.toggle('hidden', b.dataset.t !== 'charlas');
   $('#tSalud').classList.toggle('hidden', b.dataset.t !== 'salud');
   $('#tPreguntan').classList.toggle('hidden', b.dataset.t !== 'preguntan');
+  $('#tConfirmar').classList.toggle('hidden', b.dataset.t !== 'confirmar');
+  $('#tHizo').classList.toggle('hidden', b.dataset.t !== 'hizo');
   $('#tCara').classList.toggle('hidden', b.dataset.t !== 'cara');
   if (b.dataset.t === 'preguntan' && !preguntanCargadas) {
     preguntanCargadas = true; cargarPreguntan();
   }
+  /* Éstas se recargan CADA vez que se abren, no sólo la primera. Un borrador
+     caduca a las dos horas y alguien pudo confirmarlo desde otra pantalla:
+     enseñar la lista de hace un rato haría confirmar dos veces lo mismo. */
+  if (b.dataset.t === 'confirmar') cargarConfirmar();
+  if (b.dataset.t === 'hizo') cargarHizo();
   if (b.dataset.t === 'cara' && !caraCargada) {
     caraCargada = true; cargarCara(); cargarQuienHabla();
   }
@@ -783,6 +1026,22 @@ $('#tabs').addEventListener('click', (e) => {
 
 await cargarPanel();
 await cargarSaber();
+
+/* El contador de pendientes se pide al cargar la pantalla, no al abrir la
+   pestaña: si sólo se supiera al abrirla, nadie la abriría — que es justo el
+   problema que tiene una bandeja de cosas por confirmar.
+
+   En try/catch dentro de una función suelta, y no con `.catch()` encadenado:
+   lo que devuelve `rpc` es un thenable de postgrest, tiene `then` pero puede no
+   tener `catch`, y encadenarlo tumbaría la carga de la pantalla entera. Ya pasó
+   una vez en el servidor. */
+(async () => {
+  try {
+    const { data } = await sb.rpc('cem_bot_borradores_listar', { p_solo_pendientes: true });
+    marcarPendientes((data ?? []).length);
+  } catch { /* el contador es un adorno: que falle no puede romper la pantalla */ }
+})();
+
 $('#page').classList.remove('hidden');
 </script>
 </body>

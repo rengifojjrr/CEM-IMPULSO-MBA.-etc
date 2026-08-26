@@ -37,6 +37,10 @@ on:
     paths:
       - 'supabase/functions/cem-asistente/**'
       - 'supabase/functions/cem-whatsapp/**'
+      # El cerebro y las herramientas viven aquí y los usan las dos. Sin esta
+      # línea, cambiar una herramienta no desplegaría nada y el asistente
+      # seguiría con la versión vieja sin que ningún error lo dijera.
+      - 'supabase/functions/_shared/**'
       - 'supabase/config.toml'
       - '.github/workflows/desplegar-funciones.yml'
   workflow_dispatch:

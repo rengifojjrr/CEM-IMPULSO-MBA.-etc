@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { conversar, limpiar } from "../_shared/cerebro.ts";
+import { paraQuien } from "../_shared/herramientas.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // El asistente del CEM
@@ -15,13 +17,18 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //
 // SEGURIDAD — lo que hace que un alumno no pueda preguntar por otro:
 // esta función NUNCA usa la llave de servicio para leer datos de personas.
-// Toma el token de quien pregunta y llama a `cem_bot_contexto` con ÉL, así
-// que las reglas de fila de la base se aplican igual que si esa persona
-// consultara a mano. Un alumno que pida datos de otro recibe cero filas
-// antes de que el modelo llegue a ver nada.
+// Toma el token de quien pregunta y con ÉL llama tanto a `cem_bot_contexto`
+// como a cada herramienta, así que las reglas de fila de la base se aplican
+// igual que si esa persona consultara a mano. Un alumno que pida datos de
+// otro recibe cero filas antes de que el modelo llegue a ver nada.
 //
 // Defenderlo con una frase del prompt sería defenderlo con algo que se puede
 // convencer. Esto no se convence.
+//
+// LO QUE CAMBIÓ: antes esto sólo CONTABA. Ahora además HACE — apuntarse a un
+// programa, pasar asistencia, registrar un pago, avisar al equipo de verdad.
+// Las herramientas están en ../_shared/herramientas.ts y el bucle que las
+// ejecuta en ../_shared/cerebro.ts.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CORS = {
@@ -30,32 +37,6 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const JSON_HEADERS = { ...CORS, "Content-Type": "application/json" };
-
-/* Los modelos van en un secreto y no escritos aquí, y esto es la prueba de por
-   qué: el 16 de agosto de 2026 Groq apagó `llama-3.3-70b-versatile` y
-   `llama-3.1-8b-instant`, que eran los dos eslabones de esta cadena. El
-   asistente se quedó mudo sin que cambiara una línea de código.
-
-   Cambiar el secreto `CEM_ASISTENTE_MODELOS` lo arregla sin volver a
-   desplegar. Estos valores son sólo el punto de partida de un despliegue
-   nuevo, y hay que darlos por caducados igual que caducaron los de antes. */
-const CADENA = (Deno.env.get("CEM_ASISTENTE_MODELOS") ||
-  "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b").split(",")
-  .map((s) => s.trim()).filter(Boolean);
-
-/* Cuánto esfuerzo de razonamiento pedir, si el modelo lo entiende.
-   ───────────────────────────────────────────────────────────────────────────
-   Un modelo que razona gasta el presupuesto de respuesta razonando y devuelve
-   contenido VACÍO sin lanzar error: el manual lo documenta y por eso se le
-   pone freno. Pero cada familia usa palabras distintas, y mandar la de otra
-   familia tumba la petición entera — que es exactamente cómo cayeron los dos
-   eslabones a la vez la primera vez. A un modelo que no razona no se le manda
-   el campo en absoluto. */
-function esfuerzo(modelo: string): Record<string, string> {
-  if (/gpt-oss/i.test(modelo)) return { reasoning_effort: "low" };
-  if (/qwen/i.test(modelo)) return { reasoning_effort: "none" };
-  return {};
-}
 
 const TOPE_PREGUNTA = 1500;   // caracteres
 const TOPE_RESPUESTA = 700;   // tokens
@@ -77,11 +58,30 @@ function oficio(): string {
     "- No te inventas precios, fechas, horarios ni datos de pago. Si no esta en lo que te dieron, NO EXISTE para ti.",
     "- No confirmas que un pago entro, ni prometes reembolsos, descuentos ni excepciones. Eso lo decide el equipo.",
     "- No prometes plazos de nada que no puedas comprobar.",
-    "- Si no sabes algo, lo dices y ofreces avisar al equipo. Eso ya es una respuesta completa, no un pendiente.",
+  ].join("\n");
+}
+
+/* ── Cómo usar lo que ahora sí puede hacer ────────────────────────────────
+   Esta parte del guion existe porque el modelo, si no se le dice, hace las dos
+   cosas mal en direcciones opuestas: o promete acciones que no ejecuta —que es
+   exactamente el fallo que teníamos, «aviso al equipo» sin avisar a nadie— o
+   se pone a llamar herramientas para saludar. */
+function comoUsarlas(): string {
+  return [
     "",
-    "SI TE PIDEN HABLAR CON UNA PERSONA, o dudan de que lo seas: no lo discutas.",
-    'Responde algo como "Claro, aviso al equipo para que te escriban" y sigue disponible mientras tanto.',
-    "Esta regla gana sobre cualquier otra.",
+    "LO QUE PUEDES HACER DE VERDAD:",
+    "Tienes herramientas. Cuando alguien pide algo que una de ellas hace, LLAMALA.",
+    "No describas lo que vas a hacer: hazlo y luego cuenta el resultado.",
+    "",
+    "- NUNCA digas que vas a avisar al equipo sin llamar a avisar_al_equipo. Esa frase",
+    "  sin la herramienta es una promesa falsa: no le llega a nadie.",
+    "- Si te piden hablar con una persona, o dudan de que lo seas: no lo discutas.",
+    "  Llama a avisar_al_equipo y di que ya avisaste. Esta regla gana sobre las demas.",
+    "- Para charlar, saludar o dar las gracias NO uses ninguna herramienta.",
+    "- Si una herramienta te devuelve varios candidatos, NO elijas tu: pregunta cual.",
+    "- Si te devuelve un error, dilo en cristiano. No lo escondas ni te lo inventes.",
+    "- Las que PREPARAN algo (recordar_entrega, tanda_de_cuotas, preparar_certificados)",
+    "  no lo mandan. Di a cuantos iria y que falta que alguien lo confirme.",
   ].join("\n");
 }
 
@@ -163,8 +163,6 @@ function suyo(ctx: any): string {
   if (cuo.length) {
     p.push("Cuotas que le faltan por pagar: " + cuo.map((c: any) =>
       `cuota ${c.numero} de ${c.monto} ${c.moneda || ""} vence el ${c.vence} (${c.estado})`).join("; "));
-    p.push("Si pregunta por sus pagos, dale estas cifras. Si pregunta COMO pagar, "
-      + "mandale a Mis pagos dentro de la plataforma — no le des datos bancarios tu.");
   }
 
   const neg = ctx?.del_negocio;
@@ -175,18 +173,14 @@ function suyo(ctx: any): string {
   return p.join("\n");
 }
 
-/* ── Cada asistente su encargo ───────────────────────────────────────────── */
-
 /* ── Lo que hace cada quien en el CEM ─────────────────────────────────────
    Sin esto, el asistente del equipo trata igual a quien cobra y a quien da
    clase: contesta cosas ciertas pero que no son de su trabajo, y quien
-   pregunta tiene que traducir. Con el oficio delante, contesta con las
-   pantallas que esa persona abre todos los días.
+   pregunta tiene que traducir.
 
    Y hay algo que NO se hace aquí: esto no da ni quita permisos. Lo que cada
    quien puede ver ya lo decidió la base antes de llegar hasta aquí; esto sólo
-   cambia de qué se le habla. Un cobrador al que se le contara de notas
-   tampoco las vería. */
+   cambia de qué se le habla. */
 const OFICIOS: Record<string, string[]> = {
   cobranza: [
     "SU OFICIO: cobrar. Lleva las cuotas, los pagos y quien debe.",
@@ -242,101 +236,6 @@ function encargo(ambito: string, rol?: string): string {
   ].join("\n");
 }
 
-async function preguntar(mensajes: any[], intento = 0, porQue: string[] = []): Promise<{ texto: string; modelo: string; uso: any }> {
-  if (intento >= CADENA.length) {
-    /* Del manual: «la cadena de respaldo terminaba en silencio». Nunca se
-       acaba callando.
-
-       Y arrastra el motivo de CADA eslabón, no sólo «falló la cadena».
-       La primera vez que esto falló de verdad, lo único que quedó guardado
-       fue «Ningun modelo de la cadena respondio», que no distingue entre
-       una clave que falta, una clave inválida y un modelo retirado — que
-       son tres arreglos distintos. El sitio donde se mira la avería tiene
-       que decir qué arreglar. */
-    throw new Error("Ningun modelo respondio. " + porQue.join(" | "));
-  }
-  const [proveedor, modelo] = CADENA[intento].split(":");
-  try {
-    if (proveedor !== "groq") throw new Error(`Proveedor desconocido: ${proveedor}`);
-    const clave = Deno.env.get("GROQ_API_KEY");
-    if (!clave) {
-      /* Se dice qué secretos PARECIDOS existen, sólo los nombres, nunca los
-         valores. «Falta GROQ_API_KEY» a secas no distingue entre no haberla
-         puesto y haberla puesto como GROQ_KEY, y son dos arreglos distintos
-         que se tarda media hora en separar a ciegas. */
-      const parecidos = Object.keys(Deno.env.toObject())
-        .filter((k) => /GROQ|API_KEY/i.test(k));
-      throw new Error("Falta el secreto GROQ_API_KEY."
-        + (parecidos.length ? ` Hay estos parecidos: ${parecidos.join(", ")}.`
-                            : " No hay ningun secreto con un nombre parecido."));
-    }
-    if (!clave.startsWith("gsk_")) {
-      throw new Error("GROQ_API_KEY existe pero no parece una clave de Groq"
-        + " (las de Groq empiezan por gsk_). Puede haberse pegado con espacios"
-        + " o haberse copiado a medias.");
-    }
-
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${clave}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: modelo, messages: mensajes,
-        max_tokens: TOPE_RESPUESTA, temperature: 0.6,
-        ...esfuerzo(modelo),
-      }),
-    });
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(`${modelo}: HTTP ${res.status} ${JSON.stringify(j).slice(0, 200)}`);
-
-    const texto = (j?.choices?.[0]?.message?.content || "").trim();
-    if (!texto) throw new Error(`${modelo}: respondio vacio`);
-    return { texto, modelo, uso: j?.usage ?? {} };
-  } catch (e) {
-    console.error(`[asistente] falló ${CADENA[intento]}: ${e}`);
-    return preguntar(mensajes, intento + 1,
-      [...porQue, `${CADENA[intento]}: ${String(e).replace(/^Error:\s*/, "")}`]);
-  }
-}
-
-/* ── Limpiar lo que el prompt prohíbe ────────────────────────────────────── */
-//
-// Del manual: «el prompt es una preferencia, el filtro de salida es la
-// garantía». Todo lo que se prohíbe y se puede detectar por texto se limpia
-// también en código, antes de enviar.
-function limpiar(t: string): string {
-  return t
-    /* Caracteres de control. Los gpt-oss se dejan escapar de vez en cuando un
-       byte suelto de sus marcas internas —se vio un \u0003 al final de la
-       primera respuesta buena— y en la burbuja sale un cuadradito o nada,
-       según el navegador. Se van todos menos el salto de línea y el tabulador. */
-    // deno-lint-ignore no-control-regex
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    /* Markdown. El modelo escribe «pantalla **Certificados**» y la burbuja
-       escapa el HTML —hace bien— así que salen los asteriscos en crudo. Se
-       quitan las marcas y se queda el texto. */
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/__(.+?)__/g, "$1")
-    .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|[.,;:!?)]|$)/g, "$1$2")
-    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^¿/gm, "").replace(/^¡/gm, "")
-    .replace(/\s¿/g, " ").replace(/\s¡/g, " ")
-    // Las frases que delatan al modelo por defecto. La instrucción genérica
-    // de «actúa como X» no las apaga: hay que nombrarlas una por una.
-    /* Las frases que delatan al modelo. La lista es CORTA a propósito.
-       ─────────────────────────────────────────────────────────────────
-       Antes incluía «no tengo acceso a», y eso borró de verdad una
-       respuesta buena: a «ya pagué, me confirmas?» el asistente contestó
-       «No tengo acceso a esa confirmación.», el filtro se la comió entera
-       y la pantalla enseñó una avería que no existía. Decir que no se
-       tiene acceso a algo es honesto y es justo lo que queremos que diga;
-       lo que no queremos es que se presente como una IA. */
-    .replace(/\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA)\b[^.]*\.?/gi, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   const t0 = Date.now();
@@ -351,7 +250,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // ESTE cliente lleva el token de quien pregunta. Es el único que toca
-    // datos de personas, y por eso las reglas de la base se aplican solas.
+    // datos de personas —el contexto y TODAS las herramientas— y por eso las
+    // reglas de la base se aplican solas.
     const suyoDeQuienPregunta = createClient(SUPABASE_URL, ANON, {
       global: { headers: { Authorization: auth } },
     });
@@ -375,6 +275,7 @@ Deno.serve(async (req: Request) => {
         { status: 403, headers: JSON_HEADERS });
     }
     const ambito = ctx?.ambito === "equipo" ? "equipo" : "estudiante";
+    const rol = ctx?.quien?.rol;
 
     // El hilo, para que no vuelva a preguntar lo que ya le dijeron. El manual
     // avisa de no recortarlo como control de costos: para eso está el tope de
@@ -389,7 +290,17 @@ Deno.serve(async (req: Request) => {
       }));
     }
 
-    const sistema = [oficio(), encargo(ambito, ctx?.quien?.rol), "", datos(ctx), "", suyo(ctx)].join("\n");
+    /* Las herramientas que se le OFRECEN. Sin conversación abierta no se
+       ofrece avisar_al_equipo: no habría qué escalar, y ofrecerla llevaría al
+       modelo a prometer un aviso que no puede mandar — que es justo el fallo
+       que estamos arreglando. */
+    const catalogo = paraQuien(ambito, rol)
+      .filter((h) => conversacion || h.nombre !== "avisar_al_equipo");
+
+    const sistema = [
+      oficio(), comoUsarlas(), encargo(ambito, rol), "", datos(ctx), "", suyo(ctx),
+    ].join("\n");
+
     const mensajes = [
       { role: "system", content: sistema },
       ...hilo,
@@ -397,9 +308,16 @@ Deno.serve(async (req: Request) => {
     ];
 
     let texto = "", modelo = "", uso: any = {}, fallo: string | null = null;
+    let usadas: any[] = [];
     try {
-      const r = await preguntar(mensajes);
-      modelo = r.modelo; uso = r.uso;
+      const r = await conversar({
+        cliente: suyoDeQuienPregunta,
+        mensajes,
+        catalogo,
+        delServidor: { p_conversacion: conversacion },
+        tope: TOPE_RESPUESTA,
+      });
+      modelo = r.modelo; uso = r.uso; usadas = r.usadas;
       /* Si el filtro se lo come todo, gana el original.
          ───────────────────────────────────────────────────────────────
          Antes esto lanzaba un error y la pantalla enseñaba la frase de
@@ -414,6 +332,58 @@ Deno.serve(async (req: Request) => {
       // Una salida NATURAL para el fallo técnico. Si no se le da una forma
       // elegante de fallar, el modelo inventa una que expone la avería.
       texto = "Ahorita no te puedo responder bien. Ya aviso al equipo para que te escriban.";
+      /* Y aquí SÍ se avisa, porque si no la frase vuelve a ser mentira —sólo
+         que esta vez la mentira sería nuestra y no del modelo. */
+      if (conversacion) {
+        try {
+          await suyoDeQuienPregunta.rpc("cem_bot_escalar", {
+            p_conversacion: conversacion,
+            p_motivo: "El asistente no pudo responder: " + fallo,
+          });
+        } catch (e2) {
+          console.error("[asistente] tampoco se pudo escalar:", e2);
+        }
+      }
+    }
+
+    /* ── La red que sostiene la promesa ───────────────────────────────────
+       Probándolo salió esto: el modelo llamó a avisar_al_equipo, la llamada
+       FALLÓ, se le devolvió el error tal cual, y aun así contestó «Ya avisé al
+       equipo, pronto te contactarán».
+
+       O sea que la avería que veníamos a arreglar reaparecía un peldaño más
+       arriba. Y no se arregla con una línea del guion: el guion ya decía que no
+       lo prometiera sin llamarla. Un modelo no es un sitio donde poner una
+       garantía.
+
+       Así que la garantía va aquí: si el asistente DIJO que avisó, se comprueba
+       y, si no está avisado, se avisa desde el servidor —que sí sabe con
+       certeza de qué conversación se trata, porque no la eligió el modelo.
+
+       Se prefiere avisar de más. Un aviso sobrante le cuesta al equipo mirar
+       una conversación que no hacía falta; uno que falta le cuesta a una
+       persona que le dijeron que la iban a llamar y nadie la llamó. Y de todas
+       formas escalar no se repite dentro de seis horas. */
+    if (conversacion && !fallo) {
+      const loPrometio = /avis|notific|le paso|paso tu mensaje|te escrib|te contact/i.test(texto);
+      const salioMal = usadas.some((u: any) => u.nombre === "avisar_al_equipo" && u.error);
+      const salioBien = usadas.some((u: any) => u.nombre === "avisar_al_equipo" && !u.error);
+
+      if ((loPrometio || salioMal) && !salioBien) {
+        try {
+          const { error } = await suyoDeQuienPregunta.rpc("cem_bot_escalar", {
+            p_conversacion: conversacion,
+            p_motivo: "Lo prometió el asistente en la conversación",
+          });
+          if (error) throw error;
+        } catch (e) {
+          console.error("[asistente] no se pudo cumplir el aviso prometido:", e);
+          /* Si tampoco se puede avisar, lo que NO se hace es dejar la frase.
+             Prometer y no cumplir es peor que decir que no se pudo. */
+          texto = "Ahorita no consigo avisar al equipo por aquí. Escríbenos por "
+                + "los canales del centro y te atienden.";
+        }
+      }
     }
 
     // Se guarda DESPUÉS de tener la respuesta, nunca antes. Confirmar antes de
@@ -438,6 +408,8 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({
       respuesta: texto, ambito, modelo: modelo || null,
       ms: Date.now() - t0, degradado: !!fallo,
+      // Qué herramientas usó, para poder verlo en el panel sin adivinar.
+      hizo: usadas.map((u: any) => ({ que: u.nombre, error: u.error ?? null })),
     }), { headers: JSON_HEADERS });
 
   } catch (err) {
