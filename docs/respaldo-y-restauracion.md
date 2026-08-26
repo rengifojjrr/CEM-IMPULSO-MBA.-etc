@@ -120,14 +120,39 @@ mismo cambio que agregó esta página.
    medias lo van a encontrar.
 8. Anota en el registro de auditoría qué pasó y qué se hizo.
 
+## El esquema ya vive en el repositorio
+
+Desde el 26 de agosto de 2026, **el molde de la plataforma está en git**:
+`supabase/migrations/` trae las 104 tablas, las 383 funciones, las 243 reglas de
+acceso, los permisos por columna, los 6 depósitos de archivos y las 9 tareas
+programadas. Un millón de caracteres de SQL.
+
+Eso cambia lo peor del escenario de desastre. Antes, perder el proyecto de
+Supabase significaba volver a escribirlo todo. Ahora significa crear un proyecto
+nuevo, aplicar las migraciones y restaurar los datos.
+
+Y no es una suposición: `herramientas/probar-migraciones.sh` levanta un Postgres
+vacío y lo reconstruye entero. Sale con error si falla una sola línea. La primera
+vez que se corrió encontró 32 funciones que no se creaban, una comprobación que
+llamaba a una función inexistente y una restricción que faltaba por completo —
+cosas que leer los archivos no habría encontrado.
+
+**Los datos siguen siendo otra cosa.** Las migraciones son el molde, no lo que
+hay dentro: las personas, las cuotas y los certificados se respaldan como dice
+el resto de este documento.
+
 ## Lo que todavía no está automatizado
 
 Para ser honestos sobre el estado actual:
 
 - El respaldo manual y la descarga de Storage se hacen a mano. No hay una tarea
   que los corra sola y los deje en otro sitio.
-- No hay copia fuera de Supabase. Si se perdiera la cuenta entera, se perdería
-  todo. Un volcado semanal a otro proveedor cerraría ese hueco.
+- No hay copia de los DATOS fuera de Supabase. El esquema sí está en git; las
+  filas no. Si se perdiera la cuenta entera, la plataforma se puede reconstruir
+  pero estaría vacía. Un volcado semanal a otro proveedor cerraría ese hueco.
+- Las migraciones no se regeneran solas. Se hace un cambio en la base y hay que
+  acordarse de volver a volcarlas; si no, el repositorio se queda atrás sin que
+  nada lo diga.
 - El simulacro es manual: no hay nada que lo corra periódicamente y avise si
   dejó de funcionar.
 
