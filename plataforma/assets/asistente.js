@@ -17,7 +17,7 @@
    a una tabla de personas: si la hubiera, el permiso viviría en el navegador,
    que es el único sitio donde no se puede defender. */
 
-import { sb, $, esc, profile } from './app.js?v=2026-08-26';
+import { sb, $, esc, profile } from './app.js?v=2026-08-26-2';
 
 /* ── Cómo se llama y qué cara tiene ──────────────────────────────────────── */
 /* El nombre y el render salen de `cem_settings`, no de aquí. El dibujo
@@ -25,21 +25,55 @@ import { sb, $, esc, profile } from './app.js?v=2026-08-26';
    Configuración, esto usa el render y el vector deja de verse. */
 const NOMBRE_POR_DEFECTO = 'Cemi';
 let AJUSTES = null;
+let pidiendoAjustes = null;
 
+/* Se piden UNA vez, aunque llamen quince.
+   ───────────────────────────────────────────────────────────────────────────
+   Sin la promesa guardada, cada pantalla que quiera dibujar la mascota lanza
+   su propia consulta, y las que lleguen mientras la primera está en el aire
+   ven `AJUSTES` todavía en null. */
 async function ajustes() {
   if (AJUSTES) return AJUSTES;
-  AJUSTES = { nombre: NOMBRE_POR_DEFECTO, foto: null };
-  try {
-    const { data } = await sb.from('cem_settings').select('clave, valor')
-      .in('clave', ['asistente_nombre', 'mascota_url']);
-    for (const f of data ?? []) {
-      const v = typeof f.valor === 'string' ? f.valor : f.valor?.valor ?? f.valor;
-      if (f.clave === 'asistente_nombre' && v) AJUSTES.nombre = String(v);
-      if (f.clave === 'mascota_url' && v) AJUSTES.foto = String(v);
-    }
-  } catch { /* si falla, se queda con el nombre y el dibujo de casa */ }
-  return AJUSTES;
+  if (pidiendoAjustes) return pidiendoAjustes;
+  pidiendoAjustes = (async () => {
+    const leidos = { nombre: NOMBRE_POR_DEFECTO, foto: null };
+    try {
+      const { data } = await sb.from('cem_settings').select('clave, valor')
+        .in('clave', ['asistente_nombre', 'mascota_url']);
+      for (const f of data ?? []) {
+        const v = typeof f.valor === 'string' ? f.valor : f.valor?.valor ?? f.valor;
+        if (f.clave === 'asistente_nombre' && v) leidos.nombre = String(v);
+        if (f.clave === 'mascota_url' && v) leidos.foto = String(v);
+      }
+    } catch { /* si falla, se queda con el nombre y el dibujo de casa */ }
+    AJUSTES = leidos;
+    ponerLaCaraDeVerdad();
+    return AJUSTES;
+  })();
+  return pidiendoAjustes;
 }
+
+/* Cambiar el dibujo por el render en lo que YA se pintó.
+   ───────────────────────────────────────────────────────────────────────────
+   Esto existe por un fallo que se vio en producción: la pantalla del asistente
+   pinta el retrato nada más cargar, cuando los ajustes todavía van por el
+   aire. Se quedaba con el dibujo de respaldo y no lo cambiaba nunca, así que
+   subir el render de la casa no servía de nada: la foto estaba guardada y la
+   pantalla seguía enseñando el vector.
+
+   Se podría arreglar haciendo que cada pantalla espere los ajustes antes de
+   pintar, pero entonces habría que acordarse en cada una, y la que se olvide
+   vuelve a fallar en silencio. Así se arregla solo, venga de donde venga. */
+function ponerLaCaraDeVerdad(raiz = document) {
+  if (!AJUSTES?.foto) return;
+  for (const img of raiz.querySelectorAll('img[data-mascota]')) {
+    if (img.src !== AJUSTES.foto) img.src = AJUSTES.foto;
+  }
+}
+
+// Se piden en cuanto se carga el módulo, no cuando alguien las necesita: así
+// suelen estar listas antes del primer dibujo y no hace falta ningún cambio.
+ajustes();
 
 function raizAssets() {
   return location.pathname.includes('/admin/')
@@ -49,16 +83,14 @@ function raizAssets() {
 
 /** La carita, para el botón y para cada respuesta. */
 export function caraMascota(clase = '') {
-  const f = AJUSTES?.foto;
-  const src = f || (raizAssets() + 'mascota-cara.svg');
-  return `<img class="mascota ${clase}" src="${esc(src)}" alt="" aria-hidden="true">`;
+  const src = AJUSTES?.foto || (raizAssets() + 'mascota-cara.svg');
+  return `<img class="mascota ${clase}" data-mascota="cara" src="${esc(src)}" alt="" aria-hidden="true">`;
 }
 
 /** El bicho entero, para pantallas donde hay sitio. */
 export function mascotaEntera(clase = '') {
-  const f = AJUSTES?.foto;
-  const src = f || (raizAssets() + 'mascota.svg');
-  return `<img class="mascota-entera ${clase}" src="${esc(src)}" alt="La mascota del CEM">`;
+  const src = AJUSTES?.foto || (raizAssets() + 'mascota.svg');
+  return `<img class="mascota-entera ${clase}" data-mascota="entera" src="${esc(src)}" alt="La mascota del CEM">`;
 }
 
 /* ── Estado de la ventana ────────────────────────────────────────────────── */

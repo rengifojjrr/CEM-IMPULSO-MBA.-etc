@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-26">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-26-2">
 <link rel="canonical" href="https://escuelacem.com/plataforma/inicio.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CEM International">
@@ -184,7 +184,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, qs, fdate, portadaDeCurso } from './assets/app.js?v=2026-08-26';
+import { sb, mount, $, $$, esc, money, qs, fdate, portadaDeCurso } from './assets/app.js?v=2026-08-26-2';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -315,7 +315,7 @@ $('#formLead').onsubmit = async (e) => {
   const { data: codigos, error } = await sb.rpc('cem_paises_de_la_portada');
   if (error || !codigos?.length) return;
 
-  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-08-26');
+  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-08-26-2');
 
   /* La cuenta sale de la lista, no de un número escrito en el texto. */
   const cuantos = codigos.length;
@@ -340,7 +340,7 @@ $('#formLead').onsubmit = async (e) => {
   fila.hidden = false;
 
   try {
-    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-08-26');
+    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-08-26-2');
     for (const t of $$('.pais-tarjeta', fila)) {
       const d = CONTORNOS[t.dataset.pais];
       /* Los países muy pequeños no tienen contorno a esta resolución. Se
