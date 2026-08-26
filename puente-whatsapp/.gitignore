@@ -1,0 +1,6 @@
+# La sesión de WhatsApp. Estos archivos son el equivalente a tener el teléfono
+# del negocio en la mano: con ellos se puede leer y escribir como el CEM.
+# Que no lleguen NUNCA al repositorio.
+auth/
+node_modules/
+.env

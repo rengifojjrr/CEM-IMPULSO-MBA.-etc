@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-25-22">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26">
 <style>
   /* La mascota y el botón de actualizar, uno al lado del otro. */
   .cab-asistente{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;}
@@ -60,6 +60,7 @@
     <button class="active" data-t="saber">Lo que sabe</button>
     <button data-t="charlas">Conversaciones</button>
     <button data-t="salud">Cómo va</button>
+    <button data-t="preguntan">Lo que preguntan</button>
     <button data-t="cara">Ajustes</button>
   </div>
 
@@ -113,6 +114,47 @@
 
   <section id="tSalud" class="hidden">
     <div class="card" id="salud"></div>
+  </section>
+
+  <!-- Lo que preguntan.
+       ═══════════════════════════════════════════════════════════════════════
+       El cuaderno de campo. Aquí no hay conversaciones: hay las PREGUNTAS que
+       llegan, con los correos, teléfonos y cédulas ya sustituidos, y agrupadas
+       las que se parecen.
+
+       Esta lista NO se le da nunca al asistente. Lo que sabe se decide en «Lo
+       que sabe», y el salto de aquí a allí lo da una persona pulsando un botón.
+       Es la diferencia entre aprender de lo que pregunta la gente y repetir por
+       ahí lo que alguien contó en privado. -->
+  <section id="tPreguntan" class="hidden">
+    <div class="nota">
+      Esto es lo que la gente pregunta de verdad, tal como llega por WhatsApp.
+      Se guarda sin correos, sin teléfonos y sin cédulas, y <b>no</b> se le da al
+      asistente: cada una la conviertes tú en una ficha, con la respuesta que
+      quieras que dé.
+      <span class="tiny muted" style="display:block;margin-top:8px">
+        Junta las que están escritas casi igual, así que la misma duda contada
+        con otras palabras aparece más de una vez. Cuando veas tres filas sobre
+        lo mismo, escribe una sola ficha y descarta las otras dos.</span>
+    </div>
+    <div class="filters">
+      <div class="field"><label for="pDias">Desde cuándo</label>
+        <select id="pDias">
+          <option value="7">Última semana</option>
+          <option value="30" selected>Último mes</option>
+          <option value="365">Último año</option>
+        </select></div>
+      <div class="field grow"><label>&nbsp;</label>
+        <label class="check"><input type="checkbox" id="pPendientes" checked>
+          Sólo las que aún no tienen respuesta preparada</label></div>
+    </div>
+    <div class="table-wrap"><table id="tablaPreguntan">
+      <thead><tr>
+        <th>Lo que preguntan</th><th class="num">Veces</th><th class="num">Personas</th>
+        <th>Última</th><th></th>
+      </tr></thead>
+      <tbody><tr><td colspan="5"><span class="cargando"></span></td></tr></tbody>
+    </table></div>
   </section>
 
   <!-- Su nombre y su cara.
@@ -201,9 +243,9 @@
    Lo que dijo el asistente es la única prueba de lo que dijo el asistente. */
 import { sb, mount, $, $$, esc, num, chip, fdatetime, fdesde, ok, fail, modal,
          confirmDialog, mensajeError, ocupado, avisar, kpi, vacio, emptyRow,
-         filasEsqueleto, montarAyudas, subirImagenCurso }
-  from '../assets/app.js?v=2026-08-25-22';
-import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-25-22';
+         filasEsqueleto, montarAyudas, subirImagenCurso, botonesConNombre }
+  from '../assets/app.js?v=2026-08-26';
+import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-26';
 
 const yo = await mount({ require:['coordinador','admin','superadmin','auditor'], area:'admin',
                          active:'asistente.html' });
@@ -330,7 +372,10 @@ function pintarSaber() {
    ser «escritas a mano». Es lo que impide que el siguiente «actualizar» pise
    un texto que alguien afinó a propósito. Se avisa antes, porque desde fuera
    parece que sólo se está corrigiendo una errata. */
-function editorDeFicha(f = null) {
+/* `desde` llega cuando el editor se abre desde «Lo que preguntan»: trae el
+   texto de la pregunta como título y el id del grupo, para atarlo a la ficha
+   al guardar. Si no, es una ficha suelta como siempre. */
+function editorDeFicha(f = null, desde = null) {
   const esGenerada = f?.origen === 'plataforma';
   const caja = modal({
     title: f ? 'Cambiar lo que sabe' : 'Enseñarle algo',
@@ -361,16 +406,31 @@ function editorDeFicha(f = null) {
     $('#mAmbito').value = f.ambito;
     $('#mTitulo').value = f.titulo;
     $('#mTexto').value = f.contenido;
+  } else if (desde?.titulo) {
+    // La pregunta tal cual la escribió alguien es el mejor título posible:
+    // es exactamente lo que hay que reconocer la próxima vez.
+    $('#mTitulo').value = desde.titulo.slice(0, 120);
+    $('#mTexto').focus();
   }
   $('#mGuardar').onclick = (e) => ocupado(e.currentTarget, 'Guardando…', async () => {
     const titulo = $('#mTitulo').value.trim();
     const texto = $('#mTexto').value.trim();
     if (!titulo || !texto) { fail('Hace falta el título y el texto.'); return; }
-    const { error } = await sb.rpc('cem_bot_ficha_guardar', {
+    const { data: idFicha, error } = await sb.rpc('cem_bot_ficha_guardar', {
       p_id: f?.id ?? null, p_ambito: $('#mAmbito').value,
       p_titulo: titulo, p_contenido: texto, p_etiquetas: [], p_activo: f ? f.activo : true,
     });
     if (error) { fail(mensajeError(error)); return; }
+    /* Se ata la pregunta a la ficha DESPUÉS de que la ficha exista, y si esto
+       falla no se deshace lo anterior: la ficha buena ya está guardada, y lo
+       único que pasa es que la pregunta sigue en la lista de pendientes. Es
+       molesto; perder la ficha sería peor. */
+    if (desde?.escuchado) {
+      const { error: e2 } = await sb.rpc('cem_bot_escuchado_resolver',
+        { p_id: desde.escuchado, p_ficha: idFicha ?? null, p_descartar: false });
+      if (e2) console.error('[asistente] la ficha se guardó pero la pregunta sigue pendiente:', e2);
+      cargarPreguntan();
+    }
     caja.close();
     ok('Ya lo sabe.');
     cargarSaber();
@@ -450,6 +510,61 @@ $('#tablaCharlas').addEventListener('click', async (e) => {
 });
 
 ['#cAmbito', '#cDias', '#cEscaladas'].forEach((s) => { $(s).onchange = cargarCharlas; });
+
+/* ── Lo que preguntan ────────────────────────────────────────────────────── */
+async function cargarPreguntan() {
+  const tb = $('#tablaPreguntan tbody');
+  tb.innerHTML = filasEsqueleto(5, 4);
+  const { data, error } = await sb.rpc('cem_bot_escuchado_listar', {
+    p_dias: Number($('#pDias').value),
+    p_pendientes: $('#pPendientes').checked,
+  });
+  if (error) { tb.innerHTML = emptyRow(5, mensajeError(error)); return; }
+  if (!data?.length) {
+    tb.innerHTML = emptyRow(5, $('#pPendientes').checked
+      ? 'Nada pendiente. O no ha llegado nada todavía, o ya está todo contestado.'
+      : 'Todavía no ha llegado ninguna pregunta por WhatsApp.');
+    return;
+  }
+  tb.innerHTML = data.map((p) => `<tr>
+    <td class="wrap">${esc(p.texto)}</td>
+    <td class="num">${num(p.cuantos)}</td>
+    <td class="num">${num(p.personas)}</td>
+    <td>${esc(fdesde(p.ultima))}</td>
+    <td>${puedeEditar ? `
+      <div class="row">
+        <button class="btn sm" data-ficha="${esc(p.id)}"
+                data-texto="${esc(p.texto)}">
+          <span class="material-symbols-outlined">add</span> Enseñarle a contestar esto</button>
+        <button class="icon-btn" data-descartar="${esc(p.id)}" title="No merece una ficha">
+          <span class="material-symbols-outlined">close</span></button>
+      </div>` : ''}</td>
+  </tr>`).join('');
+  botonesConNombre(tb);
+}
+
+$('#tablaPreguntan').addEventListener('click', async (e) => {
+  const f = e.target.closest('[data-ficha]');
+  if (f) {
+    /* Se abre el mismo editor de fichas, con la pregunta ya puesta de título.
+       Y al guardar se ata el grupo entero a esa ficha, para que no vuelva a
+       salir en la lista de pendientes. */
+    editorDeFicha(null, { titulo: f.dataset.texto, escuchado: f.dataset.ficha });
+    return;
+  }
+  const d = e.target.closest('[data-descartar]');
+  if (!d) return;
+  if (!(await confirmDialog(
+    'Deja de aparecer en esta lista. No se borra lo que preguntó la gente.',
+    'No merece una ficha'))) return;
+  const { error } = await sb.rpc('cem_bot_escuchado_resolver',
+    { p_id: d.dataset.descartar, p_ficha: null, p_descartar: true });
+  if (error) { fail(mensajeError(error)); return; }
+  ok('Archivada.');
+  cargarPreguntan();
+});
+
+['#pDias', '#pPendientes'].forEach((s) => { $(s).onchange = cargarPreguntan; });
 
 /* ── Su nombre y su cara ─────────────────────────────────────────────────── */
 async function cargarCara() {
@@ -558,6 +673,7 @@ if (!puedeEditar) {
 /* ── Las pestañas ────────────────────────────────────────────────────────── */
 let charlasCargadas = false;
 let caraCargada = false;
+let preguntanCargadas = false;
 $('#tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-t]');
   if (!b) return;
@@ -565,7 +681,11 @@ $('#tabs').addEventListener('click', (e) => {
   $('#tSaber').classList.toggle('hidden', b.dataset.t !== 'saber');
   $('#tCharlas').classList.toggle('hidden', b.dataset.t !== 'charlas');
   $('#tSalud').classList.toggle('hidden', b.dataset.t !== 'salud');
+  $('#tPreguntan').classList.toggle('hidden', b.dataset.t !== 'preguntan');
   $('#tCara').classList.toggle('hidden', b.dataset.t !== 'cara');
+  if (b.dataset.t === 'preguntan' && !preguntanCargadas) {
+    preguntanCargadas = true; cargarPreguntan();
+  }
   if (b.dataset.t === 'cara' && !caraCargada) {
     caraCargada = true; cargarCara(); cargarMisNumeros();
   }

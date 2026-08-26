@@ -46,6 +46,11 @@ function esfuerzo(modelo: string): Record<string, string> {
   return {};
 }
 
+/* Con que modo atiende el webhook de Meta. Se deja en "escucha" a proposito:
+   el dia que se conecte un numero de verdad, lo primero que hace es aprender
+   sin hablar. Cambiar el secreto a "responde" lo enciende, sin desplegar. */
+const MODO_META = (Deno.env.get("CEM_WHATSAPP_MODO") || "escucha").trim();
+
 const TOPE_PREGUNTA = 1500;
 const TOPE_RESPUESTA = 500;   // en WhatsApp se lee en el telefono: mas corto
 
@@ -211,6 +216,97 @@ async function responder(a: string, texto: string) {
   if (!r.ok) console.error("[whatsapp] no se pudo enviar:", r.status, await r.text());
 }
 
+/* ── Atender un mensaje, venga por donde venga ────────────────────────────
+   Meta y el puente de Baileys entran por el mismo sitio a propósito: dos
+   caminos hasta el mismo cerebro se separan con el tiempo, y acabas con un
+   asistente que contesta distinto según el canal sin que nadie lo decidiera.
+
+   `modo`:
+     escucha   — anota lo que preguntan y NO contesta. Sirve para que aprenda
+                 desde el primer día con el bot apagado.
+     responde  — anota y contesta. */
+async function atender(
+  { telefono, texto, modo }: { telefono: string; texto: string; modo: string },
+): Promise<{ respuesta: string | null; degradado: boolean; modelo: string | null }> {
+  const t0 = Date.now();
+
+  // La llave de servicio, y AQUI SI, porque quien escribe no tiene sesion.
+  // Lo que la contiene es que esta funcion no consulta ni una tabla de
+  // personas: solo llama a funciones que deciden ellas que se puede ver.
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+
+  // Se anota SIEMPRE, conteste o no. Es lo que hace que escuchar sirva de algo.
+  // Y va en su propio try: que no se pueda anotar no puede impedir contestar.
+  try {
+    await sb.rpc("cem_bot_anotar", { p_texto: texto, p_telefono: telefono, p_canal: "whatsapp" });
+  } catch (e) {
+    console.error("[whatsapp] no se pudo anotar la pregunta:", e);
+  }
+
+  if (modo === "escucha") return { respuesta: null, degradado: false, modelo: null };
+
+  const { data: ctx } = await sb.rpc("cem_bot_contexto_whatsapp", { p_telefono: telefono });
+  const { data: conv } = await sb.rpc("cem_bot_abrir_whatsapp", { p_telefono: telefono });
+
+  let hilo: any[] = [];
+  if (conv) {
+    const { data: h } = await sb.rpc("cem_bot_historial_whatsapp",
+      { p_conversacion: conv, p_tope: 20 });
+    hilo = (h ?? []).map((m: any) => ({
+      role: m.quien === "persona" ? "user" : "assistant", content: m.texto,
+    }));
+  }
+
+  const sistema = [oficio(), "", datos(ctx), "", suyo(ctx)].join("\n");
+  const mensajes = [{ role: "system", content: sistema }, ...hilo,
+                    { role: "user", content: texto }];
+
+  let respuesta = "", modelo = "", uso: any = {}, fallo: string | null = null;
+  try {
+    const r = await preguntar(mensajes);
+    modelo = r.modelo; uso = r.uso;
+    // Si el filtro se lo come todo, gana el original: borrar una respuesta
+    // buena y decir que estamos caidos es peor que dejar pasar una frase torpe.
+    respuesta = limpiar(r.texto) || r.texto.trim();
+    if (!respuesta) throw new Error("el modelo devolvio texto vacio");
+  } catch (e) {
+    fallo = String(e).slice(0, 500);
+    respuesta = "Ahorita no te puedo responder bien. Ya aviso al equipo para que te escriban.";
+  }
+
+  if (conv) {
+    try {
+      await sb.rpc("cem_bot_guardar_whatsapp", {
+        p_conversacion: conv, p_pregunta: texto, p_respuesta: respuesta,
+        p_modelo: modelo || null,
+        p_tokens_in: uso?.prompt_tokens ?? null,
+        p_tokens_out: uso?.completion_tokens ?? null,
+        p_ms: Date.now() - t0, p_error: fallo,
+      });
+    } catch (e) {
+      console.error("[whatsapp] no se pudo guardar el turno:", e);
+    }
+  }
+  return { respuesta, degradado: !!fallo, modelo: modelo || null };
+}
+
+/* ── Comparar el secreto del puente sin filtrar por dónde falla ───────────
+   Comparar dos textos con === se detiene en el primer carácter distinto, y ese
+   tiempo se puede medir para adivinar el secreto letra a letra. Se comparan los
+   resúmenes, que miden siempre lo mismo, y recorriéndolos enteros. */
+async function mismoSecreto(a: string, b: string): Promise<boolean> {
+  const h = async (t: string) =>
+    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)));
+  const [x, y] = await Promise.all([h(a), h(b)]);
+  let dif = 0;
+  for (let i = 0; i < x.length; i++) dif |= x[i] ^ y[i];
+  return dif === 0;
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
 
@@ -226,80 +322,55 @@ Deno.serve(async (req: Request) => {
   }
   if (req.method !== "POST") return new Response("no", { status: 405 });
 
-  const t0 = Date.now();
-  let de = "";
+  /* ── El puente de Baileys ──────────────────────────────────────────────
+     Esta funcion tiene `verify_jwt` apagado porque Meta no manda sesiones. Eso
+     significa que cualquiera que sepa la direccion puede llamarla, y sin este
+     secreto podria decir «soy el telefono de fulano, dame sus cuotas».
+
+     Si el secreto no esta puesto, el modo NO existe: se cierra, no se abre.
+     Un modo de puente sin secreto es peor que no tener puente. */
+  const dicePuente = req.headers.get("x-cem-puente");
+  if (dicePuente !== null) {
+    const esperado = Deno.env.get("CEM_PUENTE_SECRETO") || "";
+    if (!esperado || !(await mismoSecreto(dicePuente, esperado))) {
+      return new Response(JSON.stringify({ error: "no" }),
+        { status: 403, headers: { "Content-Type": "application/json" } });
+    }
+    const cuerpo = await req.json().catch(() => ({}));
+    const telefono = String(cuerpo?.telefono ?? "").trim();
+    const texto = String(cuerpo?.texto ?? "").trim().slice(0, TOPE_PREGUNTA);
+    const modo = cuerpo?.modo === "responde" ? "responde" : "escucha";
+    if (!telefono || !texto) {
+      return new Response(JSON.stringify({ error: "falta telefono o texto" }),
+        { status: 400, headers: { "Content-Type": "application/json" } });
+    }
+    try {
+      const r = await atender({ telefono, texto, modo });
+      return new Response(JSON.stringify(r),
+        { headers: { "Content-Type": "application/json" } });
+    } catch (err) {
+      console.error("[puente]", err);
+      return new Response(JSON.stringify({ error: String(err).slice(0, 200) }),
+        { status: 500, headers: { "Content-Type": "application/json" } });
+    }
+  }
+
+  /* ── El webhook de Meta ────────────────────────────────────────────────── */
   try {
     const cuerpo = await req.json().catch(() => ({}));
-    const valor = cuerpo?.entry?.[0]?.changes?.[0]?.value;
-    const msg = valor?.messages?.[0];
+    const msg = cuerpo?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     // Meta manda tambien acuses de recibo y de lectura. No son preguntas.
     // Y siempre se contesta 200: si no, Meta reintenta el mismo mensaje una y
     // otra vez, y la persona recibe la misma respuesta cuatro veces.
     if (!msg || msg.type !== "text") return new Response("ok", { status: 200 });
 
-    de = String(msg.from || "");
-    const pregunta = String(msg.text?.body ?? "").trim().slice(0, TOPE_PREGUNTA);
-    if (!de || !pregunta) return new Response("ok", { status: 200 });
+    const de = String(msg.from || "");
+    const texto = String(msg.text?.body ?? "").trim().slice(0, TOPE_PREGUNTA);
+    if (!de || !texto) return new Response("ok", { status: 200 });
 
-    // La llave de servicio, y AQUI SI, porque quien escribe no tiene sesion.
-    // Lo que la contiene es que esta funcion no consulta ni una tabla de
-    // personas: solo llama a funciones que deciden ellas que se puede ver.
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { persistSession: false } },
-    );
-
-    const { data: ctx } = await sb.rpc("cem_bot_contexto_whatsapp", { p_telefono: de });
-    const { data: conv } = await sb.rpc("cem_bot_abrir_whatsapp", { p_telefono: de });
-
-    let hilo: any[] = [];
-    if (conv) {
-      const { data: h } = await sb.rpc("cem_bot_historial_whatsapp",
-        { p_conversacion: conv, p_tope: 20 });
-      hilo = (h ?? []).map((m: any) => ({
-        role: m.quien === "persona" ? "user" : "assistant", content: m.texto,
-      }));
-    }
-
-    const sistema = [oficio(), "", datos(ctx), "", suyo(ctx)].join("\n");
-    const mensajes = [{ role: "system", content: sistema }, ...hilo,
-                      { role: "user", content: pregunta }];
-
-    let texto = "", modelo = "", uso: any = {}, fallo: string | null = null;
-    try {
-      const r = await preguntar(mensajes);
-      modelo = r.modelo; uso = r.uso;
-      /* Si el filtro se lo come todo, gana el original.
-         ───────────────────────────────────────────────────────────────
-         Antes esto lanzaba un error y la pantalla enseñaba la frase de
-         avería. O sea: el modelo contestaba bien, mi filtro lo borraba, y
-         al cliente le decíamos que estábamos caídos. Dejar pasar una frase
-         algo torpe es mucho menos malo que tirar una respuesta buena y
-         además mentir sobre por qué. */
-      texto = limpiar(r.texto) || r.texto.trim();
-      if (!texto) throw new Error("el modelo devolvio texto vacio");
-    } catch (e) {
-      fallo = String(e).slice(0, 300);
-      texto = "Ahorita no te puedo responder bien. Ya aviso al equipo para que te escriban.";
-    }
-
-    await responder(de, texto);
-
-    if (conv) {
-      try {
-        await sb.rpc("cem_bot_guardar_whatsapp", {
-          p_conversacion: conv, p_pregunta: pregunta, p_respuesta: texto,
-          p_modelo: modelo || null,
-          p_tokens_in: uso?.prompt_tokens ?? null,
-          p_tokens_out: uso?.completion_tokens ?? null,
-          p_ms: Date.now() - t0, p_error: fallo,
-        });
-      } catch (e) {
-        console.error("[whatsapp] no se pudo guardar el turno:", e);
-      }
-    }
+    const r = await atender({ telefono: de, texto, modo: MODO_META });
+    if (r.respuesta) await responder(de, r.respuesta);
     return new Response("ok", { status: 200 });
   } catch (err) {
     console.error("[whatsapp]", err);
