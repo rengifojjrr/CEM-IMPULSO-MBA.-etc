@@ -3069,6 +3069,39 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     return first || `Estudiante ${idx + 1}`;
   }
 
+  /* De quién es este certificado.
+     ═══════════════════════════════════════════════════════════════════════
+     Aquí NO se puede usar «el primer valor que tenga algo», que es lo que se
+     hacía. Los datos de un certificado emitido vuelven de la base como `jsonb`,
+     y jsonb **no guarda el orden en que se escribieron las claves**: las
+     reordena por longitud y luego alfabéticamente. Con las claves de estos
+     grupos —fecha(5), Nombre(6), Cédula(7)— la primera acaba siendo `fecha`,
+     así que el «nombre» con el que se bautizaba cada PDF del ZIP era la fecha
+     de graduación repetida en los cuarenta y dos archivos.
+
+     Se busca por el nombre de la columna, y sólo si no hay ninguna reconocible
+     se cae al primer valor que no sea uno de los campos que sabemos que no son
+     una persona. */
+  const CLAVES_DE_NOMBRE = ['nombre', 'nombres', 'nombre completo', 'alumno', 'alumna',
+    'estudiante', 'participante', 'graduado', 'graduada', 'titular'];
+  const CLAVES_QUE_NO_SON_NOMBRE = ['fecha', 'cedula', 'cédula', 'ci', 'dni', 'documento',
+    'puntaje', 'nota', 'horas', 'curso', 'modulo', 'módulo', 'correo', 'email', 'telefono', 'teléfono'];
+  const sinTildes = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+  function nombreDelGraduado(datos, respaldo = ''){
+    const d = datos || {};
+    const entradas = Object.entries(d).filter(([, v]) => String(v ?? '').trim());
+
+    const porClave = (lista) => entradas.find(([k]) => lista.includes(sinTildes(k)));
+    const nombre  = porClave(CLAVES_DE_NOMBRE);
+    const apellido = entradas.find(([k]) => ['apellido', 'apellidos'].includes(sinTildes(k)));
+    if(nombre) return [nombre[1], apellido && apellido[1]].filter(Boolean).join(' ').trim();
+    if(apellido) return String(apellido[1]).trim();
+
+    const otro = entradas.find(([k]) => !CLAVES_QUE_NO_SON_NOMBRE.includes(sinTildes(k)));
+    return otro ? String(otro[1]).trim() : respaldo;
+  }
+
   function renderMatrixTplSelector(){
     const wrap = document.getElementById('matrixTplSelector');
     if(!templatesFull.length){ wrap.innerHTML = ''; return; }
@@ -4042,9 +4075,12 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
         <button class="btn teal small" data-ver-lote="${l.lote_id}"
           data-nombre="${escapeHtml(l.nombre)}"
           title="Ver cómo quedan antes de bajarse los ${l.cuantos}">👁 Ver</button>
-        · <button class="btn outline small" data-bajar-lote="${l.lote_id}"
+        · <button class="btn outline small" data-bajar-lote="${l.lote_id}" data-formato="zip"
           data-nombre="${escapeHtml(l.nombre)}" data-cuantos="${l.cuantos}"
-          title="Descargar los ${l.cuantos} en un ZIP">⬇ Descargar los ${l.cuantos}</button>
+          title="Un archivo PDF por certificado, todos dentro de un ZIP">⬇ ZIP · ${l.cuantos} archivos</button>
+        · <button class="btn outline small" data-bajar-lote="${l.lote_id}" data-formato="pdf"
+          data-nombre="${escapeHtml(l.nombre)}" data-cuantos="${l.cuantos}"
+          title="Un solo archivo con los ${l.cuantos} dentro, uno por página">⬇ Un solo PDF · ${l.cuantos} págs.</button>
         · <button class="btn outline small" data-renombrar-lote="${l.lote_id}"
             data-nombre="${escapeHtml(l.nombre)}">Renombrar</button>
       </td>
@@ -4055,7 +4091,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       previsualizarLote(b.dataset.verLote, b.dataset.nombre)));
 
     wrap.querySelectorAll('[data-bajar-lote]').forEach(b => b.addEventListener('click', () =>
-      descargarLote(b.dataset.bajarLote, b.dataset.nombre, Number(b.dataset.cuantos))));
+      descargarLote(b.dataset.bajarLote, b.dataset.nombre, Number(b.dataset.cuantos), b.dataset.formato)));
 
     wrap.querySelectorAll('[data-renombrar-lote]').forEach(b => b.addEventListener('click', async () => {
       const nuevo = prompt('Nombre del grupo:', b.dataset.nombre);
@@ -4153,12 +4189,15 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
 
   /** Descarga un grupo entero. Se piden sus certificados por su propia puerta,
       sin el tope de 300 de la lista general. */
-  async function descargarLote(loteId, nombre, cuantos){
+  async function descargarLote(loteId, nombre, cuantos, formato = 'zip'){
+    const unSoloPdf = formato === 'pdf';
     if(cuantos > 40 && !await preguntar({
       titulo: `Descargar ${cuantos} certificados`,
       cuerpo: `<p>Se van a volver a dibujar los <b>${cuantos}</b> certificados de
-        «${escapeHtml(nombre)}», uno por uno, para meterlos en un ZIP. Tardará un rato largo
-        y conviene no cerrar ni recargar la pestaña mientras tanto.</p>`,
+        «${escapeHtml(nombre)}», uno por uno, para meterlos
+        ${unSoloPdf ? `en <b>un solo PDF de ${cuantos} páginas</b>`
+                    : `en un ZIP con <b>${cuantos} archivos</b> dentro`}.
+        Tardará un rato largo y conviene no cerrar ni recargar la pestaña mientras tanto.</p>`,
       aceptar: `Sí, descargar los ${cuantos}`,
     })) return;
 
@@ -4171,7 +4210,17 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
        últimos 300— así que se añaden a mano antes de dibujar: descargarCertificados
        los busca ahí por id. */
     delLote.forEach(c => { if(!issued.some(x => x.id === c.id)) issued.push(c); });
-    await descargarCertificados(delLote.map(c => c.id), sanitizeName(nombre), { saltarAviso: true });
+
+    /* En un solo documento el orden es lo único que lo hace usable: cada
+       graduado con sus módulos seguidos, y los módulos en el orden en que se
+       cursaron (que es el número con el que empieza el nombre de la plantilla).
+       Así se imprime y se reparte pasando páginas, sin ir a buscar. */
+    const ordenados = [...delLote].sort((a, b) =>
+      nombreDelGraduado(a.datos).localeCompare(nombreDelGraduado(b.datos), 'es')
+      || String(a.plantilla_nombre || '').localeCompare(String(b.plantilla_nombre || ''), 'es', { numeric: true }));
+
+    await descargarCertificados((unSoloPdf ? ordenados : delLote).map(c => c.id),
+      sanitizeName(nombre), { saltarAviso: true, formato });
   }
 
   // ---------- Certificados emitidos ----------
@@ -4193,10 +4242,14 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     bar.style.display = 'flex';
     bar.innerHTML = `<b>${issuedSeleccionados.size} certificado(s) marcado(s)</b>
       <button class="btn teal small" id="btnEditarSeleccionEmitidos">✎ Editar</button>
-      <button class="btn outline small" id="btnDescargarSeleccionEmitidos">⬇ Descargar</button>
+      <button class="btn outline small" id="btnDescargarSeleccionEmitidos"
+        title="Un archivo PDF por certificado, todos dentro de un ZIP">⬇ ZIP · ${issuedSeleccionados.size} archivos</button>
+      <button class="btn outline small" id="btnDescargarSeleccionEmitidosPdf"
+        title="Un solo archivo con los ${issuedSeleccionados.size} dentro, uno por página">⬇ Un solo PDF · ${issuedSeleccionados.size} págs.</button>
       <button class="btn outline small" id="btnCancelarSeleccionEmitidos">Cancelar selección</button>`;
     document.getElementById('btnEditarSeleccionEmitidos').addEventListener('click', editarCertificadosSeleccionados);
     document.getElementById('btnDescargarSeleccionEmitidos').addEventListener('click', () => descargarCertificados([...issuedSeleccionados], 'certificados_marcados'));
+    document.getElementById('btnDescargarSeleccionEmitidosPdf').addEventListener('click', () => descargarCertificados([...issuedSeleccionados], 'certificados_marcados', { formato: 'pdf' }));
     document.getElementById('btnCancelarSeleccionEmitidos').addEventListener('click', () => {
       issuedSeleccionados.clear();
       renderIssuedTable();
@@ -4235,8 +4288,10 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     <tr class="grupo-fecha"><td colspan="6"><div class="row">
       <span class="dia">${escapeHtml(diaEnLetras(d.clave))}</span>
       <span class="hint">${d.certs.length} certificado${d.certs.length === 1 ? '' : 's'}</span>
-      <button class="btn outline small" data-descargar-dia="${d.clave}"
-        title="Descargar en un ZIP los ${d.certs.length} de este día">⬇ Descargar los ${d.certs.length}</button>
+      <button class="btn outline small" data-descargar-dia="${d.clave}" data-formato="zip"
+        title="Un archivo PDF por certificado, todos dentro de un ZIP">⬇ ZIP · ${d.certs.length} archivos</button>
+      <button class="btn outline small" data-descargar-dia="${d.clave}" data-formato="pdf"
+        title="Un solo archivo con los ${d.certs.length} de este día, uno por página">⬇ Un solo PDF · ${d.certs.length} págs.</button>
     </div></td></tr>
     ${d.certs.map(c => {
       const reemplazoPor = c.estado === 'reemplazado' ? issued.find(x => x.reemplaza_a === c.id) : null;
@@ -4256,7 +4311,8 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
 
     wrap.querySelectorAll('[data-descargar-dia]').forEach(b => b.addEventListener('click', () => {
       const dia = dias.find(d => d.clave === b.dataset.descargarDia);
-      if(dia) descargarCertificados(dia.certs.map(c => c.id), `certificados_${dia.clave}`);
+      if(dia) descargarCertificados(dia.certs.map(c => c.id), `certificados_${dia.clave}`,
+        { formato: b.dataset.formato });
     }));
 
     document.getElementById('chkTodosEmitidos').addEventListener('change', e => {
@@ -4285,10 +4341,23 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     }));
   }
 
-  /** Reconstruye y descarga uno o varios certificados ya emitidos, sin cambiar sus datos. */
+  /* Cuánto puede pesar el documento único antes de tirar la pestaña.
+     ─────────────────────────────────────────────────────────────────────────
+     Un ZIP guarda cada PDF por separado y el navegador puede soltarlos según
+     los arma. Un solo PDF no: jsPDF lo tiene entero en memoria antes de
+     entregarlo, y el pico es de más del doble del archivo final. Las láminas
+     son de 3.300×2.400 px y cada página pesa alrededor de medio mega, así que
+     un grupo normal —cincuenta y tantos certificados— sale por unos 30 MB y
+     va bien. Por encima de este tope se para y se dice por qué, en vez de
+     dejar la pestaña pensando diez minutos para acabar cayéndose. */
+  const TOPE_PDF_UNICO = 200 * 1024 * 1024;
+
+  /** Reconstruye y descarga uno o varios certificados ya emitidos, sin cambiar sus datos.
+      `opciones.formato`: 'zip' (un archivo por certificado) o 'pdf' (todos en uno). */
   async function descargarCertificados(ids, nombreZip = 'certificados', opciones = {}){
     const certs = ids.map(id => issued.find(c => c.id === id)).filter(Boolean);
     if(!certs.length) return;
+    const unSoloPdf = opciones.formato === 'pdf';
 
     /* Cada certificado se vuelve a dibujar entero, con sus tipografías y su
        fondo. Doscientos de golpe son varios minutos con el navegador ocupado, y
@@ -4298,8 +4367,9 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     if(certs.length > 40 && !opciones.saltarAviso && !await preguntar({
       titulo: `Descargar ${certs.length} certificados`,
       cuerpo: `<p>Se van a volver a dibujar <b>${certs.length}</b> certificados, uno por uno, para
-        meterlos en un ZIP. Tardará un rato largo y conviene no cerrar ni recargar la pestaña
-        mientras tanto.</p>
+        meterlos ${unSoloPdf ? 'en un solo PDF de <b>' + certs.length + ' páginas</b>'
+                             : 'en un ZIP'}. Tardará un rato largo y conviene no cerrar ni
+        recargar la pestaña mientras tanto.</p>
         <p class="hint">Si sólo querías los de un día, cierra esto y usa el botón de descargar que
         hay en la línea de ese día.</p>`,
       aceptar: `Sí, descargar los ${certs.length}`,
@@ -4308,6 +4378,10 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const { jsPDF } = window.jspdf;
     const listos = [];
     const sinPlantilla = [];
+    /* El documento único se va armando página a página, según se dibuja cada
+       certificado. Así nunca coexisten los PDF sueltos y el combinado: con un
+       grupo entero, tenerlos a la vez es el doble de memoria para nada. */
+    let juntos = null, paginas = 0, pesoAcumulado = 0, seCorto = false;
     /* Cada certificado se vuelve a dibujar entero —lienzo, tipografías, QR— y a
        treinta de golpe eso son varios segundos con la pantalla quieta. Sin este
        aviso parece que el botón no hizo nada y se pulsa otra vez. */
@@ -4338,13 +4412,50 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
       const widthPt = canvas.width * 72 / 96, heightPt = canvas.height * 72 / 96;
       const orientation = widthPt > heightPt ? 'landscape' : 'portrait';
+
+      if(unSoloPdf){
+        pesoAcumulado += jpgDataUrl.length * 0.75;      // base64 → bytes
+        if(pesoAcumulado > TOPE_PDF_UNICO){ seCorto = true; break; }
+        if(!juntos){
+          juntos = new jsPDF({ orientation, unit:'pt', format:[widthPt, heightPt] });
+        } else {
+          // Cada página lleva su propio tamaño: en un mismo grupo conviven
+          // láminas de 3300×2400 y de 3508×2480, y forzarlas a una sola medida
+          // estiraría unas u otras.
+          juntos.addPage([widthPt, heightPt], orientation);
+        }
+        juntos.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
+        paginas++;
+        continue;
+      }
+
       const pdf = new jsPDF({ orientation, unit:'pt', format:[widthPt, heightPt] });
       pdf.addImage(jpgDataUrl, 'JPEG', 0, 0, widthPt, heightPt);
-      const nombrePersona = Object.values(c.datos || {}).find(v => v) || c.id.slice(0, 8);
+      const nombrePersona = nombreDelGraduado(c.datos, c.id.slice(0, 8));
       listos.push({ blob: pdf.output('blob'), filename: `${sanitizeName(tpl.nombre)}_${sanitizeName(String(nombrePersona))}_${c.id.slice(0,8)}.pdf` });
     }
     } finally { aviso.cerrar(); }
     if(sinPlantilla.length) alert(`${sinPlantilla.length} certificado(s) no se pudieron regenerar: su plantilla («${sinPlantilla.map(c=>c.plantilla_nombre).join('», «')}») ya no existe.`);
+
+    if(unSoloPdf){
+      /* Cortado por tamaño: no se entrega un documento incompleto sin decirlo.
+         Un PDF con 130 de 266 certificados y nadie avisando es peor que no
+         tener PDF, porque parece completo. */
+      if(seCorto){
+        alert(`Son demasiados para un solo archivo: a las ${paginas} páginas ya iba por
+${Math.round(pesoAcumulado / 1024 / 1024)} MB y el navegador no lo aguanta.
+
+Bájalos en ZIP, o marca menos de una vez —por día, o por grupo— y repite.`);
+        return;
+      }
+      if(!paginas) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(juntos.output('blob'));
+      a.download = `${sanitizeName(nombreZip)}.pdf`;
+      a.click();
+      return;
+    }
+
     if(!listos.length) return;
     if(listos.length === 1){
       const a = document.createElement('a');

@@ -1,4 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#00122b"/>
-  <path d="M20 22h24v6H26v8h16v6H26v8h18v6H20z" fill="#cea62b"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1240" role="img"
+     aria-label="CEM · Centro de Estudios de Marketing">
+  <title>CEM</title>
+  <!-- El birrete de la casa.
+       ═══════════════════════════════════════════════════════════════════════
+       Va dibujado y no como imagen a propósito: esto es a la vez el icono de
+       16 px de la pestaña y el logotipo grande de la cabecera, y una sola
+       forma vectorial sirve para los dos sin pesar nada ni pixelarse.
+
+       El hueco entre la tapa y el cuerpo es blanco EXPLÍCITO, no transparente:
+       es parte de la marca. Dejado en transparente desaparecería sobre un
+       fondo claro y la tapa se pegaría al cuerpo. -->
+  <defs>
+    <linearGradient id="cem-tapa" x1="0" y1=".75" x2="1" y2=".25">
+      <stop offset="0"    stop-color="#FFE000"/>
+      <stop offset=".18"  stop-color="#FF9A0E"/>
+      <stop offset=".36"  stop-color="#FF3B4E"/>
+      <stop offset=".52"  stop-color="#F81CB4"/>
+      <stop offset=".68"  stop-color="#C42BE8"/>
+      <stop offset=".84"  stop-color="#7B4BFF"/>
+      <stop offset="1"    stop-color="#12A5FF"/>
+    </linearGradient>
+    <linearGradient id="cem-cuerpo" x1="0" y1="0" x2=".95" y2=".55">
+      <stop offset="0"    stop-color="#F2E200"/>
+      <stop offset=".26"  stop-color="#6BE05C"/>
+      <stop offset=".52"  stop-color="#12E2CE"/>
+      <stop offset=".78"  stop-color="#1EB6FF"/>
+      <stop offset="1"    stop-color="#2E86FF"/>
+    </linearGradient>
+    <linearGradient id="cem-borla" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0"    stop-color="#A93BFF"/>
+      <stop offset=".55"  stop-color="#3C8DFF"/>
+      <stop offset="1"    stop-color="#1EA8FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- el cuerpo: su borde de arriba queda tapado por la tapa -->
+  <path d="M262 545 L262 848 Q262 884 293 902 L592 1052 Q620 1066 648 1052
+           L947 902 Q978 884 978 848 L978 545 Z"
+        fill="url(#cem-cuerpo)" stroke-linejoin="round"/>
+
+  <!-- la borla: cordón, nudo y fleco. Cuelga de la esquina derecha. -->
+  <rect x="1058" y="470" width="52" height="330" rx="26" fill="url(#cem-borla)"/>
+  <circle cx="1084" cy="812" r="52" fill="url(#cem-borla)"/>
+  <path d="M1035 856 h98 a30 30 0 0 1 29 24 l16 92 a64 64 0 0 1 -63 75 h-62
+           a64 64 0 0 1 -63 -75 l16 -92 a30 30 0 0 1 29 -24 z"
+        fill="url(#cem-borla)"/>
+
+  <!-- la tapa. El trazo blanco ancho ES el hueco que la separa del cuerpo. -->
+  <path d="M584 196 a72 72 0 0 1 72 0 L1160 462 a34 34 0 0 1 0 60 L656 788
+           a72 72 0 0 1 -72 0 L80 522 a34 34 0 0 1 0 -60 Z"
+        fill="url(#cem-tapa)" stroke="#ffffff" stroke-width="30" stroke-linejoin="round"/>
 </svg>

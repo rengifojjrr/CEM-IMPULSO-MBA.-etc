@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CEM Admin · Resumen administrativo</title>
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-6">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-10">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -72,8 +75,8 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, kpi, chip, bar, money, num, fdate, fdateCorta, emptyRow, pct, chipEstado,
-         kpisConMas, accionVacio, cargarEn, bloqueEsqueleto } from '../assets/app.js?v=2026-08-26-6';
-import { embudo, columnas, barras, apilada } from '../assets/graficos.js?v=2026-08-26-6';
+         kpisConMas, accionVacio, cargarEn, bloqueEsqueleto } from '../assets/app.js?v=2026-08-26-10';
+import { embudo, columnas, barras, apilada } from '../assets/graficos.js?v=2026-08-26-10';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'index.html', area:'admin' });
 if (p) { init(); pintarPendientes(); }

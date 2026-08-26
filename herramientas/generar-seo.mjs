@@ -37,6 +37,13 @@ import { fileURLToPath } from 'node:url';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITIO = 'https://escuelacem.com';
+
+/* La tarjeta que se ve cuando alguien pega un enlace en WhatsApp o en X.
+   Va absoluta porque quien la pide no es el navegador de nadie: es un robot
+   que recibe el HTML suelto y no sabe desde dónde resolver una ruta relativa.
+   Antes, un programa sin portada propia salía sin imagen y con la tarjeta
+   pequeña; ahora al menos sale la de la escuela. */
+const TARJETA = `${SITIO}/plataforma/assets/compartir.png`;
 const BASE = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 const CLAVE = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
 
@@ -193,6 +200,9 @@ function pagina({ titulo, descripcion, url, cuerpo, jsonLd, imagen, activa, prof
 <meta name="description" content="${esc(descripcion)}">
 <link rel="canonical" href="${esc(url)}">
 <link rel="icon" href="${arriba}plataforma/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="${arriba}plataforma/assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(ESCUELA.nombre)}">
@@ -200,11 +210,12 @@ function pagina({ titulo, descripcion, url, cuerpo, jsonLd, imagen, activa, prof
 <meta property="og:title" content="${esc(titulo)}">
 <meta property="og:description" content="${esc(descripcion)}">
 <meta property="og:url" content="${esc(url)}">
-${imagen ? `<meta property="og:image" content="${esc(imagen)}">` : ''}
-<meta name="twitter:card" content="${imagen ? 'summary_large_image' : 'summary'}">
+<meta property="og:image" content="${esc(imagen || TARJETA)}">
+<meta property="og:image:alt" content="${esc(titulo)}">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(titulo)}">
 <meta name="twitter:description" content="${esc(descripcion)}">
-${imagen ? `<meta name="twitter:image" content="${esc(imagen)}">` : ''}
+<meta name="twitter:image" content="${esc(imagen || TARJETA)}">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">

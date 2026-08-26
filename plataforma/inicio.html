@@ -6,11 +6,14 @@
 <title>Cursos de marketing, negocios e IA online | CEM International</title>
 <meta name="description" content="Formación práctica en marketing digital, negocios, inteligencia artificial y tecnología. Para niños, adolescentes, adultos y emprendedores. Certificado verificable.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-26-6">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-26-10">
 <link rel="canonical" href="https://escuelacem.com/plataforma/inicio.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CEM International">
@@ -18,9 +21,14 @@
 <meta property="og:title" content="Cursos de marketing, negocios e IA online | CEM International">
 <meta property="og:description" content="Formación práctica en marketing digital, negocios, inteligencia artificial y tecnología. Para niños, adolescentes, adultos y emprendedores. Certificado verificable.">
 <meta property="og:url" content="https://escuelacem.com/plataforma/inicio.html">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://escuelacem.com/plataforma/assets/compartir.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="CEM International · marketing, negocios, IA y tecnología">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Cursos de marketing, negocios e IA online | CEM International">
 <meta name="twitter:description" content="Formación práctica en marketing digital, negocios, inteligencia artificial y tecnología. Para niños, adolescentes, adultos y emprendedores. Certificado verificable.">
+<meta name="twitter:image" content="https://escuelacem.com/plataforma/assets/compartir.png">
 <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "EducationalOrganization", "@id": "https://escuelacem.com#escuela", "name": "CEM International", "alternateName": ["CEM · Centro de Estudios de Marketing", "Centro de Estudios de Marketing"], "description": "Centro de estudios de marketing, negocios, inteligencia artificial y tecnología. Formación práctica con certificado verificable, para todas las edades.", "url": "https://escuelacem.com", "foundingDate": "2016", "address": {"@type": "PostalAddress", "addressLocality": "Caracas", "addressCountry": "VE"}, "areaServed": [{"@type": "Place", "name": "Latinoamérica"}, {"@type": "Place", "name": "España"}], "knowsAbout": ["Marketing digital", "Negocios y emprendimiento", "Inteligencia artificial aplicada", "Tecnología", "Formación para niños y adolescentes", "Formación para adultos mayores"]}, {"@type": "WebSite", "@id": "https://escuelacem.com#sitio", "url": "https://escuelacem.com", "name": "CEM International", "inLanguage": "es", "publisher": {"@id": "https://escuelacem.com#escuela"}, "potentialAction": {"@type": "SearchAction", "target": {"@type": "EntryPoint", "urlTemplate": "https://escuelacem.com/plataforma/catalogo.html?q={search_term_string}"}, "query-input": "required name=search_term_string"}}]}</script>
 </head>
 <body>
@@ -184,7 +192,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, qs, fdate, portadaDeCurso } from './assets/app.js?v=2026-08-26-6';
+import { sb, mount, $, $$, esc, money, qs, fdate, portadaDeCurso } from './assets/app.js?v=2026-08-26-10';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -315,7 +323,7 @@ $('#formLead').onsubmit = async (e) => {
   const { data: codigos, error } = await sb.rpc('cem_paises_de_la_portada');
   if (error || !codigos?.length) return;
 
-  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-08-26-6');
+  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-08-26-10');
 
   /* La cuenta sale de la lista, no de un número escrito en el texto. */
   const cuantos = codigos.length;
@@ -340,7 +348,7 @@ $('#formLead').onsubmit = async (e) => {
   fila.hidden = false;
 
   try {
-    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-08-26-6');
+    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-08-26-10');
     for (const t of $$('.pais-tarjeta', fila)) {
       const d = CONTORNOS[t.dataset.pais];
       /* Los países muy pequeños no tienen contorno a esta resolución. Se

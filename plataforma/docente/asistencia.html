@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CEM Docente · Asistencia</title>
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-6">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-10">
 <style>
   /* Pasar lista se hace con el teléfono en la mano y con gente esperando:
      los tres botones tienen que ser grandes y distinguirse de un vistazo. */
@@ -62,7 +65,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, fdate, ok, fail, mensajeError, num } from '../assets/app.js?v=2026-08-26-6';
+import { sb, mount, $, $$, esc, fdate, ok, fail, mensajeError, num } from '../assets/app.js?v=2026-08-26-10';
 
 const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
                         active:'asistencia.html', area:'docente' });

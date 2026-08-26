@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CEM Admin · El asistente</title>
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-6">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-10">
 <style>
   /* La mascota y el botón de actualizar, uno al lado del otro. */
   .cab-asistente{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;}
@@ -326,8 +329,8 @@
 import { sb, mount, $, $$, esc, num, chip, fdatetime, fdesde, ok, fail, modal,
          confirmDialog, mensajeError, ocupado, avisar, kpi, vacio, emptyRow,
          filasEsqueleto, montarAyudas, subirImagenCurso, botonesConNombre, etiqueta }
-  from '../assets/app.js?v=2026-08-26-6';
-import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-26-6';
+  from '../assets/app.js?v=2026-08-26-10';
+import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-26-10';
 
 const yo = await mount({ require:['coordinador','admin','superadmin','auditor'], area:'admin',
                          active:'asistente.html' });

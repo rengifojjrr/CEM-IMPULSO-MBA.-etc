@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-26-6';
+         vidrioActual } from './temas.js?v=2026-08-26-10';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1407,7 +1407,7 @@ export async function mount(opts = {}) {
    centro lo decide `cem_bot_contexto` en el servidor mirando el rol de quien
    pregunta: escribir «equipo» aquí desde la consola no abre nada. */
 function montarElAsistente(area) {
-  import('./asistente.js?v=2026-08-26-6')
+  import('./asistente.js?v=2026-08-26-10')
     .then((m) => m.montarAsistente({ ambito: area === 'estudiante' ? 'estudiante' : 'equipo' }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2016,7 +2016,7 @@ function renderShell(p, area, active) {
   shell.innerHTML = `
     <aside class="sidebar" id="cemSidebar">
       <div class="brand">
-        <div class="mark">C</div>
+        <img class="mark" src="${raizPublica()}assets/favicon.svg" alt="" width="30" height="30">
         <div><b>CEM</b><span>${areaLabel}</span></div>
       </div>
       ${sideHtml}
@@ -2041,8 +2041,18 @@ function renderShell(p, area, active) {
         <button class="icon-btn campana" id="cemCampana" title="Avisos">
           <span class="material-symbols-outlined">notifications</span>
           <i class="punto" id="cemCampanaPunto" hidden></i></button>
-        <a class="avatar" href="${area === 'estudiante' ? 'perfil.html' : '#'}"
-           title="${esc(p.email)}">${initials(p.nombre, p.apellido)}</a>
+        <!-- El estudiante tiene su pantalla de perfil entera, con portada,
+             certificados y portafolio, y ahí va. Los demás no tenían ninguna:
+             para ellos esto abre el diálogo de la foto, que es lo que les
+             faltaba. Antes era un enlace a «#» que no hacía nada. -->
+        ${area === 'estudiante'
+          ? `<a class="avatar" id="cemMiAvatar" href="perfil.html" title="${esc(p.email)}"
+               >${initials(p.nombre, p.apellido)}${p.avatar_url
+                 ? `<img src="${esc(p.avatar_url)}" alt="">` : ''}</a>`
+          : `<button class="avatar" id="cemMiAvatar" type="button"
+               title="${esc(p.email)} — cambiar tu foto"
+               >${initials(p.nombre, p.apellido)}${p.avatar_url
+                 ? `<img src="${esc(p.avatar_url)}" alt="">` : ''}</button>`}
       </header>
       <main class="content" id="cemContent"></main>
     </div>
@@ -2057,6 +2067,11 @@ function renderShell(p, area, active) {
   if (page) { $('#cemContent', shell).appendChild(page); page.classList.remove('hidden'); }
 
   $('#cemLogout').onclick = logout;
+
+  /* Sólo cuando es botón: para el estudiante es un enlace a su perfil y ahí
+     no hay que interceptar nada. */
+  const miAvatar = $('#cemMiAvatar', shell);
+  if (miAvatar && miAvatar.tagName === 'BUTTON') miAvatar.onclick = abrirMiFoto;
 
   // Plegar y desplegar los grupos del menú, recordando cuáles quedaron abiertos.
   $$('.nav-group .lbl', shell).forEach((btn) => btn.addEventListener('click', () => {
@@ -2081,7 +2096,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-26-6');
+    const m = await import('./apariencia.js?v=2026-08-26-10');
 
     m.abrirApariencia();
 
@@ -2225,7 +2240,7 @@ function renderPublicHeader(p) {
   const activa = (archivo) => location.pathname.endsWith(archivo) ? ' class="on"' : '';
   h.innerHTML = `<div class="pub-inner">
     <a class="pub-brand" href="${r}inicio.html">
-      <span class="material-symbols-outlined">account_balance</span> CEM International</a>
+      <img src="${r}assets/favicon.svg" alt="" width="28" height="28"> CEM International</a>
     <nav id="pubNav">
       <a href="${r}inicio.html"${activa('inicio.html')}>Inicio</a>
       <!-- Una sola entrada, no dos.
@@ -2936,6 +2951,120 @@ export function recortarCuadrado(file, lado = 600) {
 
     img.src = url;
   });
+}
+
+/* ============ mi foto, para cualquiera de la casa ============
+   ═══════════════════════════════════════════════════════════════════════════
+   Poner cara sólo lo podía hacer el estudiante, porque el único sitio donde se
+   cambiaba la foto era su pantalla de perfil —que pide rol de estudiante—. Un
+   administrador, un coordinador, alguien de cobranza o un profesor no tenían
+   por dónde: el redondel de arriba a la derecha llevaba a `href="#"`. Y son
+   justamente las personas que más aparecen en la pantalla de los demás: quien
+   registró un pago, quien emitió un certificado, quien contestó un ticket.
+
+   Los permisos ya daban para esto sin tocar nada. La política del almacén deja
+   escribir a cualquiera dentro de `perfiles/<su propio id>/`, y la de la tabla
+   deja actualizar la fila propia. Lo único que faltaba era la puerta.
+
+   El auditor es la excepción y la tiene la base, no esta pantalla: hay una
+   regla que le prohíbe TODA escritura sobre los perfiles, para que quien
+   revisa no pueda cambiar lo revisado. Aquí se dice con esas palabras en vez
+   de dejar que pulse y reciba un error de permisos. */
+const ROLES_SIN_FOTO = { auditor:
+  'Tu cuenta es de auditoría y no puede escribir en los perfiles, tampoco en el '
+  + 'tuyo. Es a propósito: quien revisa no cambia lo que revisa.' };
+
+export async function abrirMiFoto() {
+  const p = await profile();
+  if (!p) return;
+
+  const veto = ROLES_SIN_FOTO[p.rol];
+  if (veto) { await confirmDialog(veto, 'Tu foto', { confirmar: 'Entendido' }); return; }
+
+  const m = modal({
+    title: 'Tu foto',
+    body: `<div class="mi-foto-caja">
+        <span class="avatar lg" id="miFotoAhora">${esc(initials(p.nombre, p.apellido))}${
+          p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : ''}</span>
+        <div>
+          <b>${esc([p.nombre, p.apellido].filter(Boolean).join(' ') || 'Sin nombre')}</b>
+          <p class="tiny muted sin-margen">Es la que ve el resto del equipo junto a lo que
+            haces: un pago que registras, un certificado que emites, un mensaje que contestas.</p>
+        </div>
+      </div>
+      <p class="tiny muted" id="miFotoMsg" hidden></p>`,
+    footer: `<button class="btn outline" data-x>Cerrar</button>
+      ${p.avatar_url ? '<button class="btn outline" id="miFotoQuitar">Quitar</button>' : ''}
+      <button class="btn" id="miFotoElegir">
+        <span class="material-symbols-outlined">photo_camera</span>
+        ${p.avatar_url ? 'Cambiar la foto' : 'Poner una foto'}</button>`,
+  });
+
+  const decir = (txt, mal) => {
+    const el = $('#miFotoMsg', m);
+    el.hidden = false;
+    el.textContent = txt;
+    el.className = 'tiny ' + (mal ? 'msg err' : 'muted');
+  };
+
+  /* Guardar de verdad, y sólo decir que se guardó si se guardó.
+     Un `update` que no toca ninguna fila —porque una regla lo bloquea— NO
+     devuelve error: devuelve cero filas. Sin el `.select()` esto felicitaría a
+     quien no ha guardado nada. Es el mismo tropiezo que ya costó siete fotos
+     subidas y un perfil sin cara en la pantalla del estudiante. */
+  async function guardar(url) {
+    const { data, error } = await sb.from('cem_profiles')
+      .update({ avatar_url: url }).eq('id', p.id).select('id');
+    if (error) { decir(mensajeError(error), true); return false; }
+    if (!data || !data.length) {
+      decir('No se pudo guardar en tu perfil. Vuelve a intentarlo y, si sigue igual, '
+          + 'avísale al equipo técnico.', true);
+      return false;
+    }
+    p.avatar_url = url;                       // el perfil vive en memoria
+    $('#miFotoAhora', m).innerHTML = esc(initials(p.nombre, p.apellido))
+      + (url ? `<img src="${esc(url)}" alt="">` : '');
+    // El redondel de la barra de arriba, sin recargar la pantalla.
+    const arriba = $('#cemMiAvatar');
+    if (arriba) arriba.innerHTML = esc(initials(p.nombre, p.apellido))
+      + (url ? `<img src="${esc(url)}" alt="">` : '');
+    return true;
+  }
+
+  $('#miFotoElegir', m).onclick = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = TIPOS_ARCHIVO.imagen.accept;
+    inp.onchange = async () => {
+      const file = inp.files?.[0];
+      if (!file) return;
+      try {
+        decir('Preparando la imagen…');
+        const encuadrada = await recortarCuadrado(file, 600);
+        if (!encuadrada) { decir(''); $('#miFotoMsg', m).hidden = true; return; }
+        const listo = await encogerImagen(encuadrada, 600);
+        const max = TIPOS_ARCHIVO.imagen.maxMB * 1024 * 1024;
+        if (listo.size > max) {
+          decir(`La imagen pesa ${(listo.size / 1048576).toFixed(1)} MB y el máximo son ${
+            TIPOS_ARCHIVO.imagen.maxMB} MB.`, true);
+          return;
+        }
+        decir('Subiendo…');
+        const ext = (listo.name.split('.').pop() || 'jpg').toLowerCase();
+        const ruta = `perfiles/${p.id}/${crypto.randomUUID()}.${ext}`;
+        const { error } = await sb.storage.from('cem-assets')
+          .upload(ruta, listo, { contentType: listo.type || 'image/*' });
+        if (error) { decir(error.message || 'No se pudo subir la imagen.', true); return; }
+        const url = sb.storage.from('cem-assets').getPublicUrl(ruta).data.publicUrl;
+        if (await guardar(url)) decir('Foto guardada.');
+      } catch (e) { decir(mensajeError(e, 'No se pudo subir la imagen.'), true); }
+    };
+    inp.click();
+  };
+
+  if ($('#miFotoQuitar', m)) $('#miFotoQuitar', m).onclick = async () => {
+    if (await guardar(null)) { decir('Foto quitada.'); $('#miFotoQuitar', m).remove(); }
+  };
 }
 
 /**
