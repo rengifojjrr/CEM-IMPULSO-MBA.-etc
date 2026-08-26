@@ -30,9 +30,8 @@ servidor, y yo compruebo desde aquí que funciona sin verla nunca.
 ### Lo que da gratis, y cuándo se queda corto
 
 La capa gratuita de Groq va por organización, no por clave: hacer más claves no
-sube el límite. Para el modelo que usamos (`llama-3.3-70b-versatile`) son
-aproximadamente **30 peticiones por minuto, 1.000 al día y 12.000 tokens por
-minuto**.
+sube el límite. Para el modelo que usamos son aproximadamente **30 peticiones
+por minuto, 1.000 al día y 12.000 tokens por minuto**.
 
 En la práctica: cada pregunta del asistente gasta unos 2.000 tokens, así que el
 límite real que se toca primero es el de tokens por minuto — unas **6 preguntas
@@ -57,7 +56,21 @@ Se puede sin instalar nada, desde el navegador.
 2. **Add new secret**:
    - Key: `GROQ_API_KEY`
    - Value: la clave `gsk_…` del paso 1
-3. **Save**.
+3. Y un segundo, **igual de necesario**:
+   - Key: `CEM_ASISTENTE_MODELOS`
+   - Value: `groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b`
+4. **Save**.
+
+> **Por qué el segundo secreto.** Los modelos se retiran, y cuando se retiran
+> el asistente se queda mudo sin que cambie una línea de código. Nos pasó en
+> este mismo montaje: la primera cadena apuntaba a `llama-3.3-70b-versatile` y
+> `llama-3.1-8b-instant`, y Groq apagó los dos el **16 de agosto de 2026**.
+>
+> Da por caducado también el valor de arriba. Cuando el asistente empiece a
+> contestar la frase de cortesía sin motivo, lo primero es mirar en
+> **El asistente → Conversaciones** si el error dice `model_not_found`, y
+> cambiar este secreto por los modelos vivos. **No hace falta volver a
+> desplegar**: para eso está aquí y no dentro del código.
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` **no hay que
 ponerlos**: Supabase se los da solo a las funciones.

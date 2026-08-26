@@ -35,8 +35,16 @@ const WHATSAPP_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
 const PHONE_ID = Deno.env.get("WHATSAPP_PHONE_ID") || "";
 
 const CADENA = (Deno.env.get("CEM_ASISTENTE_MODELOS") ||
-  "groq:llama-3.3-70b-versatile,groq:llama-3.1-8b-instant").split(",")
+  "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b").split(",")
   .map((s) => s.trim()).filter(Boolean);
+
+// Cada familia usa palabras distintas para el esfuerzo de razonamiento, y
+// mandar la de otra familia tumba la peticion entera. Al que no razona, nada.
+function esfuerzo(modelo: string): Record<string, string> {
+  if (/gpt-oss/i.test(modelo)) return { reasoning_effort: "low" };
+  if (/qwen/i.test(modelo)) return { reasoning_effort: "none" };
+  return {};
+}
 
 const TOPE_PREGUNTA = 1500;
 const TOPE_RESPUESTA = 500;   // en WhatsApp se lee en el telefono: mas corto
@@ -145,10 +153,7 @@ async function preguntar(mensajes: any[], intento = 0): Promise<{ texto: string;
       body: JSON.stringify({
         model: modelo, messages: mensajes,
         max_tokens: TOPE_RESPUESTA, temperature: 0.6,
-        // Solo donde existe: es un parametro de los modelos que razonan.
-        // Mandarselo a un llama es mandar un campo inexistente y la API
-        // rechaza la peticion entera, en los dos eslabones a la vez.
-        ...(/gpt-oss|qwen/i.test(modelo) ? { reasoning_effort: "low" } : {}),
+        ...esfuerzo(modelo),
       }),
     });
     const j = await res.json().catch(() => ({}));

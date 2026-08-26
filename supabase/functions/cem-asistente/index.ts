@@ -31,14 +31,31 @@ const CORS = {
 };
 const JSON_HEADERS = { ...CORS, "Content-Type": "application/json" };
 
-// Los modelos van en configuración y no como constantes en el código, porque
-// el manual documenta que el proveedor retiró dos modelos sin avisar y el bot
-// quedó mudo con gente escribiendo. Y la cadena mezcla familias a propósito:
-// una cadena cuyos eslabones son todos de la misma casa cae entera el mismo
-// día.
+/* Los modelos van en un secreto y no escritos aquí, y esto es la prueba de por
+   qué: el 16 de agosto de 2026 Groq apagó `llama-3.3-70b-versatile` y
+   `llama-3.1-8b-instant`, que eran los dos eslabones de esta cadena. El
+   asistente se quedó mudo sin que cambiara una línea de código.
+
+   Cambiar el secreto `CEM_ASISTENTE_MODELOS` lo arregla sin volver a
+   desplegar. Estos valores son sólo el punto de partida de un despliegue
+   nuevo, y hay que darlos por caducados igual que caducaron los de antes. */
 const CADENA = (Deno.env.get("CEM_ASISTENTE_MODELOS") ||
-  "groq:llama-3.3-70b-versatile,groq:llama-3.1-8b-instant").split(",")
+  "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b").split(",")
   .map((s) => s.trim()).filter(Boolean);
+
+/* Cuánto esfuerzo de razonamiento pedir, si el modelo lo entiende.
+   ───────────────────────────────────────────────────────────────────────────
+   Un modelo que razona gasta el presupuesto de respuesta razonando y devuelve
+   contenido VACÍO sin lanzar error: el manual lo documenta y por eso se le
+   pone freno. Pero cada familia usa palabras distintas, y mandar la de otra
+   familia tumba la petición entera — que es exactamente cómo cayeron los dos
+   eslabones a la vez la primera vez. A un modelo que no razona no se le manda
+   el campo en absoluto. */
+function esfuerzo(modelo: string): Record<string, string> {
+  if (/gpt-oss/i.test(modelo)) return { reasoning_effort: "low" };
+  if (/qwen/i.test(modelo)) return { reasoning_effort: "none" };
+  return {};
+}
 
 const TOPE_PREGUNTA = 1500;   // caracteres
 const TOPE_RESPUESTA = 700;   // tokens
@@ -222,19 +239,7 @@ async function preguntar(mensajes: any[], intento = 0, porQue: string[] = []): P
       body: JSON.stringify({
         model: modelo, messages: mensajes,
         max_tokens: TOPE_RESPUESTA, temperature: 0.6,
-        /* `reasoning_effort` SÓLO donde existe.
-           ───────────────────────────────────────────────────────────────
-           Los modelos que razonan gastan el presupuesto de respuesta
-           razonando y devuelven contenido vacío sin lanzar error — el
-           manual lo documenta y por eso se pone a «low».
-
-           Pero es un parámetro de esos modelos, no de todos. Mandárselo a
-           un llama es mandar un campo que no existe, y la API rechaza la
-           petición entera. Se lo mandé a los dos eslabones de la cadena y
-           tumbé los dos a la vez, que es justo lo que la cadena de
-           respaldo existe para que no pase: si el fallo es del que
-           pregunta y no del proveedor, tener dos no salva de nada. */
-        ...(/gpt-oss|qwen/i.test(modelo) ? { reasoning_effort: "low" } : {}),
+        ...esfuerzo(modelo),
       }),
     });
     const j = await res.json().catch(() => ({}));
