@@ -176,14 +176,57 @@ function suyo(ctx: any): string {
 }
 
 /* ── Cada asistente su encargo ───────────────────────────────────────────── */
-function encargo(ambito: string): string {
+
+/* ── Lo que hace cada quien en el CEM ─────────────────────────────────────
+   Sin esto, el asistente del equipo trata igual a quien cobra y a quien da
+   clase: contesta cosas ciertas pero que no son de su trabajo, y quien
+   pregunta tiene que traducir. Con el oficio delante, contesta con las
+   pantallas que esa persona abre todos los días.
+
+   Y hay algo que NO se hace aquí: esto no da ni quita permisos. Lo que cada
+   quien puede ver ya lo decidió la base antes de llegar hasta aquí; esto sólo
+   cambia de qué se le habla. Un cobrador al que se le contara de notas
+   tampoco las vería. */
+const OFICIOS: Record<string, string[]> = {
+  cobranza: [
+    "SU OFICIO: cobrar. Lleva las cuotas, los pagos y quien debe.",
+    "Sus pantallas: Verificar pagos, Carteras, Cierre de mes, Formas de pago, Inscripciones y cuotas.",
+    "De cursos, notas y contenidos NO se ocupa: si pregunta por eso, dile que lo lleva coordinacion.",
+    "Cuando pregunte por alguien que debe, dale la cifra y donde verla, no un discurso.",
+  ],
+  coordinador: [
+    "SU OFICIO: que las clases pasen. Matricula, cohortes, contenidos, profesores y certificados.",
+    "Sus pantallas: Estudiantes, Inscripciones y cuotas, Cohortes, Cursos, Contenidos, Certificados, Calificar.",
+    "No cambia roles ni cuentas: eso es de administracion.",
+  ],
+  profesor: [
+    "SU OFICIO: dar clase. Sus cursos, sus notas y su asistencia.",
+    "Sus pantallas: Mi aula, Como va mi grupo, Asistencia, Calificar.",
+    "Solo de SUS cursos. De dinero no habla: si pregunta por pagos, mandale a cobranza.",
+  ],
+  admin: [
+    "SU OFICIO: dirigir. Ve todo, incluidas las cuentas y los roles.",
+    "Sus pantallas: todas. Las suyas propias son Reportes, Usuarios y roles, Auditoria, Configuracion.",
+    "Es a quien se escala lo que nadie mas puede decidir.",
+  ],
+  auditor: [
+    "SU OFICIO: revisar. Lo lee todo y NO cambia nada.",
+    "Si te pide hacer algo —emitir, aprobar, corregir— dile que su cuenta es de solo lectura",
+    "y que eso lo tiene que hacer coordinacion o administracion.",
+  ],
+};
+OFICIOS.superadmin = OFICIOS.admin;
+
+function encargo(ambito: string, rol?: string): string {
   if (ambito === "equipo") {
+    const suyo = OFICIOS[String(rol || "").toLowerCase()] ?? [];
     return [
       "",
-      "A QUIEN ATIENDES: alguien del equipo del CEM — coordinacion, cobranza, docencia o direccion.",
+      "A QUIEN ATIENDES: alguien del equipo del CEM.",
+      ...suyo,
+      "",
       "Puedes hablar de cifras del centro, de como funciona la plataforma y de donde se hace cada cosa.",
-      "Cuando te pregunten donde se hace algo, di la pantalla por su nombre: Contactos de la web,",
-      "Estudiantes, Inscripciones y cuotas, Cobranza, Contenidos, Certificados, Recursos para redes.",
+      "Cuando te pregunten donde se hace algo, di la pantalla por su nombre.",
       "Si te piden un dato que no tienes, dilo. Un numero inventado en una decision de negocio",
       "cuesta mas que no tener el numero.",
     ].join("\n");
@@ -199,7 +242,6 @@ function encargo(ambito: string): string {
   ].join("\n");
 }
 
-/* ── Llamar al modelo, con la cadena de respaldo ─────────────────────────── */
 async function preguntar(mensajes: any[], intento = 0, porQue: string[] = []): Promise<{ texto: string; modelo: string; uso: any }> {
   if (intento >= CADENA.length) {
     /* Del manual: «la cadena de respaldo terminaba en silencio». Nunca se
@@ -347,7 +389,7 @@ Deno.serve(async (req: Request) => {
       }));
     }
 
-    const sistema = [oficio(), encargo(ambito), "", datos(ctx), "", suyo(ctx)].join("\n");
+    const sistema = [oficio(), encargo(ambito, ctx?.quien?.rol), "", datos(ctx), "", suyo(ctx)].join("\n");
     const mensajes = [
       { role: "system", content: sistema },
       ...hilo,

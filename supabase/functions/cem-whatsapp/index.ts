@@ -78,6 +78,54 @@ function oficio(): string {
   ].join("\n");
 }
 
+
+/* ── Lo que hace cada quien en el CEM ─────────────────────────────────────
+   Sin esto, el asistente del equipo trata igual a quien cobra y a quien da
+   clase: contesta cosas ciertas pero que no son de su trabajo, y quien
+   pregunta tiene que traducir. Con el oficio delante, contesta con las
+   pantallas que esa persona abre todos los días.
+
+   Y hay algo que NO se hace aquí: esto no da ni quita permisos. Lo que cada
+   quien puede ver ya lo decidió la base antes de llegar hasta aquí; esto sólo
+   cambia de qué se le habla. Un cobrador al que se le contara de notas
+   tampoco las vería. */
+const OFICIOS: Record<string, string[]> = {
+  cobranza: [
+    "SU OFICIO: cobrar. Lleva las cuotas, los pagos y quien debe.",
+    "Sus pantallas: Verificar pagos, Carteras, Cierre de mes, Formas de pago, Inscripciones y cuotas.",
+    "De cursos, notas y contenidos NO se ocupa: si pregunta por eso, dile que lo lleva coordinacion.",
+    "Cuando pregunte por alguien que debe, dale la cifra y donde verla, no un discurso.",
+  ],
+  coordinador: [
+    "SU OFICIO: que las clases pasen. Matricula, cohortes, contenidos, profesores y certificados.",
+    "Sus pantallas: Estudiantes, Inscripciones y cuotas, Cohortes, Cursos, Contenidos, Certificados, Calificar.",
+    "No cambia roles ni cuentas: eso es de administracion.",
+  ],
+  profesor: [
+    "SU OFICIO: dar clase. Sus cursos, sus notas y su asistencia.",
+    "Sus pantallas: Mi aula, Como va mi grupo, Asistencia, Calificar.",
+    "Solo de SUS cursos. De dinero no habla: si pregunta por pagos, mandale a cobranza.",
+  ],
+  admin: [
+    "SU OFICIO: dirigir. Ve todo, incluidas las cuentas y los roles.",
+    "Sus pantallas: todas. Las suyas propias son Reportes, Usuarios y roles, Auditoria, Configuracion.",
+    "Es a quien se escala lo que nadie mas puede decidir.",
+  ],
+  auditor: [
+    "SU OFICIO: revisar. Lo lee todo y NO cambia nada.",
+    "Si te pide hacer algo —emitir, aprobar, corregir— dile que su cuenta es de solo lectura",
+    "y que eso lo tiene que hacer coordinacion o administracion.",
+  ],
+};
+OFICIOS.superadmin = OFICIOS.admin;
+
+function encargoWa(ctx: any): string {
+  if (ctx?.ambito !== "equipo") return "";
+  const suyo = OFICIOS[String(ctx?.quien?.rol || "").toLowerCase()] ?? [];
+  if (!suyo.length) return "";
+  return "\n" + ["QUIEN TE ESCRIBE ES DEL EQUIPO.", ...suyo].join("\n");
+}
+
 function datos(ctx: any): string {
   const p: string[] = [];
   const programas = ctx?.programas ?? [];
@@ -261,7 +309,7 @@ async function atender(
     }));
   }
 
-  const sistema = [oficio(), "", datos(ctx), "", suyo(ctx)].join("\n");
+  const sistema = [oficio(), encargoWa(ctx), "", datos(ctx), "", suyo(ctx)].join("\n");
   const mensajes = [{ role: "system", content: sistema }, ...hilo,
                     { role: "user", content: texto }];
 

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-2">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-26-4">
 <style>
   /* La mascota y el botón de actualizar, uno al lado del otro. */
   .cab-asistente{display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;}
@@ -199,30 +199,47 @@
       </div>
     </div>
 
-    <!-- Mi WhatsApp.
+    <!-- Quién habla con Cemi por WhatsApp.
          ═════════════════════════════════════════════════════════════════════
-         Por WhatsApp no hay sesión: lo único que llega es un número, y un
-         número no es una contraseña. Quien tenga el teléfono en la mano ES esa
-         línea.
+         Por WhatsApp no hay sesión: lo único que llega es un número, y el
+         número es lo que le dice al asistente «este que escribe es fulano».
 
-         Por eso las cifras del centro no se dan por WhatsApp sólo porque
-         alguien tenga un rol. Hace falta que esa persona, ya dentro de la
-         plataforma y con su sesión abierta, diga «este número es mío». Ésa es
-         la diferencia entre «este número parece de fulano» y «fulano dijo que
-         es suyo», y es la única que se sostiene. -->
+         Por eso registrar el número de OTRO no es lo mismo que registrar el
+         tuyo. Si cualquiera pudiera hacerlo, un coordinador apuntaría su
+         teléfono a la cuenta de un administrador y leería por WhatsApp las
+         cifras que la plataforma no le enseña — que es saltarse los roles por
+         la puerta de atrás.
+
+         La regla es la misma que ya gobierna quién puede crear a quién: si no
+         puedes invitar a alguien con ese rol, tampoco puedes darle un
+         teléfono. Y queda anotado en Auditoría, porque es un permiso. -->
     <div class="card">
-      <h2 style="margin-top:0">Mi WhatsApp</h2>
-      <p class="muted">Si registras aquí tu número, el asistente te reconoce cuando
-        le escribas por WhatsApp y te contesta como al equipo. Sin registrarlo,
-        por WhatsApp sólo habla de lo público.</p>
-      <div class="row" style="align-items:flex-end">
-        <div class="field" style="max-width:260px;margin-bottom:0">
-          <label for="mTel">Mi número, con código de país</label>
-          <input id="mTel" placeholder="+58 412 000 0000" maxlength="24">
+      <h2 style="margin-top:0">Quién habla con Cemi por WhatsApp</h2>
+      <p class="muted">Cada persona del equipo con su número. Cemi la reconoce por
+        ahí y le contesta según su oficio: a quien cobra le habla de cuotas y
+        pantallas de cobranza; a quien da clase, de sus cursos y sus notas.
+        <b>Sin número registrado, por WhatsApp sólo habla de lo público.</b></p>
+
+      <div class="row" style="align-items:flex-end;margin-bottom:var(--e2)">
+        <div class="field" style="min-width:220px;margin-bottom:0">
+          <label for="qPersona">Persona</label>
+          <select id="qPersona"></select>
         </div>
-        <button class="btn primary" id="btnTel">Registrar este número</button>
+        <div class="field" style="max-width:230px;margin-bottom:0">
+          <label for="qTel">Su número, con código de país</label>
+          <input id="qTel" placeholder="+58 412 000 0000" maxlength="24">
+        </div>
+        <button class="btn primary" id="btnRegistrarNumero">Registrar</button>
       </div>
-      <div id="misNumeros" style="margin-top:var(--e2)"></div>
+
+      <div class="table-wrap"><table id="tablaQuienHabla">
+        <thead><tr>
+          <th>Quién</th><th>Su oficio</th><th>Número</th>
+          <th>Cómo lo reconoce</th><th>Lo registró</th>
+          <th class="num">Ha hablado</th><th></th>
+        </tr></thead>
+        <tbody><tr><td colspan="7"><span class="cargando"></span></td></tr></tbody>
+      </table></div>
     </div>
   </section>
 </div>
@@ -243,9 +260,9 @@
    Lo que dijo el asistente es la única prueba de lo que dijo el asistente. */
 import { sb, mount, $, $$, esc, num, chip, fdatetime, fdesde, ok, fail, modal,
          confirmDialog, mensajeError, ocupado, avisar, kpi, vacio, emptyRow,
-         filasEsqueleto, montarAyudas, subirImagenCurso, botonesConNombre }
-  from '../assets/app.js?v=2026-08-26-2';
-import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-26-2';
+         filasEsqueleto, montarAyudas, subirImagenCurso, botonesConNombre, etiqueta }
+  from '../assets/app.js?v=2026-08-26-4';
+import { mascotaEntera, refrescarAsistente } from '../assets/asistente.js?v=2026-08-26-4';
 
 const yo = await mount({ require:['coordinador','admin','superadmin','auditor'], area:'admin',
                          active:'asistente.html' });
@@ -583,41 +600,99 @@ async function cargarCara() {
          El dibujo de respaldo. No es el render.</p>`;
 }
 
-async function cargarMisNumeros() {
-  const { data, error } = await sb.rpc('cem_bot_mis_numeros');
-  if (error) { avisar('#misNumeros', mensajeError(error)); return; }
-  if (!data?.length) {
-    $('#misNumeros').innerHTML =
-      '<p class="tiny muted">No tienes ningún número registrado.</p>';
-    return;
-  }
-  $('#misNumeros').innerHTML = data.map((n) => `<div class="row">
-    <b style="font-variant-numeric:tabular-nums">…${esc(n.telefono)}</b>
-    ${chip(n.ambito === 'equipo' ? 'Como equipo' : 'Como alumno',
-           n.ambito === 'equipo' ? 'ok' : '')}
-    <button class="btn sm" data-olvidar="${esc(n.telefono)}">Quitar</button>
-  </div>`).join('');
+/* ── Quién habla con Cemi por WhatsApp ───────────────────────────────────── */
+let EQUIPO = [];
+
+async function cargarQuienHabla() {
+  const tb = $('#tablaQuienHabla tbody');
+  const { data, error } = await sb.rpc('cem_bot_quien_habla');
+  if (error) { tb.innerHTML = emptyRow(7, mensajeError(error)); return; }
+  EQUIPO = data ?? [];
+
+  /* El selector se rellena con quien SE PUEDE gestionar, no con todo el
+     equipo. Ofrecer a alguien que va a rebotar es peor que no ofrecerlo: hace
+     dudar de si es un fallo. La seguridad de verdad está en la base; esto es
+     no mentir sobre lo que se puede hacer. */
+  const yaVistos = new Set();
+  $('#qPersona').innerHTML = EQUIPO
+    .filter((p) => p.puedo_gestionarlo && !yaVistos.has(p.profile_id) && yaVistos.add(p.profile_id))
+    .map((p) => `<option value="${esc(p.profile_id)}">${esc(p.nombre || p.email)} · ${esc(etiqueta(p.rol))}</option>`)
+    .join('');
+
+  if (!EQUIPO.length) { tb.innerHTML = emptyRow(7, 'No hay nadie en el equipo todavía.'); return; }
+
+  tb.innerHTML = EQUIPO.map((p) => `<tr>
+    <td class="wrap">${esc(p.nombre || '—')}
+      <div class="tiny muted">${esc(p.email || '')}</div></td>
+    <td>${chip(etiqueta(p.rol))}</td>
+    <td>${p.telefono
+      ? `<span style="font-variant-numeric:tabular-nums">…${esc(p.telefono)}</span>`
+      : '<span class="muted">Sin registrar</span>'}</td>
+    <td>${p.telefono
+      ? chip(p.ambito === 'equipo' ? 'Como equipo' : 'Como alumno', p.ambito === 'equipo' ? 'ok' : '')
+      : '<span class="tiny muted">Sólo lo público</span>'}</td>
+    <td class="wrap">${esc(p.lo_registro || '—')}
+      ${p.registrado_en ? `<div class="tiny muted">${esc(fdesde(p.registrado_en))}</div>` : ''}</td>
+    <td class="num">${num(p.conversaciones || 0)}</td>
+    <td><div class="row">
+      ${p.conversaciones > 0
+        ? `<button class="btn sm" data-verchats="${esc(p.profile_id)}"
+             data-nombre="${esc(p.nombre || p.email)}">
+             <span class="material-symbols-outlined">forum</span> Qué ha hablado</button>` : ''}
+      ${p.telefono && p.puedo_gestionarlo
+        ? `<button class="icon-btn" data-quitarnum="${esc(p.telefono)}" title="Quitar el número">
+             <span class="material-symbols-outlined">delete</span></button>` : ''}
+    </div></td>
+  </tr>`).join('');
+  botonesConNombre(tb);
 }
 
-$('#misNumeros').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-olvidar]');
-  if (!b) return;
-  if (!(await confirmDialog(
-    'El asistente dejará de reconocerte cuando le escribas por WhatsApp.',
-    'Quitar el número'))) return;
-  const { error } = await sb.rpc('cem_bot_olvidar_mi_numero', { p_telefono: b.dataset.olvidar });
+$('#btnRegistrarNumero').onclick = (e) => ocupado(e.currentTarget, 'Registrando…', async () => {
+  const quien = $('#qPersona').value;
+  if (!quien) { fail('Elige a quién.'); return; }
+  const { error } = await sb.rpc('cem_bot_registrar_numero',
+    { p_profile_id: quien, p_telefono: $('#qTel').value });
   if (error) { fail(mensajeError(error)); return; }
-  ok('Quitado.');
-  cargarMisNumeros();
+  $('#qTel').value = '';
+  ok('Registrado. Cemi ya lo reconoce por WhatsApp.');
+  cargarQuienHabla();
 });
 
-$('#btnTel').onclick = (e) => ocupado(e.currentTarget, 'Registrando…', async () => {
-  const { error } = await sb.rpc('cem_bot_registrar_mi_numero',
-    { p_telefono: $('#mTel').value });
+$('#tablaQuienHabla').addEventListener('click', async (e) => {
+  const v = e.target.closest('[data-verchats]');
+  if (v) {
+    const { data, error } = await sb.rpc('cem_bot_conversaciones_de',
+      { p_profile_id: v.dataset.verchats });
+    if (error) { fail(mensajeError(error)); return; }
+    modal({
+      title: `Lo que ${v.dataset.nombre} ha hablado con Cemi`,
+      wide: true,
+      body: `<div class="table-wrap"><table>
+        <thead><tr><th>Canal</th><th>Asistente</th><th class="num">Mensajes</th>
+          <th>Última vez</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${(data ?? []).map((c) => `<tr>
+          <td>${esc(c.canal || 'web')}</td>
+          <td>${c.ambito === 'equipo' ? 'Equipo' : 'Alumnos'}</td>
+          <td class="num">${num(c.mensajes)}</td>
+          <td>${c.ultimo ? esc(fdatetime(c.ultimo)) : '—'}</td>
+          <td>${c.escalado_en ? chip('Pidió una persona', 'warn') : chip('Bien', 'ok')}</td>
+          <td><button class="icon-btn" data-ver="${esc(c.id)}" title="Leerla">
+            <span class="material-symbols-outlined">visibility</span></button></td>
+        </tr>`).join('') || '<tr><td colspan="6"><div class="empty">Todavía no ha hablado con Cemi.</div></td></tr>'}
+        </tbody></table></div>`,
+      footer: '<button class="btn" data-x>Cerrar</button>',
+    });
+    return;
+  }
+  const q = e.target.closest('[data-quitarnum]');
+  if (!q) return;
+  if (!(await confirmDialog(
+    'Cemi dejará de reconocer a esa persona cuando le escriba por WhatsApp, '
+    + 'y sólo le hablará de lo público.', 'Quitar el número'))) return;
+  const { error } = await sb.rpc('cem_bot_olvidar_numero', { p_telefono: q.dataset.quitarnum });
   if (error) { fail(mensajeError(error)); return; }
-  $('#mTel').value = '';
-  ok('Registrado. El asistente ya te reconoce por WhatsApp.');
-  cargarMisNumeros();
+  ok('Quitado.');
+  cargarQuienHabla();
 });
 
 async function guardarAjuste(clave, valor, descripcion) {
@@ -668,7 +743,8 @@ $('#btnQuitarFoto').onclick = async (e) => {
    preguntarle nada al asistente por WhatsApp— pero no tocar el nombre ni la
    cara, que son de la casa. */
 if (!puedeEditar) {
-  ['#btnNombre', '#btnFoto', '#btnQuitarFoto', '#mFoto', '#mNombre']
+  ['#btnNombre', '#btnFoto', '#btnQuitarFoto', '#mFoto', '#mNombre',
+   '#btnRegistrarNumero', '#qTel', '#qPersona']
     .forEach((s) => $(s)?.setAttribute('disabled', ''));
 }
 
@@ -689,7 +765,7 @@ $('#tabs').addEventListener('click', (e) => {
     preguntanCargadas = true; cargarPreguntan();
   }
   if (b.dataset.t === 'cara' && !caraCargada) {
-    caraCargada = true; cargarCara(); cargarMisNumeros();
+    caraCargada = true; cargarCara(); cargarQuienHabla();
   }
   // Las conversaciones se piden la primera vez que se abre la pestaña, no al
   // cargar la pantalla: son 300 filas que casi nadie mira cada día.
