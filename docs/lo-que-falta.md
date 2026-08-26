@@ -11,6 +11,33 @@ Está ordenado por lo que cuesta que salga mal, no por lo que cuesta hacerlo.
 
 Nada de esto lo arregla el código: hacen falta cuentas, dinero o material.
 
+### 1.0 · GitHub Actions no coge trabajos — **el sitio no se está publicando**
+
+Detectado el 26 de agosto. Tres ejecuciones de «pages build and deployment»
+—178, 179 y 180— llevan **más de una hora en cola** sin que su `updated_at` se
+mueva ni un segundo. La 177 había terminado bien a las 15:04; a partir de las
+15:09 no arranca nada.
+
+Lo que eso significa, y por qué está lo primero de esta lista:
+
+- **escuelacem.com se quedó en el commit `b37d86b`.** Todo lo posterior está en
+  el repositorio y no en el sitio.
+- La tarea diaria «Páginas para Google» tampoco va a correr. Las páginas de
+  programa dejan de actualizarse.
+- «Desplegar funciones del asistente» falló con `startup_failure` y **cero
+  trabajos creados**, que es lo que pasa cuando ni siquiera puede empezar. El
+  archivo del workflow es YAML válido —comprobado— así que no es eso. Al
+  segundo intento, una hora después, sí arrancó y desplegó.
+
+Lo más probable es que se hayan agotado los minutos incluidos de Actions del
+mes, o que haya saltado un límite de gasto. Se mira en **Settings → Billing and
+plans → Plans and usage** de la cuenta. Si el repositorio es privado, pasarlo a
+público devuelve los minutos ilimitados; si no, hay que subir el límite.
+
+Mientras esté así, cualquier cambio que se suba **no se ve en el sitio**, y eso
+no da ningún error: el commit entra, la ejecución se queda en cola, y el sitio
+sigue sirviendo lo de antes. Es la clase de avería que se descubre tarde.
+
 ### 1.1 · El correo no sale — **138 avisos parados**
 
 No hay proveedor de correo configurado. Los avisos se encolan y **no se pierden**,
