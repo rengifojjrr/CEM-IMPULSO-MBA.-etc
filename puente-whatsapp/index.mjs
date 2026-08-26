@@ -42,18 +42,58 @@
 
 import { readFileSync, existsSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
-import baileys from '@whiskeysockets/baileys';
-import qr from 'qrcode-terminal';
+import { dirname, isAbsolute, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+/* Importación con nombre, no destructurando el `default`.
+   ─────────────────────────────────────────────────────────────────────────
+   Aquí ponía `import baileys from …` y luego sacaba las cuatro funciones de
+   dentro. Dejó de funcionar sin que nadie tocara nada: el rango ^6.7.9 trajo
+   la 6.7.24, donde el `default` es el propio makeWASocket y ya no lleva nada
+   dentro. El puente moría al arrancar con «useMultiFileAuthState is not a
+   function», que no dice ni de lejos que el problema sea ese.
 
-const {
-  default: crearSocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion,
-} = baileys;
+   Con nombre es la forma documentada y la que no cambia. Y además se subió el
+   package-lock.json: así lo que se instala en el servidor es exactamente lo que
+   se probó, en vez de lo que hubiera salido ese día. El rango del package.json
+   se deja abierto igualmente —WhatsApp cambia su protocolo y un Baileys viejo
+   deja de conectar— pero actualizar pasa a ser una decisión (`npm update`), no
+   una sorpresa en el primer arranque. */
+import makeWASocket, {
+  useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion,
+} from '@whiskeysockets/baileys';
+import qr from 'qrcode-terminal';
+import QR from 'qrcode';
+
+const crearSocket = makeWASocket;
+
+/* Y si aun así vuelve a cambiar, que lo diga con todas las letras en vez de
+   reventar a mitad con un error que manda a mirar donde no es. */
+for (const [nombre, cosa] of Object.entries({
+  makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion,
+})) {
+  if (typeof cosa !== 'function') {
+    console.error(`\nBaileys cambió de forma: ya no exporta ${nombre} como función.`
+      + `\nEs lo que pasó con la 6.7.24. Mira los ejemplos de la versión instalada`
+      + `\n(node_modules/@whiskeysockets/baileys) y ajusta los imports de arriba.\n`);
+    process.exit(1);
+  }
+}
+
+/* ── Dónde está todo ──────────────────────────────────────────────────────── */
+/* Junto al archivo, NO en el directorio desde el que se arrancó. Con rutas
+   relativas al cwd, un `pm2 start puente-whatsapp/index.mjs` desde la raíz del
+   repositorio no encuentra el .env —y eso al menos falla ruidoso— pero además
+   crea la carpeta auth/ en otro sitio: la sesión de WhatsApp se «pierde» en
+   cada arranque y pide QR otra vez sin que nada explique por qué. */
+const AQUI = dirname(fileURLToPath(import.meta.url));
+const junto = (p) => (isAbsolute(p) ? p : join(AQUI, p));
 
 /* ── Configuración ────────────────────────────────────────────────────────── */
 /* Se lee de .env sin librería: son cinco valores y una dependencia menos es
    una cosa menos que actualizar en una máquina a la que nadie va a entrar. */
-if (existsSync('.env')) {
-  for (const linea of readFileSync('.env', 'utf8').split('\n')) {
+const ARCHIVO_ENV = junto('.env');
+if (existsSync(ARCHIVO_ENV)) {
+  for (const linea of readFileSync(ARCHIVO_ENV, 'utf8').split('\n')) {
     const m = linea.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
   }
@@ -64,7 +104,7 @@ const CEREBRO = process.env.CEM_CEREBRO_URL
 const SECRETO = process.env.CEM_PUENTE_SECRETO || '';
 const MODO = (process.env.CEM_PUENTE_MODO || 'escucha').trim();
 const PUERTO = Number(process.env.CEM_PUENTE_PUERTO || 3000);
-const CARPETA_AUTH = process.env.CEM_PUENTE_AUTH || './auth';
+const CARPETA_AUTH = junto(process.env.CEM_PUENTE_AUTH || './auth');
 
 if (!SECRETO) {
   console.error(`
@@ -90,7 +130,7 @@ const log = (...a) => console.log(ahora(), ...a);
 
 /* ── Estado, para la página de salud ──────────────────────────────────────── */
 const estado = {
-  conectado: false, numero: null, qr: null,
+  conectado: false, numero: null, qr: null, secreto: 'sin comprobar',
   desde: ahora(), mensajes: 0, respondidos: 0, fallos: 0, ultimo: null,
 };
 
@@ -103,6 +143,38 @@ async function preguntarAlCerebro(telefono, texto) {
   });
   if (!r.ok) throw new Error(`el cerebro respondió ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return r.json();
+}
+
+/* ── ¿Coincide el secreto? Se comprueba al arrancar, no al primer cliente ──
+   Es la avería más común de montar esto: el puente se conecta, todo parece
+   bien, y no anota nada porque el secreto de aquí y el de Supabase no son el
+   mismo. Sin esta comprobación lo descubre el primero que escriba al número.
+
+   Se manda el cuerpo vacío a propósito: con el secreto bueno la función
+   contesta 400 («falta telefono o texto») y con el malo 403. Así se distingue
+   sin escribir ni una pregunta falsa en el registro. */
+async function comprobarSecreto() {
+  try {
+    const r = await fetch(CEREBRO, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-cem-puente': SECRETO },
+      body: '{}',
+    });
+    if (r.status === 400) { estado.secreto = 'bien'; log('El secreto del puente coincide.'); return; }
+    if (r.status === 403) {
+      estado.secreto = 'mal';
+      log('!! EL SECRETO NO COINCIDE. El puente va a conectar y NO va a anotar nada.');
+      log('   CEM_PUENTE_SECRETO del .env tiene que ser idéntico al de');
+      log('   Supabase → Edge Functions → Secrets. Si allí no está puesto, el modo');
+      log('   puente ni siquiera existe: se cierra, no se abre.');
+      return;
+    }
+    estado.secreto = `raro (${r.status})`;
+    log(`!! el cerebro contestó ${r.status} a la comprobación. Revisa CEM_CEREBRO_URL.`);
+  } catch (e) {
+    estado.secreto = 'no se pudo comprobar';
+    log('!! no se pudo hablar con el cerebro:', String(e).slice(0, 160));
+  }
 }
 
 /* ── Lo que NO se atiende ─────────────────────────────────────────────────── */
@@ -255,17 +327,56 @@ async function conectar() {
 /* ── Una página para saber si está vivo ───────────────────────────────────── */
 /* El manual insiste en esto: sin una forma de mirar, la única señal de que el
    bot está caído es que un cliente se queja. */
-createServer((req, res) => {
+/* El QR se DIBUJA aquí, no se escupe el texto crudo.
+   ─────────────────────────────────────────────────────────────────────────
+   Antes esta página mostraba la cadena de Baileys y decía «pégala en un
+   generador de QR». Eso no vale para lo único que hace falta hacer con ella:
+   apuntarle el teléfono. Y el QR de la terminal tampoco es de fiar en un
+   servidor por SSH — sale con caracteres de bloque y, según la fuente y los
+   colores, el teléfono no lo lee.
+
+   Va como SVG y se recarga sola: WhatsApp caduca cada QR en unos veinte
+   segundos y genera otro. */
+const pagina = (cuerpo, recarga) =>
+  `<!doctype html><meta charset="utf-8"><title>Vincular el WhatsApp del CEM</title>`
+  + (recarga ? `<meta http-equiv="refresh" content="5">` : '')
+  + `<style>
+      :root{color-scheme:light dark}
+      body{font:16px/1.5 system-ui,sans-serif;margin:0;min-height:100vh;
+           display:grid;place-items:center;text-align:center;padding:24px}
+      .caja{max-width:420px}
+      svg{width:min(340px,80vw);height:auto;background:#fff;padding:12px;border-radius:12px}
+      h1{font-size:20px;margin:0 0 4px} p{margin:12px 0;opacity:.85}
+      code{background:rgba(128,128,128,.2);padding:2px 6px;border-radius:4px}
+     </style><div class="caja">${cuerpo}</div>`;
+
+createServer(async (req, res) => {
   if (req.url === '/qr') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(estado.qr
-      ? `<pre style="font:12px monospace">Pega este código en un generador de QR,
-o mira la terminal, que lo pinta dibujado:
-
-${estado.qr}</pre>`
-      : `<p style="font:16px system-ui">${estado.conectado
-          ? `Conectado como +${estado.numero}. No hay QR que escanear.`
-          : 'Todavía no hay QR. Espera unos segundos y recarga.'}</p>`);
+    if (estado.conectado) {
+      res.end(pagina(`<h1>Ya está vinculado</h1>
+        <p>Conectado como <code>+${estado.numero}</code>. No hay QR que escanear.</p>`, false));
+      return;
+    }
+    if (!estado.qr) {
+      res.end(pagina(`<h1>Todavía no hay QR</h1>
+        <p>Se está pidiendo a WhatsApp. Esta página se recarga sola.</p>`, true));
+      return;
+    }
+    try {
+      const svg = await QR.toString(estado.qr, { type: 'svg', margin: 1, width: 340 });
+      res.end(pagina(`<h1>Vincular el WhatsApp del CEM</h1>
+        <p>En el teléfono del negocio:<br><b>WhatsApp → Dispositivos vinculados →
+        Vincular dispositivo</b></p>${svg}
+        <p>Cada código caduca en unos segundos; esta página se recarga sola.</p>`, true));
+    } catch (e) {
+      // Que no se pueda dibujar no puede dejar sin QR: queda el texto, que es
+      // feo pero sirve de último recurso.
+      res.end(pagina(`<h1>No se pudo dibujar el QR</h1>
+        <p>${String(e).slice(0, 120)}</p>
+        <p>Mira la terminal, o pega esto en un generador de QR:</p>
+        <p><code style="word-break:break-all">${estado.qr}</code></p>`, true));
+    }
     return;
   }
   res.writeHead(estado.conectado ? 200 : 503, { 'Content-Type': 'application/json' });
@@ -278,6 +389,7 @@ if (process.argv.includes('--reiniciar-sesion')) {
   rmSync(CARPETA_AUTH, { recursive: true, force: true });
   log('Carpeta auth/ borrada: va a pedir el QR otra vez.');
 }
+comprobarSecreto();     // sin await: que no retrase el QR
 conectar().catch((e) => {
   console.error('No se pudo arrancar:', e);
   process.exit(1);

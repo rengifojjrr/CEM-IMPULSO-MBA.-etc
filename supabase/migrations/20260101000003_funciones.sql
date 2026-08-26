@@ -1546,7 +1546,17 @@ declare
   v_tel text := cem_tel_normal(p_telefono);
   v_id uuid; v_ambito text; v_cuantos int;
   v_ctx jsonb;
+  v_nombre text;
 begin
+  -- Con qué nombre se presenta por este canal. Se lee de Configuración y no se
+  -- escribe en la función de borde a propósito: cambiarlo no debería exigir un
+  -- despliegue. Si no está puesto, se cae al nombre de siempre.
+  select coalesce(
+           (select s.valor #>> '{}' from cem_settings s where s.clave = 'asistente_nombre_whatsapp'),
+           (select s.valor #>> '{}' from cem_settings s where s.clave = 'asistente_nombre'),
+           'Cemi')
+    into v_nombre;
+
   select n.profile_id, n.ambito into v_id, v_ambito
     from cem_bot_numeros n
    where n.telefono = v_tel and n.activo;
@@ -1568,6 +1578,7 @@ begin
     return jsonb_build_object(
       'ambito', 'estudiante',
       'canal', 'whatsapp',
+      'asistente', jsonb_build_object('nombre', v_nombre),
       'quien', null,
       'programas', coalesce((
         select jsonb_agg(jsonb_build_object(
@@ -1593,7 +1604,9 @@ begin
   end;
   perform set_config('request.jwt.claims', null, true);
 
-  return coalesce(v_ctx, '{}'::jsonb) || jsonb_build_object('canal', 'whatsapp');
+  return coalesce(v_ctx, '{}'::jsonb) || jsonb_build_object(
+    'canal', 'whatsapp',
+    'asistente', jsonb_build_object('nombre', v_nombre));
 end $function$
 ;
 

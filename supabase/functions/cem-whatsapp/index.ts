@@ -19,9 +19,13 @@ import { HERRAMIENTAS } from "../_shared/herramientas.ts";
 //
 // Asi que aqui se usa la API oficial de WhatsApp (Cloud API): son webhooks, no
 // hay sesion que mantener, no hay QR que reescanear y no hay maquina que
-// encender. Si algun dia se prefiere el numero de siempre con Baileys, el
-// cerebro no cambia: ese puente solo tiene que llamar a cem-asistente igual
-// que llama esta funcion.
+// encender.
+//
+// Y como el alta en Meta tarda, mientras tanto entra por aqui el puente de
+// Baileys que vive en puente-whatsapp/: escanea el QR desde el numero de
+// siempre y llama a esta misma funcion con la cabecera x-cem-puente. El cerebro
+// no cambia — es el mismo de abajo — y el dia que Meta este listo se apaga el
+// puente y no hay que tocar nada mas.
 //
 // SEGURIDAD
 // ---------------------------------------------------------------------------
@@ -76,10 +80,29 @@ const MODO_META = (Deno.env.get("CEM_WHATSAPP_MODO") || "escucha").trim();
 const TOPE_PREGUNTA = 1500;
 const TOPE_RESPUESTA = 500;   // en WhatsApp se lee en el telefono: mas corto
 
-function oficio(): string {
+/* ── Con qué nombre se presenta ───────────────────────────────────────────
+   El nombre NO se escribe aquí: lo trae el contexto, que lo lee de
+   Configuración (`asistente_nombre_whatsapp`, y si no está, el de la web).
+   Cambiarlo no debería costar un despliegue.
+
+   Y va aparte del nombre de la web a propósito. En el chat de la plataforma
+   se ve la mascota y se sabe que habla la casa. Por WhatsApp, en cambio, esto
+   entra en la lista de contactos de la persona como un nombre de pila: quien
+   escriba a Verónica va a creer razonablemente que hay alguien al otro lado.
+   Lo que sostiene eso es la regla de más abajo —si preguntan por una persona,
+   no se discute: se llama a avisar_al_equipo y se avisa de verdad— y que aquí
+   no se pueda consultar ni cambiar nada de nadie. */
+function nombreDe(ctx: any): string {
+  const n = String(ctx?.asistente?.nombre ?? "").trim();
+  return n || "Cemi";
+}
+
+function oficio(ctx: any): string {
+  const yo = nombreDe(ctx);
   return [
-    "Eres el asistente del CEM International Education, un centro de estudios.",
-    "Estas atendiendo por WhatsApp. Hablas en espanol, con naturalidad, como alguien del equipo.",
+    `Te llamas ${yo} y atiendes el WhatsApp del CEM International Education, un centro de estudios.`,
+    "Hablas en espanol, con naturalidad, como alguien del equipo.",
+    `Si te preguntan quien eres, di que eres ${yo}, del CEM. Nada mas.`,
     "Nunca digas que eres un bot ni una IA.",
     "",
     "COMO ESCRIBES EN WHATSAPP:",
@@ -287,7 +310,7 @@ async function atender(
     }));
   }
 
-  const sistema = [oficio(), encargoWa(ctx), "", datos(ctx), "", suyo(ctx)].join("\n");
+  const sistema = [oficio(ctx), encargoWa(ctx), "", datos(ctx), "", suyo(ctx)].join("\n");
   const mensajes = [{ role: "system", content: sistema }, ...hilo,
                     { role: "user", content: texto }];
 

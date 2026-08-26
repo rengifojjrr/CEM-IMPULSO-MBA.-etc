@@ -13,6 +13,26 @@ pierde, se cambia el secreto del puente y no se ha filtrado nada más.
 
 ---
 
+## Por WhatsApp se llama Verónica
+
+En la plataforma el asistente es **Cemi**: se ve la mascota y se sabe que habla
+la casa. Por WhatsApp entra en la agenda de la persona como un nombre de pila,
+así que ahí se llama **Verónica**.
+
+El nombre **no está escrito en el código**: sale de **Configuración**, en la
+clave `asistente_nombre_whatsapp`. Cambiarlo no necesita desplegar nada. Si un
+día se borra, se cae al nombre de la web.
+
+Conviene tener claro lo que eso implica: quien escriba a Verónica va a creer,
+razonablemente, que hay una persona al otro lado. Lo que sostiene esa decisión
+es que **en cuanto alguien pida hablar con una persona —o dude—, el asistente no
+lo discute: avisa al equipo de verdad** (no dice que va a avisar: llama a la
+herramienta, y si la llamada falla, el servidor la cumple igual). Y que por este
+canal el asistente **no puede consultar ni cambiar los datos de nadie**: sólo
+hablar de los programas y avisar.
+
+---
+
 ## Los dos modos, y por qué empieza apagado
 
 | Modo | Qué hace |
@@ -53,29 +73,49 @@ dame sus cuotas».
 ### 2. Arrancarlo
 
 ```
+cd puente-whatsapp
 cp .env.ejemplo .env      # y rellenas CEM_PUENTE_SECRETO
 npm install
 npx pm2 start index.mjs --name cem-puente
 npx pm2 logs cem-puente
 ```
 
-En los registros aparece el QR. Se escanea desde el teléfono del negocio:
-**WhatsApp → Dispositivos vinculados → Vincular dispositivo**. También está en
-`http://127.0.0.1:3000/qr`.
+Nada más arrancar, los registros dicen si el secreto coincide. Si sale
+`EL SECRETO NO COINCIDE`, párate ahí: el puente se conectaría a WhatsApp y no
+anotaría nada.
+
+### 3. Escanear el QR
+
+Abre **`http://127.0.0.1:3000/qr`**: ahí sale el código dibujado, y la página se
+recarga sola porque WhatsApp lo caduca cada pocos segundos. Se escanea desde el
+teléfono del negocio: **WhatsApp → Dispositivos vinculados → Vincular
+dispositivo**.
+
+En un servidor sin navegador, un túnel desde tu máquina:
+
+```
+ssh -L 3000:127.0.0.1:3000 usuario@servidor
+```
+
+y abres esa dirección en tu propio navegador.
+
+El QR también sale pintado en `npx pm2 logs cem-puente`, pero **es el último
+recurso**: con caracteres de bloque, según la fuente y los colores del terminal
+el teléfono no lo lee.
 
 Cuando diga `Conectado como +XXXX`, está.
 
-### 3. Comprobarlo
+### 4. Comprobarlo
 
 ```
 curl -s http://127.0.0.1:3000/ | head -20
 ```
 
-Debe decir `"conectado": true`. Escríbele al número desde otro teléfono: en
-`escucha` **no** debe contestar, y la pregunta debe aparecer en
-**El asistente → Lo que preguntan**.
+Debe decir `"conectado": true` y `"secreto": "bien"`. Escríbele al número desde
+otro teléfono: en `escucha` **no** debe contestar, y la pregunta debe aparecer
+en **El asistente → Lo que preguntan**.
 
-### 4. Encenderlo, cuando lleve unos días escuchando
+### 5. Encenderlo, cuando lleve unos días escuchando
 
 En `.env`, `CEM_PUENTE_MODO=responde`, y `npx pm2 restart cem-puente`.
 
@@ -100,6 +140,13 @@ qué le hablan y uno que se estrena delante de un cliente.
   vista lo que aún no ha atendido nadie.
 - **Escribe «escribiendo…»** antes de responder. Sin eso la respuesta aparece de
   golpe medio segundo después y se nota.
+- **El QR se dibuja de verdad** en `/qr`, no se escupe el texto para que lo
+  pegues en otro sitio. El de la terminal queda de último recurso: con
+  caracteres de bloque, muchos terminales lo dejan ilegible.
+- **Se instala lo que se probó.** El `package-lock.json` está subido. Sin él,
+  `npm install` traía la última de Baileys y el puente moría al arrancar con
+  «useMultiFileAuthState is not a function» — pasó de verdad, con la 6.7.24.
+  Para actualizar a propósito: `npm update && npx pm2 restart cem-puente`.
 
 ## Cuando algo va mal
 
@@ -114,8 +161,20 @@ node index.mjs --reiniciar-sesion
 **«La sesión se cerró desde el teléfono».** Alguien desvinculó el dispositivo.
 Mismo arreglo.
 
-**Conecta pero no anota nada.** Casi siempre el secreto no coincide entre `.env`
-y Supabase. En los registros sale `el cerebro respondió 403`.
+**Conecta pero no anota nada.** El secreto no coincide entre `.env` y Supabase.
+Ahora se avisa al arrancar (`EL SECRETO NO COINCIDE`) y se ve en
+`curl http://127.0.0.1:3000/`, en el campo `secreto`. Ojo: desde aquí no se
+distingue «mal puesto» de «no puesto en Supabase» — los dos dan 403, y tienen
+que estar los dos lados.
+
+**«useMultiFileAuthState is not a function», o algo parecido, al arrancar.**
+Baileys cambió de forma en una actualización. Pasó con la 6.7.24. Los `import`
+de arriba del archivo son la forma documentada; si vuelve a cambiar, el puente
+lo dice con todas las letras en vez de reventar a mitad.
+
+**Pide el QR cada vez que arranca.** La carpeta `auth/` no es la misma entre
+arranques. Ahora se crea siempre junto al archivo, no donde estuvieras al
+lanzarlo, así que esto sólo debería pasar si cambiaste `CEM_PUENTE_AUTH`.
 
 **Contesta cuando no debía.** Mira `CEM_PUENTE_MODO` en `.env`. Después de
 cambiarlo hay que reiniciar.

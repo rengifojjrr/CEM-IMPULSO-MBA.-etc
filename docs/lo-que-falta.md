@@ -126,6 +126,40 @@ Hay dos caminos, y son decisión tuya:
 
 Si quieres lo segundo, es una orden de una línea; dímelo y lo hago.
 
+### 1.5 · Verónica está lista y no puede arrancar sin ti
+
+El asistente ya atiende WhatsApp con el número de siempre, por QR, mientras se
+resuelve el alta en Meta. El código está hecho y probado —conecta con WhatsApp,
+saca el QR y lo dibuja en `/qr`— pero **dos cosas no las puedo hacer yo**:
+
+**a) El secreto, en los dos lados.** Te inventas una frase larga y va idéntica
+en Supabase → *Edge Functions → Secrets*, como `CEM_PUENTE_SECRETO`, y en el
+`.env` del puente. Yo no puedo escribir secretos en Supabase.
+
+Y hay algo que **desde fuera no se puede distinguir**: si el secreto está mal
+puesto y si no está puesto en Supabase dan exactamente lo mismo, un 403. El
+puente ahora lo comprueba al arrancar y lo dice, pero no puede decirte cuál de
+los dos es. Si sale `EL SECRETO NO COINCIDE`, mira **los dos** sitios.
+
+**b) Una máquina encendida siempre.** Un VPS de 5 €/mes sobra. **No un
+portátil**: está medido en el manual —312 reconexiones en un día y 1 h 46 min de
+caída en plena hora de venta, por una máquina que se suspendía.
+
+Los pasos están en `puente-whatsapp/LEEME.md`. Arranca en modo `escucha`, que es
+lo que viene puesto: anota las preguntas reales sin contestar ninguna. Déjalo
+unos días así, mira lo que ha escuchado en **El asistente → Lo que preguntan**,
+escribe las fichas de las cinco o seis que más se repitan, y entonces lo
+enciendes. Es la diferencia entre un asistente que ya sabe de qué le hablan y
+uno que se estrena delante de un cliente.
+
+> **Y una cosa que decides tú, no el código.** Por WhatsApp el asistente se
+> presenta como **Verónica** —un nombre de pila, en la agenda de la persona—, no
+> como Cemi. Quien le escriba va a creer razonablemente que hay alguien al otro
+> lado. Lo que sostiene eso es que en cuanto pidan hablar con una persona, o
+> duden, el asistente no lo discute: avisa al equipo de verdad. Si prefieres que
+> se llame de otro modo, se cambia en **Configuración**, clave
+> `asistente_nombre_whatsapp`, sin desplegar nada.
+
 ---
 
 ## 2 · Lo que falta en el producto
