@@ -319,18 +319,25 @@ async function conectar() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  /* Si se pidió el código de vinculación, se pide UNA vez y sólo cuando no
-     hay sesión: pedirlo con una sesión ya abierta la tira. */
-  if (NUMERO_A_VINCULAR && !state.creds.registered && !yaPedidoElCodigo) {
-    yaPedidoElCodigo = true;
-    // Un respiro antes de pedirlo: recién abierto el socket, WhatsApp todavía
-    // no está listo y devuelve un error que no dice eso.
-    setTimeout(async () => {
-      try {
-        const codigo = await sock.requestPairingCode(NUMERO_A_VINCULAR);
-        estado.codigo = codigo;
-        const bonito = String(codigo).replace(/(.{4})(.{4})/, '$1-$2');
-        console.log(`
+  /* ── Pedir el código de vinculación ────────────────────────────────────
+     CUÁNDO se pide es todo el asunto, y costó una vinculación fallida
+     descubrirlo. Aquí había una espera fija de cuatro segundos tras abrir el
+     socket. En una conexión lenta no basta: se midió un arranque donde
+     WhatsApp tardó DIECIOCHO segundos en decir «connected to WA», así que el
+     código se pedía a un socket que todavía no existía y volvía
+     «Connection Closed» — un error que no dice ni de lejos que el problema
+     sea el momento.
+
+     Una espera más larga sería el mismo error con otro número. Lo correcto es
+     no adivinar: WhatsApp avisa de que está listo para registrar un
+     dispositivo emitiendo el primer QR. Ese es el momento exacto, venga a los
+     dos segundos o a los treinta. */
+  async function pedirCodigo() {
+    try {
+      const codigo = await sock.requestPairingCode(NUMERO_A_VINCULAR);
+      estado.codigo = codigo;
+      const bonito = String(codigo).replace(/(.{4})(.{4})/, '$1-$2');
+      console.log(`
 ╔══════════════════════════════════════════════════════╗
 ║  CÓDIGO DE VINCULACIÓN:  ${bonito.padEnd(28)}║
 ╚══════════════════════════════════════════════════════╝
@@ -339,20 +346,25 @@ En el teléfono +${NUMERO_A_VINCULAR}:
   WhatsApp → Dispositivos vinculados → Vincular dispositivo
   → «Vincular con número de teléfono» → teclea el código.
 
-Dura unos minutos. Si caduca, se vuelve a arrancar y sale otro.
+Dura unos minutos. Si caduca, se corta con Ctrl+C y se vuelve a lanzar.
 `);
-      } catch (e) {
-        console.error('No se pudo pedir el código de vinculación:', String(e).slice(0, 200));
-        console.error('Comprueba que el número lleve código de país y sin signos.');
-      }
-    }, 4000);
+    } catch (e) {
+      console.error('\nNo se pudo pedir el código de vinculación:', String(e).slice(0, 200));
+      console.error('Comprueba que el número lleve código de país y vaya sin signos.\n');
+    }
   }
 
   sock.ev.on('connection.update', (u) => {
     const { connection, lastDisconnect, qr: codigo } = u;
 
-    /* Con código de vinculación no hay QR que enseñar, y pintarlo sólo
-       confunde a quien está esperando ocho caracteres. */
+    /* El primer QR es la señal de que el socket está listo y sin registrar.
+       Con --vincular-con no se pinta —quien espera ocho caracteres no quiere
+       un QR delante— pero se aprovecha el aviso. */
+    if (codigo && NUMERO_A_VINCULAR && !yaPedidoElCodigo) {
+      yaPedidoElCodigo = true;
+      pedirCodigo();
+    }
+
     if (codigo && !NUMERO_A_VINCULAR) {
       estado.qr = codigo;
       console.log('\nEscanea este QR desde el teléfono del negocio:');
@@ -380,9 +392,24 @@ Dura unos minutos. Si caduca, se vuelve a arrancar y sale otro.
       const cerroSesion = codigoSalida === DisconnectReason.loggedOut;
 
       if (cerroSesion) {
-        // Alguien desvinculó el dispositivo desde el teléfono. Reintentar es
-        // inútil: hay que volver a escanear, y decirlo claro ahorra media hora.
-        log('La sesión se cerró desde el teléfono. Borra la carpeta auth/ y vuelve a escanear.');
+        /* El mismo código de salida (401) significa dos cosas MUY distintas, y
+           confundirlas manda a arreglar lo que no está roto:
+
+           · Había sesión y alguien desvinculó el dispositivo desde el teléfono.
+           · No había ninguna: el intento de vincular no llegó a cuajar.
+
+           La primera vez que pasó lo segundo, el mensaje decía «la sesión se
+           cerró desde el teléfono, borra auth/ y vuelve a escanear» — sobre una
+           sesión que nunca existió. */
+        if (state.creds.registered) {
+          log('La sesión se cerró desde el teléfono. Borra la carpeta auth/ y vuelve a vincular.');
+        } else {
+          log('No se llegó a vincular. No hay sesión que borrar: vuelve a lanzarlo.');
+          if (NUMERO_A_VINCULAR) {
+            log(`  node index.mjs --vincular-con ${NUMERO_A_VINCULAR}`);
+            log('Comprueba que el número sea el del teléfono donde vas a teclear el código.');
+          }
+        }
         process.exit(1);
       }
 
