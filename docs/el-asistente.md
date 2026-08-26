@@ -434,3 +434,49 @@ previos— y en un reloj nadie mira el error.
 
 Está arreglado. La lección es la de siempre en este proyecto: **una avería
 latente deja de serlo cuando algo empieza a usar el camino que nadie usaba.**
+
+---
+
+## 11 · El botón que lleva a la pantalla, y por qué lo decide el servidor
+
+Cemi contestaba bien y aun así había que trabajar: «los certificados se emiten
+desde Certificados → Plantillas» deja a quien pregunta buscando esa pantalla en
+un menú de veintisiete entradas repartidas en siete grupos.
+
+Ahora la respuesta puede traer un botón. La lista de destinos está en
+`supabase/functions/_shared/pantallas.ts` y **la decisión se toma en el
+servidor**, no en el navegador. Dos razones, y la segunda es la importante:
+
+1. Aquí se sabe qué herramienta se usó de verdad. Si Cemi acaba de mirar la
+   cartera, el destino no hay que adivinarlo.
+2. Aquí el rol ya está comprobado contra la base. **Un botón que rebota al
+   panel es peor que ningún botón**, porque parece que la plataforma está rota,
+   y el navegador no es sitio para decidir a qué pantallas entra alguien.
+
+Por eso cada destino trae sus roles **copiados del `require:` de la propia
+pantalla**. Si un día cambia el `require:` de una pantalla y esta lista se
+queda vieja, empezarán a salir botones que rebotan.
+
+Y sale `null` a menudo, que está bien. La coincidencia por palabras exige una
+frase reconocible, no una palabra suelta: «pago» aparece en media plataforma.
+Once casos probados, incluidos los dos que importan — que un profesor no acabe
+en Formas de pago y que un estudiante no reciba nunca una pantalla de
+administración.
+
+## 12 · Por qué el hilo vive en `sessionStorage` y no en otro sitio
+
+Minimizar la ventana y seguir en la misma pantalla ya conservaba la
+conversación; cambiar de pantalla la borraba, porque el módulo se vuelve a
+cargar y con él las variables. Y eso es justo lo que pasa siempre: se le
+pregunta a Cemi dónde se hace algo, se va uno a hacerlo, y al volver el hilo no
+está.
+
+- **`sessionStorage` y no `localStorage`**: vive mientras dure la pestaña. Una
+  conversación de trabajo de hace tres días reaparecida al abrir el portal no es
+  memoria, es ruido.
+- **Se guarda el ámbito junto al hilo**: el de equipo no se le enseña a un
+  estudiante que entre después en la misma pestaña.
+- **El registro de verdad sigue en `cem_bot_mensajes`.** Esto es sólo para no
+  perder de vista lo que ya se leyó, y por eso «empezar de nuevo» no borra nada
+  de la base: suelta el hilo que se le manda al modelo, que es lo que se pide
+  cuando se pide empezar de nuevo.
