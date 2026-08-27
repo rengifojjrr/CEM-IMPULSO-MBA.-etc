@@ -326,6 +326,75 @@ function enGlobos(texto) {
   ];
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOS MECANISMOS INVISIBLES
+   ═══════════════════════════════════════════════════════════════════════════
+   Nada de esto se le dice al modelo. Es lo que hace que no se note que hay uno.
+   Sección 4 del manual del oficio, y las tres piezas vienen de fallos medidos.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · Esperar a que termine de escribir ────────────────────────────────
+   La gente manda «Hola» / «Soy de Caracas» / «El audio no me abrió» en tres
+   globos seguidos. Sin esperar, salen TRES respuestas, cada una con su saludo
+   completo, porque ninguna vio a las otras.
+
+   El manual lo midió: a 2,5 segundos se quedaba corto y seguían saliendo
+   tres. Seis segundos no se sienten lentos —nadie contesta en dos— y juntan
+   la ráfaga en un solo mensaje para el cerebro. */
+const ESPERA_RAFAGA = 6000;
+const rafagas = new Map();   // jid -> { textos: [], reloj }
+
+/* ── 2 · Un candado por conversación ──────────────────────────────────────
+   Impide dos generaciones a la vez para el mismo chat. El caso real: alguien
+   mandó tres mensajes y recibió tres saludos casi idénticos.
+
+   La razón de fondo es que el historial sólo se actualiza cuando la respuesta
+   ya salió: sin candado, las tres generaciones leen el mismo historial vacío,
+   y CUALQUIER regla de «no te repitas» es inaplicable, porque para cada una
+   es la primera vez. Si está ocupado, el texto nuevo espera; no se descarta. */
+const enCurso = new Set();
+
+/* ── 3 · Callarse cuando entra una persona ────────────────────────────────
+   Si alguien del equipo contesta desde el mismo teléfono, la asistente se
+   calla EN ESE CHAT. Sin esto entran las dos voces a la vez y el cliente ve
+   dos versiones de lo mismo.
+
+   Vence sola a las 24 h: en el negocio del manual, un «apagar» manual olvidado
+   dejaba chats mudos para siempre. Y cada mensaje del equipo refresca el
+   reloj, para que no vuelva a hablar a mitad de una conversación humana. */
+const SILENCIO_HUMANO = 24 * 60 * 60 * 1000;
+const silenciados = new Map();   // jid -> hasta cuándo
+
+/* Los identificadores de lo que mandamos NOSOTROS. Sin esto, la propia
+   respuesta de la asistente vuelve marcada como `fromMe` y se toma por un
+   humano interviniendo: se silenciaría sola en cuanto contestara una vez. */
+/* El socket VIVO. Los temporizadores de la ráfaga pueden dispararse después
+   de una reconexión, y `conectar()` crea un socket nuevo: si se quedaran con
+   el de su closure, intentarían mandar por uno ya muerto y el mensaje se
+   perdería en silencio justo después de una caída — cuando más gente escribe. */
+let sockActual = null;
+
+const mios = new Set();
+function anotarMio(id) {
+  if (!id) return;
+  mios.add(id);
+  if (mios.size > 500) mios.delete(mios.values().next().value);
+}
+
+function callarPorHumano(jid) {
+  const yaEstaba = (silenciados.get(jid) ?? 0) > Date.now();
+  silenciados.set(jid, Date.now() + SILENCIO_HUMANO);
+  if (!yaEstaba) log(`⏸  contestó una persona en +${jid.split('@')[0]}: me callo 24 h ahí.`);
+}
+
+function estaCallada(jid) {
+  const hasta = silenciados.get(jid);
+  if (!hasta) return false;
+  if (hasta > Date.now()) return true;
+  silenciados.delete(jid);
+  return false;
+}
+
 /* ── Que no se conteste dos veces lo mismo ────────────────────────────────── */
 /* Baileys reentrega mensajes al reconectar, y el manual documenta 312
    reconexiones en un día. Sin esto, cada caída significa contestarle otra vez
@@ -337,6 +406,81 @@ function yaVisto(id) {
   if (vistos.has(id)) return true;
   vistos.set(id, t);
   return false;
+}
+
+/* Atender una ráfaga ya juntada. Sale del temporizador, no del evento. */
+async function atenderRafaga(jid) {
+  const r = rafagas.get(jid);
+  if (!r) return;
+  rafagas.delete(jid);
+
+  /* Si hay otra generación viva para este chat, lo nuevo NO se descarta: se
+     vuelve a encolar y sale cuando la anterior termine. Descartarlo dejaría
+     a alguien sin respuesta por haber escrito rápido. */
+  if (enCurso.has(jid)) {
+    encolar(jid, r.textos.join('\n'));
+    return;
+  }
+  if (estaCallada(jid)) return;
+
+  const telefono = jid.split('@')[0];
+  const texto = r.textos.join('\n').slice(0, 1500);
+  enCurso.add(jid);
+  try {
+    estado.mensajes++;
+    estado.ultimo = ahora();
+    log(`← +${telefono}${r.textos.length > 1 ? ` [${r.textos.length} seguidos]` : ''}: `
+      + texto.replace(/\n/g, ' / ').slice(0, 80));
+
+    const res = await preguntarAlCerebro(telefono, texto);
+
+    /* Se vuelve a mirar DESPUÉS de pensar: el modelo tarda unos segundos, y
+       en ese rato puede haber entrado una persona del equipo. Contestar
+       encima de ella es justo lo que este mecanismo viene a evitar. */
+    if (estaCallada(jid)) {
+      log(`⏸  entró una persona mientras pensaba: no mando nada a +${telefono}.`);
+      return;
+    }
+
+    if (res?.respuesta) {
+      const globos = enGlobos(res.respuesta);
+      for (let i = 0; i < globos.length; i++) {
+        /* «Escribiendo…» antes de cada globo. Sin esto la respuesta aparece
+           de golpe medio segundo después y se nota que no hay nadie al otro
+           lado; y con varios globos sin pausa llegan los tres en el mismo
+           segundo, que queda peor que un mensaje único. */
+        await sockActual.sendPresenceUpdate('composing', jid);
+        const escribiendo = i === 0
+          ? Math.min(2500, 400 + texto.length * 25)
+          : Math.min(2200, 500 + globos[i].length * 30);
+        await new Promise((s) => setTimeout(s, escribiendo));
+        const enviado = await sockActual.sendMessage(jid, { text: globos[i] });
+        anotarMio(enviado?.key?.id);
+      }
+      await sockActual.sendPresenceUpdate('paused', jid);
+      estado.respondidos++;
+      log(`→ +${telefono}: ${res.respuesta.slice(0, 80)}`
+        + `${globos.length > 1 ? `  [${globos.length} globos]` : ''}`
+        + `${res.degradado ? '  [DEGRADADO]' : ''}`);
+    }
+  } catch (e) {
+    estado.fallos++;
+    // Se traga el fallo de UNA conversación: que una reviente no puede tumbar
+    // el puente y dejar a todas las demás sin atender.
+    log('!! no se pudo atender un mensaje:', String(e).slice(0, 200));
+  } finally {
+    enCurso.delete(jid);
+  }
+}
+
+function encolar(jid, texto) {
+  const r = rafagas.get(jid) ?? { textos: [], reloj: null };
+  r.textos.push(texto);
+  // Cada mensaje nuevo reinicia la espera: se contesta cuando de verdad paró
+  // de escribir, no seis segundos después del primero.
+  if (r.reloj) clearTimeout(r.reloj);
+  r.reloj = setTimeout(() => atenderRafaga(jid), ESPERA_RAFAGA);
+  rafagas.set(jid, r);
 }
 
 /* ── El enlace con WhatsApp ───────────────────────────────────────────────── */
@@ -490,11 +634,26 @@ lanzar el mismo comando: sale otro.
     }
   });
 
+  sockActual = sock;
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;   // 'append' es historial, no gente escribiendo ahora
 
     for (const m of messages) {
       try {
+        const jid = m.key?.remoteJid || '';
+
+        /* Lo que sale de ESTE teléfono. Puede ser de dos manos muy distintas:
+           la nuestra, o la de alguien del equipo escribiendo a mano. Sólo lo
+           segundo es motivo para callarse. */
+        if (m.key?.fromMe) {
+          if (!mios.has(m.key.id) && jid && !jid.endsWith('@g.us')
+              && jid !== 'status@broadcast' && textoDe(m)) {
+            callarPorHumano(jid);
+          }
+          continue;
+        }
+
         if (!seAtiende(m)) continue;
         const id = m.key?.id;
         if (id && yaVisto(id)) continue;
@@ -502,39 +661,13 @@ lanzar el mismo comando: sale otro.
         const texto = textoDe(m);
         if (!texto) continue;
 
-        const jid = m.key.remoteJid;
-        const telefono = jid.split('@')[0];
-        estado.mensajes++;
-        estado.ultimo = ahora();
-        log(`← +${telefono}: ${texto.slice(0, 80)}`);
+        // Si una persona tomó el chat, ni se encola: no hay nada que pensar.
+        if (estaCallada(jid)) continue;
 
-        const r = await preguntarAlCerebro(telefono, texto);
-
-        if (r?.respuesta) {
-          const globos = enGlobos(r.respuesta);
-          for (let i = 0; i < globos.length; i++) {
-            /* «Escribiendo…» antes de cada globo. Sin esto la respuesta aparece
-               de golpe medio segundo después y se nota que no hay nadie al otro
-               lado; y con varios globos sin pausa llegan los tres en el mismo
-               segundo, que queda peor que un mensaje único. */
-            await sock.sendPresenceUpdate('composing', jid);
-            const escribiendo = i === 0
-              ? Math.min(2500, 400 + texto.length * 25)
-              : Math.min(2200, 500 + globos[i].length * 30);
-            await new Promise((s) => setTimeout(s, escribiendo));
-            await sock.sendMessage(jid, { text: globos[i] });
-          }
-          await sock.sendPresenceUpdate('paused', jid);
-          estado.respondidos++;
-          log(`→ +${telefono}: ${r.respuesta.slice(0, 80)}`
-            + `${globos.length > 1 ? `  [${globos.length} globos]` : ''}`
-            + `${r.degradado ? '  [DEGRADADO]' : ''}`);
-        }
+        encolar(jid, texto);
       } catch (e) {
         estado.fallos++;
-        // Se traga el fallo de UN mensaje: que uno reviente no puede tumbar el
-        // puente y dejar a todos los demás sin atender.
-        log('!! no se pudo atender un mensaje:', String(e).slice(0, 200));
+        log('!! no se pudo encolar un mensaje:', String(e).slice(0, 200));
       }
     }
   });
@@ -613,7 +746,16 @@ createServer(async (req, res) => {
     return;
   }
   res.writeHead(estado.conectado ? 200 : 503, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ ...estado, modo: MODO, qr: estado.qr ? '(hay uno, mira /qr)' : null }, null, 1));
+  /* Los chats en pausa se cuentan al pedirlos, no se llevan en un contador:
+     vencen solos a las 24 h y un contador se quedaría contando pausas
+     caducadas. */
+  const enPausa = [...silenciados.values()].filter((h) => h > Date.now()).length;
+  res.end(JSON.stringify({
+    ...estado, modo: MODO,
+    qr: estado.qr ? '(hay uno, mira /qr)' : null,
+    chats_tomados_por_una_persona: enPausa,
+    rafagas_esperando: rafagas.size,
+  }, null, 1));
 }).listen(PUERTO, () => log(`Salud en http://127.0.0.1:${PUERTO}/  ·  QR en /qr`));
 
 /* ── Arrancar ─────────────────────────────────────────────────────────────── */
