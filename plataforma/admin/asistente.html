@@ -433,9 +433,12 @@ async function cargarPuente() {
   const p = data ?? { estado: 'sin montar' };
   const t = PUENTE[p.estado] ?? PUENTE['sin montar'];
 
-  const modo = p.modo === 'responde'
-    ? chip('Contesta', 'ok')
-    : chip('Sólo escucha', 'info');
+  /* El modo que se enseña es el de la PLATAFORMA, no el que crea la máquina
+     del puente: es el que de verdad decide si contesta. Enseñar el del puente
+     diría «Contesta» de una Verónica apagada desde aquí. */
+  const modo = p.modo_plataforma === 'responde' ? chip('Contesta', 'ok')
+             : p.modo_plataforma === 'escucha' ? chip('Sólo escucha', 'info')
+             : chip('Apagada', 'warn');
 
   $('#puente').innerHTML = `
     <div class="row" style="justify-content:space-between;align-items:center;gap:var(--e2)">
@@ -459,12 +462,73 @@ async function cargarPuente() {
               `${num(p.respondidos ?? 0)} contestadas`)}
       </div>` : ''}
     ${t.que ? `<p class="nota" style="margin-top:var(--e2)">${t.que}<br>${t.hacer}</p>` : ''}
+
+    ${/* Los mandos. Van aquí y no en la máquina donde corre el puente porque
+          el día que haya que callarla de urgencia, esa máquina puede estar en
+          casa de alguien y apagada. */''}
+    <h3 style="margin:var(--e3) 0 var(--e1);font-size:1rem">Qué hace con quien escribe</h3>
+    <div class="row" style="gap:var(--e1);flex-wrap:wrap" id="mandosPuente">
+      ${/* El que está puesto va SÓLIDO; los otros dos, en `outline`. En esta
+            casa `.btn` a secas ya es el botón fuerte —no existe `.btn.primary`—
+            así que marcar el activo con esa clase los dejaba los tres iguales y
+            no se distinguía cuál estaba puesto. Se vio dibujándolo. */''}
+      ${MANDOS.map((m) => {
+        const puesto = p.modo_plataforma === m.v;
+        return `<button class="btn${puesto ? '' : ' outline'}" data-modo="${m.v}"
+                ${puesto ? 'aria-current="true"' : ''}>
+          <span class="material-symbols-outlined">${m.icono}</span> ${esc(m.rotulo)}
+        </button>`;
+      }).join('')}
+    </div>
+    <p class="tiny muted" style="margin:var(--e1) 0 0">
+      ${MANDOS.find((m) => m.v === p.modo_plataforma)?.explica ?? ''}
+      ${p.lo_cambio ? `<br>Lo dejó así ${esc(p.lo_cambio)}, ${esc(fdatetime(p.cuando))}.` : ''}
+    </p>
+
     <p class="tiny muted" style="margin-bottom:0">
-      Esto corre fuera de la plataforma, en una máquina aparte. Si deja de dar
-      señales durante un cuarto de hora, se avisa al equipo solo — no hace falta
-      que nadie vigile esta pantalla.</p>`;
+      Esto manda sobre lo que diga la máquina del puente: aunque allí esté puesta
+      en «contesta», si aquí dice apagada, no contesta.
+      Y el puente corre fuera de la plataforma — si deja de dar señales durante un
+      cuarto de hora, se avisa al equipo solo, sin que nadie vigile esta pantalla.</p>`;
   montarAyudas($('#puente'));
 }
+
+/* Los tres estados. «Apagada» y «sólo escucha» hacen lo mismo de cara a quien
+   escribe —nadie recibe respuesta— pero no significan lo mismo para el equipo,
+   y por eso son dos botones y no uno: apagada es una decisión, escucha es una
+   etapa. Confundirlas haría que alguien encendiera «para probar» lo que estaba
+   apagado a propósito. */
+const MANDOS = [
+  { v: 'apagada', rotulo: 'Apagada', icono: 'do_not_disturb_on',
+    explica: 'No le contesta a nadie. Sigue anotando lo que preguntan.' },
+  { v: 'escucha', rotulo: 'Sólo escucha', icono: 'hearing',
+    explica: 'Anota lo que preguntan y no contesta. Es como conviene empezar: '
+           + 'aprende de las preguntas reales mientras el equipo contesta a mano.' },
+  { v: 'responde', rotulo: 'Contesta', icono: 'forum',
+    explica: 'Atiende de verdad a quien escriba al número del centro.' },
+];
+
+/* Encenderla es una decisión con consecuencias hacia fuera, así que se
+   confirma —y en la base queda quién fue, con riesgo alto en Auditoría. */
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('#mandosPuente button[data-modo]');
+  if (!b) return;
+  const quiere = b.dataset.modo;
+  const m = MANDOS.find((x) => x.v === quiere);
+  if (b.getAttribute('aria-current')) return;   // ya está en ese estado
+
+  if (quiere === 'responde' && !(await confirmDialog(
+    'A partir de ahora le contesta sola a quien escriba al WhatsApp del centro, '
+    + 'sin que nadie lo revise antes. Queda anotado en Auditoría quién la encendió.',
+    'Que empiece a contestar', { confirmar: 'Sí, que conteste' }))) return;
+
+  await ocupado(b, 'Cambiando…', async () => {
+    const { error } = await sb.rpc('cem_puente_modo_poner', { p_modo: quiere });
+    if (error) { fail(mensajeError(error)); return; }
+    ok(`Listo: ${m.rotulo.toLowerCase()}.`);
+    await cargarPuente();
+  });
+});
 
 /* ── El botón de ponerlo al día ──────────────────────────────────────────── */
 /* Esto contesta a «que el bot se actualice solo cuando subamos un diplomado».
