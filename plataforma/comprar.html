@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es" data-publico="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Inscribirme</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-26-11">
+<style>
+  .compra{max-width:520px;margin:0 auto;padding:var(--e4) var(--e3)}
+  .plan{display:flex;gap:var(--e1);flex-wrap:wrap;margin:var(--e1) 0 0}
+  .plan button{flex:1;min-width:120px}
+  .resumen{display:flex;justify-content:space-between;align-items:baseline;
+    padding:var(--e2) 0;border-top:1px solid var(--filete)}
+  .resumen .total{font-size:28px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="compra">
+  <a class="btn ghost sm" id="volver" href="#" style="margin-bottom:var(--e2)">
+    <span class="material-symbols-outlined">arrow_back</span> Volver</a>
+
+  <div class="card" id="caja"><span class="cargando"></span></div>
+
+  <p class="tiny muted" style="text-align:center;margin-top:var(--e2)">
+    El cobro lo procesa Stripe. El CEM no ve ni guarda los datos de tu tarjeta.</p>
+</div>
+
+<script type="module">
+/* Comprar sin tener cuenta.
+   ═══════════════════════════════════════════════════════════════════════════
+   Sólo dos datos: nombre y correo. Nada de contraseña, ni documento, ni
+   teléfono, ni país — todo eso se pide DESPUÉS, cuando ya es alumno y tiene
+   una razón para darlo. Aquí cada campo de más es gente que abandona.
+
+   La cuenta no se crea al pulsar. Se crea cuando el dinero entra, en el
+   webhook de Stripe. Si el pago no llega, aquí no queda más que una fila con
+   una intención de compra, que es lo que de verdad pasó. */
+import { sb, mount, $, esc, money, qs, fail, ocupado,
+         SUPABASE_URL, SUPABASE_KEY } from './assets/app.js?v=2026-08-26-11';
+
+const me = await mount({ pub:true });
+const cursoId = qs('curso');
+let curso = null, plan = 1;
+
+/* Quien ya entró no tiene por qué volver a escribir su nombre: se le manda al
+   camino de siempre, que además sabe de cohortes y de códigos de descuento. */
+if (me) location.replace(`estudiante/inscripcion.html?curso=${encodeURIComponent(cursoId ?? '')}`);
+else if (!cursoId) location.replace('catalogo.html');
+else cargar();
+
+$('#volver').onclick = (e) => {
+  e.preventDefault();
+  location.href = cursoId ? `curso.html?id=${encodeURIComponent(cursoId)}` : 'catalogo.html';
+};
+
+async function cargar() {
+  const { data: c } = await sb.from('cem_courses')
+    .select('id,nombre,precio,moneda,descripcion_corta,duracion_texto,horas,cuotas_habilitadas,estado')
+    .eq('id', cursoId).maybeSingle();
+
+  if (!c || c.estado !== 'publicado') {
+    $('#caja').innerHTML = `<h1 style="margin-top:0">Ese programa no está abierto</h1>
+      <p class="muted">Puede que se haya cerrado la inscripción o que el enlace esté viejo.</p>
+      <a class="btn" href="catalogo.html">Ver los programas</a>`;
+    return;
+  }
+  curso = c;
+  pintar();
+}
+
+/* El mismo recargo que aplica la base al inscribir. Se enseña aquí para que la
+   persona vea lo que va a pagar ANTES de pulsar, pero el importe que se cobra
+   lo calcula el servidor: esto es una etiqueta, no una fuente de verdad. */
+const FACTOR = { 1: 0.9, 3: 1, 6: 1.06 };
+const totalDe = (n) => Math.round((curso.precio ?? 0) * FACTOR[n] * 100) / 100;
+const primeraDe = (n) => Math.round((totalDe(n) / n) * 100) / 100;
+
+function pintar() {
+  const conCuotas = curso.cuotas_habilitadas;
+  $('#caja').innerHTML = `
+    <p class="tiny muted" style="margin:0">Te vas a inscribir en</p>
+    <h1 style="margin:2px 0 var(--e2);font-size:1.4rem">${esc(curso.nombre)}</h1>
+    ${curso.descripcion_corta ? `<p class="muted" style="margin-top:0">${esc(curso.descripcion_corta)}</p>` : ''}
+
+    <div class="field">
+      <label for="nombre">Tu nombre y apellido</label>
+      <input id="nombre" autocomplete="name" maxlength="80" placeholder="María Pérez">
+    </div>
+    <div class="field">
+      <label for="email">Tu correo</label>
+      <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="maria@correo.com">
+      <span class="tiny muted">Ahí te llega el acceso al aula. Revisa que esté bien escrito.</span>
+    </div>
+
+    ${conCuotas ? `
+      <p class="tiny muted" style="margin:var(--e2) 0 0">Cómo lo quieres pagar</p>
+      <div class="plan" id="plan">
+        ${[1, 3, 6].map((n) => `
+          <button class="btn${n === plan ? '' : ' outline'} sm" data-plan="${n}">
+            ${n === 1 ? 'De una vez' : `En ${n} cuotas`}
+          </button>`).join('')}
+      </div>
+      ${plan === 1 ? `<p class="tiny" style="color:var(--ok);margin:var(--e1) 0 0">
+        Pagando de una vez te ahorras el 10%.</p>` : ''}` : ''}
+
+    <div class="resumen" style="margin-top:var(--e3)">
+      <span>${plan > 1 ? `Ahora pagas la 1.ª de ${plan}` : 'Total'}</span>
+      <span class="total">${money(primeraDe(plan), curso.moneda)}</span>
+    </div>
+    ${plan > 1 ? `<p class="tiny muted" style="margin:0 0 var(--e2)">
+      Total del programa: ${money(totalDe(plan), curso.moneda)}.
+      Las demás cuotas te las cobramos mes a mes.</p>` : ''}
+
+    <button class="btn block" id="pagar" style="margin-top:var(--e2)">
+      <span class="material-symbols-outlined">credit_card</span>
+      Pagar ${money(primeraDe(plan), curso.moneda)}
+    </button>
+    <p class="tiny muted" style="margin:var(--e2) 0 0;text-align:center">
+      ¿Ya tienes cuenta? <a href="index.html?volver=${encodeURIComponent('curso.html?id=' + curso.id)}">Entra por aquí</a>.</p>`;
+
+  $('#plan')?.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-plan]');
+    if (!b) return;
+    plan = Number(b.dataset.plan);
+    pintar();
+  });
+  $('#pagar').onclick = (e) => ocupado(e.currentTarget, 'Abriendo el pago…', comprar);
+}
+
+async function comprar() {
+  const nombre = $('#nombre').value.trim();
+  const email = $('#email').value.trim();
+
+  /* Se comprueba aquí para no hacerle dar una vuelta al servidor por un campo
+     vacío, y OTRA VEZ en la base, que es la que decide de verdad. */
+  if (nombre.length < 2) { fail('Escribe tu nombre.'); $('#nombre').focus(); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) {
+    fail('Ese correo no parece un correo.'); $('#email').focus(); return;
+  }
+
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/cem-comprar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+    body: JSON.stringify({
+      curso_id: curso.id, nombre, email,
+      cuotas: curso.cuotas_habilitadas ? plan : 1,
+      volver_a: location.origin,
+    }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d?.url) { fail(d?.error || 'No se pudo abrir el pago. Inténtalo otra vez.'); return; }
+
+  location.href = d.url;
+}
+</script>
+</body>
+</html>

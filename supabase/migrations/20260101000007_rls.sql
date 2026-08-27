@@ -29,6 +29,7 @@ alter table public.cem_classes enable row level security;
 alter table public.cem_clave_pendiente enable row level security;
 alter table public.cem_cohorts enable row level security;
 alter table public.cem_comentarios_guardados enable row level security;
+alter table public.cem_compras_invitado enable row level security;
 alter table public.cem_content_reviews enable row level security;
 alter table public.cem_conversiones enable row level security;
 alter table public.cem_correo_cola enable row level security;

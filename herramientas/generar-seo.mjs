@@ -357,7 +357,13 @@ function paginaDelPrograma(c, modulos, lecciones, cohortes) {
 
     <div class="row sep" style="gap:12px;align-items:center;flex-wrap:wrap">
       <span class="cuota-monto">${esc(dinero(c.precio, c.moneda))}</span>
-      <a class="btn gold" href="${SITIO}/plataforma/estudiante/inscripcion.html?curso=${esc(c.id)}">
+      ${/* A `comprar.html`, no a la inscripción de siempre. Estas páginas son
+            justo las que encuentra alguien que llega de Google y no nos
+            conoce: mandarlo a una pantalla que exige sesión es pedirle que se
+            registre antes de dejarle comprar. `comprar.html` pide nombre y
+            correo y va a la pasarela; si resulta que ya tenía sesión abierta,
+            ella misma lo devuelve al camino de siempre. */''}
+      <a class="btn gold" href="${SITIO}/plataforma/comprar.html?curso=${esc(c.id)}">
         Inscribirme <span class="material-symbols-outlined">arrow_forward</span></a>
       <a class="btn outline" href="${SITIO}/plataforma/curso.html?id=${esc(c.id)}">Ver la ficha completa</a>
     </div>
@@ -397,7 +403,7 @@ function paginaDelPrograma(c, modulos, lecciones, cohortes) {
       <p>Puedes pagar de una vez con un 10 % de descuento, o repartirlo en 3 o 6 cuotas.
         Al terminar recibes tu ${esc(plano(c.certificado_nombre || 'certificado'))}, con un
         código que cualquiera puede comprobar en nuestra web.</p>
-      <a class="btn gold" href="${SITIO}/plataforma/estudiante/inscripcion.html?curso=${esc(c.id)}">
+      <a class="btn gold" href="${SITIO}/plataforma/comprar.html?curso=${esc(c.id)}">
         Inscribirme en ${esc(plano(c.nombre))}</a>
     </section>
   </article>

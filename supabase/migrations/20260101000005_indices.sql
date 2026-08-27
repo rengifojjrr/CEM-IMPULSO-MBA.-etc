@@ -41,6 +41,7 @@ create index if not exists cem_classes_fecha_idx ON public.cem_classes USING btr
 create index if not exists cem_classes_teacher_idx ON public.cem_classes USING btree (teacher_id);
 create index if not exists cem_cohorts_course_idx ON public.cem_cohorts USING btree (course_id);
 create index if not exists cem_comentarios_guardados_idx ON public.cem_comentarios_guardados USING btree (profile_id, usos DESC);
+create index if not exists cem_compras_invitado_email_idx ON public.cem_compras_invitado USING btree (lower(email), creada_en DESC);
 create index if not exists cem_content_reviews_autor_idx ON public.cem_content_reviews USING btree (autor_id);
 create index if not exists cem_content_reviews_course_idx ON public.cem_content_reviews USING btree (course_id);
 create index if not exists cem_content_reviews_lesson_idx ON public.cem_content_reviews USING btree (lesson_id);

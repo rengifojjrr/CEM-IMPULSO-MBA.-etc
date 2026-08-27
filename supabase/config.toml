@@ -28,3 +28,27 @@ verify_jwt = true
 # `hub.verify_token` que Meta y nosotros compartimos, y que quien escribe es
 # un número — y a partir de ahí manda la base de datos, no esta casilla.
 verify_jwt = false
+
+[functions.cem-comprar]
+# Comprar sin tener cuenta. Va abierta A PROPÓSITO: quien la llama es alguien
+# que acaba de ver un programa en la web y todavía no es nadie en la
+# plataforma. Exigirle sesión aquí sería volver a poner justo la puerta que
+# esta función existe para quitar.
+#
+# Lo que la protege no es una casilla, es lo que NO hace: no crea cuentas, no
+# inscribe a nadie y no se cree el precio que le manden. Sólo guarda una
+# intención de compra y abre el cobro con el importe que calcula la base. Todo
+# lo demás pasa después, en el webhook, y sólo si el dinero entró.
+verify_jwt = false
+
+[functions.cem-stripe-webhook]
+# Quien llama es Stripe, que no tiene sesión de Supabase. Su seguridad es la
+# firma que trae cada aviso, comprobada dentro de la función contra el secreto
+# del webhook. Poner esto en `true` haría que Stripe recibiera un 401 y los
+# pagos dejaran de abrir cursos, en silencio.
+verify_jwt = false
+
+[functions.cem-stripe-checkout]
+# El cobro de una cuota de alguien que YA es alumno. Esta sí trae sesión: se
+# llama desde el aula, con la persona dentro.
+verify_jwt = true

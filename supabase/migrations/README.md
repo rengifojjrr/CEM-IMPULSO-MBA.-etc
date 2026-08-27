@@ -11,15 +11,19 @@ reconstruirlo. Esto cierra ese hueco.
 |---|---|
 | `…_extensiones.sql` | Las extensiones de Postgres |
 | `…_tipos.sql` | 22 tipos propios (los enums) |
-| `…_tablas.sql` | 104 tablas con sus columnas y valores por omisión |
-| `…_funciones.sql` | 383 funciones — aquí vive el trabajo de verdad |
-| `…_restricciones.sql` | 359 claves, unicidades, comprobaciones y relaciones |
-| `…_indices.sql` | 261 índices |
+| `…_tablas.sql` | 106 tablas con sus columnas y valores por omisión |
+| `…_funciones.sql` | 391 funciones — aquí vive el trabajo de verdad |
+| `…_restricciones.sql` | 369 claves, unicidades, comprobaciones y relaciones |
+| `…_indices.sql` | 265 índices |
 | `…_disparadores.sql` | 18 disparadores |
-| `…_rls.sql` | 243 políticas: quién puede ver cada fila |
+| `…_rls.sql` | 244 políticas: quién puede ver cada fila |
 | `…_permisos.sql` | Permisos de tabla, **de columna** y de función |
 | `…_almacen.sql` | 6 depósitos de archivos y sus 18 reglas |
-| `…_tareas.sql` | Las 9 cosas que se ejecutan solas |
+| `…_tareas.sql` | Las 10 cosas que se ejecutan solas |
+
+Las cifras se comprueban solas: `herramientas/probar-migraciones.sh` las cuenta
+al terminar de reconstruir. Si no coinciden con las de aquí, o falta algo en el
+volcado o esta tabla se quedó vieja.
 
 **No se editan a mano.** Se generan leyendo la base; un cambio escrito aquí se
 perdería en la siguiente regeneración. Los cambios se hacen en la base y luego

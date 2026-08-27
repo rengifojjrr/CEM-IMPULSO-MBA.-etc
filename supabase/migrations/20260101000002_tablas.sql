@@ -341,6 +341,26 @@ create table if not exists public.cem_comentarios_guardados (
   created_at timestamp with time zone not null default now()
 );
 
+create table if not exists public.cem_compras_invitado (
+  id uuid not null default gen_random_uuid(),
+  course_id uuid not null,
+  cohort_id uuid,
+  nombre text not null,
+  email text not null,
+  cuotas integer not null default 1,
+  monto numeric not null,
+  moneda text not null default 'USD'::text,
+  session_id text,
+  estado text not null default 'abierta'::text,
+  profile_id uuid,
+  enrollment_id uuid,
+  cuenta_nueva boolean,
+  ip text,
+  creada_en timestamp with time zone not null default now(),
+  pagada_en timestamp with time zone
+);
+comment on table public.cem_compras_invitado is 'Compras empezadas por gente sin cuenta. La cuenta y la inscripción se crean sólo cuando el pago entra.';
+
 create table if not exists public.cem_content_reviews (
   id uuid not null default gen_random_uuid(),
   lesson_id uuid,

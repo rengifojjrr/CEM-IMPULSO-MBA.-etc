@@ -3785,6 +3785,129 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_compra_invitado_abrir(p_course_id uuid, p_nombre text, p_email text, p_cuotas integer DEFAULT 1, p_cohort_id uuid DEFAULT NULL::uuid, p_ip text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_c public.cem_courses; v_id uuid;
+  v_email text := lower(trim(coalesce(p_email,'')));
+  v_nombre text := trim(coalesce(p_nombre,''));
+  v_factor numeric; v_total numeric; v_primera numeric; v_recientes int;
+begin
+  if v_nombre = '' or length(v_nombre) < 2 then
+    raise exception 'Hace falta tu nombre.';
+  end if;
+  -- Comprobación deliberadamente simple: aquí no se valida si el correo
+  -- existe, sólo que tenga forma de correo. Lo demás lo dice el pago.
+  if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]{2,}$' then
+    raise exception 'Ese correo no parece un correo.';
+  end if;
+  if p_cuotas not in (1,3,6) then
+    raise exception 'El plan de pago debe ser de 1, 3 o 6 cuotas.';
+  end if;
+
+  /* Un tope por correo. Sin esto, esta puerta —que es pública y sin sesión—
+     deja abrir cobros en bucle: ruido en Stripe y una tabla que crece sola. */
+  select count(*) into v_recientes from public.cem_compras_invitado
+   where lower(email) = v_email and creada_en > now() - interval '1 hour';
+  if v_recientes >= 6 then
+    raise exception 'Demasiados intentos con ese correo. Prueba en un rato o escríbenos.';
+  end if;
+
+  select * into v_c from public.cem_courses where id = p_course_id;
+  if v_c.id is null then raise exception 'Ese programa no existe.'; end if;
+  if v_c.estado is distinct from 'publicado' then
+    raise exception 'Ese programa no está abierto a inscripción ahora mismo.';
+  end if;
+  if coalesce(v_c.precio, 0) <= 0 then
+    raise exception 'Ese programa no tiene precio puesto. Escríbenos y lo resolvemos.';
+  end if;
+
+  -- El MISMO factor que cem_inscribir_a. Si esto y aquello dijeran cosas
+  -- distintas, se cobraría un importe y se crearía la cuota por otro.
+  v_factor := case p_cuotas when 1 then 0.9 when 3 then 1 when 6 then 1.06 end;
+  v_total := round(coalesce(v_c.precio,0) * v_factor, 2);
+  v_primera := round(v_total / p_cuotas, 2);
+
+  insert into public.cem_compras_invitado
+    (course_id, cohort_id, nombre, email, cuotas, monto, moneda, ip)
+  values (p_course_id, p_cohort_id, v_nombre, v_email, p_cuotas,
+          v_primera, coalesce(v_c.moneda,'USD'), p_ip)
+  returning id into v_id;
+
+  return jsonb_build_object(
+    'compra_id', v_id, 'nombre', v_nombre, 'email', v_email,
+    'curso', v_c.nombre, 'stripe_product_id', v_c.stripe_product_id,
+    'cuotas', p_cuotas, 'total', v_total,
+    'a_cobrar_ahora', v_primera, 'moneda', coalesce(v_c.moneda,'USD'));
+end $function$
+;
+CREATE OR REPLACE FUNCTION public.cem_compra_invitado_cerrar(p_compra_id uuid, p_profile_id uuid, p_cuenta_nueva boolean DEFAULT NULL::boolean)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_c record; v_ins public.cem_enrollments; v_cuota uuid;
+begin
+  select * into v_c from public.cem_compras_invitado where id = p_compra_id for update;
+  if v_c.id is null then raise exception 'Esa compra no existe.'; end if;
+
+  if v_c.estado = 'pagada' and v_c.enrollment_id is not null then
+    select id into v_cuota from public.cem_installments
+     where enrollment_id = v_c.enrollment_id order by numero limit 1;
+    return jsonb_build_object('repetido', true, 'enrollment_id', v_c.enrollment_id,
+                              'installment_id', v_cuota, 'profile_id', v_c.profile_id);
+  end if;
+
+  /* Si ya tenía una inscripción activa en ese programa —compró dos veces, o
+     ya estaba inscrito con otra forma de pago— NO se crea otra: se usa la que
+     hay y el pago entra ahí. Crear una segunda dejaría dos carteras para la
+     misma persona y el mismo curso. */
+  select * into v_ins from public.cem_enrollments
+   where profile_id = p_profile_id and course_id = v_c.course_id
+     and estado not in ('cancelada','finalizada') limit 1;
+
+  if v_ins.id is null then
+    v_ins := public.cem_inscribir_a(p_profile_id, v_c.course_id, v_c.cohort_id, v_c.cuotas, null);
+  end if;
+
+  select id into v_cuota from public.cem_installments
+   where enrollment_id = v_ins.id and estado <> 'pagada' order by numero limit 1;
+
+  update public.cem_compras_invitado
+     set estado = 'pagada', pagada_en = now(), profile_id = p_profile_id,
+         enrollment_id = v_ins.id, cuenta_nueva = coalesce(p_cuenta_nueva, cuenta_nueva)
+   where id = p_compra_id;
+
+  return jsonb_build_object('enrollment_id', v_ins.id, 'installment_id', v_cuota,
+                            'profile_id', p_profile_id);
+end $function$
+;
+CREATE OR REPLACE FUNCTION public.cem_compra_invitado_estado(p_compra_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(
+    (select jsonb_build_object(
+       'hay', true,
+       'estado', c.estado,
+       'nombre', c.nombre,
+       'email', c.email,
+       'curso', k.nombre,
+       'cuenta_nueva', coalesce(c.cuenta_nueva, false))
+     from cem_compras_invitado c
+     join cem_courses k on k.id = c.course_id
+     where c.id = p_compra_id),
+    jsonb_build_object('hay', false));
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_conciliar(p_notificacion_id uuid, p_payment_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -6084,6 +6207,72 @@ begin
   values (p_assessment_id, v_enroll, v_previos + 1, 'en_progreso', now())
   returning * into v_sub;
   return v_sub;
+end; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_inscribir_a(p_profile_id uuid, p_course_id uuid, p_cohort_id uuid DEFAULT NULL::uuid, p_cuotas integer DEFAULT 1, p_codigo_descuento text DEFAULT NULL::text)
+ RETURNS cem_enrollments
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_course public.cem_courses;
+  v_row public.cem_enrollments;
+  v_factor numeric; v_precio_plan numeric; v_descuento_codigo numeric := 0;
+  v_final numeric; v_base numeric; v_ultima numeric; v_monto_i numeric;
+  i int;
+begin
+  if p_profile_id is null then raise exception 'Falta decir de quién es la inscripción.'; end if;
+
+  -- Sólo se aceptan los planes que la institución realmente ofrece. Antes
+  -- llegaba cualquier número: con 12 se creaban 12 cuotas y además se
+  -- esquivaba el recargo, porque el factor sólo contemplaba 1, 3 y 6.
+  if p_cuotas is null or p_cuotas not in (1, 3, 6) then
+    raise exception 'El plan de pago debe ser de 1, 3 o 6 cuotas.';
+  end if;
+
+  select * into v_course from public.cem_courses where id = p_course_id;
+  if v_course.id is null then raise exception 'Curso no encontrado.'; end if;
+  if exists(select 1 from public.cem_enrollments where profile_id = p_profile_id
+            and course_id = p_course_id and estado not in ('cancelada','finalizada')) then
+    raise exception 'Ya tienes una inscripcion activa en este programa.';
+  end if;
+
+  v_factor := case p_cuotas when 1 then 0.9 when 3 then 1 when 6 then 1.06 end;
+  v_precio_plan := round(coalesce(v_course.precio,0) * v_factor, 2);
+
+  if p_codigo_descuento is not null and length(trim(p_codigo_descuento)) > 0
+     and v_course.codigo_descuento is not null
+     and lower(trim(p_codigo_descuento)) = lower(trim(v_course.codigo_descuento)) then
+    v_descuento_codigo := round(coalesce(v_course.precio,0) * coalesce(v_course.descuento_pct,0) / 100.0, 2);
+  end if;
+
+  v_final := greatest(v_precio_plan - v_descuento_codigo, 0);
+
+  insert into public.cem_enrollments(profile_id, course_id, cohort_id, precio_lista, descuento, precio_final, moneda, estado)
+  values (p_profile_id, p_course_id, p_cohort_id, coalesce(v_course.precio,0),
+          greatest(coalesce(v_course.precio,0) - v_final, 0),
+          v_final, coalesce(v_course.moneda,'USD'), 'pendiente')
+  returning * into v_row;
+
+  -- Reparto exacto: 100 en 3 cuotas da 33,33 + 33,33 + 33,34 = 100,00.
+  -- Antes daba 33,33 tres veces y se perdía un céntimo por inscripción.
+  v_base := round(v_final / p_cuotas, 2);
+  v_ultima := round(v_final - (v_base * (p_cuotas - 1)), 2);
+
+  for i in 1..p_cuotas loop
+    v_monto_i := case when i = p_cuotas then v_ultima else v_base end;
+    insert into public.cem_installments(enrollment_id, numero, monto, moneda, fecha_vencimiento, estado, saldo)
+    values (v_row.id, i, v_monto_i, v_row.moneda,
+            (current_date + ((i-1) * interval '1 month'))::date, 'pendiente', v_monto_i);
+  end loop;
+
+  insert into public.cem_audit_events(actor_id, accion, entidad, entidad_id, riesgo, detalle)
+  values (p_profile_id, 'inscripcion_creada', 'cem_enrollments', v_row.id, 'medio',
+          jsonb_build_object('curso', v_course.nombre, 'cuotas', p_cuotas,
+                             'codigo_aplicado', v_descuento_codigo > 0, 'total', v_final));
+  return v_row;
 end; $function$
 ;
 
@@ -8524,6 +8713,43 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_puente_modo_poner(p_modo text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_antes text; v_rol text; v_yo uuid := auth.uid();
+begin
+  if p_modo not in ('apagada','escucha','responde') then
+    raise exception 'El modo tiene que ser apagada, escucha o responde. Llegó: %', p_modo;
+  end if;
+
+  select rol::text into v_rol from cem_profiles where id = v_yo and activo;
+  if v_rol is null or v_rol not in ('coordinador','admin','superadmin') then
+    raise exception 'Sólo coordinación o dirección pueden encender o apagar el WhatsApp.';
+  end if;
+  if cem_es_auditor() then
+    raise exception 'Una cuenta de auditoría es de sólo lectura.';
+  end if;
+
+  select valor #>> '{}' into v_antes from cem_settings where clave = 'asistente_whatsapp_modo';
+
+  insert into cem_settings (clave, valor, descripcion)
+  values ('asistente_whatsapp_modo', to_jsonb(p_modo),
+          'Manda sobre el modo del puente: apagada / escucha / responde.')
+  on conflict (clave) do update set valor = excluded.valor;
+
+  insert into cem_audit_events (actor_id, actor_email, accion, entidad, riesgo, detalle)
+  values (v_yo,
+          (select email from cem_profiles where id = v_yo),
+          'asistente.whatsapp_modo', 'cem_settings', 'alto',
+          jsonb_build_object('antes', v_antes, 'ahora', p_modo));
+
+  return jsonb_build_object('modo', p_modo, 'antes', v_antes);
+end $function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_puente_ver()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -10482,68 +10708,9 @@ CREATE OR REPLACE FUNCTION public.cem_self_enroll(p_course_id uuid, p_cohort_id 
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-declare
-  v_course public.cem_courses;
-  v_row public.cem_enrollments;
-  v_factor numeric;
-  v_precio_plan numeric;
-  v_descuento_codigo numeric := 0;
-  v_final numeric;
-  v_base numeric;      -- cuota "pareja", redondeada a 2 decimales
-  v_ultima numeric;    -- la última absorbe el sobrante del redondeo
-  v_monto_i numeric;
-  i int;
 begin
   if auth.uid() is null then raise exception 'Debes iniciar sesion.'; end if;
-
-  -- Sólo se aceptan los planes que la institución realmente ofrece. Antes
-  -- llegaba cualquier número: con 12 se creaban 12 cuotas y además se
-  -- esquivaba el recargo, porque el factor sólo contemplaba 1, 3 y 6.
-  if p_cuotas is null or p_cuotas not in (1, 3, 6) then
-    raise exception 'El plan de pago debe ser de 1, 3 o 6 cuotas.';
-  end if;
-
-  select * into v_course from public.cem_courses where id = p_course_id;
-  if v_course.id is null then raise exception 'Curso no encontrado.'; end if;
-  if exists(select 1 from public.cem_enrollments where profile_id = auth.uid() and course_id = p_course_id
-            and estado not in ('cancelada','finalizada')) then
-    raise exception 'Ya tienes una inscripcion activa en este programa.';
-  end if;
-
-  v_factor := case p_cuotas when 1 then 0.9 when 3 then 1 when 6 then 1.06 end;
-  v_precio_plan := round(coalesce(v_course.precio,0) * v_factor, 2);
-
-  if p_codigo_descuento is not null and length(trim(p_codigo_descuento)) > 0
-     and v_course.codigo_descuento is not null
-     and lower(trim(p_codigo_descuento)) = lower(trim(v_course.codigo_descuento)) then
-    v_descuento_codigo := round(coalesce(v_course.precio,0) * coalesce(v_course.descuento_pct,0) / 100.0, 2);
-  end if;
-
-  v_final := greatest(v_precio_plan - v_descuento_codigo, 0);
-
-  insert into public.cem_enrollments(profile_id, course_id, cohort_id, precio_lista, descuento, precio_final, moneda, estado)
-  values (auth.uid(), p_course_id, p_cohort_id, coalesce(v_course.precio,0),
-          greatest(coalesce(v_course.precio,0) - v_final, 0),
-          v_final, coalesce(v_course.moneda,'USD'), 'pendiente')
-  returning * into v_row;
-
-  -- Reparto exacto: 100 en 3 cuotas da 33,33 + 33,33 + 33,34 = 100,00.
-  -- Antes daba 33,33 tres veces y se perdía un céntimo por inscripción.
-  v_base := round(v_final / p_cuotas, 2);
-  v_ultima := round(v_final - (v_base * (p_cuotas - 1)), 2);
-
-  for i in 1..p_cuotas loop
-    v_monto_i := case when i = p_cuotas then v_ultima else v_base end;
-    insert into public.cem_installments(enrollment_id, numero, monto, moneda, fecha_vencimiento, estado, saldo)
-    values (v_row.id, i, v_monto_i, v_row.moneda,
-            (current_date + ((i-1) * interval '1 month'))::date, 'pendiente', v_monto_i);
-  end loop;
-
-  insert into public.cem_audit_events(actor_id, accion, entidad, entidad_id, riesgo, detalle)
-  values (auth.uid(), 'inscripcion_creada', 'cem_enrollments', v_row.id, 'medio',
-          jsonb_build_object('curso', v_course.nombre, 'cuotas', p_cuotas,
-                             'codigo_aplicado', v_descuento_codigo > 0, 'total', v_final));
-  return v_row;
+  return public.cem_inscribir_a(auth.uid(), p_course_id, p_cohort_id, p_cuotas, p_codigo_descuento);
 end; $function$
 ;
 

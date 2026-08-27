@@ -152,9 +152,21 @@ function render(){
     </div>
     <div style="flex:1;min-width:220px;text-align:right">
       <div class="precio" style="font-size:34px;font-weight:700">${money(curso.precio, curso.moneda)}</div>
+      ${/* A dónde lleva el botón según quién mira.
+            ─────────────────────────────────────────────────────────────────
+            Antes llevaba SIEMPRE a estudiante/inscripcion.html, que exige
+            sesión. Para quien ya entró está bien; para un visitante era un
+            rebote al login: tenía que registrarse, confirmar el correo y
+            volver a buscar el programa antes de poder pagar. Cuatro paradas
+            entre decidir comprar y comprar, y cada parada es gente que se cae.
+
+            Ahora quien no ha entrado va a comprar.html: nombre, correo y a la
+            pasarela. La cuenta se crea cuando el pago entra. */''}
       ${miInscripcion
         ? `<a class="btn gold" href="estudiante/panel.html" style="margin-top:10px">Ya estás inscrito · Ir a mi panel</a>`
-        : `<a class="btn gold" href="estudiante/inscripcion.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined">arrow_forward</span></a>`}
+        : me
+          ? `<a class="btn gold" href="estudiante/inscripcion.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined">arrow_forward</span></a>`
+          : `<a class="btn gold" href="comprar.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined">arrow_forward</span></a>`}
     </div></div>`;
 
   /* Se monta con el reproductor de la casa, igual que el aula: aquí todavía

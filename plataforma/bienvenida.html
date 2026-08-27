@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es" data-publico="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Ya estás dentro</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-26-11">
+<style>
+  .llegada{max-width:520px;margin:0 auto;padding:var(--e4) var(--e3);text-align:center}
+  .tic{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:0 auto var(--e2);
+    background:var(--ok-suave);color:var(--ok)}
+  .tic .material-symbols-outlined{font-size:36px}
+</style>
+</head>
+<body>
+<div class="llegada">
+  <div class="card" id="caja"><span class="cargando"></span></div>
+</div>
+
+<script type="module">
+/* Después de pagar.
+   ═══════════════════════════════════════════════════════════════════════════
+   Aquí NO se da nada por hecho. Que Stripe devuelva a esta página significa
+   que la persona terminó el formulario de pago, no que el dinero entró: lo que
+   lo confirma es el webhook, que llega por otro lado y puede tardar unos
+   segundos.
+
+   Así que se pregunta a la base por el estado real y se espera un poco. Decir
+   «ya estás inscrito» antes de que la inscripción exista es la clase de
+   mentira que se descubre al minuto siguiente, cuando la persona entra y no
+   encuentra su curso. */
+import { sb, mount, $, esc, qs } from './assets/app.js?v=2026-08-26-11';
+
+/* Pública a propósito: quien llega aquí acaba de pagar y todavía no tiene con
+   qué entrar —la cuenta se está creando en este mismo momento, del otro lado.
+   Pedirle sesión sería cerrarle la puerta justo después de cobrarle. */
+await mount({ pub: true });
+
+const compraId = qs('compra');
+if (!compraId) location.replace('catalogo.html');
+
+let intentos = 0;
+mirar();
+
+async function mirar() {
+  const { data, error } = await sb.rpc('cem_compra_invitado_estado', { p_compra_id: compraId });
+
+  if (error || !data?.hay) {
+    pintarProblema('No encontramos esa compra. Si te cobraron, escríbenos y lo resolvemos enseguida.');
+    return;
+  }
+
+  if (data.estado === 'pagada') { pintarBien(data); return; }
+
+  /* Todavía no ha llegado el aviso de Stripe. Se reintenta con paciencia —diez
+     veces, unos veinte segundos— antes de decir nada. */
+  if (++intentos < 10) { setTimeout(mirar, 2000); pintarEsperando(); return; }
+
+  pintarProblema('El pago está tardando en confirmarse. No hace falta que pagues otra vez: '
+    + 'en cuanto entre, te llega el acceso por correo.');
+}
+
+function pintarEsperando() {
+  $('#caja').innerHTML = `<span class="cargando"></span>
+    <h1 style="margin:var(--e2) 0 0;font-size:1.3rem">Confirmando tu pago…</h1>
+    <p class="muted">Un momento. No cierres esta pantalla.</p>`;
+}
+
+function pintarBien(d) {
+  $('#caja').innerHTML = `
+    <div class="tic"><span class="material-symbols-outlined">check</span></div>
+    <h1 style="margin:0;font-size:1.4rem">Listo, ${esc(String(d.nombre || '').split(' ')[0])}</h1>
+    <p class="muted">Ya estás inscrito en <b>${esc(d.curso)}</b>.</p>
+
+    ${d.cuenta_nueva ? `
+      <p class="nota" style="text-align:left">
+        Te acabamos de crear la cuenta con <b>${esc(d.email)}</b>.
+        Para entrar al aula sólo falta que le pongas una contraseña.</p>
+      <a class="btn block" href="cambiar-clave.html?email=${encodeURIComponent(d.email)}">
+        Poner mi contraseña</a>
+      <p class="tiny muted" style="margin-top:var(--e2)">
+        También te lo mandamos por correo, por si prefieres hacerlo luego.</p>`
+    : `
+      <p class="nota" style="text-align:left">
+        Ya tenías cuenta con <b>${esc(d.email)}</b>, así que el programa te aparece
+        al entrar con tu contraseña de siempre.</p>
+      <a class="btn block" href="index.html">Entrar al aula</a>`}`;
+}
+
+function pintarProblema(texto) {
+  $('#caja').innerHTML = `
+    <h1 style="margin-top:0;font-size:1.3rem">Algo no cuadró</h1>
+    <p class="muted">${esc(texto)}</p>
+    <a class="btn outline" href="catalogo.html">Volver a los programas</a>`;
+}
+</script>
+</body>
+</html>

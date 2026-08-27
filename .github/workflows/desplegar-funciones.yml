@@ -9,7 +9,7 @@
 # desmarca una casilla— y el fallo aparece días después sin relación aparente
 # con nada.
 #
-# Ahora: se empuja el cambio y las funciones se suben solas. Y sólo cuando de
+# Ahora: se empuja el cambio y las funciones se suben solas. Y sólo las que de
 # verdad han cambiado, mirando los archivos tocados.
 #
 # Lo que hace falta una vez, y ya nunca más
@@ -24,36 +24,50 @@
 #
 # Lo que NO hace, a propósito
 # ─────────────────────────────────────────────────────────────────────────────
-# No toca las otras once funciones. Sólo sube las dos del asistente, nombradas
-# una por una. Un despliegue que sube «todo» acaba pisando algún día una
-# función que alguien había ajustado a mano en el panel, y averiguar por qué
-# dejó de funcionar el cobro con tarjeta cuesta una tarde entera.
+# No toca las funciones que no están en la lista de abajo. Un despliegue que
+# sube «todo» acaba pisando algún día una función que alguien había ajustado a
+# mano en el panel, y averiguar por qué dejó de funcionar cuesta una tarde.
+#
+# Por qué se mira qué cambió
+# ─────────────────────────────────────────────────────────────────────────────
+# Porque la lista ya no son dos funciones, son cinco, y subirlas todas cada vez
+# que se toca una coma del asistente es volver a pisar a ciegas — sólo que
+# automáticamente, que es peor. Así que se comparan los archivos del empujón y
+# se sube lo que cambió y nada más.
+#
+# Lección aprendida a la mala: `cem-stripe-checkout` pasó nueve días con una
+# versión vieja en producción porque nadie la había puesto en esta lista. El
+# arreglo estaba escrito y probado en el repositorio, y el cobro con tarjeta
+# seguía fallando en la calle. Una función que vive aquí y no está en esta
+# lista es una función que algún día estará desfasada sin que nadie lo note.
 
-name: Desplegar funciones del asistente
+name: Desplegar funciones del servidor
 
 on:
   push:
     branches: ['**']
     paths:
-      - 'supabase/functions/cem-asistente/**'
-      - 'supabase/functions/cem-whatsapp/**'
-      # El cerebro y las herramientas viven aquí y los usan las dos. Sin esta
-      # línea, cambiar una herramienta no desplegaría nada y el asistente
-      # seguiría con la versión vieja sin que ningún error lo dijera.
-      - 'supabase/functions/_shared/**'
+      - 'supabase/functions/**'
       - 'supabase/config.toml'
       - '.github/workflows/desplegar-funciones.yml'
   workflow_dispatch:
+
+env:
+  PROYECTO: vajbsfgojtunamhrzrpf
 
 jobs:
   desplegar:
     name: Subir a Supabase
     runs-on: ubuntu-latest
-    # Sin el token no se puede, y se dice claramente en vez de fallar con un
-    # error de autenticación que no explica nada.
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Hacen falta los dos extremos del empujón para poder compararlos.
+          # Con la copia superficial de siempre, `git diff` no tiene con qué.
+          fetch-depth: 0
 
+      # Sin el token no se puede, y se dice claramente en vez de fallar con un
+      # error de autenticación que no explica nada.
       - name: Comprobar que hay token
         run: |
           if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
@@ -63,26 +77,72 @@ jobs:
             exit 1
           fi
 
+      - name: Ver qué cambió
+        id: cambios
+        run: |
+          # Las funciones que este repositorio manda. Lo que no esté aquí, no se
+          # toca: se administra desde el panel de Supabase.
+          NUESTRAS="cem-asistente cem-whatsapp cem-comprar cem-stripe-checkout cem-stripe-webhook"
+
+          ANTES="${{ github.event.before }}"
+          # A mano, o rama nueva, o el primer empujón: no hay con qué comparar,
+          # así que se suben todas. Subir de más es recuperable; dejar una vieja
+          # en producción, no se nota hasta que alguien no puede pagar.
+          if [ "${{ github.event_name }}" != "push" ] \
+             || [ -z "$ANTES" ] || [ "$ANTES" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$ANTES^{commit}" 2>/dev/null; then
+            echo "No hay punto de comparación: se suben todas."
+            echo "lista=$NUESTRAS" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TOCADOS="$(git diff --name-only "$ANTES" "${{ github.sha }}")"
+          echo "Archivos del empujón:"; echo "$TOCADOS" | sed 's/^/  /'
+
+          # El cerebro y las herramientas son de todas: si cambian, cambian
+          # todas. Sin esto, tocar una herramienta no desplegaría nada y el
+          # asistente seguiría con la versión vieja sin que ningún error lo
+          # dijera.
+          if echo "$TOCADOS" | grep -qE '^supabase/(functions/_shared/|config\.toml$)' \
+             || echo "$TOCADOS" | grep -q '^\.github/workflows/desplegar-funciones\.yml$'; then
+            echo "Cambió algo compartido: se suben todas."
+            echo "lista=$NUESTRAS" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          LISTA=""
+          for f in $NUESTRAS; do
+            if echo "$TOCADOS" | grep -q "^supabase/functions/$f/"; then LISTA="$LISTA $f"; fi
+          done
+          echo "lista=$(echo $LISTA)" >> "$GITHUB_OUTPUT"
+
       - uses: supabase/setup-cli@v1
+        if: steps.cambios.outputs.lista != ''
         with:
           version: latest
 
-      # El orden importa poco, pero se suben las dos siempre: comparten el
-      # guion y el filtro de salida, y dejarlas con versiones distintas es
-      # tener dos asistentes que contestan distinto por dos canales.
-      - name: cem-asistente
+      - name: Subirlas
+        if: steps.cambios.outputs.lista != ''
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy cem-asistente --project-ref vajbsfgojtunamhrzrpf
+        run: |
+          for f in ${{ steps.cambios.outputs.lista }}; do
+            echo "::group::$f"
+            # `verify_jwt` no se pasa por la línea de órdenes: sale de
+            # supabase/config.toml, que es donde está escrito y explicado por
+            # qué. Ponerlo en dos sitios es como acaban discrepando.
+            supabase functions deploy "$f" --project-ref "$PROYECTO"
+            echo "::endgroup::"
+          done
 
-      - name: cem-whatsapp
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy cem-whatsapp --project-ref vajbsfgojtunamhrzrpf
+      - name: No cambió ninguna
+        if: steps.cambios.outputs.lista == ''
+        run: echo "Ninguna función de las nuestras cambió en este empujón."
 
       - name: Recordar lo que el despliegue NO trae
         run: |
-          echo "Subidas cem-asistente y cem-whatsapp."
-          echo "Los secretos (GROQ_API_KEY, CEM_ASISTENTE_MODELOS, los de WhatsApp)"
-          echo "viven en Supabase y NO se tocan desde aquí: cambiarlos ahí surte"
-          echo "efecto al momento, sin volver a desplegar."
+          echo "Subidas: ${{ steps.cambios.outputs.lista }}"
+          echo "Los secretos (GROQ_API_KEY, CEM_ASISTENTE_MODELOS, los de WhatsApp,"
+          echo "CEM_PUENTE_SECRETO) viven en Supabase y NO se tocan desde aquí:"
+          echo "cambiarlos ahí surte efecto al momento, sin volver a desplegar."
+          echo "Las claves de Stripe viven en la tabla cem_integraciones, tampoco aquí."

@@ -29,6 +29,7 @@ alter table public.cem_classes add constraint cem_classes_pkey PRIMARY KEY (id);
 alter table public.cem_clave_pendiente add constraint cem_clave_pendiente_pkey PRIMARY KEY (profile_id);
 alter table public.cem_cohorts add constraint cem_cohorts_pkey PRIMARY KEY (id);
 alter table public.cem_comentarios_guardados add constraint cem_comentarios_guardados_pkey PRIMARY KEY (id);
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_pkey PRIMARY KEY (id);
 alter table public.cem_content_reviews add constraint cem_content_reviews_pkey PRIMARY KEY (id);
 alter table public.cem_conversiones add constraint cem_conversiones_pkey PRIMARY KEY (id);
 alter table public.cem_correo_cola add constraint cem_correo_cola_pkey PRIMARY KEY (id);
@@ -115,6 +116,7 @@ alter table public.cem_badge_awards add constraint cem_badge_awards_badge_id_pro
 alter table public.cem_bot_conocimiento add constraint cem_bot_conocimiento_clave_key UNIQUE (clave);
 alter table public.cem_categorias add constraint cem_categorias_nombre_key UNIQUE (nombre);
 alter table public.cem_certificates add constraint cem_certificates_codigo_key UNIQUE (codigo);
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_session_id_key UNIQUE (session_id);
 alter table public.cem_course_shorts add constraint cem_course_shorts_course_id_video_id_key UNIQUE (course_id, video_id);
 alter table public.cem_courses add constraint cem_courses_codigo_key UNIQUE (codigo);
 alter table public.cem_invitaciones_equipo add constraint cem_invitaciones_equipo_token_key UNIQUE (token);
@@ -148,6 +150,8 @@ alter table public.cem_bot_mensajes add constraint cem_bot_mensajes_quien_check 
 alter table public.cem_bot_numeros add constraint cem_bot_numeros_ambito_check CHECK ((ambito = ANY (ARRAY['estudiante'::text, 'equipo'::text])));
 alter table public.cem_bot_recordatorios add constraint cem_bot_recordatorios_dias_antes_check CHECK (((dias_antes >= 1) AND (dias_antes <= 30)));
 alter table public.cem_carteras add constraint cem_cartera_moneda_valida CHECK ((moneda = ANY (ARRAY['EUR'::text, 'USD'::text, 'VES'::text])));
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_cuotas_check CHECK ((cuotas = ANY (ARRAY[1, 3, 6])));
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_estado_check CHECK ((estado = ANY (ARRAY['abierta'::text, 'pagada'::text, 'cancelada'::text, 'fallida'::text])));
 alter table public.cem_conversiones add constraint cem_conversion_estado_valido CHECK ((estado = ANY (ARRAY['completada'::text, 'pendiente'::text])));
 alter table public.cem_conversiones add constraint cem_conversion_tiene_patas CHECK ((((cartera_origen IS NOT NULL) AND (cartera_destino IS NOT NULL) AND (monto_origen > (0)::numeric) AND (monto_destino > (0)::numeric)) OR ((cartera_origen IS NULL) AND (cartera_destino IS NOT NULL) AND (monto_destino <> (0)::numeric))));
 alter table public.cem_correo_cola add constraint cem_correo_cola_estado_check CHECK ((estado = ANY (ARRAY['pendiente'::text, 'enviando'::text, 'enviado'::text, 'fallido'::text, 'descartado'::text])));
@@ -245,6 +249,10 @@ alter table public.cem_classes add constraint cem_classes_teacher_id_fkey FOREIG
 alter table public.cem_clave_pendiente add constraint cem_clave_pendiente_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES cem_profiles(id) ON DELETE CASCADE;
 alter table public.cem_cohorts add constraint cem_cohorts_course_id_fkey FOREIGN KEY (course_id) REFERENCES cem_courses(id) ON DELETE CASCADE;
 alter table public.cem_comentarios_guardados add constraint cem_comentarios_guardados_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES cem_profiles(id) ON DELETE CASCADE;
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_cohort_id_fkey FOREIGN KEY (cohort_id) REFERENCES cem_cohorts(id);
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_course_id_fkey FOREIGN KEY (course_id) REFERENCES cem_courses(id);
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_enrollment_id_fkey FOREIGN KEY (enrollment_id) REFERENCES cem_enrollments(id);
+alter table public.cem_compras_invitado add constraint cem_compras_invitado_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES cem_profiles(id);
 alter table public.cem_content_reviews add constraint cem_content_reviews_autor_id_fkey FOREIGN KEY (autor_id) REFERENCES cem_profiles(id);
 alter table public.cem_content_reviews add constraint cem_content_reviews_course_id_fkey FOREIGN KEY (course_id) REFERENCES cem_courses(id) ON DELETE CASCADE;
 alter table public.cem_content_reviews add constraint cem_content_reviews_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES cem_lessons(id) ON DELETE CASCADE;
