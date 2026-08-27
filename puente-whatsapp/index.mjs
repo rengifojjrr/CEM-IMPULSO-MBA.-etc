@@ -421,6 +421,25 @@ lanzar el mismo comando: sale otro.
         process.exit(1);
       }
 
+      /* ── 515: acaba de vincularse, hay que reconectar YA ───────────────
+         Esto NO es una caída, es el último paso de la vinculación. WhatsApp
+         lo dice con todas las letras justo antes: «pairing configured
+         successfully, expect to restart the connection».
+
+         Aquí caía en la espera creciente de abajo y se quedaba sesenta
+         segundos sin volver. Y el teléfono, que espera ver reaparecer el
+         dispositivo en unos segundos, daba el enlace por fallido: se vinculó
+         de verdad y la persona vio «no funcionó». Costó tres intentos y una
+         cuenta de WhatsApp descubrirlo.
+
+         Se reconecta al momento y sin contar el intento: no hay nada
+         estropeado que espaciar. */
+      if (codigoSalida === DisconnectReason.restartRequired) {
+        log('Vinculado. Reconectando para terminar…');
+        setTimeout(conectar, 500);
+        return;
+      }
+
       /* Espera creciente. El manual mide 312 reconexiones en un día: reintentar
          cada segundo contra un WhatsApp que no está sólo hace que te bloqueen
          antes. Se sube hasta un minuto y ahí se queda. */
