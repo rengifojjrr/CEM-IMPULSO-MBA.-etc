@@ -334,19 +334,27 @@ async function conectar() {
      dos segundos o a los treinta. */
   async function pedirCodigo() {
     try {
-      const codigo = await sock.requestPairingCode(NUMERO_A_VINCULAR);
+      const codigo = String(await sock.requestPairingCode(NUMERO_A_VINCULAR));
       estado.codigo = codigo;
-      const bonito = String(codigo).replace(/(.{4})(.{4})/, '$1-$2');
+      /* El código va TAL CUAL, sin guión en medio.
+         Aquí se pintaba como P9CM-HTWQ, «para que se lea mejor». La primera
+         persona que lo usó tecleó el guión y WhatsApp lo rechazó: son ocho
+         caracteres, y el adorno se leía como parte del código. Un formato
+         bonito que hace fallar la única cosa que había que hacer con él no es
+         bonito. */
       console.log(`
 ╔══════════════════════════════════════════════════════╗
-║  CÓDIGO DE VINCULACIÓN:  ${bonito.padEnd(28)}║
+║  CÓDIGO DE VINCULACIÓN:  ${codigo.padEnd(28)}║
 ╚══════════════════════════════════════════════════════╝
+
+Son esos ${codigo.length} caracteres SEGUIDOS, sin guiones ni espacios.
 
 En el teléfono +${NUMERO_A_VINCULAR}:
   WhatsApp → Dispositivos vinculados → Vincular dispositivo
   → «Vincular con número de teléfono» → teclea el código.
 
-Dura unos minutos. Si caduca, se corta con Ctrl+C y se vuelve a lanzar.
+Caduca en un par de minutos. Si no llegas, se corta con Ctrl+C y se vuelve a
+lanzar el mismo comando: sale otro.
 `);
     } catch (e) {
       console.error('\nNo se pudo pedir el código de vinculación:', String(e).slice(0, 200));
@@ -508,7 +516,8 @@ createServer(async (req, res) => {
     if (estado.codigo) {
       res.end(pagina(`<h1>Código de vinculación</h1>
         <p style="font:700 40px/1.2 ui-monospace,monospace;letter-spacing:4px;margin:16px 0">
-          ${esc(String(estado.codigo).replace(/(.{4})(.{4})/, '$1-$2'))}</p>
+          ${esc(estado.codigo)}</p>
+        <p>Esos caracteres <b>seguidos</b>, sin guiones ni espacios.</p>
         <p>En el teléfono del negocio:<br><b>WhatsApp → Dispositivos vinculados →
         Vincular dispositivo → Vincular con número de teléfono</b></p>`, true));
       return;
