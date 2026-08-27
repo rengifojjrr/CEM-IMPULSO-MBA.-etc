@@ -286,6 +286,46 @@ function textoDe(m) {
   ).trim();
 }
 
+/* ── Dos ideas, dos globos ────────────────────────────────────────────────
+   Un solo mensaje largo y perfecto es la señal más obvia de que hay un bot.
+   El guion le pide al modelo que separe ideas distintas con ||| y aquí se
+   corta por ahí.
+
+   Pero NO sólo por ahí, y esa es la parte que se aprende a base de verlo: por
+   más que el guion insista en el separador exacto, el modelo sigue separando
+   ideas con salto de línea doble, o inventándose variantes (&&&, //, ||). Si
+   sólo se cortara por |||, esas variantes llegarían EN CRUDO a la pantalla de
+   un cliente. Así que se corta por todas y se limpia lo que quede.
+
+   Tope de tres. El manual dice dos o tres globos; más no es conversación, es
+   ráfaga — y en WhatsApp una ráfaga de seis mensajes seguidos se parece mucho
+   a un número que conviene bloquear. */
+const TOPE_GLOBOS = 3;
+
+function enGlobos(texto) {
+  /* Las barras y los ampersands piden ESPACIO A LOS DOS LADOS; el ||| no.
+     Sin eso, `https://escuelacem.com/programas` se parte en «Te paso el
+     catalogo: https:» y «escuelacem.com/programas», y al cliente le llega un
+     enlace roto en dos globos. Probado: pasaba.
+
+     El ||| se deja pegado-permisivo porque es el separador que pedimos
+     nosotros y no aparece dentro de una URL. */
+  const trozos = String(texto)
+    .split(/\s*\|{2,}\s*|\s+&{2,}\s+|\s+\/{2,}\s+|\n{2,}/)
+    .map((t) => t.replace(/^[\s|]+|[\s|]+$/g, '').trim())
+    .filter(Boolean);
+
+  if (!trozos.length) return [String(texto).trim()].filter(Boolean);
+  if (trozos.length <= TOPE_GLOBOS) return trozos;
+
+  /* Si salieron más de tres, el resto se pega al último en vez de tirarse:
+     perder media respuesta es peor que mandar un globo largo. */
+  return [
+    ...trozos.slice(0, TOPE_GLOBOS - 1),
+    trozos.slice(TOPE_GLOBOS - 1).join(' '),
+  ];
+}
+
 /* ── Que no se conteste dos veces lo mismo ────────────────────────────────── */
 /* Baileys reentrega mensajes al reconectar, y el manual documenta 312
    reconexiones en un día. Sin esto, cada caída significa contestarle otra vez
@@ -471,14 +511,24 @@ lanzar el mismo comando: sale otro.
         const r = await preguntarAlCerebro(telefono, texto);
 
         if (r?.respuesta) {
-          // «Escribiendo…» antes de contestar. Sin esto la respuesta aparece de
-          // golpe medio segundo después y se nota que no hay nadie al otro lado.
-          await sock.sendPresenceUpdate('composing', jid);
-          await new Promise((s) => setTimeout(s, Math.min(2500, 400 + texto.length * 25)));
-          await sock.sendMessage(jid, { text: r.respuesta });
+          const globos = enGlobos(r.respuesta);
+          for (let i = 0; i < globos.length; i++) {
+            /* «Escribiendo…» antes de cada globo. Sin esto la respuesta aparece
+               de golpe medio segundo después y se nota que no hay nadie al otro
+               lado; y con varios globos sin pausa llegan los tres en el mismo
+               segundo, que queda peor que un mensaje único. */
+            await sock.sendPresenceUpdate('composing', jid);
+            const escribiendo = i === 0
+              ? Math.min(2500, 400 + texto.length * 25)
+              : Math.min(2200, 500 + globos[i].length * 30);
+            await new Promise((s) => setTimeout(s, escribiendo));
+            await sock.sendMessage(jid, { text: globos[i] });
+          }
           await sock.sendPresenceUpdate('paused', jid);
           estado.respondidos++;
-          log(`→ +${telefono}: ${r.respuesta.slice(0, 80)}${r.degradado ? '  [DEGRADADO]' : ''}`);
+          log(`→ +${telefono}: ${r.respuesta.slice(0, 80)}`
+            + `${globos.length > 1 ? `  [${globos.length} globos]` : ''}`
+            + `${r.degradado ? '  [DEGRADADO]' : ''}`);
         }
       } catch (e) {
         estado.fallos++;
