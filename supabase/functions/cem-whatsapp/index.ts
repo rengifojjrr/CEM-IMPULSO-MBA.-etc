@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { conversar, limpiar } from "../_shared/cerebro.ts";
+import { conversar, limpiar, pareceTexto } from "../_shared/cerebro.ts";
 import { HERRAMIENTAS } from "../_shared/herramientas.ts";
 
 // El asistente por WhatsApp.
@@ -296,7 +296,38 @@ async function atender(
     console.error("[whatsapp] no se pudo anotar la pregunta:", e);
   }
 
-  if (modo === "escucha") return { respuesta: null, degradado: false, modelo: null };
+  /* ── Quién manda sobre el modo ─────────────────────────────────────────
+     La plataforma, no el .env de la máquina donde corra el puente.
+
+     Encender el WhatsApp del centro es una decisión del negocio: quién puede
+     tomarla no debería depender de quién tenga acceso a un portátil. Y para
+     apagarla no hay que entrar en esa máquina — que el día que haga falta
+     apagarla de urgencia, puede estar en casa de alguien.
+
+     Se lee en CADA mensaje a propósito. Cachearlo ahorraría una consulta y
+     costaría que «apagar» tardara en surtir efecto, que es justo lo que no se
+     puede permitir un interruptor de emergencia.
+
+     El puente sigue mandando su modo, pero sólo puede ser MÁS prudente: si
+     está en escucha, no contesta aunque aquí diga responde. */
+  let modoReal = modo;
+  try {
+    const { data } = await sb.from("cem_settings").select("valor")
+      .eq("clave", "asistente_whatsapp_modo").maybeSingle();
+    const dice = String(data?.valor ?? "").trim();
+    if (dice === "apagada") modoReal = "apagada";
+    else if (dice === "escucha") modoReal = "escucha";
+    // "responde" no fuerza nada: el puente puede seguir en escucha si quiere.
+  } catch (e) {
+    // Si no se puede leer, se queda con lo que dijo el puente. Un fallo de
+    // lectura no debe encender lo que estaba apagado, pero tampoco apagar el
+    // canal entero por una consulta que falló.
+    console.error("[whatsapp] no se pudo leer el modo de la plataforma:", e);
+  }
+
+  if (modoReal !== "responde") {
+    return { respuesta: null, degradado: false, modelo: null };
+  }
 
   const { data: ctx } = await sb.rpc("cem_bot_contexto_whatsapp", { p_telefono: telefono });
   const { data: conv } = await sb.rpc("cem_bot_abrir_whatsapp", { p_telefono: telefono });
@@ -329,8 +360,17 @@ async function atender(
     modelo = r.modelo; uso = r.uso; usadas = r.usadas;
     // Si el filtro se lo come todo, gana el original: borrar una respuesta
     // buena y decir que estamos caidos es peor que dejar pasar una frase torpe.
-    respuesta = limpiar(r.texto, true) || r.texto.trim();
-    if (!respuesta) throw new Error("el modelo devolvio texto vacio");
+    /* Si el filtro se lo come todo, gana el original: borrar una respuesta
+       buena y decir que estamos caidos es peor que dejar pasar una frase
+       torpe. Pero si lo que queda NO PARECE TEXTO, no se manda ninguno de los
+       dos: un cliente recibio «Ya estoy ...… ...… ...……» y eso es peor que
+       decirle que ahora no podemos. */
+    const filtrada = limpiar(r.texto, true);
+    respuesta = pareceTexto(filtrada) ? filtrada : r.texto.trim();
+    if (!pareceTexto(respuesta)) {
+      throw new Error("el modelo devolvio algo que no parece texto: "
+        + JSON.stringify(r.texto.slice(0, 120)));
+    }
   } catch (e) {
     fallo = String(e).slice(0, 500);
     respuesta = "Ahorita no te puedo responder bien. Ya aviso al equipo para que te escriban.";

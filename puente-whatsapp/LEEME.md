@@ -52,6 +52,45 @@ bot sería entregarle a un alumno lo que otro contó en privado.
 
 ---
 
+## Los comandos, de un vistazo
+
+**Encender y apagar a Verónica se hace en la plataforma, no aquí.** En
+**El asistente → Cómo va** hay tres estados, y mandan sobre lo que diga esta
+máquina:
+
+| Estado | Qué hace |
+|---|---|
+| **Apagada** | No contesta a nadie. Sigue anotando lo que preguntan |
+| **Sólo escucha** | Igual, pero es el estado de «todavía aprendiendo» |
+| **Contesta** | Atiende de verdad |
+
+Eso es a propósito: el día que haya que callarla de urgencia, la máquina donde
+corre el puente puede estar en casa de alguien. La decisión es del negocio, no
+de quien tenga acceso a un portátil.
+
+**Lo de abajo es sólo el cable** — el proceso que sostiene la conexión con
+WhatsApp. Se maneja en la máquina donde corre:
+
+| Para… | Comando |
+|---|---|
+| Arrancarlo | `npx pm2 start index.mjs --name cem-puente` |
+| Pararlo | `npx pm2 stop cem-puente` |
+| Reiniciarlo | `npx pm2 restart cem-puente` |
+| Ver si está vivo | `npx pm2 list` |
+| Ver qué está haciendo | `npx pm2 logs cem-puente` |
+| Que arranque al encender | `npx pm2 save` y `npx pm2 startup` |
+| Volver a vincular el número | `node index.mjs --reiniciar-sesion --vincular-con 58…` |
+| Ver el estado en crudo | `curl -s http://127.0.0.1:3000/` |
+
+Para salir de `pm2 logs`: **Ctrl + C**. Eso cierra la vista, no para el puente.
+
+**Parar el puente y apagar a Verónica no son lo mismo.** Parar el puente
+desconecta el número: quien escriba no recibe nada y **su pregunta se pierde**.
+Apagarla desde la plataforma la deja conectada y callada, anotando. Para dejar
+de contestar, lo segundo; lo primero es para mantenimiento.
+
+---
+
 ## Dónde ponerlo, si no se quiere pagar todavía
 
 Esto tiene que correr en una máquina **encendida y despierta**. Un VPS de 5 €/mes

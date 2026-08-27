@@ -288,21 +288,62 @@ export function limpiar(t: string, paraWhatsapp = false): string {
          .replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|[.,;:!?)]|$)/g, "$1$2");
   }
 
-  return x
+  x = x
     .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^¿/gm, "").replace(/^¡/gm, "")
     .replace(/\s¿/g, " ").replace(/\s¡/g, " ")
-    /* Las frases que delatan al modelo. La lista es CORTA a propósito.
-       ─────────────────────────────────────────────────────────────────
-       Antes incluía «no tengo acceso a», y eso borró de verdad una respuesta
-       buena: a «ya pagué, me confirmas?» el asistente contestó «No tengo
-       acceso a esa confirmación.», el filtro se la comió entera y la pantalla
-       enseñó una avería que no existía. Decir que no se tiene acceso a algo es
-       honesto y es justo lo que queremos que diga; lo que no queremos es que
-       se presente como una IA. */
-    .replace(/\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA)\b[^.]*\.?/gi, "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  /* Las frases que delatan al modelo se quitan ENTERAS, no a medias.
+     ─────────────────────────────────────────────────────────────────
+     Aquí había un `.replace(/…|soy una IA\b[^.]*\.?/)`: borraba desde la
+     coincidencia hasta el siguiente punto. Cuando la frase no tenía punto
+     donde el filtro suponía, se comía el centro y dejaba los restos pegados.
+     A un «¿tú eres un bot?» un cliente recibió esto, literal:
+
+         Ya estoy ...… ...… ...…… ... … … ... … … ... ...
+         Ya avisé al equipo.
+
+     Cortar por el siguiente punto es adivinar dónde acaba una frase. Se
+     parte por frases de verdad y se tira la que sobra; lo que queda son
+     frases completas o no queda nada — y «nada» ya lo sabe manejar quien
+     llama, que se queda con el original.
+
+     La lista es CORTA a propósito. Antes incluía «no tengo acceso a», y eso
+     borró una respuesta buena: a «ya pagué, me confirmas?» contestó «No tengo
+     acceso a esa confirmación», el filtro se la comió y la pantalla enseñó una
+     avería que no existía. Decir que no se tiene acceso a algo es honesto y es
+     justo lo que queremos; lo que no queremos es que se presente como una IA. */
+  const DELATA = /\b(como (una? )?(IA|inteligencia artificial|modelo de lenguaje)|soy una IA|soy un (bot|programa|asistente virtual))\b/i;
+  if (DELATA.test(x)) {
+    x = x
+      .split(/(?<=[.!?…])\s+|\n+/)
+      .filter((frase) => frase.trim() && !DELATA.test(frase))
+      .join(" ")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+
+  return x;
+}
+
+/* ── ¿Esto que quedó parece algo que escribiría una persona? ──────────────
+   El filtro de arriba ya no rompe frases, pero un modelo puede devolver
+   basura por su cuenta —los gpt-oss lo hacen cuando se les aprieta mucho el
+   guion— y nada lo comprobaba antes de mandárselo a un cliente.
+
+   No juzga si la respuesta es BUENA: eso no se puede desde aquí. Sólo si es
+   texto. Tres señales, todas vistas en el caso real:
+     · casi no hay letras (era casi todo puntos suspensivos)
+     · demasiado corta para decir nada
+     · una ristra de puntos o de puntos suspensivos seguidos */
+export function pareceTexto(t: string): boolean {
+  const s = (t ?? "").trim();
+  if (s.length < 8) return false;
+  if (/[.…]{4,}/.test(s)) return false;
+  const letras = (s.match(/\p{L}/gu) ?? []).length;
+  return letras >= 8 && letras / s.length >= 0.5;
 }
