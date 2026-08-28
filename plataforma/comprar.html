@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-08-26-11">
+<link rel="stylesheet" href="assets/styles.css?v=2026-08-28">
 <style>
   .compra{max-width:520px;margin:0 auto;padding:var(--e4) var(--e3)}
   .plan{display:flex;gap:var(--e1);flex-wrap:wrap;margin:var(--e1) 0 0}
@@ -45,7 +45,7 @@
    webhook de Stripe. Si el pago no llega, aquí no queda más que una fila con
    una intención de compra, que es lo que de verdad pasó. */
 import { sb, mount, $, esc, money, qs, fail, ocupado,
-         SUPABASE_URL, SUPABASE_KEY } from './assets/app.js?v=2026-08-26-11';
+         SUPABASE_URL, SUPABASE_KEY } from './assets/app.js?v=2026-08-28';
 
 const me = await mount({ pub:true });
 const cursoId = qs('curso');

@@ -242,10 +242,17 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
      Se mira para comprobar que cada módulo lleva su diseño y su fecha ANTES de
      ponerse a dibujar doscientos PDF, que son varios minutos. */
   td.previa-lote{background:var(--hundido);padding:12px;}
+  /* minmax(240px,…) reserva 240px por columna aunque la pantalla no los
+     tenga: en un móvil la rejilla salía 130px más ancha que el panel y
+     arrastraba la página entera hacia la derecha. Con min(240px,100%) es la
+     misma rejilla cuando hay sitio, y una sola columna cuando no. */
   .previa-rejilla{display:grid;gap:14px;
-    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
-  .previa-uno{margin:0;background:var(--card);border:1px solid var(--border);border-radius:8px;
+    grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));}
+  .previa-uno{margin:0;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:8px;
     padding:8px;display:flex;flex-direction:column;gap:6px;}
+  /* Los nombres de plantilla son una sola palabra larguísima
+     («4_MKT_INSTAGRAM…»). Sin esto empujan su columna y desbordan la tarjeta. */
+  .previa-uno figcaption b{overflow-wrap:anywhere;}
   .previa-uno img{width:100%;height:auto;display:block;border-radius:4px;
     border:1px solid var(--border);}
   .previa-uno figcaption{font-size:12px;line-height:1.35;}
@@ -516,7 +523,11 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
         <p class="hint">Cada promoción, con su nombre. Descargar un grupo lo vuelve a
           dibujar entero con la fecha que tenía cuando se emitió, aunque la plantilla
           haya cambiado desde entonces.</p>
-        <div id="listaLotesWrap">Cargando…</div>
+        ${/* La fila de un grupo lleva cuatro botones largos («⬇ Un solo PDF ·
+              81 págs.») que en una pantalla estrecha no caben: la tabla se
+              salía del recuadro y empujaba la página. Que ruede ella sola
+              dentro de su caja, y no la página entera. */''}
+        <div id="listaLotesWrap" style="overflow-x:auto;">Cargando…</div>
       </div>
     </div>
 
@@ -4133,17 +4144,54 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     }
     if(!certs.length){ celda.innerHTML = '<p class="hint">Ese grupo no tiene certificados.</p>'; return; }
 
-    const personas = [...new Set(certs.map(c => (c.datos || {}).Nombre).filter(Boolean))].sort();
-    const elegida = celda.dataset.persona && personas.includes(celda.dataset.persona)
-      ? celda.dataset.persona : personas[0];
+    /* Una entrada por CÉDULA, no por nombre. Agrupando por nombre, alguien con
+       el apellido escrito de dos formas —siete certificados corregidos y uno
+       que se quedó atrás— salía como dos graduados distintos, y el grupo decía
+       tener una persona de más. La cédula es lo único que no cambia al
+       corregir; el nombre que se enseña es el del certificado más reciente,
+       que es el que alguien ya se molestó en arreglar. */
+    const porCedula = new Map();
+    for(const c of certs){
+      if(c.estado === 'reemplazado') continue;
+      const ced = cedulaPlana((c.datos || {})['Cédula'] || (c.datos || {}).cedula);
+      const nom = (c.datos || {}).Nombre;
+      if(!ced || !nom) continue;
+      const antes = porCedula.get(ced);
+      if(!antes || new Date(c.created_at) > new Date(antes.cuando)) {
+        porCedula.set(ced, { ced, nombre: nom, cuando: c.created_at });
+      }
+    }
+    const personas = [...porCedula.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    const elegida = personas.find(p => p.ced === celda.dataset.persona) || personas[0];
+
+    /* Los módulos del grupo, en orden y con la fecha que lleva cada uno. Se
+       saca de los propios certificados y no de las plantillas: lo que importa
+       aquí es la fecha con la que se emitió ESTE grupo, que puede no ser la que
+       la plantilla tenga hoy. */
+    const modulos = [...new Map(certs
+      .filter(c => c.estado === 'vigente')
+      .map(c => [c.plantilla_nombre, (c.datos || {}).fecha || (c.datos || {}).Fecha || ''])).entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'es'));
 
     celda.innerHTML = `<div class="row" style="align-items:center;margin-bottom:8px;">
         <b>${escapeHtml(nombre)}</b>
         <label>Con los datos de
           <select data-persona-previa="${loteId}">
-            ${personas.map(p => `<option ${p === elegida ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+            ${personas.map(p => `<option value="${escapeHtml(p.ced)}" ${p === elegida ? 'selected' : ''}
+              >${escapeHtml(p.nombre)}</option>`).join('')}
           </select></label>
         <span class="hint">${personas.length} graduado${personas.length === 1 ? '' : 's'} en el grupo</span>
+      </div>
+      ${/* Los tres arreglos que antes obligaban a abrir los certificados de uno
+            en uno. Van aquí, junto a la previa, porque es mirando la previa
+            cuando se descubre que algo está mal. */''}
+      <div class="row" style="margin-bottom:10px;">
+        <button class="btn teal small" data-editar-persona="${loteId}"
+          title="Cambiar el nombre o la cédula en TODOS los certificados de esta persona">✎ Corregir a esta persona</button>
+        <button class="btn outline small" data-agregar-persona="${loteId}"
+          title="Crear los certificados de este grupo para alguien que faltaba">＋ Añadir a alguien que faltaba</button>
+        <button class="btn outline small" data-editar-modulo="${loteId}"
+          title="Cambiar la fecha de un módulo en los certificados de todo el grupo">✎ Corregir la fecha de un módulo</button>
       </div>
       <div class="previa-rejilla" data-rejilla="${loteId}"><p class="hint">Dibujando…</p></div>`;
 
@@ -4152,14 +4200,195 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       pintarPreviaDe(loteId, e.target.value);
     });
 
-    await pintarPreviaDe(loteId, elegida);
+    celda.querySelector('[data-editar-persona]').addEventListener('click', () =>
+      abrirCorregirPersona(loteId, nombre, celda.querySelector('[data-persona-previa]').value, certs));
+    celda.querySelector('[data-agregar-persona]').addEventListener('click', () =>
+      abrirAgregarPersona(loteId, nombre, modulos));
+    celda.querySelector('[data-editar-modulo]').addEventListener('click', () =>
+      abrirCorregirModulo(loteId, nombre, modulos, personas.length));
+
+    await pintarPreviaDe(loteId, elegida.ced);
   }
 
+  /* ── Corregir, añadir y arreglar un módulo ────────────────────────────────
+     Las tres comparten forma: se pregunta lo justo, la base hace el trabajo
+     sobre TODOS los certificados que toca, y al terminar se ofrece bajarse lo
+     que acaba de cambiar. Ese último paso no es un adorno: quien corrige un
+     apellido lo hace porque va a imprimir, y sin él tocaba ir a buscarlos a
+     otra lista.
+
+     Todas pasan por `replace_cert_certificate`, así que ninguna borra nada: el
+     viejo queda marcado como reemplazado, apuntando al nuevo. */
+
+  /** La cédula sin puntos ni la V de delante, igual que hace la base. */
+  function cedulaPlana(v){ return String(v ?? '').replace(/[^0-9]/g, ''); }
+
+  /** Ventana con el mismo esqueleto que las demás del generador. */
+  function abrirVentana(titulo, cuerpoHtml){
+    const fondo = document.createElement('div');
+    fondo.className = 'modal-fondo';
+    fondo.innerHTML = `<div class="modal-caja">
+      <div class="modal-cab"><b>${escapeHtml(titulo)}</b>
+        <button class="btn outline small" data-cerrar>Cerrar</button></div>
+      <div class="modal-cuerpo">${cuerpoHtml}</div></div>`;
+    document.body.appendChild(fondo);
+    const cerrar = () => fondo.remove();
+    fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);
+    fondo.addEventListener('click', e => { if(e.target === fondo) cerrar(); });
+    return { fondo, cerrar };
+  }
+
+  /** Refresca todo lo que dejó de ser cierto tras tocar un grupo. */
+  async function refrescarTrasCambio(loteId){
+    previasDeLote.delete(loteId);
+    await loadIssued();
+    await loadLotes();
+  }
+
+  /** Tras corregir o añadir: enseñar qué cambió y ofrecer el PDF ya mismo. */
+  function ofrecerDescarga(caja, nuevos, nombreZip){
+    if(!nuevos.length){
+      caja.innerHTML = '<div class="msg warn">No hizo falta cambiar nada: ya decía eso.</div>';
+      return;
+    }
+    caja.innerHTML = `<div class="msg ok">${nuevos.length} certificado(s) al día.</div>
+      <button class="btn gold" data-bajar>⬇ Descargar los ${nuevos.length} (ZIP)</button>
+      <button class="btn outline" data-bajar-pdf>⬇ Un solo PDF · ${nuevos.length} págs.</button>`;
+    caja.querySelector('[data-bajar]').addEventListener('click', () =>
+      descargarCertificados(nuevos.map(n => n.id), nombreZip));
+    caja.querySelector('[data-bajar-pdf]').addEventListener('click', () =>
+      descargarCertificados(nuevos.map(n => n.id), nombreZip, { formato: 'pdf' }));
+  }
+
+  /** Cambiar el nombre o la cédula de alguien en TODOS sus certificados. */
+  /** `cedActual` viene del selector, que ya trabaja por cédula. El nombre es
+      justo lo que puede estar mal —y mal de forma desigual: siete certificados
+      corregidos y uno que se quedó con el apellido viejo—, así que contar por
+      nombre habría prometido «7» mientras la base corregía 8. */
+  async function abrirCorregirPersona(loteId, nombreLote, cedActual, certs){
+    const suyos = certs.filter(c => c.estado === 'vigente'
+      && cedulaPlana((c.datos || {})['Cédula'] || (c.datos || {}).cedula) === cedActual);
+    // El nombre que se enseña para editar: el del documento más reciente.
+    const personaElegida = suyos
+      .slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .map(c => (c.datos || {}).Nombre).find(Boolean) || '';
+
+    const { fondo, cerrar } = abrirVentana(`Corregir a ${personaElegida}`, `
+      <p class="hint">Lo que escribas aquí se aplica a <b>los ${suyos.length} certificados</b>
+        de esta persona en «${escapeHtml(nombreLote)}», diploma incluido. Cada uno conserva
+        su módulo y su fecha; sólo cambian el nombre y la cédula.</p>
+      <table><tbody>
+        <tr><td><b>Nombre</b></td>
+          <td><input type="text" id="cpNombre" value="${escapeHtml(personaElegida)}" style="width:100%"></td></tr>
+        <tr><td><b>Cédula</b></td>
+          <td><input type="text" id="cpCedula" value="${escapeHtml(cedActual)}" style="width:100%"
+                placeholder="27687821"></td></tr>
+      </tbody></table>
+      <p class="hint">Los puntos se ponen solos: da igual escribir 27687821 o V-27.687.821.</p>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" id="cpGuardar">Corregir sus ${suyos.length} certificados</button>
+      </div>
+      <div id="cpMsg"></div>`);
+
+    fondo.querySelector('#cpGuardar').addEventListener('click', async () => {
+      const caja = fondo.querySelector('#cpMsg');
+      const nombreNuevo = fondo.querySelector('#cpNombre').value.trim();
+      const cedNueva = cedulaPlana(fondo.querySelector('#cpCedula').value);
+      if(!nombreNuevo){ caja.innerHTML = '<div class="msg err">El nombre no puede quedar vacío.</div>'; return; }
+      if(!cedNueva){ caja.innerHTML = '<div class="msg err">La cédula no puede quedar vacía.</div>'; return; }
+      caja.innerHTML = '<p class="hint">Corrigiendo…</p>';
+      const { data, error } = await supabase.rpc('cert_persona_editar', {
+        p_lote: loteId, p_cedula: cedActual,
+        p_nombre_nuevo: nombreNuevo, p_cedula_nueva: cedNueva });
+      if(error){ caja.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+      await refrescarTrasCambio(loteId);
+      ofrecerDescarga(caja, data || [], `certificados_${sanitizeName(nombreNuevo)}`);
+    });
+    return cerrar;
+  }
+
+  /** Crear de una vez los certificados de todo el grupo para alguien nuevo. */
+  async function abrirAgregarPersona(loteId, nombreLote, modulos){
+    const { fondo } = abrirVentana(`Añadir a alguien a ${nombreLote}`, `
+      <p class="hint">Se le crean <b>${modulos.length} certificados</b>, uno por módulo, cada uno
+        con la fecha que ese módulo tiene en este grupo. No hay que volver a generar el grupo.</p>
+      <table><thead><tr><th>Módulo</th><th>Fecha que llevará</th></tr></thead>
+        <tbody>${modulos.map(([m, f]) => `<tr><td>${escapeHtml(m)}</td>
+          <td class="hint">${escapeHtml(f || '— sin fecha propia —')}</td></tr>`).join('')}</tbody></table>
+      <table style="margin-top:12px;"><tbody>
+        <tr><td><b>Nombre</b></td>
+          <td><input type="text" id="apNombre" style="width:100%" placeholder="Diberling Mejias"></td></tr>
+        <tr><td><b>Cédula</b></td>
+          <td><input type="text" id="apCedula" style="width:100%" placeholder="27687821"></td></tr>
+      </tbody></table>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" id="apCrear">Crear sus ${modulos.length} certificados</button>
+      </div>
+      <div id="apMsg"></div>`);
+
+    fondo.querySelector('#apCrear').addEventListener('click', async () => {
+      const caja = fondo.querySelector('#apMsg');
+      const nombre = fondo.querySelector('#apNombre').value.trim();
+      const ced = cedulaPlana(fondo.querySelector('#apCedula').value);
+      if(!nombre){ caja.innerHTML = '<div class="msg err">Falta el nombre.</div>'; return; }
+      if(!ced){ caja.innerHTML = '<div class="msg err">Falta la cédula.</div>'; return; }
+      caja.innerHTML = '<p class="hint">Creándolos…</p>';
+      const { data, error } = await supabase.rpc('cert_lote_agregar_persona',
+        { p_lote: loteId, p_nombre: nombre, p_cedula: ced });
+      if(error){ caja.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+      await refrescarTrasCambio(loteId);
+      ofrecerDescarga(caja, data || [], `certificados_${sanitizeName(nombre)}`);
+    });
+  }
+
+  /** Arreglar la fecha de un módulo en los certificados de TODO el grupo. */
+  async function abrirCorregirModulo(loteId, nombreLote, modulos, cuantasPersonas){
+    const { fondo } = abrirVentana(`Corregir un módulo de ${nombreLote}`, `
+      <p class="hint">Para cuando lo que está mal no es una persona sino un módulo: el curso se
+        dio un viernes y el certificado dice otro, y lo dice en los ${cuantasPersonas}.</p>
+      <table><tbody>
+        <tr><td><b>Módulo</b></td><td><select id="cmModulo" style="width:100%">
+          ${modulos.map(([m, f]) => `<option value="${escapeHtml(m)}" data-fecha="${escapeHtml(f)}">${escapeHtml(m)}</option>`).join('')}
+        </select></td></tr>
+        <tr><td><b>Fecha</b></td><td><input type="text" id="cmFecha" style="width:100%"></td></tr>
+      </tbody></table>
+      <p class="hint">Se escribe tal cual va a salir impresa, por ejemplo
+        «Caracas, 8 de Mayo de 2026».</p>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn teal" id="cmGuardar">Corregirlo en los ${cuantasPersonas}</button>
+      </div>
+      <div id="cmMsg"></div>`);
+
+    const sel = fondo.querySelector('#cmModulo');
+    const campoFecha = fondo.querySelector('#cmFecha');
+    const ponerFecha = () => { campoFecha.value = sel.selectedOptions[0]?.dataset.fecha || ''; };
+    ponerFecha();
+    sel.addEventListener('change', ponerFecha);
+
+    fondo.querySelector('#cmGuardar').addEventListener('click', async () => {
+      const caja = fondo.querySelector('#cmMsg');
+      const fecha = campoFecha.value.trim();
+      if(!fecha){ caja.innerHTML = '<div class="msg err">Escribe la fecha.</div>'; return; }
+      caja.innerHTML = '<p class="hint">Corrigiendo…</p>';
+      /* El diploma guarda la fecha en «Fecha» y los certificados en «fecha».
+         Se manda la clave que ese módulo usa de verdad, no la que suponemos. */
+      const campo = sel.value.startsWith('DIPLOMA') ? 'Fecha' : 'fecha';
+      const { data, error } = await supabase.rpc('cert_lote_editar_modulo',
+        { p_lote: loteId, p_plantilla: sel.value, p_campo: campo, p_valor: fecha });
+      if(error){ caja.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+      await refrescarTrasCambio(loteId);
+      ofrecerDescarga(caja, data || [], `modulo_${sanitizeName(sel.value)}`);
+    });
+  }
+
+  /** `persona` es la CÉDULA sin puntos: es lo que no cambia al corregir a
+      alguien, y por tanto lo único que reúne todos sus documentos. */
   async function pintarPreviaDe(loteId, persona){
     const rejilla = document.querySelector(`[data-rejilla="${loteId}"]`);
     if(!rejilla) return;
     const certs = previasDeLote.get(loteId) || [];
-    const suyos = certs.filter(c => (c.datos || {}).Nombre === persona);
+    const suyos = certs.filter(c => c.estado !== 'reemplazado'
+      && cedulaPlana((c.datos || {})['Cédula'] || (c.datos || {}).cedula) === persona);
     if(!suyos.length){ rejilla.innerHTML = '<p class="hint">Sin certificados de esa persona.</p>'; return; }
 
     rejilla.innerHTML = `<p class="hint">Dibujando ${suyos.length}…</p>`;

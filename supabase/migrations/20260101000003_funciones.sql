@@ -12359,6 +12359,30 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cert_cedula_bonita(p_cedula text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  select case
+    when coalesce(regexp_replace(p_cedula, '[^0-9]', '', 'g'), '') = '' then coalesce(p_cedula, '')
+    else regexp_replace(regexp_replace(p_cedula, '[^0-9]', '', 'g'),
+                        '(\d)(?=(\d{3})+$)', '\1.', 'g')
+  end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cert_cedula_plana(p_datos jsonb)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  select nullif(regexp_replace(
+    coalesce(p_datos->>'Cédula', p_datos->>'cedula', p_datos->>'Cedula', p_datos->>'CÉDULA', ''),
+    '[^0-9]', '', 'g'), '');
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cert_exigir_gestor()
  RETURNS void
  LANGUAGE plpgsql
@@ -12377,6 +12401,94 @@ begin
   end if;
 end;
 $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cert_lote_agregar_persona(p_lote uuid, p_nombre text, p_cedula text)
+ RETURNS SETOF cert_certificates
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_nombre text := nullif(trim(coalesce(p_nombre,'')), '');
+  v_ced text := nullif(regexp_replace(coalesce(p_cedula,''), '[^0-9]', '', 'g'), '');
+  v_modelo record;
+  v_datos jsonb;
+  v_nuevo cert_certificates;
+begin
+  perform cert_exigir_gestor();
+  if v_nombre is null then raise exception 'Hace falta el nombre.'; end if;
+  if v_ced is null then raise exception 'Hace falta la cédula.'; end if;
+  if not exists (select 1 from cert_lotes where id = p_lote) then
+    raise exception 'Ese grupo no existe.';
+  end if;
+
+  if exists (select 1 from cert_certificates
+              where lote_id = p_lote and estado = 'vigente'
+                and cert_cedula_plana(datos) = v_ced) then
+    raise exception 'Esa cédula ya tiene certificados en este grupo. Si hay que corregirle algo, usa «editar a esta persona».';
+  end if;
+
+  -- Un modelo por módulo: el primero que se emitió, que es el que lleva la
+  -- fecha buena del grupo.
+  for v_modelo in
+    select distinct on (plantilla_nombre) plantilla_nombre, datos, entidad_emisora
+      from cert_certificates
+     where lote_id = p_lote and estado = 'vigente'
+     order by plantilla_nombre, created_at
+  loop
+    -- Se parte del modelo para heredar la fecha y cualquier campo del grupo
+    -- (el puntaje del diploma no: ese es de cada quien y se deja en blanco a
+    -- propósito, para que se vea que falta en vez de salir con el de otro).
+    v_datos := v_modelo.datos;
+
+    if v_datos ? 'Nombre'    then v_datos := jsonb_set(v_datos, '{Nombre}', to_jsonb(v_nombre));
+    elsif v_datos ? 'nombre' then v_datos := jsonb_set(v_datos, '{nombre}', to_jsonb(v_nombre));
+    else v_datos := jsonb_set(v_datos, '{Nombre}', to_jsonb(v_nombre));
+    end if;
+
+    if v_datos ? 'Cédula'    then v_datos := jsonb_set(v_datos, '{Cédula}', to_jsonb(cert_cedula_bonita(v_ced)));
+    elsif v_datos ? 'cedula' then v_datos := jsonb_set(v_datos, '{cedula}', to_jsonb(cert_cedula_bonita(v_ced)));
+    elsif v_datos ? 'Cedula' then v_datos := jsonb_set(v_datos, '{Cedula}', to_jsonb(cert_cedula_bonita(v_ced)));
+    else v_datos := jsonb_set(v_datos, '{Cédula}', to_jsonb(cert_cedula_bonita(v_ced)));
+    end if;
+
+    if v_datos ? 'puntaje' then v_datos := jsonb_set(v_datos, '{puntaje}', to_jsonb(''::text)); end if;
+
+    v_nuevo := issue_certificate(v_datos, v_modelo.entidad_emisora, p_lote, null, v_modelo.plantilla_nombre);
+    return next v_nuevo;
+  end loop;
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cert_lote_editar_modulo(p_lote uuid, p_plantilla text, p_campo text, p_valor text)
+ RETURNS SETOF cert_certificates
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_fila record;
+  v_datos jsonb;
+  v_nuevo cert_certificates;
+begin
+  perform cert_exigir_gestor();
+  if nullif(trim(coalesce(p_campo,'')), '') is null then
+    raise exception 'Hace falta decir qué campo se cambia.';
+  end if;
+
+  for v_fila in
+    select * from cert_certificates
+     where lote_id = p_lote and estado = 'vigente'
+       and plantilla_nombre = p_plantilla
+     order by cert_nombre_de(datos)
+  loop
+    v_datos := jsonb_set(v_fila.datos, array[p_campo], to_jsonb(coalesce(p_valor,'')));
+    if v_datos = v_fila.datos then continue; end if;
+    v_nuevo := replace_cert_certificate(v_fila.id, v_datos);
+    return next v_nuevo;
+  end loop;
+end $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.cert_lote_guardar(p_id uuid, p_nombre text, p_entidad text DEFAULT 'CEM'::text, p_nota text DEFAULT NULL::text)
@@ -12398,6 +12510,103 @@ begin
          nota = coalesce(excluded.nota, cert_lotes.nota)
   returning * into r;
   return r;
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cert_lote_personas(p_lote uuid)
+ RETURNS TABLE(cedula text, nombre text, cuantos bigint, vigentes bigint, modulos text[])
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  perform cert_exigir_gestor();
+  return query
+    select c.ced,
+           -- Si la misma cédula aparece con dos nombres distintos (porque uno
+           -- se corrigió y otro no), gana el del certificado más reciente: es
+           -- el que alguien ya se molestó en arreglar.
+           (array_agg(c.nom order by c.created_at desc))[1],
+           count(*), count(*) filter (where c.estado = 'vigente'),
+           array_agg(distinct c.plantilla_nombre)
+      from (select cert_cedula_plana(datos) as ced, cert_nombre_de(datos) as nom,
+                   estado, plantilla_nombre, created_at
+              from cert_certificates
+             where lote_id = p_lote and estado <> 'reemplazado') c
+     where c.ced is not null
+     group by c.ced
+     order by 2;
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cert_nombre_de(p_datos jsonb)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  select nullif(trim(coalesce(p_datos->>'Nombre', p_datos->>'nombre', p_datos->>'NOMBRE', '')), '');
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cert_persona_editar(p_lote uuid, p_cedula text, p_nombre_nuevo text DEFAULT NULL::text, p_cedula_nueva text DEFAULT NULL::text)
+ RETURNS SETOF cert_certificates
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_ced_busca text := nullif(regexp_replace(coalesce(p_cedula,''), '[^0-9]', '', 'g'), '');
+  v_nombre text := nullif(trim(coalesce(p_nombre_nuevo, '')), '');
+  v_ced_nueva text := nullif(regexp_replace(coalesce(p_cedula_nueva,''), '[^0-9]', '', 'g'), '');
+  v_fila record;
+  v_datos jsonb;
+  v_nuevo cert_certificates;
+begin
+  perform cert_exigir_gestor();
+  if v_ced_busca is null then
+    raise exception 'Hace falta la cédula de la persona que se va a corregir.';
+  end if;
+  if v_nombre is null and v_ced_nueva is null then
+    raise exception 'No hay nada que cambiar: dime el nombre nuevo, la cédula nueva, o las dos.';
+  end if;
+
+  for v_fila in
+    select * from cert_certificates
+     where (p_lote is null or lote_id = p_lote)
+       and estado = 'vigente'
+       and cert_cedula_plana(datos) = v_ced_busca
+     order by plantilla_nombre
+  loop
+    v_datos := v_fila.datos;
+
+    -- Se escribe en la clave que ESE certificado ya usa. Meter siempre
+    -- «Cédula» dejaría el diploma —que la llama «cedula»— con dos claves y
+    -- pintando la vieja.
+    if v_nombre is not null then
+      if v_datos ? 'Nombre'      then v_datos := jsonb_set(v_datos, '{Nombre}', to_jsonb(v_nombre));
+      elsif v_datos ? 'nombre'   then v_datos := jsonb_set(v_datos, '{nombre}', to_jsonb(v_nombre));
+      elsif v_datos ? 'NOMBRE'   then v_datos := jsonb_set(v_datos, '{NOMBRE}', to_jsonb(v_nombre));
+      else v_datos := jsonb_set(v_datos, '{Nombre}', to_jsonb(v_nombre));
+      end if;
+    end if;
+
+    if v_ced_nueva is not null then
+      if v_datos ? 'Cédula'      then v_datos := jsonb_set(v_datos, '{Cédula}', to_jsonb(cert_cedula_bonita(v_ced_nueva)));
+      elsif v_datos ? 'cedula'   then v_datos := jsonb_set(v_datos, '{cedula}', to_jsonb(cert_cedula_bonita(v_ced_nueva)));
+      elsif v_datos ? 'Cedula'   then v_datos := jsonb_set(v_datos, '{Cedula}', to_jsonb(cert_cedula_bonita(v_ced_nueva)));
+      elsif v_datos ? 'CÉDULA'   then v_datos := jsonb_set(v_datos, '{CÉDULA}', to_jsonb(cert_cedula_bonita(v_ced_nueva)));
+      else v_datos := jsonb_set(v_datos, '{Cédula}', to_jsonb(cert_cedula_bonita(v_ced_nueva)));
+      end if;
+    end if;
+
+    -- Si ese certificado ya decía exactamente esto, no se toca: reemplazarlo
+    -- por uno idéntico sólo sirve para inventar un código nuevo y ensuciar el
+    -- historial.
+    if v_datos = v_fila.datos then continue; end if;
+
+    v_nuevo := replace_cert_certificate(v_fila.id, v_datos);
+    return next v_nuevo;
+  end loop;
 end $function$
 ;
 
