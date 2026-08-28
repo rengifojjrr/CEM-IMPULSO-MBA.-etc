@@ -12491,6 +12491,55 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cert_lote_completar_modulo(p_lote uuid, p_plantilla text)
+ RETURNS SETOF cert_certificates
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_modelo cert_certificates;
+  v_quien record;
+  v_datos jsonb;
+  v_nuevo cert_certificates;
+begin
+  perform cert_exigir_gestor();
+
+  select * into v_modelo from cert_certificates
+   where lote_id = p_lote and plantilla_nombre = p_plantilla and estado = 'vigente'
+   order by created_at limit 1;
+  if v_modelo.id is null then
+    raise exception 'Nadie de este grupo tiene todavía ese documento, así que no hay de dónde copiar la fecha. Genéralo y regístralo para una persona y luego dáselo al resto.';
+  end if;
+
+  for v_quien in
+    select * from cert_lote_personas(p_lote) p
+     where not exists (
+       select 1 from cert_certificates x
+        where x.lote_id = p_lote and x.plantilla_nombre = p_plantilla
+          and x.estado = 'vigente' and cert_cedula_plana(x.datos) = p.cedula)
+  loop
+    v_datos := v_modelo.datos;
+
+    if v_datos ? 'Nombre'    then v_datos := jsonb_set(v_datos, '{Nombre}', to_jsonb(v_quien.nombre));
+    elsif v_datos ? 'nombre' then v_datos := jsonb_set(v_datos, '{nombre}', to_jsonb(v_quien.nombre));
+    else v_datos := jsonb_set(v_datos, '{Nombre}', to_jsonb(v_quien.nombre));
+    end if;
+
+    if v_datos ? 'Cédula'    then v_datos := jsonb_set(v_datos, '{Cédula}', to_jsonb(cert_cedula_bonita(v_quien.cedula)));
+    elsif v_datos ? 'cedula' then v_datos := jsonb_set(v_datos, '{cedula}', to_jsonb(cert_cedula_bonita(v_quien.cedula)));
+    elsif v_datos ? 'Cedula' then v_datos := jsonb_set(v_datos, '{Cedula}', to_jsonb(cert_cedula_bonita(v_quien.cedula)));
+    else v_datos := jsonb_set(v_datos, '{Cédula}', to_jsonb(cert_cedula_bonita(v_quien.cedula)));
+    end if;
+
+    if v_datos ? 'puntaje' then v_datos := jsonb_set(v_datos, '{puntaje}', to_jsonb(''::text)); end if;
+
+    v_nuevo := issue_certificate(v_datos, v_modelo.entidad_emisora, p_lote, null, p_plantilla);
+    return next v_nuevo;
+  end loop;
+end $function$
+;
+
 CREATE OR REPLACE FUNCTION public.cert_lote_guardar(p_id uuid, p_nombre text, p_entidad text DEFAULT 'CEM'::text, p_nota text DEFAULT NULL::text)
  RETURNS cert_lotes
  LANGUAGE plpgsql
@@ -15326,18 +15375,35 @@ end;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.list_cert_certificates()
+CREATE OR REPLACE FUNCTION public.list_cert_certificates(p_busca text DEFAULT NULL::text)
  RETURNS SETOF cert_certificates
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
+declare v_q text := nullif(trim(coalesce(p_busca, '')), '');
 begin
-  perform public.cert_exigir_gestor();
-  return query select * from public.cert_certificates
-                order by created_at desc limit 300;
-end;
-$function$
+  perform cert_exigir_gestor();
+
+  if v_q is null then
+    return query select * from cert_certificates order by created_at desc limit 300;
+    return;
+  end if;
+
+  /* Se busca en los datos y en el nombre de la plantilla, igual que hacía la
+     pantalla. La cédula, además, sin puntos: quien escribe «27687821» tiene
+     que encontrar el que dice «27.687.821», que es el caso normal cuando se
+     copia de una lista y no del certificado. */
+  return query
+    select * from cert_certificates c
+     where exists (select 1 from jsonb_each_text(c.datos) d
+                    where d.value ilike '%' || v_q || '%')
+        or c.plantilla_nombre ilike '%' || v_q || '%'
+        or (regexp_replace(v_q, '[^0-9]', '', 'g') <> ''
+            and cert_cedula_plana(c.datos) like '%' || regexp_replace(v_q, '[^0-9]', '', 'g') || '%')
+     order by created_at desc
+     limit 300;
+end $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.list_cert_certificates_de_lote(p_lote uuid)

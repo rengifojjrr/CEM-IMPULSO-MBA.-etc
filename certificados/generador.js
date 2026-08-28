@@ -242,6 +242,19 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
      Se mira para comprobar que cada módulo lleva su diseño y su fecha ANTES de
      ponerse a dibujar doscientos PDF, que son varios minutos. */
   td.previa-lote{background:var(--hundido);padding:12px;}
+  /* Un desplegable metido en el texto de una fila.
+     ─────────────────────────────────────────────────────────────────────────
+     La hoja del portal declara select{width:100%}, pensada para los campos
+     de un formulario, que ocupan su columna entera. Dentro de una fila
+     flexible eso convierte este desplegable en una caja de 215px que se sale
+     de su etiqueta y se dibuja ENCIMA del texto de al lado: en la pantalla se
+     veía un recuadro pálido tragándose «10 graduados en el grupo».
+
+     Aquí no ocupa una columna: va incrustado en una frase. Así que se le dice
+     que mida lo que mida su contenido, con un mínimo para que quepa un nombre
+     y un máximo para que un nombre larguísimo no vuelva a empujar la fila. */
+  .row label.en-linea{display:inline-flex;align-items:center;gap:6px;}
+  .row label.en-linea select{width:auto;min-width:170px;max-width:100%;}
   /* minmax(240px,…) reserva 240px por columna aunque la pantalla no los
      tenga: en un móvil la rejilla salía 130px más ancha que el panel y
      arrastraba la página entera hacia la derecha. Con min(240px,100%) es la
@@ -4168,14 +4181,29 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
        saca de los propios certificados y no de las plantillas: lo que importa
        aquí es la fecha con la que se emitió ESTE grupo, que puede no ser la que
        la plantilla tenga hoy. */
-    const modulos = [...new Map(certs
-      .filter(c => c.estado === 'vigente')
-      .map(c => [c.plantilla_nombre, (c.datos || {}).fecha || (c.datos || {}).Fecha || ''])).entries()]
-      .sort((a, b) => a[0].localeCompare(b[0], 'es'));
+    const modulos = [];
+    for(const c of certs){
+      if(c.estado !== 'vigente') continue;
+      if(modulos.some(m => m.plantilla === c.plantilla_nombre)) continue;
+      const d = c.datos || {};
+      /* Qué clave guarda la fecha en ESTE módulo. Los certificados la llaman
+         «fecha» y el diploma «Fecha»; adivinarlo por el nombre de la plantilla
+         funciona hasta que alguien renombra una. Se mira el dato. */
+      const campoFecha = ('fecha' in d) ? 'fecha' : ('Fecha' in d) ? 'Fecha' : 'fecha';
+      modulos.push({
+        plantilla: c.plantilla_nombre, fecha: d[campoFecha] || '', campoFecha,
+        // A cuánta gente le falta: es lo que decide si tiene sentido ofrecer
+        // «dárselo a los que no lo tienen».
+        cuantos: new Set(certs
+          .filter(x => x.estado === 'vigente' && x.plantilla_nombre === c.plantilla_nombre)
+          .map(x => cedulaPlana((x.datos || {})['Cédula'] || (x.datos || {}).cedula))).size,
+      });
+    }
+    modulos.sort((a, b) => a.plantilla.localeCompare(b.plantilla, 'es'));
 
     celda.innerHTML = `<div class="row" style="align-items:center;margin-bottom:8px;">
         <b>${escapeHtml(nombre)}</b>
-        <label>Con los datos de
+        <label class="en-linea">Con los datos de
           <select data-persona-previa="${loteId}">
             ${personas.map(p => `<option value="${escapeHtml(p.ced)}" ${p === elegida ? 'selected' : ''}
               >${escapeHtml(p.nombre)}</option>`).join('')}
@@ -4273,6 +4301,19 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       .slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .map(c => (c.datos || {}).Nombre).find(Boolean) || '';
 
+    /* Los campos que no son ni del grupo ni de la persona entera: el puntaje
+       del diploma. Se descubren mirando los datos —cualquier clave que no sea
+       el nombre, la cédula o la fecha— en vez de llevar una lista escrita, que
+       se quedaría vieja en cuanto alguien añada un campo a una plantilla. */
+    const DEL_GRUPO = new Set(['Nombre','nombre','NOMBRE','Cédula','cedula','Cedula','CÉDULA','fecha','Fecha']);
+    const propios = [];
+    for(const c of suyos){
+      for(const [campo, valor] of Object.entries(c.datos || {})){
+        if(DEL_GRUPO.has(campo)) continue;
+        propios.push({ id: c.id, plantilla: c.plantilla_nombre, campo, valor: String(valor ?? '') });
+      }
+    }
+
     const { fondo, cerrar } = abrirVentana(`Corregir a ${personaElegida}`, `
       <p class="hint">Lo que escribas aquí se aplica a <b>los ${suyos.length} certificados</b>
         de esta persona en «${escapeHtml(nombreLote)}», diploma incluido. Cada uno conserva
@@ -4288,7 +4329,26 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       <div class="row" style="margin-top:12px;">
         <button class="btn teal" id="cpGuardar">Corregir sus ${suyos.length} certificados</button>
       </div>
-      <div id="cpMsg"></div>`);
+      <div id="cpMsg"></div>
+
+      ${/* Hay campos que no son del grupo ni de la persona entera, sino de UN
+            documento suyo: el puntaje del diploma. No pueden ir arriba —se
+            aplicarían a los nueve— ni en el corrector de módulos —es distinto
+            para cada quien—. Así que van aquí, uno por documento que los
+            tenga, y sólo aparecen si existen. */''}
+      ${propios.length ? `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+        <p><b>Lo que es distinto en cada documento</b></p>
+        <table><thead><tr><th>Documento</th><th>Campo</th><th>Valor</th></tr></thead>
+          <tbody>${propios.map((p, i) => `<tr>
+            <td>${escapeHtml(p.plantilla)}</td><td><b>${escapeHtml(p.campo)}</b></td>
+            <td><input type="text" data-propio="${i}" value="${escapeHtml(p.valor)}" style="width:100%"></td>
+          </tr>`).join('')}</tbody></table>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn outline" id="cpGuardarPropios">Guardar estos</button>
+        </div>
+        <div id="cpMsgPropios"></div>
+      </div>` : ''}`);
 
     fondo.querySelector('#cpGuardar').addEventListener('click', async () => {
       const caja = fondo.querySelector('#cpMsg');
@@ -4304,6 +4364,33 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       await refrescarTrasCambio(loteId);
       ofrecerDescarga(caja, data || [], `certificados_${sanitizeName(nombreNuevo)}`);
     });
+
+    /* Los campos propios van por la puerta de siempre —editar UN certificado—
+       porque eso es lo que son: un cambio en un documento concreto. */
+    fondo.querySelector('#cpGuardarPropios')?.addEventListener('click', async () => {
+      const caja = fondo.querySelector('#cpMsgPropios');
+      const porDocumento = new Map();
+      fondo.querySelectorAll('[data-propio]').forEach((inp) => {
+        const p = propios[Number(inp.dataset.propio)];
+        if(inp.value === p.valor) return;          // sin cambios, no se toca
+        if(!porDocumento.has(p.id)) porDocumento.set(p.id, {});
+        porDocumento.get(p.id)[p.campo] = inp.value;
+      });
+      if(!porDocumento.size){
+        caja.innerHTML = '<div class="msg warn">No cambiaste ninguno.</div>'; return;
+      }
+      caja.innerHTML = '<p class="hint">Guardando…</p>';
+      const nuevos = [];
+      for(const [id, cambios] of porDocumento){
+        const viejo = suyos.find(c => c.id === id);
+        const { data, error } = await supabase.rpc('replace_cert_certificate',
+          { p_id: id, p_datos: { ...(viejo.datos || {}), ...cambios } });
+        if(error){ caja.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+        nuevos.push(data);
+      }
+      await refrescarTrasCambio(loteId);
+      ofrecerDescarga(caja, nuevos, `certificados_${sanitizeName(personaElegida)}`);
+    });
     return cerrar;
   }
 
@@ -4313,8 +4400,8 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       <p class="hint">Se le crean <b>${modulos.length} certificados</b>, uno por módulo, cada uno
         con la fecha que ese módulo tiene en este grupo. No hay que volver a generar el grupo.</p>
       <table><thead><tr><th>Módulo</th><th>Fecha que llevará</th></tr></thead>
-        <tbody>${modulos.map(([m, f]) => `<tr><td>${escapeHtml(m)}</td>
-          <td class="hint">${escapeHtml(f || '— sin fecha propia —')}</td></tr>`).join('')}</tbody></table>
+        <tbody>${modulos.map((m) => `<tr><td>${escapeHtml(m.plantilla)}</td>
+          <td class="hint">${escapeHtml(m.fecha || '— sin fecha propia —')}</td></tr>`).join('')}</tbody></table>
       <table style="margin-top:12px;"><tbody>
         <tr><td><b>Nombre</b></td>
           <td><input type="text" id="apNombre" style="width:100%" placeholder="Diberling Mejias"></td></tr>
@@ -4348,36 +4435,67 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
         dio un viernes y el certificado dice otro, y lo dice en los ${cuantasPersonas}.</p>
       <table><tbody>
         <tr><td><b>Módulo</b></td><td><select id="cmModulo" style="width:100%">
-          ${modulos.map(([m, f]) => `<option value="${escapeHtml(m)}" data-fecha="${escapeHtml(f)}">${escapeHtml(m)}</option>`).join('')}
+          ${modulos.map((m, i) => `<option value="${i}">${escapeHtml(m.plantilla)}</option>`).join('')}
         </select></td></tr>
         <tr><td><b>Fecha</b></td><td><input type="text" id="cmFecha" style="width:100%"></td></tr>
       </tbody></table>
       <p class="hint">Se escribe tal cual va a salir impresa, por ejemplo
         «Caracas, 8 de Mayo de 2026».</p>
       <div class="row" style="margin-top:12px;">
-        <button class="btn teal" id="cmGuardar">Corregirlo en los ${cuantasPersonas}</button>
+        <button class="btn teal" id="cmGuardar">Corregir la fecha</button>
       </div>
-      <div id="cmMsg"></div>`);
+      <div id="cmMsg"></div>
+
+      ${/* Lo que pasó de verdad con los diplomas de una promoción: se generaron,
+            se descargaron y nadie pulsó «Registrar». Como no quedaron
+            registrados, no se podían ni buscar ni corregir — y desde la
+            pantalla no había forma de repararlo sin volver a generar el grupo
+            entero. */''}
+      <div id="cmFaltan" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);"></div>`);
 
     const sel = fondo.querySelector('#cmModulo');
     const campoFecha = fondo.querySelector('#cmFecha');
-    const ponerFecha = () => { campoFecha.value = sel.selectedOptions[0]?.dataset.fecha || ''; };
-    ponerFecha();
-    sel.addEventListener('change', ponerFecha);
+    const cajaFaltan = fondo.querySelector('#cmFaltan');
+    const actual = () => modulos[Number(sel.value)];
+
+    function pintarModulo(){
+      const m = actual();
+      campoFecha.value = m.fecha || '';
+      fondo.querySelector('#cmGuardar').textContent =
+        `Corregir la fecha en ${m.cuantos === 1 ? 'el único que lo tiene' : `los ${m.cuantos}`}`;
+
+      const faltan = cuantasPersonas - m.cuantos;
+      cajaFaltan.innerHTML = faltan <= 0
+        ? '<p class="hint">Todo el grupo tiene este documento.</p>'
+        : `<p><b>A ${faltan} de las ${cuantasPersonas} personas les falta este documento.</b></p>
+           <p class="hint">Se les crea copiando el de quien sí lo tiene, con su misma fecha.
+             Los campos propios de cada quien —el puntaje del diploma— quedan en blanco
+             a propósito: mejor que se vea que falta a que salga con el de otra persona.</p>
+           <button class="btn outline" id="cmCompletar">Dárselo a ${faltan === 1 ? 'esa persona' : `esas ${faltan}`}</button>`;
+
+      fondo.querySelector('#cmCompletar')?.addEventListener('click', async () => {
+        cajaFaltan.innerHTML = '<p class="hint">Creándolos…</p>';
+        const { data, error } = await supabase.rpc('cert_lote_completar_modulo',
+          { p_lote: loteId, p_plantilla: actual().plantilla });
+        if(error){ cajaFaltan.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
+        await refrescarTrasCambio(loteId);
+        ofrecerDescarga(cajaFaltan, data || [], `modulo_${sanitizeName(actual().plantilla)}`);
+      });
+    }
+    pintarModulo();
+    sel.addEventListener('change', pintarModulo);
 
     fondo.querySelector('#cmGuardar').addEventListener('click', async () => {
       const caja = fondo.querySelector('#cmMsg');
       const fecha = campoFecha.value.trim();
       if(!fecha){ caja.innerHTML = '<div class="msg err">Escribe la fecha.</div>'; return; }
       caja.innerHTML = '<p class="hint">Corrigiendo…</p>';
-      /* El diploma guarda la fecha en «Fecha» y los certificados en «fecha».
-         Se manda la clave que ese módulo usa de verdad, no la que suponemos. */
-      const campo = sel.value.startsWith('DIPLOMA') ? 'Fecha' : 'fecha';
+      const m = actual();
       const { data, error } = await supabase.rpc('cert_lote_editar_modulo',
-        { p_lote: loteId, p_plantilla: sel.value, p_campo: campo, p_valor: fecha });
+        { p_lote: loteId, p_plantilla: m.plantilla, p_campo: m.campoFecha, p_valor: fecha });
       if(error){ caja.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
       await refrescarTrasCambio(loteId);
-      ofrecerDescarga(caja, data || [], `modulo_${sanitizeName(sel.value)}`);
+      ofrecerDescarga(caja, data || [], `modulo_${sanitizeName(m.plantilla)}`);
     });
   }
 
@@ -4453,8 +4571,13 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   }
 
   // ---------- Certificados emitidos ----------
+  /* Lo que se está buscando ahora mismo. Vive aquí y no sólo en la casilla
+     porque la búsqueda ya no es cosa de la pantalla: la hace la base. */
+  let busquedaEmitidos = '';
+
   async function loadIssued(){
-    const { data, error } = await supabase.rpc('list_cert_certificates');
+    const { data, error } = await supabase.rpc('list_cert_certificates',
+      { p_busca: busquedaEmitidos || null });
     const wrap = document.getElementById('listaEmitidosWrap');
     if(error){ wrap.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
     issued = data || [];
@@ -4487,13 +4610,14 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
 
   /* Lo que se ve ahora mismo en la lista. Lo usan la tabla y el botón de
      descargar en bloque: si cada uno filtrara por su cuenta, el botón podría
-     acabar bajando algo distinto de lo que hay en pantalla. */
-  function certificadosFiltrados(){
-    const q = document.getElementById('buscarEmitidos').value.trim().toLowerCase();
-    return issued.filter(c => !q
-      || Object.values(c.datos || {}).some(v => String(v).toLowerCase().includes(q))
-      || (c.plantilla_nombre || '').toLowerCase().includes(q));
-  }
+     acabar bajando algo distinto de lo que hay en pantalla.
+
+     Ya no filtra nada: lo que hay en `issued` ES el resultado de la búsqueda,
+     porque la hace la base. Antes filtraba sobre los últimos 300 traídos, y
+     con 491 certificados en la casa eso dejaba 191 imposibles de encontrar
+     —entre ellos, cualquier diploma— diciendo «sin certificados que
+     coincidan», que suena a que no existe. */
+  function certificadosFiltrados(){ return issued; }
 
   function renderIssuedTable(){
     const wrap = document.getElementById('listaEmitidosWrap');
@@ -4877,7 +5001,19 @@ Bájalos en ZIP, o marca menos de una vez —por día, o por grupo— y repite.`
     });
   }
 
-  document.getElementById('buscarEmitidos').addEventListener('input', renderIssuedTable);
+  /* Se espera a que la persona deje de escribir antes de preguntar: sin esto
+     son ocho viajes a la base para escribir «Giodeli», y las respuestas pueden
+     llegar desordenadas y dejar en pantalla el resultado de «Giodel». */
+  let relojBusqueda = null;
+  document.getElementById('buscarEmitidos').addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    clearTimeout(relojBusqueda);
+    relojBusqueda = setTimeout(() => {
+      if(q === busquedaEmitidos) return;
+      busquedaEmitidos = q;
+      loadIssued();
+    }, 300);
+  });
   document.getElementById('btnRefrescarLista').addEventListener('click', loadIssued);
 
   /* Descargar lo que hay filtrado en pantalla. Buscas «Orianny» y te llevas sus
