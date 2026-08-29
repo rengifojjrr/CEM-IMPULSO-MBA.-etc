@@ -13,6 +13,10 @@
 // Por eso la firma no es un detalle de seguridad, es LA seguridad.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+/* Convertir la compra en alumno lo hace un solo sitio, compartido con
+   cem-comprar: si el equipo confirma un pago movil a mano tiene que pasar
+   exactamente lo mismo que si lo confirma Stripe. */
+import { cerrarCompraInvitado } from '../_shared/cerrar-compra.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -84,7 +88,12 @@ Deno.serve(async (req) => {
      distintas es como acaban sin cuadrar las cuentas. */
   const compraInvitado = sesion.metadata?.compra_invitado_id;
   if (compraInvitado) {
-    const r = await cerrarCompraInvitado(admin, compraInvitado, sesion);
+    const r = await cerrarCompraInvitado(admin, compraInvitado, {
+      monto: Math.round(Number(sesion.amount_total || 0)) / 100,
+      moneda: String(sesion.currency || 'usd').toUpperCase(),
+      referencia: String(sesion.payment_intent || sesion.id),
+      metodo: 'Tarjeta de crédito/débito',
+    });
     if (r.error) return json({ error: r.error }, r.status ?? 500);
     return json(r.cuerpo);
   }
@@ -143,118 +152,3 @@ Deno.serve(async (req) => {
 
   return json({ ok: true, pago });
 });
-
-/* ── Convertir una compra de invitado en alumno ───────────────────────────
-   Tres pasos, en este orden y no en otro:
-
-     1. La cuenta. Si ya hay una con ese correo, se usa esa — comprar dos
-        veces no puede partir a una persona en dos alumnos.
-     2. La inscripción y sus cuotas.
-     3. El pago, por la MISMA puerta que cualquier otro.
-
-   Es idempotente de punta a punta porque Stripe reintenta el aviso hasta que
-   se le contesta bien, y un reintento no puede crear una segunda cuenta, una
-   segunda inscripción ni un segundo pago. */
-async function cerrarCompraInvitado(
-  admin: ReturnType<typeof createClient>,
-  compraId: string,
-  sesion: Record<string, any>,
-): Promise<{ error?: string; status?: number; cuerpo?: unknown }> {
-  const { data: compra } = await admin.from('cem_compras_invitado')
-    .select('*').eq('id', compraId).maybeSingle();
-  if (!compra) return { error: 'Esa compra no existe.', status: 404 };
-
-  const email = String(compra.email).toLowerCase().trim();
-
-  /* 1 · La cuenta. Se busca por correo en los perfiles, que es donde vive el
-     correo de verdad de la plataforma. Si no hay, se crea la cuenta de acceso
-     con el correo YA confirmado: el pago con tarjeta a ese correo demuestra
-     bastante más que un clic en un enlace de verificación, y hacerle verificar
-     después de haber pagado es una puerta cerrada en la cara. */
-  let profileId: string | null = null;
-  let cuentaNueva = false;
-
-  const { data: perfil } = await admin.from('cem_profiles')
-    .select('id').ilike('email', email).maybeSingle();
-
-  if (perfil?.id) {
-    profileId = perfil.id;
-  } else {
-    const partes = String(compra.nombre).trim().split(/\s+/);
-    const { data: creado, error: eCrear } = await admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: {
-        nombre: partes[0] ?? '',
-        apellido: partes.slice(1).join(' '),
-      },
-    });
-    if (eCrear) {
-      /* Puede existir la cuenta de acceso sin perfil todavía (registro a
-         medias). No es un fallo: se busca y se sigue. Devolverle un error a
-         Stripe aquí lo haría reintentar durante días por algo que no se
-         arregla solo. */
-      const { data: lista } = await admin.auth.admin.listUsers();
-      const ya = lista?.users?.find((u) => (u.email ?? '').toLowerCase() === email);
-      if (!ya) return { error: `No se pudo crear la cuenta: ${eCrear.message}`, status: 500 };
-      profileId = ya.id;
-    } else {
-      profileId = creado.user!.id;
-      cuentaNueva = true;
-    }
-  }
-
-  // El perfil puede no existir aún: el disparador que lo crea corre al dar de
-  // alta la cuenta, pero si el registro quedó a medias hay que asegurarlo.
-  await admin.from('cem_profiles').upsert({
-    id: profileId,
-    email,
-    nombre: String(compra.nombre).trim().split(/\s+/)[0] ?? '',
-    apellido: String(compra.nombre).trim().split(/\s+/).slice(1).join(' '),
-    rol: 'estudiante',
-    activo: true,
-  }, { onConflict: 'id', ignoreDuplicates: true });
-
-  // 2 · La inscripción. La base decide y es idempotente.
-  const { data: cierre, error: eCerrar } = await admin.rpc('cem_compra_invitado_cerrar', {
-    p_compra_id: compraId,
-    p_profile_id: profileId,
-    p_cuenta_nueva: cuentaNueva,
-  });
-  if (eCerrar) return { error: eCerrar.message, status: 500 };
-  if (cierre?.repetido) return { cuerpo: { ok: true, repetido: true } };
-
-  // 3 · El pago, por la puerta de siempre.
-  const monto = Math.round(Number(sesion.amount_total || 0)) / 100;
-  const referencia = String(sesion.payment_intent || sesion.id).slice(0, 40);
-  const { error: ePago } = await admin.rpc('cem_reportar_pago_servidor', {
-    p_installment_id: cierre.installment_id,
-    p_monto: monto,
-    p_moneda: String(sesion.currency || 'usd').toUpperCase(),
-    p_referencia: referencia,
-    p_metodo: 'Tarjeta de crédito/débito',
-    p_profile_id: profileId,
-  });
-  // «Ya hay un pago con esa referencia» es un reintento de Stripe, no un fallo.
-  if (ePago && !/ya hay un pago registrado/i.test(ePago.message || '')) {
-    return { error: ePago.message, status: 500 };
-  }
-
-  /* Y el correo para poner la clave. Va DESPUÉS de que todo lo demás salió
-     bien: mandarle a alguien «ya estás dentro» y que al entrar no encuentre su
-     inscripción es peor que tardar un minuto más. */
-  if (cuentaNueva) {
-    try {
-      await admin.auth.admin.generateLink({ type: 'recovery', email });
-    } catch (e) {
-      console.error('[compra] no se pudo generar el enlace de clave:', e);
-    }
-  }
-
-  return {
-    cuerpo: {
-      ok: true, compra: compraId, profile_id: profileId,
-      enrollment_id: cierre.enrollment_id, cuenta_nueva: cuentaNueva,
-    },
-  };
-}

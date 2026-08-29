@@ -45,7 +45,8 @@
    «ya estás inscrito» antes de que la inscripción exista es la clase de
    mentira que se descubre al minuto siguiente, cuando la persona entra y no
    encuentra su curso. */
-import { sb, mount, $, esc, qs } from './assets/app.js?v=2026-08-29';
+import { sb, mount, $, esc, qs, money, fail, abrirContacto, imprimirDocumento }
+  from './assets/app.js?v=2026-08-29';
 
 /* Pública a propósito: quien llega aquí acaba de pagar y todavía no tiene con
    qué entrar —la cuenta se está creando en este mismo momento, del otro lado.
@@ -72,8 +73,40 @@ async function mirar() {
      veces, unos veinte segundos— antes de decir nada. */
   if (++intentos < 10) { setTimeout(mirar, 2000); pintarEsperando(); return; }
 
-  pintarProblema('El pago está tardando en confirmarse. No hace falta que pagues otra vez: '
-    + 'en cuanto entre, te llega el acceso por correo.');
+  pintarTarda(data);
+}
+
+/* Cuando pasan los veinte segundos.
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes esto era un callejón: «te llega por correo» y un botón de volver al
+   catálogo. Quien acaba de pagar y no ve su curso no vuelve al catálogo, se
+   queda mirando la pantalla y luego escribe enfadado — o peor, paga otra vez.
+
+   Ahora hay las tres salidas que de verdad hacen falta: volver a mirar sin
+   recargar, avisar al equipo con el número de la compra en la mano, y la
+   promesa de que no hay que pagar dos veces, dicha primero y en negrita. */
+function pintarTarda(d) {
+  $('#caja').innerHTML = `
+    <h1 style="margin-top:0;font-size:1.3rem">Tu pago está tardando en confirmarse</h1>
+    <p class="nota" style="text-align:left"><b>No pagues otra vez.</b> Si el cobro salió,
+      entra solo: a veces el aviso del banco tarda unos minutos.</p>
+    <p class="muted">En cuanto entre te llega el acceso a
+      <b>${esc(d?.email || 'tu correo')}</b>.</p>
+    <button class="btn block" id="reintentar">
+      <span class="material-symbols-outlined">refresh</span> Volver a mirar</button>
+    <button class="btn outline block" id="avisar" style="margin-top:var(--e1)">
+      <span class="material-symbols-outlined">forum</span> Avisar al equipo</button>
+    <p class="tiny muted" style="margin-top:var(--e2)">
+      Tu número de compra es
+      <b style="font-variant-numeric:tabular-nums">${esc(String(compraId).slice(0, 8))}</b>.
+      Tenlo a mano si nos escribes.</p>`;
+
+  $('#reintentar').onclick = () => { intentos = 0; mirar(); };
+  $('#avisar').onclick = () => abrirContacto({
+    titulo: 'Pagué y no me llega el acceso',
+    interes: `Pagué y todavía no me llega el acceso. Mi número de compra es `
+      + `${String(compraId).slice(0, 8)}.`,
+  });
 }
 
 function pintarEsperando() {
@@ -100,7 +133,50 @@ function pintarBien(d) {
       <p class="nota" style="text-align:left">
         Ya tenías cuenta con <b>${esc(d.email)}</b>, así que el programa te aparece
         al entrar con tu contraseña de siempre.</p>
-      <a class="btn block" href="index.html">Entrar al aula</a>`}`;
+      <a class="btn block" href="index.html">Entrar al aula</a>`}
+
+    <!-- El comprobante, aquí y no sólo dentro del aula.
+         Quien paga un curso para su empresa lo necesita ahora, y ahora mismo
+         todavía no tiene contraseña: pedirle que entre primero para bajarlo es
+         pedirle que haga dos cosas para conseguir una. -->
+    <button class="btn ghost block" id="recibo" style="margin-top:var(--e2)">
+      <span class="material-symbols-outlined">receipt_long</span> Descargar el recibo</button>`;
+
+  $('#recibo').onclick = descargarRecibo;
+}
+
+async function descargarRecibo() {
+  const { data: r, error } = await sb.rpc('cem_recibo_compra_invitado', { p_compra_id: compraId });
+  if (error || !r?.hay) { fail('No pudimos preparar el recibo. Escríbenos y te lo mandamos.'); return; }
+
+  imprimirDocumento(`Recibo ${r.numero}`, `
+    <div class="cab">
+      <div><div class="marca">CEM INTERNATIONAL</div>
+        <h1>Recibo de pago</h1></div>
+      <div class="meta"><b>${esc(r.numero)}</b><br>Emitido el ${esc(r.emitido_en)}</div>
+    </div>
+
+    <h2>Recibimos de</h2>
+    <div><b>${esc(r.estudiante)}</b>
+      <div style="font-size:12px;color:var(--tinta-3)">${esc(r.email)}</div></div>
+
+    <h2>Concepto</h2>
+    <table><tbody>
+      <tr><td>Programa</td><td class="num">${esc(r.programa)}</td></tr>
+      ${r.cuota ? `<tr><td>Cuota</td><td class="num">N.º ${r.cuota} de ${r.de_cuotas}</td></tr>` : ''}
+      <tr><td>Fecha del pago</td><td class="num">${esc(r.fecha)}</td></tr>
+      <tr><td>Forma de pago</td><td class="num">${esc(r.metodo || '—')}</td></tr>
+      <tr><td>Referencia</td><td class="num">${esc(r.referencia || '—')}</td></tr>
+    </tbody></table>
+
+    <div class="tot fuerte sep">
+      <span>Monto recibido</span>
+      <span>${money(r.monto, r.moneda)}</span></div>
+
+    <div class="pie">
+      Comprobante emitido automáticamente por la plataforma de CEM International.
+      El detalle completo de tu plan de pago está en tu aula, en «Mis pagos».
+    </div>`);
 }
 
 function pintarProblema(texto) {

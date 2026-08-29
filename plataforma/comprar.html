@@ -51,12 +51,12 @@
    La cuenta no se crea al pulsar. Se crea cuando el dinero entra, en el
    webhook de Stripe. Si el pago no llega, aquí no queda más que una fila con
    una intención de compra, que es lo que de verdad pasó. */
-import { sb, mount, $, esc, money, qs, fail, ocupado,
+import { sb, mount, $, esc, money, num, qs, fail, ocupado, etiqueta,
          SUPABASE_URL, SUPABASE_KEY } from './assets/app.js?v=2026-08-29';
 
 const me = await mount({ pub:true });
 const cursoId = qs('curso');
-let curso = null, plan = 1;
+let curso = null, plan = 1, intentoCaido = null;
 
 /* Quien ya entró no tiene por qué volver a escribir su nombre: se le manda al
    camino de siempre, que además sabe de cohortes y de códigos de descuento. */
@@ -69,9 +69,27 @@ $('#volver').onclick = (e) => {
   location.href = cursoId ? `curso.html?id=${encodeURIComponent(cursoId)}` : 'catalogo.html';
 };
 
+/* La tasa del BCV. Ya se descarga sola dos veces al día y no se usaba para
+   esto: quien mira un precio en euros desde Venezuela hace la cuenta de
+   cabeza, y una cuenta de cabeza es una duda más justo antes de pagar.
+
+   Se pide POR MONEDA y no con la función sin argumentos: en la tabla conviven
+   la del euro y la del dólar con el mismo identificador, así que la sin
+   argumentos devuelve la que caiga. Multiplicar un precio en dólares por la
+   tasa del euro da un número creíble y equivocado, que es la peor clase.
+
+   Si no hay tasa, no se enseña nada. Un bolívar inventado es peor que ninguno. */
+let tasa = null;
+
+const enBolivares = (monto) => {
+  if (!tasa?.valor || !monto) return '';
+  return `<span class="tiny muted"> · ${num(Math.round(monto * Number(tasa.valor)))} Bs.</span>`;
+};
+
 async function cargar() {
   const { data: c } = await sb.from('cem_courses')
-    .select('id,nombre,precio,moneda,descripcion_corta,duracion_texto,horas,cuotas_habilitadas,estado')
+    .select('id,nombre,precio,moneda,descripcion_corta,duracion_texto,horas,'
+      + 'cuotas_habilitadas,estado,modalidad,nivel,tipo,categoria')
     .eq('id', cursoId).maybeSingle();
 
   if (!c || c.estado !== 'publicado') {
@@ -82,6 +100,26 @@ async function cargar() {
   }
   curso = c;
   pintar();
+
+  /* ¿Vuelve de un cobro que no salió?
+     ─────────────────────────────────────────────────────────────────────────
+     Antes Stripe la devolvía a la ficha del curso, que no dice ni que el
+     cobro falló ni qué hacer ahora: la persona se quedaba mirando la misma
+     página de antes, sin saber si le habían cobrado. Y si volvía a intentarlo,
+     a escribir su nombre y su correo otra vez.
+
+     Ahora vuelve aquí con su número de compra, se le dice que no se le cobró
+     nada, y se le devuelven sus datos puestos. Reintentar cuesta un clic, y
+     cambiarse a pago móvil, otro. */
+  if (qs('pago') === 'cancelado') await recuperarIntento();
+
+  /* Después de pintar, no antes: la tasa es un adorno útil y no puede retrasar
+     la pantalla en la que alguien está a punto de pagar. Cuando llega, se
+     repinta con ella. */
+  const { data: t } = await sb.rpc('cem_tasa_vigente', { p_moneda: c.moneda || 'EUR' })
+    .then((r) => r).catch(() => ({ data: null }));
+  const fila = Array.isArray(t) ? t[0] : t;
+  if (fila?.valor) { tasa = fila; pintar(); }
 }
 
 /* El mismo recargo que aplica la base al inscribir. Se enseña aquí para que la
@@ -91,14 +129,40 @@ const FACTOR = { 1: 0.9, 3: 1, 6: 1.06 };
 const totalDe = (n) => Math.round((curso.precio ?? 0) * FACTOR[n] * 100) / 100;
 const primeraDe = (n) => Math.round((totalDe(n) / n) * 100) / 100;
 
+/* Qué te llevas, dicho aquí y no sólo en la ficha de al lado.
+   ═══════════════════════════════════════════════════════════════════════════
+   Ésta es la pantalla donde aparecen las dudas y era la que menos respondía:
+   pedía nombre y correo y no repetía cuánto dura, cómo se da ni qué queda al
+   terminar. Quien llega desde un anuncio no ha visto la ficha, y quien la vio
+   hace diez minutos ya no se acuerda.
+
+   Sale de los datos del curso, así que un programa que no diga su duración no
+   enseña una línea vacía: no enseña la línea. */
+function loQueTeLlevas() {
+  const filas = [
+    curso.duracion_texto || (curso.horas ? `${curso.horas} horas` : null)
+      ? ['schedule', curso.duracion_texto || `${curso.horas} horas`] : null,
+    curso.modalidad ? ['cast_for_education', etiqueta(curso.modalidad)] : null,
+    curso.nivel ? ['stairs', `Nivel ${etiqueta(curso.nivel).toLowerCase()}`] : null,
+    ['workspace_premium', 'Certificado con código verificable al terminar'],
+    ['all_inclusive', 'El material y las clases quedan en tu aula'],
+  ].filter(Boolean);
+  return `<ul class="lista-limpia tiny" style="margin:var(--e2) 0 0">
+    ${filas.map(([i, t]) => `<li class="row" style="gap:var(--e1);align-items:center">
+      <span class="material-symbols-outlined" style="font-size:18px;color:var(--secondary)"
+        aria-hidden="true">${i}</span>${esc(t)}</li>`).join('')}
+  </ul>`;
+}
+
 function pintar() {
   const conCuotas = curso.cuotas_habilitadas;
   $('#caja').innerHTML = `
     <p class="tiny muted" style="margin:0">Te vas a inscribir en</p>
     <h1 style="margin:2px 0 var(--e2);font-size:1.4rem">${esc(curso.nombre)}</h1>
     ${curso.descripcion_corta ? `<p class="muted" style="margin-top:0">${esc(curso.descripcion_corta)}</p>` : ''}
+    ${loQueTeLlevas()}
 
-    <div class="field">
+    <div class="field" style="margin-top:var(--e3)">
       <label for="nombre">Tu nombre y apellido</label>
       <input id="nombre" autocomplete="name" maxlength="80" placeholder="María Pérez">
     </div>
@@ -123,13 +187,23 @@ function pintar() {
       <span>${plan > 1 ? `Ahora pagas la 1.ª de ${plan}` : 'Total'}</span>
       <span class="total">${money(primeraDe(plan), curso.moneda)}</span>
     </div>
-    ${plan > 1 ? `<p class="tiny muted" style="margin:0 0 var(--e2)">
-      Total del programa: ${money(totalDe(plan), curso.moneda)}.
-      Las demás cuotas te las cobramos mes a mes.</p>` : ''}
+    <p class="tiny muted" style="margin:calc(var(--e2) * -1) 0 var(--e2);text-align:right">
+      ${plan > 1
+        ? `Total del programa: ${money(totalDe(plan), curso.moneda)}${enBolivares(totalDe(plan))}.
+           Las demás cuotas te las cobramos mes a mes.`
+        : tasa ? `Al cambio de hoy${enBolivares(totalDe(plan))}` : ''}</p>
 
     <button class="btn block" id="pagar" style="margin-top:var(--e2)">
       <span class="material-symbols-outlined">credit_card</span>
-      Pagar ${money(primeraDe(plan), curso.moneda)}
+      Pagar ${money(primeraDe(plan), curso.moneda)} con tarjeta
+    </button>
+    <!-- La otra puerta, y del mismo tamaño que la primera.
+         En Venezuela el pago móvil no es una alternativa: es la forma normal
+         de pagar. Esconderlo detrás de «otras opciones» era dejar fuera a la
+         mitad de la gente que quiere inscribirse. -->
+    <button class="btn outline block" id="pagarLocal" style="margin-top:var(--e1)">
+      <span class="material-symbols-outlined">account_balance</span>
+      Pago móvil o transferencia
     </button>
     <p class="tiny muted" style="margin:var(--e2) 0 0;text-align:center">
       ¿Ya tienes cuenta? <a href="index.html?volver=${encodeURIComponent('curso.html?id=' + curso.id)}">Entra por aquí</a>.</p>`;
@@ -141,6 +215,19 @@ function pintar() {
     pintar();
   });
   $('#pagar').onclick = (e) => ocupado(e.currentTarget, 'Abriendo el pago…', comprar);
+  $('#pagarLocal').onclick = (e) => ocupado(e.currentTarget, 'Preparando…', comprarLocal);
+
+  if (intentoCaido) {
+    $('#nombre').value = intentoCaido.nombre;
+    $('#email').value = intentoCaido.email;
+    const aviso = document.createElement('p');
+    aviso.className = 'nota warn';
+    aviso.style.textAlign = 'left';
+    aviso.innerHTML = '<b>El cobro no se completó, y no se te cobró nada.</b> '
+      + (intentoCaido.nombre ? 'Te dejamos tus datos puestos: ' : '')
+      + 'puedes volver a intentarlo con otra tarjeta, o pagar por transferencia.';
+    $('#caja').prepend(aviso);
+  }
 }
 
 async function comprar() {
@@ -167,6 +254,125 @@ async function comprar() {
   if (!r.ok || !d?.url) { fail(d?.error || 'No se pudo abrir el pago. Inténtalo otra vez.'); return; }
 
   location.href = d.url;
+}
+
+async function recuperarIntento() {
+  const previa = qs('compra');
+  let d = null;
+  if (previa) {
+    const { data } = await sb.rpc('cem_compra_invitado_estado', { p_compra_id: previa });
+    /* Sólo se recupera lo que sigue a la espera. Si esa compra ya se pagó, lo
+       que hay que hacer no es reintentar: es mandarla a su aula. */
+    if (data?.hay && data.estado === 'pagada') {
+      location.replace(`bienvenida.html?compra=${encodeURIComponent(previa)}`);
+      return;
+    }
+    if (data?.hay) d = data;
+  }
+  /* Se guarda en el ámbito del módulo y lo vuelve a poner `pintar()`: esta
+     pantalla se repinta al cambiar de plan y al llegar la tasa, y un aviso que
+     desaparece solo —llevándose los datos escritos— es peor que no ponerlo. */
+  intentoCaido = { nombre: d?.nombre || '', email: d?.email || '' };
+  pintar();
+}
+
+/* ============ pagar por transferencia o pago móvil ============
+   No hay pasarela que confirme sola, así que el trato es explícito: te
+   decimos a dónde mandar el dinero, tú nos das la referencia, y el equipo lo
+   comprueba contra el banco antes de abrirte el aula.
+
+   Se dice ese último paso con todas las letras. Prometer acceso inmediato y
+   luego tardar cuatro horas es peor que avisar de las cuatro horas. */
+async function comprarLocal() {
+  const nombre = $('#nombre').value.trim();
+  const email = $('#email').value.trim();
+  if (nombre.length < 2) { fail('Escribe tu nombre.'); $('#nombre').focus(); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) {
+    fail('Ese correo no parece un correo.'); $('#email').focus(); return;
+  }
+
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/cem-comprar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+    body: JSON.stringify({
+      accion: 'local', curso_id: curso.id, nombre, email,
+      cuotas: curso.cuotas_habilitadas ? plan : 1,
+    }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d?.compra_id) { fail(d?.error || 'No se pudo preparar el pago.'); return; }
+
+  if (!d.donde_pagar?.length) {
+    fail('Ahora mismo no tenemos dónde recibir transferencias. Escríbenos y lo resolvemos.');
+    return;
+  }
+  pintarDondePagar(d);
+}
+
+function pintarDondePagar(d) {
+  const enBs = enBolivares(d.a_cobrar);
+  $('#caja').innerHTML = `
+    <p class="tiny muted" style="margin:0">Vas a pagar</p>
+    <h1 style="margin:2px 0 var(--e1);font-size:1.4rem">${esc(d.curso)}</h1>
+    <div class="resumen" style="border-top:0;padding-top:0">
+      <span>${d.cuotas > 1 ? `1.ª cuota de ${d.cuotas}` : 'Total'}</span>
+      <span class="total">${money(d.a_cobrar, d.moneda)}</span>
+    </div>
+    ${enBs ? `<p class="tiny muted" style="margin:calc(var(--e2) * -1) 0 var(--e2);text-align:right">
+      Al cambio de hoy${enBs}</p>` : ''}
+
+    <h2 class="sec" style="margin-top:var(--e2)">1 · Manda el dinero a</h2>
+    ${d.donde_pagar.map((m) => `
+      <div class="nota" style="text-align:left;margin-bottom:var(--e1)">
+        <b>${esc(etiqueta(m.metodo || ''))}</b>
+        ${m.moneda ? `<span class="chip neutral tiny">${esc(m.moneda)}</span>` : ''}
+        <div class="tiny" style="margin-top:4px">
+          ${m.titular ? `${esc(m.titular)}<br>` : ''}
+          <b>${esc(m.destino_etiqueta || 'Cuenta')}:</b>
+          <span style="font-variant-numeric:tabular-nums">${esc(m.destino)}</span>
+        </div>
+        ${m.instrucciones ? `<p class="tiny muted" style="margin:6px 0 0">${esc(m.instrucciones)}</p>` : ''}
+      </div>`).join('')}
+
+    <h2 class="sec" style="margin-top:var(--e3)">2 · Dinos con qué referencia</h2>
+    <div class="field">
+      <label for="refMetodo">Cómo pagaste</label>
+      <select id="refMetodo">
+        ${d.donde_pagar.map((m) => `<option value="${esc(m.metodo)}">${esc(etiqueta(m.metodo || ''))}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label for="refNum">Referencia del pago</label>
+      <input id="refNum" maxlength="60" inputmode="numeric"
+        placeholder="Los últimos dígitos que te dio el banco">
+    </div>
+    <button class="btn block" id="declarar">
+      <span class="material-symbols-outlined">check</span> Ya pagué</button>
+    <p class="tiny muted" style="margin:var(--e2) 0 0">
+      Lo comprobamos contra el banco en horario de oficina y te llega el acceso
+      a <b>${esc($('#email')?.value || '')}</b> en cuanto cuadre. No hace falta
+      que hagas nada más.</p>`;
+
+  $('#declarar').onclick = (e) => ocupado(e.currentTarget, 'Enviando…', async () => {
+    const ref = $('#refNum').value.trim();
+    if (ref.length < 4) { fail('Escribe la referencia que te dio el banco.'); $('#refNum').focus(); return; }
+    const { error } = await sb.rpc('cem_compra_invitado_reportar', {
+      p_compra_id: d.compra_id,
+      p_metodo: $('#refMetodo').value,
+      p_referencia: ref,
+      p_monto: d.a_cobrar,
+    });
+    if (error) { fail(error.message || 'No se pudo enviar.'); return; }
+    $('#caja').innerHTML = `
+      <div class="tic-ok"><span class="material-symbols-outlined">check</span></div>
+      <h1 style="margin:var(--e2) 0 0;font-size:1.3rem;text-align:center">Recibido</h1>
+      <p class="muted" style="text-align:center">Estamos comprobando tu pago.
+        En cuanto cuadre con el banco te llega el acceso al aula por correo.</p>
+      <p class="nota" style="text-align:left">Guarda tu referencia:
+        <b style="font-variant-numeric:tabular-nums">${esc(ref)}</b>.
+        Si en 24 horas laborables no has recibido nada, escríbenos con ella.</p>
+      <a class="btn outline block" href="catalogo.html">Volver a los programas</a>`;
+  });
 }
 </script>
 </body>

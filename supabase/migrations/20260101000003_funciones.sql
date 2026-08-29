@@ -4064,6 +4064,93 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_compra_invitado_rechazar(p_compra_id uuid, p_motivo text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if not cem_puede_cobranza() then raise exception 'No tienes permiso.'; end if;
+  update cem_compras_invitado
+     set estado = 'fallida', nota_equipo = left(coalesce(p_motivo,''), 300)
+   where id = p_compra_id and estado = 'reportada';
+  if not found then raise exception 'Esa compra no está a la espera.'; end if;
+  perform cem_bot_anotar_accion('compra_invitado_rechazada', 'cem_compras_invitado',
+            p_compra_id, 'medio', jsonb_build_object('motivo', p_motivo));
+  return jsonb_build_object('ok', true);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_compra_invitado_reportar(p_compra_id uuid, p_metodo text, p_referencia text, p_monto numeric DEFAULT NULL::numeric)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare c cem_compras_invitado%rowtype; v_curso text;
+begin
+  select * into c from cem_compras_invitado where id = p_compra_id;
+  if not found then raise exception 'Esa compra no existe.'; end if;
+  if c.estado not in ('pendiente','reportada') then
+    raise exception 'Esa compra ya no está a la espera.';
+  end if;
+  if coalesce(trim(p_referencia), '') = '' then
+    raise exception 'Hace falta la referencia del pago.';
+  end if;
+  if coalesce(trim(p_metodo), '') = '' then
+    raise exception 'Hace falta decir cómo pagaste.';
+  end if;
+
+  select nombre into v_curso from cem_courses where id = c.course_id;
+
+  update cem_compras_invitado
+     set estado = 'reportada',
+         metodo = left(trim(p_metodo), 40),
+         referencia = left(trim(p_referencia), 60),
+         monto_reportado = p_monto,
+         reportada_en = now()
+   where id = p_compra_id;
+
+  -- El equipo se entera por la campana.
+  perform cem_avisar_equipo(
+    'pago_reportado',
+    'Pago reportado sin cuenta: ' || coalesce(c.nombre, c.email),
+    coalesce(c.nombre, 'Alguien') || ' dice haber pagado ' || coalesce(v_curso, 'un programa')
+      || ' por ' || left(trim(p_metodo), 40)
+      || ', referencia ' || left(trim(p_referencia), 60) || '.',
+    '/plataforma/admin/inscripciones.html?compra=' || p_compra_id,
+    array['admin','superadmin','cobranza','coordinador']);
+
+  return jsonb_build_object('ok', true, 'compra_id', p_compra_id);
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_compras_invitado_pendientes()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select case when not cem_puede_cobranza() then '[]'::jsonb else
+    coalesce((select jsonb_agg(jsonb_build_object(
+        'id', c.id, 'nombre', c.nombre, 'email', c.email,
+        'curso', cu.nombre, 'course_id', c.course_id,
+        'cuotas', c.cuotas, 'a_cobrar', c.monto, 'moneda', c.moneda,
+        'metodo', c.metodo, 'referencia', c.referencia,
+        'monto_reportado', c.monto_reportado,
+        'estado', c.estado,
+        'reportada_en', c.reportada_en, 'creada_en', c.creada_en)
+      order by c.reportada_en desc nulls last, c.creada_en desc)
+      from cem_compras_invitado c
+      left join cem_courses cu on cu.id = c.course_id
+     where c.estado = 'reportada'), '[]'::jsonb)
+  end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_compras_rescatar()
  RETURNS integer
  LANGUAGE plpgsql
@@ -4934,6 +5021,27 @@ AS $function$
     from cem_metodos_pago m
    where m.activo
      and auth.uid() is not null;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_donde_pagar_publico()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'metodo', m.metodo,
+           'moneda', m.moneda,
+           'titular', m.titular,
+           'destino', m.destino,
+           'destino_etiqueta', coalesce(m.destino_etiqueta, 'Cuenta'),
+           'datos', m.datos,
+           'instrucciones', m.instrucciones)
+         order by m.orden), '[]'::jsonb)
+    from cem_metodos_pago m
+   where m.activo
+     and nullif(trim(coalesce(m.destino, '')), '') is not null;
 $function$
 ;
 
@@ -9513,6 +9621,32 @@ begin
 
   return v_pago;
 end; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_recibo_compra_invitado(p_compra_id uuid)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select jsonb_build_object(
+    'hay', true,
+    'numero', 'CEM-' || upper(left(replace(c.id::text, '-', ''), 8)),
+    'emitido_en', to_char(now() at time zone 'America/Caracas', 'DD/MM/YYYY HH24:MI'),
+    'estudiante', c.nombre,
+    'email', c.email,
+    'programa', cu.nombre,
+    'cuota', case when c.cuotas > 1 then 1 else null end,
+    'de_cuotas', c.cuotas,
+    'fecha', to_char(coalesce(c.pagada_en, c.creada_en) at time zone 'America/Caracas', 'DD/MM/YYYY'),
+    'metodo', coalesce(c.metodo, 'Tarjeta de crédito/débito'),
+    'referencia', c.referencia,
+    'monto', c.monto,
+    'moneda', c.moneda)
+  from cem_compras_invitado c
+  join cem_courses cu on cu.id = c.course_id
+  where c.id = p_compra_id and c.estado = 'pagada';
+$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.cem_recibo_pago(p_payment_id uuid)

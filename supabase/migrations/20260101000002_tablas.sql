@@ -359,7 +359,12 @@ create table if not exists public.cem_compras_invitado (
   ip text,
   creada_en timestamp with time zone not null default now(),
   pagada_en timestamp with time zone,
-  rescatada_en timestamp with time zone
+  rescatada_en timestamp with time zone,
+  metodo text,
+  referencia text,
+  monto_reportado numeric,
+  reportada_en timestamp with time zone,
+  nota_equipo text
 );
 comment on table public.cem_compras_invitado is 'Compras empezadas por gente sin cuenta. La cuenta y la inscripción se crean sólo cuando el pago entra.';
 

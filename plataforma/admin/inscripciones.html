@@ -44,6 +44,28 @@
       <tbody id="tbSol"></tbody></table></div>
   </div>
 
+  <!-- Pagos declarados por gente que todavía no tiene cuenta.
+       ─────────────────────────────────────────────────────────────────────
+       Quien compra por transferencia o pago móvil sin registrarse deja aquí
+       su referencia. No es un pago hasta que alguien lo ve en el extracto:
+       este cuadro es ese paso, y por eso está arriba del todo y en amarillo.
+
+       Confirmar aquí hace exactamente lo mismo que hace Stripe cuando cobra
+       una tarjeta —crea la cuenta, la inscripción, la primera cuota y el
+       pago—, porque es el mismo código. -->
+  <div class="card" id="cardCompras" hidden>
+    <div class="row between">
+      <h2 class="sec">Pagos por confirmar (sin cuenta todavía)</h2>
+      <span class="chip warn" id="contCompras"></span>
+    </div>
+    <p class="tiny muted" style="margin-top:0">Comprueba la referencia contra el banco antes
+      de confirmar. Al confirmar se le crea la cuenta y se le abre el aula.</p>
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>Quién</th><th>Programa</th><th>Cómo</th><th>Referencia</th>
+        <th class="num">Monto</th><th>Cuándo</th><th></th></tr></thead>
+      <tbody id="tbCompras"></tbody></table></div>
+  </div>
+
   <!-- item 22 · una invitación es una oferta con precio puesta por escrito.
        Mientras nadie la conteste hay que poder verla y poder retirarla. -->
   <details class="card" id="cardInvit" hidden>
@@ -85,14 +107,15 @@ import { sb, mount, MONEDA_BASE, $, $$, esc, chip, money, num, fdate, fdateCorta
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
          ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion,
-         campoBuscar, campoDescuento, conectarFiltros } from '../assets/app.js?v=2026-08-29';
+         campoBuscar, campoDescuento, conectarFiltros, confirmDialog,
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-08-29';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
 const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
-let ens=[], insts=[], pays=[], sols=[], invits=[], tab='ins';
+let ens=[], insts=[], pays=[], sols=[], invits=[], compras=[], tab='ins';
 if (p) load();
 
 async function load(){
-  const [{data:e},{data:i},{data:y},{data:s},{data:inv}] = await Promise.all([
+  const [{data:e},{data:i},{data:y},{data:s},{data:inv},{data:cmp}] = await Promise.all([
     sb.from('cem_enrollments').select('*,cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email),cem_courses(nombre),cem_cohorts(nombre)').order('fecha_inscripcion',{ascending:false}).limit(500),
     sb.from('cem_installments').select('*').order('fecha_vencimiento').limit(500),
     sb.from('cem_payments').select('*').order('fecha',{ascending:false}).limit(500),
@@ -102,9 +125,13 @@ async function load(){
       .select('*,cem_profiles!cem_solicitudes_inscripcion_profile_id_fkey(nombre,apellido),cem_enrollments(cem_courses(nombre))')
       .eq('estado','pendiente').order('created_at'),
     sb.rpc('cem_invitaciones_listar'),
+    /* Pagos declarados por gente sin cuenta. Van aparte porque no son
+       inscripciones todavía: son la promesa de una. */
+    sb.rpc('cem_compras_invitado_pendientes'),
   ]);
-  ens=e||[]; insts=i||[]; pays=y||[]; sols=s||[]; invits=inv||[];
+  ens=e||[]; insts=i||[]; pays=y||[]; sols=s||[]; invits=inv||[]; compras=cmp||[];
   renderSolicitudes();
+  renderCompras();
   renderInvitaciones();
   const hoy = new Date().toISOString().slice(0,10);
   const vencidas = insts.filter(x=>['pendiente','parcial','vencida'].includes(x.estado) && x.fecha_vencimiento < hoy);
@@ -127,6 +154,91 @@ const EFECTO = {
   reactivacion: 'La inscripción vuelve a "activa" y las cuotas congeladas se reactivan desde donde quedaron.',
   plan_de_pago: 'Lo que queda por pagar se reparte en el número de cuotas que pidió, una al mes, empezando dentro de 30 días. Lo ya pagado no se toca, y si alguna cuota pendiente tiene un pago detrás la operación se rechaza entera.',
 };
+
+/* ============ pagos declarados por gente sin cuenta ============
+   Confirmar aquí no toca la base directamente: llama a cem-comprar, que es
+   donde vive la conversión de compra en alumno —la misma que usa el webhook de
+   Stripe—. Crear la cuenta de acceso necesita la clave de servicio, y ésa no
+   puede vivir en una pantalla. */
+function renderCompras(){
+  $('#cardCompras').hidden = compras.length === 0;
+  if (!compras.length) return;
+  $('#contCompras').textContent = `${compras.length} por confirmar`;
+  $('#tbCompras').innerHTML = compras.map(c => `<tr>
+    <td class="wrap"><b>${esc(c.nombre || '—')}</b>
+      <div class="tiny muted">${esc(c.email || '')}</div></td>
+    <td class="wrap">${esc(c.curso || '—')}${
+      c.cuotas > 1 ? `<div class="tiny muted">1.ª de ${c.cuotas} cuotas</div>` : ''}</td>
+    <td>${esc(etiqueta(c.metodo || ''))}</td>
+    <td class="nowrap" style="font-variant-numeric:tabular-nums">${esc(c.referencia || '—')}</td>
+    <td class="num">${money(c.monto_reportado ?? c.a_cobrar, c.moneda)}${
+      Number(c.monto_reportado) && Number(c.monto_reportado) !== Number(c.a_cobrar)
+        ? `<div class="tiny" style="color:var(--warn)">esperábamos ${money(c.a_cobrar, c.moneda)}</div>` : ''}</td>
+    <td class="muted">${fdate(c.reportada_en)}</td>
+    <td class="nowrap">${editable ? `
+      <button class="btn ghost sm" data-cmp-ok="${c.id}" title="Aparece en el banco: confirmar">
+        <span class="material-symbols-outlined">check</span></button>
+      <button class="btn ghost sm" data-cmp-no="${c.id}" style="color:var(--error)" title="No aparece: rechazar">
+        <span class="material-symbols-outlined">close</span></button>`
+      : '<span class="tiny muted">sólo lectura</span>'}</td></tr>`).join('');
+
+  $$('[data-cmp-ok]').forEach(b => b.onclick = () => confirmarCompra(b.dataset.cmpOk));
+  $$('[data-cmp-no]').forEach(b => b.onclick = () => rechazarCompra(b.dataset.cmpNo));
+}
+
+async function confirmarCompra(id){
+  const c = compras.find(x => x.id === id);
+  /* Se dice qué va a pasar ANTES, no después: esto crea una cuenta con el
+     correo de otra persona y le abre un aula. Si el dinero no estaba, deshacerlo
+     es mucho más trabajo que esperar diez minutos a mirar el extracto. */
+  const ok0 = await confirmDialog(
+    `¿El pago de <b>${esc(c?.nombre || 'esta persona')}</b>, referencia `
+    + `<b>${esc(c?.referencia || '—')}</b>, aparece ya en el banco?<br><br>`
+    + 'Al confirmar se le crea la cuenta, se le abre el aula y se registra el pago.',
+    'Confirmar un pago declarado', { html: true, confirmar: 'Sí, lo he visto' });
+  if (!ok0) return;
+
+  const { data:{ session } } = await sb.auth.getSession();
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/cem-comprar`, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY,
+              Authorization: `Bearer ${session?.access_token}` },
+    body: JSON.stringify({ accion:'confirmar', compra_id:id }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d?.error) { fail(d?.error || 'No se pudo confirmar.'); return; }
+  await audit('compra_invitado_confirmada','cem_compras_invitado',id,'alto',
+              { referencia: c?.referencia });
+  ok('Confirmado. Ya tiene cuenta y su aula abierta.');
+  load();
+}
+
+function rechazarCompra(id){
+  const c = compras.find(x => x.id === id);
+  const m = modal({
+    title: 'Rechazar este pago',
+    body: `<p class="tiny muted" style="margin-top:0">La referencia
+        <b>${esc(c?.referencia || '—')}</b> de <b>${esc(c?.nombre || '')}</b>
+        se marca como no cobrada. No se le crea cuenta ni se le abre nada.</p>
+      <div class="field"><label for="cmpMotivo">¿Por qué? *</label>
+        <textarea id="cmpMotivo" rows="3"
+          placeholder="Ej.: esa referencia no aparece en el extracto de esta semana."></textarea></div>
+      <div id="cmpMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn danger" data-s>Rechazar</button>`,
+  });
+  $('[data-s]', m).onclick = async () => {
+    const motivo = $('#cmpMotivo', m).value.trim();
+    if (motivo.length < 10) {
+      avisar($('#cmpMsg', m), 'Escribe el motivo con una frase completa: queda escrito.', 'err');
+      return;
+    }
+    const { error } = await sb.rpc('cem_compra_invitado_rechazar',
+      { p_compra_id: id, p_motivo: motivo });
+    if (error) { avisar($('#cmpMsg', m), mensajeError(error), 'err'); return; }
+    m.close(); ok('Rechazado'); load();
+  };
+}
 
 function renderSolicitudes(){
   $('#cardSolicitudes').hidden = sols.length === 0;

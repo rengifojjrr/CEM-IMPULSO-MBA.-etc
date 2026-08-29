@@ -23,10 +23,28 @@
 // normal. Es lo unico que impide que alguien pida un cobro de un euro por un
 // diplomado abriendo las herramientas de su navegador.
 
+// TRES PUERTAS, UNA SOLA FUNCION
+// ---------------------------------------------------------------------------
+//   (sin accion)  · abre el cobro con tarjeta en Stripe. Es lo de siempre.
+//   accion=local  · abre la MISMA intencion de compra sin Stripe, para quien
+//                   va a pagar por transferencia o pago movil. En Venezuela
+//                   esto no es una alternativa: es la forma normal de pagar.
+//   accion=confirmar · el equipo dice que ese pago aparecio en el banco, y
+//                   entonces —y solo entonces— nace la cuenta y la inscripcion.
+//
+// Van juntas porque comparten lo unico delicado que hay aqui: el importe lo
+// pone la base y no el navegador. Separarlas en tres funciones era repartir esa
+// regla en tres sitios.
+
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+/* Convertir una compra de invitado en alumno es exactamente el mismo trabajo
+   lo confirme Stripe o lo confirme una persona mirando el extracto, asi que lo
+   hace un solo modulo compartido con cem-stripe-webhook. */
+import { cerrarCompraInvitado } from '../_shared/cerrar-compra.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -41,12 +59,35 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'no' }, 405);
 
   try {
-    const { curso_id, nombre, email, cuotas, cohorte_id, volver_a } =
-      await req.json().catch(() => ({} as Record<string, unknown>));
+    const cuerpo0 = await req.json().catch(() => ({} as Record<string, unknown>));
+    const { curso_id, nombre, email, cuotas, cohorte_id, volver_a, accion } = cuerpo0;
+
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // ── El equipo confirma un pago que vio en el banco ──────────────────────
+    if (accion === 'confirmar') return await confirmar(admin, req, cuerpo0);
 
     if (!curso_id) return json({ error: 'Falta decir qué programa.' }, 400);
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    // ── Pago local: la misma intención de compra, sin pasar por Stripe ──────
+    if (accion === 'local') {
+      const ipL = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
+      const { data: c, error: e } = await admin.rpc('cem_compra_invitado_abrir', {
+        p_course_id: curso_id,
+        p_nombre: String(nombre ?? ''),
+        p_email: String(email ?? ''),
+        p_cuotas: Number(cuotas ?? 1),
+        p_cohort_id: cohorte_id ?? null,
+        p_ip: ipL,
+      });
+      if (e) return json({ error: e.message }, 400);
+      const { data: donde } = await admin.rpc('cem_donde_pagar_publico');
+      return json({
+        ok: true, compra_id: c.compra_id, curso: c.curso,
+        a_cobrar: c.a_cobrar_ahora, moneda: c.moneda, cuotas: c.cuotas,
+        donde_pagar: donde ?? [],
+      });
+    }
 
     const { data: cfg } = await admin.from('cem_integraciones')
       .select('datos').eq('id', 'stripe').maybeSingle();
@@ -96,7 +137,12 @@ Deno.serve(async (req) => {
         ? `${compra.curso} — cuota 1 de ${cuotasN}`
         : String(compra.curso),
       success_url: `${origen}/plataforma/bienvenida.html?compra=${compra.compra_id}`,
-      cancel_url: `${origen}/plataforma/curso.html?id=${curso_id}&pago=cancelado`,
+      /* Vuelve a la pantalla de comprar y no a la ficha, y con el numero de
+         compra: asi puede reintentar con sus datos ya puestos o cambiarse a
+         pago movil, en vez de empezar de cero. Una tarjeta rechazada no puede
+         costar la venta entera. */
+      cancel_url: `${origen}/plataforma/comprar.html?curso=${curso_id}`
+        + `&compra=${compra.compra_id}&pago=cancelado`,
       client_reference_id: String(compra.compra_id),
       'metadata[compra_invitado_id]': String(compra.compra_id),
       customer_email: String(compra.email),
@@ -129,3 +175,48 @@ Deno.serve(async (req) => {
     return json({ error: String((e as Error).message || e) }, 500);
   }
 });
+
+/* ── Confirmar a mano un pago local ────────────────────────────────────────
+   Esta funcion esta abierta al publico (verify_jwt = false), asi que aqui el
+   permiso NO se da por supuesto: se comprueba con el propio token de quien
+   llama, preguntandole a la base con SUS credenciales si puede cobranza. Es la
+   misma respuesta que da la pantalla, no una copia de la regla.
+
+   Lo que se registra es lo que la persona declaro y el equipo comprobo: su
+   referencia y su metodo. Falsear esto es la diferencia entre un extracto que
+   cuadra y uno que no. */
+async function confirmar(
+  admin: ReturnType<typeof createClient>,
+  req: Request,
+  cuerpo: Record<string, unknown>,
+): Promise<Response> {
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!token) return json({ error: 'Hace falta iniciar sesión.' }, 401);
+
+  const comoQuienLlama = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data: puede, error: ePuede } = await comoQuienLlama.rpc('cem_puede_cobranza');
+  if (ePuede) return json({ error: ePuede.message }, 401);
+  if (!puede) return json({ error: 'No tienes permiso para confirmar cobros.' }, 403);
+
+  const compraId = String(cuerpo.compra_id ?? '');
+  if (!compraId) return json({ error: 'Falta decir qué compra.' }, 400);
+
+  const { data: compra } = await admin.from('cem_compras_invitado')
+    .select('*').eq('id', compraId).maybeSingle();
+  if (!compra) return json({ error: 'Esa compra no existe.' }, 404);
+  if (compra.estado !== 'reportada') {
+    return json({ error: `Esa compra está ${compra.estado}, no a la espera.` }, 409);
+  }
+
+  const r = await cerrarCompraInvitado(admin, compraId, {
+    // Lo que de verdad entró, si el equipo lo corrige; si no, lo que tocaba.
+    monto: Number(cuerpo.monto ?? compra.monto_reportado ?? compra.monto ?? 0),
+    moneda: String(cuerpo.moneda ?? compra.moneda ?? 'USD').toUpperCase(),
+    referencia: String(compra.referencia ?? compraId),
+    metodo: String(compra.metodo ?? 'Pago móvil'),
+  });
+  if (r.error) return json({ error: r.error }, r.status ?? 500);
+  return json(r.cuerpo);
+}
