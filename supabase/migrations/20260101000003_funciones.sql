@@ -5046,6 +5046,50 @@ $function$
 ;
 comment on function public.cem_docente_de_curso(p_course_id uuid) is 'Cierto si quien llama tiene asignado ese curso (directo o a través de una cohorte suya).';
 
+CREATE OR REPLACE FUNCTION public.cem_docente_quien_se_esta_yendo(p_cuantos integer DEFAULT 12)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(jsonb_agg(x order by (x->>'dias_sin_entrar')::int desc nulls first), '[]'::jsonb)
+  from (
+    select jsonb_build_object(
+             'enrollment_id',   e.id,
+             'profile_id',      pr.id,
+             'quien',           trim(coalesce(pr.nombre,'') || ' ' || coalesce(pr.apellido,'')),
+             'email',           pr.email,
+             'grupo',           co.nombre,
+             'cohort_id',       co.id,
+             'programa',        c.nombre,
+             'avance',          round(coalesce(e.progreso, 0)),
+             -- Nunca entró es peor que llevar veinte días sin entrar, así que
+             -- va arriba: se manda como nulo y el orden lo pone primero.
+             'dias_sin_entrar', case when e.ultimo_acceso is null then null
+                                     else (current_date - e.ultimo_acceso::date) end,
+             'nunca_entro',     e.ultimo_acceso is null,
+             'sin_entregar',    (select count(*) from cem_assessments a
+                                  where a.course_id = e.course_id
+                                    and a.estado = 'publicado'
+                                    and not exists (select 1 from cem_submissions s
+                                                     where s.enrollment_id = e.id
+                                                       and s.assessment_id = a.id))
+           ) as x
+      from cem_enrollments e
+      join cem_cohorts co  on co.id = e.cohort_id
+      join cem_courses c   on c.id = e.course_id
+      join cem_profiles pr on pr.id = e.profile_id
+     where e.estado = 'activa'
+       and cem_docente_de_cohorte(co.id)
+       /* Dos semanas es el corte: por debajo de eso, un silencio es una
+          semana ocupada; por encima, empieza a ser una baja. */
+       and (e.ultimo_acceso is null or e.ultimo_acceso < now() - interval '14 days')
+     order by e.ultimo_acceso asc nulls first
+     limit greatest(1, least(50, coalesce(p_cuantos, 12)))
+  ) t;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_donde_pagar()
  RETURNS jsonb
  LANGUAGE sql

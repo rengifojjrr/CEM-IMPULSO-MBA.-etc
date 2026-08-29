@@ -2517,6 +2517,10 @@ revoke all on function public.cem_docente_de_curso(p_course_id uuid) from public
 grant execute on function public.cem_docente_de_curso(p_course_id uuid) to anon;
 grant execute on function public.cem_docente_de_curso(p_course_id uuid) to authenticated;
 grant execute on function public.cem_docente_de_curso(p_course_id uuid) to service_role;
+revoke all on function public.cem_docente_quien_se_esta_yendo(p_cuantos integer) from public, anon;
+grant execute on function public.cem_docente_quien_se_esta_yendo(p_cuantos integer) to anon;
+grant execute on function public.cem_docente_quien_se_esta_yendo(p_cuantos integer) to authenticated;
+grant execute on function public.cem_docente_quien_se_esta_yendo(p_cuantos integer) to service_role;
 revoke all on function public.cem_donde_pagar() from public, anon;
 grant execute on function public.cem_donde_pagar() to authenticated;
 grant execute on function public.cem_donde_pagar() to service_role;

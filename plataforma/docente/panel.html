@@ -35,6 +35,26 @@
     <div class="card"><h2 class="sec">Próximas sesiones</h2><div id="sesiones"></div></div>
   </div>
 
+  <!-- Quién se está yendo.
+       ─────────────────────────────────────────────────────────────────────
+       La información ya existía, pero repartida: cada grupo tiene su cuadro
+       de retención y había que entrar grupo por grupo a buscarla. Un profesor
+       con cuatro grupos no hace esa ronda, así que en la práctica no la
+       miraba nadie.
+
+       Quien lleva tres semanas sin entrar todavía no se ha ido, pero se está
+       yendo, y ése es el único momento en que un mensaje sirve de algo. Por
+       eso está aquí arriba, con el botón de escribirle al lado. -->
+  <div class="card" id="cardSeVan" hidden>
+    <div class="row between"><h2 class="sec">Se están quedando atrás</h2>
+      <span class="chip warn" id="nSeVan"></span></div>
+    <p class="tiny muted" style="margin-top:-6px">Llevan más de dos semanas sin entrar.
+      Todavía se les puede recuperar; en un mes, ya no.</p>
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>Quién</th><th>Grupo</th><th>Sin entrar</th><th>Avance</th><th></th></tr></thead>
+      <tbody id="tbSeVan"></tbody></table></div>
+  </div>
+
   <!-- Las dudas de las lecciones que dicta. Antes acababan en su WhatsApp o no
        se preguntaban; ahora tienen sitio y se ven aquí las que nadie contestó. -->
   <div class="card" id="cardDudas" hidden>
@@ -71,6 +91,35 @@ const me = await mount({ require:['profesor'], active:'panel.html', area:'docent
 let cohortes=[], clases=[], subsPend=[];
 if (me) load();
 
+/* Quién se está quedando atrás, en todos sus grupos a la vez.
+   La lista la acota el servidor con la misma regla que decide si puede abrir
+   un grupo, así que aquí no hay que filtrar nada ni se puede colar nadie de
+   otro profesor. */
+async function pintarSeVan(){
+  const { data } = await sb.rpc('cem_docente_quien_se_esta_yendo', { p_cuantos: 12 });
+  const filas = data || [];
+  $('#cardSeVan').hidden = filas.length === 0;
+  if (!filas.length) return;
+
+  $('#nSeVan').textContent = `${filas.length} persona${filas.length > 1 ? 's' : ''}`;
+  $('#tbSeVan').innerHTML = filas.map(f => `<tr>
+    <td class="wrap"><b>${esc(f.quien || 'Sin nombre')}</b>
+      ${f.sin_entregar > 0 ? `<div class="tiny muted">${f.sin_entregar} sin entregar</div>` : ''}</td>
+    <td class="wrap">${esc(f.grupo || '—')}
+      <div class="tiny muted">${esc(f.programa || '')}</div></td>
+    <td>${f.nunca_entro
+      ? '<span class="chip err">nunca entró</span>'
+      : `<b>${f.dias_sin_entrar}</b> días`}</td>
+    <td style="min-width:110px">${bar(f.avance)}<span class="tiny muted">${pct(f.avance)}</span></td>
+    <td class="nowrap">
+      <button class="btn outline sm" data-escribir="${esc(f.profile_id)}"
+        data-nombre="${esc(f.quien || '')}">
+        <span class="material-symbols-outlined">mail</span> Escribirle</button></td></tr>`).join('');
+
+  $$('[data-escribir]').forEach(b => b.onclick = () =>
+    escribirle(b.dataset.escribir, b.dataset.nombre));
+}
+
 async function load(){
   $('#saludo').textContent = `Bienvenido, Prof. ${me.apellido || me.nombre}`;
   const { data: tas } = await sb.from('cem_teacher_assignments')
@@ -89,6 +138,8 @@ async function load(){
     ? await sb.from('cem_submissions').select('*,cem_assessments(nombre,course_id,cem_courses(nombre))').in('enrollment_id',eids).eq('estado','entregada')
     : { data: [] };
   subsPend = subs||[];
+
+  pintarSeVan();
 
   const totalAlumnos = (ens||[]).length;
   const partic = (ens||[]).length? (ens||[]).reduce((a,e)=>a+Number(e.progreso||0),0)/(ens||[]).length : 0;
