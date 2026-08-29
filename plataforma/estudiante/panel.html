@@ -135,6 +135,18 @@ async function init(){
   const { data: acceso } = await sb.rpc('cem_mi_acceso');
   const puertas = acceso || {};
 
+  /* Por dónde sigue cada curso, con nombre.
+     ═══════════════════════════════════════════════════════════════════════
+     El botón ponía «Continuar» y encima había un «34%». El porcentaje
+     informa; el nombre de la lección es lo que hace que se pulse. «34%» es
+     una pregunta —¿y ahora qué?—; «Sigues por: Segmentar una audiencia» es
+     una decisión ya tomada.
+
+     Y lleva directo a esa lección, no a la portada del curso: un paso menos
+     entre querer estudiar y estar estudiando. */
+  const { data: pasos } = await sb.rpc('cem_mi_siguiente_paso');
+  const siguiente = pasos || {};
+
   pintarGraficos(ens || []);
 
   const prog = ens?.length? ens.reduce((a,e)=>a+Number(e.progreso||0),0)/ens.length : 0;
@@ -191,13 +203,23 @@ async function init(){
            después de pintar: son dos preguntas al servidor por curso y no
            merecen retrasar la pantalla entera. -->
       <div class="pistas" data-pista="${e.id}"></div>
+      ${puertas[e.id]?.abierto !== false && siguiente[e.id] ? `
+        <div class="paso-siguiente sep">
+          <span class="tiny muted">${siguiente[e.id].empezar ? 'Empiezas por' : 'Sigues por'}</span>
+          <b>${esc(siguiente[e.id].leccion)}</b>
+          <span class="tiny muted">${esc(siguiente[e.id].modulo || '')}${
+            siguiente[e.id].dura ? ` · ${siguiente[e.id].dura} min` : ''}</span>
+        </div>` : ''}
       <div class="row sep">
         ${puertas[e.id]?.abierto === false
           ? `<a class="btn abrir-curso" href="pagos.html?enr=${e.id}">
                <span class="material-symbols-outlined">lock_open</span> Pagar para empezar</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`
-          : `<a class="btn abrir-curso" href="clase.html?curso=${e.cem_courses?.id}">
-               <span class="material-symbols-outlined">play_arrow</span> Continuar</a>
+          : `<a class="btn abrir-curso" href="${siguiente[e.id]
+               ? `clase.html?clase=${siguiente[e.id].lesson_id}`
+               : `clase.html?curso=${e.cem_courses?.id}`}">
+               <span class="material-symbols-outlined">play_arrow</span> ${
+                 siguiente[e.id]?.empezar ? 'Empezar' : 'Continuar'}</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`}
       </div>
       ${puertas[e.id]?.abierto === false ? `<p class="tiny muted sep-poco">
@@ -386,8 +408,13 @@ function pistaCertificado(req){
   if (!req) return '';
   if (req.ya_emitido) return `<p class="pista ok"><span class="material-symbols-outlined">workspace_premium</span>
     Tu certificado ya está emitido. <a href="certificados.html">Verlo</a></p>`;
+  /* «Ya se está tramitando» era una promesa sin dueño: no había nada que lo
+     tramitara, había que ir a pedirlo. Ahora sí lo hay —cem_certificados_al_dia
+     corre cada día— así que se puede decir cuándo, y decirlo es lo que evita la
+     pregunta al día siguiente. */
   if (req.listo) return `<p class="pista ok"><span class="material-symbols-outlined">workspace_premium</span>
-    Cumples todo para el certificado. Ya se está tramitando.</p>`;
+    Cumples todo para el certificado. Se emite solo y te avisamos en cuanto esté;
+    no tienes que pedirlo.</p>`;
 
   // Se dice lo que falta, no lo que está mal. «Le faltan 3 evaluaciones de 3»
   // es un informe interno; «te faltan 3 evaluaciones» es una lista que se

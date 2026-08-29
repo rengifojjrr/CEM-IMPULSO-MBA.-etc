@@ -583,7 +583,26 @@ Deno.serve(async (req: Request) => {
       );
       const { error } = await sb.rpc("cem_puente_latido", { p_estado: cuerpo.estado ?? {} });
       if (error) console.error("[puente] no se pudo anotar el latido:", error);
-      return new Response(JSON.stringify({ ok: !error }),
+
+      /* Y de paso, lo que haya que mandar.
+         ───────────────────────────────────────────────────────────────────
+         Veronica sabia contestar y no sabia avisar. Ahora la plataforma deja
+         en una cola lo que quiere decir —un recordatorio de clase, por
+         ejemplo— y el puente se lo lleva en el mismo viaje del latido, que ya
+         pasa cada dos minutos.
+
+         Va aqui y no en una puerta nueva por lo mismo que el latido: esta ya
+         trae el secreto comprobado, y dos puertas son dos sitios donde
+         equivocarse. Si el latido no se pudo anotar tampoco se reparte
+         nada: seria mandar mensajes desde un puente que la base cree muerto. */
+      let mandar: unknown[] = [];
+      if (!error) {
+        const { data, error: eCola } = await sb.rpc("cem_wa_recoger", { p_tope: 20 });
+        if (eCola) console.error("[puente] no se pudo recoger la cola:", eCola);
+        else mandar = Array.isArray(data) ? data : [];
+      }
+
+      return new Response(JSON.stringify({ ok: !error, mandar }),
         { headers: { "Content-Type": "application/json" } });
     }
 

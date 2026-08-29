@@ -3722,6 +3722,53 @@ begin
 end; $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_certificados_al_dia()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare r record; v_req jsonb; v_n int := 0; v_id uuid; v_curso text;
+begin
+  for r in
+    select e.id, e.profile_id, e.course_id
+      from cem_enrollments e
+     where e.estado in ('activa','finalizada')
+       and coalesce(e.progreso, 0) >= 100
+       and not exists (select 1 from cem_certificates c
+                        where c.enrollment_id = e.id and c.estado = 'vigente'
+                          and coalesce(c.tipo, 'curso') = 'curso')
+  loop
+    v_req := cem_requisitos_certificado(r.id);
+    continue when not coalesce((v_req ->> 'listo')::boolean, false);
+
+    begin
+      select cem_issue_certificate(r.id, null, 'curso') into v_id;
+    exception when others then
+      /* Que un certificado no salga no puede parar los demás. Se anota y se
+         sigue: el equipo lo ve en la auditoría con el motivo exacto. */
+      insert into cem_audit_events (actor_id, accion, entidad, entidad_id, riesgo, detalle)
+      values (null, 'certificado_automatico_fallido', 'cem_enrollments', r.id, 'medio',
+              jsonb_build_object('error', sqlerrm));
+      continue;
+    end;
+
+    select c.nombre into v_curso from cem_courses c where c.id = r.course_id;
+
+    perform cem_notificar(r.profile_id, 'certificado_emitido',
+      'Tu certificado ya está listo',
+      format('Terminaste %s y cumpliste todo lo que hacía falta. '
+             || 'Ya puedes descargarlo desde tus certificados.',
+             coalesce(v_curso, 'tu programa')),
+      'estudiante/certificados.html', true);
+
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_certificar_modulos_terminados(p_enrollment_id uuid)
  RETURNS integer
  LANGUAGE plpgsql
@@ -8226,6 +8273,53 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_mi_siguiente_paso()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_out jsonb := '{}'::jsonb; r record; v_sig jsonb; v_vistas int;
+begin
+  for r in
+    select e.id as enr, e.course_id
+      from cem_enrollments e
+     where e.profile_id = auth.uid()
+       and e.estado in ('activa','pendiente')
+  loop
+    /* La primera lección publicada que no esté terminada, en el orden del
+       temario. Si están todas hechas, no hay siguiente paso: hay un final, y
+       eso lo dice la pista del certificado. */
+    select jsonb_build_object(
+             'lesson_id', l.id,
+             'leccion',   l.titulo,
+             'modulo',    m.titulo,
+             'dura',      l.duracion_min)
+      into v_sig
+      from cem_lessons l
+      join cem_modules m on m.id = l.module_id
+     where m.course_id = r.course_id
+       and l.estado = 'publicado'
+       and not exists (select 1 from cem_lesson_progress lp
+                        where lp.enrollment_id = r.enr and lp.lesson_id = l.id
+                          and lp.completado)
+     order by m.orden, l.orden
+     limit 1;
+
+    -- Si nunca ha visto nada, «empezar»; si ya empezó, «seguir».
+    select count(*) into v_vistas from cem_lesson_progress lp
+     where lp.enrollment_id = r.enr;
+
+    if v_sig is not null then
+      v_out := v_out || jsonb_build_object(r.enr::text,
+                 v_sig || jsonb_build_object('empezar', v_vistas = 0));
+    end if;
+  end loop;
+  return v_out;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_mis_invitaciones()
  RETURNS TABLE(id uuid, curso text, curso_id uuid, portada text, cohorte text, precio_lista numeric, descuento numeric, precio_final numeric, moneda text, cuotas integer, mensaje text, vence date, created_at timestamp with time zone)
  LANGUAGE sql
@@ -9687,6 +9781,63 @@ begin
     'metodo', v_pago.metodo, 'referencia', v_pago.referencia,
     'estado', v_pago.estado);
 end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_recordar_clases(p_horas integer DEFAULT 2)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare r record; v_n int := 0; v_tel text;
+begin
+  for r in
+    select cl.id, cl.titulo, cl.fecha, cl.hora_inicio, cl.cohort_id, cl.url_sesion,
+           cur.nombre as curso, e.profile_id
+      from cem_classes cl
+      join cem_cohorts co on co.id = cl.cohort_id
+      join cem_courses cur on cur.id = co.course_id
+      join cem_enrollments e on e.cohort_id = cl.cohort_id and e.estado = 'activa'
+     /* Por exclusión y no por lista: si mañana se añade un estado nuevo
+        —«aplazada», pongamos—, una clase con ese estado sigue avisando. Al
+        revés, una lista cerrada la deja fuera en silencio. */
+     where coalesce(cl.estado, 'programada') not in ('dictada','cancelada')
+       and (cl.fecha + cl.hora_inicio) at time zone 'America/Caracas'
+           between now() + make_interval(hours => greatest(1, coalesce(p_horas, 2))) - interval '30 minutes'
+               and now() + make_interval(hours => greatest(1, coalesce(p_horas, 2))) + interval '30 minutes'
+  loop
+    if not exists (select 1 from cem_notificaciones n
+                    where n.profile_id = r.profile_id
+                      and n.tipo = 'clase_recordatorio'
+                      and n.url like '%' || r.id::text || '%') then
+      perform cem_notificar(r.profile_id, 'clase_recordatorio',
+        format('%s empieza a las %s', coalesce(r.titulo, 'Tu clase en vivo'),
+               to_char(r.hora_inicio, 'HH24:MI')),
+        format('Sesión de %s. Te quedan un par de horas.', coalesce(r.curso, 'tu programa')),
+        'estudiante/clase.html?clase=' || r.id::text);
+      v_n := v_n + 1;
+    end if;
+
+    select n.telefono into v_tel from cem_bot_numeros n
+     where n.profile_id = r.profile_id and n.activo
+     order by n.created_at desc limit 1;
+
+    if v_tel is not null then
+      insert into cem_wa_salientes (telefono, texto, motivo, entidad, entidad_id, profile_id)
+      values (v_tel,
+        format('Hola. Te recordamos que %s empieza hoy a las %s.%s',
+               coalesce(r.titulo, 'tu clase de ' || coalesce(r.curso, 'CEM')),
+               to_char(r.hora_inicio, 'HH24:MI'),
+               case when r.url_sesion is not null
+                    then E'\nEntras por aquí: ' || r.url_sesion
+                    else E'\nEntras desde tu aula en escuelacem.com.' end),
+        'clase_recordatorio', 'cem_classes', r.id, r.profile_id)
+      on conflict do nothing;
+    end if;
+  end loop;
+  return v_n;
+end;
+$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.cem_recurso_borrar(p_id uuid)
@@ -12732,6 +12883,41 @@ AS $function$
 $function$
 ;
 comment on function public.cem_vitrina_publica() is 'Cifras reales para la portada: certificados, graduados y promociones. Se cuentan, no se escriben.';
+
+CREATE OR REPLACE FUNCTION public.cem_wa_recoger(p_tope integer DEFAULT 20)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_out jsonb;
+begin
+  if not cem_es_servidor() then raise exception 'Sólo el servidor.'; end if;
+
+  with tomados as (
+    update cem_wa_salientes s
+       set estado = 'entregado', entregado_en = now(), intentos = s.intentos + 1
+     where s.id in (select id from cem_wa_salientes
+                     where estado = 'pendiente'
+                       and creado_en > now() - interval '12 hours'
+                     order by creado_en
+                     limit greatest(1, least(50, coalesce(p_tope, 20)))
+                       for update skip locked)
+    returning s.id, s.telefono, s.texto, s.motivo)
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', id, 'telefono', telefono, 'texto', texto, 'motivo', motivo)), '[]'::jsonb)
+    into v_out from tomados;
+
+  /* Lo que lleva más de doce horas en cola ya no se manda: un recordatorio de
+     una clase de ayer es peor que ningún recordatorio. */
+  update cem_wa_salientes
+     set estado = 'caducado'
+   where estado = 'pendiente' and creado_en <= now() - interval '12 hours';
+
+  return v_out;
+end;
+$function$
+;
 
 CREATE OR REPLACE FUNCTION public.cem_youtube_app_estado()
  RETURNS jsonb

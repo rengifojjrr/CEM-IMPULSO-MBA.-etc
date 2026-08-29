@@ -84,6 +84,7 @@ alter table public.cem_ticket_messages enable row level security;
 alter table public.cem_tickets enable row level security;
 alter table public.cem_turnos enable row level security;
 alter table public.cem_valoraciones enable row level security;
+alter table public.cem_wa_salientes enable row level security;
 alter table public.cert_carpetas enable row level security;
 alter table public.cert_certificates enable row level security;
 alter table public.cert_lotes enable row level security;
@@ -730,6 +731,8 @@ create policy cem_valoraciones_las_mias on public.cem_valoraciones as permissive
    FROM (cem_classes c
      JOIN cem_enrollments e ON ((e.cohort_id = c.cohort_id)))
   WHERE ((c.id = cem_valoraciones.class_id) AND (e.profile_id = auth.uid()))))));
+create policy cem_wa_salientes_equipo on public.cem_wa_salientes as permissive for select to authenticated
+  using (cem_is_staff());
 create policy admin_can_read_cert_certificates on public.cert_certificates as permissive for select to authenticated
   using (is_cert_admin());
 create policy cert_lotes_gestores on public.cert_lotes as permissive for all to authenticated

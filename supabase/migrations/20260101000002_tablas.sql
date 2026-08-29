@@ -1125,6 +1125,22 @@ create table if not exists public.cem_valoraciones (
 );
 comment on table public.cem_valoraciones is 'Lo que opina un estudiante de una clase. El profesor y la coordinación ven los promedios y los comentarios SIN NOMBRE: si se supiera quién dijo qué, nadie diría nada útil.';
 
+create table if not exists public.cem_wa_salientes (
+  id uuid not null default gen_random_uuid(),
+  telefono text not null,
+  texto text not null,
+  motivo text not null,
+  entidad text,
+  entidad_id uuid,
+  profile_id uuid,
+  estado text not null default 'pendiente'::text,
+  intentos integer not null default 0,
+  error text,
+  creado_en timestamp with time zone not null default now(),
+  entregado_en timestamp with time zone
+);
+comment on table public.cem_wa_salientes is 'Cola de mensajes de WhatsApp que la plataforma quiere mandar. La vacía el puente al latir.';
+
 create table if not exists public.cert_carpetas (
   ruta text not null,
   creada_en timestamp with time zone not null default now(),

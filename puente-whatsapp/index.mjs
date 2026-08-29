@@ -216,6 +216,11 @@ async function mandarLatido() {
     if (!r.ok) throw new Error(`el cerebro respondió ${r.status}`);
     estado.ultimo_latido = ahora();
     quejaDeLatido = 0;
+
+    const respuesta = await r.json().catch(() => ({}));
+    if (Array.isArray(respuesta?.mandar) && respuesta.mandar.length) {
+      await repartir(respuesta.mandar);
+    }
   } catch (e) {
     // Una queja cada diez intentos fallidos: ni silencio total ni un renglón
     // cada dos minutos durante toda la noche.
@@ -223,6 +228,48 @@ async function mandarLatido() {
       log('!! no se pudo mandar el latido:', String(e).slice(0, 120));
     }
   }
+}
+
+/* ── Lo que la plataforma quiere decir ────────────────────────────────────
+   Verónica sabía contestar y no sabía avisar. Ahora la plataforma deja en una
+   cola lo que quiere mandar —el recordatorio de una clase, por ejemplo— y
+   vuelve en la respuesta del latido, sin un segundo viaje y sin abrir ningún
+   puerto hacia esta máquina, que es de casa.
+
+   Tres cuidados, y los tres tienen su motivo:
+
+     · En serie y con pausa. WhatsApp corta los números que disparan ráfagas, y
+       perder el número es perder el canal entero, no un mensaje.
+     · Sólo si está conectada. Mandar con la sesión caída no da error: se queda
+       encolado dentro de Baileys y sale más tarde, cuando ya no viene a cuento.
+     · Un fallo no para los demás. Se anota y se sigue.
+
+   Lo que NO hace, a propósito: reintentar. La base ya marcó el mensaje como
+   entregado al dárselo; si esta máquina se cae justo aquí se pierde un aviso.
+   Es preferible a la otra opción —marcar después—, que con un puente que se
+   reinicia manda el mismo mensaje tres veces, y eso sí lo nota quien lo
+   recibe. */
+const PAUSA_ENTRE_AVISOS = 4000;
+
+async function repartir(mensajes) {
+  if (!estado.conectado || !sockActual) {
+    log(`~~ ${mensajes.length} aviso(s) pendientes, pero la sesión no está conectada.`);
+    return;
+  }
+  let bien = 0;
+  for (const m of mensajes) {
+    const numero = String(m?.telefono ?? '').replace(/\D/g, '');
+    const texto = String(m?.texto ?? '').trim();
+    if (!numero || !texto) continue;
+    try {
+      await sockActual.sendMessage(`${numero}@s.whatsapp.net`, { text: texto });
+      bien++;
+    } catch (e) {
+      log(`!! no se pudo avisar a +${numero}:`, String(e).slice(0, 120));
+    }
+    await new Promise((r) => setTimeout(r, PAUSA_ENTRE_AVISOS));
+  }
+  if (bien) log(`→  ${bien} aviso(s) mandados desde la plataforma.`);
 }
 
 /* ── ¿Coincide el secreto? Se comprueba al arrancar, no al primer cliente ──

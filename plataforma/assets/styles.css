@@ -716,6 +716,15 @@ button.avatar:hover{outline:2px solid var(--primary);outline-offset:1px;}
   white-space:nowrap;margin-bottom:-1px;transition:color var(--rapido);}
 .tabs button:hover{color:var(--tinta-2);}
 .tabs button.active{color:var(--tinta);border-bottom-color:var(--primary);}
+/* En el teléfono, la pestaña es lo que más se pulsa del aula —Temario,
+   Apuntes, Dudas, Material— y medía 34 píxeles de alto. Con el pulgar, eso es
+   fallar una de cada tres veces y acabar tocando el vídeo de al lado.
+   44 es el mínimo cómodo, y el ancho se reparte para que no haya que arrastrar
+   la fila para ver la última. */
+@media (max-width:640px){
+  .tabs{gap:var(--e2);}
+  .tabs button{min-height:44px;padding:var(--e1) var(--e0);}
+}
 
 /* ───────────────────────────── MODAL ───────────────────────────────────── */
 .modal-bg{position:fixed;inset:0;background:rgba(10,14,20,.5);z-index:100;display:flex;
@@ -1198,6 +1207,14 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
   border-radius:6px;}
 .pregunta > p{margin:0 0 var(--e2);color:var(--tinta-2);max-width:62ch;}
 @media (prefers-reduced-motion:reduce){ .pregunta > summary::after{transition:none;} }
+
+/* El siguiente paso, en la tarjeta de cada curso del panel.
+   Se apoya en un fondo tenue y no en un recuadro con borde: es una pista
+   dentro de una tarjeta que ya tiene borde, y un borde dentro de otro borde
+   hace que la tarjeta parezca dos cosas. */
+.paso-siguiente{background:var(--hueco);border-radius:var(--r);
+  padding:var(--e1) var(--e2);display:flex;flex-direction:column;gap:2px;}
+.paso-siguiente b{font-size:.95rem;line-height:1.3;}
 
 /* El tic de «recibido». Se usa al confirmar un contacto y al terminar una
    compra: la misma señal para la misma idea. */

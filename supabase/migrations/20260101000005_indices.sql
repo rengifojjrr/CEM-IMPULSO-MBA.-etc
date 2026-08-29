@@ -128,6 +128,8 @@ create index if not exists cem_ticket_messages_ticket_idx ON public.cem_ticket_m
 create index if not exists cem_tickets_asignado_idx ON public.cem_tickets USING btree (asignado_a);
 create index if not exists cem_tickets_profile_idx ON public.cem_tickets USING btree (profile_id);
 create index if not exists cem_valoraciones_cohorte ON public.cem_valoraciones USING btree (cohort_id);
+create index if not exists cem_wa_salientes_pendientes ON public.cem_wa_salientes USING btree (creado_en) WHERE (estado = 'pendiente'::text);
+create unique index if not exists cem_wa_salientes_una_vez ON public.cem_wa_salientes USING btree (telefono, motivo, entidad_id) WHERE (entidad_id IS NOT NULL);
 create index if not exists cert_certificates_reemplaza_a_idx ON public.cert_certificates USING btree (reemplaza_a);
 create index if not exists forest_ai_predictions_tree_id_idx ON public.forest_ai_predictions USING btree (tree_id);
 create index if not exists forest_audit_events_tree_id_idx ON public.forest_audit_events USING btree (tree_id);
