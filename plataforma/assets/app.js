@@ -2944,6 +2944,46 @@ export function match(obj, q, keys) {
   return keys.some(k => String(k.split('.').reduce((o, kk) => o?.[kk], obj) ?? '').toLowerCase().includes(s));
 }
 
+/* ============ conectar una barra de filtros ============
+   ═══════════════════════════════════════════════════════════════════════════
+   Diecisiete pantallas escribían la misma línea:
+
+     ['#q','#fEstado'].forEach(s => { const el = $(s);
+        el.oninput = render; el.onchange = render; });
+
+   y las diecisiete se comían el primer clic después de escribir. La cadena es
+   ésta, y cuesta verla porque cada eslabón es razonable por su cuenta:
+
+     1. La persona escribe en el buscador y va a pulsar algo —una fila, una
+        tarjeta, un botón—.
+     2. Al apretar, el buscador pierde el foco. Un <input> de texto que ha
+        cambiado dispara `change` justo ahí, entre el `mousedown` y el
+        `mouseup`.
+     3. `change` llama a `render()`, que reescribe la lista entera con
+        innerHTML.
+     4. El elemento que había bajo el dedo ya no existe: es otro nodo con el
+        mismo aspecto. El navegador sólo cuenta un clic si el `mousedown` y el
+        `mouseup` caen en el MISMO elemento, así que no cuenta ninguno.
+
+   Resultado: hay que pulsar dos veces después de escribir. Nadie lo reporta
+   así —se reporta como «a veces no hace nada»— y por eso llevaba ahí desde el
+   principio, en catálogo, estudiantes, inscripciones, auditoría y trece más.
+
+   El arreglo es no escuchar `change` en los campos de texto. Un <input> ya
+   avisa de cada tecla con `input`; `change` no aportaba nada y costaba esto.
+   Los <select> se quedan con `change`, que es lo único que disparan.
+
+   Se pone aquí, y no arreglado a mano diecisiete veces, porque la número
+   dieciocho se va a escribir copiando a alguna de las diecisiete. */
+export function conectarFiltros(selectores, alCambiar) {
+  for (const sel of selectores) {
+    const el = typeof sel === 'string' ? $(sel) : sel;
+    if (!el) continue;
+    if (el.tagName === 'SELECT') el.onchange = alCambiar;
+    else el.oninput = alCambiar;
+  }
+}
+
 /* ============ select mejorado (siempre abre hacia abajo) ============
  * Los <select> nativos a veces se abren hacia arriba (el navegador decide
  * la dirección según el espacio disponible) tapando el propio campo. Este

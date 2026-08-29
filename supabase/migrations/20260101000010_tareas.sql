@@ -14,3 +14,4 @@ select cron.schedule('cem-tasa-bcv-pedir', '15 11,23 * * *', 'select public.cem_
 select cron.schedule('cem-tasa-bcv-recoger', '* * * * *', 'select public.cem_tasa_bcv_recoger()');
 select cron.schedule('cem_resumen_semanal_lunes', '0 12 * * 1', 'select public.cem_bot_resumen_semanal_enviar()');
 select cron.schedule('cem-puente-vigilar', '*/10 * * * *', 'select public.cem_puente_vigilar()');
+select cron.schedule('cem-compras-rescatar', '20 * * * *', 'select public.cem_compras_rescatar()');

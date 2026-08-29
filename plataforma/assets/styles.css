@@ -1177,6 +1177,28 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 }
 @media print{ .contacto-flotante{display:none;} }
 
+/* ─────────────── LAS PREGUNTAS DE LA PORTADA ───────────────────────────
+   Un acordeón y no una rejilla de tarjetas: nadie lee cinco respuestas, cada
+   uno abre la suya. El tirador es toda la línea, no una flechita de doce
+   píxeles, porque esto se usa sobre todo con el pulgar.
+
+   El signo de la derecha se gira al abrir en vez de cambiar de carácter: así
+   no salta el ancho de la línea al pulsar. */
+.dentro.estrecho{max-width:760px;}
+.pregunta{border-bottom:1px solid var(--filete);}
+.pregunta > summary{list-style:none;cursor:pointer;padding:var(--e2) 0;
+  font-weight:600;display:flex;align-items:center;justify-content:space-between;
+  gap:var(--e2);}
+.pregunta > summary::-webkit-details-marker{display:none;}
+.pregunta > summary::after{content:'+';font-size:1.35rem;font-weight:400;line-height:1;
+  color:var(--tinta-3);transition:transform .18s ease;}
+.pregunta[open] > summary::after{transform:rotate(45deg);}
+.pregunta > summary:hover{color:var(--primary);}
+.pregunta > summary:focus-visible{outline:2px solid var(--primary);outline-offset:3px;
+  border-radius:6px;}
+.pregunta > p{margin:0 0 var(--e2);color:var(--tinta-2);max-width:62ch;}
+@media (prefers-reduced-motion:reduce){ .pregunta > summary::after{transition:none;} }
+
 /* El tic de «recibido». Se usa al confirmar un contacto y al terminar una
    compra: la misma señal para la misma idea. */
 .tic-ok{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;

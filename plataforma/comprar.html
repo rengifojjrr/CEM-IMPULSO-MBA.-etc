@@ -9,9 +9,16 @@
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0d2440">
 <meta name="robots" content="noindex">
+<!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
+     Sin esto el navegador descubre cada uno cuando le toca, y paga el
+     DNS y el saludo TLS de cada cual por separado, con la pantalla en
+     blanco mientras tanto. Ver herramientas/acelerar-cabeceras.mjs. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="assets/app.js?v=2026-08-29">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css?v=2026-08-29">
 <style>

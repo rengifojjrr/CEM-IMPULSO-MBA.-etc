@@ -198,7 +198,8 @@ create table if not exists public.cem_bot_conversaciones (
   escalado_en timestamp with time zone,
   escalado_motivo text,
   created_at timestamp with time zone not null default now(),
-  ultimo_en timestamp with time zone not null default now()
+  ultimo_en timestamp with time zone not null default now(),
+  huella text
 );
 
 create table if not exists public.cem_bot_escuchado (
@@ -357,7 +358,8 @@ create table if not exists public.cem_compras_invitado (
   cuenta_nueva boolean,
   ip text,
   creada_en timestamp with time zone not null default now(),
-  pagada_en timestamp with time zone
+  pagada_en timestamp with time zone,
+  rescatada_en timestamp with time zone
 );
 comment on table public.cem_compras_invitado is 'Compras empezadas por gente sin cuenta. La cuenta y la inscripción se crean sólo cuando el pago entra.';
 

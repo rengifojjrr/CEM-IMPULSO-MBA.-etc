@@ -9,9 +9,16 @@
 <link rel="apple-touch-icon" href="assets/icono-180.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0d2440">
+<!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
+     Sin esto el navegador descubre cada uno cuando le toca, y paga el
+     DNS y el saludo TLS de cada cual por separado, con la pantalla en
+     blanco mientras tanto. Ver herramientas/acelerar-cabeceras.mjs. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="assets/app.js?v=2026-08-29">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css?v=2026-08-29">
 <link rel="canonical" href="https://escuelacem.com/plataforma/inicio.html">
@@ -83,11 +90,11 @@
     <div class="dentro">
       <div class="row between" style="align-items:flex-end;flex-wrap:wrap;gap:var(--e2)">
         <div>
-          <h2>Lo que puedes empezar ahora</h2>
-          <p class="entrada sin-margen">Programas con cupo abierto. Cada uno dice cuánto dura,
+          <h2 id="tituloDestacados">Lo que puedes empezar ahora</h2>
+          <p class="entrada sin-margen" id="entradaDestacados">Programas con cupo abierto. Cada uno dice cuánto dura,
             cómo se da y cuánto cuesta antes de que tengas que registrarte.</p>
         </div>
-        <a class="btn outline" href="catalogo.html">
+        <a class="btn outline" href="catalogo.html" id="irCatalogo">
           Ver el catálogo completo <span class="material-symbols-outlined">arrow_forward</span></a>
       </div>
       <div class="grid g3 sep" id="destacados"></div>
@@ -138,6 +145,60 @@
 
       <a class="btn outline" href="nosotros.html">
         Misión, visión y de dónde venimos <span class="material-symbols-outlined">arrow_forward</span></a>
+    </div>
+  </section>
+
+  <!-- Las preguntas que se hacen antes de decidir.
+       ─────────────────────────────────────────────────────────────────────
+       La portada tenía dos salidas: catálogo y registrarse. Las dos exigen
+       que la persona ya haya decidido. Quien todavía está mirando quiere
+       saber cómo son las clases, qué pasa si no puede pagarlo entero y si el
+       certificado sirve para algo, y si no lo encuentra aquí lo busca en
+       otra academia.
+
+       Escrito en el HTML y no pintado por JavaScript a propósito: estas
+       respuestas son de las que Google enseña directamente en sus
+       resultados, y para eso tienen que estar en la página. -->
+  <section class="franja" id="preguntas">
+    <div class="dentro estrecho">
+      <h2>Lo que suelen preguntarnos</h2>
+      <p class="entrada">Y si falta la tuya, está el formulario justo debajo.</p>
+
+      <details class="pregunta">
+        <summary>¿Cómo son las clases?</summary>
+        <p>Depende del programa, y cada ficha lo dice antes de que tengas que registrarte.
+          Los hay en línea a tu ritmo, en vivo con horario fijo, y mixtos. En todos tienes
+          el material, las evaluaciones y a quien te da clase en el mismo sitio.</p>
+      </details>
+
+      <details class="pregunta">
+        <summary>¿Y si no puedo pagarlo todo de una vez?</summary>
+        <p>Se puede en una, tres o seis cuotas. Pagando de una sola vez sale más barato,
+          pero el total lo sabes desde el principio en los dos casos: no hay intereses
+          escondidos ni un cargo que aparece al final.</p>
+      </details>
+
+      <details class="pregunta">
+        <summary>¿El certificado sirve fuera del CEM?</summary>
+        <p>Cada certificado lleva un código, y cualquiera —una empresa, otra escuela—
+          puede comprobarlo en <a href="verificar.html">nuestro verificador</a> sin
+          pedirte nada ni tener cuenta. Eso es lo que lo hace valer: no que lo digamos
+          nosotros, sino que se pueda comprobar.</p>
+      </details>
+
+      <details class="pregunta">
+        <summary>¿Desde qué países puedo estudiar?</summary>
+        <p>Desde cualquiera. Damos clase en línea y ya hay estudiantes en varios países;
+          los que aparecen más arriba son donde tenemos convocatorias abiertas con
+          horario local.</p>
+      </details>
+
+      <details class="pregunta">
+        <summary>¿Puedo hablar con alguien antes de pagar?</summary>
+        <p>Sí, y es lo normal. Déjanos un correo o un teléfono en el formulario de aquí
+          abajo y te escribimos nosotros, o pregúntale a Cemi —el asistente de la esquina—
+          que contesta al momento.</p>
+      </details>
     </div>
   </section>
 
@@ -192,7 +253,8 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, money, qs, fdate, portadaDeCurso } from './assets/app.js?v=2026-08-29';
+import { sb, mount, $, $$, esc, money, num, qs, fdate, portadaDeCurso, abrirAvisame }
+  from './assets/app.js?v=2026-08-29';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -221,14 +283,34 @@ $('#atajos').innerHTML = categorias.length
       `<a class="chip chip-btn" href="catalogo.html?q=${encodeURIComponent(c)}">${esc(c)}</a>`).join('')
   : '';
 
-/* Las cifras del manual de marca, y la de cursos sale de la base: poner «40
-   programas» a mano garantiza que un día diga 40 y haya 12. */
+/* Las cifras. Dos son del manual de marca y dos se cuentan.
+   ═══════════════════════════════════════════════════════════════════════════
+   El comentario que había aquí ya avisaba del riesgo de escribir números a
+   mano —«poner 40 programas garantiza que un día diga 40 y haya 12»— y luego
+   escribía a mano los otros tres.
+
+   Los certificados emitidos son el activo más fuerte del CEM y hasta ahora no
+   aparecían en ningún sitio público. Ahora se cuentan de la base, así que el
+   día que se emita el 493 la portada lo dice sola. Y llevan al verificador,
+   que es lo que convierte una cifra en una promesa comprobable: cualquiera
+   puede escribir «2.500 estudiantes»; poder comprobar un título, no.
+
+   Los años y los estudiantes formados se quedan como están: son afirmaciones
+   de la institución sobre su historia, anterior a esta plataforma, y no le
+   corresponde a este código rebajarlas a lo que alcanza a contar. */
+const vitrina = await sb.rpc('cem_vitrina_publica').then((r) => r.data).catch(() => null);
 $('#cifras').innerHTML = [
-  [lista.length, 'programas publicados'],
-  ['2.500+', 'estudiantes formados'],
-  ['9', 'países'],
-  ['2016', 'desde'],
-].map(([n, t]) => `<div><b>${esc(String(n))}</b><span>${esc(t)}</span></div>`).join('');
+  [lista.length, 'programas abiertos', null],
+  ['2.500+', 'estudiantes formados', null],
+  [vitrina?.certificados ? num(vitrina.certificados) : null,
+   'certificados verificables', 'verificar.html'],
+  ['2016', 'desde', null],
+].filter(([n]) => n !== null && n !== undefined)
+ .map(([n, t, ir]) => ir
+   ? `<a href="${ir}" style="text-decoration:none;color:inherit"
+        title="Cualquiera puede comprobar un certificado del CEM por su código"
+        ><b>${esc(String(n))}</b><span>${esc(t)}</span></a>`
+   : `<div><b>${esc(String(n))}</b><span>${esc(t)}</span></div>`).join('');
 
 const mezcla = (txt) => {
   let h = 0;
@@ -251,13 +333,58 @@ $('#destacados').innerHTML = lista.slice(0, 6).map((c) => `
         <span class="tiny muted">${esc(c.duracion_texto || (c.horas ? c.horas + ' h' : ''))}</span>
       </div>
     </div>
-  </a>`).join('')
-  /* «Estamos preparando los próximos programas» cuando lo que pasa es que la
-     consulta falló sería mentira, y encima una que hace que nadie avise. */
-  || (errCursos
-    ? `<p class="nota err">No pudimos cargar los programas ahora mismo.
-        <a href="catalogo.html">Prueba en el catálogo</a> o vuelve en un rato.</p>`
-    : '<p class="muted">Estamos preparando los próximos programas.</p>');
+  </a>`).join('');
+
+/* Cuando no hay nada abierto.
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes esto era una frase gris —«Estamos preparando los próximos
+   programas»— y ahí se acababa la visita. Quien llega a la portada de un
+   centro de formación y encuentra el estante vacío se va, y no vuelve, porque
+   nada le dio motivo para volver.
+
+   Ahora la sección entera cambia de intención: el titular deja de prometer lo
+   que no hay, y en su lugar se ofrece lo único que sirve en ese momento —que
+   nos deje cómo avisarle—. Es el mismo buzón de contactos, así que el equipo
+   lo ve en la bandeja con todo lo demás.
+
+   Y sigue distinguiéndose de un fallo de carga: decir «estamos preparando»
+   cuando lo que pasa es que la consulta se cayó sería mentira, y encima una
+   que hace que nadie avise. */
+if (errCursos) {
+  $('#destacados').innerHTML = `<p class="nota err">No pudimos cargar los programas ahora mismo.
+    <a href="catalogo.html">Prueba en el catálogo</a> o vuelve en un rato.</p>`;
+} else if (!lista.length) {
+  /* La fecha, si la hay, la pone el equipo en Configuración y se apaga sola
+     cuando pasa. Con fecha se dice cuándo y cuánto falta; sin ella se dice la
+     verdad —que todavía no hay fecha— en vez de inventar un trimestre. */
+  const conv = vitrina?.convocatoria || null;
+  const faltan = conv?.fecha
+    ? Math.max(0, Math.round((new Date(conv.fecha + 'T00:00:00') - new Date()) / 86400000))
+    : null;
+
+  $('#tituloDestacados').textContent = 'La próxima convocatoria';
+  $('#entradaDestacados').textContent = conv?.fecha
+    ? `${conv.titulo || 'La próxima convocatoria'} empieza el ${fdate(conv.fecha)}.`
+      + (faltan === 0 ? ' Es hoy.' : faltan === 1 ? ' Queda un día.' : ` Quedan ${faltan} días.`)
+    : 'Ahora mismo no hay inscripciones abiertas, y todavía no tenemos fecha para las próximas.';
+  $('#irCatalogo').remove();
+  $('#destacados').classList.remove('g3');
+  $('#destacados').innerHTML = `
+    <div class="card sin-margen" style="text-align:center;max-width:520px;margin:0 auto">
+      <span class="material-symbols-outlined" style="font-size:44px;color:var(--primary)"
+        aria-hidden="true">notifications_active</span>
+      <h3 style="margin:var(--e1) 0 var(--e0)">Te avisamos en cuanto abra</h3>
+      <p class="muted" style="margin:0 0 var(--e2)">Déjanos un correo o un teléfono y eres
+        de los primeros en enterarte, con el temario y el precio.</p>
+      ${conv?.nota ? `<p class="nota sep" style="text-align:left">${esc(conv.nota)}</p>` : ''}
+      <button class="btn" type="button" id="avisame">
+        <span class="material-symbols-outlined">notifications</span> Avísame cuando abra</button>
+      <p class="tiny muted" style="margin:var(--e2) 0 0">
+        Mientras tanto puedes <a href="verificar.html">comprobar un certificado</a>
+        o leer <a href="nosotros.html">quiénes somos</a>.</p>
+    </div>`;
+  $('#avisame').onclick = () => abrirAvisame();
+}
 
 /* ============ el formulario de contacto ============ */
 $('#lInteres').innerHTML = '<option value="">Todavía no lo sé</option>'

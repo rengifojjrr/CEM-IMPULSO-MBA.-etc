@@ -28,6 +28,7 @@ create unique index if not exists cem_bancaribe_notif_ref_uniq ON public.cem_ban
 create index if not exists cem_bot_borradores_pendientes ON public.cem_bot_borradores USING btree (creado_por, estado, created_at DESC);
 create index if not exists cem_bot_conocimiento_ambito ON public.cem_bot_conocimiento USING btree (ambito) WHERE activo;
 create index if not exists cem_bot_conv_escaladas ON public.cem_bot_conversaciones USING btree (escalado_en DESC) WHERE (escalado_en IS NOT NULL);
+create index if not exists cem_bot_conv_huella_idx ON public.cem_bot_conversaciones USING btree (huella, created_at DESC) WHERE (huella IS NOT NULL);
 create index if not exists cem_bot_conv_persona ON public.cem_bot_conversaciones USING btree (profile_id, ultimo_en DESC);
 create index if not exists cem_bot_escuchado_fecha ON public.cem_bot_escuchado USING btree (created_at DESC);
 create index if not exists cem_bot_msj_conv ON public.cem_bot_mensajes USING btree (conversacion_id, created_at);

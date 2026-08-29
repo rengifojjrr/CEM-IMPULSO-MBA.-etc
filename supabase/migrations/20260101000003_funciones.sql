@@ -1536,6 +1536,37 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_bot_contexto_publico()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select jsonb_build_object(
+    'ambito', 'visitante',
+    'escuela', jsonb_build_object(
+      'nombre', 'CEM International',
+      'largo',  'CEM · Centro de Estudios de Marketing',
+      'desde',  2016,
+      'ciudad', 'Caracas',
+      'que_es', 'Centro de estudios de marketing, negocios, inteligencia artificial y '
+                || 'tecnología. Formación práctica con certificado verificable.'),
+    'vitrina', cem_vitrina_publica(),
+    'programas', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', c.id, 'nombre', c.nombre, 'subtitulo', c.subtitulo,
+               'de_que_va', c.descripcion_corta,
+               'precio', c.precio, 'moneda', c.moneda,
+               'horas', c.horas, 'duracion', c.duracion_texto,
+               'modalidad', c.modalidad, 'cuotas', c.cuotas_habilitadas)
+               order by c.destacado desc, c.nombre)
+        from cem_courses c where c.estado = 'publicado'), '[]'::jsonb),
+    'como_se_paga', 'De una vez con 10% de descuento, o en 3 o 6 cuotas.',
+    'donde_inscribirse', '/plataforma/comprar.html?curso=<id del programa>');
+$function$
+;
+comment on function public.cem_bot_contexto_publico() is 'Lo único que Cemi sabe cuando habla con alguien sin cuenta: el catálogo y qué es el CEM. Ni un dato de nadie.';
+
 CREATE OR REPLACE FUNCTION public.cem_bot_contexto_whatsapp(p_telefono text)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -1626,6 +1657,30 @@ begin
    where m.conversacion_id = p_conversacion
    order by m.created_at asc
    limit 500;
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_bot_conversacion_visitante(p_huella text, p_id uuid DEFAULT NULL::uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_id uuid;
+begin
+  if p_id is not null then
+    select id into v_id from cem_bot_conversaciones
+     where id = p_id and canal = 'visitante' and huella = p_huella;
+    if v_id is not null then
+      update cem_bot_conversaciones set ultimo_en = now() where id = v_id;
+      return v_id;
+    end if;
+  end if;
+
+  insert into cem_bot_conversaciones (ambito, canal, huella, titulo)
+  values ('estudiante', 'visitante', p_huella, 'Visitante de la web')
+  returning id into v_id;
+  return v_id;
 end $function$
 ;
 
@@ -1736,6 +1791,21 @@ begin
   return v_res;
 end $function$
 ;
+
+CREATE OR REPLACE FUNCTION public.cem_bot_dejar_contacto(p_nombre text, p_email text, p_telefono text DEFAULT NULL::text, p_mensaje text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  return cem_lead_publico_crear(
+    p_nombre => p_nombre, p_email => p_email, p_telefono => p_telefono,
+    p_mensaje => p_mensaje, p_interes => 'Lo dejó hablando con Cemi',
+    p_course_id => null, p_origen => 'cemi');
+end $function$
+;
+comment on function public.cem_bot_dejar_contacto(p_nombre text, p_email text, p_telefono text, p_mensaje text) is 'Cemi guarda los datos de un visitante interesado. Misma bandeja que el formulario de la web.';
 
 CREATE OR REPLACE FUNCTION public.cem_bot_deshacer(p_evento uuid, p_motivo text DEFAULT NULL::text)
  RETURNS jsonb
@@ -2130,6 +2200,40 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_bot_guardar_visitante(p_conversacion uuid, p_huella text, p_pregunta text, p_respuesta text, p_modelo text DEFAULT NULL::text, p_tokens_in integer DEFAULT NULL::integer, p_tokens_out integer DEFAULT NULL::integer, p_ms integer DEFAULT NULL::integer, p_error text DEFAULT NULL::text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_c cem_bot_conversaciones;
+begin
+  select * into v_c from cem_bot_conversaciones
+   where id = p_conversacion and canal = 'visitante' and huella = p_huella;
+  if v_c.id is null then
+    raise exception 'Esa conversación de visitante no existe.';
+  end if;
+
+  if coalesce(trim(p_pregunta),'') <> '' then
+    insert into cem_bot_mensajes (conversacion_id, quien, texto)
+    values (p_conversacion, 'persona', p_pregunta);
+  end if;
+  if coalesce(trim(p_respuesta),'') <> '' or p_error is not null then
+    insert into cem_bot_mensajes (conversacion_id, quien, texto, modelo,
+                                  tokens_entrada, tokens_salida, ms, error)
+    values (p_conversacion, 'asistente', coalesce(p_respuesta,''), p_modelo,
+            p_tokens_in, p_tokens_out, p_ms, p_error);
+  end if;
+
+  update cem_bot_conversaciones
+     set ultimo_en = now(),
+         titulo = coalesce(nullif(titulo, 'Visitante de la web'),
+                           left(nullif(trim(p_pregunta),''), 80),
+                           'Visitante de la web')
+   where id = p_conversacion;
+end $function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_bot_guardar_whatsapp(p_conversacion uuid, p_pregunta text, p_respuesta text, p_modelo text DEFAULT NULL::text, p_tokens_in integer DEFAULT NULL::integer, p_tokens_out integer DEFAULT NULL::integer, p_ms integer DEFAULT NULL::integer, p_error text DEFAULT NULL::text)
  RETURNS void
  LANGUAGE plpgsql
@@ -2160,6 +2264,23 @@ AS $function$
      and (c.profile_id = auth.uid() or cem_is_staff() or cem_puede_cobranza())
    order by m.created_at
    limit greatest(1, least(coalesce(p_tope, 40), 200));
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_bot_historial_visitante(p_conversacion uuid, p_huella text, p_tope integer DEFAULT 16)
+ RETURNS TABLE(quien text, texto text, cuando timestamp with time zone)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select m.quien, m.texto, m.created_at
+    from cem_bot_mensajes m
+    join cem_bot_conversaciones c on c.id = m.conversacion_id
+   where m.conversacion_id = p_conversacion
+     and c.canal = 'visitante'
+     and c.huella = p_huella
+   order by m.created_at
+   limit greatest(1, least(coalesce(p_tope, 16), 60));
 $function$
 ;
 
@@ -3271,6 +3392,39 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_bot_visitante_permitir(p_huella text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_suyas int; v_todas int;
+begin
+  /* Cada mensaje del asistente cuesta dinero de verdad. Una puerta abierta sin
+     tope es una factura esperando a que alguien la encuentre. Se cuenta por
+     huella y, por encima, en total: sin el segundo, rotar la huella salta el
+     primero. */
+  select count(*) into v_suyas from cem_bot_mensajes m
+    join cem_bot_conversaciones c on c.id = m.conversacion_id
+   where c.canal = 'visitante' and c.huella = p_huella
+     and m.created_at > now() - interval '1 hour';
+  if v_suyas >= 30 then
+    return jsonb_build_object('ok', false,
+      'porque', 'Llevamos un buen rato conversando. Déjame tus datos y te escribe una persona.');
+  end if;
+
+  select count(*) into v_todas from cem_bot_mensajes m
+    join cem_bot_conversaciones c on c.id = m.conversacion_id
+   where c.canal = 'visitante' and m.created_at > now() - interval '1 hour';
+  if v_todas >= 400 then
+    return jsonb_build_object('ok', false,
+      'porque', 'Ahora mismo hay mucha gente preguntando. Déjame tus datos y te escribimos.');
+  end if;
+
+  return jsonb_build_object('ok', true);
+end $function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_buscar(p_q text, p_tope integer DEFAULT 8)
  RETURNS jsonb
  LANGUAGE sql
@@ -3845,6 +3999,7 @@ begin
     'a_cobrar_ahora', v_primera, 'moneda', coalesce(v_c.moneda,'USD'));
 end $function$
 ;
+
 CREATE OR REPLACE FUNCTION public.cem_compra_invitado_cerrar(p_compra_id uuid, p_profile_id uuid, p_cuenta_nueva boolean DEFAULT NULL::boolean)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3887,6 +4042,7 @@ begin
                             'profile_id', p_profile_id);
 end $function$
 ;
+
 CREATE OR REPLACE FUNCTION public.cem_compra_invitado_estado(p_compra_id uuid)
  RETURNS jsonb
  LANGUAGE sql
@@ -3907,6 +4063,49 @@ AS $function$
     jsonb_build_object('hay', false));
 $function$
 ;
+
+CREATE OR REPLACE FUNCTION public.cem_compras_rescatar()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_fila record; v_n int := 0; v_url text;
+begin
+  for v_fila in
+    select c.*, k.nombre as curso_nombre
+      from cem_compras_invitado c
+      join cem_courses k on k.id = c.course_id
+     where c.estado = 'abierta'
+       and c.rescatada_en is null
+       and c.creada_en < now() - interval '1 hour'
+       and c.creada_en > now() - interval '3 days'
+       -- Si esa persona ya acabó comprando por otro lado, no se le persigue.
+       and not exists (select 1 from cem_profiles p
+                        where lower(p.email) = lower(c.email))
+     limit 50
+  loop
+    v_url := 'https://escuelacem.com/plataforma/comprar.html?curso=' || v_fila.course_id;
+
+    insert into cem_correo_cola (para, asunto, cuerpo, clave)
+    values (v_fila.email,
+            format('¿Seguimos con %s?', v_fila.curso_nombre),
+            format(E'Hola %s:\n\n'
+                   'Empezaste a inscribirte en %s y quedó a medias. No se perdió nada: '
+                   'puedes terminar desde aquí, y tarda un minuto.\n\n%s\n\n'
+                   'Si te quedó alguna duda, respóndenos a este correo y te contamos.\n\n'
+                   'CEM International',
+                   split_part(v_fila.nombre, ' ', 1), v_fila.curso_nombre, v_url),
+            md5('rescate|' || v_fila.id::text))
+    on conflict (clave) where estado = 'pendiente' do nothing;
+
+    update cem_compras_invitado set rescatada_en = now() where id = v_fila.id;
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
+end $function$
+;
+comment on function public.cem_compras_rescatar() is 'Escribe UNA vez a quien dejó su compra a medias, entre una hora y tres días después.';
 
 CREATE OR REPLACE FUNCTION public.cem_conciliar(p_notificacion_id uuid, p_payment_id uuid)
  RETURNS jsonb
@@ -6932,6 +7131,61 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_lead_publico_crear(p_nombre text, p_email text, p_telefono text DEFAULT NULL::text, p_mensaje text DEFAULT NULL::text, p_interes text DEFAULT NULL::text, p_course_id uuid DEFAULT NULL::uuid, p_origen text DEFAULT 'web'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_nombre text := nullif(trim(coalesce(p_nombre,'')), '');
+  v_email text := lower(nullif(trim(coalesce(p_email,'')), ''));
+  v_id uuid;
+  v_ultima_hora int;
+begin
+  if v_nombre is null or length(v_nombre) < 2 then
+    raise exception 'Hace falta tu nombre.';
+  end if;
+  if v_email is null or v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]{2,}$' then
+    raise exception 'Ese correo no parece un correo.';
+  end if;
+
+  -- Tope por persona: cinco en una hora es de sobra para alguien con dudas.
+  if (select count(*) from cem_leads
+       where lower(email) = v_email and created_at > now() - interval '1 hour') >= 5 then
+    raise exception 'Ya recibimos tus mensajes. Te escribimos enseguida.';
+  end if;
+
+  /* Tope global. Es la red contra un robot que rote correos: sin esto, el
+     tope por persona no protege de nada. Doscientos en una hora es muchísimo
+     más de lo que este sitio recibe y aun así corta una inundación. */
+  select count(*) into v_ultima_hora from cem_leads
+   where created_at > now() - interval '1 hour' and origen = coalesce(p_origen, 'web');
+  if v_ultima_hora >= 200 then
+    raise exception 'Estamos recibiendo muchos mensajes ahora mismo. Prueba en un rato.';
+  end if;
+
+  insert into cem_leads (nombre, email, telefono, mensaje, interes, course_id, origen, estado)
+  values (v_nombre, v_email, nullif(trim(coalesce(p_telefono,'')), ''),
+          nullif(trim(coalesce(p_mensaje,'')), ''),
+          nullif(trim(coalesce(p_interes,'')), ''),
+          p_course_id, coalesce(nullif(trim(p_origen),''), 'web'), 'nuevo')
+  returning id into v_id;
+
+  /* Se avisa a quien atiende. Un contacto que llega y nadie ve es peor que no
+     tener formulario: la persona cree que preguntó y nadie le responde. */
+  perform cem_notificar(pr.id, 'lead_nuevo',
+            format('%s quiere información', v_nombre),
+            coalesce(nullif(trim(p_mensaje), ''), 'Dejó sus datos desde la web.'),
+            '/plataforma/admin/leads.html')
+     from cem_profiles pr
+    where pr.activo and pr.rol in ('coordinador','admin','superadmin');
+
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $function$
+;
+comment on function public.cem_lead_publico_crear(p_nombre text, p_email text, p_telefono text, p_mensaje text, p_interes text, p_course_id uuid, p_origen text) is 'Un contacto dejado desde la web pública, sin cuenta. Con tope por correo y tope global.';
+
 CREATE OR REPLACE FUNCTION public.cem_lead_responder(p_id uuid, p_asunto text, p_cuerpo text)
  RETURNS cem_leads
  LANGUAGE plpgsql
@@ -7903,6 +8157,28 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_mis_notificaciones_resumen()
+ RETURNS TABLE(categoria text, cuantos bigint, sin_leer bigint, orden integer)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select c.categoria, count(*), count(*) filter (where n.leida_en is null),
+         case c.categoria
+           when 'dinero'     then 1
+           when 'pendientes' then 2
+           when 'aula'       then 3
+           when 'sistema'    then 4
+           else 5
+         end
+    from cem_notificaciones n
+    cross join lateral (select cem_notificacion_categoria(n.tipo) as categoria) c
+   where n.profile_id = auth.uid()
+   group by c.categoria
+   order by 4;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_mis_requisitos_certificado(p_enrollment_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -7973,28 +8249,6 @@ AS $function$
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.cem_mis_notificaciones_resumen()
- RETURNS TABLE(categoria text, cuantos bigint, sin_leer bigint, orden integer)
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select c.categoria, count(*), count(*) filter (where n.leida_en is null),
-         case c.categoria
-           when 'dinero'     then 1
-           when 'pendientes' then 2
-           when 'aula'       then 3
-           when 'sistema'    then 4
-           else 5
-         end
-    from cem_notificaciones n
-    cross join lateral (select cem_notificacion_categoria(n.tipo) as categoria) c
-   where n.profile_id = auth.uid()
-   group by c.categoria
-   order by 4;
-$function$
-;
-
 CREATE OR REPLACE FUNCTION public.cem_notas_cohorte(p_cohort uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -8051,7 +8305,6 @@ CREATE OR REPLACE FUNCTION public.cem_notificacion_categoria(p_tipo text)
  IMMUTABLE
 AS $function$
   select case p_tipo
-    -- Dinero: lo que se debe, lo que se pagó, lo que se rechazó.
     when 'cuota_vencida'        then 'dinero'
     when 'cuota_por_vencer'     then 'dinero'
     when 'recordatorio_cuota'   then 'dinero'
@@ -8059,7 +8312,6 @@ AS $function$
     when 'pago_rechazado'       then 'dinero'
     when 'pago_anulado'         then 'dinero'
 
-    -- El aula: clases, entregas, notas y lo que se gana al terminar.
     when 'clase_en_vivo'          then 'aula'
     when 'recordatorio_entrega'   then 'aula'
     when 'entrega_reabierta'      then 'aula'
@@ -8072,7 +8324,6 @@ AS $function$
     when 'certificado_emitido'    then 'aula'
     when 'apelacion_resuelta'     then 'aula'
 
-    -- Lo que espera a que alguien haga algo. Es la pestaña de trabajo.
     when 'solicitud_inscripcion' then 'pendientes'
     when 'solicitud_perfil'      then 'pendientes'
     when 'apelacion_nueva'       then 'pendientes'
@@ -8080,8 +8331,8 @@ AS $function$
     when 'ticket_respuesta'      then 'pendientes'
     when 'cuenta_nueva'          then 'pendientes'
     when 'bot_escalado'          then 'pendientes'
+    when 'lead_nuevo'            then 'pendientes'
 
-    -- La máquina hablando de sí misma. Casi siempre, dirección.
     when 'alerta_gobierno'  then 'sistema'
     when 'puente_whatsapp'  then 'sistema'
     when 'informe_mensual'  then 'sistema'
@@ -8094,6 +8345,7 @@ AS $function$
   end;
 $function$
 ;
+comment on function public.cem_notificacion_categoria(p_tipo text) is 'De qué va un aviso, a partir de su tipo. Una sola verdad: la usan la lista y el resumen de pestañas.';
 
 CREATE OR REPLACE FUNCTION public.cem_notificar(p_profile_id uuid, p_tipo text, p_titulo text, p_cuerpo text DEFAULT NULL::text, p_url text DEFAULT NULL::text, p_correo boolean DEFAULT true)
  RETURNS void
@@ -8730,6 +8982,51 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_puede_cobranza()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (select 1 from cem_profiles
+                  where id = auth.uid() and activo
+                    and rol in ('cobranza','coordinador','admin','superadmin'));
+$function$
+;
+comment on function public.cem_puede_cobranza() is 'Ver y mover dinero. Incluye el rol acotado "cobranza", que no toca lo académico.';
+
+CREATE OR REPLACE FUNCTION public.cem_puede_invitar_a(p_rol cem_role)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select case
+    when cem_es_admin() then true
+    when cem_role() = 'coordinador' then p_rol in ('profesor','estudiante')
+    else false
+  end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_puede_ver_leccion(p_lesson_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+    select 1 from cem_lessons l join cem_modules m on m.id = l.module_id
+     where l.id = p_lesson_id
+       and (cem_can_read_all()
+            or cem_docente_de_curso(m.course_id)
+            or exists (select 1 from cem_enrollments e
+                        where e.profile_id = auth.uid()
+                          and e.course_id = m.course_id
+                          and cem_acceso_abierto(e.id))));
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_puente_latido(p_estado jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -8832,12 +9129,26 @@ CREATE OR REPLACE FUNCTION public.cem_puente_ver()
  LANGUAGE plpgsql
  SET search_path TO 'public'
 AS $function$
-declare e record; v_seg numeric; v_en_pie boolean;
+declare e record; v_seg numeric; v_en_pie boolean; v_modo text; v_quien record;
 begin
+  -- El modo lo decide la plataforma y se ve SIEMPRE, haya puente o no: es lo
+  -- que un admin viene a mirar y a cambiar.
+  select coalesce((select valor #>> '{}' from cem_settings
+                    where clave = 'asistente_whatsapp_modo'), 'apagada')
+    into v_modo;
+
+  select a.created_at, a.actor_email, a.detalle into v_quien
+    from cem_audit_events a
+   where a.accion = 'asistente.whatsapp_modo'
+   order by a.created_at desc limit 1;
+
   select * into e from cem_puente_estado where id;
   if not found then
-    return jsonb_build_object('hay', false, 'estado', 'sin montar');
+    return jsonb_build_object('hay', false, 'estado', 'sin montar',
+      'modo_plataforma', v_modo,
+      'lo_cambio', v_quien.actor_email, 'cuando', v_quien.created_at);
   end if;
+
   v_seg := extract(epoch from (now() - e.ultimo_latido));
   -- «En pie» es que el PROCESO late. «Conectado» es que además WhatsApp está
   -- vinculado. Son tres estados y no dos: sin montar, en pie pero sin
@@ -8852,6 +9163,9 @@ begin
     'en_pie', v_en_pie,
     'conectado', e.conectado,
     'vivo', v_en_pie and e.conectado,
+    'modo_plataforma', v_modo,
+    'lo_cambio', v_quien.actor_email,
+    'cuando', v_quien.created_at,
     'numero', e.numero,
     'modo', e.modo,
     'version', e.version,
@@ -8933,51 +9247,6 @@ begin
 
   return jsonb_build_object('estado', 'conectado', 'minutos_sin_latir', round(v_min, 1));
 end $function$
-;
-
-CREATE OR REPLACE FUNCTION public.cem_puede_cobranza()
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select exists (select 1 from cem_profiles
-                  where id = auth.uid() and activo
-                    and rol in ('cobranza','coordinador','admin','superadmin'));
-$function$
-;
-comment on function public.cem_puede_cobranza() is 'Ver y mover dinero. Incluye el rol acotado "cobranza", que no toca lo académico.';
-
-CREATE OR REPLACE FUNCTION public.cem_puede_invitar_a(p_rol cem_role)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select case
-    when cem_es_admin() then true
-    when cem_role() = 'coordinador' then p_rol in ('profesor','estudiante')
-    else false
-  end;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.cem_puede_ver_leccion(p_lesson_id uuid)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select exists (
-    select 1 from cem_lessons l join cem_modules m on m.id = l.module_id
-     where l.id = p_lesson_id
-       and (cem_can_read_all()
-            or cem_docente_de_curso(m.course_id)
-            or exists (select 1 from cem_enrollments e
-                        where e.profile_id = auth.uid()
-                          and e.course_id = m.course_id
-                          and cem_acceso_abierto(e.id))));
-$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.cem_puntaje_evaluacion(p_assessment_id uuid)
@@ -12300,6 +12569,36 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_vitrina_publica()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  with conv as (
+    select valor from cem_settings where clave = 'proxima_convocatoria'
+  )
+  select jsonb_build_object(
+    'certificados', (select count(*) from cert_certificates where estado = 'vigente'),
+    'graduados',    (select count(distinct cert_cedula_plana(datos))
+                       from cert_certificates where estado = 'vigente'
+                        and cert_cedula_plana(datos) is not null),
+    'promociones',  (select count(*) from cert_lotes),
+    'programas',    (select count(*) from cem_courses where estado = 'publicado'),
+    'desde',        2016,
+    'convocatoria', (
+      select jsonb_build_object(
+        'fecha',  valor ->> 'fecha',
+        'titulo', nullif(valor ->> 'titulo', ''),
+        'nota',   nullif(valor ->> 'nota', ''))
+      from conv
+      where (valor ->> 'fecha') is not null
+        and (valor ->> 'fecha') <> ''
+        and (valor ->> 'fecha')::date >= current_date));
+$function$
+;
+comment on function public.cem_vitrina_publica() is 'Cifras reales para la portada: certificados, graduados y promociones. Se cuentan, no se escriben.';
+
 CREATE OR REPLACE FUNCTION public.cem_youtube_app_estado()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -12459,6 +12758,7 @@ AS $function$
     '[^0-9]', '', 'g'), '');
 $function$
 ;
+comment on function public.cert_cedula_plana(p_datos jsonb) is 'La cédula sin puntos ni prefijo, mire donde mire la clave. Es como se sabe que dos certificados son de la misma persona.';
 
 CREATE OR REPLACE FUNCTION public.cert_exigir_gestor()
  RETURNS void
@@ -12538,36 +12838,6 @@ begin
 end $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.cert_lote_editar_modulo(p_lote uuid, p_plantilla text, p_campo text, p_valor text)
- RETURNS SETOF cert_certificates
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-declare
-  v_fila record;
-  v_datos jsonb;
-  v_nuevo cert_certificates;
-begin
-  perform cert_exigir_gestor();
-  if nullif(trim(coalesce(p_campo,'')), '') is null then
-    raise exception 'Hace falta decir qué campo se cambia.';
-  end if;
-
-  for v_fila in
-    select * from cert_certificates
-     where lote_id = p_lote and estado = 'vigente'
-       and plantilla_nombre = p_plantilla
-     order by cert_nombre_de(datos)
-  loop
-    v_datos := jsonb_set(v_fila.datos, array[p_campo], to_jsonb(coalesce(p_valor,'')));
-    if v_datos = v_fila.datos then continue; end if;
-    v_nuevo := replace_cert_certificate(v_fila.id, v_datos);
-    return next v_nuevo;
-  end loop;
-end $function$
-;
-
 CREATE OR REPLACE FUNCTION public.cert_lote_completar_modulo(p_lote uuid, p_plantilla text)
  RETURNS SETOF cert_certificates
  LANGUAGE plpgsql
@@ -12612,6 +12882,36 @@ begin
     if v_datos ? 'puntaje' then v_datos := jsonb_set(v_datos, '{puntaje}', to_jsonb(''::text)); end if;
 
     v_nuevo := issue_certificate(v_datos, v_modelo.entidad_emisora, p_lote, null, p_plantilla);
+    return next v_nuevo;
+  end loop;
+end $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cert_lote_editar_modulo(p_lote uuid, p_plantilla text, p_campo text, p_valor text)
+ RETURNS SETOF cert_certificates
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_fila record;
+  v_datos jsonb;
+  v_nuevo cert_certificates;
+begin
+  perform cert_exigir_gestor();
+  if nullif(trim(coalesce(p_campo,'')), '') is null then
+    raise exception 'Hace falta decir qué campo se cambia.';
+  end if;
+
+  for v_fila in
+    select * from cert_certificates
+     where lote_id = p_lote and estado = 'vigente'
+       and plantilla_nombre = p_plantilla
+     order by cert_nombre_de(datos)
+  loop
+    v_datos := jsonb_set(v_fila.datos, array[p_campo], to_jsonb(coalesce(p_valor,'')));
+    if v_datos = v_fila.datos then continue; end if;
+    v_nuevo := replace_cert_certificate(v_fila.id, v_datos);
     return next v_nuevo;
   end loop;
 end $function$
@@ -15482,6 +15782,7 @@ begin
      limit 300;
 end $function$
 ;
+comment on function public.list_cert_certificates(p_busca text) is 'Los certificados emitidos. Sin texto, los últimos 300; con texto, los que coinciden — buscando en TODOS, no sólo en los últimos 300.';
 
 CREATE OR REPLACE FUNCTION public.list_cert_certificates_de_lote(p_lote uuid)
  RETURNS SETOF cert_certificates
