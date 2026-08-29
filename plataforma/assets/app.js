@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-28';
+         vidrioActual } from './temas.js?v=2026-08-28-2';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1407,7 +1407,7 @@ export async function mount(opts = {}) {
    centro lo decide `cem_bot_contexto` en el servidor mirando el rol de quien
    pregunta: escribir «equipo» aquí desde la consola no abre nada. */
 function montarElAsistente(area) {
-  import('./asistente.js?v=2026-08-28')
+  import('./asistente.js?v=2026-08-28-2')
     .then((m) => m.montarAsistente({ ambito: area === 'estudiante' ? 'estudiante' : 'equipo' }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2096,7 +2096,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-28');
+    const m = await import('./apariencia.js?v=2026-08-28-2');
 
     m.abrirApariencia();
 
@@ -2135,7 +2135,26 @@ function renderShell(p, area, active) {
 /* ============ campana de avisos ============
  * El botón de la barra superior era decorativo. Ahora trae los avisos de la
  * persona: pago aprobado o rechazado, cuota por vencer, certificado emitido,
- * respuesta de soporte, apelación resuelta, insignia ganada. */
+ * respuesta de soporte, apelación resuelta, insignia ganada.
+ *
+ * Y van por categorías. Veinte avisos seguidos funcionan con tres avisos; con
+ * treinta y uno de «cambió el rol de…» empujando hacia abajo «tu cuota está
+ * vencida», lo urgente queda enterrado bajo lo rutinario y quien mira aprende
+ * a no mirar.
+ *
+ * Las pestañas NO están escritas por rol. Salen de lo que cada persona tiene:
+ * la base agrupa y devuelve una fila por categoría con avisos de verdad. Por
+ * eso a un estudiante no le sale «Sistema» —nunca recibe uno— sin que haya
+ * ninguna regla que lo diga, y por eso el día que a alguien le cambien el
+ * puesto sus pestañas cambian solas. */
+const CATEGORIAS_AVISO = {
+  dinero:     { rotulo: 'Pagos',      icono: 'payments' },
+  pendientes: { rotulo: 'Por hacer',  icono: 'pending_actions' },
+  aula:       { rotulo: 'Mis cursos', icono: 'school' },
+  sistema:    { rotulo: 'Sistema',    icono: 'monitor_heart' },
+  otros:      { rotulo: 'Otros',      icono: 'inbox' },
+};
+
 async function montarCampana() {
   const btn = $('#cemCampana');
   const punto = $('#cemCampanaPunto');
@@ -2150,43 +2169,143 @@ async function montarCampana() {
   let enPausa = false;
   sb.rpc('cem_correo_en_pausa').then(({ data }) => { enPausa = data === true; });
 
+  /* Qué pestaña se está mirando. Se recuerda entre aperturas porque quien
+     trabaja en cobranza abre la campana veinte veces al día y siempre va al
+     mismo sitio. */
+  let categoria = localStorage.getItem('cemAvisosCategoria') || 'todo';
+  let resumen = [];
+
   async function refrescar() {
-    const { data, error } = await sb.rpc('cem_mis_notificaciones', { p_limite: 20 });
+    const { data, error } = await sb.rpc('cem_mis_notificaciones',
+      { p_limite: 50, p_categoria: categoria });
     if (error) return;
     avisos = data || [];
+    /* El puntito cuenta TODOS los sin leer, no los de la pestaña abierta: es
+       el número de la campana, y tiene que decir cuántos avisos hay esperando
+       en la casa entera. */
     const sinLeer = Number(avisos[0]?.sin_leer || 0);
     punto.hidden = sinLeer === 0;
     btn.title = sinLeer ? `${sinLeer} aviso${sinLeer > 1 ? 's' : ''} sin leer` : 'Avisos';
   }
 
+  const rotuloDe = (c) => CATEGORIAS_AVISO[c]?.rotulo || c;
+  const iconoDe = (c) => CATEGORIAS_AVISO[c]?.icono || 'inbox';
+
+  function pestañas() {
+    // Con una sola categoría no hay nada que elegir: las pestañas sobran.
+    if (resumen.length < 2) return '';
+    const total = resumen.reduce((n, r) => n + Number(r.cuantos), 0);
+    const sinLeerTotal = resumen.reduce((n, r) => n + Number(r.sin_leer), 0);
+    const una = (valor, rotulo, icono, cuantos, sinLeer) => `
+      <button class="btn ${valor === categoria ? '' : 'outline '}sm" data-cat="${esc(valor)}"
+        title="${cuantos} aviso${cuantos === 1 ? '' : 's'}${sinLeer ? `, ${sinLeer} sin leer` : ''}">
+        <span class="material-symbols-outlined">${icono}</span>
+        ${esc(rotulo)}
+        ${sinLeer ? `<span class="pastilla-aviso">${sinLeer}</span>` : `<span class="tiny muted">${cuantos}</span>`}
+      </button>`;
+    return `<div class="avisos-tabs">
+      ${una('todo', 'Todo', 'notifications', total, sinLeerTotal)}
+      ${resumen.map(r => una(r.categoria, rotuloDe(r.categoria), iconoDe(r.categoria),
+                             Number(r.cuantos), Number(r.sin_leer))).join('')}
+    </div>`;
+  }
+
+  function listaHtml() {
+    if (avisos.length) {
+      return `<div class="avisos">${avisos.map(a => `
+        <${a.url ? 'a' : 'div'} class="aviso ${a.leida_en ? '' : 'nuevo'}"
+          ${a.url ? `href="${base()}${esc(a.url)}"` : ''}>
+          <b>${esc(a.titulo)}</b>
+          ${a.cuerpo ? `<span>${esc(a.cuerpo)}</span>` : ''}
+          ${/* De qué va cada aviso, ahora que pueden estar mezclados en «Todo».
+                Sin esto, «Cambió el rol de…» y «Tu cuota está vencida» se leen
+                con el mismo peso, que es de donde venía el problema. */''}
+          <em>${categoria === 'todo'
+                 ? `${esc(rotuloDe(a.categoria))} · ${fdatetime(a.created_at)}`
+                 : fdatetime(a.created_at)}</em>
+        </${a.url ? 'a' : 'div'}>`).join('')}</div>`;
+    }
+    return `<div class="empty">${categoria === 'todo'
+      ? 'No tienes avisos por ahora.'
+      : `No tienes avisos en «${esc(rotuloDe(categoria))}».`}</div>`;
+  }
+
   btn.onclick = async () => {
-    await refrescar();
+    /* El resumen y la lista se piden a la vez: son dos preguntas
+       independientes y encadenarlas sólo hace esperar el doble. */
+    const [{ data: res }] = await Promise.all([
+      sb.rpc('cem_mis_notificaciones_resumen'),
+      refrescar(),
+    ]);
+    resumen = res || [];
+    // Si la pestaña recordada ya no tiene nada (se leyó todo, cambió el
+    // puesto), se vuelve a «Todo» en vez de enseñar un vacío desconcertante.
+    if (categoria !== 'todo' && !resumen.some(r => r.categoria === categoria)) {
+      categoria = 'todo';
+      await refrescar();
+    }
+
     const pausa = enPausa
       ? `<p class="nota warn" id="cemCorreoPausa">Los avisos por correo están en pausa,
            así que <b>esta lista es la única forma de enterarte</b>. Nada se pierde: los
            mensajes quedan guardados y saldrán en cuanto el correo vuelva a funcionar.</p>`
       : '';
+
+    /* El pie se pasa ya relleno: `modal()` sólo crea el `.modal-f` si el pie
+       viene con algo, y sin ese hueco no habría dónde repintar los botones al
+       cambiar de pestaña. */
     const dlg = modal({
       title: 'Avisos',
-      body: pausa + (avisos.length
-        ? `<div class="avisos">${avisos.map(a => `
-            <${a.url ? 'a' : 'div'} class="aviso ${a.leida_en ? '' : 'nuevo'}"
-              ${a.url ? `href="${base()}${esc(a.url)}"` : ''}>
-              <b>${esc(a.titulo)}</b>
-              ${a.cuerpo ? `<span>${esc(a.cuerpo)}</span>` : ''}
-              <em>${fdatetime(a.created_at)}</em>
-            </${a.url ? 'a' : 'div'}>`).join('')}</div>`
-        : '<div class="empty">No tienes avisos por ahora.</div>'),
-      footer: avisos.some(a => !a.leida_en)
-        ? '<button class="btn outline" data-x>Cerrar</button><button class="btn" data-leidas>Marcar todo como leído</button>'
-        : '<button class="btn outline block" data-x>Cerrar</button>',
+      body: pausa + pestañas() + listaHtml(),
+      footer: '<button class="btn outline block" data-x>Cerrar</button>',
     });
-    const bl = $('[data-leidas]', dlg);
-    if (bl) bl.onclick = async () => {
-      await sb.rpc('cem_marcar_notificaciones_leidas');
-      dlg.close();
-      refrescar();
-    };
+
+    function pintarPie() {
+      const hayPorLeer = avisos.some(a => !a.leida_en);
+      const pie = $('.modal-f', dlg);
+      const marca = categoria === 'todo'
+        ? 'Marcar todo como leído'
+        : `Marcar «${rotuloDe(categoria)}» como leído`;
+      const html = hayPorLeer
+        ? `<button class="btn outline" data-x>Cerrar</button><button class="btn" data-leidas>${esc(marca)}</button>`
+        : '<button class="btn outline block" data-x>Cerrar</button>';
+      if (pie) pie.innerHTML = html;
+      const bx = $('[data-x]', dlg);
+      if (bx) bx.onclick = () => dlg.close();
+      const bl = $('[data-leidas]', dlg);
+      if (bl) bl.onclick = async () => {
+        /* Se marca sólo lo que se está mirando. Marcar también las otras
+           pestañas desde aquí es la forma de perderse un aviso sin haberlo
+           visto nunca. */
+        await sb.rpc('cem_marcar_notificaciones_leidas',
+          { p_categoria: categoria === 'todo' ? null : categoria });
+        const { data } = await sb.rpc('cem_mis_notificaciones_resumen');
+        resumen = data || [];
+        await refrescar();
+        repintar();
+      };
+    }
+
+    function repintar() {
+      const cuerpo = $('.modal-b', dlg);
+      if (cuerpo) cuerpo.innerHTML = pausa + pestañas() + listaHtml();
+      conectarPestañas();
+      pintarPie();
+    }
+
+    function conectarPestañas() {
+      $$('[data-cat]', dlg).forEach((b) => {
+        b.onclick = async () => {
+          categoria = b.dataset.cat;
+          localStorage.setItem('cemAvisosCategoria', categoria);
+          await refrescar();
+          repintar();
+        };
+      });
+    }
+
+    conectarPestañas();
+    pintarPie();
   };
 
   refrescar();

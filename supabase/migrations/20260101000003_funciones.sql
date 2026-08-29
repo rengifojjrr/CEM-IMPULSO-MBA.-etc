@@ -7275,16 +7275,17 @@ $function$
 ;
 comment on function public.cem_manifiesto_de_respaldo() is 'Filas y huella md5 de cada tabla cem_*. Se compara antes y después de restaurar para probar que la restauración quedó completa. Ver docs/respaldo-y-restauracion.md.';
 
-CREATE OR REPLACE FUNCTION public.cem_marcar_notificaciones_leidas()
+CREATE OR REPLACE FUNCTION public.cem_marcar_notificaciones_leidas(p_categoria text DEFAULT NULL::text)
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-declare v_n integer;
+declare v_n integer; v_cat text := nullif(trim(coalesce(p_categoria, '')), '');
 begin
   update cem_notificaciones set leida_en = now()
-   where profile_id = auth.uid() and leida_en is null;
+   where profile_id = auth.uid() and leida_en is null
+     and (v_cat is null or v_cat = 'todo' or cem_notificacion_categoria(tipo) = v_cat);
   get diagnostics v_n = row_count;
   return v_n;
 end $function$
@@ -7882,17 +7883,21 @@ AS $function$
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.cem_mis_notificaciones(p_limite integer DEFAULT 20)
- RETURNS TABLE(id uuid, tipo text, titulo text, cuerpo text, url text, leida_en timestamp with time zone, created_at timestamp with time zone, sin_leer bigint)
+CREATE OR REPLACE FUNCTION public.cem_mis_notificaciones(p_limite integer DEFAULT 20, p_categoria text DEFAULT NULL::text)
+ RETURNS TABLE(id uuid, tipo text, categoria text, titulo text, cuerpo text, url text, leida_en timestamp with time zone, created_at timestamp with time zone, sin_leer bigint)
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  select n.id, n.tipo, n.titulo, n.cuerpo, n.url, n.leida_en, n.created_at,
+  select n.id, n.tipo, cem_notificacion_categoria(n.tipo), n.titulo, n.cuerpo, n.url,
+         n.leida_en, n.created_at,
          (select count(*) from cem_notificaciones x
            where x.profile_id = auth.uid() and x.leida_en is null)
     from cem_notificaciones n
    where n.profile_id = auth.uid()
+     and (nullif(trim(coalesce(p_categoria, '')), '') is null
+          or p_categoria = 'todo'
+          or cem_notificacion_categoria(n.tipo) = p_categoria)
    order by n.created_at desc
    limit least(greatest(coalesce(p_limite, 20), 1), 100);
 $function$
@@ -7968,6 +7973,28 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_mis_notificaciones_resumen()
+ RETURNS TABLE(categoria text, cuantos bigint, sin_leer bigint, orden integer)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select c.categoria, count(*), count(*) filter (where n.leida_en is null),
+         case c.categoria
+           when 'dinero'     then 1
+           when 'pendientes' then 2
+           when 'aula'       then 3
+           when 'sistema'    then 4
+           else 5
+         end
+    from cem_notificaciones n
+    cross join lateral (select cem_notificacion_categoria(n.tipo) as categoria) c
+   where n.profile_id = auth.uid()
+   group by c.categoria
+   order by 4;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_notas_cohorte(p_cohort uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -8016,6 +8043,56 @@ begin
   ) into v;
   return v;
 end; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_notificacion_categoria(p_tipo text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  select case p_tipo
+    -- Dinero: lo que se debe, lo que se pagó, lo que se rechazó.
+    when 'cuota_vencida'        then 'dinero'
+    when 'cuota_por_vencer'     then 'dinero'
+    when 'recordatorio_cuota'   then 'dinero'
+    when 'pago_aprobado'        then 'dinero'
+    when 'pago_rechazado'       then 'dinero'
+    when 'pago_anulado'         then 'dinero'
+
+    -- El aula: clases, entregas, notas y lo que se gana al terminar.
+    when 'clase_en_vivo'          then 'aula'
+    when 'recordatorio_entrega'   then 'aula'
+    when 'entrega_reabierta'      then 'aula'
+    when 'evaluacion_creada'      then 'aula'
+    when 'evaluacion_actualizada' then 'aula'
+    when 'evaluacion_estado'      then 'aula'
+    when 'duda_respondida'        then 'aula'
+    when 'mensaje_docente'        then 'aula'
+    when 'insignia'               then 'aula'
+    when 'certificado_emitido'    then 'aula'
+    when 'apelacion_resuelta'     then 'aula'
+
+    -- Lo que espera a que alguien haga algo. Es la pestaña de trabajo.
+    when 'solicitud_inscripcion' then 'pendientes'
+    when 'solicitud_perfil'      then 'pendientes'
+    when 'apelacion_nueva'       then 'pendientes'
+    when 'duda_nueva'            then 'pendientes'
+    when 'ticket_respuesta'      then 'pendientes'
+    when 'cuenta_nueva'          then 'pendientes'
+    when 'bot_escalado'          then 'pendientes'
+
+    -- La máquina hablando de sí misma. Casi siempre, dirección.
+    when 'alerta_gobierno'  then 'sistema'
+    when 'puente_whatsapp'  then 'sistema'
+    when 'informe_mensual'  then 'sistema'
+
+    /* Un tipo que todavía no está en esta lista NO desaparece: cae aquí. Es a
+       propósito. Una categoría que se traga en silencio los avisos que no
+       reconoce es peor que no tener categorías, porque el día que alguien
+       añada un tipo nuevo nadie se entera de que dejó de verlo. */
+    else 'otros'
+  end;
+$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.cem_notificar(p_profile_id uuid, p_tipo text, p_titulo text, p_cuerpo text DEFAULT NULL::text, p_url text DEFAULT NULL::text, p_correo boolean DEFAULT true)

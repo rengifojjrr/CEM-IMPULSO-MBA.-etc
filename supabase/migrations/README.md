@@ -12,7 +12,7 @@ reconstruirlo. Esto cierra ese hueco.
 | `…_extensiones.sql` | Las extensiones de Postgres |
 | `…_tipos.sql` | 22 tipos propios (los enums) |
 | `…_tablas.sql` | 106 tablas con sus columnas y valores por omisión |
-| `…_funciones.sql` | 399 funciones — aquí vive el trabajo de verdad |
+| `…_funciones.sql` | 401 funciones — aquí vive el trabajo de verdad |
 | `…_restricciones.sql` | 369 claves, unicidades, comprobaciones y relaciones |
 | `…_indices.sql` | 265 índices |
 | `…_disparadores.sql` | 18 disparadores |

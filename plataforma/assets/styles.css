@@ -1162,6 +1162,25 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 .icon-btn.campana{position:relative;}
 .icon-btn.campana .punto{position:absolute;top:6px;right:6px;width:7px;height:7px;
   border-radius:var(--r-full);background:var(--error);box-shadow:0 0 0 2px var(--fondo);}
+/* Las pestañas de la campana. Se envuelven en varias líneas en vez de rodar
+   de lado: en un diálogo estrecho, una pestaña que hay que arrastrar para ver
+   es una pestaña que nadie pulsa. */
+/* Se quedan pegadas arriba. Con treinta avisos, unas pestañas que se van con
+   el desplazamiento obligan a subir del todo para cambiar de filtro — y con
+   ellas fuera de vista, la lista vuelve a parecer un montón sin separar. */
+.avisos-tabs{position:sticky;top:calc(var(--e2) * -1);z-index:1;
+  display:flex;flex-wrap:wrap;gap:var(--e0);margin-bottom:var(--e2);
+  padding:var(--e2) 0;background:var(--papel);border-bottom:1px solid var(--filete);}
+.avisos-tabs .btn{gap:6px;}
+.avisos-tabs .btn .material-symbols-outlined{font-size:17px;}
+/* El número de sin leer, dentro de su pestaña. El fondo se saca del color del
+   propio texto rebajado, no de un color fijo: así se lee tanto sobre la
+   pestaña activa (sólida) como sobre las demás (de contorno), sin tener que
+   escribir dos versiones que acabarían discrepando. */
+.pastilla-aviso{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;
+  border-radius:9px;background:color-mix(in srgb, currentColor 22%, transparent);
+  color:inherit;font-size:var(--t-xs);
+  font-weight:var(--peso-fuerte);font-variant-numeric:tabular-nums;}
 .avisos{display:flex;flex-direction:column;gap:2px;margin:calc(var(--e0) * -1) calc(var(--e0) * -1) 0;}
 .avisos .aviso{display:block;padding:var(--e2);border-radius:var(--r);text-decoration:none;
   color:inherit;border-left:2px solid transparent;}
