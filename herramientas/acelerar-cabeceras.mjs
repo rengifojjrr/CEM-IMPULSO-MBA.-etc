@@ -65,9 +65,18 @@ let tocados = 0, saltados = 0;
 for (const archivo of htmls(RAIZ)) {
   const antes = readFileSync(archivo, 'utf8');
 
-  /* Sólo pantallas de la casa: las que cargan nuestros estilos. Las páginas
-     generadas de /programas/ y cualquier HTML suelto de pruebas se quedan
-     como están. */
+  /* Las páginas de /programas/ NO. Las escribe herramientas/generar-seo.mjs
+     cada noche desde su propia plantilla, así que tocarlas aquí dura hasta la
+     madrugada siguiente —y eso pasó de verdad: el arreglo se aplicó, el reloj
+     regeneró, y a la mañana estaba deshecho—. Lo que se genera se arregla en
+     el generador, que ya lleva el mismo orden de preconnect.
+
+     Y hay otra razón para no tocarlas: no cargan app.js. Ponerles el
+     modulepreload y los preconnect de esm.sh y Supabase sería pedirle al
+     navegador que abra tres conexiones que esa página no va a usar. */
+  if (archivo.includes('/programas/')) { saltados++; continue; }
+
+  /* Del resto, sólo pantallas de la casa: las que cargan nuestros estilos. */
   const hojaEstilos = antes.match(/<link rel="stylesheet" href="([^"]*assets\/styles\.css[^"]*)">/);
   if (!hojaEstilos) { saltados++; continue; }
 

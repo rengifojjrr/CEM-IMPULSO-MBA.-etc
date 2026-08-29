@@ -358,8 +358,16 @@ if (errCursos) {
      cuando pasa. Con fecha se dice cuándo y cuánto falta; sin ella se dice la
      verdad —que todavía no hay fecha— en vez de inventar un trimestre. */
   const conv = vitrina?.convocatoria || null;
+
+  /* Los días se cuentan de fecha a fecha, no en milisegundos transcurridos.
+     Restando instantes, algo que empieza dentro de doce días dice «quedan 11»
+     desde media mañana —doce días menos las horas que ya pasaron hoy—, y algo
+     que empieza mañana llega a decir «es hoy». Se comparan los dos días a
+     medianoche y se restan; así «mañana» es uno pase lo que pase. */
+  const aMedianoche = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
   const faltan = conv?.fecha
-    ? Math.max(0, Math.round((new Date(conv.fecha + 'T00:00:00') - new Date()) / 86400000))
+    ? Math.max(0, Math.round(
+        (aMedianoche(conv.fecha + 'T00:00:00') - aMedianoche(new Date())) / 86400000))
     : null;
 
   $('#tituloDestacados').textContent = 'La próxima convocatoria';

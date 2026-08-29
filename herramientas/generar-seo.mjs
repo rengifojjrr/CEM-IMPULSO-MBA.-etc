@@ -217,9 +217,20 @@ function pagina({ titulo, descripcion, url, cuerpo, jsonLd, imagen, activa, prof
 <meta name="twitter:description" content="${esc(descripcion)}">
 <meta name="twitter:image" content="${esc(imagen || TARJETA)}">
 
+<!-- Los servidores de fuera, avisados de golpe y no en fila.
+     Sin esto el navegador descubre cada uno cuando le toca y paga el DNS y el
+     saludo TLS de cada cual por separado, con la pantalla en blanco mientras
+     tanto. El de fonts.gstatic.com estaba DESPUÉS de la hoja que lo dispara,
+     o sea llegando tarde a su propia fiesta.
+
+     Esto vive aquí y no en el HTML generado, y esa distinción costó una
+     regresión: herramientas/acelerar-cabeceras.mjs arregló las 75 pantallas
+     escritas a mano Y las de /programas/, pero éstas se regeneran solas cada
+     noche desde esta plantilla — así que a la mañana siguiente volvían atrás.
+     Lo que se genera se arregla en el generador. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="${arriba}plataforma/assets/styles.css?v=${VERSION_ASSETS}">
 <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
