@@ -109,13 +109,30 @@ async function verificar(texto){
     /* item 25 · un certificado anulado no se borra: se dice qué pasó. Dejar de
        devolverlo haría pensar que el papel es falso cuando lo que pasó es que
        se anuló. */
+    /* Tres estados, no dos. Un certificado SUSTITUIDO no es un certificado
+       anulado: el título vale, lo que pasa es que el papel bueno es otro
+       —se corrigió un nombre, o se rehízo una carga incompleta—. Pintarlo en
+       rojo con «ya no acredita nada» es una acusación falsa delante de quien
+       está a punto de contratar a esa persona. */
     const anulado = !!c.anulado;
-    return `<div class="card" style="border-color:var(--${anulado ? 'error' : 'ok'})">
-      <div class="row"><span class="material-symbols-outlined ${anulado ? 'err-text' : 'ok-text'}">${anulado ? 'gpp_bad' : 'verified'}</span>
-        <b>${anulado ? 'Certificado anulado' : 'Certificado auténtico'}</b></div>
+    const sustituido = !!c.reemplazado;
+    const color = anulado ? 'error' : sustituido ? 'warn' : 'ok';
+    return `<div class="card" style="border-color:var(--${color})">
+      <div class="row"><span class="material-symbols-outlined ${
+        anulado ? 'err-text' : sustituido ? '' : 'ok-text'}" ${
+        sustituido ? 'style="color:var(--warn)"' : ''}>${
+        anulado ? 'gpp_bad' : sustituido ? 'history' : 'verified'}</span>
+        <b>${anulado ? 'Certificado anulado'
+           : sustituido ? 'Hay una versión más nueva'
+           : 'Certificado auténtico'}</b></div>
       ${anulado ? `<p class="nota err">Este certificado lo emitió CEM pero fue anulado${
         c.anulado_en ? ` el ${fdate(c.anulado_en)}` : ''}${
         c.anulado_motivo ? `: ${esc(c.anulado_motivo)}` : '.'} Ya no acredita nada.</p>` : ''}
+      ${sustituido ? `<p class="nota warn" style="text-align:left">Este certificado lo emitió
+        CEM y la formación es válida, pero se rehízo${
+        c.anulado_motivo ? `: ${esc(c.anulado_motivo)}` : '.'}
+        ${c.sustituto ? `<a href="?codigo=${encodeURIComponent(c.sustituto)}">Ver el que
+          está vigente</a>.` : ''}</p>` : ''}
       <div class="sep">
         ${linea('Estudiante', esc(c.estudiante), true)}
         ${c.cedula ? linea('Cédula', esc(c.cedula)) : ''}

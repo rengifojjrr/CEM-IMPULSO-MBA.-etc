@@ -12999,7 +12999,11 @@ begin
              'curso', coalesce(l.nombre, c.entidad_emisora),
              'emitido_en', c.created_at,
              'estado', c.estado,
-             'anulado', c.estado <> 'vigente',
+             'anulado', c.estado not in ('vigente', 'reemplazado'),
+             'reemplazado', c.estado = 'reemplazado',
+             -- Cuál es el que vale ahora, para poder ir a él.
+             'sustituto', (select n.id from cert_certificates n
+                            where n.reemplaza_a = c.id and n.estado = 'vigente' limit 1),
              'anulado_motivo', c.motivo_revocacion))
       into v_lista
       from cert_certificates c
@@ -13028,7 +13032,10 @@ begin
       into v_lista
       from cert_certificates c
       left join cert_lotes l on l.id = c.lote_id
-     where cert_cedula_plana(c.datos) = v_ced;
+     where cert_cedula_plana(c.datos) = v_ced
+       /* Los reemplazados fuera: el que los sustituye ya sale en esta misma
+          lista, y enseñar los dos hace pensar en un problema donde no lo hay. */
+       and c.estado <> 'reemplazado';
     if v_lista is not null then
       return jsonb_build_object('hay', true, 'de', 'generador',
                                 'por_cedula', true, 'certificados', v_lista);
