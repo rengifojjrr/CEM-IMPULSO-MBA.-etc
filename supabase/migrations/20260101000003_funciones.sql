@@ -4935,6 +4935,46 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_de_donde_vienen(p_dias integer DEFAULT 30)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select case when not cem_is_staff() then '{}'::jsonb else
+    jsonb_build_object(
+      'desde', (current_date - greatest(coalesce(p_dias, 30), 1)),
+      'medido', coalesce((
+        select jsonb_agg(jsonb_build_object(
+                 'canal', canal, 'visitas', visitas, 'campanas', campanas)
+               order by visitas desc)
+          from (select canal, sum(cuantas)::int as visitas,
+                       count(distinct campana) filter (where campana is not null)::int as campanas
+                  from cem_visitas
+                 where dia >= current_date - greatest(coalesce(p_dias, 30), 1)
+                 group by canal) c), '[]'::jsonb),
+      'programas', coalesce((
+        select jsonb_agg(jsonb_build_object(
+                 'programa', coalesce(cu.nombre, 'Sin programa'),
+                 'visitas', v.visitas) order by v.visitas desc)
+          from (select course_id, sum(cuantas)::int as visitas
+                  from cem_visitas
+                 where dia >= current_date - greatest(coalesce(p_dias, 30), 1)
+                   and course_id is not null
+                 group by course_id
+                 order by 2 desc limit 10) v
+          left join cem_courses cu on cu.id = v.course_id), '[]'::jsonb),
+      'declarado', coalesce((
+        select jsonb_agg(jsonb_build_object('canal', canal, 'contactos', n) order by n desc)
+          from (select coalesce(nullif(btrim(como_nos_conocio), ''), 'No lo dijo') as canal,
+                       count(*)::int as n
+                  from cem_leads
+                 where created_at >= now() - make_interval(days => greatest(coalesce(p_dias, 30), 1))
+                 group by 1) d), '[]'::jsonb))
+  end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_debe_cambiar_clave()
  RETURNS boolean
  LANGUAGE sql
@@ -5271,10 +5311,16 @@ CREATE OR REPLACE FUNCTION public.cem_embudo(p_dias integer DEFAULT 90)
 AS $function$
 declare
   v_desde timestamptz := now() - make_interval(days => greatest(p_dias, 1));
-  v_contactos int; v_cuentas int;
+  v_contactos int; v_cuentas int; v_vieron int; v_empezaron_pago int;
   v_inscritos int; v_abiertos int; v_empezaron int; v_mitad int; v_terminaron int;
 begin
   if not cem_is_staff() then return jsonb_build_object('pasos', '[]'::jsonb); end if;
+
+  select coalesce(sum(cuantas), 0) into v_vieron from cem_visitas
+   where dia >= v_desde::date and pantalla in ('curso', 'programa');
+
+  select count(*) into v_empezaron_pago from cem_compras_invitado
+   where creada_en >= v_desde;
 
   select count(*) into v_contactos from cem_leads where created_at >= v_desde;
   select count(*) into v_cuentas from cem_profiles
@@ -5305,6 +5351,12 @@ begin
 
   return jsonb_build_object(
     'pasos', jsonb_build_array(
+      jsonb_build_object('etq', 'Miraron un programa', 'n', v_vieron,
+        'nota', 'Visitas a una ficha de programa. Se cuentan desde que existe el contador: '
+             || 'lo de antes no está y no se puede inventar.'),
+      jsonb_build_object('etq', 'Empezaron a pagar', 'n', v_empezaron_pago,
+        'nota', 'Escribieron su nombre y su correo y pulsaron pagar. Ya habían decidido: '
+             || 'lo que se pierde de aquí en adelante se pierde por la puerta, no por el producto.'),
       jsonb_build_object('etq', 'Se inscribieron', 'n', v_inscritos,
         'nota', 'Inscripciones del periodo, sin contar las canceladas.'),
       jsonb_build_object('etq', 'Se les abrió el curso', 'n', v_abiertos,
@@ -5320,9 +5372,9 @@ begin
       'contactos', v_contactos,
       'cuentas_nuevas', v_cuentas,
       'nota', 'Los contactos de la web y las cuentas nuevas no son escalones de este embudo: '
-            || 'mucha gente se inscribe sin dejar antes sus datos, y muchas cuentas no llegan a inscribirse. '
-            || 'Del catálogo a la inscripción no se puede medir sin contar visitas, y no se cuentan.'));
-end $function$
+            || 'mucha gente se inscribe sin dejar antes sus datos, y muchas cuentas no llegan a inscribirse.'));
+end;
+$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.cem_emitir_certificado_modulo(p_enrollment_id uuid, p_module_id uuid, p_forzar boolean DEFAULT false, p_motivo text DEFAULT NULL::text)
@@ -12941,6 +12993,52 @@ AS $function$
   join cem_profiles p on p.id = c.profile_id
   left join cem_courses co on co.id = c.course_id
   where upper(c.codigo) = upper(p_codigo) and c.estado = 'emitido';
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cem_visita_anotar(p_pantalla text, p_course_id uuid DEFAULT NULL::uuid, p_canal text DEFAULT NULL::text, p_campana text DEFAULT NULL::text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_canal text; v_pantalla text; v_campana text;
+begin
+  v_pantalla := lower(left(regexp_replace(coalesce(p_pantalla, 'web'), '[^a-zA-Z0-9_-]', '', 'g'), 40));
+  if v_pantalla = '' then v_pantalla := 'web'; end if;
+
+  v_canal := lower(btrim(coalesce(p_canal, '')));
+  v_canal := case
+    when v_canal = '' then 'directo'
+    when v_canal ~ 'google|bing|duckduck' then 'buscador'
+    when v_canal ~ 'instagram|^ig$' then 'instagram'
+    when v_canal ~ 'facebook|^fb$' then 'facebook'
+    when v_canal ~ 'tiktok' then 'tiktok'
+    when v_canal ~ 'whatsapp|^wa$' then 'whatsapp'
+    when v_canal ~ 'youtube' then 'youtube'
+    when v_canal ~ 'linkedin' then 'linkedin'
+    when v_canal ~ 'mail|correo|newsletter' then 'correo'
+    when v_canal ~ 'manychat|recurso' then 'recurso'
+    else left(regexp_replace(v_canal, '[^a-z0-9_-]', '', 'g'), 24)
+  end;
+  if v_canal = '' then v_canal := 'directo'; end if;
+
+  v_campana := nullif(left(regexp_replace(coalesce(p_campana,''), '[^a-zA-Z0-9_ -]', '', 'g'), 40), '');
+
+  /* Un tope por si alguien decide inflar el contador. No protege de mucho
+     —es un contador público— pero evita que una sola fuente escriba millones
+     de filas y deje la tabla inservible para leerla. */
+  if not cem_rate_limit_consumir('visita:' || v_pantalla, 600, 60, 60) then
+    return;
+  end if;
+
+  insert into cem_visitas as v (dia, pantalla, course_id, canal, campana, cuantas)
+  values (current_date, v_pantalla, p_course_id, v_canal, v_campana, 1)
+  on conflict (dia, pantalla, canal,
+               coalesce(course_id, '00000000-0000-0000-0000-000000000000'::uuid),
+               coalesce(campana, ''))
+    do update set cuantas = v.cuantas + 1;
+end;
 $function$
 ;
 

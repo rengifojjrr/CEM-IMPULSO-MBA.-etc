@@ -84,6 +84,7 @@ alter table public.cem_ticket_messages add constraint cem_ticket_messages_pkey P
 alter table public.cem_tickets add constraint cem_tickets_pkey PRIMARY KEY (id);
 alter table public.cem_turnos add constraint cem_turnos_pkey PRIMARY KEY (id);
 alter table public.cem_valoraciones add constraint cem_valoraciones_pkey PRIMARY KEY (id);
+alter table public.cem_visitas add constraint cem_visitas_pkey PRIMARY KEY (id);
 alter table public.cem_wa_salientes add constraint cem_wa_salientes_pkey PRIMARY KEY (id);
 alter table public.cert_carpetas add constraint cert_carpetas_pkey PRIMARY KEY (ruta);
 alter table public.cert_certificates add constraint cert_certificates_pkey PRIMARY KEY (id);
@@ -351,6 +352,7 @@ alter table public.cem_tickets add constraint cem_tickets_profile_id_fkey FOREIG
 alter table public.cem_valoraciones add constraint cem_valoraciones_class_id_fkey FOREIGN KEY (class_id) REFERENCES cem_classes(id) ON DELETE CASCADE;
 alter table public.cem_valoraciones add constraint cem_valoraciones_cohort_id_fkey FOREIGN KEY (cohort_id) REFERENCES cem_cohorts(id) ON DELETE CASCADE;
 alter table public.cem_valoraciones add constraint cem_valoraciones_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES cem_profiles(id) ON DELETE CASCADE;
+alter table public.cem_visitas add constraint cem_visitas_course_id_fkey FOREIGN KEY (course_id) REFERENCES cem_courses(id) ON DELETE SET NULL;
 alter table public.cem_wa_salientes add constraint cem_wa_salientes_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES cem_profiles(id) ON DELETE SET NULL;
 alter table public.cert_carpetas add constraint cert_carpetas_creada_por_fkey FOREIGN KEY (creada_por) REFERENCES auth.users(id) ON DELETE SET NULL;
 alter table public.cert_certificates add constraint cert_certificates_reemplaza_a_fkey FOREIGN KEY (reemplaza_a) REFERENCES cert_certificates(id);

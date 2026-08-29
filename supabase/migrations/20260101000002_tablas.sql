@@ -1125,6 +1125,17 @@ create table if not exists public.cem_valoraciones (
 );
 comment on table public.cem_valoraciones is 'Lo que opina un estudiante de una clase. El profesor y la coordinación ven los promedios y los comentarios SIN NOMBRE: si se supiera quién dijo qué, nadie diría nada útil.';
 
+create table if not exists public.cem_visitas (
+  id uuid not null default gen_random_uuid(),
+  dia date not null default CURRENT_DATE,
+  pantalla text not null,
+  course_id uuid,
+  canal text not null default 'directo'::text,
+  campana text,
+  cuantas integer not null default 0
+);
+comment on table public.cem_visitas is 'Contadores de visitas públicas por día, pantalla, programa y canal. Sin datos de personas.';
+
 create table if not exists public.cem_wa_salientes (
   id uuid not null default gen_random_uuid(),
   telefono text not null,

@@ -1333,6 +1333,7 @@ export async function mount(opts = {}) {
     document.body.classList.add('cem-publico');
     renderPublicHeader(p);
     seguirElRaton();
+    anotarLaVisita();
     /* Una vía de contacto en TODAS las públicas.
        ─────────────────────────────────────────────────────────────────────
        Antes de esto, la ficha de un programa —la página con más intención de
@@ -1409,6 +1410,61 @@ export async function mount(opts = {}) {
   esqueletosDeTabla();
   montarElAsistente(area);
   return p;
+}
+
+/* ============ contar la visita, sin seguir a nadie ============
+   ═══════════════════════════════════════════════════════════════════════════
+   El embudo empezaba en «se inscribieron», que es a mitad de la historia, y su
+   propio comentario lo confesaba: «del catálogo a la inscripción no se puede
+   medir sin contar visitas, y no se cuentan». Y de dónde venía la gente sólo
+   se sabía si lo escribía a mano en el formulario — o sea, casi nunca desde
+   que se puede comprar sin dejar datos.
+
+   Lo que se manda es: qué pantalla, qué programa si es una ficha, y por dónde
+   entró. Nada más. Ni identificador, ni huella, ni una fila por visita: al
+   otro lado hay un contador por día, pantalla, programa y canal, y sube uno.
+   No se puede reconstruir el recorrido de nadie porque no se guarda ninguno.
+
+   El canal se recuerda en `sessionStorage` porque sólo viene en la PRIMERA
+   página: quien llega de Instagram a la portada y luego abre un programa es,
+   en la segunda página, una visita «directa» si no se recuerda. Y se guarda el
+   primero y no el último a propósito: el mérito de la visita es de quien la
+   trajo, no de la página por la que pasó después.
+
+   Una vez por pantalla y por sesión. Volver atrás y adelante tres veces no son
+   tres visitas, y contarlas así hace que el embudo mienta a favor. */
+function anotarLaVisita() {
+  const pantalla = (location.pathname.split('/').pop() || 'inicio')
+    .replace('.html', '') || 'inicio';
+
+  let canal = '', campana = '';
+  try {
+    const u = new URLSearchParams(location.search);
+    canal = u.get('utm_source') || u.get('origen') || u.get('ref') || '';
+    campana = u.get('utm_campaign') || '';
+    if (!canal && document.referrer) {
+      const host = new URL(document.referrer).hostname;
+      /* Venir de nuestra propia web no es un canal: es navegar. */
+      if (host && host !== location.hostname) canal = host.replace(/^www\./, '');
+    }
+    const guardado = sessionStorage.getItem('cemCanal');
+    if (canal) {
+      if (!guardado) sessionStorage.setItem('cemCanal', JSON.stringify({ canal, campana }));
+    } else if (guardado) {
+      const g = JSON.parse(guardado);
+      canal = g.canal || ''; campana = g.campana || '';
+    }
+    if (sessionStorage.getItem(`cemVisto:${pantalla}`)) return;
+    sessionStorage.setItem(`cemVisto:${pantalla}`, '1');
+  } catch { /* navegación privada, o almacenamiento bloqueado: se cuenta igual */ }
+
+  const curso = qs('id') || qs('curso');
+  sb.rpc('cem_visita_anotar', {
+    p_pantalla: pantalla,
+    p_course_id: /^[0-9a-f-]{36}$/i.test(curso || '') ? curso : null,
+    p_canal: canal || null,
+    p_campana: campana || null,
+  }).catch(() => { /* contar es un adorno: nunca puede romper la página */ });
 }
 
 /* ============ contacto en las pantallas públicas ============

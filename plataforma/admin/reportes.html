@@ -43,8 +43,33 @@
     <div class="card" id="gCanales"></div>
   </div>
 
+  <!-- De dónde llegaron de verdad.
+       ─────────────────────────────────────────────────────────────────────
+       La tabla de abajo cuenta lo que la gente DIJO al rellenar el formulario.
+       Ésta cuenta por dónde entró el navegador, que es otra cosa y a veces la
+       contraria: nadie escribe «vengo de Google» aunque venga de Google, y
+       quien compra sin dejar sus datos no escribe nada.
+
+       Van separadas y no mezcladas a propósito. Lo declarado dice qué recuerda
+       la gente; lo medido, de dónde llegó. Sumarlas sería inventarse una
+       tercera cifra que no es ninguna de las dos. -->
+  <div class="card" id="cardOrigen" hidden>
+    <div class="row between"><h2 class="sec">Por dónde entraron</h2>
+      <span class="tiny muted" id="origenDesde"></span></div>
+    <p class="tiny muted" style="margin-top:-6px">Visitas contadas, no declaradas. Se cuentan
+      desde que existe el contador: lo anterior no está y no se puede inventar.</p>
+    <div class="grid g2">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Canal</th><th class="num">Visitas</th></tr></thead>
+        <tbody id="tbOrigen"></tbody></table></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Programa más mirado</th><th class="num">Visitas</th></tr></thead>
+        <tbody id="tbOrigenProg"></tbody></table></div>
+    </div>
+  </div>
+
   <div class="card" id="cardCanales" hidden>
-    <div class="row between"><h2 class="sec">Qué trae cada canal</h2>
+    <div class="row between"><h2 class="sec">Qué trae cada canal, según lo que dicen</h2>
       <span class="tiny muted">contactos, cuántos pagaron y cuánto entró</span></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Canal</th><th class="num">Contactos</th><th class="num">Se inscribieron</th>
@@ -71,7 +96,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, money, num, pct, kpi, emptyRow, toCSV, download, enBase } from '../assets/app.js?v=2026-08-29';
+import { sb, mount, $, $$, esc, money, num, pct, kpi, emptyRow, toCSV, download, enBase, fdate } from '../assets/app.js?v=2026-08-29';
 import { columnas, barras, apilada, linea, embudo } from '../assets/graficos.js?v=2026-08-29';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'reportes.html', area:'admin' });
 let rango=90, data={};
@@ -232,6 +257,19 @@ function render(){
 $('#btnCsv').onclick = () => download(`reporte_cem_${rango||'todo'}d.csv`, toCSV(window.__filas||[]));
 $('#btnPrint').onclick = () => window.print();
 
+/* Los canales se guardan normalizados —«instagram», «buscador»— para que tres
+   formas de escribir lo mismo no salgan como tres filas. Aquí se les pone la
+   mayúscula y el nombre con el que la gente los llama; lo que no esté en la
+   lista sale tal cual, que suele ser el dominio de donde vino. */
+const NOMBRE_CANAL = {
+  directo: 'Directo (escribió la dirección)',
+  buscador: 'Buscadores (Google y similares)',
+  instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok',
+  whatsapp: 'WhatsApp', youtube: 'YouTube', linkedin: 'LinkedIn',
+  correo: 'Correo', recurso: 'Un recurso descargable',
+};
+const etiquetaCanal = (c) => NOMBRE_CANAL[c] || c;
+
 /* ============ el embudo y los canales (mejoras 38 y 39) ============
    Las dos preguntas con las que de verdad se decide algo. El embudo dice dónde
    se cae la gente —y el escalón más alto es donde está el dinero, porque ahí ya
@@ -239,10 +277,29 @@ $('#btnPrint').onclick = () => window.print();
    vino cada contacto con quién acabó pagando: sin ese cruce, un canal que trae
    cien contactos y ningún pago parece el mejor de todos. */
 async function pintarDireccion(dias){
-  const [{ data: pasos }, { data: canales }] = await Promise.all([
+  const [{ data: pasos }, { data: canales }, { data: origen }] = await Promise.all([
     sb.rpc('cem_embudo', { p_dias: dias }),
     sb.rpc('cem_por_canal', { p_dias: dias }),
+    sb.rpc('cem_de_donde_vienen', { p_dias: dias }),
   ]);
+
+  /* Por dónde entraron de verdad. Sólo se enseña si hay algo contado: un cuadro
+     con dos ceros no informa, y encima hace pensar que nadie visita la web
+     cuando lo que pasa es que el contador acaba de empezar. */
+  const medido = origen?.medido || [];
+  $('#cardOrigen').hidden = medido.length === 0;
+  if (medido.length) {
+    $('#origenDesde').textContent = `desde el ${fdate(origen.desde)}`;
+    $('#tbOrigen').innerHTML = medido.map(c => `<tr>
+      <td>${esc(etiquetaCanal(c.canal))}${c.campanas
+        ? `<div class="tiny muted">${c.campanas} campaña${c.campanas > 1 ? 's' : ''}</div>` : ''}</td>
+      <td class="num">${num(c.visitas)}</td></tr>`).join('');
+    const progs = origen?.programas || [];
+    $('#tbOrigenProg').innerHTML = progs.length
+      ? progs.map(p => `<tr><td class="wrap">${esc(p.programa)}</td>
+          <td class="num">${num(p.visitas)}</td></tr>`).join('')
+      : emptyRow(2, 'Nadie ha abierto todavía la ficha de un programa.');
+  }
 
   /* El embudo se dibuja sólo sobre las inscripciones, que sí son una población
      donde cada escalón contiene al siguiente. Los contactos de la web y las
