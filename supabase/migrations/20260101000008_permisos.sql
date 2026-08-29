@@ -3116,6 +3116,10 @@ grant execute on function public.cem_valorar_clase(p_class_id uuid, p_claridad i
 revoke all on function public.cem_ver_como(p_profile_id uuid) from public, anon;
 grant execute on function public.cem_ver_como(p_profile_id uuid) to authenticated;
 grant execute on function public.cem_ver_como(p_profile_id uuid) to service_role;
+revoke all on function public.cem_verificar(p_texto text) from public, anon;
+grant execute on function public.cem_verificar(p_texto text) to anon;
+grant execute on function public.cem_verificar(p_texto text) to authenticated;
+grant execute on function public.cem_verificar(p_texto text) to service_role;
 revoke all on function public.cem_verify_certificate(p_codigo text) from public, anon;
 grant execute on function public.cem_verify_certificate(p_codigo text) to anon;
 grant execute on function public.cem_verify_certificate(p_codigo text) to authenticated;

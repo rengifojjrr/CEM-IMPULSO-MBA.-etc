@@ -1,0 +1,47 @@
+# Verónica en un servidor de verdad, por unos euros al mes.
+# ─────────────────────────────────────────────────────────────────────────────
+# Se elige Fly por una razón concreta y no por gusto: da un VOLUMEN persistente
+# en el plan pequeño, y la sesión de WhatsApp es una carpeta. Un servicio que
+# sólo ofrezca variables de entorno no sirve aquí, por barato que sea: cada
+# reinicio pediría escanear el QR otra vez.
+#
+# Región: Miami. No es el sitio más barato, es el más cerca de donde está la
+# gente que escribe. Con WhatsApp la latencia se nota en que Verónica tarda en
+# aparecer «escribiendo…».
+#
+# Ver docs/veronica-fuera-del-portatil.md para los cuatro comandos.
+
+app = "cem-veronica"
+primary_region = "mia"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  CEM_PUENTE_AUTH = "/datos/auth"
+  CEM_PUENTE_PUERTO = "3000"
+  # El modo de verdad —si contesta o sólo escucha— lo manda la plataforma, no
+  # esto: se cambia desde el panel sin desplegar nada. Aquí sólo va el valor
+  # con el que arranca antes de la primera consulta.
+  CEM_PUENTE_MODO = "escucha"
+
+# La carpeta de la sesión. Sin esto hay que escanear el QR en cada despliegue.
+[[mounts]]
+  source = "datos"
+  destination = "/datos"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # NO se apaga sola. Una máquina que duerme es un número de WhatsApp que no
+  # contesta y un latido que la base lee como caída: exactamente lo que se
+  # estaba intentando arreglar.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+# Una sola. Dos máquinas serían dos sesiones peleándose por el mismo número, y
+# WhatsApp cierra la vinculación cuando eso pasa.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -12970,6 +12970,76 @@ begin
 end $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cem_verificar(p_texto text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_q text := btrim(coalesce(p_texto, ''));
+  v_uno jsonb; v_lista jsonb; v_ced text;
+begin
+  if v_q = '' then return jsonb_build_object('hay', false); end if;
+
+  -- 1 · ¿Un código de la plataforma?
+  select cem_verify_certificate(v_q) into v_uno;
+  if v_uno is not null and (v_uno ->> 'codigo') is not null then
+    return jsonb_build_object('hay', true, 'de', 'plataforma',
+                              'certificados', jsonb_build_array(v_uno));
+  end if;
+
+  -- 2 · ¿El identificador de un certificado del generador?
+  if v_q ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+    select jsonb_build_array(jsonb_build_object(
+             'codigo', c.id,
+             'titulo', coalesce(c.plantilla_nombre, 'Certificado'),
+             'estudiante', cert_nombre_de(c.datos),
+             'cedula', cert_cedula_bonita(cert_cedula_plana(c.datos)),
+             'curso', coalesce(l.nombre, c.entidad_emisora),
+             'emitido_en', c.created_at,
+             'estado', c.estado,
+             'anulado', c.estado <> 'vigente',
+             'anulado_motivo', c.motivo_revocacion))
+      into v_lista
+      from cert_certificates c
+      left join cert_lotes l on l.id = c.lote_id
+     where c.id = v_q::uuid;
+    if v_lista is not null then
+      return jsonb_build_object('hay', true, 'de', 'generador', 'certificados', v_lista);
+    end if;
+  end if;
+
+  -- 3 · ¿Una cédula? Se compara sin puntos ni guiones ni la letra de delante,
+  --     porque nadie la escribe dos veces igual.
+  v_ced := regexp_replace(upper(v_q), '[^0-9]', '', 'g');
+  if length(v_ced) between 6 and 12 then
+    select jsonb_agg(jsonb_build_object(
+             'codigo', c.id,
+             'titulo', coalesce(c.plantilla_nombre, 'Certificado'),
+             'estudiante', cert_nombre_de(c.datos),
+             'cedula', cert_cedula_bonita(cert_cedula_plana(c.datos)),
+             'curso', coalesce(l.nombre, c.entidad_emisora),
+             'emitido_en', c.created_at,
+             'estado', c.estado,
+             'anulado', c.estado <> 'vigente',
+             'anulado_motivo', c.motivo_revocacion)
+           order by c.created_at desc)
+      into v_lista
+      from cert_certificates c
+      left join cert_lotes l on l.id = c.lote_id
+     where cert_cedula_plana(c.datos) = v_ced;
+    if v_lista is not null then
+      return jsonb_build_object('hay', true, 'de', 'generador',
+                                'por_cedula', true, 'certificados', v_lista);
+    end if;
+  end if;
+
+  return jsonb_build_object('hay', false);
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_verify_certificate(p_codigo text)
  RETURNS jsonb
  LANGUAGE sql

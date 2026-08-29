@@ -52,7 +52,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, kpi, modal, ok, fail, run, audit, confirmDialog } from '../assets/app.js?v=2026-08-29';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, kpi, modal, ok, fail, run, audit, confirmDialog, accionVacio } from '../assets/app.js?v=2026-08-29';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'insignias.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const ICONOS = ['military_tech','insights','public','campaign','emoji_events','workspace_premium','psychology','verified','bolt','school'];
@@ -160,7 +160,8 @@ async function load(){
     <td class="wrap">${esc(a.cem_badges?.competencia||'—')}</td>
     <td class="muted">${fdate(a.otorgado_en)}</td>
     <td>${puede?`<button class="btn ghost sm" data-rev="${a.id}" style="color:var(--error)" title="Revocar">
-      <span class="material-symbols-outlined">block</span></button>`:''}</td></tr>`).join('') : emptyRow(5, 'Todavía no se le ha dado ninguna insignia a nadie.');
+      <span class="material-symbols-outlined">block</span></button>`:''}</td></tr>`).join('') : emptyRow(5, 'Todavía no se le ha dado ninguna insignia a nadie.',
+        puede ? { id:'vacioOtorgar', texto:'Otorgar la primera', icono:'military_tech' } : null);
   $$('[data-rev]').forEach(b=>b.onclick=async()=>{
     if (!await confirmDialog('¿Revocar esta insignia al estudiante?')) return;
     await run(sb.from('cem_badge_awards').delete().eq('id',b.dataset.rev),'No se pudo revocar');
@@ -305,6 +306,10 @@ $('#btnOtorgar').onclick = async () => {
     m.close(); ok('Insignia otorgada'); load();
   };
 };
+
+/* El botón del estado vacío hace lo mismo que el de arriba: no hay dos formas
+   de otorgar una insignia, sólo dos sitios desde donde pedirlo. */
+accionVacio('vacioOtorgar', () => $('#btnOtorgar').click());
 </script>
 </body>
 </html>

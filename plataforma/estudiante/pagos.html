@@ -112,7 +112,7 @@ import { sb, mount, $, $$, esc, chip, num, money, fdate, emptyRow, kpi, ok, fail
          SUPABASE_URL, SUPABASE_KEY,
          subirComprobante, urlComprobante, tasaVigente, mejorarSelects,
          metodosDePago, explicaConversion, MONEDA_BASE,
-         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado } from '../assets/app.js?v=2026-08-29';
+         imprimirDocumento, mensajeError, filaTotales, avisar, ocupado, accionVacio } from '../assets/app.js?v=2026-08-29';
 
 const p = await mount({ require:['estudiante'], active:'pagos.html', area:'estudiante' });
 let cuotas = [], pagos = [], tasa = null;
@@ -586,7 +586,9 @@ function renderPagos(){
         ? `<button class="btn ghost sm" data-recibo="${x.id}" title="Descargar recibo">
              <span class="material-symbols-outlined">description</span></button>`
         : '<span class="tiny muted">—</span>'}</td>
-  </tr>`).join('') : emptyRow(6, 'Todavía no has registrado ningún pago.');
+  </tr>`).join('') : emptyRow(6, 'Todavía no has registrado ningún pago.',
+        cuotas.some(c => c.estado !== 'pagada' && c.estado !== 'anulada')
+          ? { id:'vacioReportar', texto:'Reportar un pago', icono:'receipt_long' } : null);
 
   /* item 49 · para saber cuánto llevas pagado había que sumar a mano. Sólo
      cuentan los aprobados: los que están en revisión todavía no bajan nada. */
@@ -811,6 +813,13 @@ async function descargarRecibo(paymentId){
       Conserva este documento junto con tu comprobante de transferencia.
     </div>`);
 }
+
+/* El botón del estado vacío abre el mismo formulario que el de la cuota: se
+   elige la primera que quede abierta, que es la que toca pagar. */
+accionVacio('vacioReportar', () => {
+  const c = cuotas.find(x => x.estado !== 'pagada' && x.estado !== 'anulada');
+  if (c) abrirReporte(c);
+});
 </script>
 </body>
 </html>

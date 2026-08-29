@@ -44,8 +44,10 @@
     <h1>Verificar certificado</h1>
     <div class="sub">Consulta la autenticidad de un certificado emitido por CEM International Education.</div>
     <form id="f">
-      <div class="field"><label>Código del certificado</label>
-        <input id="codigo" placeholder="CEM-2026-00000" required></div>
+      <div class="field"><label for="codigo">Código, cédula o enlace del QR</label>
+        <input id="codigo" placeholder="CEM-2026-00000, o 12.345.678" required>
+        <span class="tiny muted">Si tienes el certificado delante, con la cédula basta:
+          salen todos los títulos de esa persona.</span></div>
       <button class="btn block" type="submit">Verificar <span class="material-symbols-outlined">search</span></button>
     </form>
     <div id="res" style="margin-top:16px"></div>
@@ -55,54 +57,84 @@
 <script type="module">
 import { sb, $, esc, fdate, qs } from './assets/app.js?v=2026-08-29';
 
-async function verificar(codigo){
+/* Un solo verificador para los dos sistemas.
+   ═══════════════════════════════════════════════════════════════════════════
+   Hay dos registros de certificados —el del generador, con los que ya están
+   impresos y en la mano de la gente, y el de la plataforma— y hasta ahora esta
+   pantalla sólo sabía del segundo. Quien tenía un papel del CEM delante y
+   escribía aquí lo que veía se encontraba «no existe», que es lo mismo que le
+   diría un certificado falso.
+
+   Ahora acepta las tres cosas que alguien puede tener a mano: el código, el
+   identificador del QR, o la cédula. La cédula devuelve todos sus títulos, que
+   es lo que quiere quien está a punto de contratar a alguien. */
+async function verificar(texto){
   const res = $('#res');
   res.innerHTML = '<p class="tiny muted">Consultando…</p>';
-  const { data, error } = await sb.rpc('cem_verify_certificate', { p_codigo: codigo });
-  if (error || !data || !data.codigo){
+  const { data, error } = await sb.rpc('cem_verificar', { p_texto: texto });
+
+  if (error || !data?.hay){
     res.innerHTML = `<div class="card" style="border-color:var(--error)">
       <div class="row"><span class="material-symbols-outlined err-text">cancel</span>
       <b>No encontrado</b></div>
       <p class="tiny muted" style="margin:8px 0 0">${error
         ? 'No pudimos consultar el registro ahora mismo. Vuelve a intentarlo en un momento.'
-        : `No existe ningún certificado con el código <code>${esc(codigo)}</code>. Comprueba que esté bien copiado: se distinguen las letras de los números.`}</p></div>`;
+        : `No hay ningún certificado del CEM con <code>${esc(texto)}</code>. Comprueba que esté
+           bien copiado —se distinguen las letras de los números— o prueba con la cédula
+           de la persona.`}</p></div>`;
     return;
   }
-  /* item 25 · un certificado anulado no se borraba: se dejaba de devolver, y la
-     verificación decía «no existe». Eso sugiere que el papel es falso cuando lo
-     que pasó es que se anuló. Ahora se dice qué pasó y cuándo. */
-  const anulado = !!data.anulado;
+
   const linea = (etiqueta, valor, negrita) =>
     `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--filete)">
        <span class="muted tiny">${etiqueta}</span>
        ${negrita ? `<b style="text-align:right">${valor}</b>` : `<span style="text-align:right">${valor}</span>`}
      </div>`;
 
-  res.innerHTML = `<div class="card" style="border-color:var(--${anulado ? 'error' : 'ok'})">
-    <div class="row"><span class="material-symbols-outlined ${anulado ? 'err-text' : 'ok-text'}">${anulado ? 'gpp_bad' : 'verified'}</span>
-      <b>${anulado ? 'Certificado anulado' : 'Certificado auténtico'}</b></div>
-    ${anulado ? `<p class="nota err">Este certificado lo emitió CEM pero fue anulado
-      el ${fdate(data.anulado_en)}${data.anulado_motivo ? `: ${esc(data.anulado_motivo)}` : '.'}
-      Ya no acredita nada.</p>` : ''}
-    <div class="sep">
-      ${linea('Estudiante', esc(data.estudiante), true)}
-      ${linea('Certificado', esc(data.titulo), true)}
-      ${data.curso ? linea('Programa', esc(data.curso)) : ''}
-      ${linea('Emitido', fdate(data.emitido_en))}
-      <div class="row between" style="padding:6px 0">
-        <span class="muted tiny">Código</span><code>${esc(data.codigo)}</code></div>
-    </div>
+  const certs = data.certificados || [];
 
-    ${data.perfil_slug && !anulado ? `
-      <!-- item 03 · quien escanea un título suele estar a punto de contratar, y
-           lo que quiere saber es qué formación tiene esa persona, no sólo si
-           este papel vale. El QR impreso sigue apuntando aquí —una dirección que
-           no se rompe aunque el graduado despublique su perfil— y desde aquí se
-           pasa al perfil cuando existe. -->
-      <a class="btn block sep" href="perfil-publico.html?p=${encodeURIComponent(data.perfil_slug)}">
-        <span class="material-symbols-outlined">badge</span>
-        Ver todas las credenciales de ${esc(data.estudiante)}</a>` : ''}
-  </div>`;
+  /* Buscando por cédula pueden salir ocho. Se dice cuántos antes de la lista:
+     sin eso, quien la lee no sabe si está viendo todo o sólo lo primero. */
+  const anulados = certs.filter((c) => c.anulado).length;
+  /* La frase se arma en una variable y no dentro del HTML: partida en varias
+     líneas de plantilla salía con un espacio suelto antes del punto. */
+  const resumen = `${certs[0]?.estudiante || ''} tiene ${certs.length} `
+    + `certificado${certs.length === 1 ? '' : 's'} del CEM`
+    + (anulados ? ` (${anulados} anulado${anulados === 1 ? '' : 's'})` : '') + '.';
+  const cabecera = data.por_cedula
+    ? `<p class="nota ok" style="text-align:left">${esc(resumen)}</p>`
+    : '';
+
+  res.innerHTML = cabecera + certs.map((c) => {
+    /* item 25 · un certificado anulado no se borra: se dice qué pasó. Dejar de
+       devolverlo haría pensar que el papel es falso cuando lo que pasó es que
+       se anuló. */
+    const anulado = !!c.anulado;
+    return `<div class="card" style="border-color:var(--${anulado ? 'error' : 'ok'})">
+      <div class="row"><span class="material-symbols-outlined ${anulado ? 'err-text' : 'ok-text'}">${anulado ? 'gpp_bad' : 'verified'}</span>
+        <b>${anulado ? 'Certificado anulado' : 'Certificado auténtico'}</b></div>
+      ${anulado ? `<p class="nota err">Este certificado lo emitió CEM pero fue anulado${
+        c.anulado_en ? ` el ${fdate(c.anulado_en)}` : ''}${
+        c.anulado_motivo ? `: ${esc(c.anulado_motivo)}` : '.'} Ya no acredita nada.</p>` : ''}
+      <div class="sep">
+        ${linea('Estudiante', esc(c.estudiante), true)}
+        ${c.cedula ? linea('Cédula', esc(c.cedula)) : ''}
+        ${linea('Certificado', esc(c.titulo), true)}
+        ${c.curso && c.curso !== c.titulo ? linea('Programa', esc(c.curso)) : ''}
+        ${linea('Emitido', fdate(c.emitido_en))}
+        <div class="row between" style="padding:6px 0">
+          <span class="muted tiny">Código</span><code>${esc(c.codigo)}</code></div>
+      </div>
+
+      ${c.perfil_slug && !anulado ? `
+        <!-- item 03 · quien escanea un título suele estar a punto de contratar, y
+             lo que quiere saber es qué formación tiene esa persona, no sólo si
+             este papel vale. -->
+        <a class="btn block sep" href="perfil-publico.html?p=${encodeURIComponent(c.perfil_slug)}">
+          <span class="material-symbols-outlined">badge</span>
+          Ver todas las credenciales de ${esc(c.estudiante)}</a>` : ''}
+    </div>`;
+  }).join('');
 }
 
 $('#f').onsubmit = (e) => { e.preventDefault(); verificar($('#codigo').value.trim()); };
