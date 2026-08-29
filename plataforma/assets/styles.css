@@ -1162,6 +1162,27 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 .icon-btn.campana{position:relative;}
 .icon-btn.campana .punto{position:absolute;top:6px;right:6px;width:7px;height:7px;
   border-radius:var(--r-full);background:var(--error);box-shadow:0 0 0 2px var(--fondo);}
+/* ─────────────── CONTACTO EN LAS PANTALLAS PÚBLICAS ────────────────────
+   Abajo a la izquierda, no a la derecha: en las públicas la derecha es de
+   Cemi, y dos burbujas peleándose por la misma esquina es lo que hace que no
+   se pulse ninguna. En el teléfono se queda sólo el icono. */
+.contacto-flotante{position:fixed;left:18px;bottom:18px;z-index:55;}
+.contacto-flotante .contacto-btn{box-shadow:var(--sombra-2,0 6px 20px rgba(0,0,0,.18));
+  border-radius:999px;padding:12px 18px;gap:8px;}
+.contacto-flotante .contacto-btn:hover{transform:translateY(-1px);}
+@media (max-width:640px){
+  .contacto-flotante{left:14px;bottom:14px;}
+  .contacto-flotante .contacto-txt{display:none;}
+  .contacto-flotante .contacto-btn{padding:13px;}
+}
+@media print{ .contacto-flotante{display:none;} }
+
+/* El tic de «recibido». Se usa al confirmar un contacto y al terminar una
+   compra: la misma señal para la misma idea. */
+.tic-ok{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;
+  margin:0 auto;background:var(--ok-suave);color:var(--ok);}
+.tic-ok .material-symbols-outlined{font-size:32px;}
+
 /* Las pestañas de la campana. Se envuelven en varias líneas en vez de rodar
    de lado: en un diálogo estrecho, una pestaña que hay que arrastrar para ver
    es una pestaña que nadie pulsa. */

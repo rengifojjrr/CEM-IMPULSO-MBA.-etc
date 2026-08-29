@@ -1333,6 +1333,17 @@ export async function mount(opts = {}) {
     document.body.classList.add('cem-publico');
     renderPublicHeader(p);
     seguirElRaton();
+    /* Una vía de contacto en TODAS las públicas.
+       ─────────────────────────────────────────────────────────────────────
+       Antes de esto, la ficha de un programa —la página con más intención de
+       compra del sitio— no tenía ni un formulario, ni un WhatsApp, ni el
+       asistente. Era comprar o irse, y quien tenía una duda se iba.
+
+       Va aquí y no en cada archivo por lo mismo que la campana: quince
+       pantallas son quince sitios donde olvidarse, y una pantalla sin botón
+       de contacto no da error — simplemente pierde a esa persona sin que
+       nadie se entere. */
+    montarContactoPublico();
     return p;
   }
 
@@ -1390,6 +1401,96 @@ export async function mount(opts = {}) {
   esqueletosDeTabla();
   montarElAsistente(area);
   return p;
+}
+
+/* ============ contacto en las pantallas públicas ============
+   Dos caminos, y sólo dos, porque quien mira un programa quiere una de dos
+   cosas: preguntar algo, o que le avisen cuando abra. Un formulario con siete
+   campos es una tercera cosa que nadie quiere.
+
+   El destino no es un correo escrito a mano en el HTML —eso se queda viejo y
+   además se lo comen los robots de spam—: entra en la misma bandeja de
+   contactos que ya usa el equipo, y avisa por la campana a quien atiende. */
+function montarContactoPublico() {
+  if ($('#cemContacto')) return;
+
+  const caja = document.createElement('div');
+  caja.id = 'cemContacto';
+  caja.className = 'contacto-flotante';
+  caja.innerHTML = `<button class="btn contacto-btn" type="button">
+      <span class="material-symbols-outlined">forum</span>
+      <span class="contacto-txt">¿Tienes dudas?</span></button>`;
+  document.body.appendChild(caja);
+
+  caja.querySelector('button').onclick = () => abrirContacto();
+}
+
+/** El curso que se está mirando, si es que se está mirando uno. Sirve para
+    que el contacto llegue diciendo por qué programa preguntan, en vez de
+    obligar a la persona a escribirlo y al equipo a adivinarlo. */
+function cursoDeLaPantalla() {
+  const id = qs('curso') || qs('id');
+  return /^[0-9a-f-]{36}$/i.test(id || '') ? id : null;
+}
+
+export function abrirContacto({ interes = '', titulo = '' } = {}) {
+  const curso = cursoDeLaPantalla();
+  const dlg = modal({
+    title: titulo || 'Hablemos',
+    body: `
+      <p class="tiny muted" style="margin-top:0">Déjanos tus datos y te escribimos.
+        Normalmente el mismo día.</p>
+      <div class="field"><label for="ctNombre">Tu nombre</label>
+        <input id="ctNombre" autocomplete="name" maxlength="80" placeholder="María Pérez"></div>
+      <div class="field"><label for="ctEmail">Tu correo</label>
+        <input id="ctEmail" type="email" autocomplete="email" maxlength="120" placeholder="maria@correo.com"></div>
+      <div class="field"><label for="ctTel">Tu teléfono <span class="tiny muted">(opcional)</span></label>
+        <input id="ctTel" type="tel" autocomplete="tel" maxlength="30" placeholder="+58 412 000 0000"></div>
+      <div class="field"><label for="ctMsg">¿Qué te gustaría saber?</label>
+        <textarea id="ctMsg" rows="3" placeholder="Cuánto dura, cómo son las clases, formas de pago…">${esc(interes)}</textarea></div>
+      <div id="ctMsgCaja"></div>`,
+    footer: `<button class="btn outline" data-x>Cerrar</button>
+             <button class="btn" data-s id="ctEnviar">Enviar</button>`,
+  });
+
+  $('#ctEnviar', dlg).onclick = async () => {
+    const cajaMsg = $('#ctMsgCaja', dlg);
+    const nombre = $('#ctNombre', dlg).value.trim();
+    const email = $('#ctEmail', dlg).value.trim();
+    if (nombre.length < 2) { avisar(cajaMsg, 'Escribe tu nombre.', 'err'); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) {
+      avisar(cajaMsg, 'Ese correo no parece un correo.', 'err'); return;
+    }
+    const { error } = await sb.rpc('cem_lead_publico_crear', {
+      p_nombre: nombre, p_email: email,
+      p_telefono: $('#ctTel', dlg).value.trim() || null,
+      p_mensaje: $('#ctMsg', dlg).value.trim() || null,
+      p_interes: interes || null,
+      p_course_id: curso,
+      p_origen: location.pathname.split('/').pop().replace('.html', '') || 'web',
+    });
+    if (error) { avisar(cajaMsg, mensajeError(error), 'err'); return; }
+    /* Se confirma dentro de la ventana y no con un mensajito que se va: quien
+       acaba de dar su teléfono quiere ver, sin prisa, que llegó. */
+    $('.modal-b', dlg).innerHTML = `<div style="text-align:center;padding:12px 0">
+        <div class="tic-ok"><span class="material-symbols-outlined">check</span></div>
+        <h3 style="margin:12px 0 4px">Recibido, ${esc(nombre.split(' ')[0])}</h3>
+        <p class="muted" style="margin:0">Te escribimos a <b>${esc(email)}</b>.</p></div>`;
+    $('.modal-f', dlg).innerHTML = '<button class="btn block" data-x>Listo</button>';
+    $('[data-x]', dlg).onclick = () => dlg.close();
+  };
+  return dlg;
+}
+
+/** «Avísame cuando abra». Es el mismo buzón, con otra intención declarada:
+    quien deja esto no tiene una duda, tiene una fecha que esperar. */
+export function abrirAvisame(quePrograma = '') {
+  return abrirContacto({
+    titulo: 'Avísame cuando abra',
+    interes: quePrograma
+      ? `Quiero que me avisen cuando abra: ${quePrograma}`
+      : 'Quiero que me avisen cuando abra la próxima convocatoria',
+  });
 }
 
 /* ============ el asistente, en todas las pantallas y sin tocar ninguna ======
