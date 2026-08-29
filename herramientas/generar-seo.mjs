@@ -460,9 +460,19 @@ function paginaDelCatalogo(cursos) {
   const cuerpo = `
 <main class="pub-main" style="max-width:1080px">
   <h1>Programas del CEM</h1>
+  ${/* Sin ninguno abierto no se dice «0 programas», que suena a error de la
+        página. Se dice lo que pasa —no hay inscripciones abiertas ahora
+        mismo— y a dónde ir, porque quien llega aquí desde Google venía a
+        apuntarse a algo. */''}
+  ${cursos.length ? `
   <p class="entrada">Formación práctica en marketing digital, negocios, inteligencia
     artificial y tecnología. ${cursos.length === 1 ? 'Un programa' : `${cursos.length} programas`},
-    con certificado verificable, y planes de pago de 1, 3 o 6 cuotas.</p>
+    con certificado verificable, y planes de pago de 1, 3 o 6 cuotas.</p>` : `
+  <p class="entrada">Formación práctica en marketing digital, negocios, inteligencia
+    artificial y tecnología, con certificado verificable.</p>
+  <p class="caja" style="padding:16px">
+    <b>Ahora mismo no hay inscripciones abiertas.</b><br>
+    Estamos preparando la próxima convocatoria. Aquí aparecerá en cuanto abra.</p>`}
 
   ${areas.map((area) => {
     const suyos = cursos.filter((c) => (plano(c.categoria) || 'Otros programas') === area);
@@ -573,10 +583,20 @@ async function main() {
     traer('cem_cohorts?select=course_id,fecha_inicio,estado'),
   ]);
 
+  /* Aquí NO se sale antes de tiempo cuando no hay ninguno publicado.
+     ─────────────────────────────────────────────────────────────────────────
+     Eso hacía antes, y era justo al revés de lo que hace falta: el día que se
+     despublica el último programa es el día en que MÁS importa pasar por aquí,
+     porque hay que borrar su página. Al plantarse, la página vieja se quedaba
+     publicada en el sitio —con su precio, su botón de inscribirse y su sitio
+     en el mapa que lee Google— anunciando algo que ya no se vende.
+
+     Con la lista vacía el resto del guion funciona: no escribe ninguna página
+     de programa, deja el catálogo diciendo que ahora mismo no hay ninguno, y
+     el mapa se queda con las cuatro direcciones fijas. */
   if (!cursosCrudos.length) {
-    console.log('\nNo hay ningún programa publicado, así que no hay nada que generar.');
-    console.log('Publica al menos uno en Admin → Cursos y vuelve a ejecutar esto.\n');
-    return;
+    console.log('\nNo hay ningún programa publicado. Se limpia lo que quedaba de la vez');
+    console.log('anterior para que no siga anunciándose algo que ya no se ofrece.\n');
   }
 
   /* Dos programas con el mismo nombre darían el mismo archivo y uno pisaría al
@@ -619,6 +639,10 @@ async function main() {
 
   console.log(`\n${cursos.length} programa(s) con página propia, `
     + `${cursos.length + 4} direcciones en el sitemap.`);
+  if (!cursos.length) {
+    console.log('El catálogo queda en pie y vacío: quien llegue por un enlace viejo lee');
+    console.log('que ahora no hay programas abiertos, en vez de encontrar un 404.');
+  }
 }
 
 main().catch((e) => { console.error('\n✗', e.message, '\n'); process.exit(1); });

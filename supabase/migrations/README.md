@@ -16,7 +16,7 @@ reconstruirlo. Esto cierra ese hueco.
 | `…_restricciones.sql` | 369 claves, unicidades, comprobaciones y relaciones |
 | `…_indices.sql` | 265 índices |
 | `…_disparadores.sql` | 18 disparadores |
-| `…_rls.sql` | 244 políticas: quién puede ver cada fila |
+| `…_rls.sql` | 245 políticas: quién puede ver cada fila |
 | `…_permisos.sql` | Permisos de tabla, **de columna** y de función |
 | `…_almacen.sql` | 6 depósitos de archivos y sus 18 reglas |
 | `…_tareas.sql` | Las 10 cosas que se ejecutan solas |

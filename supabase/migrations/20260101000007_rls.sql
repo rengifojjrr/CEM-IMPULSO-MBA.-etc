@@ -362,6 +362,10 @@ create policy cem_courses_editar on public.cem_courses as permissive for update 
   with check (cem_is_staff());
 create policy cem_courses_read on public.cem_courses as permissive for select to anon, authenticated
   using (((estado = 'publicado'::cem_pub_estado) OR cem_can_read_all()));
+create policy cem_courses_read_mio on public.cem_courses as permissive for select to authenticated
+  using ((EXISTS ( SELECT 1
+   FROM cem_enrollments e
+  WHERE ((e.course_id = cem_courses.id) AND (e.profile_id = auth.uid())))));
 create policy cem_auditor_no_delete_cem_enrollments on public.cem_enrollments as restrictive for delete to public
   using ((NOT cem_es_auditor()));
 create policy cem_auditor_no_insert_cem_enrollments on public.cem_enrollments as restrictive for insert to public
