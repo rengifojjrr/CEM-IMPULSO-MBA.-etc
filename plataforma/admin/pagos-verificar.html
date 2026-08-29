@@ -45,6 +45,32 @@
 
   <div class="kpis" id="kpis"></div>
 
+  <!-- A quién llamar hoy.
+       ─────────────────────────────────────────────────────────────────────
+       La respuesta a «¿quién debe qué?» estaba repartida entre cuatro
+       pantallas —cuotas, pagos, carteras y cierre de mes— y lo único que se
+       podía sacar entero era un CSV. Un CSV no es una pantalla de cobranza:
+       es un archivo que alguien abre en Excel y ordena a mano cada mañana.
+
+       Va por PERSONA y no por cuota: se llama a una persona, no a una cuota.
+       Quien debe tres recibe una llamada, no tres, y quien llama necesita el
+       total en la mano antes de marcar.
+
+       El orden es dinero × tiempo. Ni sólo el importe —una deuda grande de
+       ayer todavía se paga sola— ni sólo la antigüedad —cien euros de hace un
+       año no son la llamada más rentable de hoy—. -->
+  <div class="card" id="cardLlamar" hidden>
+    <div class="row between">
+      <h2 class="sec">A quién llamar hoy <button type="button" class="ayuda-btn"
+        data-ayuda="Ordenado por lo que más conviene atender: el importe multiplicado por los días que lleva vencido. Arriba está la llamada que más recupera.">?</button></h2>
+      <span class="chip warn" id="nLlamar"></span>
+    </div>
+    <div class="table-wrap"><table class="tarjetas">
+      <thead><tr><th>Quién</th><th>Programa</th><th class="num">Debe</th>
+        <th>Lleva</th><th>Último aviso</th><th></th></tr></thead>
+      <tbody id="tbLlamar"></tbody></table></div>
+  </div>
+
   <!-- Para este puesto sólo hay una pregunta durante todo el día: a quién
        llamo ahora. Estos tres la contestan sin abrir ninguna tabla. -->
   <div class="grid graficos" id="graficos"></div>
@@ -126,7 +152,44 @@ let pagos = [], tasa = null;
 
 if (p) cargar();
 
+/* La lista de llamadas del día. Va aparte de cargar() y no dentro: si la
+   consulta tarda, no puede retrasar la tabla de pagos por verificar, que es
+   lo que esta pantalla tiene que enseñar primero. */
+async function pintarLlamadas(){
+  const { data } = await sb.rpc('cem_a_quien_llamo_hoy', { p_cuantos: 25 });
+  const filas = data || [];
+  $('#cardLlamar').hidden = filas.length === 0;
+  if (!filas.length) return;
+
+  const total = filas.reduce((a, f) => a + Number(f.debe || 0), 0);
+  $('#nLlamar').textContent = `${filas.length} · ${money(total, filas[0].moneda || MONEDA_BASE)}`;
+
+  const diasDesde = (iso) => iso
+    ? Math.round((Date.now() - new Date(iso)) / 86400000) : null;
+
+  $('#tbLlamar').innerHTML = filas.map(f => {
+    const d = diasDesde(f.ultimo_contacto);
+    const tel = String(f.telefono || '').replace(/\D/g, '');
+    return `<tr>
+      <td class="wrap"><b>${esc(f.quien || 'Sin nombre')}</b>
+        <div class="tiny muted">${esc(f.email || '')}</div></td>
+      <td class="wrap tiny">${esc(f.programas || '—')}${
+        f.cuotas > 1 ? `<div class="muted">${f.cuotas} cuotas abiertas</div>` : ''}</td>
+      <td class="num"><b>${money(f.debe, f.moneda || MONEDA_BASE)}</b></td>
+      <td><span class="chip ${f.dias > 30 ? 'err' : 'warn'}">${f.dias} días</span>
+        <div class="tiny muted">desde ${fdate(f.vence_peor)}</div></td>
+      <td class="tiny muted">${d === null ? 'nunca'
+        : d === 0 ? 'hoy' : d === 1 ? 'ayer' : `hace ${d} días`}</td>
+      <td class="nowrap">
+        ${tel ? `<a class="btn ghost sm" target="_blank" rel="noopener"
+             href="https://wa.me/${esc(tel)}" title="Escribirle por WhatsApp">
+             <span class="material-symbols-outlined">chat</span></a>` : ''}
+        <a class="btn outline sm" href="${esc(f.enlace)}">Ver ficha</a></td></tr>`;
+  }).join('');
+}
+
 async function cargar(){
+  pintarLlamadas();
   const [eur, usd] = await Promise.all([tasaVigente('EUR'), tasaVigente('USD')]);
   tasa = eur;
   const pintarTasa = (t, elValor, elOrigen, unidad) => {

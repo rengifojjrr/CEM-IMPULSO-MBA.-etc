@@ -102,6 +102,52 @@ end $function$
 ;
 comment on function public.cem_a_base(p_monto numeric, p_moneda text, p_fecha date) is 'Pasa un monto a euros con la tasa real más cercana, y dice de qué día era esa tasa.';
 
+CREATE OR REPLACE FUNCTION public.cem_a_quien_llamo_hoy(p_cuantos integer DEFAULT 25)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select case when not (cem_puede_cobranza() or cem_es_admin() or cem_es_auditor())
+              then '[]'::jsonb else
+    coalesce((
+      select jsonb_agg(x order by (x->>'peso')::numeric desc)
+        from (
+          select jsonb_build_object(
+            'profile_id', pr.id,
+            'quien',      trim(coalesce(pr.nombre,'') || ' ' || coalesce(pr.apellido,'')),
+            'telefono',   pr.telefono,
+            'email',      pr.email,
+            'programas',  string_agg(distinct c.nombre, ' · '),
+            'cuotas',     count(*),
+            'debe',       sum(coalesce(i.saldo, i.monto)),
+            'moneda',     min(i.moneda),
+            -- La más vieja manda: es la que mide cuánto lleva esto abierto.
+            'dias',       max(current_date - i.fecha_vencimiento),
+            'vence_peor', min(i.fecha_vencimiento),
+            'ultimo_contacto', (
+              select max(n.created_at) from cem_notificaciones n
+               where n.profile_id = pr.id and n.tipo like 'cuota_%'),
+            'enlace',     'admin/estudiante.html?id=' || pr.id,
+            'peso',       sum(coalesce(i.saldo, i.monto)
+                              * greatest(1, (current_date - i.fecha_vencimiento)))
+          ) as x
+          from cem_installments i
+          join cem_enrollments e on e.id = i.enrollment_id
+          join cem_courses c     on c.id = e.course_id
+          join cem_profiles pr   on pr.id = e.profile_id
+         where i.estado in ('vencida','parcial','pendiente')
+           and coalesce(i.saldo, i.monto) > 0
+           and i.fecha_vencimiento < current_date
+         group by pr.id, pr.nombre, pr.apellido, pr.telefono, pr.email
+         order by sum(coalesce(i.saldo, i.monto)
+                      * greatest(1, (current_date - i.fecha_vencimiento))) desc
+         limit greatest(1, least(100, coalesce(p_cuantos, 25)))
+        ) t), '[]'::jsonb)
+  end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.cem_acceso_abierto(p_enrollment_id uuid)
  RETURNS boolean
  LANGUAGE sql
