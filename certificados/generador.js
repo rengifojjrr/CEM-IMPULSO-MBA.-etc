@@ -86,7 +86,25 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
     background:var(--card);color:var(--text);}
   textarea{width:100%;min-height:110px;font-family:ui-monospace,monospace;font-size:12px;}
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  th,td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left;}
+  /* El texto de una celda parte de línea. Parece obvio y hay que escribirlo.
+     ─────────────────────────────────────────────────────────────────────────
+     Este motor se monta en dos sitios. En la página suelta —certificados/
+     generar.html— no hay más hoja que ésta y las celdas parten solas. Dentro
+     del portal sí la hay, y plataforma/assets/styles.css declara
+     «th,td{white-space:nowrap}» para TODAS sus tablas: allí las tablas viven
+     dentro de un .table-wrap que rueda de lado, así que no partir es lo
+     correcto. Aquí no hay .table-wrap, y el resultado era que una plantilla
+     con nombre largo —«DIPLOMAS EDITABLE 2026 DIPLOMADO CEM_agosto_
+     INTELIGENCIA ARTIFICIAL», 492px en una sola línea— estiraba la tabla a
+     1163px dentro de un panel de 1082. Los 81px que sobraban se cortaban, y
+     lo que caía en ellos era la columna de Acciones: el botón de «Revocar»
+     partido por la mitad contra el borde de la ventana, sin barra que lo
+     alcanzara porque la página tampoco rueda. Un botón que se ve y no se
+     puede pulsar es peor que uno que no está.
+     Se dice explícitamente en vez de confiar en el valor por omisión, porque
+     el valor por omisión es justo lo que la otra hoja pisa. */
+  th,td{border-bottom:1px solid var(--border);padding:6px 8px;text-align:left;
+    white-space:normal;overflow-wrap:break-word;}
   th{color:var(--muted);text-transform:uppercase;font-size:10.5px;}
   .msg{padding:10px 12px;border-radius:8px;font-size:13px;margin-top:10px;}
   .msg.ok{background:var(--bien-suave);color:var(--bien);}
@@ -237,6 +255,23 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
   tr.grupo-fecha .dia{font-weight:700;color:var(--navy);}
   tr.grupo-fecha .row{margin-bottom:0;gap:8px;}
   td.hora{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+
+  /* El reparto de la tabla de emitidos.
+     ─────────────────────────────────────────────────────────────────────────
+     Dejado a su aire, el navegador reparte el ancho en proporción a lo largo
+     que sea el texto de cada columna. Y el texto más largo de la fila es el
+     nombre de la plantilla —«DIPLOMAS EDITABLE 2026 DIPLOMADO CEM_agosto_
+     INTELIGENCIA ARTIFICIAL»—, que se llevaba el doble que la columna de
+     Datos. Justo al revés de para qué se mira esta lista: se busca a una
+     persona por su nombre o su cédula; de qué plantilla salió el papel es el
+     dato que menos se lee. Con el reparto a ojo, «Fecha: 7 de Septiembre de
+     2026» caía en tres renglones y cada fila ocupaba siete.
+     Las acciones no parten: son tres palabras cortas y partirlas deja el
+     punto de separación colgando al principio del renglón siguiente. */
+  td.datos{min-width:190px;}
+  td.plantilla{max-width:250px;color:var(--muted);}
+  td.estado{max-width:120px;}
+  td.acciones{white-space:nowrap;}
 
   /* La previa de un grupo: un diploma por módulo, con su fecha debajo.
      Se mira para comprobar que cada módulo lleva su diseño y su fecha ANTES de
@@ -559,7 +594,11 @@ Juan	Pérez	Diplomado en Gestión de Proyectos	2026-07-15	120"></textarea>
       </div>
       <div id="emitidosSeleccionBar" class="row" style="display:none;align-items:center;background:var(--hundido);
         border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;"></div>
-      <div id="listaEmitidosWrap">Cargando…</div>
+      ${/* Y la red debajo, como en la de grupos: por muy bien que parta el
+            texto, un nombre de plantilla nuevo y larguísimo puede volver a
+            estirar la tabla. Que ruede ella dentro de su caja es la única
+            garantía de que la columna de Acciones siempre se alcanza. */''}
+      <div id="listaEmitidosWrap" style="overflow-x:auto;">Cargando…</div>
       </div>
     </div>
 
@@ -4650,11 +4689,11 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const reemplazoPor = c.estado === 'reemplazado' ? issued.find(x => x.reemplaza_a === c.id) : null;
       return `<tr id="emitido-${c.id}" class="${issuedSeleccionados.has(c.id) ? 'fila-marcada' : ''}">
       <td><input type="checkbox" data-emitido-check="${c.id}" ${issuedSeleccionados.has(c.id) ? 'checked' : ''}></td>
-      <td>${Object.entries(c.datos || {}).filter(([,v]) => v).map(([k,v]) => `<b>${escapeHtml(k)}:</b> ${escapeHtml(v)}`).join('<br>')}</td>
-      <td>${escapeHtml(c.plantilla_nombre || '—')}</td>
-      <td><span class="badge ${c.estado}">${c.estado}</span>${reemplazoPor ? `<br><a href="#" data-ir-a="${reemplazoPor.id}" class="hint">→ ver el que lo reemplaza</a>` : ''}</td>
+      <td class="datos">${Object.entries(c.datos || {}).filter(([,v]) => v).map(([k,v]) => `<b>${escapeHtml(k)}:</b> ${escapeHtml(v)}`).join('<br>')}</td>
+      <td class="plantilla">${escapeHtml(c.plantilla_nombre || '—')}</td>
+      <td class="estado"><span class="badge ${c.estado}">${c.estado}</span>${reemplazoPor ? `<br><a href="#" data-ir-a="${reemplazoPor.id}" class="hint">→ ver el que lo reemplaza</a>` : ''}</td>
       <td class="hora">${new Date(c.created_at).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</td>
-      <td>
+      <td class="acciones">
         <a href="${escapeHtml(urlDeVerificar(c.id))}" target="_blank" class="hint">Ver</a>
         ${c.estado === 'vigente' ? ` · <button data-editar-emitido="${c.id}" class="btn outline small">Editar</button>` : ''}
         ${c.estado === 'vigente' ? ` · <button data-revocar="${c.id}" class="btn danger small">Revocar</button>` : ''}

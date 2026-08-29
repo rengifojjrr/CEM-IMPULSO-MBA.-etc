@@ -2,7 +2,7 @@
 
    Tres cosas que se rompieron antes y no queremos que vuelvan a romperse:
 
-   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-29) y lo montan
+   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-08-29-2) y lo montan
       dos pantallas distintas. Si alguien toca una y no la otra, se separan.
    2. Los fondos ya no viajan incrustados en la configuración (eran 15 MB por
       abrir la pantalla): están en el almacenamiento y se piden con CORS. Sin
@@ -12,7 +12,7 @@
       conserva su número y cada PDF combinado, una página por estudiante. */
 
 import { acta, nuevaPestana, entrar, BASE, DESDE_MEMORIA } from '../entorno.mjs';
-import { agruparPorDia, claveDelDia, diaEnLetras } from '../../certificados/generador.js?v=2026-08-29';
+import { agruparPorDia, claveDelDia, diaEnLetras } from '../../certificados/generador.js?v=2026-08-29-2';
 
 const ALUMNOS = ['Ana Prueba', 'Bruno Prueba', 'Carla Prueba', 'Diego Prueba'];
 
@@ -120,6 +120,50 @@ export default async function correr(navegador) {
   a.comprobar(soloEnUna.length === 0 && idsPub.length > 50,
     `Las dos pantallas montan el mismo juego de ${idsPub.length} controles` +
     (soloEnUna.length ? ` — se descuadran en ${JSON.stringify(soloEnUna.slice(0, 5))}` : ''));
+
+  /* ============ 1 bis) que el botón de Revocar se pueda pulsar ============
+     El motor se escribió para la página suelta, donde no hay más hoja de
+     estilos que la suya y el texto de una celda parte de línea solo. Dentro
+     del portal sí hay otra, y declara th,td{white-space:nowrap} para todas
+     sus tablas — allí van dentro de un .table-wrap que rueda de lado, así que
+     está bien. Aquí no lo había: un nombre de plantilla largo estiraba la
+     tabla a 1163px dentro de un panel de 1082, y los 81px que sobraban se
+     cortaban contra el borde. Lo que caía en ellos era la columna de
+     Acciones. El botón de Revocar se veía partido por la mitad y no había
+     forma de llegar a él, porque la página tampoco rueda.
+
+     Se comprueba en dos anchos y EMPUJANDO la caja hasta el final: que la
+     tabla quepa no es lo que hay que garantizar —con seis columnas de texto
+     en una ventana estrecha no va a caber nunca—, sino que nada quede fuera
+     de alcance. */
+  await A.waitForSelector('#listaEmitidosWrap table', { timeout: 20000 }).catch(() => {});
+  const alcanzable = async (ancho) => {
+    await A.setViewportSize({ width: ancho, height: 1200 });
+    await A.waitForTimeout(600);
+    return A.evaluate(() => {
+      const c = document.getElementById('listaEmitidosWrap');
+      if (!c || !c.querySelector('td.acciones')) return null;
+      const sobra = c.scrollWidth - c.clientWidth;
+      const rueda = ['auto', 'scroll'].includes(getComputedStyle(c).overflowX);
+      c.scrollLeft = c.scrollWidth;
+      const b = [...c.querySelectorAll('td.acciones .btn')].pop();
+      const dentro = b
+        ? b.getBoundingClientRect().right <= c.getBoundingClientRect().right + 1
+        : null;
+      c.scrollLeft = 0;
+      return { sobra, rueda, dentro };
+    });
+  };
+  for (const ancho of [1400, 1000]) {
+    const m = await alcanzable(ancho);
+    if (!m) { a.comprobar(false, `A ${ancho}px no hay ni una fila de emitidos que mirar`); continue; }
+    a.comprobar(m.sobra <= 1 || m.rueda,
+      `A ${ancho}px la lista de emitidos no deja nada fuera de alcance`
+      + ` (sobran ${m.sobra}px, ${m.rueda ? 'y rueda' : 'y NO rueda'})`);
+    if (m.dentro !== null)
+      a.comprobar(m.dentro, `A ${ancho}px se llega al último botón de la fila (Revocar)`);
+  }
+  await A.setViewportSize({ width: 1400, height: 1200 });
 
   /* Los iconos del portal son una tipografía de ligaduras: si no carga, en vez
      del símbolo se lee la palabra ("dashboard", "search"). Se mide el ancho

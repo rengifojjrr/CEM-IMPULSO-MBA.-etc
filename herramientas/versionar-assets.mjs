@@ -61,7 +61,18 @@ const COMPARTIDOS = new RegExp(
     `|\\.\\/(?:${MODULOS})\\.js` +
     // desde las pruebas, que hablan con el navegador en absoluto
     `|\\/plataforma\\/assets\\/(?:${MODULOS})\\.js` +
-    `|(?:\\.\\.\\/)*(?:\\.\\/)?certificados\\/generador\\.js|generador\\.js` +
+    /* El motor del generador, escrito de las tres maneras en que se importa:
+       `../../certificados/generador.js` desde el portal, `./generador.js`
+       desde la página suelta que vive a su lado, y a secas.
+       Estaba en dos ramas —una que exigía el trozo `certificados/` y otra que
+       exigía la comilla pegada al nombre—, y `'./generador.js'` no encajaba en
+       ninguna: el `/` de `./` rompe la comilla que pedía la segunda, y no hay
+       `certificados/` para la primera. Consecuencia: la página suelta era
+       invisible para esta herramienta. Se quedó en `?v=2026-08-28-1` mientras
+       el portal iba por `2026-08-29`, y `--revisar` cantaba que todas
+       coincidían porque nunca la miró. Un navegador que hubiera abierto esa
+       página seguiría con el motor de aquel día para siempre. */
+    `|(?:\\.\\.\\/)*(?:\\.\\/)?(?:certificados\\/)?generador\\.js` +
   `)(\\?v=[0-9-]+)?`, 'g');
 
 /** Dónde buscar. Los módulos compartidos se importan entre ellos, así que
