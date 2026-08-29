@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-28-2';
+         vidrioActual } from './temas.js?v=2026-08-29';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1344,6 +1344,14 @@ export async function mount(opts = {}) {
        de contacto no da error — simplemente pierde a esa persona sin que
        nadie se entere. */
     montarContactoPublico();
+    /* Y Cemi. Estaba en las 62 pantallas privadas y en ninguna de las 15
+       públicas: en todas menos donde hay dudas de compra. Como visitante no
+       sabe nada de nadie —sólo el catálogo— y lo único que puede hacer es
+       recoger un contacto.
+
+       Salvo si ya entró: quien tiene sesión y pasa por una pantalla pública
+       merece el Cemi que sí conoce su curso y sus cuotas. */
+    montarElAsistente(p ? 'estudiante' : 'visitante');
     return p;
   }
 
@@ -1508,8 +1516,18 @@ export function abrirAvisame(quePrograma = '') {
    centro lo decide `cem_bot_contexto` en el servidor mirando el rol de quien
    pregunta: escribir «equipo» aquí desde la consola no abre nada. */
 function montarElAsistente(area) {
-  import('./asistente.js?v=2026-08-28-2')
-    .then((m) => m.montarAsistente({ ambito: area === 'estudiante' ? 'estudiante' : 'equipo' }))
+  /* `area` llega como 'admin', 'docente', 'estudiante' o 'visitante'. Las dos
+     primeras son equipo; la última es quien todavía no ha entrado.
+
+     Ojo con tocar esto: al añadir «visitante» estuve a punto de dejarlo como
+     «lo que no reconozca, visitante», y eso habría mandado 'admin' y
+     'docente' —que son la mayoría de las pantallas— al asistente que no sabe
+     nada. Cada rama se nombra, ninguna se deduce. */
+  const ambito = area === 'visitante' ? 'visitante'
+               : area === 'estudiante' ? 'estudiante'
+               : 'equipo';
+  import('./asistente.js?v=2026-08-29')
+    .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
 
@@ -2197,7 +2215,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-28-2');
+    const m = await import('./apariencia.js?v=2026-08-29');
 
     m.abrirApariencia();
 

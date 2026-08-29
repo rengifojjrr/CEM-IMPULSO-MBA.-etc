@@ -213,6 +213,30 @@ const OFICIOS: Record<string, string[]> = {
 OFICIOS.superadmin = OFICIOS.admin;
 
 function encargo(ambito: string, rol?: string): string {
+  /* Un visitante no es un alumno con menos permisos: es otra cosa. No tiene
+     avance, ni cuotas, ni certificados, y el encargo tiene que decirlo, porque
+     si no el modelo intenta ayudarle con datos que no existen y termina
+     inventándolos. Aquí sólo hay dos cosas que hacer: contarle los programas
+     y, si le interesan, recoger sus datos. */
+  if (ambito === "visitante") {
+    return [
+      "",
+      "A QUIEN ATIENDES: alguien que esta mirando la web y NO tiene cuenta.",
+      "No sabes quien es, y no tienes ningun dato suyo. No se los pidas para 'buscarlos':",
+      "no hay nada que buscar.",
+      "",
+      "TU TRABAJO AQUI ES UNO: que entienda si algun programa le sirve.",
+      "Cuentale de que va, cuanto dura, cuanto cuesta y como se paga, con los datos de arriba.",
+      "Si no hay ningun programa abierto, dilo sin rodeos y ofrecele avisarle cuando abra.",
+      "",
+      "Si le interesa algo, o pide precio, o dice que lo va a pensar: pidele nombre y correo",
+      "y usa dejar_contacto. Una sola vez, sin insistir. Si ya te los dio, no se los vuelvas a pedir.",
+      "",
+      "NO prometas descuentos, ni fechas, ni cupos que no esten escritos arriba.",
+      "Si te preguntan algo de una persona concreta —sus notas, sus pagos, su certificado—",
+      'di simple: "Eso lo ve cada quien entrando a su cuenta".',
+    ].join("\n");
+  }
   if (ambito === "equipo") {
     const suyo = OFICIOS[String(rol || "").toLowerCase()] ?? [];
     return [
@@ -237,6 +261,124 @@ function encargo(ambito: string, rol?: string): string {
   ].join("\n");
 }
 
+/* ── Atender a alguien que no tiene cuenta ──────────────────────────────────
+   Camino aparte del de siempre, y a propósito. El de siempre resuelve TODO con
+   el token de quien pregunta, y así las reglas de la base se aplican solas. Un
+   visitante no tiene token: aquí manda el servidor. Por eso lo único que se le
+   deja tocar es el catálogo —público de todas formas— y dejar su contacto.
+
+   Y por eso lleva tope de gasto propio: cada mensaje cuesta dinero de verdad, y
+   una puerta abierta sin tope es una factura esperando a que alguien la
+   encuentre. */
+async function atenderVisitante(body: Record<string, any>, t0: number): Promise<Response> {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const servidor = createClient(SUPABASE_URL, SERVICE);
+
+  const pregunta = String(body?.pregunta ?? "").trim().slice(0, TOPE_PREGUNTA);
+  /* La huella la escribe el navegador y no es de fiar: no identifica a nadie,
+     sólo separa conversaciones. El tope de verdad es el global, que no depende
+     de ella. */
+  const huella = String(body?.huella ?? "").trim().slice(0, 64) || "sin-huella";
+  if (!pregunta) {
+    return new Response(JSON.stringify({ error: "No llegó ninguna pregunta." }),
+      { status: 400, headers: JSON_HEADERS });
+  }
+
+  const { data: permiso } = await servidor.rpc("cem_bot_visitante_permitir", { p_huella: huella });
+  if (permiso && permiso.ok === false) {
+    /* No es un error técnico: es un «hasta aquí» con una salida. Se devuelve
+       como respuesta normal para que la ventana lo enseñe como lo que es —una
+       frase de Cemi— y no como una avería. */
+    return new Response(JSON.stringify({
+      respuesta: permiso.porque, ambito: "visitante", tope: true,
+      ms: Date.now() - t0, degradado: false, hizo: [],
+    }), { headers: JSON_HEADERS });
+  }
+
+  const { data: conv } = await servidor.rpc("cem_bot_conversacion_visitante", {
+    p_huella: huella, p_id: body?.conversacion ?? null,
+  });
+  const conversacion = conv ?? null;
+
+  const { data: ctx } = await servidor.rpc("cem_bot_contexto_publico");
+
+  let hilo: any[] = [];
+  if (conversacion) {
+    const { data: h } = await servidor.rpc("cem_bot_historial_visitante",
+      { p_conversacion: conversacion, p_huella: huella, p_tope: 16 });
+    hilo = (h ?? []).map((m: any) => ({
+      role: m.quien === "persona" ? "user" : "assistant", content: m.texto,
+    }));
+  }
+
+  // Una sola herramienta, y la única que escribe algo: recoger un contacto.
+  const catalogo = [{
+    nombre: "dejar_contacto",
+    rpc: "cem_bot_dejar_contacto",
+    descripcion: "Guarda los datos de alguien interesado para que el equipo le escriba. "
+      + "Usala cuando te den su nombre y su correo.",
+    parametros: {
+      p_nombre: { type: "string", description: "Su nombre." },
+      p_email: { type: "string", description: "Su correo." },
+      p_telefono: { type: "string", description: "Su telefono, si lo dio." },
+      p_mensaje: { type: "string", description: "Que le interesa, en una frase." },
+    },
+    obligatorios: ["p_nombre", "p_email"],
+    ambito: "estudiante" as const,
+    escribe: true,
+    entidad: "cem_leads",
+  }];
+
+  const sistema = [
+    oficio(), comoUsarlas(), encargo("visitante"), "", datos(ctx),
+  ].join("\n");
+
+  let texto = "", modelo = "", uso: any = {}, fallo: string | null = null;
+  let usadas: any[] = [];
+  try {
+    const r = await conversar({
+      cliente: servidor,
+      mensajes: [{ role: "system", content: sistema }, ...hilo,
+                 { role: "user", content: pregunta }],
+      catalogo,
+      delServidor: {},
+      tope: TOPE_RESPUESTA,
+    });
+    modelo = r.modelo; uso = r.uso; usadas = r.usadas;
+    texto = limpiar(r.texto) || r.texto.trim();
+    if (!texto) throw new Error("el modelo devolvio texto vacio");
+  } catch (e) {
+    fallo = String(e).slice(0, 300);
+    /* Con un visitante no se puede «avisar al equipo»: no hay a quién avisar
+       ni de parte de quién. Así que la salida es la única honesta — pedirle
+       los datos, que es justo lo que queríamos de él. */
+    texto = "Ahorita no te puedo responder bien por aquí. Si me dejas tu nombre y tu correo, "
+          + "te escribe una persona del equipo.";
+  }
+
+  if (conversacion) {
+    try {
+      await servidor.rpc("cem_bot_guardar_visitante", {
+        p_conversacion: conversacion, p_huella: huella,
+        p_pregunta: pregunta, p_respuesta: texto,
+        p_modelo: modelo || null,
+        p_tokens_in: uso?.prompt_tokens ?? null,
+        p_tokens_out: uso?.completion_tokens ?? null,
+        p_ms: Date.now() - t0, p_error: fallo,
+      });
+    } catch (e) {
+      console.error("[asistente] no se pudo guardar el turno del visitante:", e);
+    }
+  }
+
+  return new Response(JSON.stringify({
+    respuesta: texto, ambito: "visitante", modelo: modelo || null,
+    conversacion, ms: Date.now() - t0, degradado: !!fallo,
+    hizo: usadas.map((u: any) => ({ que: u.nombre, error: u.error ?? null })),
+  }), { headers: JSON_HEADERS });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   const t0 = Date.now();
@@ -250,6 +392,21 @@ Deno.serve(async (req: Request) => {
         { status: 401, headers: JSON_HEADERS });
     }
 
+    /* ── El visitante ────────────────────────────────────────────────────
+       Quien mira la web sin cuenta. Se atiende por un camino aparte y no
+       aflojando el de siempre, por una razón concreta: el camino de siempre
+       resuelve TODO con el token de quien pregunta, y así las reglas de la
+       base se aplican solas. Un visitante no tiene token, así que aquí manda
+       el servidor — y por eso lo único que se le deja tocar es el catálogo,
+       que es público de todas formas, y dejar su contacto.
+
+       Va antes de leer el contexto normal para que nunca se llegue a pedir
+       datos de una persona que no existe. */
+    const body0 = await req.json().catch(() => ({} as Record<string, unknown>));
+    if (body0?.ambito === "visitante") {
+      return await atenderVisitante(body0, t0);
+    }
+
     // ESTE cliente lleva el token de quien pregunta. Es el único que toca
     // datos de personas —el contexto y TODAS las herramientas— y por eso las
     // reglas de la base se aplican solas.
@@ -257,7 +414,10 @@ Deno.serve(async (req: Request) => {
       global: { headers: { Authorization: auth } },
     });
 
-    const body = await req.json().catch(() => ({}));
+    /* El mismo cuerpo que ya se leyó arriba. `req.json()` sólo se puede llamar
+       UNA vez: la segunda devuelve vacío y la pregunta llegaría en blanco, sin
+       error que lo delatara. */
+    const body = body0 as Record<string, unknown>;
     const pregunta = String(body?.pregunta ?? "").trim().slice(0, TOPE_PREGUNTA);
     const ambitoPedido = body?.ambito === "equipo" ? "equipo" : "estudiante";
     const conversacion = body?.conversacion ?? null;

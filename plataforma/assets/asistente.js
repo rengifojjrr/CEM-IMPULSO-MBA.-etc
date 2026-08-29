@@ -17,7 +17,7 @@
    a una tabla de personas: si la hubiera, el permiso viviría en el navegador,
    que es el único sitio donde no se puede defender. */
 
-import { sb, $, esc, profile } from './app.js?v=2026-08-28-2';
+import { sb, $, esc, profile } from './app.js?v=2026-08-29';
 
 /* ── Cómo se llama y qué cara tiene ──────────────────────────────────────── */
 /* El nombre y el render salen de `cem_settings`, no de aquí. El dibujo
@@ -142,6 +142,14 @@ function olvidarHilo() {
 }
 
 const PRIMERAS = {
+  /* Un visitante no pregunta «cómo voy»: no va por ningún sitio todavía.
+     Pregunta lo que pregunta alguien de pie en la puerta. */
+  visitante: [
+    'Que programas tienen?',
+    'Cuanto cuesta y como se paga?',
+    'Cuanto dura y como son las clases?',
+    'Avisenme cuando abra la proxima',
+  ],
   estudiante: [
     'Como voy en mi curso?',
     'Cuando vence mi proxima cuota?',
@@ -205,11 +213,30 @@ function pensando(si) {
 /* ── Hablar ──────────────────────────────────────────────────────────────── */
 async function abrirConversacion(canal = 'web') {
   if (conversacion) return conversacion;
+  /* Un visitante no puede abrirla: `cem_bot_abrir` cuelga la conversación de
+     una persona, y aquí no hay ninguna. La abre el servidor al recibir el
+     primer mensaje y la devuelve en la respuesta. */
+  if (ambitoActual === 'visitante') return null;
   const { data, error } = await sb.rpc('cem_bot_abrir',
     { p_ambito: ambitoActual, p_canal: canal });
   if (error) throw error;
   conversacion = data?.id ?? data?.[0]?.id ?? null;
   return conversacion;
+}
+
+/* Una marca del navegador para separar conversaciones de visitantes distintos.
+   NO identifica a nadie y no se usa para nada más: el tope de gasto que de
+   verdad protege es el global, que no depende de esto. */
+function huellaVisitante() {
+  const CLAVE = 'cemHuella';
+  try {
+    let h = localStorage.getItem(CLAVE);
+    if (!h) {
+      h = (crypto.randomUUID?.() || String(Math.random())).replace(/-/g, '').slice(0, 24);
+      localStorage.setItem(CLAVE, h);
+    }
+    return h;
+  } catch { return 'sin-huella'; }
 }
 
 async function preguntar(texto) {
@@ -223,10 +250,15 @@ async function preguntar(texto) {
   try {
     await abrirConversacion();
     const { data, error } = await sb.functions.invoke('cem-asistente', {
-      body: { pregunta: texto, ambito: ambitoActual, conversacion },
+      body: {
+        pregunta: texto, ambito: ambitoActual, conversacion,
+        ...(ambitoActual === 'visitante' ? { huella: huellaVisitante() } : {}),
+      },
     });
     pensando(false);
     if (error) throw error;
+    // En el camino del visitante la conversación la abre el servidor.
+    if (ambitoActual === 'visitante' && data?.conversacion) conversacion = data.conversacion;
 
     /* Que el asistente conteste no quiere decir que la respuesta sea buena.
        Cuando el modelo falla, el servidor manda una frase de cortesía y marca
@@ -330,10 +362,18 @@ function cerrarVentana() {
  */
 export async function montarAsistente({ ambito = 'estudiante' } = {}) {
   if (montado) return;
+  /* Sin sesión no había asistente. Era cierto mientras el asistente sólo sabía
+     hablar de datos de alguien: sin persona, no hay nada que contar.
+
+     Con el ámbito de visitante ya no: ese Cemi no sabe nada de nadie —sólo el
+     catálogo— y existe justo para quien todavía no ha entrado. Seguir
+     exigiendo sesión aquí lo dejaría montado en las 62 pantallas privadas y en
+     ninguna de las 15 públicas, que es donde hay dudas de compra. */
   const p = await profile();
-  if (!p) return;                     // sin sesión no hay asistente
+  if (!p && ambito !== 'visitante') return;
   montado = true;
-  ambitoActual = ambito === 'equipo' ? 'equipo' : 'estudiante';
+  ambitoActual = ambito === 'equipo' ? 'equipo'
+               : ambito === 'visitante' ? 'visitante' : 'estudiante';
   const a = await ajustes();
 
   document.body.insertAdjacentHTML('beforeend', `
@@ -349,7 +389,8 @@ export async function montarAsistente({ ambito = 'estudiante' } = {}) {
         ${caraMascota('chica')}
         <div>
           <b>${esc(a.nombre)}</b>
-          <span class="tiny muted">${ambitoActual === 'equipo' ? 'Asistente del equipo' : 'Asistente del CEM'}</span>
+          <span class="tiny muted">${ambitoActual === 'equipo' ? 'Asistente del equipo'
+            : ambitoActual === 'visitante' ? 'Te cuento de los programas' : 'Asistente del CEM'}</span>
         </div>
         <!-- Sólo aparece cuando hay algo que dejar atrás. Un botón de
              «empezar de nuevo» sobre una conversación vacía no hace nada y
