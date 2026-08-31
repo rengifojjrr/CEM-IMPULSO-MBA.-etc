@@ -26,9 +26,9 @@
   <div class="page-head">
     <div><h1>Constructor de evaluaciones</h1><p id="crumb">Escribe las preguntas, repártelas los puntos y publica.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined">visibility</span> Previsualizar</button>
-      <button class="btn outline" id="btnDraft"><span class="material-symbols-outlined">save</span> Guardar borrador</button>
-      <button class="btn" id="btnPub"><span class="material-symbols-outlined">publish</span> Publicar</button>
+      <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined" aria-hidden="true">visibility</span> Previsualizar</button>
+      <button class="btn outline" id="btnDraft"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar borrador</button>
+      <button class="btn" id="btnPub"><span class="material-symbols-outlined" aria-hidden="true">publish</span> Publicar</button>
     </div>
   </div>
 
@@ -46,10 +46,10 @@
     <div id="lista"></div>
     <div class="card">
       <div class="row" style="gap:var(--e1);flex-wrap:wrap">
-        <button class="btn" id="btnAdd"><span class="material-symbols-outlined">add</span> Agregar pregunta</button>
-        <button class="btn outline" id="btnSec"><span class="material-symbols-outlined">segment</span> Agregar sección</button>
-        <button class="btn outline" id="btnBanco"><span class="material-symbols-outlined">inventory_2</span> Traer del banco</button>
-        <button class="btn ghost" id="btnRepartir"><span class="material-symbols-outlined">balance</span> Repartir los puntos en partes iguales</button>
+        <button class="btn" id="btnAdd"><span class="material-symbols-outlined" aria-hidden="true">add</span> Agregar pregunta</button>
+        <button class="btn outline" id="btnSec"><span class="material-symbols-outlined" aria-hidden="true">segment</span> Agregar sección</button>
+        <button class="btn outline" id="btnBanco"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span> Traer del banco</button>
+        <button class="btn ghost" id="btnRepartir"><span class="material-symbols-outlined" aria-hidden="true">balance</span> Repartir los puntos en partes iguales</button>
       </div>
     </div>
   </div>
@@ -113,7 +113,7 @@
         <div id="rubrica" class="stack"></div>
         <div class="row sep-poco" style="gap:var(--e1)">
           <button type="button" class="btn outline sm" id="btnRubMas">
-            <span class="material-symbols-outlined">add</span> Añadir criterio</button>
+            <span class="material-symbols-outlined" aria-hidden="true">add</span> Añadir criterio</button>
           <span class="tiny muted" id="rubSuma"></span>
         </div>
       </div>
@@ -260,8 +260,8 @@ function pintarRubrica(){
       <div class="field corto sin-margen"><label class="tiny">Puntos</label>
         <input class="rub-p" type="number" min="0" step="0.5" value="${esc(String(r.puntos ?? ''))}"></div>
       <button type="button" class="btn ghost sm" data-rub-quitar="${i}"
-        title="Quitar este criterio" style="color:var(--error)">
-        <span class="material-symbols-outlined">close</span></button>
+        title="Quitar este criterio" style="color:var(--error)" aria-label="Quitar este criterio">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
     </div>`).join('')
     : '<p class="tiny muted sin-margen">Sin rúbrica. Se califica con un solo puntaje, como siempre.</p>';
 
@@ -307,7 +307,7 @@ function pintarMarcador(){
       <div class="tiny muted">${P.length} pregunta${P.length===1?'':'s'} · ${
         e.cuadra ? 'ya se puede publicar' : 'no se puede publicar hasta que la suma dé exacto'}</div></div>
     ${e.cuadra ? '' : `<button class="btn outline sm" id="btnCuadrar">
-      <span class="material-symbols-outlined">balance</span> Cuadrar</button>`}`;
+      <span class="material-symbols-outlined" aria-hidden="true">balance</span> Cuadrar</button>`}`;
   const b = $('#btnCuadrar');
   if (b) b.onclick = repartir;
 }
@@ -334,8 +334,8 @@ function pintarLista(){
     (q.seccion != null ? `<div class="q-seccion">
         <div class="row between">
           <h3>${esc(q.seccion || 'Sección sin título')}</h3>
-          <button class="btn ghost sm" data-secedit="${i}" title="Editar la sección">
-            <span class="material-symbols-outlined">edit</span></button>
+          <button class="btn ghost sm" data-secedit="${i}" title="Editar la sección" aria-label="Editar la sección">
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
         </div>
         ${q.seccion_desc ? `<div class="tiny muted">${esc(q.seccion_desc)}</div>` : ''}
       </div>` : '') +
@@ -391,13 +391,13 @@ function tarjetaAbierta(q,i){
     </div>
     <div class="row between sep" style="border-top:1px solid var(--filete);padding-top:var(--e1)">
       <div class="row" style="gap:var(--e0)">
-        <button class="btn ghost sm" data-up="${i}" ${i===0?'disabled':''} title="Subir"><span class="material-symbols-outlined">arrow_upward</span></button>
-        <button class="btn ghost sm" data-down="${i}" ${i===P.length-1?'disabled':''} title="Bajar"><span class="material-symbols-outlined">arrow_downward</span></button>
-        <button class="btn ghost sm" data-dup="${i}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
+        <button class="btn ghost sm" data-up="${i}" ${i===0?'disabled':''} title="Subir" aria-label="Subir"><span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span></button>
+        <button class="btn ghost sm" data-down="${i}" ${i===P.length-1?'disabled':''} title="Bajar" aria-label="Bajar"><span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span></button>
+        <button class="btn ghost sm" data-dup="${i}" title="Duplicar" aria-label="Duplicar"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>
       </div>
       <div class="row" style="gap:var(--e0)">
         ${q.id ? '<span class="tiny muted">Esta pregunta está en el banco: al guardar se actualiza también donde más se use.</span>' : ''}
-        <button class="btn ghost sm" data-rm="${i}" style="color:var(--error)" title="Quitar"><span class="material-symbols-outlined">delete</span></button>
+        <button class="btn ghost sm" data-rm="${i}" style="color:var(--error)" title="Quitar" aria-label="Quitar"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
       </div>
     </div></div>`;
 }

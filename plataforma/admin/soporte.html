@@ -36,7 +36,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Centro de soporte <button type="button" class="ayuda-btn" data-ayuda="Consultas que abren los estudiantes desde su panel. Lo que respondas aquí les llega como aviso y queda en el hilo.">?</button></h1><p>Gestiona y resuelve las consultas de estudiantes.</p></div>
-    <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">add</span> Nuevo ticket</button></div>
+    <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined" aria-hidden="true">add</span> Nuevo ticket</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="grid graficos" id="graficos"></div>
@@ -151,7 +151,7 @@ async function detalle(){
     ${puede? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--outline-variant)">
       <div class="field"><label>Responder</label><textarea id="rMsg" placeholder="Escribe tu respuesta…"></textarea></div>
       <div class="row"><label class="check"><input type="checkbox" id="rInt"> Nota interna (no visible para el estudiante)</label>
-        <button class="btn" id="btnMsg" style="margin-left:auto"><span class="material-symbols-outlined">send</span> Enviar</button></div>
+        <button class="btn" id="btnMsg" style="margin-left:auto"><span class="material-symbols-outlined" aria-hidden="true">send</span> Enviar</button></div>
     </div>`:''}
   </div>`;
 

@@ -194,7 +194,7 @@ function botonDeIr(ir) {
   let destino;
   try { destino = new URL(ir.ruta, location.origin + '/').href; } catch { return ''; }
   return `<a class="chat-ir" href="${esc(destino)}">
-    <span class="material-symbols-outlined">arrow_forward</span>
+    <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
     <span>Ir a ${esc(ir.titulo)}</span></a>`;
 }
 
@@ -396,17 +396,17 @@ export async function montarAsistente({ ambito = 'estudiante' } = {}) {
              «empezar de nuevo» sobre una conversación vacía no hace nada y
              ocupa el sitio del que sí importa. -->
         <button type="button" class="icon-btn" id="chatNuevo" hidden
-                title="Empezar una conversación nueva">
-          <span class="material-symbols-outlined">refresh</span></button>
-        <button type="button" class="icon-btn" id="chatCerrar" title="Minimizar">
-          <span class="material-symbols-outlined">close</span></button>
+                title="Empezar una conversación nueva" aria-label="Empezar una conversación nueva">
+          <span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+        <button type="button" class="icon-btn" id="chatCerrar" title="Minimizar" aria-label="Minimizar">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </header>
       <div class="chat-lista" id="chatLista"></div>
       <form class="chat-pie" id="chatForm">
         <input id="chatTexto" type="text" autocomplete="off" maxlength="1500"
                placeholder="Escribe tu pregunta">
-        <button class="btn primary icon-btn" id="chatEnviar" type="submit" title="Enviar">
-          <span class="material-symbols-outlined">send</span></button>
+        <button class="btn primary icon-btn" id="chatEnviar" type="submit" title="Enviar" aria-label="Enviar">
+          <span class="material-symbols-outlined" aria-hidden="true">send</span></button>
       </form>
     </section>`);
 

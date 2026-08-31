@@ -27,10 +27,10 @@
     <div><h1>Gestor multimedia</h1><p>Material que se reparte entre programas: se sube una vez aquí y se engancha a la lección que lo necesite.</p></div>
     <div class="actions">
       <div class="row" style="gap:4px">
-        <button class="btn ghost sm" id="vGrid" title="Cuadrícula"><span class="material-symbols-outlined">grid_view</span></button>
-        <button class="btn ghost sm" id="vList" title="Lista"><span class="material-symbols-outlined">view_list</span></button>
+        <button class="btn ghost sm" id="vGrid" title="Cuadrícula" aria-label="Cuadrícula"><span class="material-symbols-outlined" aria-hidden="true">grid_view</span></button>
+        <button class="btn ghost sm" id="vList" title="Lista" aria-label="Lista"><span class="material-symbols-outlined" aria-hidden="true">view_list</span></button>
       </div>
-      <button class="btn" id="btnNuevo"><span class="material-symbols-outlined">cloud_upload</span> Agregar recurso</button>
+      <button class="btn" id="btnNuevo"><span class="material-symbols-outlined" aria-hidden="true">cloud_upload</span> Agregar recurso</button>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -116,9 +116,9 @@ function render(){
         <div style="font-weight:600;margin-top:8px">${esc(m.nombre)}</div>
         <div class="tiny muted">${esc(ubicacion(m))} · ${(Number(m.tamano_bytes||0)/1048576).toFixed(1)} MB</div>
         <div class="row sep">
-          ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
-          ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar el recurso" title="Editar / mover"><span class="material-symbols-outlined">edit</span></button>
-          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso"><span class="material-symbols-outlined">delete</span></button>`:''}
+          ${m.url?`<a class="btn outline sm" href="${esc(m.url)}" target="_blank" title="Abrir el archivo" aria-label="Abrir el archivo"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span></a>`:''}
+          ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar o mover el recurso" aria-label="Editar o mover el recurso"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso" aria-label="Borrar el recurso"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>`:''}
         </div></div>`).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">Sin archivos.</p></div>'}</div>`;
   } else {
     $('#cont').innerHTML = `<div class="card"><div class="table-wrap"><table>
@@ -131,9 +131,9 @@ function render(){
         <td>${m.publico?chip('pública','ok'):chip('restringida','warn')}</td>
         <td class="muted">${fdate(m.created_at)}</td>
         <td class="nowrap">
-          ${m.url?`<a class="btn ghost sm" href="${esc(m.url)}" target="_blank"><span class="material-symbols-outlined">open_in_new</span></a>`:''}
-          ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar el recurso"><span class="material-symbols-outlined">edit</span></button>
-          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso"><span class="material-symbols-outlined">delete</span></button>`:''}
+          ${m.url?`<a class="btn ghost sm" href="${esc(m.url)}" target="_blank" title="Abrir el archivo" aria-label="Abrir el archivo"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span></a>`:''}
+          ${puede?`<button class="btn ghost sm" data-e="${m.id}" title="Editar el recurso" aria-label="Editar el recurso"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+          <button class="btn ghost sm" data-d="${m.id}" style="color:var(--error)" title="Borrar el recurso" aria-label="Borrar el recurso"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>`:''}
         </td></tr>`).join('') : emptyRow(7, 'La biblioteca está vacía. Aquí van los materiales que se reparten entre programas.', {texto:'Subir el primer recurso', id:'vacioMedia', icono:'upload_file'})}</tbody></table></div></div>`;
   }
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(r=>r.id===b.dataset.e)));
@@ -176,7 +176,7 @@ function form(m){
       <div class="row" style="margin-top:8px;align-items:center;gap:10px">
         <p class="tiny muted grow sin-margen">El formato y el tamaño se sacan del archivo: no hay que escribirlos.</p>
         <button class="btn outline sm" id="btnSubirVideoYT" type="button">
-          <span class="material-symbols-outlined">smart_display</span> Subir a YouTube</button>
+          <span class="material-symbols-outlined" aria-hidden="true">smart_display</span> Subir a YouTube</button>
       </div></div>
     <div class="row">
       <div class="field medio"><label>Formato</label><select id="rT">

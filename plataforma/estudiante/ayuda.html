@@ -75,7 +75,7 @@
           placeholder="Qué intentabas hacer, qué pasó y desde qué dispositivo. Cuanto más concreto, antes lo resolvemos."></textarea></div>
       <div id="nMsg"></div>
       <button class="btn" type="submit" id="btnEnviar">
-        <span class="material-symbols-outlined">send</span> Enviar</button>
+        <span class="material-symbols-outlined" aria-hidden="true">send</span> Enviar</button>
     </form>
   </div>
 
@@ -245,7 +245,7 @@ async function hilo(t){
       : `<div class="field sep"><label for="hResp">Añadir algo</label>
            <textarea id="hResp" rows="3" placeholder="Cuéntanos si cambió algo o responde a lo que te preguntamos."></textarea></div>
          <div id="hMsg"></div>
-         <button class="btn" id="hEnviar"><span class="material-symbols-outlined">send</span> Enviar</button>`}`;
+         <button class="btn" id="hEnviar"><span class="material-symbols-outlined" aria-hidden="true">send</span> Enviar</button>`}`;
 
   /* Al enviar hay que repintar la conversación, y repintar borra el botón que
      acaba de pulsarse: por eso pintar y enganchar van juntos en una función y

@@ -29,16 +29,16 @@
     <div><h1>Calendario académico</h1><p>Las clases de cada cohorte con su fecha, hora y salón o enlace. Es lo que los estudiantes ven en su calendario.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnHoy">Hoy</button>
-      <button class="btn" id="btnNueva"><span class="material-symbols-outlined">add</span> Nueva sesión</button>
+      <button class="btn" id="btnNueva"><span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva sesión</button>
     </div>
   </div>
 
   <div class="card">
     <div class="row between" style="margin-bottom:12px">
       <div class="row">
-        <button class="icon-btn" id="prev" title="Mes anterior"><span class="material-symbols-outlined">chevron_left</span></button>
+        <button class="icon-btn" id="prev" title="Mes anterior" aria-label="Mes anterior"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button>
         <h2 class="sec" id="mesLbl" style="margin:0;min-width:170px;text-align:center"></h2>
-        <button class="icon-btn" id="next" title="Mes siguiente"><span class="material-symbols-outlined">chevron_right</span></button>
+        <button class="icon-btn" id="next" title="Mes siguiente" aria-label="Mes siguiente"><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>
       </div>
       <span class="chip neutral" id="contMes"></span>
     </div>
@@ -205,8 +205,8 @@ function render(){
       : '<span class="chip warn">sin asignar</span>'}</td>
     <td data-col="Estado">${chipEstado(c.estado)}</td>
     <td class="nowrap" data-col="">
-      ${c.url_sesion?`<a class="btn ghost sm" href="${esc(c.url_sesion)}" target="_blank" title="Abrir sesión"><span class="material-symbols-outlined">videocam</span></a>`:''}
-      ${editable?`<button class="btn ghost sm" data-edit="${c.id}" title="Editar la clase"><span class="material-symbols-outlined">edit</span></button>`:''}
+      ${c.url_sesion?`<a class="btn ghost sm" href="${esc(c.url_sesion)}" target="_blank" title="Abrir sesión" aria-label="Abrir sesión"><span class="material-symbols-outlined" aria-hidden="true">videocam</span></a>`:''}
+      ${editable?`<button class="btn ghost sm" data-edit="${c.id}" title="Editar la clase" aria-label="Editar la clase"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>`:''}
     </td></tr>`).join('')
     : emptyRow(10, clases.length
         ? 'Ninguna sesión de este mes cumple los filtros.'

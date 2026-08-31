@@ -25,7 +25,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Bandeja de apelaciones</h1><p>Cuando un estudiante no está de acuerdo con una nota, su reclamo llega aquí. Se lee, se resuelve y queda dicho por qué.</p></div>
-    <div class="actions"><button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar CSV</button></div>
+    <div class="actions"><button class="btn outline" id="btnExport"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar CSV</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="card">
@@ -77,7 +77,7 @@ function render(){
       <td class="wrap" style="max-width:280px">${esc((r.motivo||'').slice(0,140))}${(r.motivo||'').length>140?'…':''}</td>
       <td>${chipEstado(r.estado)}</td><td class="muted">${fdate(r.created_at)}</td>
       <td class="nowrap">
-        <button class="btn ghost sm" data-v="${r.id}" title="Ver la apelación completa"><span class="material-symbols-outlined">visibility</span></button>
+        <button class="btn ghost sm" data-v="${r.id}" title="Ver la apelación completa" aria-label="Ver la apelación completa"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
         ${puede && !['aceptada','rechazada'].includes(r.estado)?`<button class="btn outline sm" data-r="${r.id}">Resolver</button>`:''}
       </td></tr>`;
   }).join('') : emptyRow(7, 'Nadie ha apelado una nota. Es buena señal.');

@@ -393,7 +393,7 @@ export function modal({ title, body, footer, wide = false }) {
   bg.className = 'modal-bg';
   bg.innerHTML = `<div class="modal ${wide ? 'wide' : ''}">
     <div class="modal-h"><h3>${esc(title || '')}</h3>
-      <button class="icon-btn" data-x><span class="material-symbols-outlined">close</span></button></div>
+      <button class="icon-btn" data-x aria-label="Cerrar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>
     <div class="modal-b"></div>
     ${footer ? '<div class="modal-f"></div>' : ''}
   </div>`;
@@ -1482,7 +1482,7 @@ function montarContactoPublico() {
   caja.id = 'cemContacto';
   caja.className = 'contacto-flotante';
   caja.innerHTML = `<button class="btn contacto-btn" type="button">
-      <span class="material-symbols-outlined">forum</span>
+      <span class="material-symbols-outlined" aria-hidden="true">forum</span>
       <span class="contacto-txt">¿Tienes dudas?</span></button>`;
   document.body.appendChild(caja);
 
@@ -1958,7 +1958,7 @@ function buscadorDeVerdad(caja) {
     lista.innerHTML = resultados.map((r, i) => `
       <a class="gsearch-item${i === marcado ? ' on' : ''}" href="${esc(r.url)}" role="option"
          aria-selected="${i === marcado}">
-        <span class="material-symbols-outlined">${ICONO_RESULTADO[r.tipo] || 'search'}</span>
+        <span class="material-symbols-outlined" aria-hidden="true">${ICONO_RESULTADO[r.tipo] || 'search'}</span>
         <span class="crece"><b>${esc(r.titulo || '—')}</b>
           <span class="tiny muted">${esc(r.detalle || '')}</span></span>
         <span class="tiny muted">${esc(etiqueta(r.tipo))}</span></a>`).join('');
@@ -2181,7 +2181,7 @@ function renderShell(p, area, active) {
       <div class="nav-items">
         ${g.items.map(([href, ic, txt]) => `
         <a class="nav-item ${active === href ? 'active' : ''}" href="${href}">
-          <span class="material-symbols-outlined">${ic}</span><span>${txt}</span></a>`).join('')}
+          <span class="material-symbols-outlined" aria-hidden="true">${ic}</span><span>${txt}</span></a>`).join('')}
       </div>
     </div>`;
   }).join('');
@@ -2198,23 +2198,23 @@ function renderShell(p, area, active) {
       <div class="foot">
         <button class="sidebar-plegar" id="cemPlegar" type="button"
                 title="Ensanchar o estrechar el menú">
-          <span class="material-symbols-outlined">chevron_left</span><span>Estrechar</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span><span>Estrechar</span></button>
         <div class="who"><b>${esc(p.nombre)} ${esc(p.apellido || '')}</b>${esc(etiqueta(p.rol))}</div>
         <button class="btn ghost sm block" id="cemApariencia"
                 title="Colores, estilo de los recuadros, claro u oscuro">
-          <span class="material-symbols-outlined">palette</span> <span>Apariencia</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">palette</span> <span>Apariencia</span></button>
         <button class="btn outline sm block" id="cemLogout" title="Cerrar sesión">
-          <span class="material-symbols-outlined">logout</span> <span>Cerrar sesión</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">logout</span> <span>Cerrar sesión</span></button>
       </div>
     </aside>
     <div class="main">
       <header class="topbar">
-        <button class="menu-btn icon-btn" id="cemMenu"><span class="material-symbols-outlined">menu</span></button>
+        <button class="menu-btn icon-btn" id="cemMenu" aria-label="Abrir el menú"><span class="material-symbols-outlined" aria-hidden="true">menu</span></button>
         <div class="search"><span class="material-symbols-outlined">search</span>
           <input type="search" id="cemGlobalSearch" placeholder="Buscar estudiantes, cursos, cohortes…"></div>
         <div class="spacer"></div>
         <button class="icon-btn campana" id="cemCampana" title="Avisos">
-          <span class="material-symbols-outlined">notifications</span>
+          <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
           <i class="punto" id="cemCampanaPunto" hidden></i></button>
         <!-- El estudiante tiene su pantalla de perfil entera, con portada,
              certificados y portafolio, y ahí va. Los demás no tenían ninguna:
@@ -2234,7 +2234,7 @@ function renderShell(p, area, active) {
     <nav class="bottomnav">
       ${(area === 'admin' && !['cobranza','auditor'].includes(p.rol) ? ADMIN_MOBILE : flat).slice(0, 4).map(([href, ic, txt]) => `
         <a class="${active === href ? 'active' : ''}" href="${href}">
-          <span class="material-symbols-outlined">${ic}</span>${txt}</a>`).join('')}
+          <span class="material-symbols-outlined" aria-hidden="true">${ic}</span>${txt}</a>`).join('')}
     </nav>`;
 
   const page = $('#page');
@@ -2374,7 +2374,7 @@ async function montarCampana() {
     const una = (valor, rotulo, icono, cuantos, sinLeer) => `
       <button class="btn ${valor === categoria ? '' : 'outline '}sm" data-cat="${esc(valor)}"
         title="${cuantos} aviso${cuantos === 1 ? '' : 's'}${sinLeer ? `, ${sinLeer} sin leer` : ''}">
-        <span class="material-symbols-outlined">${icono}</span>
+        <span class="material-symbols-outlined" aria-hidden="true">${icono}</span>
         ${esc(rotulo)}
         ${sinLeer ? `<span class="pastilla-aviso">${sinLeer}</span>` : `<span class="tiny muted">${cuantos}</span>`}
       </button>`;
@@ -2562,7 +2562,7 @@ function renderPublicHeader(p) {
          enlaces; en la pantalla, en cambio, el botón va a la derecha. -->
     <button type="button" class="pub-menu-btn" id="pubMenu"
       aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
-      <span class="material-symbols-outlined">menu</span></button>
+      <span class="material-symbols-outlined" aria-hidden="true">menu</span></button>
   </div>`;
   document.body.insertBefore(h, document.body.firstChild);
   conectarMenuPublico(h);
@@ -2734,7 +2734,7 @@ export async function ocupado(boton, mientras, hacer) {
 
 export function emptyRow(cols, msg = 'Sin resultados.', accion = null) {
   const boton = accion ? `<button class="btn sm" id="${esc(accion.id)}" data-vacio="${esc(accion.id)}" style="margin-top:10px">
-      <span class="material-symbols-outlined">${esc(accion.icono || 'add')}</span>
+      <span class="material-symbols-outlined" aria-hidden="true">${esc(accion.icono || 'add')}</span>
       ${esc(accion.texto)}</button>` : '';
   return `<tr><td colspan="${cols}"><div class="empty">${esc(msg)}${boton}</div></td></tr>`;
 }
@@ -2838,7 +2838,7 @@ export function seleccionMultiple(tablaSel, barraSel, acciones) {
     if (!n) return;
     barra.innerHTML = `<span class="cuenta">${n} ${n === 1 ? 'seleccionada' : 'seleccionadas'}</span>` +
       acciones.map((a, i) => `<button type="button" class="btn sm ${esc(a.clase || 'outline')}" data-acc="${i}">
-        ${a.icono ? `<span class="material-symbols-outlined">${esc(a.icono)}</span>` : ''}${esc(a.texto)}</button>`).join('') +
+        ${a.icono ? `<span class="material-symbols-outlined" aria-hidden="true">${esc(a.icono)}</span>` : ''}${esc(a.texto)}</button>`).join('') +
       `<button type="button" class="btn ghost sm" data-quitar>Quitar la selección</button>`;
     $$('[data-acc]', barra).forEach((b) => b.onclick = async () => {
       const ids = marcados();
@@ -2967,10 +2967,10 @@ export function hojaDeCompartir({ url, titulo = '', texto = '' }) {
     <p class="tiny muted sin-margen">Cualquiera puede abrir este enlace, sin tener cuenta.</p>
     <div class="enlace-compartir caja sep"><span class="crece">${esc(url)}</span>
       <button type="button" class="btn ghost sm" data-copiar>
-        <span class="material-symbols-outlined">content_copy</span> Copiar</button></div>
+        <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button></div>
     <div class="row sep">${destinos.map(([n, ico, href]) =>
       `<a class="btn outline sm" href="${esc(href)}" target="_blank" rel="noopener">
-         <span class="material-symbols-outlined">${ico}</span> ${esc(n)}</a>`).join('')}</div>`,
+         <span class="material-symbols-outlined" aria-hidden="true">${ico}</span> ${esc(n)}</a>`).join('')}</div>`,
     footer: '<button class="btn outline" data-x>Cerrar</button>' });
 
   $('[data-copiar]', m).onclick = async () => {
@@ -3186,7 +3186,7 @@ export function recortarCuadrado(file, lado = 600) {
           </div>`,
         footer: `<button class="btn outline" data-x>Cancelar</button>
                  <button class="btn" data-usar>
-                   <span class="material-symbols-outlined">check</span> Usar esta foto</button>`,
+                   <span class="material-symbols-outlined" aria-hidden="true">check</span> Usar esta foto</button>`,
       });
 
       const caja = $('#recorteCaja', m);
@@ -3330,7 +3330,7 @@ export async function abrirMiFoto() {
     footer: `<button class="btn outline" data-x>Cerrar</button>
       ${p.avatar_url ? '<button class="btn outline" id="miFotoQuitar">Quitar</button>' : ''}
       <button class="btn" id="miFotoElegir">
-        <span class="material-symbols-outlined">photo_camera</span>
+        <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
         ${p.avatar_url ? 'Cambiar la foto' : 'Poner una foto'}</button>`,
   });
 
@@ -3435,8 +3435,8 @@ export function campoArchivo({ id, tipo = 'imagen', valor = '', subir,
           <div class="tiny muted" id="${id}Detalle"></div>
         </div>
         <button type="button" class="btn ghost sm" id="${id}Quitar"
-                title="Quitar el archivo">
-          <span class="material-symbols-outlined">close</span></button>
+                title="Quitar el archivo" aria-label="Quitar el archivo">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>
       <progress id="${id}Avance" max="100" hidden></progress>
       <input type="file" id="${id}File" accept="${esc(cfg.accept)}" hidden>
@@ -3562,7 +3562,7 @@ export function campoBuscar({ id, etiqueta: etq = 'Buscar', ayudaTexto = 'Escrib
       <div class="buscador-elegido" id="${id}Elegido" hidden>
         <span class="grow"></span>
         <button type="button" class="btn ghost sm" id="${id}Quitar" aria-label="Elegir a otra persona">
-          <span class="material-symbols-outlined">close</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>
       <ul class="buscador-lista" id="${id}Lista" role="listbox" hidden></ul>
     </div>`;
@@ -4069,7 +4069,7 @@ export function montarHorarioPicker(container, valorInicial, onChange){
     container.innerHTML = `
       <button type="button" class="sel-trigger" id="hpTrigger">
         <span>${esc(horarioResumen(valor) || 'Elegir días y horario…')}</span>
-        <span class="material-symbols-outlined">${abierto ? 'expand_less' : 'expand_more'}</span></button>
+        <span class="material-symbols-outlined" aria-hidden="true">${abierto ? 'expand_less' : 'expand_more'}</span></button>
       ${abierto ? `<div class="horario-panel">
         <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">
           ${DIAS_SEMANA.map(d => `<span class="dia-chip ${valor.dias.includes(d.v) ? 'on' : ''}" data-dia="${d.v}">${d.l}</span>`).join('')}

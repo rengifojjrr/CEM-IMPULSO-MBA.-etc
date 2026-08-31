@@ -99,7 +99,7 @@
          Cada recurso tiene su enlace, y ese enlace es el que se pega en ManyChat.</p></div>
     <div class="actions">
       <button class="btn" id="btnNuevo">
-        <span class="material-symbols-outlined">add</span> Nuevo recurso</button>
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Nuevo recurso</button>
     </div>
   </div>
 
@@ -203,7 +203,7 @@ function pintar(){
       Todavía no hay ningún recurso. Aquí se crean los documentos y vídeos que se
       regalan en redes a cambio de un contacto.
       <button class="btn sm" id="vacioRec" style="margin-top:10px">
-        <span class="material-symbols-outlined">redeem</span> Crear el primero</button>
+        <span class="material-symbols-outlined" aria-hidden="true">redeem</span> Crear el primero</button>
     </div></div>`;
     $('#vacioRec').onclick = () => editar(null);
     return;
@@ -238,17 +238,17 @@ function pintar(){
         </div>
         <div class="ficha-mandos">
           ${r.activo ? chip('Activo','ok') : chip('Apagado','')}
-          <button class="btn ghost sm" data-editar="${esc(r.id)}" type="button" title="Editar">
-            <span class="material-symbols-outlined">edit</span></button>
-          <button class="btn ghost sm" data-borrar="${esc(r.id)}" type="button" title="Borrar">
-            <span class="material-symbols-outlined">delete</span></button>
+          <button class="btn ghost sm" data-editar="${esc(r.id)}" type="button" title="Editar" aria-label="Editar">
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+          <button class="btn ghost sm" data-borrar="${esc(r.id)}" type="button" title="Borrar" aria-label="Borrar">
+            <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
         </div>
       </header>
 
       <div class="ficha-enlace">
         <code>${esc(enlaceDe(r.codigo))}</code>
         <button class="btn outline sm" data-copiar="${esc(r.codigo)}" type="button">
-          <span class="material-symbols-outlined">content_copy</span> Copiar</button>
+          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>
       </div>
 
       <div class="ficha-cifras">
@@ -472,7 +472,7 @@ async function vistaDelArchivo(r){
   if (r.tipo === 'enlace') {
     return `<p class="tiny muted">Manda a:</p>
       <a class="btn outline sm" href="${esc(r.url)}" target="_blank" rel="noopener">
-        <span class="material-symbols-outlined">open_in_new</span> Abrir el enlace</a>`;
+        <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span> Abrir el enlace</a>`;
   }
   if (r.tipo === 'video') {
     return `<div class="ojeada"><iframe
@@ -500,7 +500,7 @@ async function vistaDelArchivo(r){
   return `${dentro}
     <p class="tiny muted sep-poco">${esc(r.archivo_nombre || '')}</p>
     <a class="btn outline sm" href="${esc(data.signedUrl)}" target="_blank" rel="noopener">
-      <span class="material-symbols-outlined">download</span> Descargarlo</a>
+      <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargarlo</a>
     <p class="tiny muted sep-poco">Esta dirección es sólo para ti, caduca en cinco minutos,
       y mirarlo desde aquí no cuenta como una entrega.</p>`;
 }

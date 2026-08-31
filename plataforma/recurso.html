@@ -158,7 +158,7 @@ function pedirDatos(ficha) {
 
       <button class="btn gold block sep" type="submit" id="btn">
         Recibir ${esc((COMO_SE_LLAMA[ficha.tipo] || 'material').toLowerCase())}
-        <span class="material-symbols-outlined">arrow_forward</span></button>
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
       <div id="msg"></div>
       <p class="tiny muted sep-poco">Te escribiremos sobre los programas del CEM.
         Puedes decirnos que pares cuando quieras.</p>
@@ -273,7 +273,7 @@ function entregar(r, datos) {
 
     <a class="btn gold block sep bajar" id="abrir" href="${esc(r.enlace)}"
        ${externo ? 'target="_blank" rel="noopener"' : ''}>
-      <span class="material-symbols-outlined">${externo ? 'open_in_new' : 'download'}</span>
+      <span class="material-symbols-outlined" aria-hidden="true">${externo ? 'open_in_new' : 'download'}</span>
       <span>${externo ? 'Abrir' : 'Descargar'}${
         r.archivo ? `<small>${esc(r.archivo)}</small>` : ''}</span></a>
 

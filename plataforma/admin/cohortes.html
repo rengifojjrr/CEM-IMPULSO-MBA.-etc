@@ -25,7 +25,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Gestión de cohortes</h1><p>Una cohorte es el grupo con el que se dicta un programa: cuándo empieza, cuántos cupos tiene y quién lo dicta.</p></div>
-    <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Nueva cohorte</button></div>
+    <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined" aria-hidden="true">add_circle</span> Nueva cohorte</button></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -98,9 +98,9 @@ function render(){
         : `<span class="tiny muted">Sin inscritos · ${r.cupos} cupos</span>`}</td>
       <td>${esc(r._prof)}</td><td>${chipEstado(r.estado)}</td>
       <td class="nowrap">
-        <a class="btn ghost sm" href="calendario.html?cohorte=${r.id}" title="Calendario"><span class="material-symbols-outlined">calendar_today</span></a>
-        <a class="btn ghost sm" href="inscripciones.html?cohorte=${r.id}" title="Inscritos"><span class="material-symbols-outlined">group</span></a>
-        ${editable?`<button class="btn ghost sm" data-edit="${r.id}" title="Editar la cohorte"><span class="material-symbols-outlined">edit</span></button>`:''}
+        <a class="btn ghost sm" href="calendario.html?cohorte=${r.id}" title="Calendario" aria-label="Calendario"><span class="material-symbols-outlined" aria-hidden="true">calendar_today</span></a>
+        <a class="btn ghost sm" href="inscripciones.html?cohorte=${r.id}" title="Inscritos" aria-label="Inscritos"><span class="material-symbols-outlined" aria-hidden="true">group</span></a>
+        ${editable?`<button class="btn ghost sm" data-edit="${r.id}" title="Editar la cohorte" aria-label="Editar la cohorte"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>`:''}
       </td></tr>`;
   }).join('') : emptyRow(9, 'Todavía no hay cohortes. Una cohorte es el grupo con el que un programa se dicta.', {texto:'Crear la primera cohorte', id:'vacioCohorte', icono:'group_add'});
   $$('[data-edit]').forEach(b => b.onclick = () => form(rows.find(x=>x.id===b.dataset.edit)));

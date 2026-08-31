@@ -29,7 +29,7 @@
     <div class="actions">
       <select id="selCohorte" style="min-width:220px"></select>
       <button class="btn outline" id="btnExport">
-        <span class="material-symbols-outlined">download</span> Exportar</button>
+        <span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar</button>
     </div>
   </div>
 
@@ -137,7 +137,7 @@ async function cargar(){
         <div class="s">${esc(txt)}${f.ultimo_acceso ? ` · última vez el ${fdate(f.ultimo_acceso)}` : ''}</div></div>
       <button class="btn ghost sm" data-escribir="${esc(f.profile_id || '')}"
         data-nombre="${esc(f.estudiante || f.email)}">
-        <span class="material-symbols-outlined">mail</span> Escribirle</button>
+        <span class="material-symbols-outlined" aria-hidden="true">mail</span> Escribirle</button>
       <span class="chip ${kind}">${esc(txt.split(' ').slice(0, 2).join(' '))}</span>
     </div>`;
   }).join('');
@@ -201,8 +201,8 @@ function render(){
       <td class="muted">${x.ultimo_acceso ? fdate(x.ultimo_acceso) : 'nunca'}</td>
       <td><span class="chip ${kind}">${esc(txt)}</span></td>
       <td><button class="btn ghost sm" data-escribir="${esc(x.profile_id || '')}"
-        data-nombre="${esc(x.estudiante || x.email)}" title="Escribirle desde la plataforma">
-        <span class="material-symbols-outlined">mail</span></button></td></tr>`;
+        data-nombre="${esc(x.estudiante || x.email)}" title="Escribirle desde la plataforma" aria-label="Escribirle desde la plataforma">
+        <span class="material-symbols-outlined" aria-hidden="true">mail</span></button></td></tr>`;
   }).join('') : emptyRow(8, 'Nadie coincide con ese filtro.');
   conectarEscribir();
 }

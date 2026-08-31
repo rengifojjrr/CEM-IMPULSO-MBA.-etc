@@ -26,9 +26,9 @@
   <div class="page-head">
     <div><h1>Gestión de usuarios y roles</h1><p>Todas las cuentas de la plataforma y qué rol tiene cada una. El rol decide qué pantallas ve esa persona.</p></div>
     <div class="actions">
-      <button class="btn" id="btnInvitar"><span class="material-symbols-outlined">person_add</span> Invitar a alguien</button>
-      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
-      <a class="btn outline" href="permisos.html"><span class="material-symbols-outlined">admin_panel_settings</span> Matriz de permisos</a>
+      <button class="btn" id="btnInvitar"><span class="material-symbols-outlined" aria-hidden="true">person_add</span> Invitar a alguien</button>
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar</button>
+      <a class="btn outline" href="permisos.html"><span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span> Matriz de permisos</a>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -121,10 +121,10 @@ function render(){
     <td>${u.pais?esc(paisConBandera(u.pais)):'—'}</td><td class="muted">${fdate(u.created_at)}</td>
     <td>${u.activo?chip('activo','ok'):chip('inactivo','err')}</td>
     <td class="nowrap">
-      ${u.rol==='estudiante'?`<a class="btn ghost sm" href="estudiante.html?id=${u.id}" title="Ver perfil"><span class="material-symbols-outlined">visibility</span></a>`:''}
-      ${puede?`<button class="btn ghost sm" data-e="${u.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
+      ${u.rol==='estudiante'?`<a class="btn ghost sm" href="estudiante.html?id=${u.id}" title="Ver perfil" aria-label="Ver perfil"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></a>`:''}
+      ${puede?`<button class="btn ghost sm" data-e="${u.id}" title="Editar" aria-label="Editar"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
       <button class="btn ghost sm" data-t="${u.id}" title="${u.activo?'Desactivar':'Activar'}">
-        <span class="material-symbols-outlined">${u.activo?'block':'check_circle'}</span></button>`:''}
+        <span class="material-symbols-outlined" aria-hidden="true">${u.activo?'block':'check_circle'}</span></button>`:''}
     </td></tr>`).join('') : emptyRow(8, 'Ninguna cuenta coincide con lo que buscaste.');
   ordenable('#tabla', ordenUsuarios, render);
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(x=>x.id===b.dataset.e)));
@@ -209,7 +209,7 @@ async function cargarInvitaciones(){
       <td class="tiny muted">${esc(i.invitada_por_nombre || '—')}</td>
       <td class="tiny muted">${fdate(i.vence_en)}</td>
       <td class="nowrap">${i.estado === 'pendiente' && puede
-        ? `<button class="btn ghost sm" data-anular="${i.id}" title="Anular"><span class="material-symbols-outlined">link_off</span></button>` : ''}</td>
+        ? `<button class="btn ghost sm" data-anular="${i.id}" title="Anular" aria-label="Anular"><span class="material-symbols-outlined" aria-hidden="true">link_off</span></button>` : ''}</td>
     </tr>`;
   }).join('') : emptyRow(6, 'Todavía no has invitado a nadie. El botón de arriba abre el formulario.');
 
@@ -291,7 +291,7 @@ function enseñarElEnlace(inv){
     <div class="field"><label for="iEnlace">El enlace</label>
       <input id="iEnlace" value="${esc(inv.enlace)}" readonly onclick="this.select()"></div>`,
     footer:`<button class="btn outline" data-x>Cerrar</button>
-            <button class="btn" data-c><span class="material-symbols-outlined">content_copy</span> Copiar el enlace</button>` });
+            <button class="btn" data-c><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar el enlace</button>` });
   $('[data-x]',m).onclick = m.close;
   $('[data-c]',m).onclick = async () => {
     try { await navigator.clipboard.writeText(inv.enlace); ok('Enlace copiado.'); }

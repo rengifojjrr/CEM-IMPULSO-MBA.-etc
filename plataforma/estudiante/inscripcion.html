@@ -29,7 +29,7 @@
 <body>
 <div id="page" class="hidden">
   <div class="pub-main" style="max-width:960px">
-    <a class="btn ghost sm" href="#" id="back"><span class="material-symbols-outlined">arrow_back</span> Volver</a>
+    <a class="btn ghost sm" href="#" id="back"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Volver</a>
     <div style="text-align:center;margin:10px 0 22px">
       <span class="chip ok"><span class="material-symbols-outlined">lock</span> Pago seguro</span>
       <h1 style="margin:10px 0 4px">Finaliza tu inscripción</h1>
@@ -138,12 +138,12 @@ function renderBotones(){
   const primera = plan > 1 ? total/plan : total;
   $('#botones').innerHTML = `
     ${hayTarjeta ? `<button class="btn block" id="btnTarjeta">
-      <span class="material-symbols-outlined">credit_card</span>
+      <span class="material-symbols-outlined" aria-hidden="true">credit_card</span>
       Inscribirme y pagar ${money(primera, curso.moneda)}</button>` : ''}
     <button class="btn ${hayTarjeta ? 'outline' : ''} block" id="btnOtra" style="margin-top:8px">
       ${hayTarjeta
         ? 'Prefiero transferencia u otra forma'
-        : `Inscribirme y ver dónde pagar <span class="material-symbols-outlined">arrow_forward</span>`}</button>`;
+        : `Inscribirme y ver dónde pagar <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>`}</button>`;
 
   $('#piePago').innerHTML = hayTarjeta
     ? `<span class="material-symbols-outlined" style="font-size:15px">lock</span>

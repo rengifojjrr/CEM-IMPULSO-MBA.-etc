@@ -25,7 +25,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Banco de preguntas</h1><p>Preguntas guardadas para reutilizar entre exámenes. Se escriben una vez y se meten en las evaluaciones que hagan falta.</p></div>
-    <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Crear pregunta</button></div>
+    <div class="actions"><button class="btn" id="btnNueva"><span class="material-symbols-outlined" aria-hidden="true">add_circle</span> Crear pregunta</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="card">
@@ -121,9 +121,9 @@ function render(){
       <td>${chipEstado(r.dificultad)}</td><td>${num(r.usos)}</td>
       <td>${ac!=null?`<span class="chip ${ac>=70?'ok':ac>=40?'warn':'err'}">${ac}%</span>`:'—'}</td>
       <td class="nowrap">
-        ${puede?`<button class="btn ghost sm" data-e="${r.id}" title="Editar la pregunta"><span class="material-symbols-outlined">edit</span></button>
-        <button class="btn ghost sm" data-dup="${r.id}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
-        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)" title="Borrar la pregunta"><span class="material-symbols-outlined">delete</span></button>`:''}
+        ${puede?`<button class="btn ghost sm" data-e="${r.id}" title="Editar la pregunta" aria-label="Editar la pregunta"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+        <button class="btn ghost sm" data-dup="${r.id}" title="Duplicar" aria-label="Duplicar"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>
+        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)" title="Borrar la pregunta" aria-label="Borrar la pregunta"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>`:''}
       </td></tr>`;
   }).join('')}).join('') : emptyRow(7, 'El banco de preguntas está vacío. Las preguntas se reutilizan entre evaluaciones.', {texto:'Crear la primera pregunta', id:'vacioPreg', icono:'help_center'});
   $$('[data-e]').forEach(b=>b.onclick=()=>form(rows.find(r=>r.id===b.dataset.e)));

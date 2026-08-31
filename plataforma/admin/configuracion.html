@@ -27,7 +27,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Configuración académica <button type="button" class="ayuda-btn" data-ayuda="Lo que se cambie aquí vale para toda la plataforma y de inmediato: la escala de calificación, las listas de categorías y turnos, y lo que se ve en el catálogo público.">?</button></h1><p>Lo que vale para toda la plataforma: cómo se califica, cómo se llaman las cosas y qué se ve en el catálogo público.</p></div>
-    <div class="actions"><button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar cambios</button></div>
+    <div class="actions"><button class="btn" id="btnSave"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar cambios</button></div>
   </div>
 
   <div class="grid g2">
@@ -99,7 +99,7 @@
         <div class="field crece"><label for="ppNuevo">Añadir un país</label>
           <select id="ppNuevo"></select></div>
         <button type="button" class="btn outline" id="ppAnadir">
-          <span class="material-symbols-outlined">add</span> Añadir</button>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Añadir</button>
       </div>
       <div class="row sep-poco" id="ppLista"></div>
     </div>
@@ -126,7 +126,7 @@
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px" id="listaCategorias"></div>
       <div class="row" style="gap:8px">
         <input id="nuevaCategoria" placeholder="Nueva categoría…" style="flex:1">
-        <button class="btn outline sm" id="btnAddCategoria"><span class="material-symbols-outlined">add</span> Agregar</button>
+        <button class="btn outline sm" id="btnAddCategoria"><span class="material-symbols-outlined" aria-hidden="true">add</span> Agregar</button>
       </div>
     </div>
     <div class="card">
@@ -135,7 +135,7 @@
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px" id="listaTurnos"></div>
       <div class="row" style="gap:8px">
         <input id="nuevoTurno" placeholder="Nuevo turno…" style="flex:1">
-        <button class="btn outline sm" id="btnAddTurno"><span class="material-symbols-outlined">add</span> Agregar</button>
+        <button class="btn outline sm" id="btnAddTurno"><span class="material-symbols-outlined" aria-hidden="true">add</span> Agregar</button>
       </div>
     </div>
   </div>
@@ -204,8 +204,8 @@ async function cargarListas(){
 function renderLista(sel, items, tabla, recargar){
   $(sel).innerHTML = items.length ? items.map(it => `<span class="chip neutral" style="display:inline-flex;align-items:center;gap:6px">
     ${esc(it.nombre)}<button type="button" data-del="${it.id}" title="Quitar"
-      style="background:none;border:0;padding:0;cursor:pointer;color:var(--on-surface-variant);display:flex">
-      <span class="material-symbols-outlined" style="font-size:15px">close</span></button></span>`).join('')
+      style="background:none;border:0;padding:0;cursor:pointer;color:var(--on-surface-variant);display:flex" aria-label="Quitar">
+      <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">close</span></button></span>`).join('')
     : '<p class="tiny muted">Todavía no hay ninguno.</p>';
   $(sel).querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!await confirmDialog('¿Quitar esta opción de la lista?')) return;
@@ -292,7 +292,7 @@ function pintarPaisesPortada(){
         <button type="button" data-quitar="${i}" title="Quitar"
           aria-label="Quitar ${esc(paisConBandera(c))}"
           style="background:none;border:0;padding:0;cursor:pointer;color:var(--on-surface-variant);display:flex">
-          <span class="material-symbols-outlined" style="font-size:15px">close</span></button></span>`).join('')
+          <span class="material-symbols-outlined" style="font-size:15px" aria-hidden="true">close</span></button></span>`).join('')
     : '<span class="tiny muted">Sin países: la portada no enseñará la franja.</span>';
   $$('[data-quitar]', $('#ppLista')).forEach(b => b.onclick = () => {
     paisesPortada.splice(Number(b.dataset.quitar), 1);
@@ -333,13 +333,13 @@ async function pintarPruebas(){
       inventado. Lo que apunta sólo a datos de verdad no se toca. Después, las
       comprobaciones automáticas dejarán de poder correr hasta que se vuelvan a sembrar.</p>
     <button class="btn err" id="btnQuitarPruebas">
-      <span class="material-symbols-outlined">delete_sweep</span> Borrar los datos de prueba</button>`
+      <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span> Borrar los datos de prueba</button>`
   : `
     <p class="muted">No hay ninguno. La base sólo tiene datos de verdad.</p>
     <p class="tiny muted">Sin ellos, las comprobaciones automáticas no pueden entrar a la
       plataforma y quedan dormidas. Se siembran para revisar un cambio y se quitan después.</p>
     <button class="btn outline" id="btnSembrarPruebas">
-      <span class="material-symbols-outlined">science</span> Sembrar datos de prueba</button>`;
+      <span class="material-symbols-outlined" aria-hidden="true">science</span> Sembrar datos de prueba</button>`;
 
   const quitar = $('#btnQuitarPruebas');
   if (quitar) quitar.onclick = async () => {
@@ -390,7 +390,7 @@ function enseñarLaClave(r){
     <p class="tiny muted">Para correr las comprobaciones automáticas:
       <code>CEM_PASS='…' node pruebas/correr.mjs</code></p>`,
     footer: `<button class="btn outline" data-x>Cerrar</button>
-             <button class="btn" data-c><span class="material-symbols-outlined">content_copy</span> Copiar</button>` });
+             <button class="btn" data-c><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>` });
   $('[data-x]', m).onclick = m.close;
   $('[data-c]', m).onclick = async () => {
     try { await navigator.clipboard.writeText(r.clave); ok('Contraseña copiada.'); }

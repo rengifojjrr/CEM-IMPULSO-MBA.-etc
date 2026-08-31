@@ -36,8 +36,8 @@
          la vacía cada minuto. Así el aviso de dentro de la plataforma le llega a la persona
          aunque el correo falle, y nada se pierde por el camino. Aquí se ve si está saliendo.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnVaciar"><span class="material-symbols-outlined">send</span> Vaciar la cola ahora</button>
-      <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined">refresh</span> Refrescar</button>
+      <button class="btn outline" id="btnVaciar"><span class="material-symbols-outlined" aria-hidden="true">send</span> Vaciar la cola ahora</button>
+      <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined" aria-hidden="true">refresh</span> Refrescar</button>
     </div>
   </div>
 
@@ -58,7 +58,7 @@
       <form id="formPrueba" class="stack">
         <div class="field"><label for="pPara">Enviar una prueba a</label>
           <input type="email" id="pPara" placeholder="tucorreo@ejemplo.com" autocomplete="email"></div>
-        <button class="btn" type="submit"><span class="material-symbols-outlined">outgoing_mail</span> Mandar la prueba</button>
+        <button class="btn" type="submit"><span class="material-symbols-outlined" aria-hidden="true">outgoing_mail</span> Mandar la prueba</button>
       </form>
       <div id="msgPrueba"></div>
     </div>
@@ -68,9 +68,9 @@
     <div class="row between"><h2 class="sec">Lo que no salió</h2>
       <div class="row">
         <button class="btn outline sm hidden" id="btnReintentar">
-          <span class="material-symbols-outlined">replay</span> Devolver los fallidos a la cola</button>
+          <span class="material-symbols-outlined" aria-hidden="true">replay</span> Devolver los fallidos a la cola</button>
         <button class="btn ghost sm hidden" id="btnDescartar">
-          <span class="material-symbols-outlined">delete_sweep</span> Descartarlos</button>
+          <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span> Descartarlos</button>
       </div></div>
     <div id="fallos"></div>
   </div>
@@ -122,7 +122,7 @@ function pintar(){
         proveedor con esto dentro, salen todos de golpe y rebotan todos de golpe — y un lote
         de rebotes en el primer envío es la forma más rápida de que te limiten la cuenta.
         <button class="btn ghost sm" id="btnTirarMentira" style="margin-top:8px">
-          <span class="material-symbols-outlined">delete_sweep</span>
+          <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
           Tirar esos ${num(rebotes)}</button></div>`
     : '';
 
@@ -194,9 +194,9 @@ function pintar(){
             placeholder="${E.configurado ? 'déjala vacía para conservar la de ahora' : 're_...'}">
         </div>
         <div class="row">
-          <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+          <button class="btn" type="submit"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
           ${E.configurado ? `<button class="btn ghost" type="button" id="btnQuitar">
-            <span class="material-symbols-outlined">link_off</span> Desconectar</button>` : ''}
+            <span class="material-symbols-outlined" aria-hidden="true">link_off</span> Desconectar</button>` : ''}
         </div>
       </form>
       <div id="msgProv"></div>

@@ -85,9 +85,9 @@
     <div><h1>Editor de certificados</h1><p>Diseña las plantillas y corrige certificados ya emitidos.</p></div>
     <div class="actions">
       <div class="field" style="margin:0;min-width:190px"><select id="selTpl"></select></div>
-      <button class="btn outline" id="btnNueva"><span class="material-symbols-outlined">add</span> Nueva</button>
-      <button class="btn outline" id="btnDup"><span class="material-symbols-outlined">content_copy</span> Duplicar</button>
-      <button class="btn" id="btnSave"><span class="material-symbols-outlined">save</span> Guardar</button>
+      <button class="btn outline" id="btnNueva"><span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva</button>
+      <button class="btn outline" id="btnDup"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Duplicar</button>
+      <button class="btn" id="btnSave"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
     </div>
   </div>
 
@@ -213,7 +213,7 @@
             </div>
           </div>
           <button class="btn outline sm block" id="btnRestaurar" style="margin-top:12px">
-            <span class="material-symbols-outlined">restart_alt</span> Restaurar disposición sugerida</button>
+            <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span> Restaurar disposición sugerida</button>
         </div>
       </details>
     </div>
@@ -225,7 +225,7 @@
           <h2 class="sec sin-margen">Vista previa</h2>
           <div class="row">
             <span class="tiny muted">Arrastra los elementos para colocarlos</span>
-            <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined">print</span> Imprimir prueba</button>
+            <button class="btn outline sm" id="btnPrint"><span class="material-symbols-outlined" aria-hidden="true">print</span> Imprimir prueba</button>
           </div>
         </div>
         <div id="prev" class="lienzo-wrap"></div>
@@ -657,9 +657,9 @@ function renderTbl(){
     <td>${t.incluir_qr?chip('sí','ok'):chip('no','neutral')}</td>
     <td class="wrap">${esc(t.firma_nombre||'—')}</td><td class="muted">${fdate(t.created_at)}</td>
     <td class="nowrap">
-      <button class="btn ghost sm" data-l="${t.id}" title="Abrir"><span class="material-symbols-outlined">edit</span></button>
-      <button class="btn ghost sm" data-dup="${t.id}" title="Duplicar"><span class="material-symbols-outlined">content_copy</span></button>
-      <button class="btn ghost sm" data-del="${t.id}" style="color:var(--error)" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
+      <button class="btn ghost sm" data-l="${t.id}" title="Abrir" aria-label="Abrir"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+      <button class="btn ghost sm" data-dup="${t.id}" title="Duplicar" aria-label="Duplicar"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>
+      <button class="btn ghost sm" data-del="${t.id}" style="color:var(--error)" title="Eliminar" aria-label="Eliminar"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
     </td></tr>`).join('') : emptyRow(6, 'Todavía no has guardado ningún diseño de certificado.');
   $$('[data-l]').forEach(b=>b.onclick=()=>{ $('#selTpl').value=b.dataset.l;
     actual=tpls.find(t=>t.id===b.dataset.l); cargarPlantilla(); });
@@ -717,8 +717,8 @@ function renderCerts(){
     <td>${esc(c.datos?.cedula||'—')}</td>
     <td class="wrap">${esc(c.datos?.curso||c.titulo||'—')}</td>
     <td class="muted">${fdate(c.emitido_en)}</td>
-    <td><button class="btn ghost sm" data-fix="${c.id}" title="Corregir">
-      <span class="material-symbols-outlined">edit_note</span></button></td>
+    <td><button class="btn ghost sm" data-fix="${c.id}" title="Corregir" aria-label="Corregir">
+      <span class="material-symbols-outlined" aria-hidden="true">edit_note</span></button></td>
   </tr>`).join('') : emptyRow(6,'Todavía no hay certificados emitidos.');
   $$('[data-fix]').forEach(b=>b.onclick=()=>corregir(certs.find(c=>c.id===b.dataset.fix)));
 }

@@ -77,7 +77,7 @@
          Son dos asistentes con el mismo motor: uno atiende a los alumnos y otro al equipo.</p></div>
     <div class="actions">
       <button class="btn primary" id="btnRefrescar">
-        <span class="material-symbols-outlined">sync</span> Actualizar lo que sabe</button>
+        <span class="material-symbols-outlined" aria-hidden="true">sync</span> Actualizar lo que sabe</button>
     </div>
   </div>
 
@@ -112,7 +112,7 @@
       <div class="field grow"><label>&nbsp;</label><span></span></div>
       <div class="field"><label>&nbsp;</label>
         <button class="btn" id="btnNuevaFicha">
-          <span class="material-symbols-outlined">add</span> Enseñarle algo</button></div>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Enseñarle algo</button></div>
     </div>
     <div id="listaSaber"><span class="cargando"></span></div>
   </section>
@@ -483,7 +483,7 @@ async function cargarPuente() {
         const puesto = p.modo_plataforma === m.v;
         return `<button class="btn${puesto ? '' : ' outline'}" data-modo="${m.v}"
                 ${puesto ? 'aria-current="true"' : ''}>
-          <span class="material-symbols-outlined">${m.icono}</span> ${esc(m.rotulo)}
+          <span class="material-symbols-outlined" aria-hidden="true">${m.icono}</span> ${esc(m.rotulo)}
         </button>`;
       }).join('')}
     </div>
@@ -625,9 +625,9 @@ function pintarSaber() {
       <div class="row">
         ${puedeEditar ? `
           <button class="btn sm" data-editar="${esc(f.id)}">
-            <span class="material-symbols-outlined">edit</span> Cambiar</button>
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span> Cambiar</button>
           <button class="btn sm" data-apagar="${esc(f.id)}" data-a="${f.activo ? '0' : '1'}">
-            <span class="material-symbols-outlined">${f.activo ? 'visibility_off' : 'visibility'}</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${f.activo ? 'visibility_off' : 'visibility'}</span>
             ${f.activo ? 'Que deje de decirlo' : 'Volver a decirlo'}</button>` : ''}
         <span class="tiny muted">${esc(fdesde(f.actualizado_en))}</span>
       </div>
@@ -750,8 +750,8 @@ async function cargarCharlas() {
     <td>${c.ultimo ? esc(fdatetime(c.ultimo)) : '—'}</td>
     <td>${c.escalado_en ? chip('Pidió una persona', 'warn')
         : (c.fallos > 0 ? chip(`${c.fallos} fallo(s)`, 'err') : chip('Bien', 'ok'))}</td>
-    <td><button class="icon-btn" data-ver="${esc(c.id)}" title="Leer la conversación">
-      <span class="material-symbols-outlined">visibility</span></button></td>
+    <td><button class="icon-btn" data-ver="${esc(c.id)}" title="Leer la conversación" aria-label="Leer la conversación">
+      <span class="material-symbols-outlined" aria-hidden="true">visibility</span></button></td>
   </tr>`).join('');
 }
 
@@ -812,9 +812,9 @@ async function cargarPreguntan() {
       <div class="row">
         <button class="btn sm" data-ficha="${esc(p.id)}"
                 data-texto="${esc(p.texto)}">
-          <span class="material-symbols-outlined">add</span> Enseñarle a contestar esto</button>
-        <button class="icon-btn" data-descartar="${esc(p.id)}" title="No merece una ficha">
-          <span class="material-symbols-outlined">close</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Enseñarle a contestar esto</button>
+        <button class="icon-btn" data-descartar="${esc(p.id)}" title="No merece una ficha" aria-label="No merece una ficha">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>` : ''}</td>
   </tr>`).join('');
   botonesConNombre(tb);
@@ -897,10 +897,10 @@ async function cargarQuienHabla() {
       ${p.conversaciones > 0
         ? `<button class="btn sm" data-verchats="${esc(p.profile_id)}"
              data-nombre="${esc(p.nombre || p.email)}">
-             <span class="material-symbols-outlined">forum</span> Qué ha hablado</button>` : ''}
+             <span class="material-symbols-outlined" aria-hidden="true">forum</span> Qué ha hablado</button>` : ''}
       ${p.telefono && p.puedo_gestionarlo
-        ? `<button class="icon-btn" data-quitarnum="${esc(p.telefono)}" title="Quitar el número">
-             <span class="material-symbols-outlined">delete</span></button>` : ''}
+        ? `<button class="icon-btn" data-quitarnum="${esc(p.telefono)}" title="Quitar el número" aria-label="Quitar el número">
+             <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>` : ''}
     </div></td>
   </tr>`).join('');
   botonesConNombre(tb);
@@ -935,8 +935,8 @@ $('#tablaQuienHabla').addEventListener('click', async (e) => {
           <td class="num">${num(c.mensajes)}</td>
           <td>${c.ultimo ? esc(fdatetime(c.ultimo)) : '—'}</td>
           <td>${c.escalado_en ? chip('Pidió una persona', 'warn') : chip('Bien', 'ok')}</td>
-          <td><button class="icon-btn" data-ver="${esc(c.id)}" title="Leerla">
-            <span class="material-symbols-outlined">visibility</span></button></td>
+          <td><button class="icon-btn" data-ver="${esc(c.id)}" title="Leerla" aria-label="Leerla">
+            <span class="material-symbols-outlined" aria-hidden="true">visibility</span></button></td>
         </tr>`).join('') || '<tr><td colspan="6"><div class="empty">Todavía no ha hablado con Cemi.</div></td></tr>'}
         </tbody></table></div>`,
       footer: '<button class="btn" data-x>Cerrar</button>',
@@ -1086,7 +1086,7 @@ async function cargarConfirmar() {
         la de ahora, así que no se puede mandar: pídeselo otra vez a Cemi.</p>` : ''}
       ${vivo && puedeEditar ? `<div class="acciones">
         <button class="btn" data-confirmar="${esc(b.id)}">
-          <span class="material-symbols-outlined">send</span> Confirmar y mandar</button>
+          <span class="material-symbols-outlined" aria-hidden="true">send</span> Confirmar y mandar</button>
         <button class="btn ghost" data-descartar="${esc(b.id)}">Descartar</button>
       </div>` : ''}
     </div>`;

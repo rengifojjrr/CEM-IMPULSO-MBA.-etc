@@ -38,8 +38,8 @@
       <p>Pagos que los estudiantes reportaron y esperan revisión. Aprobar abona la cuota; rechazar no toca el saldo.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnCartera">
-        <span class="material-symbols-outlined">table_view</span> Exportar cartera</button>
-      <a class="btn outline" href="bancaribe.html"><span class="material-symbols-outlined">account_balance</span> Panel del banco</a>
+        <span class="material-symbols-outlined" aria-hidden="true">table_view</span> Exportar cartera</button>
+      <a class="btn outline" href="bancaribe.html"><span class="material-symbols-outlined" aria-hidden="true">account_balance</span> Panel del banco</a>
     </div>
   </div>
 
@@ -79,7 +79,7 @@
     <div class="row between" style="align-items:flex-start">
       <h2 class="sec">Tasas del BCV</h2>
       <button class="btn outline sm" id="btnTraerBcv" title="Pedirle ahora mismo la tasa oficial al BCV">
-        <span class="material-symbols-outlined">cloud_download</span> Traer la del BCV</button>
+        <span class="material-symbols-outlined" aria-hidden="true">cloud_download</span> Traer la del BCV</button>
     </div>
     <p class="tiny muted">La casa cobra en <b>euros</b>. La tasa del <b>euro</b> es la que convierte los
       pagos en bolívares: es la que cobra. La del <b>dólar</b> no convierte nada — sirve para los
@@ -101,7 +101,7 @@
         <div class="field sin-margen"><label>Nueva tasa (Bs por euro)
           <button type="button" class="ayuda-btn" data-ayuda="Cuántos bolívares vale un euro hoy según el BCV. Sólo afecta a los pagos que se registren de aquí en adelante: los ya aprobados guardan la tasa con la que se convirtieron.">?</button></label>
           <input type="number" step="0.01" min="0.01" id="inpTasa" placeholder="Ej: 48,90"></div>
-        <button class="btn" id="btnTasa"><span class="material-symbols-outlined">save</span> Guardar</button>
+        <button class="btn" id="btnTasa"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
       </div>
       <div class="tasa-box">
         <div>
@@ -112,7 +112,7 @@
         <div class="field sin-margen"><label>Nueva tasa (Bs por dólar)
           <button type="button" class="ayuda-btn" data-ayuda="La del dólar es de referencia: no se usa para convertir ningún cobro, porque el efectivo en dólares se recibe a la par del euro.">?</button></label>
           <input type="number" step="0.01" min="0.01" id="inpTasaUsd" placeholder="Ej: 45,75"></div>
-        <button class="btn outline" id="btnTasaUsd"><span class="material-symbols-outlined">save</span> Guardar</button>
+        <button class="btn outline" id="btnTasaUsd"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
       </div>
     </div>
     <div id="msgTasa"></div>
@@ -182,8 +182,8 @@ async function pintarLlamadas(){
         : d === 0 ? 'hoy' : d === 1 ? 'ayer' : `hace ${d} días`}</td>
       <td class="nowrap">
         ${tel ? `<a class="btn ghost sm" target="_blank" rel="noopener"
-             href="https://wa.me/${esc(tel)}" title="Escribirle por WhatsApp">
-             <span class="material-symbols-outlined">chat</span></a>` : ''}
+             href="https://wa.me/${esc(tel)}" title="Escribirle por WhatsApp" aria-label="Escribirle por WhatsApp">
+             <span class="material-symbols-outlined" aria-hidden="true">chat</span></a>` : ''}
         <a class="btn outline sm" href="${esc(f.enlace)}">Ver ficha</a></td></tr>`;
   }).join('');
 }
@@ -265,10 +265,10 @@ function render(){
           ? `<div class="tiny" style="color:var(--error);white-space:normal;margin-top:3px"
                title="Motivo del rechazo">${esc(x.nota)}</div>` : ''}</td>
       <td class="nowrap" data-col=""><span class="acciones">
-        <button class="btn ghost sm" data-ver="${x.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
+        <button class="btn ghost sm" data-ver="${x.id}" title="Ver detalle" aria-label="Ver detalle"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
         ${puedeOperar && x.estado === 'reportado' ? `
-          <button class="btn ghost sm" data-ok="${x.id}" title="Aprobar y abonar a la cuota"><span class="material-symbols-outlined">check_circle</span></button>
-          <button class="btn ghost sm" data-no="${x.id}" title="Rechazar"><span class="material-symbols-outlined">cancel</span></button>` : ''}
+          <button class="btn ghost sm" data-ok="${x.id}" title="Aprobar y abonar a la cuota" aria-label="Aprobar y abonar a la cuota"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span></button>
+          <button class="btn ghost sm" data-no="${x.id}" title="Rechazar" aria-label="Rechazar"><span class="material-symbols-outlined" aria-hidden="true">cancel</span></button>` : ''}
       </span></td></tr>`;
   }).join('') : emptyRow(8, f === 'reportado'
       ? 'No hay pagos esperando revisión. Todo al día.'
@@ -347,7 +347,7 @@ async function verDetalle(x){
     <div class="field"><label>Comprobante</label><div id="dComp"><span class="cargando una"></span></div></div>
     <div class="field"><label>Verificación contra el banco</label>
       <div id="dBanco"><button class="btn outline sm" id="dVerificar">
-        <span class="material-symbols-outlined">travel_explore</span>
+        <span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>
         Buscar esta referencia en Bancaribe</button>
         <div class="tiny muted sep-poco">Consulta la operación por referencia y monto,
           sin salir de esta pantalla.</div></div></div>`,

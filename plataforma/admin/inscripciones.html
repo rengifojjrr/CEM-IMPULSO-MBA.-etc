@@ -26,8 +26,8 @@
   <div class="page-head">
     <div><h1>Inscripciones y planes de pago</h1><p>Gestiona las inscripciones y el estado financiero de los estudiantes.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
-      <button class="btn" id="btnNueva"><span class="material-symbols-outlined">person_add</span> Nueva inscripción</button>
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar</button>
+      <button class="btn" id="btnNueva"><span class="material-symbols-outlined" aria-hidden="true">person_add</span> Nueva inscripción</button>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -176,10 +176,10 @@ function renderCompras(){
         ? `<div class="tiny" style="color:var(--warn)">esperábamos ${money(c.a_cobrar, c.moneda)}</div>` : ''}</td>
     <td class="muted">${fdate(c.reportada_en)}</td>
     <td class="nowrap">${editable ? `
-      <button class="btn ghost sm" data-cmp-ok="${c.id}" title="Aparece en el banco: confirmar">
-        <span class="material-symbols-outlined">check</span></button>
-      <button class="btn ghost sm" data-cmp-no="${c.id}" style="color:var(--error)" title="No aparece: rechazar">
-        <span class="material-symbols-outlined">close</span></button>`
+      <button class="btn ghost sm" data-cmp-ok="${c.id}" title="Aparece en el banco: confirmar" aria-label="Aparece en el banco: confirmar">
+        <span class="material-symbols-outlined" aria-hidden="true">check</span></button>
+      <button class="btn ghost sm" data-cmp-no="${c.id}" style="color:var(--error)" title="No aparece: rechazar" aria-label="No aparece: rechazar">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span></button>`
       : '<span class="tiny muted">sólo lectura</span>'}</td></tr>`).join('');
 
   $$('[data-cmp-ok]').forEach(b => b.onclick = () => confirmarCompra(b.dataset.cmpOk));
@@ -252,8 +252,8 @@ function renderSolicitudes(){
     <td class="wrap">${esc(s.motivo)}</td>
     <td class="muted">${fdate(s.created_at)}</td>
     <td class="nowrap">${editable ? `
-      <button class="btn ghost sm" data-sol-ok="${s.id}" title="Aprobar"><span class="material-symbols-outlined">check</span></button>
-      <button class="btn ghost sm" data-sol-no="${s.id}" style="color:var(--error)" title="Rechazar"><span class="material-symbols-outlined">close</span></button>`
+      <button class="btn ghost sm" data-sol-ok="${s.id}" title="Aprobar" aria-label="Aprobar"><span class="material-symbols-outlined" aria-hidden="true">check</span></button>
+      <button class="btn ghost sm" data-sol-no="${s.id}" style="color:var(--error)" title="Rechazar" aria-label="Rechazar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>`
       : '<span class="tiny muted">sólo lectura</span>'}</td></tr>`).join('');
 
   $$('[data-sol-ok]').forEach(b => b.onclick = () => resolverSolicitud(b.dataset.solOk, true));
@@ -284,7 +284,7 @@ function renderInvitaciones(){
       ? `<div class="tiny muted">vale hasta ${fdate(x.vence)}</div>` : ''}</td>
     <td class="muted" data-col="Enviada">${fdate(x.created_at)}${x.invito ? `<div class="tiny muted">${esc(x.invito)}</div>` : ''}</td>
     <td class="nowrap" data-col="">${editable && x.estado === 'pendiente'
-      ? `<button class="btn ghost sm" data-inv-no="${x.id}" title="Retirar la invitación"><span class="material-symbols-outlined">undo</span></button>`
+      ? `<button class="btn ghost sm" data-inv-no="${x.id}" title="Retirar la invitación" aria-label="Retirar la invitación"><span class="material-symbols-outlined" aria-hidden="true">undo</span></button>`
       : ''}</td></tr>`).join('');
 
   $$('[data-inv-no]').forEach(b => b.onclick = async () => {
@@ -431,7 +431,7 @@ function render(){
         <td data-col="Estado">${chipEstado(r.estado)}</td>
         <td class="muted" data-col="Fecha">${fdateCorta(r.fecha_inscripcion)}</td>
         <td data-col=""><span class="acciones"><a class="btn ghost sm" href="estudiante.html?id=${r.profile_id}"
-             title="Ver la ficha del estudiante"><span class="material-symbols-outlined">visibility</span></a></span></td></tr>`).join('')
+             title="Ver la ficha del estudiante" aria-label="Ver la ficha del estudiante"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></a></span></td></tr>`).join('')
       : emptyRow(9, 'Todavía no hay inscripciones que coincidan.',
                  editable ? {texto:'Inscribir a alguien', id:'vacioNueva', icono:'person_add'} : null);
     ponerTotales(['', '', 'Totales', {num:true,html:money(suma(list,r=>r.precio_final))},
@@ -464,9 +464,9 @@ function render(){
           ${venc?`<div class="tiny dias-mora">${mora} día(s) de mora</div>`:''}</td>
         <td data-col="Estado">${chipEstado(i.estado)}</td>
         <td data-col=""><span class="acciones">
-          <button class="btn ghost sm" data-hist="${i.id}" title="Ver la historia de esta cuota"><span class="material-symbols-outlined">history</span></button>
+          <button class="btn ghost sm" data-hist="${i.id}" title="Ver la historia de esta cuota" aria-label="Ver la historia de esta cuota"><span class="material-symbols-outlined" aria-hidden="true">history</span></button>
           <a class="btn ghost sm" href="estudiante.html?id=${i._e.profile_id}"
-             title="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined">visibility</span></a>
+             title="Ver la ficha: todo lo que ha pagado y lo que le queda" aria-label="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></a>
           ${editable && i.estado!=='pagada'
           ?`<button class="btn outline sm" data-pay="${i.id}">Registrar pago</button>`:''}</span></td></tr>`;
     }).join('') : emptyRow(8, 'No hay cuotas que coincidan con el filtro.');
@@ -496,7 +496,7 @@ function render(){
       <td data-col=""><span class="acciones">
         ${editable && !x.conciliado?`<button class="btn outline sm" data-conc="${x.id}">Conciliar</button>`:''}
         <a class="btn ghost sm" href="estudiante.html?id=${x._e.profile_id}"
-           title="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined">visibility</span></a>
+           title="Ver la ficha: todo lo que ha pagado y lo que le queda" aria-label="Ver la ficha: todo lo que ha pagado y lo que le queda"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></a>
       </span></td></tr>`).join('')
       : emptyRow(8, 'No hay pagos registrados que coincidan.');
     ponerTotales(['', '', 'Total en dólares', {num:true,html:money(suma(rows,enDolares))}, '', '', '', '']);
@@ -691,7 +691,7 @@ $('#btnNueva').onclick = async () => {
         inscripción y las cuotas se crean cuando acepte, con este mismo precio.</p>
     </details>`,
     footer:`<button class="btn outline" data-x>Cancelar</button>
-            <button class="btn outline" data-inv><span class="material-symbols-outlined">forward_to_inbox</span> Invitar</button>
+            <button class="btn outline" data-inv><span class="material-symbols-outlined" aria-hidden="true">forward_to_inbox</span> Invitar</button>
             <button class="btn" data-s>Matricular ya</button>` });
 
   quien.conectar(m);

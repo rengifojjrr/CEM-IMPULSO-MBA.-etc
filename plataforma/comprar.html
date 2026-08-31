@@ -33,7 +33,7 @@
 <body>
 <div class="compra">
   <a class="btn ghost sm" id="volver" href="#" style="margin-bottom:var(--e2)">
-    <span class="material-symbols-outlined">arrow_back</span> Volver</a>
+    <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Volver</a>
 
   <div class="card" id="caja"><span class="cargando"></span></div>
 
@@ -194,7 +194,7 @@ function pintar() {
         : tasa ? `Al cambio de hoy${enBolivares(totalDe(plan))}` : ''}</p>
 
     <button class="btn block" id="pagar" style="margin-top:var(--e2)">
-      <span class="material-symbols-outlined">credit_card</span>
+      <span class="material-symbols-outlined" aria-hidden="true">credit_card</span>
       Pagar ${money(primeraDe(plan), curso.moneda)} con tarjeta
     </button>
     <!-- La otra puerta, y del mismo tamaño que la primera.
@@ -202,7 +202,7 @@ function pintar() {
          de pagar. Esconderlo detrás de «otras opciones» era dejar fuera a la
          mitad de la gente que quiere inscribirse. -->
     <button class="btn outline block" id="pagarLocal" style="margin-top:var(--e1)">
-      <span class="material-symbols-outlined">account_balance</span>
+      <span class="material-symbols-outlined" aria-hidden="true">account_balance</span>
       Pago móvil o transferencia
     </button>
     <p class="tiny muted" style="margin:var(--e2) 0 0;text-align:center">
@@ -347,7 +347,7 @@ function pintarDondePagar(d) {
         placeholder="Los últimos dígitos que te dio el banco">
     </div>
     <button class="btn block" id="declarar">
-      <span class="material-symbols-outlined">check</span> Ya pagué</button>
+      <span class="material-symbols-outlined" aria-hidden="true">check</span> Ya pagué</button>
     <p class="tiny muted" style="margin:var(--e2) 0 0">
       Lo comprobamos contra el banco en horario de oficina y te llega el acceso
       a <b>${esc($('#email')?.value || '')}</b> en cuanto cuadre. No hace falta

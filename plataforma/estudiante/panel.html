@@ -213,12 +213,12 @@ async function init(){
       <div class="row sep">
         ${puertas[e.id]?.abierto === false
           ? `<a class="btn abrir-curso" href="pagos.html?enr=${e.id}">
-               <span class="material-symbols-outlined">lock_open</span> Pagar para empezar</a>
+               <span class="material-symbols-outlined" aria-hidden="true">lock_open</span> Pagar para empezar</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`
           : `<a class="btn abrir-curso" href="${siguiente[e.id]
                ? `clase.html?clase=${siguiente[e.id].lesson_id}`
                : `clase.html?curso=${e.cem_courses?.id}`}">
-               <span class="material-symbols-outlined">play_arrow</span> ${
+               <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span> ${
                  siguiente[e.id]?.empezar ? 'Empezar' : 'Continuar'}</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`}
       </div>
@@ -328,7 +328,7 @@ async function pintarInvitaciones(){
       <div class="row sep" style="justify-content:flex-end">
         <button class="btn ghost" data-no="${esc(i.id)}">No, gracias</button>
         <button class="btn" data-si="${esc(i.id)}">
-          <span class="material-symbols-outlined">check</span> Aceptar e inscribirme</button>
+          <span class="material-symbols-outlined" aria-hidden="true">check</span> Aceptar e inscribirme</button>
       </div>
     </div>`).join('');
 
@@ -369,7 +369,7 @@ function pintarBienvenida(ens, puertas){
   const curso = e.cem_courses?.nombre || 'tu programa';
   host.innerHTML = `<div class="card bienvenida">
     <button class="icon-btn cerrar" id="cerrarBienvenida" title="Cerrar" aria-label="Cerrar la bienvenida">
-      <span class="material-symbols-outlined">close</span></button>
+      <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
     <span class="material-symbols-outlined ico">waving_hand</span>
     <h2>Bienvenido, ${esc(p.nombre)}</h2>
     <p>Tu plaza en <b>${esc(curso)}</b> está lista. Se estudia a tu ritmo: cada lección
@@ -377,7 +377,7 @@ function pintarBienvenida(ens, puertas){
     <p class="tiny muted">Si algo no queda claro, pregúntalo en la propia lección: responde
       tu profesor y lo ve toda tu clase.</p>
     <a class="btn abrir-curso" href="clase.html?curso=${esc(e.cem_courses?.id || '')}">
-      <span class="material-symbols-outlined">play_arrow</span> Empezar la primera lección</a>
+      <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span> Empezar la primera lección</a>
   </div>`;
   $('#cerrarBienvenida').onclick = () => {
     localStorage.setItem(BIENVENIDA_CERRADA, '1');
@@ -565,7 +565,7 @@ async function pintarAvisoDatos() {
     host.innerHTML = `<div class="card"><div class="nota err">
       <b>Tu documento necesita una corrección.</b><br>${esc(iden.motivo || '')}
       <br><a class="btn" href="mis-datos.html">
-        <span class="material-symbols-outlined">photo_camera</span>Volver a subirlo</a>
+        <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>Volver a subirlo</a>
       </div></div>`;
     return;
   }
@@ -580,7 +580,7 @@ async function pintarAvisoDatos() {
       frases.join(', ').replace(/, ([^,]*)$/, ' y $1'))}.</b><br>
     Puedes estudiar mientras tanto — esto no te bloquea nada.
     <br><a class="btn" href="mis-datos.html">
-      <span class="material-symbols-outlined">${soloFotos ? 'photo_camera' : 'edit_note'}</span>${
+      <span class="material-symbols-outlined" aria-hidden="true">${soloFotos ? 'photo_camera' : 'edit_note'}</span>${
       soloFotos ? 'Subir mi documento' : 'Completar mis datos'}</a>
     </div></div>`;
 }

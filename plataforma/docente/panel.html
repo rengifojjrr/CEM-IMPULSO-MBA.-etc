@@ -25,7 +25,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1 id="saludo">Bienvenido</h1><p>Resumen de actividad y tareas pendientes para hoy.</p></div>
-    <div class="actions"><button class="btn" id="btnAnuncio"><span class="material-symbols-outlined">campaign</span> Publicar anuncio</button></div>
+    <div class="actions"><button class="btn" id="btnAnuncio"><span class="material-symbols-outlined" aria-hidden="true">campaign</span> Publicar anuncio</button></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -114,7 +114,7 @@ async function pintarSeVan(){
     <td class="nowrap">
       <button class="btn outline sm" data-escribir="${esc(f.profile_id)}"
         data-nombre="${esc(f.quien || '')}">
-        <span class="material-symbols-outlined">mail</span> Escribirle</button></td></tr>`).join('');
+        <span class="material-symbols-outlined" aria-hidden="true">mail</span> Escribirle</button></td></tr>`).join('');
 
   $$('[data-escribir]').forEach(b => b.onclick = () =>
     escribirle(b.dataset.escribir, b.dataset.nombre));
@@ -168,8 +168,8 @@ async function load(){
         <div class="tiny muted">${new Date(c.fecha+'T12:00').toLocaleDateString('es-ES',{month:'short'})}</div></div>
       <div class="grow"><div class="t">${esc(c.titulo)}</div>
         <div class="s">${esc(c.cem_cohorts?.nombre||'')} · ${(c.hora_inicio||'').slice(0,5)}</div></div>
-      <button class="btn ghost sm" data-sesion="${c.id}" title="Mover la hora o avisar a la clase">
-        <span class="material-symbols-outlined">edit_calendar</span></button>
+      <button class="btn ghost sm" data-sesion="${c.id}" title="Mover la hora o avisar a la clase" aria-label="Mover la hora o avisar a la clase">
+        <span class="material-symbols-outlined" aria-hidden="true">edit_calendar</span></button>
       ${c.url_sesion?`<a class="btn sm" href="${esc(c.url_sesion)}" target="_blank">Iniciar</a>`:chipEstado(c.estado)}
     </div>`).join('') : '<p class="muted tiny">Sin sesiones próximas.</p>';
   $$('[data-sesion]').forEach(b=>b.onclick=()=>gestionarSesion(clases.find(c=>c.id===b.dataset.sesion)));
@@ -209,7 +209,7 @@ async function load(){
     return `<tr><td class="wrap">${esc(c.titulo)}</td><td>${fdate(c.fecha)}</td>
       <td>${esc(c.cem_cohorts?.nombre||'')}</td>
       <td style="min-width:120px">${bar(r)}<span class="tiny muted">${s.p}/${s.t} · ${r}%</span></td>
-      <td><button class="btn ghost sm" data-asis="${c.id}" title="Pasar la asistencia"><span class="material-symbols-outlined">how_to_reg</span></button></td></tr>`;
+      <td><button class="btn ghost sm" data-asis="${c.id}" title="Pasar la asistencia" aria-label="Pasar la asistencia"><span class="material-symbols-outlined" aria-hidden="true">how_to_reg</span></button></td></tr>`;
   }).join('') : emptyRow(5,'Aún no has dictado sesiones.');
   $$('[data-asis]').forEach(b=>b.onclick=()=>pasarAsistencia(b.dataset.asis, ens||[]));
 }

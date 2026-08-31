@@ -118,7 +118,9 @@ create index if not exists cem_sub_enroll_idx ON public.cem_submissions USING bt
 create index if not exists cem_submissions_assess_enroll_idx ON public.cem_submissions USING btree (assessment_id, enrollment_id);
 create index if not exists cem_submissions_calificado_idx ON public.cem_submissions USING btree (calificado_por);
 create index if not exists cem_tasa_peticiones_abiertas ON public.cem_tasa_peticiones USING btree (estado) WHERE (estado = 'pidiendo'::text);
-create unique index if not exists cem_tasas_bcv_moneda_fecha ON public.cem_tasas_bcv USING btree (moneda, fecha, id_tasa);
+/* El duplicado exacto de cem_tasas_bcv_moneda_fecha_idtasa vivía aquí: las dos
+   eran UNIQUE sobre (moneda, fecha, id_tasa), palabra por palabra. Se pagaba
+   dos veces por escribir una tasa y se ganaba cero por leerla. */
 create unique index if not exists cem_tasas_bcv_moneda_fecha_idtasa ON public.cem_tasas_bcv USING btree (moneda, fecha, id_tasa);
 create index if not exists cem_teacher_assign_cohort_idx ON public.cem_teacher_assignments USING btree (cohort_id);
 create index if not exists cem_teacher_assign_course_idx ON public.cem_teacher_assignments USING btree (course_id);
@@ -143,3 +145,23 @@ create unique index if not exists forest_trees_client_id_key ON public.forest_tr
 create index if not exists forest_trees_estado_idx ON public.forest_trees USING btree (estado);
 create index if not exists forest_trees_registrador_id_idx ON public.forest_trees USING btree (registrador_id);
 create index if not exists quote_events_quote_id_idx ON public.quote_events USING btree (quote_id, created_at);
+
+/* ── Claves foráneas de las tablas que de verdad crecen ──────────────────────
+   El aviso de Supabase señala 72 claves foráneas sin índice. Se miraron una a
+   una con el número de filas de la tabla HIJA al lado, que es la que se
+   recorre entera cuando se toca la fila del padre: la mayor tenía SIETE. Un
+   índice sobre una tabla de siete filas no se usa nunca y se paga en cada
+   escritura, para siempre.
+
+   Éstas cuatro son las únicas que están en tablas destinadas a crecer sin
+   techo: una fila por visita, una por reproducción, una por certificado. Van
+   parciales —«where … is not null»— porque la columna es opcional y no tiene
+   sentido indexar los huecos. */
+create index if not exists cem_visitas_course_idx
+  ON public.cem_visitas USING btree (course_id) WHERE (course_id IS NOT NULL);
+create index if not exists cem_reproducciones_course_idx
+  ON public.cem_reproducciones USING btree (course_id) WHERE (course_id IS NOT NULL);
+create index if not exists cem_certificates_module_idx
+  ON public.cem_certificates USING btree (module_id) WHERE (module_id IS NOT NULL);
+create index if not exists cem_certificates_anulado_por_idx
+  ON public.cem_certificates USING btree (anulado_por) WHERE (anulado_por IS NOT NULL);

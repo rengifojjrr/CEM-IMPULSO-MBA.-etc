@@ -48,7 +48,7 @@
     <div><h1>Crear nuevo programa</h1><p id="stepLabel">Paso 1: Información general</p></div>
     <div class="actions">
       <a class="btn ghost" href="cursos.html">Cancelar</a>
-      <button class="btn outline" id="btnDraft"><span class="material-symbols-outlined">save</span> Guardar borrador</button>
+      <button class="btn outline" id="btnDraft"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar borrador</button>
     </div>
   </div>
 
@@ -94,7 +94,7 @@
     <div class="step" data-step="2">
       <div class="card">
         <div class="row between"><h2 class="sec">Estructura de módulos</h2>
-          <button type="button" class="btn outline sm" id="addMod"><span class="material-symbols-outlined">add</span> Agregar módulo</button></div>
+          <button type="button" class="btn outline sm" id="addMod"><span class="material-symbols-outlined" aria-hidden="true">add</span> Agregar módulo</button></div>
         <div id="mods" class="stack"></div>
         <p class="tiny muted sep">Podrás añadir las lecciones de cada módulo desde el constructor de contenido.</p>
       </div>
@@ -153,10 +153,10 @@
   </form>
 
   <div class="row between sep-mucho">
-    <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined">arrow_back</span> Atrás</button>
+    <button class="btn outline" id="btnPrev"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Atrás</button>
     <button class="btn outline" id="btnCrearYa" title="Crea el programa como borrador con lo que lleves puesto; el resto se completa después">
-      <span class="material-symbols-outlined">bolt</span> Crear ya como borrador</button>
-    <button class="btn" id="btnNext">Siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
+      <span class="material-symbols-outlined" aria-hidden="true">bolt</span> Crear ya como borrador</button>
+    <button class="btn" id="btnNext">Siguiente <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
   </div>
 </div>
 
@@ -240,9 +240,9 @@ function renderMods(){
     <span class="chip neutral">${i+1}</span>
     ${m.imagen_url?`<img loading="lazy" decoding="async" class="mod-thumb" src="${esc(m.imagen_url)}">`:''}
     <input class="inp crece" data-m="${i}" value="${esc(m.titulo)}" placeholder="Título del módulo">
-    <button type="button" class="btn outline sm" data-img="${i}" title="Miniatura del módulo"><span class="material-symbols-outlined">add_photo_alternate</span></button>
+    <button type="button" class="btn outline sm" data-img="${i}" title="Miniatura del módulo" aria-label="Miniatura del módulo"><span class="material-symbols-outlined" aria-hidden="true">add_photo_alternate</span></button>
     <input type="file" accept="image/*" class="hidden" data-imgfile="${i}">
-    <button type="button" class="btn ghost sm" data-del="${i}" title="Quitar el módulo"><span class="material-symbols-outlined">delete</span></button></div>`).join('');
+    <button type="button" class="btn ghost sm" data-del="${i}" title="Quitar el módulo" aria-label="Quitar el módulo"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button></div>`).join('');
   $$('[data-m]').forEach(inp => inp.oninput = () => mods[Number(inp.dataset.m)].titulo = inp.value);
   $$('[data-del]').forEach(b => b.onclick = () => { mods.splice(Number(b.dataset.del),1); renderMods(); });
   $$('[data-img]').forEach(b => b.onclick = () => $(`[data-imgfile="${b.dataset.img}"]`).click());

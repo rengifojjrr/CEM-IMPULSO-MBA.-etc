@@ -36,8 +36,8 @@
          pagos que el propio banco nos avisa. Cuando todo esto funciona, los pagos en
          bolívares se verifican solos.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnDiag"><span class="material-symbols-outlined">stethoscope</span> Revisar la conexión</button>
-      <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined">refresh</span> Refrescar</button>
+      <button class="btn outline" id="btnDiag"><span class="material-symbols-outlined" aria-hidden="true">stethoscope</span> Revisar la conexión</button>
+      <button class="btn outline" id="btnRefrescar"><span class="material-symbols-outlined" aria-hidden="true">refresh</span> Refrescar</button>
     </div>
   </div>
 
@@ -55,7 +55,7 @@
   <div class="card">
     <div class="row between"><h2 class="sec">Cargar el extracto a mano</h2>
       <button class="btn outline sm" id="btnExtracto">
-        <span class="material-symbols-outlined">upload_file</span> Pegar movimientos</button></div>
+        <span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Pegar movimientos</button></div>
     <p class="tiny muted sin-margen">Una línea por movimiento, separando con punto y coma:
       <b>referencia; monto; fecha; moneda</b>. Volver a pegar el mismo extracto no duplica nada.</p>
   </div>
@@ -68,7 +68,7 @@
 
   <div class="card hidden" id="cardDiag">
     <div class="row between"><h2 class="sec">Diagnóstico de la conexión</h2>
-      <button class="btn ghost sm" id="btnCerrarDiag" title="Cerrar el diagnóstico"><span class="material-symbols-outlined">close</span></button></div>
+      <button class="btn ghost sm" id="btnCerrarDiag" title="Cerrar el diagnóstico" aria-label="Cerrar el diagnóstico"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>
     <p class="tiny muted">Separa dos cosas distintas: si <b>nuestras credenciales autentican</b> contra el API Manager,
       y si <b>cada API está habilitada</b> para nuestra aplicación. Útil para llevar evidencia concreta a la
       sesión técnica con el banco.</p>
@@ -97,9 +97,9 @@
         <div class="field"><label>La clave con la que se identifica <span class="tiny muted">(pulsa para verla)</span></label>
           <div class="dato-tec oculto-secreto" id="webhookKey" title="Pulsa para mostrar u ocultar la clave">—</div></div>
         <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined">content_copy</span> Copiar los dos</button>
+          <button class="btn outline sm" id="btnCopiar"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar los dos</button>
           <button class="btn outline sm" id="btnRotar" style="color:var(--error)">
-            <span class="material-symbols-outlined">key</span> Cambiar la clave</button>
+            <span class="material-symbols-outlined" aria-hidden="true">key</span> Cambiar la clave</button>
         </div>
         <p class="tiny muted sep-poco">Cambia la clave sólo si crees que alguien
           más la vio: hay que volver a dársela al banco o dejará de avisarnos.</p>
@@ -112,13 +112,13 @@
     <div class="card">
       <h2 class="sec">Tasa BCV</h2>
       <div id="tasas"><p class="muted tiny">Sin consultar todavía.</p></div>
-      <button class="btn sm" id="btnTasa" style="margin-top:10px"><span class="material-symbols-outlined">currency_exchange</span> Consultar tasa del día</button>
+      <button class="btn sm" id="btnTasa" style="margin-top:10px"><span class="material-symbols-outlined" aria-hidden="true">currency_exchange</span> Consultar tasa del día</button>
     </div>
 
     <div class="card">
       <h2 class="sec">Saldo de la cuenta</h2>
       <div id="saldo"><p class="muted tiny">Sin consultar todavía.</p></div>
-      <button class="btn sm" id="btnSaldo" style="margin-top:10px"><span class="material-symbols-outlined">savings</span> Consultar saldo</button>
+      <button class="btn sm" id="btnSaldo" style="margin-top:10px"><span class="material-symbols-outlined" aria-hidden="true">savings</span> Consultar saldo</button>
     </div>
   </div>
 
@@ -133,7 +133,7 @@
       <div class="field"><label>Tipo</label><select id="vTipo">
         <option value="PM">Pago móvil</option><option value="TRF">Transferencia</option><option value="DEPO">Depósito</option></select></div>
       <div class="field"><label>Fecha (mm/dd/aaaa)</label><input id="vFecha" placeholder="08/13/2026"></div>
-      <button class="btn" id="btnVerificar"><span class="material-symbols-outlined">search</span> Verificar</button>
+      <button class="btn" id="btnVerificar"><span class="material-symbols-outlined" aria-hidden="true">search</span> Verificar</button>
     </div>
     <div id="resVerificar"></div>
   </div>
@@ -418,10 +418,10 @@ function renderNotifs(){
     <td>${chip(n.payment_type||'—','neutral')}</td>
     <td>${chip(n.estado, n.estado==='conciliada'?'ok':n.estado==='descartada'?'neutral':'warn')}</td>
     <td class="nowrap">
-      <button class="btn ghost sm" data-ver="${n.id}" title="Ver detalle"><span class="material-symbols-outlined">visibility</span></button>
-      ${puedeOperar && n.estado==='pendiente' ? `<button class="btn ghost sm" data-desc="${n.id}" title="Descartar"><span class="material-symbols-outlined">block</span></button>` : ''}
+      <button class="btn ghost sm" data-ver="${n.id}" title="Ver detalle" aria-label="Ver detalle"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
+      ${puedeOperar && n.estado==='pendiente' ? `<button class="btn ghost sm" data-desc="${n.id}" title="Descartar" aria-label="Descartar"><span class="material-symbols-outlined" aria-hidden="true">block</span></button>` : ''}
       ${puedeOperar && n.estado==='conciliada' ? `<button class="btn ghost sm" data-descon="${n.id}"
-        title="Deshacer la conciliación"><span class="material-symbols-outlined">link_off</span></button>` : ''}
+        title="Deshacer la conciliación" aria-label="Deshacer la conciliación"><span class="material-symbols-outlined" aria-hidden="true">link_off</span></button>` : ''}
     </td></tr>`).join('') : emptyRow(7, 'Sin operaciones en el periodo consultado.');
 
   $$('[data-ver]').forEach(b=>b.onclick=()=>verDetalle(notifs.find(n=>n.id===b.dataset.ver)));

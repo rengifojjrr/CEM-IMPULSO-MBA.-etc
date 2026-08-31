@@ -95,7 +95,7 @@
       <p>Quien preguntó por un programa y todavía no se ha inscrito.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnMensajes">
-        <span class="material-symbols-outlined">mark_email_read</span> Mensajes guardados</button>
+        <span class="material-symbols-outlined" aria-hidden="true">mark_email_read</span> Mensajes guardados</button>
     </div>
   </div>
 
@@ -155,7 +155,7 @@
         <div class="tiny muted" id="pieTanda"></div>
       </div>
       <button class="btn" id="btnTanda">
-        <span class="material-symbols-outlined">send</span> <span id="txtTanda">Enviar a la lista</span></button>
+        <span class="material-symbols-outlined" aria-hidden="true">send</span> <span id="txtTanda">Enviar a la lista</span></button>
     </div>
 
     <!-- «Qué le interesa» no tiene columna propia: con ella la tabla medía
@@ -348,8 +348,8 @@ function render() {
       <div class="tiny">${esc(x.origen || '')}</div></td>
     <td data-col="Estado">${chipEstado(x.estado)}</td>
     <td class="nowrap">
-      <button class="btn ghost sm" data-ver="${x.id}" title="Ver la ficha completa">
-        <span class="material-symbols-outlined">visibility</span></button>
+      <button class="btn ghost sm" data-ver="${x.id}" title="Ver la ficha completa" aria-label="Ver la ficha completa">
+        <span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
     </td></tr>`; }).join('')
     : emptyRow(7, filas.length
         ? 'Ningún contacto cuadra con lo que buscas. Prueba a limpiar los filtros.'
@@ -525,7 +525,7 @@ function ficha(x) {
               x.interes ? ` sobre ${x.interes}` : ''}. `)}</textarea></div>
         <div id="rMsg"></div>
         <button class="btn" id="btnResponder">
-          <span class="material-symbols-outlined">send</span> Enviar</button>
+          <span class="material-symbols-outlined" aria-hidden="true">send</span> Enviar</button>
         <p class="tiny muted sep-poco">Sale a <b>${esc(x.email)}</b> por la cola de correo de la
           plataforma, con sus reintentos. Queda apuntado abajo.</p>
       </details>` : `<p class="tiny muted sep">No dejó correo: a este hay que llamarle.</p>`}
@@ -634,7 +634,7 @@ function listaDeMensajes() {
         Si a alguien le falta ese dato se pone algo genérico en su lugar, nunca un hueco vacío.</div>
       <div id="listaMsj" class="sep"></div>
       <button class="btn sep" id="btnNuevoMsj">
-        <span class="material-symbols-outlined">add</span> Escribir uno nuevo</button>`,
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Escribir uno nuevo</button>`,
     footer: `<button class="btn outline" data-x>Cerrar</button>`,
   });
 
@@ -646,10 +646,10 @@ function listaDeMensajes() {
             ${usos[t.clave] ? `mandado a ${num(usos[t.clave])}` : 'nunca mandado'}</span></div>
         ${t.activa ? '<span class="chip ok">Encendido</span>'
                    : '<span class="chip neutral">Apagado</span>'}
-        <button class="btn ghost sm" data-edm="${esc(t.id)}" title="Editar">
-          <span class="material-symbols-outlined">edit</span></button>
-        <button class="btn ghost sm" data-bom="${esc(t.id)}" title="Borrar">
-          <span class="material-symbols-outlined">delete</span></button>
+        <button class="btn ghost sm" data-edm="${esc(t.id)}" title="Editar" aria-label="Editar">
+          <span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+        <button class="btn ghost sm" data-bom="${esc(t.id)}" title="Borrar" aria-label="Borrar">
+          <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
       </div>`).join('')
       : '<p class="muted">Todavía no hay ninguno. Escribe el primero.</p>';
 

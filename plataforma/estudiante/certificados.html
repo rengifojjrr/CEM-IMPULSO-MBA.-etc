@@ -99,7 +99,7 @@ async function load(){
       <button type="button" class="cert-mini" data-ver="${c.id}"
               title="Ver el certificado en grande" aria-label="Ver en grande el certificado de ${esc(c.titulo)}">
         ${lienzo(c)}
-        <span class="lupa"><span class="material-symbols-outlined">zoom_in</span></span>
+        <span class="lupa"><span class="material-symbols-outlined" aria-hidden="true">zoom_in</span></span>
       </button>
       <div class="crece">
         <span class="chip ok">Completado · ${fdate(c.emitido_en)}</span>
@@ -107,9 +107,9 @@ async function load(){
         <div class="tiny muted">Otorgado por CEM International Education System</div>
         <div class="tiny muted">ID: <code>${esc(c.codigo)}</code></div>
         <div class="row sep">
-          <button class="btn sm" data-pdf="${c.id}"><span class="material-symbols-outlined">visibility</span> Ver y descargar</button>
+          <button class="btn sm" data-pdf="${c.id}"><span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver y descargar</button>
           <a class="btn outline sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank">
-            <span class="material-symbols-outlined">verified</span> Verificar</a>
+            <span class="material-symbols-outlined" aria-hidden="true">verified</span> Verificar</a>
         </div>
       </div></div>`).join('')
     : `<div class="card sin-margen">${vacio({ icono:'workspace_premium',
@@ -181,7 +181,7 @@ async function load(){
     const has = got.has(b.id);
     return `<button type="button" class="card badge-card ${has?'':'locked'} sin-margen" data-insignia="${esc(b.id)}"
               aria-label="Ver qué significa la insignia ${esc(b.nombre)}">
-      <div class="badge-ico"><span class="material-symbols-outlined">${esc(b.icono||'military_tech')}</span></div>
+      <div class="badge-ico"><span class="material-symbols-outlined" aria-hidden="true">${esc(b.icono||'military_tech')}</span></div>
       <div style="font-weight:600;font-size:13.5px">${esc(b.nombre)}</div>
       <div class="tiny muted">${esc(b.nivel||'')}</div>
       <div class="sep-poco">${has?chip('obtenida','ok'):chip('bloqueada','neutral')}</div></button>`;
@@ -225,7 +225,7 @@ const lienzo = (c, opciones = {}) =>
 function verCertificado(c){
   const m = modal({ title:'Certificado', wide:true, body: lienzo(c, { id:'lienzo' }),
     footer:`<button class="btn outline" data-x2>Cerrar</button><button class="btn" data-print>
-      <span class="material-symbols-outlined">print</span> Imprimir / Guardar PDF</button>` });
+      <span class="material-symbols-outlined" aria-hidden="true">print</span> Imprimir / Guardar PDF</button>` });
   $('[data-x2]',m).onclick=m.close;
   $('[data-print]',m).onclick=()=>{
     const w = window.open('','_blank');

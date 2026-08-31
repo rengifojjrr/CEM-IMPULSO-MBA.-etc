@@ -26,9 +26,9 @@
   <div class="page-head">
     <div><h1>Administración de estudiantes</h1><p>Todos los estudiantes: cómo van, qué deben y cuándo entraron por última vez. Pulsa una fila para ver su ficha completa.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar datos</button>
-      <button class="btn outline" id="btnImportar"><span class="material-symbols-outlined">upload_file</span> Importar desde Excel</button>
-      <a class="btn" href="inscripciones.html"><span class="material-symbols-outlined">person_add</span> Nueva inscripción</a>
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar datos</button>
+      <button class="btn outline" id="btnImportar"><span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Importar desde Excel</button>
+      <a class="btn" href="inscripciones.html"><span class="material-symbols-outlined" aria-hidden="true">person_add</span> Nueva inscripción</a>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -223,7 +223,7 @@ $('#btnImportar').onclick = async () => {
       <li>Primero se revisa sin escribir nada; sólo confirmas al final.</li>
     </ol>
     <button class="btn outline sm" id="impPlantilla" style="margin-bottom:14px">
-      <span class="material-symbols-outlined">download</span> Descargar plantilla en blanco</button>
+      <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar plantilla en blanco</button>
 
     <div class="row">
       <div class="field largo"><label>Programa *</label>

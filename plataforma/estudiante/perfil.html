@@ -124,7 +124,7 @@
       <h2 class="sec sin-margen">Mis datos
         <button type="button" class="ayuda-btn" data-ayuda="Tu nombre y tu documento salen impresos en los certificados tal como los escribas. Si ya tienes alguno emitido, cambiarlos pasa antes por aprobación del equipo.">?</button></h2>
       <a class="btn outline" href="mis-datos.html">
-        <span class="material-symbols-outlined">edit</span> Editar mis datos</a>
+        <span class="material-symbols-outlined" aria-hidden="true">edit</span> Editar mis datos</a>
     </div>
     <p class="tiny muted" style="margin-top:-2px">Esto no se publica nunca: tu cédula, tu
       teléfono y tu correo no salen en el perfil que compartes.</p>
@@ -166,7 +166,7 @@
   <div class="card">
     <div class="row between"><h2 class="sec">Mi trabajo</h2>
       <button class="btn outline sm" id="btnNuevaObra">
-        <span class="material-symbols-outlined">add</span> Añadir</button></div>
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Añadir</button></div>
     <p class="tiny muted sin-margen">Productos, servicios o cosas que hayas hecho. Se ven en tu
       perfil público, con la foto y el enlace que pongas — así quien lo abra puede escribirte.
       <b>Sólo se publica si tu perfil está publicado.</b></p>
@@ -291,7 +291,7 @@ function pintarDatosParaMirar(perfil){
     ? `<div class="nota warn">Para poder emitirte el certificado falta ${
         esc(faltan.join(', ').replace(/, ([^,]*)$/, ' y $1'))}.
         <br><a class="btn" href="mis-datos.html">
-          <span class="material-symbols-outlined">edit_note</span> Completarlo ahora</a></div>`
+          <span class="material-symbols-outlined" aria-hidden="true">edit_note</span> Completarlo ahora</a></div>`
     : '';
 }
 
@@ -401,24 +401,24 @@ function pintarPerfilPublico(){
      deja a la persona buscando— sino que al pulsarlo se ofrece publicarlo. */
   $('#manosPerfil').innerHTML = `
     <button class="btn" id="btnCompartir">
-      <span class="material-symbols-outlined">share</span> Compartir perfil</button>
+      <span class="material-symbols-outlined" aria-hidden="true">share</span> Compartir perfil</button>
     ${publico ? `<a class="btn outline" id="verPerfilArriba" target="_blank" rel="noopener" href="${esc(url)}">
-      <span class="material-symbols-outlined">open_in_new</span> Ver cómo lo ven</a>` : ''}`;
+      <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span> Ver cómo lo ven</a>` : ''}`;
   $('#btnCompartir').onclick = compartirPerfil;
 
   $('#accionesPerfil').innerHTML = publico
     ? `<button class="btn outline" id="btnDespublicar">
-         <span class="material-symbols-outlined">visibility_off</span> Dejar de publicarlo</button>
+         <span class="material-symbols-outlined" aria-hidden="true">visibility_off</span> Dejar de publicarlo</button>
        <a class="btn outline" id="verPerfil" target="_blank" rel="noopener">
-         <span class="material-symbols-outlined">open_in_new</span> Verlo</a>`
+         <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span> Verlo</a>`
     : `<button class="btn" id="btnPublicar">
-         <span class="material-symbols-outlined">public</span> Publicar mi perfil</button>`;
+         <span class="material-symbols-outlined" aria-hidden="true">public</span> Publicar mi perfil</button>`;
 
   $('#enlacePerfil').innerHTML = publico && url
     ? `<div class="enlace-perfil caja"><span class="crece">${esc(url)}</span>
          <button class="btn ghost sm" id="btnCopiarPerfil"
            aria-label="Copiar el enlace de mi perfil">
-           <span class="material-symbols-outlined">content_copy</span> Copiar</button></div>`
+           <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button></div>`
     : '';
 
   $('#queSeVe').hidden = !publico;
@@ -430,7 +430,7 @@ function pintarPerfilPublico(){
     const on = muestra?.[clave] ?? porOmision;
     return `<button type="button" class="btn ${on ? '' : 'outline'} sm" data-muestra="${clave}"
       aria-pressed="${on}">
-      <span class="material-symbols-outlined">${on ? 'check' : 'close'}</span> ${esc(txt)}</button>`;
+      <span class="material-symbols-outlined" aria-hidden="true">${on ? 'check' : 'close'}</span> ${esc(txt)}</button>`;
   }).join('');
 
   const guardar = (publicar, muestraNueva) => ocupado(
@@ -558,10 +558,10 @@ function pintarCabecera(){
     <div class="encima">
       <button type="button" class="btn sm" id="btnPortada"
         aria-label="${portada_url ? 'Cambiar la portada' : 'Poner una portada'}">
-        <span class="material-symbols-outlined">photo_camera</span>
+        <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
         <span class="solo-ancho">${portada_url ? 'Cambiar portada' : 'Poner una portada'}</span></button>
       ${portada_url ? `<button type="button" class="btn outline sm" id="btnQuitarPortada"
-        aria-label="Quitar la portada"><span class="material-symbols-outlined">delete</span></button>` : ''}
+        aria-label="Quitar la portada"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>` : ''}
     </div>`;
 
   $('#miFoto').innerHTML = `${avatar_url
@@ -621,7 +621,7 @@ function pintarMisCertificados(){
 
   host.innerHTML = `<div class="lista-diplomas">${CERTIFICADOS.map((c, i) => `
     <button type="button" class="fila-diploma" data-diploma="${i}">
-      <span class="material-symbols-outlined">workspace_premium</span>
+      <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
       <span class="crece">
         <b>${esc(c.titulo || c.cem_courses?.nombre || 'Certificado')}</b>
         <span class="tiny muted">${esc(c.codigo)} · ${fdate(c.emitido_en)}</span>
@@ -644,7 +644,7 @@ function pintarMisCertificados(){
             + 'Si crees que es un error, escríbenos por soporte.</p>' : ''),
       footer: `<button class="btn outline" data-x>Cerrar</button>
         <button class="btn" data-imprimir>
-          <span class="material-symbols-outlined">print</span> Imprimir o guardar en PDF</button>`,
+          <span class="material-symbols-outlined" aria-hidden="true">print</span> Imprimir o guardar en PDF</button>`,
     });
     $('[data-x]', m).onclick = m.close;
     $('[data-imprimir]', m).onclick = () => imprimirDiploma($('#diplomaAqui', m), c.codigo);
@@ -711,10 +711,10 @@ function pintarPortafolio(){
       ${o.descripcion ? `<div class="tiny muted">${esc(o.descripcion)}</div>` : ''}
       ${o.enlace ? `<div class="tiny muted recorta">${esc(o.enlace)}</div>` : ''}
       <div class="row sep-poco">
-        <button class="btn ghost sm" data-obra="${esc(o.id)}" title="Editar">
-          <span class="material-symbols-outlined">edit</span></button>
-        <button class="btn ghost sm" data-borrar="${esc(o.id)}" style="color:var(--error)" title="Quitar">
-          <span class="material-symbols-outlined">delete</span></button>
+        <button class="btn ghost sm" data-obra="${esc(o.id)}" title="Editar" aria-label="Editar">
+          <span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+        <button class="btn ghost sm" data-borrar="${esc(o.id)}" style="color:var(--error)" title="Quitar" aria-label="Quitar">
+          <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
       </div>
     </div>`).join('')}</div>`;
 

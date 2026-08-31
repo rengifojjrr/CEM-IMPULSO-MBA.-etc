@@ -172,8 +172,8 @@ function render(){
       ${miInscripcion
         ? `<a class="btn gold" href="estudiante/panel.html" style="margin-top:10px">Ya estás inscrito · Ir a mi panel</a>`
         : me
-          ? `<a class="btn gold" href="estudiante/inscripcion.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined">arrow_forward</span></a>`
-          : `<a class="btn gold" href="comprar.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined">arrow_forward</span></a>`}
+          ? `<a class="btn gold" href="estudiante/inscripcion.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>`
+          : `<a class="btn gold" href="comprar.html?curso=${curso.id}" style="margin-top:10px">Inscribirme <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>`}
     </div></div>`;
 
   /* Se monta con el reproductor de la casa, igual que el aula: aquí todavía

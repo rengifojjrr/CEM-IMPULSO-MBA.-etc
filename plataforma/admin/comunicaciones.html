@@ -25,7 +25,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Comunicaciones y anuncios</h1><p>Los avisos que ven los estudiantes al entrar. Se escriben aquí, se eligen a quiénes les llega y cuándo se publican.</p></div>
-    <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">campaign</span> Nuevo anuncio</button></div>
+    <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined" aria-hidden="true">campaign</span> Nuevo anuncio</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="tabs" id="tabs">
@@ -85,11 +85,11 @@ function render(){
       <td class="muted">${r.enviado_en? fdatetime(r.enviado_en) : r.programado_para? fdatetime(r.programado_para) : fdate(r.created_at)}</td>
       <td>${esc(perfiles[r.autor_id]||'—')}</td>
       <td class="nowrap">
-        <button class="btn ghost sm" data-v="${r.id}" title="Ver el mensaje"><span class="material-symbols-outlined">visibility</span></button>
-        ${puede?`<button class="btn ghost sm" data-e="${r.id}" title="Editar el mensaje"><span class="material-symbols-outlined">edit</span></button>
-        ${r.estado!=='enviado'?`<button class="btn ghost sm" data-send="${r.id}" style="color:var(--ok)" title="Enviar ahora">
-          <span class="material-symbols-outlined">send</span></button>`:''}
-        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)" title="Borrar el mensaje"><span class="material-symbols-outlined">delete</span></button>`:''}
+        <button class="btn ghost sm" data-v="${r.id}" title="Ver el mensaje" aria-label="Ver el mensaje"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
+        ${puede?`<button class="btn ghost sm" data-e="${r.id}" title="Editar el mensaje" aria-label="Editar el mensaje"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+        ${r.estado!=='enviado'?`<button class="btn ghost sm" data-send="${r.id}" style="color:var(--ok)" title="Enviar ahora" aria-label="Enviar ahora">
+          <span class="material-symbols-outlined" aria-hidden="true">send</span></button>`:''}
+        <button class="btn ghost sm" data-d="${r.id}" style="color:var(--error)" title="Borrar el mensaje" aria-label="Borrar el mensaje"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>`:''}
       </td></tr>`;
   }).join('') : emptyRow(7, 'Todavía no has publicado ningún anuncio.', {texto:'Escribir el primer anuncio', id:'vacioAnuncio', icono:'campaign'});
 
@@ -124,7 +124,7 @@ function form(r){
     <div class="row between sep-poco" id="filaPlantillas">
       <span class="tiny muted">Plantillas</span>
       <button type="button" class="btn ghost sm" id="btnGuardarPlantilla" hidden>
-        <span class="material-symbols-outlined">bookmark_add</span> Guardar esto como plantilla</button>
+        <span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span> Guardar esto como plantilla</button>
     </div>
     <div class="row sep-poco" style="gap:6px;flex-wrap:wrap" id="plantillas"></div>
 

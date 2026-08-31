@@ -37,7 +37,7 @@
          sin esperar a que alguien verifique una transferencia.</p></div>
     <div class="actions">
       <a class="btn outline" href="formas-de-pago.html">
-        <span class="material-symbols-outlined">arrow_back</span> Formas de pago</a>
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Formas de pago</a>
     </div>
   </div>
 
@@ -118,9 +118,9 @@ function pintar(){
             : '<span class="pista">Lo obtienes en el paso 2, al crear el webhook.</span>'}</div>
 
         <div class="row">
-          <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+          <button class="btn" type="submit"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
           ${E.configurada ? `<button class="btn ghost" type="button" id="btnQuitar">
-            <span class="material-symbols-outlined">link_off</span> Desconectar</button>` : ''}
+            <span class="material-symbols-outlined" aria-hidden="true">link_off</span> Desconectar</button>` : ''}
         </div>
       </form>
       <div id="msgClaves"></div>
@@ -134,7 +134,7 @@ function pintar(){
       <div class="row" style="gap:8px;align-items:center">
         <code id="urlHook" class="dato-copiable">${esc(URL_WEBHOOK)}</code>
         <button class="btn ghost sm" id="btnCopiarHook" type="button">
-          <span class="material-symbols-outlined">content_copy</span> Copiar</button>
+          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>
       </div>
       <p class="tiny muted sep-poco">Stripe te dará entonces un <b>signing secret</b>
         (<code>whsec_…</code>): pégalo arriba, en el paso 1. Es lo que nos permite distinguir

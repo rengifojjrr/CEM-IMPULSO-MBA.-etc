@@ -25,7 +25,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Auditoría y registro de actividad <button type="button" class="ayuda-btn" data-ayuda="Se guarda solo: cada acción importante deja su rastro con quién, qué y cuándo. No se puede borrar ni editar desde aquí.">?</button></h1><p>Quién hizo qué y cuándo. Sirve para reconstruir lo que pasó cuando algo no cuadra: un pago, una nota o un certificado.</p></div>
-    <div class="actions"><button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar CSV</button></div>
+    <div class="actions"><button class="btn outline" id="btnExport"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar CSV</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div id="alertas"></div>
@@ -198,8 +198,8 @@ function render(){
     <td><b>${esc(String(r.accion).replace(/_/g,' '))}</b></td>
     <td>${esc(r.entidad||'—')}</td>
     <td>${chip(r.riesgo, r.riesgo==='alto'?'err':r.riesgo==='medio'?'warn':'neutral')}</td>
-    <td>${Object.keys(r.detalle||{}).length? `<button class="btn ghost sm" data-v='${esc(JSON.stringify(r.detalle))}' title="Ver el detalle del evento">
-      <span class="material-symbols-outlined">data_object</span></button>` : '<span class="muted tiny">—</span>'}</td>
+    <td>${Object.keys(r.detalle||{}).length? `<button class="btn ghost sm" data-v='${esc(JSON.stringify(r.detalle))}' title="Ver el detalle del evento" aria-label="Ver el detalle del evento">
+      <span class="material-symbols-outlined" aria-hidden="true">data_object</span></button>` : '<span class="muted tiny">—</span>'}</td>
     </tr>`).join('') : emptyRow(6,'No hay eventos que coincidan con los filtros.');
   $$('[data-v]').forEach(b=>b.onclick=()=>modal({ title:'Detalle del evento',
     body:`<pre class="tiny" style="white-space:pre-wrap;background:var(--surface-container);padding:12px;border-radius:9px">${esc(JSON.stringify(JSON.parse(b.dataset.v),null,2))}</pre>` }));

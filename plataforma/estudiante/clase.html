@@ -202,7 +202,7 @@ async function load(){
             ? ` de <b>${money(acceso[enr.id].primeraCuota, acceso[enr.id].moneda)}</b>` : ''}.</p>
       <div class="row sep-mucho" style="justify-content:center">
         <a class="btn" href="pagos.html?enr=${enr.id}">
-          <span class="material-symbols-outlined">payments</span> Ir a pagar</a>
+          <span class="material-symbols-outlined" aria-hidden="true">payments</span> Ir a pagar</a>
         <a class="btn outline" href="curso.html?id=${enr.course_id}">Ver el temario</a>
       </div>
       <p class="tiny muted sep">Si ya pagaste y subiste el comprobante, lo estamos verificando.
@@ -296,7 +296,7 @@ function pintarAvisoDeVista(){
     no publica dudas.
     <br><a class="btn outline" href="${
       ROL === 'profesor' ? '../docente/aula.html' : '../admin/contenido.html'}">
-      <span class="material-symbols-outlined">arrow_back</span>Volver a lo mío</a></div>`);
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Volver a lo mío</a></div>`);
 }
 
 /* El índice se repinta solo cuando cambia el filtro, sin rehacer el
@@ -411,7 +411,7 @@ async function pedirValoracion(l){
            [5,'sentiment_very_satisfied','Mucho']].map(([n,ico,txt]) => `
           <button type="button" class="cara${n===puesta?' puesta':''}" data-v="${n}"
                   role="radio" aria-checked="${n===puesta}" title="${txt}" aria-label="${txt}">
-            <span class="material-symbols-outlined">${ico}</span></button>`).join('')}
+            <span class="material-symbols-outlined" aria-hidden="true">${ico}</span></button>`).join('')}
       </div>
     </div>
     <div id="porQue" hidden class="sep-poco">
@@ -487,10 +487,10 @@ function documentoDeLaLeccion(l){
       <span class="material-symbols-outlined">${icono}</span>
       <b class="crece recorta">${esc(l.titulo)}</b>
       <a class="btn ghost sm" href="${esc(l.url)}" target="_blank" rel="noopener"
-         title="Abrirlo en otra pestaña"><span class="material-symbols-outlined">open_in_new</span></a>
+         title="Abrirlo en otra pestaña" aria-label="Abrirlo en otra pestaña"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span></a>
       <a class="btn outline sm" href="${esc(l.url)}" download
          title="Descargarlo para leer sin conexión">
-        <span class="material-symbols-outlined">download</span> Descargar</a>
+        <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar</a>
     </div>
     ${esPdf
       ? `<iframe class="documento-hoja" src="${esc(l.url)}" title="${esc(l.titulo)}"></iframe>`
@@ -598,7 +598,7 @@ function ofrecerRetomar(l){
   host.innerHTML = `<div class="card sep-poco nota info row between" style="gap:var(--e2)">
     <span>Lo dejaste en <b>${esc(reloj(s))}</b>.</span>
     <button class="btn sm" id="btnRetomar">
-      <span class="material-symbols-outlined">play_arrow</span> Continuar desde ahí</button></div>`;
+      <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span> Continuar desde ahí</button></div>`;
   $('#btnRetomar').onclick = () => {
     saltarA(s);
     host.innerHTML = '';
@@ -684,7 +684,7 @@ function render(){
      lleva a una pantalla vacía es peor que no tenerlo. */
   $('#accionesAula').innerHTML = hayExpress
     ? `<a class="btn outline" href="express.html?curso=${esc(curso?.id || '')}">
-        <span class="material-symbols-outlined">bolt</span> Repaso express</a>` : '';
+        <span class="material-symbols-outlined" aria-hidden="true">bolt</span> Repaso express</a>` : '';
   $('#tProg').innerHTML = `${esc(enr.cem_cohorts?.nombre||'')} · ${pct(enr.progreso)} completado`;
   /* item 41 · el rastro dice de dónde vienes y en qué lección estás; el botón
      «Mi panel» de antes no decía nada de eso. */
@@ -710,10 +710,10 @@ function render(){
           <button class="btn ghost" id="btnDespues"
             title="${progreso[l.id]?.para_despues?'Quitar la marca':'Guardarla para volver'}">
             <span class="material-symbols-outlined"
-              style="${progreso[l.id]?.para_despues?'color:var(--gold)':''}">
+              style="${progreso[l.id]?.para_despues?'color:var(--gold)':''}" aria-hidden="true">
               ${progreso[l.id]?.para_despues?'bookmark':'bookmark_border'}</span></button>
           <button class="btn ${progreso[l.id]?.completado?'outline':''}" id="btnDone">
-            <span class="material-symbols-outlined">${progreso[l.id]?.completado?'check_circle':'done'}</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${progreso[l.id]?.completado?'check_circle':'done'}</span>
             ${progreso[l.id]?.completado?'Completada':'Marcar completada'}</button>
         </div>
       </div>
@@ -734,7 +734,7 @@ function adjuntosDe(l){
     <div class="tiny muted" style="margin-bottom:6px">Material de esta lección</div>
     <div class="post-adjuntos">${lista.map(a=>`
       <a class="adjunto" href="${esc(a.url)}" target="_blank" rel="noopener" download>
-        <span class="material-symbols-outlined">${
+        <span class="material-symbols-outlined" aria-hidden="true">${
           a.tipo==='pdf'?'picture_as_pdf':a.tipo==='hoja'?'table_view':'attach_file'}</span>
         ${esc(a.nombre||'Descargar')}</a>`).join('')}</div>
     <p class="tiny muted sep-poco">Descárgalos ahora si vas a estudiar sin conexión.</p>
@@ -847,10 +847,10 @@ function tab(t){
     P.innerHTML = `<div class="field"><label>Notas personales de esta lección</label>
       <textarea id="nota" placeholder="Escribe tus apuntes…">${esc(nota)}</textarea></div>
       <div class="row" style="gap:var(--e1)">
-        <button class="btn outline sm" id="btnNota"><span class="material-symbols-outlined">save</span> Guardar nota</button>
+        <button class="btn outline sm" id="btnNota"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar nota</button>
         ${conNotas.length?`<button class="btn ghost sm" id="btnBajarNotas"
           title="Descargar los apuntes de todo el curso">
-          <span class="material-symbols-outlined">download</span>
+          <span class="material-symbols-outlined" aria-hidden="true">download</span>
           Bajar mis apuntes (${conNotas.length})</button>`:''}
       </div>
       <p class="tiny muted sep-poco">Sólo las ves tú. Nadie de la escuela puede leerlas.</p>`;
@@ -935,7 +935,7 @@ function tab(t){
       <div class="row between sep-poco">
         <p class="tiny muted sin-margen">Todo esto se puede bajar y leer sin conexión.</p>
         <button class="btn ghost sm" id="btnTemario">
-          <span class="material-symbols-outlined">print</span> Imprimir el temario</button>
+          <span class="material-symbols-outlined" aria-hidden="true">print</span> Imprimir el temario</button>
       </div>
       ${todos.length ? `<div class="rejilla-material">${todos.map(x=>`
         <div class="card sin-margen">
@@ -944,7 +944,7 @@ function tab(t){
           <div class="tiny muted">${esc(x.de)}${x.bytes?` · ${(x.bytes/1048576).toFixed(1)} MB`:''}</div>
           ${x.url ? `<a class="btn outline sm sep-poco" href="${esc(x.url)}" target="_blank" download
             aria-label="Descargar ${esc(x.nombre)}">
-            <span class="material-symbols-outlined">download</span> Descargar</a>` : ''}
+            <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar</a>` : ''}
         </div>`).join('')}</div>`
         : '<p class="muted tiny">Este curso todavía no tiene material para descargar.</p>'}`;
 

@@ -68,7 +68,7 @@ export function pintarMuro({ host, aula, yo, recargar }) {
     ${puedePublicar ? `
       <div class="card muro-nuevo">
         <button type="button" class="muro-abrir" id="muroAbrir">
-          <span class="material-symbols-outlined">campaign</span>
+          <span class="material-symbols-outlined" aria-hidden="true">campaign</span>
           Comparte algo con tu clase…
         </button>
       </div>` : ''}
@@ -98,16 +98,16 @@ function pintarPost(m) {
       </div>
       <span class="acciones">
         <button class="btn ghost sm" data-fijar="${esc(m.id)}" data-valor="${m.fijado ? '0' : '1'}"
-          title="${m.fijado ? 'Dejar de fijar' : 'Fijar arriba'}" hidden>
-          <span class="material-symbols-outlined">push_pin</span></button>
+          title="${m.fijado ? 'Dejar de fijar' : 'Fijar arriba'}" hidden aria-label="${m.fijado ? 'Dejar de fijar' : 'Fijar arriba'}">
+          <span class="material-symbols-outlined" aria-hidden="true">push_pin</span></button>
         <button class="btn ghost sm" data-borrar-post="${esc(m.id)}" title="Borrar" hidden
-          style="color:var(--error)"><span class="material-symbols-outlined">delete</span></button>
+          style="color:var(--error)" aria-label="Borrar"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
       </span>
     </header>
     <div class="post-cuerpo">${cuerpoHTML(m.cuerpo)}</div>
     ${(m.adjuntos || []).length ? `<div class="post-adjuntos">${(m.adjuntos || []).map(a =>
       `<a class="adjunto" href="${esc(a.url)}" target="_blank" rel="noopener">
-         <span class="material-symbols-outlined">${a.tipo === 'video' ? 'smart_display' : 'attach_file'}</span>
+         <span class="material-symbols-outlined" aria-hidden="true">${a.tipo === 'video' ? 'smart_display' : 'attach_file'}</span>
          ${esc(a.nombre || 'Adjunto')}</a>`).join('')}</div>` : ''}
 
     <div class="post-comentarios">
@@ -118,7 +118,7 @@ function pintarPost(m) {
             <span class="tiny muted"> · ${esc(hace(c.created_at))}</span>
             <div>${cuerpoHTML(c.cuerpo)}</div></div>
           <button class="btn ghost sm" data-borrar-com="${esc(c.id)}" title="Borrar" hidden
-            style="color:var(--error)"><span class="material-symbols-outlined">close</span></button>
+            style="color:var(--error)" aria-label="Borrar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
         </div>`).join('') : ''}
       <form class="comentar" data-comentar="${esc(m.id)}">
         <input placeholder="Escribe un comentario…" maxlength="600" aria-label="Comentar">
@@ -437,7 +437,7 @@ function unaDuda(d, puedeResponder) {
         <div class="post-cuando" title="${esc(fdatetime(d.created_at))}">${esc(hace(d.created_at))}</div>
       </div>
       ${d.segundo ? `<button type="button" class="btn ghost sm" data-saltar="${esc(String(d.segundo))}"
-        title="Ir a ese punto del vídeo"><span class="material-symbols-outlined">play_circle</span>
+        title="Ir a ese punto del vídeo"><span class="material-symbols-outlined" aria-hidden="true">play_circle</span>
         ${esc(reloj(d.segundo))}</button>` : ''}
       ${d.resuelta ? '<span class="chip ok">resuelta</span>'
         : contestada ? '<span class="chip info">respondida</span>'
@@ -462,11 +462,11 @@ function unaDuda(d, puedeResponder) {
       <div class="row sep-poco" style="gap:8px">
         ${(d.mia || puedeResponder) ? `<button class="btn ghost sm" data-resolver="${esc(d.id)}"
           data-valor="${d.resuelta ? '0' : '1'}">
-          <span class="material-symbols-outlined">${d.resuelta ? 'undo' : 'check'}</span>
+          <span class="material-symbols-outlined" aria-hidden="true">${d.resuelta ? 'undo' : 'check'}</span>
           ${d.resuelta ? 'Volver a abrirla' : 'Ya está resuelta'}</button>` : ''}
         ${(d.mia || puedeResponder) ? `<button class="btn ghost sm" data-borrar-duda="${esc(d.id)}"
-          style="color:var(--error)" title="Borrar la duda">
-          <span class="material-symbols-outlined">delete</span></button>` : ''}
+          style="color:var(--error)" title="Borrar la duda" aria-label="Borrar la duda">
+          <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>` : ''}
       </div>
     </div>
   </article>`;

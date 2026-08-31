@@ -36,8 +36,8 @@
            de una vez, que es lo que hace falta el día que se cambia un
            criterio — el resto de los días cada quien se evalúa solo al entrar. -->
       <button class="btn outline" id="btnRepasar" title="Aplicar las reglas a todos los estudiantes">
-        <span class="material-symbols-outlined">rule</span> Repasar a todos</button>
-      <button class="btn" id="btnNueva"><span class="material-symbols-outlined">add_circle</span> Crear insignia</button>
+        <span class="material-symbols-outlined" aria-hidden="true">rule</span> Repasar a todos</button>
+      <button class="btn" id="btnNueva"><span class="material-symbols-outlined" aria-hidden="true">add_circle</span> Crear insignia</button>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -45,7 +45,7 @@
 
   <div class="card">
     <div class="row between"><h2 class="sec">Otorgamientos recientes</h2>
-      <button class="btn outline sm" id="btnOtorgar"><span class="material-symbols-outlined">military_tech</span> Otorgar insignia</button></div>
+      <button class="btn outline sm" id="btnOtorgar"><span class="material-symbols-outlined" aria-hidden="true">military_tech</span> Otorgar insignia</button></div>
     <div class="table-wrap"><table>
       <thead><tr><th>Estudiante</th><th>Insignia</th><th>Competencia</th><th>Otorgada</th><th></th></tr></thead>
       <tbody id="tbAwards"></tbody></table></div>
@@ -133,9 +133,9 @@ async function load(){
         ? `<span class="chip ok">automática</span> ${esc(frase(b, cursos))}`
         : '<span class="chip neutral">sólo a mano</span> nadie la gana por su cuenta'}</div>
       ${puede?`<div class="row sep">
-        <button class="btn outline sm" data-e="${b.id}"><span class="material-symbols-outlined">edit</span> Editar</button>
+        <button class="btn outline sm" data-e="${b.id}"><span class="material-symbols-outlined" aria-hidden="true">edit</span> Editar</button>
         <button class="btn ghost sm" data-t="${b.id}">${b.activo?'Desactivar':'Activar'}</button>
-        <button class="btn ghost sm" data-d="${b.id}" style="color:var(--error)" title="Borrar la insignia"><span class="material-symbols-outlined">delete</span></button>
+        <button class="btn ghost sm" data-d="${b.id}" style="color:var(--error)" title="Borrar la insignia" aria-label="Borrar la insignia"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
       </div>`:''}
     </div>`).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">Sin insignias configuradas.</p></div>';
 
@@ -159,8 +159,8 @@ async function load(){
       ${esc(a.cem_badges?.icono||'military_tech')}</span> ${esc(a.cem_badges?.nombre||'')}</td>
     <td class="wrap">${esc(a.cem_badges?.competencia||'—')}</td>
     <td class="muted">${fdate(a.otorgado_en)}</td>
-    <td>${puede?`<button class="btn ghost sm" data-rev="${a.id}" style="color:var(--error)" title="Revocar">
-      <span class="material-symbols-outlined">block</span></button>`:''}</td></tr>`).join('') : emptyRow(5, 'Todavía no se le ha dado ninguna insignia a nadie.',
+    <td>${puede?`<button class="btn ghost sm" data-rev="${a.id}" style="color:var(--error)" title="Revocar" aria-label="Revocar">
+      <span class="material-symbols-outlined" aria-hidden="true">block</span></button>`:''}</td></tr>`).join('') : emptyRow(5, 'Todavía no se le ha dado ninguna insignia a nadie.',
         puede ? { id:'vacioOtorgar', texto:'Otorgar la primera', icono:'military_tech' } : null);
   $$('[data-rev]').forEach(b=>b.onclick=async()=>{
     if (!await confirmDialog('¿Revocar esta insignia al estudiante?')) return;
@@ -227,7 +227,7 @@ function form(b){
 
     <div class="field"><label>Icono</label><div class="row" id="icos">
       ${ICONOS.map(i=>`<button type="button" title="${i.replace(/_/g,' ')}" class="chip chip-btn ${((b?.icono)||'military_tech')===i?'on':''}" data-i="${i}">
-        <span class="material-symbols-outlined">${i}</span></button>`).join('')}</div></div>
+        <span class="material-symbols-outlined" aria-hidden="true">${i}</span></button>`).join('')}</div></div>
     <div class="field"><label>Color</label><input type="color" id="bColor" value="${esc(b?.color||'#c9a227')}" style="height:42px"></div>
     <label class="check"><input type="checkbox" id="bA" ${b? (b.activo?'checked':'') : 'checked'}> Insignia activa</label>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar la insignia</button>` });

@@ -364,6 +364,35 @@ for (const f of paginas) {
 if (cajasSueltas.length) cajasSueltas.forEach((s) => mal(s.split(':')[0], s));
 else bien(`Todos los recuadros propios de las ${paginas.length} pantallas declaran «caja»`);
 
+/* ══════════ 11. Ningún botón de icono se queda sin nombre ══════════
+   Los iconos de esta casa son una tipografía de ligaduras: en el HTML no hay
+   un dibujo, hay la palabra. Un botón cuyo único contenido es
+   `<span class="material-symbols-outlined">delete</span>` se anuncia, para
+   quien navega escuchando, como «botón delete» — en inglés y en jerga.
+
+   El `title` que casi todos llevan NO sirve para esto: como nombre accesible
+   va el último de la lista y el contenido del botón le gana. Hace falta
+   `aria-label`, que manda sobre todo lo demás.
+
+   Se arreglaron 124 de golpe con herramientas/etiquetar-iconos.mjs. Esta
+   comprobación existe porque arreglar 124 a mano dura exactamente hasta que
+   alguien escriba el 125: es la diferencia entre limpiar y dejar de ensuciar. */
+titulo('Ningún botón de icono se queda sin nombre');
+
+const SOLO_ICONO = /<(button|a)((?:(?!aria-label)[^>])*?)>\s*<span class="material-symbols-outlined"[^>]*>[a-z_]+<\/span>\s*<\/\1>/g;
+const mudos = [];
+for (const f of await archivos('**/*.html', '**/*.js')) {
+  const texto = await readFile(join(RAIZ, f), 'utf8');
+  if (!texto.includes('material-symbols-outlined')) continue;
+  for (const m of texto.matchAll(SOLO_ICONO)) {
+    const linea = texto.slice(0, m.index).split('\n').length;
+    mudos.push(`${f}:${linea} tiene un <${m[1]}> que es sólo un icono y no dice cómo se llama`
+      + '. Ponle title y pasa herramientas/etiquetar-iconos.mjs');
+  }
+}
+if (mudos.length) mudos.forEach((s) => mal(s.split(':')[0], s));
+else bien('Todos los botones y enlaces de sólo icono llevan su nombre en castellano');
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

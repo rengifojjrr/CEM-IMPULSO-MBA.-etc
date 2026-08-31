@@ -80,7 +80,7 @@ function render(){
         ${bloqueado ? `<span class="chip warn"><span class="material-symbols-outlined">lock</span> Requiere ${esc(m.requiere_modulo)}</span>`
           : `<span class="chip ok">Disponible</span>`}
         ${bloqueado ? '' : `<a class="btn outline sm" href="${esc(m.url||'#')}" target="_blank">
-          <span class="material-symbols-outlined">${m.tipo==='video'?'visibility':'download'}</span>
+          <span class="material-symbols-outlined" aria-hidden="true">${m.tipo==='video'?'visibility':'download'}</span>
           ${m.tipo==='video'?'Ver':'Descargar'}</a>`}
       </div></div>`;
   }).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">No se encontraron recursos con esos filtros.</p></div>';

@@ -26,9 +26,9 @@
   <div class="page-head">
     <div><h1>Gestión de evaluaciones</h1><p>Los exámenes y tareas de cada programa: cuántos intentos permiten, con cuánto se aprueba y quién ya los rindió.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
-      <a class="btn outline" href="preguntas.html"><span class="material-symbols-outlined">help_center</span> Banco de preguntas</a>
-      <a class="btn" href="evaluacion-nueva.html"><span class="material-symbols-outlined">add</span> Nueva evaluación</a>
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar</button>
+      <a class="btn outline" href="preguntas.html"><span class="material-symbols-outlined" aria-hidden="true">help_center</span> Banco de preguntas</a>
+      <a class="btn" href="evaluacion-nueva.html"><span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva evaluación</a>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -112,12 +112,12 @@ function render(){
     <td class="num" data-col="Promedio">${r._avg!=null?r._avg.toFixed(1):'—'}</td>
     <td data-col="Estado">${chipEstado(r.estado)}</td>
     <td class="nowrap" data-col="">
-      <button class="btn ghost sm" data-previa="${r.id}" title="Verla como la ve el estudiante"><span class="material-symbols-outlined">visibility</span></button>
-      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar las preguntas"><span class="material-symbols-outlined">edit</span></a>
-      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}#respuestas" title="Ver las respuestas y sus métricas"><span class="material-symbols-outlined">insights</span></a>
-      <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar"><span class="material-symbols-outlined">grade</span></a>
+      <button class="btn ghost sm" data-previa="${r.id}" title="Verla como la ve el estudiante" aria-label="Verla como la ve el estudiante"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
+      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}" title="Editar las preguntas" aria-label="Editar las preguntas"><span class="material-symbols-outlined" aria-hidden="true">edit</span></a>
+      <a class="btn ghost sm" href="evaluacion-nueva.html?id=${r.id}#respuestas" title="Ver las respuestas y sus métricas" aria-label="Ver las respuestas y sus métricas"><span class="material-symbols-outlined" aria-hidden="true">insights</span></a>
+      <a class="btn ghost sm" href="calificar.html?assessment=${r.id}" title="Calificar" aria-label="Calificar"><span class="material-symbols-outlined" aria-hidden="true">grade</span></a>
       ${puede?`<button class="btn ghost sm" data-pub="${r.id}" title="${r.estado==='publicado'?'Despublicar':'Publicar'}">
-        <span class="material-symbols-outlined">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
+        <span class="material-symbols-outlined" aria-hidden="true">${r.estado==='publicado'?'unpublished':'publish'}</span></button>`:''}
     </td></tr>`).join('') : emptyRow(7, 'Todavía no hay evaluaciones.', {texto:'Crear la primera evaluación', id:'vacioEval', icono:'quiz'});
   ordenable('#tabla', ordenEvals, render);
   $$('[data-previa]').forEach(b=>b.onclick=()=>previa(rows.find(x=>x.id===b.dataset.previa)));

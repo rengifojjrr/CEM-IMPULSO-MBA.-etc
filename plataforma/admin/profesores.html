@@ -25,7 +25,7 @@
 <div id="page" class="hidden">
   <div class="page-head">
     <div><h1>Gestión de profesores</h1><p>Quién dicta qué, con cuántos alumnos y cuánto tiene por calificar. Los profesores se dan de alta desde una cuenta ya registrada.</p></div>
-    <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined">person_add</span> Invitar profesor</button></div>
+    <div class="actions"><button class="btn" id="btnNuevo"><span class="material-symbols-outlined" aria-hidden="true">person_add</span> Invitar profesor</button></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="card">
@@ -104,9 +104,9 @@ function render(){
     <td class="num">${num(r._dict)}</td><td class="num">${r._cal>0?`<span class="chip warn">${r._cal}</span>`:'<span class="chip ok">0</span>'}</td>
     <td>${r.activo?chip('activo','ok'):chip('inactivo','err')}</td>
     <td class="nowrap">
-      <button class="btn ghost sm" data-ficha="${r.id}" title="Ver su ficha"><span class="material-symbols-outlined">visibility</span></button>
-      ${editable?`<button class="btn ghost sm" data-asig="${r.id}" title="Asignar cohortes"><span class="material-symbols-outlined">assignment_ind</span></button>
-      <button class="btn ghost sm" data-tog="${r.id}" title="Activar/desactivar"><span class="material-symbols-outlined">${r.activo?'block':'check_circle'}</span></button>`:''}
+      <button class="btn ghost sm" data-ficha="${r.id}" title="Ver su ficha" aria-label="Ver su ficha"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
+      ${editable?`<button class="btn ghost sm" data-asig="${r.id}" title="Asignar cohortes" aria-label="Asignar cohortes"><span class="material-symbols-outlined" aria-hidden="true">assignment_ind</span></button>
+      <button class="btn ghost sm" data-tog="${r.id}" title="Activar/desactivar"><span class="material-symbols-outlined" aria-hidden="true">${r.activo?'block':'check_circle'}</span></button>`:''}
     </td></tr>`).join('') : emptyRow(9, 'Todavía no hay profesores. Se dan de alta a partir de una cuenta ya registrada.', {texto:'Dar de alta un profesor', id:'vacioProfe', icono:'person_add'});
   ordenable('#tabla', ordenProfes, render);
   $$('[data-ficha]').forEach(b=>b.onclick=()=>ficha(rows.find(x=>x.id===b.dataset.ficha)));

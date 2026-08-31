@@ -27,16 +27,16 @@
   <div class="page-head">
     <div><h1>Administración de credenciales</h1><p>Quién ya cumple los requisitos para certificarse y qué certificados se han emitido. Desde aquí se emiten, de uno en uno o por cohorte.</p></div>
     <div class="actions">
-      <a class="btn outline" href="certificado-editor.html"><span class="material-symbols-outlined">design_services</span> Plantillas</a>
-      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined">download</span> Exportar</button>
-      <button class="btn" id="btnEmitir"><span class="material-symbols-outlined">publish</span> Emitir manualmente</button>
+      <a class="btn outline" href="certificado-editor.html"><span class="material-symbols-outlined" aria-hidden="true">design_services</span> Plantillas</a>
+      <button class="btn outline" id="btnExport"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar</button>
+      <button class="btn" id="btnEmitir"><span class="material-symbols-outlined" aria-hidden="true">publish</span> Emitir manualmente</button>
     </div>
   </div>
   <div class="kpis" id="kpis"></div>
 
   <div class="card">
     <div class="row between"><h2 class="sec">Listos para certificar <button type="button" class="ayuda-btn" data-ayuda="Aparecen aquí al pasar el 80% de avance, pero para emitir hacen falta las tres cosas: terminar, aprobar las evaluaciones y no deber cuotas. Si falta alguna, la plataforma avisa antes de emitir.">?</button></h2>
-      <button class="btn outline sm" id="btnLote" ><span class="material-symbols-outlined">workspace_premium</span> Emitir en lote</button></div>
+      <button class="btn outline sm" id="btnLote" ><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span> Emitir en lote</button></div>
     <div class="table-wrap"><table>
       <thead><tr><th><input type="checkbox" id="chkAll"></th><th>Estudiante</th><th>Programa</th><th>Avance</th><th>Estado</th></tr></thead>
       <tbody id="tbElegibles"></tbody></table></div>
@@ -108,13 +108,13 @@ function render(){
     <td>${c.anulado_en ? chip('anulado','err') : chipEstado(c.estado)}</td>
     <td class="nowrap"><span class="acciones">
       <button class="btn ghost sm" data-ver="${c.id}" title="Ver el certificado"
-        aria-label="Ver el certificado ${esc(c.codigo)}"><span class="material-symbols-outlined">visibility</span></button>
+        aria-label="Ver el certificado ${esc(c.codigo)}"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
       <a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"
         title="Verificación pública" aria-label="Abrir la verificación pública de ${esc(c.codigo)}">
-        <span class="material-symbols-outlined">verified</span></a>
+        <span class="material-symbols-outlined" aria-hidden="true">verified</span></a>
       ${puede && !c.anulado_en ? `<button class="btn ghost sm" data-rev="${c.id}" style="color:var(--error)"
         title="Anular" aria-label="Anular el certificado ${esc(c.codigo)}">
-        <span class="material-symbols-outlined">block</span></button>` : ''}
+        <span class="material-symbols-outlined" aria-hidden="true">block</span></button>` : ''}
     </span></td></tr>`).join('') : emptyRow(7, 'Todavía no se ha emitido ningún certificado.');
   contarFilas('#cuenta', list.length, certs.length, 500);
   $$('[data-ver]').forEach(b=>b.onclick=()=>ver(certs.find(c=>c.id===b.dataset.ver)));
@@ -292,7 +292,7 @@ function ver(c){
       <div class="tiny muted sep">Código: ${esc(c.codigo)} · ${fdate(c.emitido_en)}</div>
     </div>`,
     footer:`<button class="btn outline" data-x2>Cerrar</button><button class="btn" data-pr">
-      <span class="material-symbols-outlined">print</span> Imprimir / PDF</button>` });
+      <span class="material-symbols-outlined" aria-hidden="true">print</span> Imprimir / PDF</button>` });
   $('[data-x2]',m).onclick=m.close;
   m.querySelector('[data-pr\\"]')?.addEventListener('click',()=>{});
   const pr = m.querySelectorAll('.modal-f .btn')[1];

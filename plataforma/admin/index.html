@@ -29,9 +29,9 @@
       <p>Lo pendiente primero. Las cifras del negocio están más abajo.</p>
     </div>
     <div class="actions">
-      <a class="btn outline" href="curso-nuevo.html"><span class="material-symbols-outlined">add_circle</span> Crear programa</a>
-      <a class="btn outline" href="calendario.html"><span class="material-symbols-outlined">calendar_month</span> Programar clase</a>
-      <a class="btn" href="inscripciones.html"><span class="material-symbols-outlined">person_add</span> Nueva inscripción</a>
+      <a class="btn outline" href="curso-nuevo.html"><span class="material-symbols-outlined" aria-hidden="true">add_circle</span> Crear programa</a>
+      <a class="btn outline" href="calendario.html"><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span> Programar clase</a>
+      <a class="btn" href="inscripciones.html"><span class="material-symbols-outlined" aria-hidden="true">person_add</span> Nueva inscripción</a>
     </div>
   </div>
 
@@ -110,7 +110,7 @@ async function pintarPendientes(){
   const orden = [...lista].sort((a, b) => Number(b.n || 0) - Number(a.n || 0));
   host.innerHTML = orden.map(x => `
     <a class="pendiente ${Number(x.n) ? esc(x.tono || '') : 'vacio'}" href="${esc(x.url)}">
-      <span class="material-symbols-outlined">${esc(x.icono || 'task_alt')}</span>
+      <span class="material-symbols-outlined" aria-hidden="true">${esc(x.icono || 'task_alt')}</span>
       <span class="n">${num(x.n)}</span>
       <span class="que crece">${esc(x.que)}</span></a>`).join('');
 }
@@ -153,12 +153,12 @@ async function init(){
      nada que hacer. Lo que no requiere atención no se pinta: una raya. Y lo
      que sí, un número, en rojo sólo cuando de verdad se está acumulando. */
   ].map(([ic,t,n,href]) => `<a class="list-item" href="${href}">
-      <span class="material-symbols-outlined">${ic}</span>
+      <span class="material-symbols-outlined" aria-hidden="true">${ic}</span>
       <div class="grow"><div class="t">${t}</div></div>
       ${Number(n)>0
         ? `<b class="cifra${Number(n)>4?' err-text':''}">${num(n)}</b>`
         : '<span class="muted" title="Nada pendiente">—</span>'}
-      <span class="material-symbols-outlined">chevron_right</span></a>`).join('');
+      <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></a>`).join('');
 
   const { data: clases } = await sb.from('cem_classes')
     .select('id,titulo,fecha,hora_inicio,modalidad,salon,estado,cem_cohorts(nombre,cem_courses(nombre))')

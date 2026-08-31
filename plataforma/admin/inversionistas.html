@@ -61,8 +61,8 @@
          Ninguna de esas cifras está guardada: se recalculan desde los pagos confirmados y los
          gastos cada vez que abres esta pantalla, y por eso se pueden abrir hasta el detalle.</p></div>
     <div class="actions">
-      <button class="btn outline" id="btnCapital"><span class="material-symbols-outlined">savings</span> Registrar capital</button>
-      <button class="btn" id="btnPagar"><span class="material-symbols-outlined">payments</span> Pagar a los socios</button>
+      <button class="btn outline" id="btnCapital"><span class="material-symbols-outlined" aria-hidden="true">savings</span> Registrar capital</button>
+      <button class="btn" id="btnPagar"><span class="material-symbols-outlined" aria-hidden="true">payments</span> Pagar a los socios</button>
     </div>
   </div>
 
@@ -76,8 +76,8 @@
       <div class="row">
         <div class="field sin-margen">
           <select id="ronda" aria-label="Ronda de reparto"></select></div>
-        <button class="btn outline sm" id="btnEditarRonda"><span class="material-symbols-outlined">edit</span> Editar</button>
-        <button class="btn outline sm" id="btnNuevaRonda"><span class="material-symbols-outlined">add</span> Abrir una nueva</button>
+        <button class="btn outline sm" id="btnEditarRonda"><span class="material-symbols-outlined" aria-hidden="true">edit</span> Editar</button>
+        <button class="btn outline sm" id="btnNuevaRonda"><span class="material-symbols-outlined" aria-hidden="true">add</span> Abrir una nueva</button>
       </div>
     </div>
     <p class="tiny muted" id="rondaNota"></p>
@@ -174,7 +174,7 @@ function pintarSueltos(sueltos){
           : ''}${liqs.length ? `${num(liqs.length)} pago(s) a socios sin decir de qué cartera salieron.` : ''}</p>
       </div>
       ${gastos.length && puedeOperar
-        ? '<button class="btn sm" id="btnClasificar"><span class="material-symbols-outlined">label</span> Clasificarlos</button>'
+        ? '<button class="btn sm" id="btnClasificar"><span class="material-symbols-outlined" aria-hidden="true">label</span> Clasificarlos</button>'
         : ''}
     </div></div>`;
   if ($('#btnClasificar')) $('#btnClasificar').onclick = () => abrirClasificar(gastos);
@@ -279,7 +279,7 @@ function abrirRonda(r){
       El aporte se anota para el registro de la ronda; el reparto sale del porcentaje.</p>
     <div id="rPartes"></div>
     <button type="button" class="btn outline sm sep-poco" id="rAdd">
-      <span class="material-symbols-outlined">add</span> Añadir una línea</button>
+      <span class="material-symbols-outlined" aria-hidden="true">add</span> Añadir una línea</button>
     <p class="tiny sep-poco" id="rSumas"></p>
     <div id="rMsg"></div>`,
     footer:`<button class="btn outline" data-x>Cancelar</button>
@@ -299,7 +299,7 @@ function abrirRonda(r){
         <div class="field sin-margen"><label>Aportó</label>
           <input type="number" step="0.01" min="0" data-c="aporte" data-i="${i}" value="${esc(x.aporte)}"></div>
         <button type="button" class="btn outline sm" data-quitar="${i}" aria-label="Quitar esta fila">
-          <span class="material-symbols-outlined">close</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>`).join('') || '<p class="tiny muted">Todavía no hay ninguna fila.</p>';
     mejorarSelects($('#rPartes', m));
     $$('[data-quitar]', m).forEach(b => b.onclick = () => {

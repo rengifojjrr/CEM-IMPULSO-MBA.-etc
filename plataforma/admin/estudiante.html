@@ -126,11 +126,11 @@ function hero(){
            un minuto lo que antes eran tres correos. Lo puede pulsar también
            auditoría: es sólo lectura y queda asentado. -->
       <button class="btn outline" id="btnVerComo" title="Ver qué le está contestando la plataforma">
-        <span class="material-symbols-outlined">visibility</span> Ver lo que ve</button>
-      ${editable?`<button class="btn outline" id="btnMatricular"><span class="material-symbols-outlined">add_circle</span> Matricular</button>
-      <a class="btn outline" href="mailto:${esc(stu.email)}"><span class="material-symbols-outlined">mail</span> Escribirle</a>
+        <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver lo que ve</button>
+      ${editable?`<button class="btn outline" id="btnMatricular"><span class="material-symbols-outlined" aria-hidden="true">add_circle</span> Matricular</button>
+      <a class="btn outline" href="mailto:${esc(stu.email)}"><span class="material-symbols-outlined" aria-hidden="true">mail</span> Escribirle</a>
       <button class="btn ghost" id="btnToggle" title="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"
-        aria-label="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"><span class="material-symbols-outlined">${stu.activo?'block':'check_circle'}</span></button>`:''}
+        aria-label="${stu.activo?'Desactivar la cuenta':'Reactivar la cuenta'}"><span class="material-symbols-outlined" aria-hidden="true">${stu.activo?'block':'check_circle'}</span></button>`:''}
     </div></div>
     ${exp?.perfil?.perfil_publico ? `<p class="tiny muted sep-poco">
       <span class="material-symbols-outlined" style="font-size:15px">public</span>
@@ -203,8 +203,8 @@ async function pintarDocumento(){
       ${cara('Por delante', uFrente)}${cara('Por detrás', uDorso)}
     </div>
     ${editable ? `<div class="row sep">
-      <button class="btn" id="btnAprobar"><span class="material-symbols-outlined">check</span> Aprobar</button>
-      <button class="btn outline" id="btnRechazar"><span class="material-symbols-outlined">close</span> Pedir que lo corrija</button>
+      <button class="btn" id="btnAprobar"><span class="material-symbols-outlined" aria-hidden="true">check</span> Aprobar</button>
+      <button class="btn outline" id="btnRechazar"><span class="material-symbols-outlined" aria-hidden="true">close</span> Pedir que lo corrija</button>
     </div>` : '<div class="nota sep">Sólo lectura: tu rol no resuelve documentos.</div>'}
     <div id="msgDoc"></div></div>`;
 
@@ -324,8 +324,8 @@ function tab(t){
           ? `${bar(e.progreso)}<span class="tiny muted">${pct(e.progreso)}</span>`
           : '<span class="tiny muted">Todavía sin empezar</span>'}</td>
         <td>${chipEstado(e.estado)}</td><td>${money(e.precio_final)}</td><td class="muted">${fdate(e.fecha_inscripcion)}</td>
-        <td>${editable?`<button class="btn ghost sm" data-est="${e.id}" title="Cambiar el estado de la inscripción"><span class="material-symbols-outlined">edit</span></button>
-          ${Number(e.progreso)>=80?`<button class="btn ghost sm" data-cert="${e.id}" title="Emitir certificado"><span class="material-symbols-outlined">workspace_premium</span></button>`:''}`:''}</td>
+        <td>${editable?`<button class="btn ghost sm" data-est="${e.id}" title="Cambiar el estado de la inscripción" aria-label="Cambiar el estado de la inscripción"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+          ${Number(e.progreso)>=80?`<button class="btn ghost sm" data-cert="${e.id}" title="Emitir certificado" aria-label="Emitir certificado"><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span></button>`:''}`:''}</td>
       </tr>`).join('') : emptyRow(7, 'Este estudiante no está inscrito en ningún programa.')}</tbody></table></div></div>`;
     $$('[data-est]').forEach(b=>b.onclick=()=>cambiarEstado(ens.find(x=>x.id===b.dataset.est)));
     $$('[data-cert]').forEach(b=>b.onclick=async()=>{
@@ -350,7 +350,7 @@ function tab(t){
         <td><code>${esc(c.codigo)}</code></td><td class="wrap">${esc(c.titulo)}</td>
         <td class="wrap">${esc(c.cem_courses?.nombre||'')}</td><td class="muted">${fdate(c.emitido_en)}</td>
         <td>${chipEstado(c.estado)}</td>
-        <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank"><span class="material-symbols-outlined">verified</span></a></td>
+        <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank" title="Verificar el certificado" aria-label="Verificar el certificado"><span class="material-symbols-outlined" aria-hidden="true">verified</span></a></td>
       </tr>`).join('') : emptyRow(6, 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>
       <div id="porModulos"></div>`;
     pintarModulos();
@@ -400,7 +400,7 @@ async function pintarModulos(){
           <td class="nowrap">${m.certificado_codigo ? '' : `
             <button class="btn outline sm" data-emitir="${esc(e.id)}|${esc(m.module_id)}"
               data-mod="${esc(m.titulo)}" data-avance="${esc(String(m.avance))}">
-              <span class="material-symbols-outlined">workspace_premium</span> Emitir</button>`}</td>
+              <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span> Emitir</button>`}</td>
         </tr>`).join('')}</tbody></table></div>
     </div>`).join('');
 
@@ -668,7 +668,7 @@ async function matricular(){
         inscripción y las cuotas se crean cuando acepte, con este mismo precio.</p>
     </details>`,
     footer:`<button class="btn outline" data-x>Cancelar</button>
-            <button class="btn outline" data-inv><span class="material-symbols-outlined">forward_to_inbox</span> Invitar</button>
+            <button class="btn outline" data-inv><span class="material-symbols-outlined" aria-hidden="true">forward_to_inbox</span> Invitar</button>
             <button class="btn" data-s>Matricular ya</button>` });
   desc.conectar(m);
 

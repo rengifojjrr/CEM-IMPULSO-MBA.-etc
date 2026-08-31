@@ -32,7 +32,7 @@
   <div class="page-head">
     <div><h1>Integración con YouTube</h1>
       <p>Los videos de los cursos se suben directo a un canal de YouTube "no listado": sin costo y sin límite práctico de espacio.</p></div>
-    <div class="actions"><a class="btn outline" href="configuracion.html"><span class="material-symbols-outlined">arrow_back</span> Configuración</a></div>
+    <div class="actions"><a class="btn outline" href="configuracion.html"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Configuración</a></div>
   </div>
 
   <div id="cont"></div>
@@ -142,7 +142,7 @@ function render({ cargando, mensaje, errorFlujo }){
         <div class="row" style="gap:8px;margin-top:8px;align-items:center">
           <code id="urlRetorno" class="dato-copiable">${esc(URL_RETORNO)}</code>
           <button class="btn ghost sm" id="btnCopiar" type="button">
-            <span class="material-symbols-outlined">content_copy</span> Copiar</button>
+            <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>
         </div>
       </div>
 
@@ -157,9 +157,9 @@ function render({ cargando, mensaje, errorFlujo }){
           ${estado?.secreto_pista ? `<span class="pista">Guardado: <code>${esc(estado.secreto_pista)}</code>.
             Ni esta pantalla lo puede leer entero.</span>` : ''}</div>
         <div class="row">
-          <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+          <button class="btn" type="submit"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
           ${estado?.configurada ? `<button class="btn ghost" type="button" id="btnQuitarApp">
-            <span class="material-symbols-outlined">link_off</span> Quitar la app</button>` : ''}
+            <span class="material-symbols-outlined" aria-hidden="true">link_off</span> Quitar la app</button>` : ''}
         </div>
       </form>
       <div id="msgApp"></div>
@@ -185,10 +185,10 @@ function render({ cargando, mensaje, errorFlujo }){
                quieres que se suban los videos. Puede ser un canal dedicado; no tiene que ser el personal.</p>`}
       <div class="row sep">
         <button class="btn" id="btnConectar" ${authUrl ? '' : 'disabled'}>
-          <span class="material-symbols-outlined">link</span>
+          <span class="material-symbols-outlined" aria-hidden="true">link</span>
           ${estado?.conectado ? 'Reconectar con YouTube' : 'Conectar con YouTube'}</button>
         ${estado?.conectado ? `<button class="btn ghost" type="button" id="btnDesconectar">
-          <span class="material-symbols-outlined">link_off</span> Desconectar el canal</button>` : ''}
+          <span class="material-symbols-outlined" aria-hidden="true">link_off</span> Desconectar el canal</button>` : ''}
       </div>
     </div>`;
 

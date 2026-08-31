@@ -305,16 +305,16 @@ export function editorDeCuerpo(q, i = 0) {
         ${filas.map((f, k) => `<div class="opt-fila">
           <input type="text" data-fila="${i}:${k}" value="${esc(f)}" placeholder="Fila ${k + 1}">
           <button type="button" class="btn ghost sm" data-rmfila="${i}:${k}" ${filas.length <= 1 ? 'disabled' : ''}
-            title="Quitar la fila"><span class="material-symbols-outlined">close</span></button></div>`).join('')}
+            title="Quitar la fila" aria-label="Quitar la fila"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>`).join('')}
         <button type="button" class="btn ghost sm" data-addfila="${i}">
-          <span class="material-symbols-outlined">add</span> Fila</button></div>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Fila</button></div>
       <div class="crece"><label class="tiny negrita">Columnas</label>
         ${cols.map((o, k) => `<div class="opt-fila">
           <input type="text" data-col="${i}:${k}" value="${esc(o)}" placeholder="Columna ${k + 1}">
           <button type="button" class="btn ghost sm" data-rmcol="${i}:${k}" ${cols.length <= 1 ? 'disabled' : ''}
-            title="Quitar la columna"><span class="material-symbols-outlined">close</span></button></div>`).join('')}
+            title="Quitar la columna" aria-label="Quitar la columna"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>`).join('')}
         <button type="button" class="btn ghost sm" data-addcol="${i}">
-          <span class="material-symbols-outlined">add</span> Columna</button></div>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Columna</button></div>
     </div>
     ${filas.filter(Boolean).length && cols.filter(Boolean).length ? `
     <div class="sep-poco"><label class="tiny negrita">Respuesta correcta por fila
@@ -362,11 +362,11 @@ export function editorDeCuerpo(q, i = 0) {
         ${marca(o) && o ? 'checked' : ''} title="Marcar como correcta">
       <input type="text" data-op="${i}:${k}" value="${esc(o)}" placeholder="Opción ${k + 1}" ${fijas ? 'readonly' : ''}>
       ${fijas ? '' : `<button type="button" class="btn ghost sm" data-rmop="${i}:${k}"
-        ${(q.opciones || []).length <= 2 ? 'disabled' : ''} title="Quitar la opción">
-        <span class="material-symbols-outlined">close</span></button>`}
+        ${(q.opciones || []).length <= 2 ? 'disabled' : ''} title="Quitar la opción" aria-label="Quitar la opción">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span></button>`}
     </div>`).join('')}
     ${fijas ? '' : `<button type="button" class="btn ghost sm" data-addop="${i}">
-      <span class="material-symbols-outlined">add</span> Agregar opción</button>`}`;
+      <span class="material-symbols-outlined" aria-hidden="true">add</span> Agregar opción</button>`}`;
 }
 
 /**

@@ -63,7 +63,7 @@
       <p>Consulta lo que debes, reporta un pago que ya hiciste y sigue en qué va su verificación.</p></div>
     <div class="actions">
       <button class="btn outline" id="btnEstadoCuenta">
-        <span class="material-symbols-outlined">receipt_long</span> Estado de cuenta</button>
+        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Estado de cuenta</button>
     </div>
   </div>
 
@@ -91,7 +91,7 @@
       <!-- Mejora 11: quien eligió pago único y se quedó corto tenía que
            pedirlo por fuera, y casi nadie lo pide por fuera. -->
       <button class="btn ghost sm" id="btnPlan" hidden>
-        <span class="material-symbols-outlined">event_repeat</span> Cambiar mi plan de pago</button>
+        <span class="material-symbols-outlined" aria-hidden="true">event_repeat</span> Cambiar mi plan de pago</button>
     </div>
     <div id="cuotas"><span class="cargando"></span></div>
     <div id="planPedido"></div>
@@ -270,7 +270,7 @@ function renderDondePagar(){
           const alMomento = STRIPE && ES_TARJETA(d.metodo);
           return `<button type="button" class="metodo caja" role="radio" data-m="${i}"
             aria-checked="${i === 0}" tabindex="${i === 0 ? '0' : '-1'}">
-            <span class="material-symbols-outlined">${ICONO_METODO(d.metodo)}</span>
+            <span class="material-symbols-outlined" aria-hidden="true">${ICONO_METODO(d.metodo)}</span>
             <span>
               <b>${esc(d.metodo)}</b>
               <span class="cuando">en ${esc(NOMBRE_MONEDA[d.moneda] || d.moneda)}</span>
@@ -309,7 +309,7 @@ function renderDondePagar(){
             ${money(Number(c.saldo ?? c.monto), c.moneda || MONEDA_BASE)}</p>
         </div>
         <button class="btn sep" id="btnTarjetaYa">
-          <span class="material-symbols-outlined">credit_card</span> Pagar esta cuota con tarjeta</button>
+          <span class="material-symbols-outlined" aria-hidden="true">credit_card</span> Pagar esta cuota con tarjeta</button>
         ${porPagar.length > 1 ? `<p class="tiny muted sep-poco">
           Te quedan ${porPagar.length - 1} cuota(s) más. Cada una tiene su botón abajo,
           en «Mis cuotas», y puedes pagarlas cuando quieras.</p>` : ''}
@@ -330,8 +330,8 @@ function renderDondePagar(){
           <dt>${esc(d.destino_etiqueta || 'Cuenta')}</dt>
           <dd><span id="elDestino">${esc(d.destino)}</span>
             <button class="btn ghost sm" type="button" id="btnCopiarDestino"
-              title="Copiar" style="margin-left:6px">
-              <span class="material-symbols-outlined">content_copy</span></button></dd>
+              title="Copiar" style="margin-left:6px" aria-label="Copiar">
+              <span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button></dd>
         </dl>
       </div>
       ${d.instrucciones ? `<p class="tiny muted sep-poco">${esc(d.instrucciones)}</p>` : ''}
@@ -447,7 +447,7 @@ function renderCuotas(){
       falta pagar <b>${money(saldo, pendienteDeEsa.moneda || MONEDA_BASE)}</b>.
       Arriba tienes a dónde; cuando lo hagas, repórtalo aquí.
       <button class="btn sm" id="btnPagarEsa" style="margin-top:8px">
-        <span class="material-symbols-outlined">receipt_long</span> Reportar este pago</button>
+        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Reportar este pago</button>
     </div>`;
     const b = $('#btnPagarEsa');
     if (b) b.onclick = () => abrirReporte(pendienteDeEsa);
@@ -480,9 +480,9 @@ function renderCuotas(){
         ${enRevision ? chip('tienes un pago en revisión', 'warn') : ''}
         ${pagada ? '' : `
           ${STRIPE ? `<button class="btn" data-tarjeta="${c.id}">
-            <span class="material-symbols-outlined">credit_card</span> Pagar con tarjeta</button>` : ''}
+            <span class="material-symbols-outlined" aria-hidden="true">credit_card</span> Pagar con tarjeta</button>` : ''}
           <button class="btn ${STRIPE ? 'outline' : ''}" data-reportar="${c.id}">
-            <span class="material-symbols-outlined">receipt_long</span>
+            <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
             ${STRIPE ? 'Ya pagué por otra vía' : 'Reportar pago'}</button>`}
       </div>
     </div>`;
@@ -583,8 +583,8 @@ function renderPagos(){
         x.estado === 'confirmado' ? 'ok' : x.estado === 'rechazado' ? 'err' : 'warn')}</td>
     <td>${x.comprobante_url ? `<button class="btn ghost sm" data-ver="${esc(x.comprobante_url)}">ver</button>` : '<span class="tiny muted">—</span>'}</td>
     <td>${['confirmado','registrado'].includes(x.estado)
-        ? `<button class="btn ghost sm" data-recibo="${x.id}" title="Descargar recibo">
-             <span class="material-symbols-outlined">description</span></button>`
+        ? `<button class="btn ghost sm" data-recibo="${x.id}" title="Descargar recibo" aria-label="Descargar recibo">
+             <span class="material-symbols-outlined" aria-hidden="true">description</span></button>`
         : '<span class="tiny muted">—</span>'}</td>
   </tr>`).join('') : emptyRow(6, 'Todavía no has registrado ningún pago.',
         cuotas.some(c => c.estado !== 'pagada' && c.estado !== 'anulada')

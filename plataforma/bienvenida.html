@@ -93,9 +93,9 @@ function pintarTarda(d) {
     <p class="muted">En cuanto entre te llega el acceso a
       <b>${esc(d?.email || 'tu correo')}</b>.</p>
     <button class="btn block" id="reintentar">
-      <span class="material-symbols-outlined">refresh</span> Volver a mirar</button>
+      <span class="material-symbols-outlined" aria-hidden="true">refresh</span> Volver a mirar</button>
     <button class="btn outline block" id="avisar" style="margin-top:var(--e1)">
-      <span class="material-symbols-outlined">forum</span> Avisar al equipo</button>
+      <span class="material-symbols-outlined" aria-hidden="true">forum</span> Avisar al equipo</button>
     <p class="tiny muted" style="margin-top:var(--e2)">
       Tu número de compra es
       <b style="font-variant-numeric:tabular-nums">${esc(String(compraId).slice(0, 8))}</b>.
@@ -140,7 +140,7 @@ function pintarBien(d) {
          todavía no tiene contraseña: pedirle que entre primero para bajarlo es
          pedirle que haga dos cosas para conseguir una. -->
     <button class="btn ghost block" id="recibo" style="margin-top:var(--e2)">
-      <span class="material-symbols-outlined">receipt_long</span> Descargar el recibo</button>`;
+      <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Descargar el recibo</button>`;
 
   $('#recibo').onclick = descargarRecibo;
 }

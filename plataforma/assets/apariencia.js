@@ -60,7 +60,7 @@ function armazon(compacto) {
 
     <div class="row sep">
       <button type="button" class="btn outline sm" data-ap="fabrica">
-        <span class="material-symbols-outlined">restart_alt</span> Volver a como viene de fábrica</button>
+        <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span> Volver a como viene de fábrica</button>
     </div>
   </div>`;
 }
@@ -107,7 +107,7 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
       ['oscuro', 'Oscuro', 'dark_mode'],
     ].map(([v, txt, ico]) => `<button type="button" class="btn sm ${tema === v ? '' : 'outline'}"
         data-tema="${v}" aria-pressed="${tema === v}">
-        <span class="material-symbols-outlined">${ico}</span> ${txt}</button>`).join('');
+        <span class="material-symbols-outlined" aria-hidden="true">${ico}</span> ${txt}</button>`).join('');
 
     const forma = formaActual();
     dentro('formas').innerHTML = Object.entries(FORMAS).map(([clave, f]) => `
@@ -133,7 +133,7 @@ export function panelApariencia(host, { compacto = false, alCambiar = () => {} }
       [false, 'Fondo quieto', 'block'],
     ].map(([v, txt, ico]) => `<button type="button" class="btn sm ${animada === v ? '' : 'outline'}"
         data-animacion="${v ? 'si' : 'no'}" aria-pressed="${animada === v}">
-        <span class="material-symbols-outlined">${ico}</span> ${txt}</button>`).join('');
+        <span class="material-symbols-outlined" aria-hidden="true">${ico}</span> ${txt}</button>`).join('');
     /* Quien pide «reducir movimiento» en su sistema lo pide por algo, así que
        eso decide cómo llega esto de fábrica: apagado. Pero decidir por alguien
        que ya vino aquí a darle al interruptor es otra cosa —y era el defecto

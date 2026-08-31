@@ -52,11 +52,11 @@
     <div><h1>Carteras <button type="button" class="ayuda-btn" data-ayuda="Cada bolsillo donde hay dinero: la caja, la cuenta del banco, Zelle. Ningún saldo está guardado en la base: se calcula sumando los movimientos cada vez que abres esta pantalla, así que siempre se puede auditar de qué está hecho.">?</button></h1></div>
     <div class="actions">
       <button class="btn outline" id="btnAjuste">
-        <span class="material-symbols-outlined">balance</span> Cuadrar una cartera</button>
+        <span class="material-symbols-outlined" aria-hidden="true">balance</span> Cuadrar una cartera</button>
       <button class="btn outline" id="btnGasto">
-        <span class="material-symbols-outlined">receipt_long</span> Registrar un gasto</button>
+        <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Registrar un gasto</button>
       <button class="btn" id="btnMover">
-        <span class="material-symbols-outlined">swap_horiz</span> Mover dinero</button>
+        <span class="material-symbols-outlined" aria-hidden="true">swap_horiz</span> Mover dinero</button>
     </div>
   </div>
 
@@ -193,10 +193,10 @@ function pintarConversiones(){
             : k.estado === 'pendiente' ? chip('en tránsito','warn') : chip('completada','ok')}
         ${k.nota ? `<div class="tiny muted">${esc(k.nota)}</div>` : ''}</td>
       <td class="nowrap"><span class="acciones">${puedeOperar ? (k.eliminado
-        ? `<button class="btn ghost sm" data-restaurar="${esc(k.id)}" title="Sacar de la papelera">
-             <span class="material-symbols-outlined">restore_from_trash</span></button>`
-        : `<button class="btn ghost sm" data-borrar="${esc(k.id)}" title="Mandar a la papelera" style="color:var(--error)">
-             <span class="material-symbols-outlined">delete</span></button>`) : ''}</span></td>
+        ? `<button class="btn ghost sm" data-restaurar="${esc(k.id)}" title="Sacar de la papelera" aria-label="Sacar de la papelera">
+             <span class="material-symbols-outlined" aria-hidden="true">restore_from_trash</span></button>`
+        : `<button class="btn ghost sm" data-borrar="${esc(k.id)}" title="Mandar a la papelera" style="color:var(--error)" aria-label="Mandar a la papelera">
+             <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>`) : ''}</span></td>
     </tr>`;
   }).join('') : emptyRow(8, 'Todavía no se ha movido dinero entre carteras.');
 

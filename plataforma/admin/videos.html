@@ -59,7 +59,7 @@
     <div><h1>Vídeo de cada lección</h1>
       <p id="bajada">Elige un programa y pon el vídeo de YouTube que le toca a cada lección.</p></div>
     <div class="actions">
-      <a class="btn outline" id="btnVolver" href="contenido.html"><span class="material-symbols-outlined">arrow_back</span> Contenido</a>
+      <a class="btn outline" id="btnVolver" href="contenido.html"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Contenido</a>
     </div>
   </div>
 
@@ -204,10 +204,10 @@ function pintar(){
         </div>
         <div class="row" style="gap:8px">
           ${sueltos.length && sinVideo.length ? `<button class="btn outline sm" id="btnAuto">
-            <span class="material-symbols-outlined">auto_fix_high</span> Emparejar por título</button>` : ''}
+            <span class="material-symbols-outlined" aria-hidden="true">auto_fix_high</span> Emparejar por título</button>` : ''}
           ${datos?.playlist ? `<button class="btn ghost sm" type="button" id="btnRecargar"
-            title="Volver a leer la lista de YouTube">
-            <span class="material-symbols-outlined">refresh</span></button>` : ''}
+            title="Volver a leer la lista de YouTube" aria-label="Volver a leer la lista de YouTube">
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>` : ''}
         </div>
       </div>
     </div>
@@ -228,8 +228,8 @@ function pintar(){
                 ? esc(v?.titulo || l.video_id)
                 : 'sin vídeo'}</div></div>
             ${l.video_id
-              ? `<button class="btn ghost sm" data-quitar="${l.id}" title="Quitarle el vídeo">
-                   <span class="material-symbols-outlined">link_off</span></button>`
+              ? `<button class="btn ghost sm" data-quitar="${l.id}" title="Quitarle el vídeo" aria-label="Quitarle el vídeo">
+                   <span class="material-symbols-outlined" aria-hidden="true">link_off</span></button>`
               : `<button class="btn outline sm" data-elegir="${l.id}" data-t="${esc(l.titulo)}"
                    ${datos?.playlist ? '' : 'disabled title="Enlaza primero la lista de reproducción"'}>
                    Poner vídeo</button>`}
@@ -253,7 +253,7 @@ function pintar(){
         <div class="field" style="flex:1;margin:0"><label for="cLista">Lista de este programa</label>
           <input type="text" id="cLista" placeholder="https://www.youtube.com/playlist?list=PL…"
             value="${esc(datos?.playlist || '')}"></div>
-        <button class="btn" type="submit"><span class="material-symbols-outlined">save</span> Guardar</button>
+        <button class="btn" type="submit"><span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
       </form>
       <div id="msgLista"></div>
       ${videos && sueltos.length ? `<h3 class="sec" style="margin-top:var(--e3)">Vídeos que no están en ninguna lección</h3>
@@ -284,7 +284,7 @@ function pintar(){
             <input type="text" id="sTitulo" placeholder="Qué se repasa en este minuto">
           </div>
           <button class="btn" type="submit">
-            <span class="material-symbols-outlined">add</span> Añadir</button>
+            <span class="material-symbols-outlined" aria-hidden="true">add</span> Añadir</button>
         </div>
         <div class="field" style="margin:0"><label for="sDesc">Descripción (opcional)</label>
           <input type="text" id="sDesc" placeholder="Una línea, la que se lee debajo del vídeo"></div>
@@ -301,16 +301,16 @@ function pintar(){
               <div class="tiny muted">${c.descripcion ? esc(c.descripcion) + ' · ' : ''}${
                 c.publicado ? 'publicado' : 'retirado, no lo ven los alumnos'}</div></div>
             <button class="btn ghost sm" data-sube="${c.id}" title="Subir en el orden"
-              ${i === 0 ? 'disabled' : ''}>
-              <span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+              ${i === 0 ? 'disabled' : ''} aria-label="Subir en el orden">
+              <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_up</span></button>
             <button class="btn ghost sm" data-baja="${c.id}" title="Bajar en el orden"
-              ${i === shorts.length - 1 ? 'disabled' : ''}>
-              <span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+              ${i === shorts.length - 1 ? 'disabled' : ''} aria-label="Bajar en el orden">
+              <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span></button>
             <button class="btn ghost sm" data-pub="${c.id}" data-a="${c.publicado ? '0' : '1'}"
               title="${c.publicado ? 'Retirar' : 'Publicar'}">
-              <span class="material-symbols-outlined">${c.publicado ? 'visibility_off' : 'visibility'}</span></button>
-            <button class="btn ghost sm" data-borra="${c.id}" data-t="${esc(c.titulo)}" title="Borrar">
-              <span class="material-symbols-outlined">delete</span></button>
+              <span class="material-symbols-outlined" aria-hidden="true">${c.publicado ? 'visibility_off' : 'visibility'}</span></button>
+            <button class="btn ghost sm" data-borra="${c.id}" data-t="${esc(c.titulo)}" title="Borrar" aria-label="Borrar">
+              <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
           </div>`).join('')
           : '<p class="muted tiny">Todavía no hay ninguno. Pega arriba la dirección del primero.</p>'}
       </div>
@@ -479,7 +479,7 @@ function elegirVideo(libres, tituloLeccion){
     dlg.className = 'modal-bg';
     dlg.innerHTML = `<div class="modal">
       <div class="modal-h"><h3>¿Qué vídeo va en esta lección?</h3>
-        <button class="icon-btn" data-x aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button></div>
+        <button class="icon-btn" data-x aria-label="Cerrar"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div>
       <div class="modal-b">
         <p class="tiny muted" style="margin-top:0">${esc(tituloLeccion)}</p>
         <div class="field"><label for="qVid">Buscar entre los ${libres.length} sin usar</label>

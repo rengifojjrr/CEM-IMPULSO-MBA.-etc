@@ -48,7 +48,7 @@
         <input id="codigo" placeholder="CEM-2026-00000, o 12.345.678" required>
         <span class="tiny muted">Si tienes el certificado delante, con la cédula basta:
           salen todos los títulos de esa persona.</span></div>
-      <button class="btn block" type="submit">Verificar <span class="material-symbols-outlined">search</span></button>
+      <button class="btn block" type="submit">Verificar <span class="material-symbols-outlined" aria-hidden="true">search</span></button>
     </form>
     <div id="res" style="margin-top:16px"></div>
     <div class="demo-list"><a href="catalogo.html">Ver catálogo de programas</a></div>
@@ -148,7 +148,7 @@ async function verificar(texto){
              lo que quiere saber es qué formación tiene esa persona, no sólo si
              este papel vale. -->
         <a class="btn block sep" href="perfil-publico.html?p=${encodeURIComponent(c.perfil_slug)}">
-          <span class="material-symbols-outlined">badge</span>
+          <span class="material-symbols-outlined" aria-hidden="true">badge</span>
           Ver todas las credenciales de ${esc(c.estudiante)}</a>` : ''}
     </div>`;
   }).join('');

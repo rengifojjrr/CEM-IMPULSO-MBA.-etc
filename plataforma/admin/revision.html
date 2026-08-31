@@ -122,9 +122,9 @@ function render(){
     <td>${chipEstado(r.estado)}</td>
     <td class="muted">${fdate(r.actualizado_en||r.created_at)}</td>
     <td class="nowrap">
-      <button class="btn ghost sm" data-ver="${r.id}" title="Ver"><span class="material-symbols-outlined">visibility</span></button>
-      ${puede && r.estado!=='aprobado' ? `<button class="btn ghost sm" data-ap="${r.id}" title="Aprobar y publicar" style="color:var(--ok)"><span class="material-symbols-outlined">check_circle</span></button>
-      <button class="btn ghost sm" data-dev="${r.id}" title="Devolver" style="color:var(--warn)"><span class="material-symbols-outlined">assignment_return</span></button>`:''}
+      <button class="btn ghost sm" data-ver="${r.id}" title="Ver" aria-label="Ver"><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
+      ${puede && r.estado!=='aprobado' ? `<button class="btn ghost sm" data-ap="${r.id}" title="Aprobar y publicar" style="color:var(--ok)" aria-label="Aprobar y publicar"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span></button>
+      <button class="btn ghost sm" data-dev="${r.id}" title="Devolver" style="color:var(--warn)" aria-label="Devolver"><span class="material-symbols-outlined" aria-hidden="true">assignment_return</span></button>`:''}
     </td></tr>`).join('') : emptyRow(8, 'La bandeja está vacía: no hay contenido esperando revisión.');
 
   $$('[data-ver]').forEach(b=>b.onclick=()=>ver(rows.find(r=>r.id===b.dataset.ver)));
@@ -158,7 +158,7 @@ async function ver(r){
       <span class="chip neutral">${esc(r.version||'v1')}</span></div>
     ${id ? '<div id="previaVideo" style="margin-bottom:12px"></div>' : ''}
     ${!id && l?.url ? `<a class="btn outline sm" href="${esc(l.url)}" target="_blank" style="margin-bottom:12px">
-      <span class="material-symbols-outlined">open_in_new</span> Abrir el recurso</a>` : ''}
+      <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span> Abrir el recurso</a>` : ''}
     ${!id && !l?.url && !adjuntos.length ? `<p class="tiny muted">Esta lección no lleva vídeo ni archivo adjunto.</p>` : ''}
     <p class="muted">${esc(l?.contenido || 'Sin contenido escrito en la lección.')}</p>
     ${adjuntos.length ? `<b class="tiny sep">Material que se lleva la lección</b>

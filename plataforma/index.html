@@ -41,7 +41,7 @@
     <form id="formLogin">
       <div class="field"><label for="email">Correo</label><input type="email" id="email" required autocomplete="username"></div>
       <div class="field"><label for="pass">Contraseña</label><input type="password" id="pass" required autocomplete="current-password"></div>
-      <button class="btn block" type="submit">Ingresar <span class="material-symbols-outlined">login</span></button>
+      <button class="btn block" type="submit">Ingresar <span class="material-symbols-outlined" aria-hidden="true">login</span></button>
       <div id="loginMsg"></div>
     </form>
     <!-- `type="button"` en todos: sin él un <button> vale por «enviar», y basta
@@ -169,9 +169,9 @@
 
       <div class="row sep" style="gap:10px">
         <button class="btn outline" type="button" id="rAtras" hidden>
-          <span class="material-symbols-outlined">arrow_back</span> Atrás</button>
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Atrás</button>
         <button class="btn gold grow" type="button" id="rSigue">
-          Siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
+          Siguiente <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
         <button class="btn gold grow" type="submit" id="rCrear" hidden>Crear mi cuenta</button>
       </div>
       <div id="regMsg"></div>
@@ -192,7 +192,7 @@
     <p class="tiny muted">Si no aparece en unos minutos, mira en <b>correo no deseado</b> o
       <b>promociones</b>: es donde suele acabar el primer mensaje de un remitente nuevo.</p>
     <button type="button" class="btn outline block sep" id="btnReenviar">
-      <span class="material-symbols-outlined">forward_to_inbox</span> Enviármelo otra vez</button>
+      <span class="material-symbols-outlined" aria-hidden="true">forward_to_inbox</span> Enviármelo otra vez</button>
     <div id="revisaMsg"></div>
 
     <!-- Escribí mal el correo.
@@ -208,7 +208,7 @@
          vuelve al registro con el campo listo para escribirlo bien. -->
     <div class="sep" style="text-align:center">
       <button type="button" class="btn ghost sm" id="btnOtroCorreo">
-        <span class="material-symbols-outlined">edit</span> Me equivoqué de correo</button>
+        <span class="material-symbols-outlined" aria-hidden="true">edit</span> Me equivoqué de correo</button>
     </div>
     <div id="otroCorreoMsg"></div>
 
@@ -227,7 +227,7 @@
       <div class="field"><label for="oEmail">Tu correo</label>
         <input type="email" id="oEmail" required autocomplete="username"></div>
       <button class="btn block" type="submit">Enviarme el enlace
-        <span class="material-symbols-outlined">outgoing_mail</span></button>
+        <span class="material-symbols-outlined" aria-hidden="true">outgoing_mail</span></button>
       <div id="olvideMsg"></div>
     </form>
     <div style="margin-top:12px;text-align:center">

@@ -104,7 +104,7 @@ async function cargar(){
     ['Aprendizaje express'],
   ]);
   $('#acciones').innerHTML = `<a class="btn outline" href="clase.html?curso=${esc(cursoId)}">
-    <span class="material-symbols-outlined">school</span> Ir a las clases</a>`;
+    <span class="material-symbols-outlined" aria-hidden="true">school</span> Ir a las clases</a>`;
   pintar();
 }
 
@@ -132,9 +132,9 @@ function pintar(){
       <div class="contador" id="contador"></div>
       <div class="flechas">
         <button id="antes" title="Anterior" aria-label="Vídeo anterior">
-          <span class="material-symbols-outlined">keyboard_arrow_up</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_up</span></button>
         <button id="luego" title="Siguiente" aria-label="Vídeo siguiente">
-          <span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span></button>
       </div>
     </div>`;
 

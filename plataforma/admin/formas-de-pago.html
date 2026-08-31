@@ -37,7 +37,7 @@
          es exactamente lo que él ve cuando va a pagar.</p></div>
     <div class="actions">
       <a class="btn outline" href="configuracion.html">
-        <span class="material-symbols-outlined">arrow_back</span> Configuración</a>
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Configuración</a>
     </div>
   </div>
 
@@ -121,10 +121,10 @@ function pintar(){
 
           <div class="row">
             <button class="btn" type="submit">
-              <span class="material-symbols-outlined">save</span> Guardar</button>
+              <span class="material-symbols-outlined" aria-hidden="true">save</span> Guardar</button>
             <button class="btn ghost" type="button" data-activar="${esc(m.metodo)}"
               data-a="${m.activo ? '0' : '1'}">
-              <span class="material-symbols-outlined">${m.activo ? 'toggle_on' : 'toggle_off'}</span>
+              <span class="material-symbols-outlined" aria-hidden="true">${m.activo ? 'toggle_on' : 'toggle_off'}</span>
               ${m.activo ? 'Desactivar' : 'Activar'}</button>
           </div>
           <div data-msg></div>
@@ -137,8 +137,8 @@ const filaExtra = (k, v) => `<div class="campos-extra">
     <input data-k value="${esc(k)}" placeholder="Banco"></div>
   <div class="field" style="margin:0"><label>Valor</label>
     <input data-v value="${esc(String(v ?? ''))}" placeholder="Bancaribe"></div>
-  <button class="btn ghost sm" type="button" data-mas title="Añadir otro">
-    <span class="material-symbols-outlined">add</span></button>
+  <button class="btn ghost sm" type="button" data-mas title="Añadir otro" aria-label="Añadir otro">
+    <span class="material-symbols-outlined" aria-hidden="true">add</span></button>
 </div>`;
 
 /* Qué poner en cada una. No es decoración: sin esto, quien configure Zelle

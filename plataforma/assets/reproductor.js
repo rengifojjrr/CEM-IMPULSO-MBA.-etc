@@ -132,26 +132,26 @@ export async function crearReproductor(host, {
       <div class="repro-velo" aria-hidden="true"></div>
       <div class="repro-agua" aria-hidden="true">${esc(marca)}</div>
       <button type="button" class="repro-grande" data-play aria-label="Reproducir">
-        <span class="material-symbols-outlined">play_arrow</span></button>
+        <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span></button>
       <div class="repro-mandos">
         <button type="button" class="repro-btn" data-play aria-label="Reproducir">
-          <span class="material-symbols-outlined">play_arrow</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span></button>
         <button type="button" class="repro-btn sec" data-atras aria-label="Diez segundos atrás">
-          <span class="material-symbols-outlined">replay_10</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">replay_10</span></button>
         <button type="button" class="repro-btn sec" data-alante aria-label="Diez segundos adelante">
-          <span class="material-symbols-outlined">forward_10</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">forward_10</span></button>
         <div class="repro-barra" role="slider" tabindex="0"
              aria-label="Ir a un punto del vídeo" aria-valuemin="0" aria-valuenow="0">
           <div class="repro-visto"></div><div class="repro-punto"></div>
         </div>
         <span class="repro-tiempo">0:00 / 0:00</span>
         <button type="button" class="repro-btn sec" data-mudo aria-label="Silenciar">
-          <span class="material-symbols-outlined">volume_up</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">volume_up</span></button>
         <button type="button" class="repro-btn sec" data-ajustes aria-label="Ajustes"
                 aria-haspopup="dialog" aria-expanded="false">
-          <span class="material-symbols-outlined">settings</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">settings</span></button>
         <button type="button" class="repro-btn sec" data-pantalla aria-label="Pantalla completa">
-          <span class="material-symbols-outlined">fullscreen</span></button>
+          <span class="material-symbols-outlined" aria-hidden="true">fullscreen</span></button>
       </div>
       <div class="repro-panel" role="dialog" aria-label="Ajustes del vídeo" hidden></div>
     </div>`;
@@ -447,7 +447,7 @@ export async function crearReproductor(host, {
     <div class="repro-grupo"><h4>${esc(titulo)}</h4>
       ${ops.map((o) => `<button type="button" class="repro-op${o.on ? ' on' : ''}"
           data-clave="${esc(clave)}" data-valor="${esc(o.v)}">
-          <span class="material-symbols-outlined">${o.on ? 'check' : ''}</span>
+          <span class="material-symbols-outlined" aria-hidden="true">${o.on ? 'check' : ''}</span>
           <span>${esc(o.t)}</span></button>`).join('')}
     </div>`;
 

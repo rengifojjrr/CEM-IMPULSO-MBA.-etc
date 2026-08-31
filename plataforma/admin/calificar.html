@@ -282,7 +282,7 @@ function detalle(){
       <div id="respWrap" style="margin-top:8px"></div></div>`
       : '<p class="muted tiny sep">Esta entrega no tiene respuestas registradas (posible entrega de archivo).</p>'}
     ${s.archivo_url? `<a class="btn outline sm" href="${esc(s.archivo_url)}" target="_blank" style="margin-top:10px">
-      <span class="material-symbols-outlined">attach_file</span> Ver archivo entregado</a>`:''}
+      <span class="material-symbols-outlined" aria-hidden="true">attach_file</span> Ver archivo entregado</a>`:''}
 
     ${puede? `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--outline-variant)">
       <div class="row">
@@ -298,13 +298,13 @@ function detalle(){
              (mejora 19). El cajón se ordena solo: lo que más se usa sube. -->
         <div class="row sep-poco" style="gap:6px;flex-wrap:wrap" id="cajon"></div>
         <button type="button" class="btn ghost sm" id="btnGuardarCom">
-          <span class="material-symbols-outlined">bookmark_add</span>
+          <span class="material-symbols-outlined" aria-hidden="true">bookmark_add</span>
           Guardar este comentario para reutilizarlo</button></div>
-      <div class="row"><button class="btn" id="btnG"><span class="material-symbols-outlined">save</span>
+      <div class="row"><button class="btn" id="btnG"><span class="material-symbols-outlined" aria-hidden="true">save</span>
         ${s.estado==='calificada'?'Actualizar calificación':'Guardar calificación'}</button>
-        <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined">arrow_forward</span></button>
+        <button class="btn outline" id="btnSig">Guardar y siguiente <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
         <button class="btn ghost" id="btnReabrir" style="color:var(--error)">
-          <span class="material-symbols-outlined">undo</span> Devolver para corregir</button></div>
+          <span class="material-symbols-outlined" aria-hidden="true">undo</span> Devolver para corregir</button></div>
     </div>` : (s.feedback? `<div class="card sep"><b class="tiny">Retroalimentación</b>
         <p class="tiny" style="margin:6px 0 0">${esc(s.feedback)}</p></div>` : '')}
   </div>`;
