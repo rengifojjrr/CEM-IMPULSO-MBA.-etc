@@ -24,7 +24,10 @@
      6 · Cada dirección del sitemap existe como archivo, y cada página del
          sitio está en el sitemap. Un mapa que menciona páginas que no existen
          gasta el presupuesto de rastreo en 404.
-     7 · Ninguna página que se quiere indexar lleva `noindex` por descuido.
+     7 · Existe /favicon.ico en la raíz, es un .ico de verdad y todas las
+         páginas lo declaran. Sin él Google enseña el sitio con un cuadrito y
+         la inicial del dominio, que es lo que estaba pasando.
+     8 · Ninguna página que se quiere indexar lleva `noindex` por descuido.
 
    Uso:  node herramientas/revisar-seo.mjs
 */
@@ -165,6 +168,26 @@ else {
   }
 }
 
+titulo('El logotipo llega a quien lo pide');
+/* Google enseñaba el sitio con un cuadrito negro y una «E»: su sustituto para
+   cuando no encuentra favicon. Buscaba /favicon.ico en la raíz del dominio
+   —lo hace ANTES de leer el HTML— y ahí había un 404. Lo único declarado era
+   un SVG, que admite pero recoge peor. */
+const sinIco = paginas.filter((p) => !/<link rel="icon" href="\/favicon\.ico"/.test(p.html));
+const hayIco = existsSync(join(RAIZ, 'favicon.ico'));
+if (!hayIco) mal('No existe /favicon.ico en la raíz: Google pondrá la inicial del dominio');
+sinIco.forEach((p) => mal(`${p.f} no declara /favicon.ico`));
+if (hayIco && !sinIco.length) {
+  const bytes = readFileSync(join(RAIZ, 'favicon.ico'));
+  /* Que sea un .ico de verdad y no un PNG renombrado, que es el error clásico:
+     los dos primeros campos son reservado=0 y tipo=1. */
+  const esIco = bytes.readUInt16LE(0) === 0 && bytes.readUInt16LE(2) === 1;
+  const cuantos = esIco ? bytes.readUInt16LE(4) : 0;
+  if (!esIco) mal('/favicon.ico existe pero no tiene la cabecera de un .ico');
+  else bien(`/favicon.ico está en la raíz con ${cuantos} tamaño(s) dentro,`
+    + ` y las ${paginas.length} páginas lo declaran`);
+}
+
 titulo('Nadie lleva un «noindex» puesto por descuido');
 /* Las que SÍ deben llevarlo: el 404, y las pantallas que enseñan lo mismo que
    una página generada pero pintado con JavaScript. */
@@ -179,5 +202,5 @@ if (problemas) {
   console.log('═'.repeat(58));
   process.exit(1);
 }
-console.log('✓ Las 7 comprobaciones de SEO pasaron.');
+console.log("✓ Las 8 comprobaciones de SEO pasaron.");
 console.log('═'.repeat(58));

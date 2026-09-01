@@ -270,6 +270,11 @@ function pagina({ titulo, descripcion, url, cuerpo, jsonLd, imagen, activa, prof
 <title>${esc(titulo)}</title>
 <meta name="description" content="${esc(descripcion)}">
 <link rel="canonical" href="${esc(url)}">
+${/* El .ico va con dirección absoluta y el primero. Google lo busca en la raíz
+      del dominio ANTES de leer esta línea, y mientras no estuvo enseñaba en el
+      resultado de búsqueda un cuadrito negro con la inicial del dominio.
+      Ver herramientas/iconos.mjs. */''}
+<link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="${arriba}plataforma/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="${arriba}plataforma/assets/icono-180.png">
 <link rel="manifest" href="/site.webmanifest">
