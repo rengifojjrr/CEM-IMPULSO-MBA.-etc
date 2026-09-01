@@ -275,7 +275,8 @@ ${/* El .ico va con dirección absoluta y el primero. Google lo busca en la raí
       resultado de búsqueda un cuadrito negro con la inicial del dominio.
       Ver herramientas/iconos.mjs. */''}
 <link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" href="${arriba}plataforma/assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" type="image/png" sizes="96x96" href="${arriba}plataforma/assets/favicon-96.png">
+<link rel="icon" type="image/svg+xml" href="${arriba}plataforma/assets/favicon.svg">
 <link rel="apple-touch-icon" href="${arriba}plataforma/assets/icono-180.png">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0d2440">

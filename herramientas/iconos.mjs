@@ -6,15 +6,27 @@
    cuando no encuentra un favicon que le sirva — la inicial del dominio sobre un
    fondo liso.
 
-   Y no lo encontraba por una razón concreta: `escuelacem.com/favicon.ico` daba
-   404. Google busca ahí PRIMERO, por convención de 1995, y sólo después mira lo
-   que declara el HTML. Lo único declarado era un SVG, que Google admite en la
-   documentación pero recoge de forma menos fiable que un .ico en su sitio.
+   Eran DOS causas, y la primera tapaba a la segunda:
 
-   Ahora se declaran cuatro cosas, y cada una tiene su público:
+   1 · `escuelacem.com/favicon.ico` daba 404. Google busca ahí primero, por
+       convención de 1995, y sólo después mira lo que declara el HTML.
+
+   2 · Y lo único que declaraba el HTML era un SVG SIN `width` ni `height` en
+       su etiqueta raíz — sólo `viewBox`. Ese archivo se dibuja perfectamente
+       dentro de un `<img>` que le dé medidas, y por eso el logotipo del
+       encabezado se veía bien y esto costó encontrarlo. Pero como
+       `<link rel="icon" type="image/svg+xml">` no hay ningún `<img>`: el
+       navegador tiene que deducir el tamaño natural del propio archivo, no lo
+       encuentra, y descarta el icono. En su lugar pone su suplente: un
+       cuadrado con la inicial del dominio.
+
+   Arreglado lo primero, seguía saliendo la «E», que es lo que llevó a lo
+   segundo. Ahora se declaran cuatro cosas, y cada una tiene su público:
 
      · /favicon.ico          — Google y cualquier cosa vieja. Lleva 16, 32 y 48
                                px dentro del mismo archivo.
+     · favicon-96.png        — el formato que ningún navegador discute, y el
+                               seguro por si el SVG vuelve a dar problemas.
      · favicon.svg           — los navegadores modernos: una sola forma vectorial
                                nítida a cualquier tamaño.
      · icono-180.png         — la pantalla de inicio de un iPhone.
@@ -119,11 +131,17 @@ function bloque(rutaRelativa) {
   /* El .ico va con dirección absoluta a propósito: vive en la raíz del dominio
      porque es donde Google lo busca, y desde una pantalla en /plataforma/admin/
      una ruta relativa apuntaría a otro sitio. */
-  return '<!-- El logotipo, para cada quien lo pida. El .ico va absoluto: vive en la\n'
-    + '     raíz del dominio porque es ahí donde lo busca Google, antes incluso de\n'
-    + '     leer esta línea. Ver herramientas/iconos.mjs. -->\n'
+  /* Cuatro declaraciones, y cada una para quien no entiende las otras.
+     El .ico primero y absoluto: vive en la raíz del dominio porque es ahí
+     donde lo busca Google, antes incluso de leer esta línea. El PNG después,
+     porque es el formato que ningún navegador discute. El SVG para quien
+     prefiera un vector. Y el de 180 para la pantalla de inicio de un iPhone. */
+  return '<!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,\n'
+    + '     PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180\n'
+    + '     para el iPhone. Ver herramientas/iconos.mjs. -->\n'
     + '<link rel="icon" href="/favicon.ico" sizes="32x32">\n'
-    + `<link rel="icon" href="${rutaRelativa}favicon.svg" type="image/svg+xml">\n`
+    + `<link rel="icon" type="image/png" sizes="96x96" href="${rutaRelativa}favicon-96.png">\n`
+    + `<link rel="icon" type="image/svg+xml" href="${rutaRelativa}favicon.svg">\n`
     + `<link rel="apple-touch-icon" href="${rutaRelativa}icono-180.png">\n`;
 }
 

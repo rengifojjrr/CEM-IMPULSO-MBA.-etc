@@ -1,4 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1240" role="img"
+<!-- `width` y `height` en la raíz, además del viewBox, y no son de adorno.
+     ═══════════════════════════════════════════════════════════════════════
+     Con sólo viewBox, este archivo se dibuja perfectamente dentro de un <img>
+     que le dé medidas — por eso el logotipo del encabezado se veía bien y esto
+     costó encontrarlo. Pero como <link rel="icon" type="image/svg+xml"> no hay
+     ningún <img> que le diga a qué tamaño: el navegador tiene que deducir el
+     tamaño natural del propio archivo, no lo encuentra, y descarta el icono.
+
+     Lo que pone Chrome en su lugar es su suplente: un cuadrado con la inicial
+     del dominio. La «E» de escuelacem.com. Eso es lo que se veía en la pestaña
+     y en el resultado de Google, y no era caché. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1240"
+     width="1240" height="1240" role="img"
      aria-label="CEM · Centro de Estudios de Marketing">
   <title>CEM</title>
   <!-- El birrete de la casa.

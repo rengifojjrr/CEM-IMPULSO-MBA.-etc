@@ -177,6 +177,21 @@ const sinIco = paginas.filter((p) => !/<link rel="icon" href="\/favicon\.ico"/.t
 const hayIco = existsSync(join(RAIZ, 'favicon.ico'));
 if (!hayIco) mal('No existe /favicon.ico en la raíz: Google pondrá la inicial del dominio');
 sinIco.forEach((p) => mal(`${p.f} no declara /favicon.ico`));
+/* Y que el SVG tenga tamaño propio.
+   ───────────────────────────────────────────────────────────────────────────
+   Un SVG con sólo `viewBox` se dibuja bien dentro de un <img> que le dé
+   medidas, pero como favicon no hay ningún <img>: el navegador tiene que
+   deducir el tamaño del archivo, no lo encuentra, y descarta el icono. Eso
+   pasó de verdad, y no se ve en ninguna parte salvo mirando la pestaña. */
+const svg = join(RAIZ, 'plataforma', 'assets', 'favicon.svg');
+if (existsSync(svg)) {
+  const raiz = readFileSync(svg, 'utf8').match(/<svg[^>]*>/)?.[0] || '';
+  if (!/\swidth=/.test(raiz) || !/\sheight=/.test(raiz)) {
+    mal('favicon.svg no declara width y height en su etiqueta raíz: como icono'
+      + ' el navegador no sabe a qué tamaño dibujarlo y pone la inicial del dominio');
+  }
+}
+
 if (hayIco && !sinIco.length) {
   const bytes = readFileSync(join(RAIZ, 'favicon.ico'));
   /* Que sea un .ico de verdad y no un PNG renombrado, que es el error clásico:
