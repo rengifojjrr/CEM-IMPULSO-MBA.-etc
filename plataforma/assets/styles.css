@@ -823,6 +823,12 @@ button.avatar:hover{outline:2px solid var(--primary);outline-offset:1px;}
 .franja > .dentro > p.entrada{color:var(--tinta-2);max-width:62ch;margin:0 0 var(--e3);}
 
 .portada-cem{padding:var(--e5) var(--e3) var(--e4);}
+/* La caja de la portada, con el mismo ancho que las franjas de debajo.
+   `.franja > .dentro` ya lo tenía; `.portada-cem > .dentro` no, así que la
+   cabecera se pegaba al borde izquierdo mientras todo lo de abajo iba centrado
+   a 1200. Se veía en las páginas generadas, donde la cabecera NO es la de una
+   sola columna centrada. */
+.portada-cem > .dentro{max-width:1200px;margin:0 auto;}
 /* Dos columnas: lo que decimos y algo que se puede hacer.
    La derecha no baja de 340 px porque debajo lleva un formulario, y un campo
    de texto más estrecho que eso se vuelve incómodo de escribir. */
@@ -3556,4 +3562,122 @@ details.card h3.sec{margin-top:var(--e3);}
   /* Con la ventana a pantalla completa el botón queda debajo y se ve el borde
      asomando por una esquina. */
   body.con-chat-abierto .chat-boton{display:none;}
+}
+
+/* ═══ El temario público: los diplomados y sus módulos ═══════════════════════
+   Las páginas de /programas/ las escribe herramientas/generar-seo.mjs y son
+   las que ve quien llega desde Google — muchas veces, lo primero que sabe de
+   la escuela. Nacieron como texto suelto en gris, sin parecerse a nada del
+   resto de la casa, y eso en la página que más tiene que convencer.
+
+   No hay foto de ningún módulo porque no existen. Así que la portada de cada
+   uno se dibuja: su icono sobre su color, del mismo arcoíris que el birrete
+   del logotipo. El color se decide por el sitio del módulo en su diplomado,
+   así que el mismo módulo se reconoce en la portada, en el índice y en su
+   propia página. Ver herramientas/temario.mjs. */
+
+.rejilla-modulos{display:grid;gap:var(--e2);
+  grid-template-columns:repeat(auto-fit,minmax(238px,1fr));}
+
+.mod{display:flex;flex-direction:column;background:var(--papel);
+  border:1px solid var(--filete);border-radius:var(--r);overflow:hidden;
+  text-decoration:none;color:inherit;
+  transition:border-color var(--rapido), transform var(--rapido), box-shadow var(--rapido);}
+a.mod:hover{border-color:var(--mod-color, var(--primary));transform:translateY(-2px);
+  box-shadow:0 6px 20px rgb(0 0 0 / .07);}
+a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-offset:2px;}
+
+/* La cubierta.
+   ─────────────────────────────────────────────────────────────────────────
+   Lo que manda es el NÚMERO del módulo, grande y en su color. El icono va de
+   acompañante, más pequeño y a media tinta.
+
+   Y ese reparto no es capricho. Los iconos de la casa son una tipografía de
+   ligaduras: dentro del HTML no hay un dibujo, hay la palabra «calendar_month».
+   Si esa fuente tarda o no llega —y viene de un servidor de fuera—, lo que se
+   lee en su sitio es la palabra en inglés. En una pantalla interna es feo; en
+   la página por la que alguien llega desde Google y decide si esta escuela es
+   serio, es otra cosa.
+   Con el número al frente, si el icono falla se pierde un adorno pequeño y la
+   tarjeta sigue en pie. El `overflow:hidden` y el `max-width` del glifo son el
+   cinturón: aunque caiga la palabra entera, no se sale de la tarjeta. */
+.mod-cubierta{display:flex;align-items:center;justify-content:center;gap:10px;
+  height:96px;background:color-mix(in srgb, var(--mod-color) 12%, transparent);
+  border-bottom:1px solid var(--filete);position:relative;overflow:hidden;}
+.mod-cifra{font-family:var(--cifra);font-size:38px;line-height:1;font-weight:700;
+  color:var(--mod-color);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.mod-cubierta .material-symbols-outlined{font-size:30px;color:var(--mod-color);
+  opacity:.55;line-height:1;max-width:44px;overflow:hidden;}
+.mod-numero{position:absolute;top:8px;left:10px;font-size:var(--t-xs);
+  font-weight:var(--peso-fuerte);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--mod-color);opacity:.85;max-width:calc(100% - 20px);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.mod-cuerpo{padding:var(--e2);display:flex;flex-direction:column;gap:4px;flex:1;}
+.mod-cuerpo h3{margin:0;font-size:var(--t-md);line-height:1.25;}
+.mod-cuerpo p{margin:0;font-size:var(--t-sm);color:var(--tinta-2);}
+.mod-pie{margin-top:auto;padding-top:var(--e1);font-size:var(--t-xs);
+  color:var(--tinta-3);}
+
+/* La cabecera de un diplomado y la de un módulo, con su color de fondo.
+   El degradado es del color al 10 % hacia transparente: da identidad sin
+   competir con el texto, que es lo que se ha venido a leer. */
+.cabecera-tema{position:relative;overflow:hidden;
+  background:linear-gradient(160deg,
+    color-mix(in srgb, var(--mod-color, var(--primary)) 13%, transparent) 0%,
+    transparent 62%);}
+.medallon-tema{width:64px;height:64px;border-radius:var(--r);display:flex;
+  align-items:center;justify-content:center;margin-bottom:var(--e2);
+  background:color-mix(in srgb, var(--mod-color, var(--primary)) 15%, transparent);
+  color:var(--mod-color, var(--primary));}
+.medallon-tema .material-symbols-outlined{font-size:34px;line-height:1;
+  max-width:48px;overflow:hidden;}
+
+/* Los ocho módulos como una fila de puntos de color: se ve de un vistazo que
+   el diplomado tiene ocho partes y en cuál estás. */
+.tira-modulos{display:flex;gap:6px;flex-wrap:wrap;margin:var(--e1) 0 var(--e2);}
+.tira-modulos a{width:26px;height:26px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;font-size:var(--t-xs);
+  font-weight:var(--peso-fuerte);text-decoration:none;
+  background:color-mix(in srgb, var(--p) 14%, transparent);color:var(--p);
+  transition:transform var(--rapido);}
+.tira-modulos a:hover{transform:scale(1.12);}
+.tira-modulos a[aria-current="page"]{background:var(--p);color:#fff;}
+
+/* La prueba: cuánta gente tiene ese certificado. Va en una línea con su punto
+   de color, no en una caja gris más. */
+.avala{display:flex;align-items:center;gap:var(--e1);flex-wrap:wrap;
+  font-size:var(--t-sm);color:var(--tinta-2);}
+.avala .punto{width:8px;height:8px;border-radius:50%;
+  background:var(--mod-color, var(--primary));flex:0 0 auto;}
+
+/* Un titular más largo que «Educamos hoy, lideras mañana».
+   ───────────────────────────────────────────────────────────────────────────
+   `.portada-cem h1` se limita a 15ch, que para el lema de la portada de la
+   plataforma —cuatro palabras— es exactamente lo que hace falta. Los titulares
+   de las páginas que lee Google llevan dentro las palabras por las que se
+   busca, así que son más largos, y a 15ch se partían en seis renglones de tres
+   palabras: una escalera, no un titular.
+
+   Va como clase aparte y no cambiando la regla de origen porque la portada de
+   la plataforma está bien como está: lo que cambia es el caso, no la regla. */
+.portada-cem h1.titular-largo{max-width:26ch;text-wrap:balance;}
+
+/* La cabecera de las páginas que no cargan JavaScript.
+   ═══════════════════════════════════════════════════════════════════════════
+   En un teléfono, `.pub-inner nav` y `.pub-cta` se esconden y sólo vuelven con
+   la clase `.abierto`, que pone el botón de hamburguesa que inyecta `app.js`.
+   Las páginas de /programas/ y la portada del dominio NO cargan app.js —a
+   propósito: son estáticas y tienen que pintar sin esperar 196 KB—, así que en
+   un móvil se quedaban con la marca y nada más. Ni un enlace. Y de un buscador
+   llega sobre todo gente con el teléfono en la mano.
+
+   Se resuelve sin JavaScript: en estas páginas el menú no se pliega, se parte
+   en dos renglones. Cinco enlaces caben. Lo que no puede fallar es lo que no
+   depende de nada. */
+@media(max-width:720px){
+  .pub-header.estatica .pub-inner nav{display:flex;order:3;width:100%;
+    flex-wrap:wrap;gap:var(--e1) var(--e3);padding-bottom:var(--e1);}
+  .pub-header.estatica .pub-inner .pub-cta{display:flex;order:4;width:100%;
+    margin-left:0;padding-bottom:var(--e1);}
+  .pub-header.estatica .pub-cta > .btn{flex:1;justify-content:center;}
 }

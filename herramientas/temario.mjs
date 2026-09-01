@@ -35,15 +35,39 @@ const CLAVE = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
    La clave es EXACTAMENTE el nombre de la plantilla en la base. Si un día
    cambia, el generador se para y lo dice, en vez de publicar una página con el
    nombre en mayúsculas. */
+/* Un icono y un color por módulo.
+   ═══════════════════════════════════════════════════════════════════════════
+   Las páginas de programa eran texto y nada más: dieciocho páginas idénticas
+   en gris que no se parecían al resto de la casa. Y no había foto de ninguno
+   —no existen—, así que la portada de cada módulo se dibuja: su icono sobre su
+   color.
+
+   Los colores no son decoración al azar. El logotipo de la escuela es un
+   birrete con un degradado de arcoíris, y la propia hoja de estilos dice, a
+   propósito de las tarjetas de valores: «en el brand board los cinco valores
+   son cinco estrellas de cinco colores distintos; una rejilla de cinco iconos
+   todos del mismo azul no se parece a eso». Ocho módulos en ocho colores del
+   mismo arcoíris sí.
+
+   Están elegidos para leerse en claro y en oscuro: el amarillo puro del
+   logotipo desaparece sobre blanco, así que el sitio que le tocaría lo ocupa
+   un ámbar. El icono viene de Material Symbols, que la casa ya carga. */
+export const PALETA = [
+  '#E5484D', '#E93D82', '#8E4EC6', '#5B5BD6',
+  '#0091FF', '#12A594', '#46A758', '#F76B15',
+];
+
 export const MODULOS = {
   // ── Diplomado en Marketing Digital ──
   'PLANIFICACION Y NEGOCIOS': {
+    icono: 'strategy',
     nombre: 'Planificación y negocios',
     que: 'Planificar un negocio es decidir a quién se le vende, con qué dinero y en '
       + 'qué orden. Es la parte del marketing que se hace antes de publicar nada.',
     busca: 'plan de negocios, planificación estratégica, modelo de negocio',
   },
   'COMMUNITY MANAGEMENT': {
+    icono: 'forum',
     nombre: 'Community management',
     que: 'El community management es llevar las cuentas de una marca en redes: '
       + 'publicar, responder a quien escribe y sostener una conversación pública '
@@ -51,36 +75,42 @@ export const MODULOS = {
     busca: 'community manager, gestión de comunidades, atención en redes',
   },
   'SOCIAL MEDIA MANAGEMENT': {
+    icono: 'calendar_month',
     nombre: 'Social media management',
     que: 'El social media management es la capa de arriba: qué se publica, cuándo, '
       + 'en qué red y por qué, con un calendario y unos números detrás.',
     busca: 'social media manager, estrategia de redes sociales, calendario de contenidos',
   },
   'INSTAGRAM Y TIKTOK PARA NEGOCIOS': {
+    icono: 'smartphone',
     nombre: 'Instagram y TikTok para negocios',
     que: 'Las dos redes donde hoy se descubre a una marca pequeña. Cada una tiene su '
       + 'formato, su ritmo y su manera de repartir alcance.',
     busca: 'Instagram para negocios, TikTok para negocios, reels, contenido vertical',
   },
   'RAMAS DEL MARKETING': {
+    icono: 'account_tree',
     nombre: 'Ramas del marketing',
     que: 'El mapa del oficio: qué es marketing de contenidos, de resultados, de marca, '
       + 'relacional o de producto, y en qué se diferencia el trabajo de cada uno.',
     busca: 'tipos de marketing, ramas del marketing, especialidades de marketing',
   },
   'GESTION DE ADS': {
+    icono: 'campaign',
     nombre: 'Gestión de anuncios',
     que: 'Pagar por alcance sin tirar el dinero: cómo se arma una campaña, a quién se '
       + 'le enseña y cómo se lee si funcionó.',
     busca: 'Meta Ads, Facebook Ads, publicidad en redes, campañas pagadas',
   },
   'GRABACION Y EDICION DE VIDEOS': {
+    icono: 'movie',
     nombre: 'Grabación y edición de videos',
     que: 'Grabar con lo que se tiene —casi siempre un teléfono— y montarlo hasta que '
       + 'se pueda publicar.',
     busca: 'edición de video, grabación con celular, video para redes',
   },
   'CREACION DE CONTENIDO + IA': {
+    icono: 'auto_awesome',
     nombre: 'Creación de contenido con IA',
     que: 'Usar herramientas de inteligencia artificial como parte del trabajo de '
       + 'producir contenido, sin que se note que las usaste.',
@@ -89,48 +119,56 @@ export const MODULOS = {
 
   // ── Diplomado en Inteligencia Artificial y Producción Digital ──
   FOTOGRAFIA: {
+    icono: 'photo_camera',
     nombre: 'Fotografía',
     que: 'La imagen fija: luz, encuadre y las decisiones que hacen que una foto de '
       + 'producto se vea profesional o se vea casera.',
     busca: 'curso de fotografía, fotografía de producto, fotografía digital',
   },
   'GRABACION DE VIDEOS': {
+    icono: 'videocam',
     nombre: 'Grabación de videos',
     que: 'Lo que pasa antes de editar: qué se graba, con qué luz, con qué sonido y en '
       + 'qué orden, para no tener que arreglarlo después.',
     busca: 'grabación de video, producción audiovisual, video con celular',
   },
   'EDICION DE VIDEO EN PC': {
+    icono: 'video_settings',
     nombre: 'Edición de video en PC',
     que: 'El montaje en computadora, que es donde un material bruto se convierte en '
       + 'algo que alguien mira hasta el final.',
     busca: 'edición de video en PC, montaje de video, postproducción',
   },
   IA1: {
+    icono: 'neurology',
     nombre: 'Inteligencia artificial I',
     que: 'La primera mitad de la inteligencia artificial aplicada: qué hacen de verdad '
       + 'estas herramientas y para qué trabajos sirven hoy.',
     busca: 'curso de inteligencia artificial, IA aplicada, herramientas de IA',
   },
   IA2: {
+    icono: 'smart_toy',
     nombre: 'Inteligencia artificial II',
     que: 'La segunda mitad, donde la IA deja de ser una curiosidad y se mete en el '
       + 'flujo de trabajo de todos los días.',
     busca: 'inteligencia artificial avanzada, IA para profesionales, automatización con IA',
   },
   PHOTOSHOP: {
+    icono: 'brush',
     nombre: 'Photoshop',
     que: 'El programa con el que se retoca y se compone una imagen, y que sigue siendo '
       + 'el estándar de la industria treinta años después.',
     busca: 'curso de Photoshop, retoque fotográfico, Adobe Photoshop',
   },
   BRANDING: {
+    icono: 'palette',
     nombre: 'Branding',
     que: 'La identidad de una marca: cómo se llama, cómo se ve, cómo suena y por qué '
       + 'alguien la reconoce sin leer el nombre.',
     busca: 'branding, identidad de marca, diseño de marca, manual de marca',
   },
   ILLUSTRATOR: {
+    icono: 'draw',
     nombre: 'Illustrator',
     que: 'El dibujo vectorial: logotipos, iconos y todo lo que tiene que verse igual de '
       + 'nítido en una tarjeta y en una valla.',
@@ -201,6 +239,11 @@ export async function traerTemario() {
         ...m, ...mm,
         apodo: apodoDe(mm.nombre),
         diplomado: meta.clave,
+        /* El color por su sitio en el diplomado, no al azar: así el módulo 1
+           es siempre el mismo rojo en la portada, en el índice y en su propia
+           página, y se reconoce de una a otra. Los dos diplomados recorren el
+           arcoíris al revés para que no parezcan la misma lista repetida. */
+        color: PALETA[(d.familia === 'IA' ? PALETA.length - m.orden : m.orden - 1) % PALETA.length],
       };
     });
     return {

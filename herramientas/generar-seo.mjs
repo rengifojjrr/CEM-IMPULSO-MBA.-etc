@@ -152,7 +152,7 @@ const dinero = (n, moneda) => {
    recorre el sitio, y unos enlaces que sólo existen después de ejecutar
    JavaScript son enlaces que puede no llegar a ver. */
 const cabecera = (activa) => `
-<header class="pub-head">
+<header class="pub-header estatica">
   <div class="pub-inner">
     ${/* La marca y «Inicio» apuntan a «/», no a /plataforma/inicio.html. Estos
           son los enlaces por los que un buscador recorre el sitio y por los que
@@ -225,7 +225,7 @@ const CSS_CRITICO = `
 body{margin:0;background:var(--fondo);color:var(--tinta);
   font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   line-height:1.6;}
-.pub-head{background:var(--papel);border-bottom:1px solid var(--filete);}
+.pub-header{background:var(--papel);border-bottom:1px solid var(--filete);}
 .pub-inner{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;
   flex-wrap:wrap;align-items:center;gap:16px;}
 .pub-brand{font-weight:700;color:var(--tinta);text-decoration:none;}
@@ -582,68 +582,60 @@ function paginaDelCatalogo(cursos, temario) {
   });
 
   const cuerpo = `
-<main class="pub-main" style="max-width:1080px">
-  ${migas(pasos)}
-  <h1>Programas del CEM</h1>
+<section class="portada-cem centrada">
+  <div class="dentro">
+    ${migas(pasos)}
+    <span class="ojal">${temario.diplomados.length} diplomados · ${nModulos} certificaciones</span>
+    <h1>Programas del CEM</h1>
+    <p class="lema">Dos diplomados de ocho módulos cada uno. Cada módulo se certifica por
+      separado, con su propio código de verificación.</p>
+  </div>
+</section>
 
-  ${/* Lo primero, lo que de verdad se imparte. La lista de `cem_courses` de más
-        abajo es la del catálogo de la plataforma, que hoy está vacío: si algún
-        día se llena, las dos conviven sin pisarse. */''}
-  <p class="entrada">Dos diplomados de ocho módulos cada uno. Cada módulo se certifica por
-    separado, con su propio código de verificación.</p>
-
-  ${temario.diplomados.map((d) => `<section>
-    <h2><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
-    <p class="tiny muted">${esc(recortar(d.que, 200))}<br>
+${temario.diplomados.map((d, i) => `
+<section class="franja${i % 2 === 0 ? ' tenue' : ''}">
+  <div class="dentro">
+    <span class="ojal">Diplomado</span>
+    <h2 style="margin-top:0"><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
+    <p class="entrada">${esc(d.que)}</p>
+    <p class="avala" style="--mod-color:${d.modulos[0]?.color || 'var(--primary)'}">
+      <span class="punto"></span>
       ${d.personas} personas lo han cursado en ${d.promociones}
       promoci${d.promociones === 1 ? 'ón' : 'ones'} · ${d.diplomas} diplomas de cierre emitidos</p>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px">
-      ${d.modulos.map((m) => `<article class="caja" style="padding:14px">
-        <p class="tiny muted" style="margin:0 0 4px">Módulo ${m.orden} · ${d.corto}</p>
-        <h3 style="margin:0 0 6px"><a href="${SITIO}/programas/${m.apodo}.html">${esc(m.nombre)}</a></h3>
-        <p class="tiny" style="margin:0">${esc(recortar(m.que, 100))}</p>
-      </article>`).join('')}
+    <div class="rejilla-modulos" style="margin-top:var(--e3)">
+      ${d.modulos.map((m) => tarjetaModulo(m, d)).join('')}
     </div>
-  </section>`).join('')}
+  </div>
+</section>`).join('')}
 
-  ${/* El catálogo de la plataforma va DEBAJO y sólo si tiene algo.
-        Antes, con `cem_courses` vacío, esta página entera se reducía a «ahora
-        mismo no hay inscripciones abiertas» — un cartel de cerrado en la
-        página que más tenía que atraer. Ahora arriba está el temario de
-        verdad, y esto es un añadido cuando lo haya. */''}
-  ${!cursos.length ? '' : `
-  <section>
+${!cursos.length ? '' : `
+<section class="franja">
+  <div class="dentro">
     <h2>Convocatorias abiertas</h2>
     <p class="entrada">${cursos.length === 1 ? 'Un programa' : `${cursos.length} programas`}
       con inscripción abierta ahora mismo.</p>
-  ${areas.map((area) => {
-    const suyos = cursos.filter((c) => (plano(c.categoria) || 'Otros programas') === area);
-    return `<section>
-      <h2>${esc(area)}</h2>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--e2)">
-        ${suyos.map((c) => `<article class="caja" style="padding:16px">
-          <p class="tiny muted" style="margin:0 0 4px">${esc(TIPO[c.tipo] || 'Programa')}${
-            c.horas ? ` · ${c.horas} h` : ''}${
-            MODALIDAD[c.modalidad] ? ` · ${esc(MODALIDAD[c.modalidad])}` : ''}</p>
-          <h3 style="margin:0 0 6px"><a href="${SITIO}/programas/${esc(c.apodo)}.html">${
-            esc(plano(c.nombre))}</a></h3>
-          <p class="tiny">${esc(recortar(c.descripcion_corta || c.subtitulo || '', 120))}</p>
-          <p style="margin:8px 0 0"><b>${esc(dinero(c.precio, c.moneda))}</b></p>
-        </article>`).join('')}
-      </div>
-    </section>`;
-  }).join('')}
-  </section>`}
+    ${areas.map((area) => {
+      const suyos = cursos.filter((c) => (plano(c.categoria) || 'Otros programas') === area);
+      return `<h3>${esc(area)}</h3>
+      <div class="rejilla-modulos">
+        ${suyos.map((c) => `<a class="mod" style="--mod-color:var(--primary)"
+          href="${SITIO}/programas/${esc(c.apodo)}.html">
+          <div class="mod-cubierta"><span class="material-symbols-outlined"
+            aria-hidden="true">school</span></div>
+          <div class="mod-cuerpo"><h3>${esc(plano(c.nombre))}</h3>
+            <p>${esc(recortar(c.descripcion_corta || c.subtitulo || '', 96))}</p>
+            <p class="mod-pie">${esc(dinero(c.precio, c.moneda))}</p></div></a>`).join('')}
+      </div>`;
+    }).join('')}
+  </div>
+</section>`}
 
-  <section class="caja" style="padding:var(--e3);margin-top:var(--e3)">
-    <h2 style="margin-top:0">¿No sabes por dónde empezar?</h2>
-    <p>Si no tienes claro cuál de los dos diplomados te sirve, o quieres cursar un módulo
-      suelto, escríbenos y te lo decimos. Las
-      <a href="${SITIO}/preguntas-frecuentes.html">preguntas frecuentes</a> contestan lo que
-      más nos preguntan.</p>
-    <a class="btn" href="${SITIO}/plataforma/nosotros.html">Escribirnos</a>
-  </section>
-</main>`;
+${bloqueCertificado(temario, `
+    <p class="tiny muted" style="margin-top:var(--e3)">Si no tienes claro cuál de los dos te
+      sirve, o quieres cursar un módulo suelto,
+      <a href="${SITIO}/plataforma/nosotros.html">escríbenos</a>. Las
+      <a href="${SITIO}/preguntas-frecuentes.html">preguntas frecuentes</a> contestan lo que más
+      nos preguntan.</p>`)}`;
 
   return pagina({ titulo, descripcion, url, cuerpo, jsonLd, activa: 'programas', profundidad: 1 });
 }
@@ -701,6 +693,56 @@ function loQueAvala(m) {
   return `${p} este certificado, de ${q}.`;
 }
 
+/* ── las piezas visuales, compartidas por las cuatro páginas ───────────────
+   Se escriben una vez y se usan en la portada, en el índice, en la página del
+   diplomado y en la del módulo. Así el mismo módulo se ve igual en los cuatro
+   sitios, que es lo que hace que un sitio parezca uno y no cuatro. */
+
+/** La tarjeta de un módulo: su cubierta de color, su nombre y su definición. */
+const tarjetaModulo = (m, dip, { conDiplomado = false } = {}) => `
+  <a class="mod" style="--mod-color:${m.color}" href="${SITIO}/programas/${m.apodo}.html">
+    <div class="mod-cubierta">
+      <span class="mod-numero">Módulo ${m.orden}${conDiplomado ? ` · ${esc(dip.corto)}` : ''}</span>
+      <span class="mod-cifra">${String(m.orden).padStart(2, '0')}</span>
+      <span class="material-symbols-outlined" aria-hidden="true">${m.icono}</span>
+    </div>
+    <div class="mod-cuerpo">
+      <h3>${esc(m.nombre)}</h3>
+      <p>${esc(recortar(m.que, 96))}</p>
+      <p class="mod-pie">${m.personas} con este certificado</p>
+    </div>
+  </a>`;
+
+/** Los ocho módulos como puntos de color. `aqui` marca en cuál estás. */
+const tiraDeModulos = (dip, aqui) => `
+  <nav class="tira-modulos" aria-label="Los ocho módulos del ${esc(dip.corto)}">
+    ${dip.modulos.map((m) => `<a style="--p:${m.color}" href="${SITIO}/programas/${m.apodo}.html"
+      title="Módulo ${m.orden} · ${esc(m.nombre)}"${m.apodo === aqui ? ' aria-current="page"' : ''}
+      >${m.orden}</a>`).join('')}
+  </nav>`;
+
+/** El bloque del certificado, que es el argumento de venta que sí es cierto. */
+const bloqueCertificado = (temario, dentro) => `
+<section class="franja tenue">
+  <div class="dentro estrecho" style="text-align:center">
+    <span class="ojal">Lo que te llevas</span>
+    <h2>Un certificado que cualquiera puede comprobar</h2>
+    <p class="entrada" style="margin-left:auto;margin-right:auto">Cada certificado del CEM lleva
+      un código único y un QR. Quien lo reciba —una empresa que va a contratar, un cliente—
+      escribe ese código o la cédula y ve ahí mismo si es auténtico, a nombre de quién está y de
+      qué es. Sin crear ninguna cuenta.</p>
+    <div class="cifras-casa" style="margin:var(--e3) 0">
+      <div><b>${esc(temario.totales.certificados)}</b><span>certificados comprobables</span></div>
+      <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
+      <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
+    </div>
+    <a class="btn" href="${SITIO}/plataforma/verificar.html">
+      <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+      Verificar un certificado</a>
+    ${dentro || ''}
+  </div>
+</section>`;
+
 function paginaDelModulo(mod, dip, temario) {
   const url = `${SITIO}/programas/${mod.apodo}.html`;
   const urlDip = `${SITIO}/programas/${dip.apodo}.html`;
@@ -722,44 +764,58 @@ function paginaDelModulo(mod, dip, temario) {
   };
 
   const cuerpo = `
-<main class="pub-main">
-  ${migas(pasos)}
-  <h1>${esc(mod.nombre)}</h1>
-  <p class="entrada">${esc(mod.que)}</p>
-
-  <p class="caja" style="padding:16px;max-width:62ch">
-    Es el <b>módulo ${mod.orden} de 8</b> del
-    <a href="${urlDip}">${esc(dip.nombre)}</a>, y se certifica por separado:
-    quien sólo hace este módulo se lleva igualmente su certificado, con su código
-    de verificación.<br>
-    <span class="tiny muted">${esc(loQueAvala(mod))}</span></p>
-
-  <h2>Qué acredita el certificado</h2>
-  <p>Al terminar el módulo se emite un certificado a nombre de la persona, con un
-    código único. Cualquiera —una empresa que va a contratar, por ejemplo— puede
-    comprobar que es auténtico en
-    <a href="${SITIO}/plataforma/verificar.html">la página de verificación</a>,
-    escribiendo el código o la cédula. No hace falta cuenta para hacerlo.</p>
-  <p class="tiny muted">El CEM lleva ${esc(temario.totales.certificados)} certificados emitidos
-    y ${esc(temario.totales.personas)} personas graduadas desde ${ESCUELA.fundada}.</p>
-
-  <h2>Los otros módulos del ${esc(dip.corto)}</h2>
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
-    ${hermanos.map((h) => `<article class="caja" style="padding:14px">
-      <p class="tiny muted" style="margin:0 0 4px">Módulo ${h.orden}</p>
-      <h3 style="margin:0"><a href="${SITIO}/programas/${h.apodo}.html">${esc(h.nombre)}</a></h3>
-    </article>`).join('')}
+<section class="portada-cem cabecera-tema" style="--mod-color:${mod.color}">
+  <div class="dentro">
+    ${migas(pasos)}
+    <div class="medallon-tema"><span class="material-symbols-outlined" aria-hidden="true"
+      >${mod.icono}</span></div>
+    <span class="ojal" style="color:${mod.color}">Módulo ${mod.orden} de 8 · ${esc(dip.corto)}</span>
+    <h1 class="titular-largo">${esc(mod.nombre)}</h1>
+    <p class="lema">${esc(mod.que)}</p>
+    ${tiraDeModulos(dip, mod.apodo)}
+    <p class="avala"><span class="punto"></span> ${esc(loQueAvala(mod))}</p>
+    <div class="portada-manos" style="margin-top:var(--e3)">
+      <a class="btn" href="${urlDip}">Ver el ${esc(dip.corto)} completo</a>
+      <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
+    </div>
   </div>
+</section>
 
-  <section class="caja" style="padding:20px;margin-top:28px">
-    <h2 style="margin-top:0">Cómo se cursa</h2>
-    <p>Este módulo forma parte del <a href="${urlDip}">${esc(dip.nombre)}</a>, que se
-      imparte por promociones. Para saber cuándo abre la siguiente y qué incluye,
-      escríbenos desde <a href="${SITIO}/plataforma/nosotros.html">la página de contacto</a>
-      o crea tu cuenta en la plataforma.</p>
-    <a class="btn" href="${SITIO}/plataforma/index.html?registro=1">Crear mi cuenta</a>
-  </section>
-</main>`;
+<section class="franja">
+  <div class="dentro estrecho">
+    <h2>Se certifica por separado</h2>
+    <p>Este módulo forma parte del <a href="${urlDip}">${esc(dip.nombre)}</a>, pero no hay que
+      hacer el diplomado entero para tenerlo: al terminarlo se emite un certificado a nombre de
+      la persona, con su propio código. Quien completa los ocho recibe además el diploma de
+      cierre.</p>
+    <p class="tiny muted">El CEM lleva ${esc(temario.totales.certificados)} certificados emitidos
+      y ${esc(temario.totales.personas)} personas graduadas desde ${ESCUELA.fundada}. Todos se
+      pueden comprobar uno a uno.</p>
+  </div>
+</section>
+
+<section class="franja tenue">
+  <div class="dentro">
+    <h2>Los otros módulos del ${esc(dip.corto)}</h2>
+    <p class="entrada">Cada uno con su certificado, y en este orden.</p>
+    <div class="rejilla-modulos">
+      ${hermanos.map((h) => tarjetaModulo(h, dip)).join('')}
+    </div>
+  </div>
+</section>
+
+<section class="franja">
+  <div class="dentro estrecho" style="text-align:center">
+    <h2>¿Cuándo abre la próxima promoción?</h2>
+    <p class="entrada" style="margin-left:auto;margin-right:auto">Las fechas y el precio cambian
+      con cada convocatoria, así que no los dejamos escritos aquí para no darte un dato viejo.
+      Escríbenos y te decimos los de la que está abierta.</p>
+    <div class="portada-manos" style="justify-content:center">
+      <a class="btn" href="${SITIO}/plataforma/nosotros.html">Escribirnos</a>
+      <a class="btn outline" href="${SITIO}/plataforma/index.html?registro=1">Crear mi cuenta</a>
+    </div>
+  </div>
+</section>`;
 
   return pagina({ titulo, descripcion, url, cuerpo, jsonLd, activa: 'programas', profundidad: 1 });
 }
@@ -792,45 +848,45 @@ function paginaDelDiplomado(dip, temario) {
     ],
   };
 
+  const color = dip.modulos[0]?.color || '#0091FF';
   const cuerpo = `
-<main class="pub-main">
-  ${migas(pasos)}
-  <h1>${esc(dip.nombre)}</h1>
-  <p class="entrada">${esc(dip.que)}</p>
-
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:20px 0">
-    <div class="caja" style="padding:14px"><b style="font-size:24px">8</b>
-      <div class="tiny muted">módulos, cada uno con su certificado</div></div>
-    <div class="caja" style="padding:14px"><b style="font-size:24px">${dip.personas}</b>
-      <div class="tiny muted">personas lo han cursado</div></div>
-    <div class="caja" style="padding:14px"><b style="font-size:24px">${dip.promociones}</b>
-      <div class="tiny muted">promociones impartidas</div></div>
-    <div class="caja" style="padding:14px"><b style="font-size:24px">${dip.diplomas}</b>
-      <div class="tiny muted">diplomas de cierre emitidos</div></div>
+<section class="portada-cem cabecera-tema" style="--mod-color:${color}">
+  <div class="dentro">
+    ${migas(pasos)}
+    <span class="ojal">Diplomado · 8 módulos · certificado por módulo</span>
+    <h1 class="titular-largo">${esc(dip.nombre)}</h1>
+    <p class="lema">${esc(dip.que)}</p>
+    ${tiraDeModulos(dip)}
+    <div class="portada-manos" style="margin-top:var(--e3)">
+      <a class="btn" href="${SITIO}/plataforma/nosotros.html">Preguntar por la próxima promoción</a>
+      <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
+    </div>
   </div>
+</section>
 
-  <h2>Los ocho módulos</h2>
-  <p>Cada uno se certifica por separado. Quien los completa todos recibe además el
-    diploma del diplomado.</p>
-  <ol class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;list-style:none;padding:0">
-    ${dip.modulos.map((m) => `<li class="caja" style="padding:16px">
-      <p class="tiny muted" style="margin:0 0 4px">Módulo ${m.orden}</p>
-      <h3 style="margin:0 0 6px"><a href="${SITIO}/programas/${m.apodo}.html">${esc(m.nombre)}</a></h3>
-      <p class="tiny" style="margin:0">${esc(recortar(m.que, 110))}</p>
-    </li>`).join('')}
-  </ol>
+<section class="franja tenue">
+  <div class="dentro">
+    <div class="cifras-casa">
+      <div><b>8</b><span>módulos, cada uno con su certificado</span></div>
+      <div><b>${dip.personas}</b><span>personas lo han cursado</span></div>
+      <div><b>${dip.promociones}</b><span>promociones impartidas</span></div>
+      <div><b>${dip.diplomas}</b><span>diplomas de cierre emitidos</span></div>
+    </div>
+  </div>
+</section>
 
-  <section class="caja" style="padding:20px;margin-top:28px">
-    <h2 style="margin-top:0">El certificado, y por qué se puede comprobar</h2>
-    <p>Cada certificado del CEM lleva un código único y un QR. Quien lo reciba
-      —una empresa, un cliente— puede comprobar en
-      <a href="${SITIO}/plataforma/verificar.html">escuelacem.com/plataforma/verificar.html</a>
-      que existe, a nombre de quién está y de qué es. Hay
-      <b>${esc(temario.totales.certificados)} certificados</b> emitidos y comprobables
-      ahora mismo.</p>
-    <a class="btn" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
-  </section>
-</main>`;
+<section class="franja">
+  <div class="dentro">
+    <h2>Los ocho módulos</h2>
+    <p class="entrada">En este orden. Cada uno se certifica por separado, así que se puede
+      cursar suelto; quien los completa todos recibe además el diploma del diplomado.</p>
+    <div class="rejilla-modulos">
+      ${dip.modulos.map((m) => tarjetaModulo(m, dip)).join('')}
+    </div>
+  </div>
+</section>
+
+${bloqueCertificado(temario)}`;
 
   return pagina({ titulo, descripcion, url, cuerpo, jsonLd, activa: 'programas', profundidad: 1 });
 }
@@ -964,51 +1020,52 @@ function paginaDeInicio(temario) {
   };
 
   const cuerpo = `
-<main class="pub-main">
-  <h1>Estudia marketing digital o inteligencia artificial, con un certificado que se puede comprobar</h1>
-  <p class="entrada">El CEM es un centro de estudios de ${ESCUELA.ciudad}, en funcionamiento desde
-    ${ESCUELA.fundada}. Impartimos dos diplomados de ocho módulos cada uno, y cada módulo se
-    certifica por separado.</p>
-
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:24px 0">
-    <div class="caja" style="padding:14px"><b style="font-size:26px">${esc(temario.totales.certificados)}</b>
-      <div class="tiny muted">certificados emitidos</div></div>
-    <div class="caja" style="padding:14px"><b style="font-size:26px">${esc(temario.totales.personas)}</b>
-      <div class="tiny muted">personas graduadas</div></div>
-    <div class="caja" style="padding:14px"><b style="font-size:26px">${esc(temario.totales.promociones)}</b>
-      <div class="tiny muted">promociones</div></div>
-    <div class="caja" style="padding:14px"><b style="font-size:26px">${ESCUELA.fundada}</b>
-      <div class="tiny muted">desde</div></div>
+<section class="portada-cem portada-una">
+  <div class="dentro portada-una">
+    <div class="portada-dicho">
+      <span class="ojal">Centro de Estudios de Marketing · Caracas, desde ${ESCUELA.fundada}</span>
+      <h1 class="titular-largo">Diplomados en marketing digital e inteligencia artificial,
+        con certificado verificable</h1>
+      <p class="lema">Dos diplomados de ocho módulos cada uno. Cada módulo se certifica por
+        separado, y cualquiera puede verificar ese certificado con su código.</p>
+      <div class="portada-manos">
+        <a class="btn" href="${SITIO}/programas/">Ver los dos diplomados</a>
+        <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
+      </div>
+    </div>
   </div>
+</section>
 
-  <h2>Los dos diplomados</h2>
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
-    ${temario.diplomados.map((d) => `<article class="caja" style="padding:20px">
-      <h3 style="font-size:19px;margin:0 0 8px"><a href="${SITIO}/programas/${d.apodo}.html">${
-        esc(d.nombre)}</a></h3>
-      <p class="tiny">${esc(d.que)}</p>
-      <ul class="tiny muted" style="padding-left:18px;margin:10px 0">
-        ${d.modulos.map((m) => `<li><a href="${SITIO}/programas/${m.apodo}.html">${
-          esc(m.nombre)}</a></li>`).join('')}
-      </ul>
-      <a class="btn outline sm" href="${SITIO}/programas/${d.apodo}.html">Ver el diplomado</a>
-    </article>`).join('')}
+<section class="franja tenue">
+  <div class="dentro">
+    <div class="cifras-casa">
+      <div><b>${esc(temario.totales.certificados)}</b><span>certificados emitidos</span></div>
+      <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
+      <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
+      <div><b>${ESCUELA.fundada}</b><span>en funcionamiento desde</span></div>
+    </div>
   </div>
+</section>
 
-  <section class="caja" style="padding:20px;margin-top:28px">
-    <h2 style="margin-top:0">Un certificado que cualquiera puede comprobar</h2>
-    <p>Cada certificado del CEM lleva un código y un QR. Quien lo reciba puede escribir ese
-      código —o la cédula de la persona— y ver ahí mismo si es auténtico, a nombre de quién
-      está y de qué es. Sin crear ninguna cuenta.</p>
-    <a class="btn" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
-  </section>
+${temario.diplomados.map((d, i) => `
+<section class="franja${i % 2 ? ' tenue' : ''}">
+  <div class="dentro">
+    <span class="ojal">Diplomado · 8 módulos</span>
+    <h2 style="margin-top:0"><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
+    <p class="entrada">${esc(d.que)}</p>
+    <div class="rejilla-modulos">
+      ${d.modulos.map((m) => tarjetaModulo(m, d)).join('')}
+    </div>
+    <p style="margin-top:var(--e3)">
+      <a class="btn outline" href="${SITIO}/programas/${d.apodo}.html">
+        Ver el ${esc(d.corto)} completo</a></p>
+  </div>
+</section>`).join('')}
 
-  <section style="margin-top:28px">
-    <h2>Preguntas frecuentes</h2>
-    <p>Si se puede cursar un módulo suelto, cómo se verifica un certificado, qué pasa si lo
-      perdiste. <a href="${SITIO}/preguntas-frecuentes.html">Están todas aquí</a>.</p>
-  </section>
-</main>`;
+${bloqueCertificado(temario, `
+    <p class="tiny muted" style="margin-top:var(--e3)">¿Otra duda? Las
+      <a href="${SITIO}/preguntas-frecuentes.html">preguntas frecuentes</a> contestan si se puede
+      cursar un módulo suelto, qué pasa si perdiste tu certificado y qué diplomados hay.</p>`)}`;
 
   const html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
 
