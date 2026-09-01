@@ -58,6 +58,12 @@ jobs:
       - name: Comprobar que no se rompió nada
         run: node herramientas/revisar.mjs
 
+      # Y que lo que se acaba de generar sirve para lo que se generó. Sin esto,
+      # una regeneración con dos títulos iguales o un canonical torcido se
+      # publicaría sola de madrugada y nadie se enteraría en meses.
+      - name: Comprobar el SEO de lo generado
+        run: node herramientas/revisar-seo.mjs
+
       - name: Publicar si algo cambió
         run: |
           # Sin cambios no se hace commit: un historial lleno de commits vacíos

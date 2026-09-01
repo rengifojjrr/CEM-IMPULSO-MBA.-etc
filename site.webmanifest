@@ -2,7 +2,7 @@
   "name": "CEM International",
   "short_name": "CEM",
   "description": "Formación en marketing, negocios, inteligencia artificial y tecnología, con certificado verificable.",
-  "start_url": "/plataforma/inicio.html",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0d2440",

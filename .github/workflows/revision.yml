@@ -33,6 +33,13 @@ jobs:
       - name: Revisar el repositorio
         run: node herramientas/revisar.mjs
 
+      # El SEO tiene una trampa: cuando se hace mal, no falla nada. La página
+      # carga, se ve bien, y nadie se entera hasta que meses después sigue sin
+      # aparecer. Un canonical mal puesto o dos títulos iguales no dan error en
+      # ningún sitio — sólo aquí.
+      - name: Revisar el SEO
+        run: node herramientas/revisar-seo.mjs
+
   navegador:
     name: Pruebas con navegador
     runs-on: ubuntu-latest
