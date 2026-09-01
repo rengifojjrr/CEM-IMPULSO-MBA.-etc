@@ -127,9 +127,22 @@ function bloque(rutaRelativa) {
     + `<link rel="apple-touch-icon" href="${rutaRelativa}icono-180.png">\n`;
 }
 
+/* Lo que escribe herramientas/generar-seo.mjs, y que por tanto NO se toca aquí.
+   ───────────────────────────────────────────────────────────────────────────
+   Esta lección ya costó una regresión antes, con las cabeceras: se arregló a
+   mano lo que un generador reescribe cada noche, y a la mañana siguiente
+   estaba deshecho. Lo que se genera se arregla en el generador —que ya declara
+   los mismos iconos—, y aquí sólo se tocan las pantallas escritas a mano.
+
+   Y en el otro sentido: si estos archivos se dejaran pasar, las dos
+   herramientas se pelearían por el mismo bloque, cada una convencida de tener
+   razón, y el repositorio cambiaría solo con cada pasada de cualquiera. */
+const LAS_GENERA_OTRO = new Set(['index.html', 'preguntas-frecuentes.html', '404.html']);
+
 let tocados = 0, saltados = 0;
 for (const archivo of htmls(RAIZ)) {
   if (archivo.includes('/programas/')) { saltados++; continue; }   // las escribe generar-seo
+  if (LAS_GENERA_OTRO.has(archivo.slice(RAIZ.length + 1))) { saltados++; continue; }
   const antes = readFileSync(archivo, 'utf8');
   if (!VIEJOS.test(antes)) { saltados++; continue; }
   VIEJOS.lastIndex = 0;
