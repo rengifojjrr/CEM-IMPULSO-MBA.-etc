@@ -45,6 +45,24 @@ const SITIO = 'https://escuelacem.com';
    Antes, un programa sin portada propia salía sin imagen y con la tarjeta
    pequeña; ahora al menos sale la de la escuela. */
 const TARJETA = `${SITIO}/plataforma/assets/compartir.png`;
+/* El código de Search Console. Vacío hasta que lo den; en cuanto esté, se pega
+   aquí y sale solo en la portada.
+   ═══════════════════════════════════════════════════════════════════════════
+   Qué es: una cadena que Google entrega para comprobar que quien dice ser dueño
+   del dominio lo es. Se enseña, Google la lee, y a partir de ahí deja ver qué
+   páginas tiene indexadas, por qué búsquedas sale el sitio y qué errores
+   encuentra al rastrear. Sin eso no hay forma de saberlo: sólo buscar a mano y
+   suponer.
+
+   NO es un secreto, y por eso vive aquí y no en las variables de entorno: va
+   escrita en el HTML de la portada, a la vista de cualquiera que mire el
+   código fuente. Es lo contrario de una clave —sirve para identificar, no para
+   dar acceso—, así que puede ir en un repositorio público sin problema.
+
+   Sólo hace falta en la portada: la propiedad que se verifica es
+   https://escuelacem.com/, y es ahí donde Google la busca. */
+const VERIFICACION_GOOGLE = '';
+
 const BASE = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 const CLAVE = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
 
@@ -1233,7 +1251,14 @@ ${bloqueCertificado(temario, `
       <a href="${SITIO}/preguntas-frecuentes.html">preguntas frecuentes</a> contestan si se puede
       cursar un módulo suelto, qué pasa si perdiste tu certificado y qué diplomados hay.</p>`)}`;
 
-  const html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
+  let html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
+
+  /* La verificación de Search Console, si ya la hay. Va sólo aquí porque la
+     propiedad que se verifica es la portada del dominio. */
+  if (VERIFICACION_GOOGLE) {
+    html = html.replace('</head>',
+      `<meta name="google-site-verification" content="${esc(VERIFICACION_GOOGLE)}">\n</head>`);
+  }
 
   /* El desvío de los tableros guardados, intacto. Va al final del <head> para
      que un `?p=` salga de aquí cuanto antes, y para que quien llegue sin él no
