@@ -72,17 +72,32 @@ const ESCUELA = {
     + 'tecnología en Caracas, Venezuela. Formación práctica con certificado verificable.',
   fundada: '2016',
   ciudad: 'Caracas',
-  region: 'Distrito Capital',
+  /* Miranda, no Distrito Capital. Aquí había una suposición mía y estaba mal.
+     ─────────────────────────────────────────────────────────────────────────
+     Caracas está repartida entre dos entidades: el municipio Libertador es
+     Distrito Capital, y Chacao, Baruta, El Hatillo y Sucre son estado Miranda.
+     Yo había puesto Distrito Capital por ser lo más común, sin que nadie me lo
+     hubiera dicho. El dato de la casa es Miranda, y cuadra con el código
+     postal: el 1060 cae del lado de Miranda. */
+  region: 'Miranda',
+  codigoPostal: '1060',
   pais: 'VE',
   paisNombre: 'Venezuela',
-  /* Hasta dónde se afina la dirección: ciudad y región, no calle.
+  /* Hasta dónde se afina la dirección: ciudad, código postal y estado. Calle no.
      ─────────────────────────────────────────────────────────────────────────
-     No sé la dirección postal y no me la invento: un `streetAddress` falso en
-     los datos estructurados es exactamente la clase de cosa que hace que
-     Google deje de fiarse del sitio entero. Tampoco va `geo` con coordenadas
-     del centro de Caracas, que sería fingir un punto exacto.
-     Lo que sí es cierto y comprobable está en cada certificado emitido: los
-     521 llevan escrito «Caracas» como lugar de emisión. */
+     «Caracas 1060, Miranda, Venezuela» es localidad + código postal + estado.
+     Es un dato real y se pone entero. Lo que NO es, es una dirección de calle:
+     no dice avenida, ni edificio, ni piso. Así que `streetAddress` sigue sin
+     ponerse, porque rellenarlo con «Caracas 1060» sería meter la localidad en
+     el campo de la calle y eso Google lo lee como una dirección mal formada.
+
+     Tampoco va `geo` con coordenadas: un código postal cubre un barrio entero,
+     y sacar de ahí una latitud y una longitud exactas sería fingir precisión
+     que no tengo. Para una ficha de Google Business —la del mapa, con el
+     alfiler— hace falta la calle; con esto no se puede abrir todavía.
+
+     Lo que sí es cierto y comprobable está además en cada certificado emitido:
+     los 521 llevan escrito «Caracas» como lugar de emisión. */
 };
 
 const HOY = new Date().toISOString().slice(0, 10);
@@ -342,8 +357,11 @@ ${/* En qué idioma y para quién. El sitio está sólo en castellano, así que 
 ${/* Y en qué región se enseña, que es distinto del idioma: hay mucha gente
       buscando en castellano a la que esta escuela no le sirve porque está en
       otro continente, y mucha en Caracas a la que sí. */''}
-<meta name="geo.region" content="VE-A">
-<meta name="geo.placename" content="Caracas, Venezuela">
+${/* «VE-M» es Miranda en ISO 3166-2, que es lo que dice la dirección de la
+      casa. Estaba puesto «VE-A», que es Distrito Capital: suposición mía de
+      cuando no sabía el estado, y contradecía al `addressRegion`. */''}
+<meta name="geo.region" content="VE-M">
+<meta name="geo.placename" content="Caracas ${ESCUELA.codigoPostal}, ${ESCUELA.paisNombre}">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 
 <!-- Los servidores de fuera, avisados de golpe y no en fila.
@@ -729,6 +747,7 @@ const escuelaJsonLd = () => ({
   address: {
     '@type': 'PostalAddress',
     addressLocality: ESCUELA.ciudad,
+    postalCode: ESCUELA.codigoPostal,
     addressRegion: ESCUELA.region,
     addressCountry: ESCUELA.pais,
   },
@@ -1022,10 +1041,10 @@ const PREGUNTAS = (t) => [
      `streetAddress` de los datos estructurados. Una dirección inventada es peor
      que ninguna: Google la contrasta con el mapa y deja de fiarse del resto. */
   ['¿Dónde está el CEM?',
-   `El CEM es un centro de estudios de Caracas, Venezuela, y desde ${ESCUELA.fundada} expide `
-   + `desde aquí sus certificados: los ${t.totales.certificados} emitidos hasta hoy llevan `
-   + 'Caracas como lugar de expedición. Para la dirección exacta de la sede y el horario de '
-   + 'atención, escríbenos desde la página de contacto.'],
+   `En Caracas ${ESCUELA.codigoPostal}, estado ${ESCUELA.region}, ${ESCUELA.paisNombre}. Desde `
+   + `${ESCUELA.fundada} expide desde aquí sus certificados: los ${t.totales.certificados} `
+   + 'emitidos hasta hoy llevan Caracas como lugar de expedición. Para la dirección exacta de '
+   + 'la sede y el horario de atención, escríbenos desde la página de contacto.'],
   ['¿Las clases son presenciales en Caracas o se pueden seguir a distancia?',
    'Las promociones se imparten con clases en vivo, y todo el material queda grabado y '
    + 'disponible en la plataforma, así que se puede seguir el diplomado desde cualquier parte '
@@ -1182,10 +1201,11 @@ function paginaDeInicio(temario) {
      «streetAddress» de los datos estructurados, los dos a la vez. -->
 <section class="franja">
   <div class="dentro estrecho">
-    <span class="ojal">Caracas, Venezuela</span>
+    <span class="ojal">Caracas ${ESCUELA.codigoPostal} · Estado ${esc(ESCUELA.region)}</span>
     <h2 style="margin-top:0">Un centro de estudios de Caracas</h2>
     <p class="entrada">El CEM lleva desde ${ESCUELA.fundada} formando en marketing digital e
-      inteligencia artificial desde Caracas, y desde aquí expide sus certificados: los
+      inteligencia artificial desde Caracas ${ESCUELA.codigoPostal}, estado
+      ${esc(ESCUELA.region)}, y desde aquí expide sus certificados: los
       ${esc(temario.totales.certificados)} emitidos hasta hoy llevan Caracas como lugar de
       expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
       desde cualquier parte de Venezuela sin perder ninguna.</p>
