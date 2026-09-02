@@ -30,7 +30,7 @@
      /robots.txt
 */
 
-import { writeFile, mkdir, readdir, rm } from 'node:fs/promises';
+import { writeFile, readFile, mkdir, readdir, rm } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -69,10 +69,20 @@ const ESCUELA = {
   nombre: 'CEM International',
   nombreLargo: 'CEM · Centro de Estudios de Marketing',
   descripcion: 'Centro de estudios de marketing, negocios, inteligencia artificial y '
-    + 'tecnología. Formación práctica con certificado verificable, para todas las edades.',
+    + 'tecnología en Caracas, Venezuela. Formación práctica con certificado verificable.',
   fundada: '2016',
   ciudad: 'Caracas',
+  region: 'Distrito Capital',
   pais: 'VE',
+  paisNombre: 'Venezuela',
+  /* Hasta dónde se afina la dirección: ciudad y región, no calle.
+     ─────────────────────────────────────────────────────────────────────────
+     No sé la dirección postal y no me la invento: un `streetAddress` falso en
+     los datos estructurados es exactamente la clase de cosa que hace que
+     Google deje de fiarse del sitio entero. Tampoco va `geo` con coordenadas
+     del centro de Caracas, que sería fingir un punto exacto.
+     Lo que sí es cierto y comprobable está en cada certificado emitido: los
+     521 llevan escrito «Caracas» como lugar de emisión. */
 };
 
 const HOY = new Date().toISOString().slice(0, 10);
@@ -93,6 +103,24 @@ function recortar(t, tope = 155) {
   if (s.length <= tope) return s;
   const corte = s.slice(0, tope - 1);
   return corte.slice(0, corte.lastIndexOf(' ')).replace(/[,;:.\s]+$/, '') + '…';
+}
+
+/** El primer título de la lista que quepa entero, en vez de recortar el último.
+ *  ───────────────────────────────────────────────────────────────────────────
+ *  `recortar` está bien para una descripción, donde lo que sobra es relleno.
+ *  Para un título no: lo que va al final es «| CEM», y recortar se come justo
+ *  eso — la marca, que es lo único que no se puede perder. «Instagram y TikTok
+ *  para negocios en Caracas · Módulo 4 de 8 | CEM» son 64 caracteres y salía
+ *  «…Módulo 4 de 8…», sin CEM y con puntos suspensivos.
+ *
+ *  Así que en lugar de cortar por donde caiga, se dan varias formas del mismo
+ *  título de más larga a más corta y se coge la primera que entre. Lo que se
+ *  suelta primero es lo prescindible («de 8»), y sólo al final lo que se
+ *  teclea de verdad («en Caracas»). Si ni la más corta cabe —un nombre de
+ *  módulo larguísimo—, entonces sí se recorta, pero eso ya es el último cartucho. */
+function tituloQueQuepa(variantes, tope = 60) {
+  for (const v of variantes) if (plano(v).length <= tope) return plano(v);
+  return recortar(variantes[variantes.length - 1], tope + 2);
 }
 
 /** «Marketing Digital Avanzado» → «marketing-digital-avanzado».
@@ -283,7 +311,11 @@ ${/* El .ico va con dirección absoluta y el primero. Google lo busca en la raí
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(ESCUELA.nombre)}">
-<meta property="og:locale" content="es_ES">
+${/* es_VE y no es_ES. El sitio declaraba español DE ESPAÑA en las 25
+      páginas, y esto es una escuela de Caracas: le estaba diciendo a
+      Facebook, a WhatsApp y a LinkedIn que su público está a ocho mil
+      kilómetros de donde está. */''}
+<meta property="og:locale" content="es_VE">
 <meta property="og:title" content="${esc(titulo)}">
 <meta property="og:description" content="${esc(descripcion)}">
 <meta property="og:url" content="${esc(url)}">
@@ -305,7 +337,13 @@ ${/* En qué idioma y para quién. El sitio está sólo en castellano, así que 
       que ve una página en español y a alguien buscando en español desde México
       no tiene forma de saber que ésta es LA versión, no una de varias. */''}
 <link rel="alternate" hreflang="es" href="${esc(url)}">
+<link rel="alternate" hreflang="es-VE" href="${esc(url)}">
 <link rel="alternate" hreflang="x-default" href="${esc(url)}">
+${/* Y en qué región se enseña, que es distinto del idioma: hay mucha gente
+      buscando en castellano a la que esta escuela no le sirve porque está en
+      otro continente, y mucha en Caracas a la que sí. */''}
+<meta name="geo.region" content="VE-A">
+<meta name="geo.placename" content="Caracas, Venezuela">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 
 <!-- Los servidores de fuera, avisados de golpe y no en fila.
@@ -526,25 +564,21 @@ function paginaDelCatalogo(cursos, temario) {
   /* El título era palabra por palabra el mismo que el de la portada. Dos
      páginas con el mismo <title> compiten entre ellas por la misma búsqueda y
      Google acaba escogiendo una —normalmente la que no quieres—. */
-  const titulo = `Diplomados y módulos del CEM · ${nModulos} certificaciones | ${ESCUELA.nombre}`;
+  const titulo = `Diplomados y cursos en Caracas · ${nModulos} certificaciones | CEM`;
   const descripcion = recortar(
-    `Los ${temario.diplomados.length} diplomados del CEM y sus ${nModulos} módulos, cada uno `
-    + `con certificado propio y verificable: marketing digital, inteligencia artificial, `
-    + `video, Photoshop, Illustrator, branding y más.`);
+    `Los ${temario.diplomados.length} diplomados del CEM en Caracas y sus ${nModulos} módulos, `
+    + `cada uno con certificado propio y verificable: marketing digital, inteligencia `
+    + `artificial, video, Photoshop, Illustrator y branding.`);
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
-      {
-        '@type': 'EducationalOrganization',
-        '@id': `${SITIO}#escuela`,
-        name: ESCUELA.nombre,
-        alternateName: ESCUELA.nombreLargo,
-        description: ESCUELA.descripcion,
-        url: SITIO,
-        foundingDate: ESCUELA.fundada,
-        address: { '@type': 'PostalAddress', addressLocality: ESCUELA.ciudad, addressCountry: ESCUELA.pais },
-      },
+      /* Antes había aquí una copia a mano de la escuela, y ya había divergido de
+         la de verdad: sin `areaServed`, sin `inLanguage`, sin región — y sin el
+         logotipo cuando se añadió. Dos nodos con el MISMO `@id` diciendo cosas
+         distintas es de lo peor que se le puede dar a Google, porque resuelve el
+         `@id` de forma global y acaba sin saber a cuál creer. Una sola fuente. */
+      escuelaJsonLd(),
       {
         '@type': 'ItemList',
         name: 'Programas del CEM',
@@ -653,13 +687,81 @@ const escuelaJsonLd = () => ({
   '@type': 'EducationalOrganization',
   '@id': `${SITIO}#escuela`,
   name: ESCUELA.nombre,
-  alternateName: ESCUELA.nombreLargo,
+  /* Los tres nombres por los que de verdad se busca esto. «Centro de Estudios de
+     Marketing» a secas es el que teclea quien no se acuerda de la sigla. */
+  alternateName: [ESCUELA.nombreLargo, 'Centro de Estudios de Marketing'],
   description: ESCUELA.descripcion,
   url: SITIO,
   foundingDate: ESCUELA.fundada,
-  address: { '@type': 'PostalAddress', addressLocality: ESCUELA.ciudad, addressCountry: ESCUELA.pais },
-  areaServed: { '@type': 'Country', name: 'Venezuela' },
+  /* De qué sabe la casa. No es palabrería: es lo que se imparte de verdad,
+     sacado de los dieciséis módulos que existen y tienen certificado emitido. */
+  knowsAbout: [
+    'Marketing digital', 'Community management', 'Gestión de anuncios',
+    'Inteligencia artificial aplicada', 'Producción y edición de video',
+    'Fotografía', 'Diseño gráfico', 'Branding',
+  ],
+  /* El logotipo, DICHO. Y es distinto del favicon, aunque salgan del mismo dibujo.
+     ───────────────────────────────────────────────────────────────────────────
+     Faltaba, y es la última pieza del problema del cuadrito con la «E». Google
+     usa dos imágenes de marca por caminos separados:
+
+       · el favicon (/favicon.ico y los <link rel="icon">) va al lado del
+         resultado de búsqueda. Ése ya está.
+       · `logo` de la organización va a la ficha de marca, y NO se deduce del
+         favicon: si no se declara, Google no tiene logotipo del CEM y punto.
+
+     Se declara el PNG de 512 y no el SVG a propósito: Google pide un mapa de
+     bits (PNG, JPG o GIF) para `logo`, y descarta un SVG sin decir nada — el
+     mismo silencio que ya costó encontrar lo del `viewBox`. El de 512 vale
+     porque el birrete entra entero en su cuadrado, con su margen, sobre el navy
+     de la casa; un logotipo recortado por los bordes Google lo rechaza.
+
+     `image` es otra cosa: la tarjeta apaisada de 1200×630, la misma que sale al
+     pegar un enlace en WhatsApp. Van las dos porque sirven a sitios distintos. */
+  logo: {
+    '@type': 'ImageObject',
+    url: `${SITIO}/plataforma/assets/icono-512.png`,
+    width: 512,
+    height: 512,
+    caption: `Logotipo de ${ESCUELA.nombre}`,
+  },
+  image: TARJETA,
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: ESCUELA.ciudad,
+    addressRegion: ESCUELA.region,
+    addressCountry: ESCUELA.pais,
+  },
+  areaServed: [
+    { '@type': 'City', name: 'Caracas' },
+    { '@type': 'Country', name: ESCUELA.paisNombre },
+  ],
   inLanguage: 'es',
+});
+
+/** El sitio, en datos estructurados. Comparte `@id` con el que declaraba
+ *  `plataforma/inicio.html`, así que tiene que ser LITERALMENTE el mismo nodo:
+ *  de ahí que viva aquí y no escrito dos veces.
+ *
+ *  `WebSite` con `SearchAction` es lo que puede hacer que Google enseñe una caja
+ *  de búsqueda propia debajo del resultado. Apunta al verificador, que es la
+ *  única búsqueda real que tiene este sitio: quien busca en el CEM busca un
+ *  certificado. (La copia de inicio.html apuntaba al catálogo; ya no.) */
+const sitioJsonLd = () => ({
+  '@type': 'WebSite',
+  '@id': `${SITIO}#sitio`,
+  url: SITIO,
+  name: ESCUELA.nombre,
+  inLanguage: 'es',
+  publisher: { '@id': `${SITIO}#escuela` },
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${SITIO}/plataforma/verificar.html?codigo={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  },
 });
 
 /** Un módulo o un diplomado, como `Course` de schema.org. */
@@ -747,9 +849,17 @@ const bloqueCertificado = (temario, dentro) => `
 function paginaDelModulo(mod, dip, temario) {
   const url = `${SITIO}/programas/${mod.apodo}.html`;
   const urlDip = `${SITIO}/programas/${dip.apodo}.html`;
-  const titulo = `${mod.nombre} · Módulo ${mod.orden} del ${dip.nombre} | ${ESCUELA.nombre}`;
-  const descripcion = recortar(`${mod.que} Módulo ${mod.orden} de 8 del ${dip.nombre} `
-    + `del CEM, con certificado propio y verificable. ${loQueAvala(mod)}`);
+  /* Antes: «Instagram y TikTok para negocios · Módulo 4 del Diplomado en
+     Marketing Digital | CEM International» — CIEN caracteres, de los que
+     Google enseña sesenta. Se quedaba en «…Módulo 4 del Diplo». */
+  const titulo = tituloQueQuepa([
+    `${mod.nombre} en Caracas · Módulo ${mod.orden} de 8 | CEM`,
+    `${mod.nombre} en Caracas · Módulo ${mod.orden} | CEM`,
+    `${mod.nombre} en Caracas | CEM`,
+    `${mod.nombre} · Módulo ${mod.orden} | CEM`,
+  ]);
+  const descripcion = recortar(`${mod.que} Módulo ${mod.orden} de 8 del ${dip.nombre} del CEM `
+    + `en Caracas, con certificado propio y verificable. ${loQueAvala(mod)}`);
   const pasos = [
     { nombre: 'Inicio', url: `${SITIO}/` },
     { nombre: 'Programas', url: `${SITIO}/programas/` },
@@ -823,9 +933,14 @@ function paginaDelModulo(mod, dip, temario) {
 
 function paginaDelDiplomado(dip, temario) {
   const url = `${SITIO}/programas/${dip.apodo}.html`;
-  const titulo = `${dip.nombre} | ${ESCUELA.nombre}`;
-  const descripcion = recortar(`${dip.que} ${dip.personas} personas lo han cursado en `
-    + `${dip.promociones} promociones. Certificado verificable por cada módulo.`);
+  /* «en Caracas» dentro del título y no al final: es lo que se teclea —«curso
+     de marketing digital en Caracas»— y si va al final, se corta. El nombre
+     largo del diplomado de IA medía 78 caracteres él solo. */
+  const titulo = recortar(`${dip.corto === 'Marketing Digital'
+    ? 'Diplomado en Marketing Digital en Caracas'
+    : 'Diplomado en Inteligencia Artificial en Caracas'} | CEM`, 62);
+  const descripcion = recortar(`${dip.que} Se imparte en Caracas. ${dip.personas} personas lo `
+    + `han cursado en ${dip.promociones} promociones, con certificado verificable por módulo.`);
   const pasos = [
     { nombre: 'Inicio', url: `${SITIO}/` },
     { nombre: 'Programas', url: `${SITIO}/programas/` },
@@ -896,6 +1011,26 @@ ${bloqueCertificado(temario)}`;
    Ninguna inventa precios ni fechas: cuando la respuesta honesta es «escríbenos»,
    dice «escríbenos». */
 const PREGUNTAS = (t) => [
+  /* Dos preguntas de sitio, y las dos primeras a propósito: «dónde» y «cómo son
+     las clases» son lo que se pregunta antes que el precio cuando se busca un
+     curso en una ciudad concreta, y son las que Google lee para entender que
+     esto es un centro de Caracas y no un sitio de cursos de cualquier parte.
+
+     Lo que se afirma aquí está medido, no supuesto: los 521 certificados
+     emitidos llevan «Caracas» como lugar de expedición. De ahí no se sigue una
+     dirección de calle, así que no se pone ninguna —ni aquí ni en el
+     `streetAddress` de los datos estructurados. Una dirección inventada es peor
+     que ninguna: Google la contrasta con el mapa y deja de fiarse del resto. */
+  ['¿Dónde está el CEM?',
+   `El CEM es un centro de estudios de Caracas, Venezuela, y desde ${ESCUELA.fundada} expide `
+   + `desde aquí sus certificados: los ${t.totales.certificados} emitidos hasta hoy llevan `
+   + 'Caracas como lugar de expedición. Para la dirección exacta de la sede y el horario de '
+   + 'atención, escríbenos desde la página de contacto.'],
+  ['¿Las clases son presenciales en Caracas o se pueden seguir a distancia?',
+   'Las promociones se imparten con clases en vivo, y todo el material queda grabado y '
+   + 'disponible en la plataforma, así que se puede seguir el diplomado desde cualquier parte '
+   + 'de Venezuela sin perder ninguna clase. El certificado es el mismo en los dos casos. '
+   + 'Escríbenos para saber el horario de la convocatoria abierta.'],
   ['¿El certificado del CEM se puede verificar?',
    'Sí. Cada certificado lleva un código único y un código QR. Cualquiera puede comprobar '
    + `en escuelacem.com/plataforma/verificar.html que es auténtico, a nombre de quién está y `
@@ -911,9 +1046,9 @@ const PREGUNTAS = (t) => [
   ['¿Desde cuándo existe el CEM?',
    `Desde ${ESCUELA.fundada}. Hasta hoy ha emitido ${t.totales.certificados} certificados a `
    + `${t.totales.personas} personas, en ${t.totales.promociones} promociones.`],
-  ['¿Las clases son en línea o presenciales?',
-   'Las promociones se imparten con clases en vivo y el material queda disponible en la '
-   + 'plataforma. Para saber el horario de la próxima convocatoria, escríbenos.'],
+  /* Aquí estaba «¿Las clases son en línea o presenciales?», que ahora es la
+     segunda de la lista y con la respuesta ampliada. Dos preguntas distintas
+     con la misma respuesta le dicen a Google que la página se repite. */
   ['¿Cuánto cuesta y cuándo empieza la próxima promoción?',
    'El precio y las fechas cambian con cada convocatoria, así que no los publicamos aquí para '
    + 'no dejar un dato viejo. Escríbenos desde la página de contacto y te decimos los de la '
@@ -925,9 +1060,9 @@ const PREGUNTAS = (t) => [
 
 function paginaDePreguntas(temario) {
   const url = `${SITIO}/preguntas-frecuentes.html`;
-  const titulo = `Preguntas frecuentes | ${ESCUELA.nombre}`;
-  const descripcion = recortar('Cómo se verifica un certificado del CEM, si se puede cursar un '
-    + 'módulo suelto, qué diplomados hay y desde cuándo existe la escuela.');
+  const titulo = 'Preguntas frecuentes · Diplomados del CEM en Caracas';
+  const descripcion = recortar('Dónde está el CEM, cómo se verifica un certificado, si se puede '
+    + 'cursar un módulo suelto y qué diplomados se imparten en Caracas.');
   const pasos = [{ nombre: 'Inicio', url: `${SITIO}/` }, { nombre: 'Preguntas frecuentes' }];
   const qa = PREGUNTAS(temario);
 
@@ -979,35 +1114,20 @@ function paginaDePreguntas(temario) {
    parpadeo. */
 function paginaDeInicio(temario) {
   const url = `${SITIO}/`;
-  const titulo = `CEM · Diplomados en marketing digital e inteligencia artificial en Venezuela`;
-  const descripcion = recortar(`Centro de Estudios de Marketing, desde ${ESCUELA.fundada}. `
-    + `Diplomados en marketing digital e inteligencia artificial, de ocho módulos cada uno, `
-    + `con certificado verificable. ${temario.totales.certificados} certificados emitidos.`);
+  /* El título, por debajo de los 60 caracteres que enseña Google.
+     ─────────────────────────────────────────────────────────────────────────
+     Éste medía 77 y se cortaba justo donde iba «en Venezuela»: la palabra por
+     la que más falta hace que aparezca era la que desaparecía. */
+  const titulo = 'Diplomados en marketing digital e IA en Caracas | CEM';
+  const descripcion = recortar(`Centro de estudios de marketing en Caracas, Venezuela, desde `
+    + `${ESCUELA.fundada}. Diplomados en marketing digital e inteligencia artificial, de ocho `
+    + `módulos, con certificado verificable. ${temario.totales.certificados} emitidos.`);
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
       escuelaJsonLd(),
-      /* `WebSite` con `SearchAction` es lo que puede hacer que Google enseñe una
-         caja de búsqueda propia debajo del resultado. Apunta al verificador,
-         que es la única búsqueda real que tiene este sitio: quien busca en el
-         CEM busca un certificado. */
-      {
-        '@type': 'WebSite',
-        '@id': `${SITIO}#sitio`,
-        url: SITIO,
-        name: ESCUELA.nombre,
-        inLanguage: 'es',
-        publisher: { '@id': `${SITIO}#escuela` },
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${SITIO}/plataforma/verificar.html?codigo={search_term_string}`,
-          },
-          'query-input': 'required name=search_term_string',
-        },
-      },
+      sitioJsonLd(),
       {
         '@type': 'ItemList',
         name: 'Diplomados del CEM',
@@ -1027,8 +1147,9 @@ function paginaDeInicio(temario) {
       <span class="ojal">Centro de Estudios de Marketing · Caracas, desde ${ESCUELA.fundada}</span>
       <h1 class="titular-largo">Diplomados en marketing digital e inteligencia artificial,
         con certificado verificable</h1>
-      <p class="lema">Dos diplomados de ocho módulos cada uno. Cada módulo se certifica por
-        separado, y cualquiera puede verificar ese certificado con su código.</p>
+      <p class="lema">Dos diplomados de ocho módulos cada uno, impartidos desde Caracas. Cada
+        módulo se certifica por separado, y cualquiera puede verificar ese certificado con su
+        código.</p>
       <div class="portada-manos">
         <a class="btn" href="${SITIO}/programas/">Ver los dos diplomados</a>
         <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
@@ -1045,6 +1166,30 @@ function paginaDeInicio(temario) {
       <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
       <div><b>${ESCUELA.fundada}</b><span>en funcionamiento desde</span></div>
     </div>
+  </div>
+</section>
+
+<!-- Dónde está esto, dicho en el cuerpo de la página y no sólo en el <title>.
+     ═══════════════════════════════════════════════════════════════════════════
+     Google no se fía de una ciudad que sólo aparece en la etiqueta del título:
+     eso lo escribe cualquiera. Lo que le da peso local es que la ciudad esté en
+     el texto que lee una persona, con algo comprobable al lado —aquí, que los
+     certificados emitidos llevan Caracas como lugar de expedición.
+
+     Y por eso mismo no hay dirección de calle ni teléfono inventados: son el
+     tipo de dato que Google contrasta, y uno falso hace que deje de creerse
+     también lo que sí es verdad. Cuando la sede tenga ficha, va aquí y en el
+     «streetAddress» de los datos estructurados, los dos a la vez. -->
+<section class="franja">
+  <div class="dentro estrecho">
+    <span class="ojal">Caracas, Venezuela</span>
+    <h2 style="margin-top:0">Un centro de estudios de Caracas</h2>
+    <p class="entrada">El CEM lleva desde ${ESCUELA.fundada} formando en marketing digital e
+      inteligencia artificial desde Caracas, y desde aquí expide sus certificados: los
+      ${esc(temario.totales.certificados)} emitidos hasta hoy llevan Caracas como lugar de
+      expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
+      desde cualquier parte de Venezuela sin perder ninguna.</p>
+    <p><a href="${SITIO}/preguntas-frecuentes.html">Dónde está el CEM y cómo son las clases →</a></p>
   </div>
 </section>
 
@@ -1283,11 +1428,49 @@ async function main() {
   await writeFile(join(RAIZ, 'robots.txt'), robots(), 'utf8');
   console.log('  ✓ /sitemap.xml\n  ✓ /robots.txt');
 
+  await sincronizarEscuelaEn('plataforma/inicio.html');
+
   const nModulos = temario.diplomados.reduce((a, d) => a + d.modulos.length, 0);
   const enElMapa = 6 + temario.diplomados.length + nModulos + cursos.length;
   console.log(`\n${temario.diplomados.length} diplomado(s) y ${nModulos} módulo(s) con página`
     + ` propia, más ${cursos.length} programa(s) del catálogo.`);
   console.log(`${enElMapa} direcciones en el sitemap (antes eran 4).`);
+}
+
+/** La escuela, dicha igual en una pantalla escrita a mano.
+ *  ───────────────────────────────────────────────────────────────────────────
+ *  Esta herramienta escribe páginas enteras; ésta es la única excepción, y va
+ *  acotada a UN bloque por un motivo concreto.
+ *
+ *  `plataforma/inicio.html` llevaba su propia copia de la escuela en datos
+ *  estructurados, escrita a mano hace meses, y había divergido de la buena:
+ *  decía que atiende «Latinoamérica y España» cuando el resto del sitio dice
+ *  Caracas y Venezuela, no traía región, y su `SearchAction` apuntaba al
+ *  catálogo mientras la portada apunta al verificador. Las dos con el MISMO
+ *  `@id`. Google resuelve el `@id` de forma global: dos nodos que se
+ *  contradicen no es que valga uno, es que no se cree ninguno del todo.
+ *
+ *  Arreglarlo a mano lo habría dejado bien un día y roto al siguiente cambio,
+ *  que es exactamente lo que ya pasó. Así que se sincroniza: se reemplaza sólo
+ *  el bloque de datos estructurados, y todo lo demás de la pantalla —que es
+ *  escrita a mano y sigue siéndolo— se deja intacto. */
+async function sincronizarEscuelaEn(ruta) {
+  const donde = join(RAIZ, ruta);
+  const antes = await readFile(donde, 'utf8');
+  const bloque = /<script type="application\/ld\+json">[\s\S]*?<\/script>/;
+  if (!bloque.test(antes)) {
+    console.log(`  · ${ruta} no tiene bloque de datos estructurados; no se toca`);
+    return;
+  }
+  /* El mismo `WebSite` que la portada, no otro: comparten `@id`. */
+  const nuevo = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [escuelaJsonLd(), sitioJsonLd()],
+  });
+  const t = antes.replace(bloque, `<script type="application/ld+json">${nuevo}</script>`);
+  if (t === antes) { console.log(`  = ${ruta} ya decía lo mismo`); return; }
+  await writeFile(donde, t, 'utf8');
+  console.log(`  ✓ ${ruta} (sólo su bloque de datos estructurados)`);
 }
 
 main().catch((e) => { console.error('\n✗', e.message, '\n'); process.exit(1); });

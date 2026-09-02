@@ -10,9 +10,11 @@
 
      1 · Cada página tiene UN <h1>. Ninguno o dos es la señal más vieja de que
          el HTML se armó mal, y Google usa el h1 para saber de qué va.
-     2 · Ningún <title> se repite. Dos páginas con el mismo título compiten por
-         la misma búsqueda y gana la que menos te interesa. Pasó de verdad:
-         «/programas/» y la portada tenían el MISMO, palabra por palabra.
+     2 · Ningún <title> se repite, y ninguno se pasa de largo. Dos páginas con
+         el mismo título compiten por la misma búsqueda y gana la que menos te
+         interesa —pasó de verdad: «/programas/» y la portada tenían el MISMO,
+         palabra por palabra. Y un título de más de 60 caracteres se corta justo
+         por el final, que es donde va «| CEM».
      3 · Ninguna <meta description> se repite, y todas caben en lo que Google
          enseña (unos 160 caracteres).
      4 · El canonical de cada página apunta a su propia dirección. Un canonical
@@ -24,9 +26,11 @@
      6 · Cada dirección del sitemap existe como archivo, y cada página del
          sitio está en el sitemap. Un mapa que menciona páginas que no existen
          gasta el presupuesto de rastreo en 404.
-     7 · Existe /favicon.ico en la raíz, es un .ico de verdad y todas las
-         páginas lo declaran. Sin él Google enseña el sitio con un cuadrito y
-         la inicial del dominio, que es lo que estaba pasando.
+     7 · Existe /favicon.ico en la raíz, es un .ico de verdad, todas las páginas
+         lo declaran, y la organización declara además su `logo` en mapa de
+         bits. Sin lo primero Google enseña el sitio con un cuadrito y la
+         inicial del dominio —que es lo que estaba pasando—; sin lo segundo se
+         queda sin logotipo de marca, que es otra imagen por otro camino.
      8 · Ninguna página que se quiere indexar lleva `noindex` por descuido.
 
    Uso:  node herramientas/revisar-seo.mjs
@@ -82,16 +86,31 @@ const h1malos = paginas.filter((p) => p.h1 !== 1);
 if (h1malos.length) h1malos.forEach((p) => mal(`${p.f} tiene ${p.h1} <h1>`));
 else bien(`Las ${paginas.length} llevan exactamente uno`);
 
-titulo('Ningún título se repite');
+titulo('Ningún título se repite, y todos caben en el resultado');
 const porTitulo = new Map();
+/* El corte real de Google no se mide en caracteres sino en píxeles —unos 580 en
+   escritorio—, y eso no se puede contar desde aquí. 60 caracteres es la
+   equivalencia que se usa en la práctica, y 65 el punto a partir del cual seguro
+   que se corta. Se avisa a partir de 62 para dejar margen a las mayúsculas y a
+   las palabras anchas, que ocupan más píxeles con el mismo número de letras.
+
+   Y esto importa más de lo que parece porque lo que va al final del título es
+   «| CEM»: cuando se pasa, lo que Google se come es justamente la marca. */
+const TOPE_TITULO = 62;
+let titulosLargos = 0;
 for (const p of paginas) {
   if (!p.titulo) { mal(`${p.f} no tiene <title>`); continue; }
+  if (p.titulo.length > TOPE_TITULO) {
+    titulosLargos++;
+    mal(`${p.f} tiene ${p.titulo.length} caracteres de título; Google enseña unos 60`
+      + ` y se comería «${p.titulo.slice(TOPE_TITULO - 6)}»`);
+  }
   if (!porTitulo.has(p.titulo)) porTitulo.set(p.titulo, []);
   porTitulo.get(p.titulo).push(p.f);
 }
 const repes = [...porTitulo].filter(([, v]) => v.length > 1);
 if (repes.length) repes.forEach(([t, v]) => mal(`«${t.slice(0, 54)}…» se repite en ${v.join(' y ')}`));
-else bien(`Los ${porTitulo.size} títulos son distintos entre sí`);
+else if (!titulosLargos) bien(`Los ${porTitulo.size} títulos son distintos y caben en el resultado`);
 
 titulo('Las descripciones son propias y caben');
 const porDesc = new Map();
@@ -192,15 +211,41 @@ if (existsSync(svg)) {
   }
 }
 
-if (hayIco && !sinIco.length) {
+/* Y el OTRO logotipo, que no es el favicon aunque salga del mismo dibujo.
+   ───────────────────────────────────────────────────────────────────────────
+   El favicon va al lado del resultado de búsqueda; el `logo` de la organización
+   va a la ficha de marca, y Google NO lo deduce del favicon: sin declarar, no
+   hay logotipo y punto. Faltaba, y por eso se comprueba ahora.
+
+   Se exige mapa de bits porque Google descarta un SVG en `logo` sin decir nada
+   —el mismo silencio del `viewBox`— y se exige que el archivo exista de verdad:
+   un `logo` que apunta a un 404 es igual de inútil que no ponerlo. */
+let logosMal = 0, conLogo = 0;
+for (const p of paginas) {
+  for (const bloque of p.jsonLd) {
+    let dato; try { dato = JSON.parse(bloque); } catch { continue; }
+    const nodos = [dato, ...(dato['@graph'] || [])];
+    const org = nodos.find((n) => n && /Organization/.test(String(n['@type'] || '')));
+    if (!org) continue;
+    const logo = typeof org.logo === 'string' ? org.logo : org.logo?.url;
+    if (!logo) { logosMal++; mal(`${p.f} declara la organización sin «logo»: Google se queda sin logotipo de marca`); continue; }
+    if (/\.svg(\?|$)/i.test(logo)) { logosMal++; mal(`${p.f} declara un SVG como «logo»; Google sólo acepta PNG, JPG o GIF ahí`); continue; }
+    const enDisco = join(RAIZ, logo.replace(SITIO, '').replace(/^\//, ''));
+    if (!existsSync(enDisco)) { logosMal++; mal(`${p.f} declara «logo» en ${logo}, que no existe en el repositorio`); continue; }
+    conLogo++;
+  }
+}
+
+if (hayIco && !sinIco.length && !logosMal) {
   const bytes = readFileSync(join(RAIZ, 'favicon.ico'));
   /* Que sea un .ico de verdad y no un PNG renombrado, que es el error clásico:
      los dos primeros campos son reservado=0 y tipo=1. */
   const esIco = bytes.readUInt16LE(0) === 0 && bytes.readUInt16LE(2) === 1;
   const cuantos = esIco ? bytes.readUInt16LE(4) : 0;
   if (!esIco) mal('/favicon.ico existe pero no tiene la cabecera de un .ico');
-  else bien(`/favicon.ico está en la raíz con ${cuantos} tamaño(s) dentro,`
-    + ` y las ${paginas.length} páginas lo declaran`);
+  else bien(`/favicon.ico está en la raíz con ${cuantos} tamaño(s) dentro, las`
+    + ` ${paginas.length} páginas lo declaran, y las ${conLogo} que describen la`
+    + ' escuela traen además su logotipo de marca en mapa de bits');
 }
 
 titulo('Nadie lleva un «noindex» puesto por descuido');

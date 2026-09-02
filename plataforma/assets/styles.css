@@ -273,9 +273,21 @@ button{cursor:pointer;}
   padding:0;margin-bottom:var(--e1);}
 .auth-card h1{font-size:var(--t-lg);font-weight:var(--peso-fuerte);margin:var(--e2) 0 var(--e0);}
 .auth-card .sub{color:var(--tinta-2);font-size:var(--t-sm);margin-bottom:var(--e3);}
-.brand-badge{width:44px;height:44px;border-radius:var(--r);background:var(--primary);
-  color:var(--on-primary);display:flex;align-items:center;justify-content:center;}
-.brand-badge .material-symbols-outlined{font-size:24px;}
+/* El cuadrado de la marca.
+   ───────────────────────────────────────────────────────────────────────────
+   `overflow:hidden` no es un detalle: dentro va un icono de la tipografía de
+   ligaduras, y si esa fuente no llega lo que se dibuja es la PALABRA. Sin
+   recorte, «account_balance» se salía del cuadrado de 44 px y cruzaba la
+   pantalla de entrar en letras enormes. Se vio al renderizar sin la fuente.
+   El `min-width` impide que el cuadrado se estire para dejarla salir. */
+.brand-badge{width:44px;height:44px;min-width:44px;border-radius:var(--r);
+  background:var(--primary);color:var(--on-primary);display:flex;
+  align-items:center;justify-content:center;overflow:hidden;}
+.brand-badge .material-symbols-outlined{font-size:24px;line-height:1;}
+/* Cuando lo que va dentro es el logotipo de verdad y no un icono de estado.
+   Un dibujo no depende de ninguna fuente: llega o no llega, pero nunca se
+   convierte en una palabra suelta. */
+.brand-badge img{width:26px;height:26px;object-fit:contain;display:block;}
 .demo-list{margin-top:var(--e3);padding-top:var(--e2);border-top:1px solid var(--filete);
   font-size:var(--t-xs);color:var(--tinta-2);}
 .demo-list button{margin:var(--e0) var(--e0) 0 0;}
@@ -3625,8 +3637,19 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
   background:linear-gradient(160deg,
     color-mix(in srgb, var(--mod-color, var(--primary)) 13%, transparent) 0%,
     transparent 62%);}
-.medallon-tema{width:64px;height:64px;border-radius:var(--r);display:flex;
-  align-items:center;justify-content:center;margin-bottom:var(--e2);
+/* `overflow:hidden` como en `.mod-cubierta`, y por lo mismo.
+   ───────────────────────────────────────────────────────────────────────────
+   Material Symbols es una tipografía de ligaduras: mientras no llega, lo que
+   hay escrito ahí es la PALABRA —«smartphone», «campaign»—, no un icono. El
+   `display=block` de la URL de la fuente la esconde durante los primeros
+   segundos, pero a quien nunca le llegue la fuente —un proxy de oficina, un
+   bloqueador, una conexión caída— le sale la palabra. Sin recorte se desborda
+   del medallón y cruza la cabecera; con él, se queda dentro de sus 64 px y
+   parece un adorno raro en vez de una página rota. Visto en pruebas: salía
+   «sm» encima del título. */
+.medallon-tema{width:64px;height:64px;min-width:64px;border-radius:var(--r);
+  display:flex;align-items:center;justify-content:center;margin-bottom:var(--e2);
+  overflow:hidden;
   background:color-mix(in srgb, var(--mod-color, var(--primary)) 15%, transparent);
   color:var(--mod-color, var(--primary));}
 .medallon-tema .material-symbols-outlined{font-size:34px;line-height:1;

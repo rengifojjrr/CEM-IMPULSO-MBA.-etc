@@ -45,7 +45,7 @@
                                                  Playwright, en pruebas/)
 */
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const SOLO_MIRAR = process.argv.includes('--mirar');
@@ -116,7 +116,10 @@ async function dibujar() {
 
 function htmls(dir, acc = []) {
   for (const nombre of readdirSync(dir)) {
-    if (nombre === 'node_modules' || nombre === '.git') continue;
+    /* `.artefactos/` está en .gitignore: son borradores que no se publican, y
+       contarlos hacía que la herramienta dijera «8 pantallas» cuando las
+       pantallas de verdad eran 7. */
+    if (nombre === 'node_modules' || nombre === '.git' || nombre === '.artefactos') continue;
     const p = join(dir, nombre);
     if (statSync(p).isDirectory()) htmls(p, acc);
     else if (nombre.endsWith('.html')) acc.push(p);
@@ -162,14 +165,35 @@ for (const archivo of htmls(RAIZ)) {
   if (archivo.includes('/programas/')) { saltados++; continue; }   // las escribe generar-seo
   if (LAS_GENERA_OTRO.has(archivo.slice(RAIZ.length + 1))) { saltados++; continue; }
   const antes = readFileSync(archivo, 'utf8');
-  if (!VIEJOS.test(antes)) { saltados++; continue; }
   VIEJOS.lastIndex = 0;
+  /* Antes se saltaba aquí toda pantalla que no declarase ya un icono, que es
+     justo al revés de lo que hace falta: las que no declaraban nada eran
+     precisamente las que estaban mal. Ahora sólo se descarta lo que no es una
+     pantalla —un fragmento sin <head> se descarta más abajo, al no encontrar
+     dónde meter el bloque. */
 
-  /* De dónde cuelga assets/ visto desde esta pantalla, sacado de lo que la
-     propia página ya declaraba. Deducirlo del número de carpetas se equivocaba
-     con las de la raíz. */
+  /* De dónde cuelga assets/ visto desde esta pantalla.
+     ───────────────────────────────────────────────────────────────────────
+     Primero, lo que la propia página ya declaraba: si acierta, se respeta tal
+     cual y no se cambia una ruta que funciona.
+
+     Y si no declara nada, se CALCULA, que antes era rendirse. Ahí estaba el
+     agujero: ocho pantallas de verdad —admin.html, proyectos.html, las dos de
+     certificados/, manual.html, las dos del estudiante— no llevaban ni un solo
+     `<link rel="icon">`, y por eso el navegador les ponía en la pestaña su
+     suplente: el cuadrito con la inicial del dominio. Justo lo que se creía
+     arreglado. No salían en ninguna comprobación porque esta herramienta las
+     saltaba en silencio, y `revisar-seo.mjs` sólo mira las páginas públicas.
+
+     Se calcula con `relative`, que es lo correcto y no lo que se intentó la
+     primera vez: contar carpetas a mano se equivocaba con las de la raíz.
+     Desde plataforma/estudiante/curso.html da «../assets/»; desde
+     certificados/generar.html, «../plataforma/assets/»; desde admin.html,
+     «plataforma/assets/». */
   const pista = antes.match(/href="((?:\.\.\/)*(?:\.\/)?(?:plataforma\/)?assets\/)favicon\.svg"/);
-  if (!pista) { saltados++; continue; }
+  const haciaAssets = pista
+    ? pista[1]
+    : (relative(dirname(archivo), join(RAIZ, 'plataforma', 'assets')) || '.') + '/';
 
   /* Se quita TODO lo viejo primero —los enlaces y el comentario que deja esta
      misma herramienta— y sólo después se busca dónde poner lo nuevo. Al revés
@@ -184,7 +208,7 @@ for (const archivo of htmls(RAIZ)) {
   const trasTitulo = t.search(/(?<=<\/title>\n)/);
   const donde = trasTitulo >= 0 ? trasTitulo : t.search(/(?<=<head>\n)/);
   if (donde < 0) { saltados++; continue; }
-  t = t.slice(0, donde) + bloque(pista[1]) + t.slice(donde);
+  t = t.slice(0, donde) + bloque(haciaAssets) + t.slice(donde);
 
   if (t === antes) { saltados++; continue; }
   tocados++;
