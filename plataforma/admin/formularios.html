@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Listas de pre-registro</title>
+<!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,
+     PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180
+     para el iPhone. Ver herramientas/iconos.mjs. -->
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="apple-touch-icon" href="../assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
+     Sin esto el navegador descubre cada uno cuando le toca, y paga el
+     DNS y el saludo TLS de cada cual por separado, con la pantalla en
+     blanco mientras tanto. Ver herramientas/acelerar-cabeceras.mjs. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../assets/app.js?v=2026-08-29-2">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-29-2">
+<style>
+  /* Una ficha por lista, no una fila de tabla — misma decisión que en
+     recursos.html: lo que se mira de una lista es su enlace (largo, que hay
+     que poder copiar) y dos o tres cifras, y eso en una celda no cabe. */
+  .ficha-lista{display:flex;flex-direction:column;gap:var(--e2);}
+  .ficha-cab{display:flex;align-items:flex-start;gap:var(--e1);flex-wrap:wrap;}
+  .ficha-ico{font-size:26px;color:var(--primary);flex:none;margin-top:2px;}
+  .ficha-tit{margin:0;font-size:var(--t-lg);line-height:1.2;}
+  .ficha-mandos{display:flex;align-items:center;gap:6px;flex:none;margin-left:auto;}
+  @media (max-width:560px){ .ficha-mandos{margin-left:0;width:100%;} }
+
+  .ficha-enlace{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .ficha-enlace code{flex:1;min-width:min(100%,260px);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r-sm);
+    padding:9px 11px;white-space:normal;word-break:break-all;line-height:1.5;}
+
+  .ficha-cifras{display:flex;gap:var(--e3);flex-wrap:wrap;
+    border-top:1px solid var(--filete);border-bottom:1px solid var(--filete);
+    padding:var(--e1) 0;}
+  .ficha-cifras div{min-width:96px;}
+  .ficha-cifras b{display:block;font-size:var(--t-lg);line-height:1.1;
+    font-variant-numeric:tabular-nums;}
+  .ficha-cifras span{font-size:var(--t-xs);color:var(--tinta-3);}
+
+  /* Los campos de siempre, como interruptores en rejilla. Dos columnas en
+     escritorio: doce campos en una sola columna obligan a hacer scroll dentro
+     del diálogo para ver si se dejó algo encendido. */
+  .rejilla-campos{display:grid;gap:8px;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
+  /* sin-caja: es el marco de una fila de formulario dentro de un diálogo, no un
+     panel de la interfaz. Doce «cajas» de la casa anidadas dentro de otra caja
+     darían tres bordes y tres sombras superpuestas. */
+  .campo-sw{display:flex;align-items:center;gap:10px;padding:8px 10px;
+    border:1px solid var(--filete);border-radius:var(--r);}
+  .campo-sw .nom{flex:1;min-width:0;}
+  .campo-sw .nom b{display:block;font-weight:var(--peso-fuerte);}
+  /* El «obligatorio» sólo tiene sentido si el campo está encendido; apagado se
+     ve a la mitad para que se entienda que no pinta nada, en vez de
+     desaparecer y hacer saltar la fila. */
+  .campo-sw.apagado .obl{opacity:.35;pointer-events:none;}
+  .campo-sw .obl{font-size:var(--t-xs);display:flex;align-items:center;gap:5px;
+    color:var(--tinta-3);white-space:nowrap;}
+
+  /* Las preguntas propias, en tarjetas que se pueden subir y bajar.
+     sin-caja: por lo mismo que .campo-sw — va dentro del diálogo de edición y
+     lo que enmarca es un grupo de controles, no una sección de la pantalla. */
+  .preg{border:1px solid var(--filete);border-radius:var(--r);padding:var(--e1);
+    display:flex;flex-direction:column;gap:8px;margin-bottom:8px;background:var(--fondo);}
+  .preg-cab{display:flex;align-items:center;gap:8px;}
+  .preg-cab .n{font-variant-numeric:tabular-nums;color:var(--tinta-3);
+    font-size:var(--t-xs);font-weight:var(--peso-fuerte);flex:none;}
+  .preg-cab input{flex:1;min-width:0;}
+  .preg-fila{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .preg-fila select{flex:none;width:auto;min-width:150px;}
+  .preg-ops{display:none;}
+  .preg-ops.se-ve{display:block;}
+</style>
+</head>
+<body>
+<main class="wrap" id="app">
+  <div class="head-row">
+    <div>
+      <h1>Listas de pre-registro</h1>
+      <p class="sub">Formularios con enlace propio para pegar en redes y saber quién
+        quiere qué antes de abrir una convocatoria.</p>
+    </div>
+    <button class="btn" id="btnNueva">
+      <span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva lista</button>
+  </div>
+  <div id="lista"><p class="tiny muted">Cargando…</p></div>
+</main>
+
+<script type="module">
+/* Listas de pre-registro: crearlas, elegir qué se pregunta y ver quién contestó.
+   ═══════════════════════════════════════════════════════════════════════════
+   El pariente cercano es recursos.html, y comparten casi todo: un enlace corto
+   que se reparte por redes, una tabla de contactos común y las mismas cifras
+   —cuánta gente y cuántos acabaron con cuenta.
+
+   Lo que cambia es que aquí la escuela decide QUÉ se pregunta. De ahí las dos
+   mitades del editor: los campos de siempre, que sólo se encienden o se apagan,
+   y las preguntas propias, que se escriben.
+
+   Por qué esa separación y no «todo son preguntas»: nombre, correo y teléfono
+   no son preguntas cualesquiera. Van a columnas de verdad de `cem_leads`, se
+   usan para no duplicar a la misma persona y son con lo que cobranza escribe
+   después. Una pregunta libre titulada «Correo» no serviría para nada de eso. */
+import { sb, mount, $, $$, esc, num, chip, fdate, fdatetime, ok, fail, toast, modal,
+         confirmDialog, mensajeError, download, toCSV, SUPABASE_URL }
+  from '../assets/app.js?v=2026-08-29-2';
+
+await mount({ require:['coordinador','admin','superadmin'], area:'admin', active:'formularios.html' });
+
+/* La dirección que se reparte, sacada de dónde está publicada la plataforma y
+   no escrita a mano: en local es 127.0.0.1 y publicada es escuelacem.com, y un
+   enlace copiado del sitio equivocado no lo abre nadie. Igual que recursos.html. */
+const RAIZ = location.origin + location.pathname.replace(/\/admin\/[^/]*$/, '');
+const enlaceDe = (codigo) => `${RAIZ}/formulario.html?f=${encodeURIComponent(codigo)}`;
+
+/* Los campos de siempre. Este catálogo tiene que decir lo MISMO que el de
+   formulario.html: si aquí se enciende «cedula» y allí no existe, la escuela
+   cree que lo está pidiendo y nunca llega. Se repite a propósito en vez de
+   compartirse desde app.js porque son doce líneas y meterlas en el archivo que
+   cargan las 104 pantallas para que lo usen dos es peor negocio. */
+const PREDETERMINADOS = [
+  ['nombre',           'Nombre',                 'Va a la ficha del contacto'],
+  ['apellido',         'Apellido',               'Va a la ficha del contacto'],
+  ['email',            'Correo',                 'Con esto se evita duplicar personas'],
+  ['telefono',         'Teléfono / WhatsApp',    'Por donde se le escribe después'],
+  ['cedula',           'Cédula',                 ''],
+  ['pais',             'País',                   ''],
+  ['ciudad',           'Ciudad',                 ''],
+  ['edad',             'Edad',                   ''],
+  ['ocupacion',        '¿A qué se dedica?',      ''],
+  ['empresa',          'Empresa',                ''],
+  ['instagram',        'Instagram',              ''],
+  ['como_nos_conocio', '¿Cómo nos conoció?',     'Sirve para saber qué canal trae gente'],
+];
+
+const TIPOS = [
+  ['texto',   'Texto corto'],
+  ['parrafo', 'Texto largo'],
+  ['opcion',  'Elegir una'],
+  ['varias',  'Elegir varias'],
+  ['si_no',   'Sí o no'],
+  ['numero',  'Número'],
+  ['fecha',   'Fecha'],
+];
+
+let listas = [], cursos = [];
+
+async function cargar() {
+  const [{ data: f, error }, { data: c }] = await Promise.all([
+    sb.rpc('cem_formularios_listar'),
+    sb.from('cem_courses').select('id,nombre').order('nombre'),
+  ]);
+  if (error) { $('#lista').innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+  listas = f || [];
+  cursos = c || [];
+  pintar();
+}
+
+function pintar() {
+  const caja = $('#lista');
+  if (!listas.length) {
+    caja.innerHTML = `<div class="caja vacio">
+      <span class="material-symbols-outlined" aria-hidden="true">list_alt</span>
+      <h3>Todavía no hay ninguna lista</h3>
+      <p>Una lista de pre-registro es un formulario con su propio enlace. Se pega en
+        una historia de Instagram o en la biografía, y quien lo rellena entra
+        directo en Contactos con lo que haya respondido.</p>
+      <p class="tiny muted">Sirve para saber cuánta gente quiere un diplomado
+        <b>antes</b> de abrir la convocatoria, y para preguntar lo que haga falta:
+        qué horario le viene, si ya sabe del tema, desde qué ciudad.</p>
+    </div>`;
+    return;
+  }
+  caja.innerHTML = listas.map(ficha).join('');
+  $$('[data-copiar]').forEach(b => b.onclick = () => copiar(b.dataset.copiar));
+  $$('[data-editar]').forEach(b => b.onclick = () => editar(listas.find(x => x.id === b.dataset.editar)));
+  $$('[data-preguntas]').forEach(b => b.onclick = () => editarPreguntas(listas.find(x => x.id === b.dataset.preguntas)));
+  $$('[data-ver]').forEach(b => b.onclick = () => verRespuestas(listas.find(x => x.id === b.dataset.ver)));
+  $$('[data-borrar]').forEach(b => b.onclick = () => borrar(listas.find(x => x.id === b.dataset.borrar)));
+}
+
+function ficha(f) {
+  const url = enlaceDe(f.codigo);
+  const cerrada = !f.activo || (f.cierra_en && new Date(f.cierra_en) <= new Date());
+  return `<div class="caja ficha-lista">
+    <div class="ficha-cab">
+      <span class="material-symbols-outlined ficha-ico" aria-hidden="true">list_alt</span>
+      <div style="flex:1;min-width:min(100%,220px)">
+        <h2 class="ficha-tit">${esc(f.titulo)}</h2>
+        <p class="tiny muted" style="margin:2px 0 0">
+          ${f.curso ? esc(f.curso) + ' · ' : ''}${esc(f.codigo)}
+          ${cerrada ? ' · ' + chip('Cerrada', 'warn') : ' · ' + chip('Abierta', 'ok')}
+          ${f.cierra_en ? ` · cierra el ${fdate(f.cierra_en)}` : ''}</p>
+      </div>
+      <div class="ficha-mandos">
+        <button class="icon-btn" data-editar="${f.id}" title="Editar la lista"
+          aria-label="Editar la lista"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+        <button class="icon-btn" data-preguntas="${f.id}" title="Editar las preguntas"
+          aria-label="Editar las preguntas"><span class="material-symbols-outlined" aria-hidden="true">help_center</span></button>
+        <button class="icon-btn" data-borrar="${f.id}" title="Borrar o apagar la lista"
+          aria-label="Borrar o apagar la lista"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
+      </div>
+    </div>
+
+    ${f.descripcion ? `<p class="tiny muted" style="margin:0">${esc(f.descripcion)}</p>` : ''}
+
+    <div class="ficha-enlace">
+      <code>${esc(url)}</code>
+      <button class="btn outline sm" data-copiar="${esc(f.codigo)}">
+        <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>
+      <a class="btn outline sm" href="${esc(url)}" target="_blank" rel="noopener">
+        <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span> Abrir</a>
+    </div>
+
+    <div class="ficha-cifras">
+      <div><b>${num(f.personas)}</b><span>apuntados</span></div>
+      <div><b>${num(f.con_cuenta)}</b><span>ya con cuenta</span></div>
+      <div><b>${num(f.preguntas)}</b><span>preguntas propias</span></div>
+      <div><b>${f.ultima ? fdate(f.ultima) : '—'}</b><span>último apuntado</span></div>
+    </div>
+
+    <div>
+      <button class="btn outline" data-ver="${f.id}" ${f.personas ? '' : 'disabled'}>
+        <span class="material-symbols-outlined" aria-hidden="true">group</span>
+        ${f.personas ? `Ver los ${num(f.personas)} apuntados` : 'Todavía no se ha apuntado nadie'}</button>
+    </div>
+  </div>`;
+}
+
+async function copiar(codigo) {
+  try { await navigator.clipboard.writeText(enlaceDe(codigo)); ok('Enlace copiado.'); }
+  catch { toast('No se pudo copiar. Selecciónalo a mano.'); }
+}
+
+/* ── crear y editar la lista ─────────────────────────────────────────────── */
+function editar(f) {
+  const esNueva = !f;
+  const campos = f?.campos || {
+    /* Lo que trae una lista nueva: los cuatro con los que se puede trabajar de
+       verdad. Nadie empieza de cero queriendo un formulario vacío. */
+    nombre:   { activo:true, obligatorio:true },
+    apellido: { activo:true, obligatorio:false },
+    email:    { activo:true, obligatorio:true },
+    telefono: { activo:true, obligatorio:true },
+  };
+
+  const m = modal({
+    title: esNueva ? 'Nueva lista de pre-registro' : 'Editar lista',
+    wide: true,
+    body: `
+      <div class="field"><label for="fTitulo">Título</label>
+        <input id="fTitulo" value="${esc(f?.titulo || '')}"
+          placeholder="Lista de espera · Diplomado en Marketing Digital">
+        <span class="pista">Es lo primero que lee quien abre el enlace.</span></div>
+
+      <div class="field"><label for="fCodigo">Código del enlace</label>
+        <input id="fCodigo" value="${esc(f?.codigo || '')}" placeholder="mkt-septiembre" autocomplete="off">
+        <span class="pista">Minúsculas, números y guiones. Es lo que va al final del enlace, así que
+          conviene que se lea: <code>mkt-septiembre</code> mejor que <code>a9f2</code>.
+          <b>Si lo cambias, el enlace de antes deja de funcionar.</b></span></div>
+
+      <div class="field"><label for="fDesc">De qué va <span class="tiny muted">(opcional)</span></label>
+        <textarea id="fDesc" rows="2"
+          placeholder="Déjanos tus datos y te avisamos en cuanto abra la convocatoria.">${esc(f?.descripcion || '')}</textarea></div>
+
+      <div class="field"><label for="fCurso">Programa <span class="tiny muted">(opcional)</span></label>
+        <select id="fCurso"><option value="">Ninguno en concreto</option>
+          ${cursos.map(c => `<option value="${c.id}" ${f?.course_id === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
+        <span class="pista">Si lo eliges, cada persona que se apunte queda asociada a ese
+          programa en su ficha de contacto.</span></div>
+
+      <div class="field"><label>Qué datos se piden</label>
+        <div class="rejilla-campos" id="fCampos">
+          ${PREDETERMINADOS.map(([k, et, pista]) => {
+            const c = campos[k] || {};
+            return `<div class="campo-sw ${c.activo ? '' : 'apagado'}" data-campo="${k}">
+              <input type="checkbox" class="sw-activo" ${c.activo ? 'checked' : ''}
+                aria-label="Pedir ${esc(et)}">
+              <span class="nom"><b>${esc(et)}</b>
+                ${pista ? `<span class="tiny muted">${esc(pista)}</span>` : ''}</span>
+              <label class="obl"><input type="checkbox" class="sw-obliga"
+                ${c.obligatorio ? 'checked' : ''}> obligatorio</label>
+            </div>`;
+          }).join('')}
+        </div>
+        <span class="pista">Enciende al menos el correo o el teléfono: si no, no hay forma
+          de avisar a quien se apunte.</span></div>
+
+      <div class="field"><label for="fGracias">Qué se lee al terminar <span class="tiny muted">(opcional)</span></label>
+        <textarea id="fGracias" rows="2"
+          placeholder="Listo. Te escribimos por WhatsApp en cuanto abra la convocatoria.">${esc(f?.gracias || '')}</textarea>
+        <span class="pista">Es la única pantalla donde puedes decirle qué va a pasar
+          después. Si lo dejas vacío se pone un texto genérico.</span></div>
+
+      <div class="field"><label for="fCierra">Cerrar sola el <span class="tiny muted">(opcional)</span></label>
+        <input id="fCierra" type="date" value="${f?.cierra_en ? String(f.cierra_en).slice(0, 10) : ''}">
+        <span class="pista">A partir de ese día el enlace deja de recoger gente, sin que
+          nadie tenga que acordarse de venir a apagarlo.</span></div>
+
+      ${esNueva ? '' : `<div class="field"><label class="obl">
+        <input type="checkbox" id="fActivo" ${f.activo ? 'checked' : ''}> La lista está abierta</label></div>`}
+      <div id="fErr"></div>`,
+    footer: `<button class="btn ghost" data-x>Cancelar</button>
+             <button class="btn" data-s id="fGuardar">Guardar</button>`,
+  });
+
+  /* El «obligatorio» se apaga con su campo. Sin esto se puede dejar marcado
+     «obligatorio» en un campo apagado, guardarlo, y volver a abrirlo sin
+     entender por qué no se pide nada. */
+  $$('.campo-sw', m).forEach(fila => {
+    const act = $('.sw-activo', fila), obl = $('.sw-obliga', fila);
+    act.onchange = () => {
+      fila.classList.toggle('apagado', !act.checked);
+      if (!act.checked) obl.checked = false;
+    };
+    obl.onchange = () => { if (obl.checked && !act.checked) { act.checked = true; act.onchange(); } };
+  });
+
+  $('#fGuardar', m).onclick = async () => {
+    const campos = {};
+    $$('.campo-sw', m).forEach(fila => {
+      campos[fila.dataset.campo] = {
+        activo: $('.sw-activo', fila).checked,
+        obligatorio: $('.sw-obliga', fila).checked,
+      };
+    });
+    const cierra = $('#fCierra', m).value;
+    const { error } = await sb.rpc('cem_formulario_guardar', {
+      p_id: f?.id || null,
+      p_codigo: $('#fCodigo', m).value.trim().toLowerCase(),
+      p_titulo: $('#fTitulo', m).value.trim(),
+      p_descripcion: $('#fDesc', m).value.trim() || null,
+      p_campos: campos,
+      p_course_id: $('#fCurso', m).value || null,
+      p_gracias: $('#fGracias', m).value.trim() || null,
+      p_activo: esNueva ? true : $('#fActivo', m).checked,
+      /* Fin del día, no medianoche: «cierra el 30» quiere decir que el 30
+         todavía se puede uno apuntar. */
+      p_cierra_en: cierra ? `${cierra}T23:59:59` : null,
+    });
+    if (error) { $('#fErr', m).innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+    m.close();
+    ok(esNueva ? 'Lista creada.' : 'Lista guardada.');
+    await cargar();
+  };
+}
+
+/* ── las preguntas propias ───────────────────────────────────────────────── */
+async function editarPreguntas(f) {
+  /* Se piden por la función pública, que es la que sabe cuáles están activas.
+     Da igual que sea la pantalla del equipo: no hay otra forma de leerlas y
+     duplicar una consulta para lo mismo es tener dos sitios donde equivocarse. */
+  const { data: ficha, error } = await sb.rpc('cem_formulario_ficha', { p_codigo: f.codigo });
+  if (error) { fail(mensajeError(error)); return; }
+  let preguntas = (ficha?.preguntas || []).map(q => ({ ...q }));
+
+  const m = modal({
+    title: `Preguntas de «${f.titulo}»`,
+    wide: true,
+    body: `<p class="tiny muted">Van después de los datos de contacto, en este orden.
+        Los campos de siempre —nombre, correo, teléfono— se encienden en «Editar lista»,
+        no aquí.</p>
+      <div id="pLista"></div>
+      <button class="btn outline" id="pAnadir" type="button">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Añadir pregunta</button>
+      <div id="pErr"></div>`,
+    footer: `<button class="btn ghost" data-x>Cancelar</button>
+             <button class="btn" data-s id="pGuardar">Guardar preguntas</button>`,
+  });
+
+  function pintarPreguntas() {
+    const caja = $('#pLista', m);
+    if (!preguntas.length) {
+      caja.innerHTML = `<p class="tiny muted sep">Sin preguntas propias. Con los datos de
+        contacto basta para una lista de espera; añade preguntas cuando necesites
+        saber algo más —el horario que le viene, si ya sabe del tema.</p>`;
+      return;
+    }
+    caja.innerHTML = preguntas.map((q, i) => `
+      <div class="preg" data-i="${i}">
+        <div class="preg-cab">
+          <span class="n">${i + 1}</span>
+          <input class="p-et" value="${esc(q.etiqueta || '')}" placeholder="¿Qué horario te viene mejor?">
+          <button class="icon-btn" data-sube="${i}" title="Subir" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span></button>
+          <button class="icon-btn" data-baja="${i}" title="Bajar" aria-label="Bajar" ${i === preguntas.length - 1 ? 'disabled' : ''}>
+            <span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span></button>
+          <button class="icon-btn" data-quita="${i}" title="Quitar" aria-label="Quitar la pregunta">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+        </div>
+        <div class="preg-fila">
+          <select class="p-tipo">
+            ${TIPOS.map(([v, t]) => `<option value="${v}" ${q.tipo === v ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+          <label class="obl"><input type="checkbox" class="p-obl" ${q.obligatoria ? 'checked' : ''}> obligatoria</label>
+          <input class="p-ayuda" value="${esc(q.ayuda || '')}" placeholder="Aclaración debajo (opcional)"
+            style="flex:1;min-width:min(100%,200px)">
+        </div>
+        <div class="preg-ops ${['opcion','varias'].includes(q.tipo) ? 'se-ve' : ''}">
+          <textarea class="p-ops" rows="3"
+            placeholder="Una opción por renglón">${esc((q.opciones || []).join('\n'))}</textarea>
+          <span class="pista">Una opción por renglón.</span>
+        </div>
+      </div>`).join('');
+
+    /* Lo escrito se recoge ANTES de volver a dibujar, en cada acción. Si no, al
+       pulsar «subir» se pierde lo que se acabara de teclear en las otras. */
+    $$('[data-sube]', m).forEach(b => b.onclick = () => { recoger(); const i = +b.dataset.sube;
+      [preguntas[i - 1], preguntas[i]] = [preguntas[i], preguntas[i - 1]]; pintarPreguntas(); });
+    $$('[data-baja]', m).forEach(b => b.onclick = () => { recoger(); const i = +b.dataset.baja;
+      [preguntas[i + 1], preguntas[i]] = [preguntas[i], preguntas[i + 1]]; pintarPreguntas(); });
+    $$('[data-quita]', m).forEach(b => b.onclick = () => { recoger();
+      preguntas.splice(+b.dataset.quita, 1); pintarPreguntas(); });
+    $$('.p-tipo', m).forEach(s => s.onchange = () => {
+      const fila = s.closest('.preg');
+      $('.preg-ops', fila).classList.toggle('se-ve', ['opcion','varias'].includes(s.value));
+    });
+  }
+
+  function recoger() {
+    $$('.preg', m).forEach(fila => {
+      const i = +fila.dataset.i;
+      preguntas[i] = {
+        ...preguntas[i],
+        etiqueta: $('.p-et', fila).value.trim(),
+        tipo: $('.p-tipo', fila).value,
+        obligatoria: $('.p-obl', fila).checked,
+        ayuda: $('.p-ayuda', fila).value.trim() || null,
+        opciones: $('.p-ops', fila).value.split('\n').map(s => s.trim()).filter(Boolean),
+      };
+    });
+  }
+
+  $('#pAnadir', m).onclick = () => {
+    recoger();
+    preguntas.push({ id: null, etiqueta:'', tipo:'texto', obligatoria:false, ayuda:null, opciones:[] });
+    pintarPreguntas();
+  };
+
+  $('#pGuardar', m).onclick = async () => {
+    recoger();
+    const vacias = preguntas.filter(q => !q.etiqueta);
+    if (vacias.length) {
+      $('#pErr', m).innerHTML = `<div class="nota err">Hay ${vacias.length} pregunta(s) sin
+        enunciado. Escríbelo o quítalas.</div>`;
+      return;
+    }
+    const sinOpciones = preguntas.filter(q => ['opcion','varias'].includes(q.tipo) && q.opciones.length < 2);
+    if (sinOpciones.length) {
+      $('#pErr', m).innerHTML = `<div class="nota err">«${esc(sinOpciones[0].etiqueta)}» es de
+        elegir y necesita al menos dos opciones.</div>`;
+      return;
+    }
+    const { error } = await sb.rpc('cem_formulario_preguntas_guardar', {
+      p_formulario_id: f.id, p_preguntas: preguntas,
+    });
+    if (error) { $('#pErr', m).innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+    m.close();
+    ok('Preguntas guardadas.');
+    await cargar();
+  };
+
+  pintarPreguntas();
+}
+
+/* ── quién se apuntó ─────────────────────────────────────────────────────── */
+async function verRespuestas(f) {
+  const { data, error } = await sb.rpc('cem_formulario_respuestas_listar', { p_formulario_id: f.id });
+  if (error) { fail(mensajeError(error)); return; }
+  const filas = data || [];
+
+  /* Las columnas de las preguntas propias salen de las respuestas y no de la
+     lista de preguntas: si una pregunta se quitó después de que la gente la
+     contestara, lo contestado sigue estando y hay que poder verlo. */
+  const cols = new Map();
+  filas.forEach(r => Object.entries(r.respuestas || {})
+    .forEach(([id, v]) => { if (!cols.has(id)) cols.set(id, v.etiqueta); }));
+
+  const m = modal({
+    title: `${num(filas.length)} apuntado(s) · ${f.titulo}`,
+    wide: true,
+    body: `<div class="table-wrap"><table class="tarjetas">
+        <thead><tr>
+          <th>Cuándo</th><th>Nombre</th><th>Correo</th><th>Teléfono</th>
+          ${[...cols.values()].map(t => `<th>${esc(t)}</th>`).join('')}
+          <th>Cuenta</th>
+        </tr></thead>
+        <tbody>${filas.map(r => `<tr>
+          <td>${fdatetime(r.created_at)}</td>
+          <td>${esc([r.nombre, r.apellido].filter(Boolean).join(' ') || '—')}</td>
+          <td>${esc(r.email || '—')}</td>
+          <td>${esc(r.telefono || '—')}</td>
+          ${[...cols.keys()].map(id => `<td>${esc(r.respuestas?.[id]?.valor || '—')}</td>`).join('')}
+          <td>${r.tiene_cuenta ? chip('Sí', 'ok') : chip('No', '')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`,
+    footer: `<button class="btn ghost" data-x>Cerrar</button>
+             <button class="btn outline" id="rCsv">
+               <span class="material-symbols-outlined" aria-hidden="true">download</span> Bajar en Excel</button>`,
+  });
+
+  $('#rCsv', m).onclick = () => {
+    const planas = filas.map(r => {
+      const o = {
+        Cuándo: fdatetime(r.created_at),
+        Nombre: r.nombre || '', Apellido: r.apellido || '',
+        Correo: r.email || '', Teléfono: r.telefono || '',
+        Origen: r.origen || '', 'Tiene cuenta': r.tiene_cuenta ? 'Sí' : 'No',
+      };
+      /* Los datos que no son columna de contacto —país, ciudad, edad— también
+         van al Excel: se preguntaron para algo. */
+      Object.entries(r.datos || {}).forEach(([k, v]) => {
+        if (!['nombre','apellido','email','telefono'].includes(k)) o[k] = v;
+      });
+      cols.forEach((et, id) => { o[et] = r.respuestas?.[id]?.valor || ''; });
+      return o;
+    });
+    const nombre = f.codigo.replace(/[^a-z0-9-]/g, '') || 'lista';
+    download(`${nombre}-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(planas));
+  };
+}
+
+async function borrar(f) {
+  const conGente = f.personas > 0;
+  const mensaje = conGente
+    ? `«${esc(f.titulo)}» tiene <b>${num(f.personas)} persona(s)</b> apuntada(s), así que
+       <b>no se borra: se apaga</b>. El enlace deja de recoger gente y quien ya se apuntó
+       sigue en Contactos.<br><br><span class="tiny muted">Esa gente dio sus datos para que
+       la avisaran. Borrarla porque la convocatoria terminó sería perder justo lo que se
+       vino a recoger.</span>`
+    : `«${esc(f.titulo)}» no tiene a nadie apuntado, así que se borra del todo.`;
+  if (!await confirmDialog(mensaje, conGente ? 'Apagar la lista' : 'Borrar la lista',
+      { html: true, confirmar: conGente ? 'Sí, apagarla' : 'Sí, borrarla', peligro: true })) return;
+  const { data, error } = await sb.rpc('cem_formulario_borrar', { p_id: f.id });
+  if (error) { fail(mensajeError(error)); return; }
+  ok(data?.apagada ? 'Lista apagada.' : 'Lista borrada.');
+  await cargar();
+}
+
+$('#btnNueva').onclick = () => editar(null);
+await cargar();
+</script>
+</body>
+</html>

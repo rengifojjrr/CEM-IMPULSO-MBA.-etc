@@ -1133,6 +1133,10 @@ const ADMIN_NAV = [
   ]},
   { lbl: 'Matricular', items: [
     ['leads.html', 'contact_phone', 'Contactos de la web', ['cobranza','coordinador','admin','superadmin']],
+    /* Junto a Contactos y no en «Dar clase» con los recursos, aunque el enlace
+       se reparta igual por redes: lo que sale de aquí son personas que hay que
+       llamar, y se miran en la misma visita. */
+    ['formularios.html', 'list_alt', 'Listas de pre-registro', ['coordinador','admin','superadmin']],
     ['estudiantes.html', 'person', 'Estudiantes', ['cobranza','coordinador','admin','superadmin','auditor']],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas', ['cobranza','coordinador','admin','superadmin','auditor']],
     ['cohortes.html', 'groups', 'Cohortes', ['coordinador','admin','superadmin','auditor']],

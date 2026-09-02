@@ -207,6 +207,14 @@ const PUBLICAS = new Set([
      servidor: la ficha que se pide al abrir sólo trae el título, y la ruta del
      documento no viaja nunca al navegador. */
   'plataforma/recurso.html',
+  /* La lista de pre-registro, hermana de la anterior y pública por lo mismo:
+     se llega desde una historia de Instagram y no se pide cuenta —pedirla
+     vaciaría la lista, que es justo lo que se viene a llenar—. Lo que se
+     protege no es la pantalla: la ficha que se pide al abrir sólo trae lo que
+     hace falta para dibujar el formulario, sin decir cuánta gente hay
+     apuntada, y la escritura pasa por `cem_formulario_enviar`, que valida
+     obligatorios y descarta cualquier campo que la lista no haya declarado. */
+  'plataforma/formulario.html',
   // El catálogo y la ficha del programa: públicos, y en la raíz por eso mismo.
   'plataforma/catalogo.html',
   'plataforma/curso.html',
