@@ -17,7 +17,7 @@
    a una tabla de personas: si la hubiera, el permiso viviría en el navegador,
    que es el único sitio donde no se puede defender. */
 
-import { sb, $, esc, profile } from './app.js?v=2026-09-03-6';
+import { sb, $, esc, profile } from './app.js?v=2026-09-03-7';
 
 /* ── Cómo se llama y qué cara tiene ──────────────────────────────────────── */
 /* El nombre y el render salen de `cem_settings`, no de aquí. El dibujo

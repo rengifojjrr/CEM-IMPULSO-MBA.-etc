@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-09-03-6';
+         vidrioActual } from './temas.js?v=2026-09-03-7';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -161,15 +161,24 @@ export const montoPagado = (pago) => {
   return `${propio}<div class="tiny muted">${nota}</div>`;
 };
 
-/** El mismo importe en bolívares y en dólares, con la tasa que se usó. */
-export function moneyBs(montoUsd, tasa, cur = MONEDA_BASE) {
-  if (montoUsd == null) return '—';
-  const enUsd = money(montoUsd, cur);
-  if (!tasa || Number(tasa) <= 0) return enUsd;
-  const bs = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    .format(Number(montoUsd) * Number(tasa));
-  return `${enUsd}<span class="tiny muted"> · ${bs} Bs a ${num(tasa)}</span>`;
-}
+/* Aquí vivía `moneyBs`, y se ha quitado por muerta y por peligrosa.
+   ═══════════════════════════════════════════════════════════════════════════
+   No la llamaba NADIE en todo el repositorio, y hacía casi lo mismo que la
+   pantalla de pagos hace por su cuenta —enseñar el importe en bolívares—, pero
+   peor en tres cosas: daba la cifra sin el «≈» que avisa de que es un
+   equivalente, no decía de qué día es la tasa, y su primer parámetro se
+   llamaba `montoUsd` cuando la moneda base es el EURO.
+
+   Ese nombre es justo la confusión que hay que evitar aquí: la tasa del euro
+   del BCV va un 15 % por encima de la del dólar, así que tratar un importe en
+   euros como si fuera en dólares no es un detalle de redacción, son quince
+   euros de cada cien. Una función muerta con ese nombre es una trampa
+   esperando a que alguien la use de buena fe.
+
+   Lo que sí hay que mirar, si algún día hace falta enseñar bolívares en otra
+   pantalla, es cómo lo hace `estudiante/pagos.html`: pide las dos tasas con
+   `tasaVigente`, marca el importe con «≈», dice la fecha de la tasa y avisa
+   cuando todavía no hay tasa del día. */
 
 /* ============ cómo se llaman las cosas ============
    La base guarda `en_revision`, `verdadero_falso`, `pago movil`. Eso está bien
@@ -1627,7 +1636,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-09-03-6')
+  import('./asistente.js?v=2026-09-03-7')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2321,7 +2330,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-09-03-6');
+    const m = await import('./apariencia.js?v=2026-09-03-7');
 
     m.abrirApariencia();
 

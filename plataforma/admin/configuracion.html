@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-03-6">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-03-7">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-03-6">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-03-7">
 <style>
 </style>
 </head>
@@ -42,8 +42,24 @@
       <div class="row">
         <div class="field corto"><label>Siglas</label><input id="insSiglas"></div>
         <div class="field medio"><label for="insPais">País</label><select id="insPais"></select></div>
-        <div class="field corto"><label>Moneda base</label>
-          <select id="insMoneda"><option>USD</option><option>EUR</option><option>VES</option></select></div>
+        <!-- Un campo que no manda no debe parecer que manda.
+             ═══════════════════════════════════════════════════════════════
+             Esto era un desplegable con USD, EUR y VES, y salía en USD. Pero
+             la moneda base de la plataforma es el EURO y está escrita en el
+             código (MONEDA_BASE en app.js): los precios, los pagos y las
+             cuotas están todos en euros, y nadie lee este ajuste. O sea que
+             se podía dejar puesto «USD», guardar, y no pasaba nada — salvo
+             que a partir de ahí la pantalla de ajustes decía una cosa y el
+             sistema hacía otra.
+
+             Se queda a la vista porque el dato es útil, pero como lo que es:
+             un dato, no un mando. Cambiar de moneda base no es rellenar un
+             campo, es revisar los importes ya guardados. -->
+        <div class="field corto"><label for="insMoneda">Moneda base</label>
+          <input id="insMoneda" value="EUR" readonly aria-readonly="true"
+            title="La moneda base de la plataforma es el euro y no se cambia desde aquí">
+          <span class="tiny muted">Los precios y los pagos se guardan en euros.
+            Los bolívares se calculan con la tasa del BCV del día.</span></div>
       </div>
     </div>
 
@@ -186,9 +202,9 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, ok, fail, run, audit, confirmDialog, modal,
-         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-09-03-6';
-import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-09-03-6';
-import { panelApariencia } from '../assets/apariencia.js?v=2026-09-03-6';
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-09-03-7';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-09-03-7';
+import { panelApariencia } from '../assets/apariencia.js?v=2026-09-03-7';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
 
 /* El panel de apariencia vive en assets/apariencia.js: el mismo que abre
@@ -248,7 +264,8 @@ async function load(){
   const get = k => all.find(x=>x.clave===k)?.valor || {};
   const ins = get('institucion'), es = get('escala_notas'), per = get('periodo_activo');
   $('#insNombre').value = ins.nombre||''; $('#insSiglas').value = ins.siglas||'';
-  $('#insPais').innerHTML = opcionesDePais(ins.pais||'', 'Sin indicar'); $('#insMoneda').value = ins.moneda_base||'USD';
+  $('#insPais').innerHTML = opcionesDePais(ins.pais||'', 'Sin indicar');
+  $('#insMoneda').value = 'EUR';   // el guardado puede ser viejo; manda el código
   $('#esMin').value = es.minima??0; $('#esMax').value = es.maxima??100; $('#esApr').value = es.aprobatoria??70;
   $('#perNombre').value = per.nombre||''; $('#perIni').value = per.inicio||''; $('#perFin').value = per.fin||'';
 
@@ -267,7 +284,11 @@ async function load(){
 $('#btnSave').onclick = async () => {
   const rows = [
     { clave:'institucion', valor:{ nombre:$('#insNombre').value.trim(), siglas:$('#insSiglas').value.trim(),
-        pais:$('#insPais').value, moneda_base:$('#insMoneda').value }, descripcion:'Datos de la institucion' },
+        /* Se guarda 'EUR' fijo y no lo que diga el campo: el campo ya no se
+           puede escribir, y lo que había guardado era 'USD', que contradecía
+           a MONEDA_BASE en app.js. Al guardar los ajustes, el dato se corrige
+           solo. */
+        pais:$('#insPais').value, moneda_base:'EUR' }, descripcion:'Datos de la institucion' },
     { clave:'escala_notas', valor:{ minima:Number($('#esMin').value), maxima:Number($('#esMax').value),
         aprobatoria:Number($('#esApr').value) }, descripcion:'Escala de calificacion' },
     { clave:'periodo_activo', valor:{ nombre:$('#perNombre').value.trim(), inicio:$('#perIni').value||null,
