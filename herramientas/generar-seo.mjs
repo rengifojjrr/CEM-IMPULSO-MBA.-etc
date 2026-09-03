@@ -231,7 +231,12 @@ const cabecera = (activa) => `
             justo lo que Google mide como Largest Contentful Paint. El lazy es
             para lo que hay que bajar a buscar. Lleva sus medidas para que el
             texto de al lado no dé un salto cuando llega. */''}
-      <img src="${SITIO}/plataforma/assets/favicon.svg" alt="" width="22" height="22"
+      ${/* Con marca de versión, como los <link rel="icon">. Sin ella el navegador
+            seguía enseñando el logotipo VIEJO en la cabecera —la «E» sobre negro—
+            aunque el archivo del servidor ya fuera el birrete: una imagen guardada
+            sólo se vuelve a pedir si cambia su dirección. Se vio en pantalla. */''}
+      <img src="${SITIO}/plataforma/assets/favicon.svg?v=${VERSION_ICONO}" alt=""
+           width="22" height="22"
            style="vertical-align:-4px" decoding="async" fetchpriority="high"> ${ESCUELA.nombre}</a>
     <nav>
       <a href="${SITIO}/"${activa === 'inicio' ? ' class="on"' : ''}>Inicio</a>

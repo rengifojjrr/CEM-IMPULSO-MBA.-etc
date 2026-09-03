@@ -561,6 +561,37 @@ if (!ofrecidas.length) {
   bien(`Las ${ofrecidas.length} pantallas que ofrece Campañas montan todas la barra`);
 }
 
+/* ══════════ 16. Los tres sitios que versionan el logotipo dicen lo mismo ══════════
+   El navegador guarda las imágenes con la dirección como única llave: mientras
+   no cambie, sigue enseñando la que tiene aunque el servidor ya sirva otra. Por
+   eso el logotipo lleva `?v=…`, y por eso ese número vive en tres archivos —el
+   que declara los iconos de las pantallas escritas a mano, el que genera las
+   públicas, y el que dibuja la cabecera del portal.
+
+   Tres copias del mismo número es una trampa: se sube una, se olvidan dos, y
+   media casa sigue enseñando el logotipo viejo sin que nada avise. */
+titulo('El logotipo se versiona igual en los tres sitios');
+
+const VERSIONES = [
+  ['herramientas/iconos.mjs', /const VERSION_ICONO = '([^']+)'/],
+  ['herramientas/generar-seo.mjs', /const VERSION_ICONO = '([^']+)'/],
+  ['plataforma/assets/app.js', /const VERSION_ICONO = '([^']+)'/],
+];
+const leidas = [];
+for (const [f, re] of VERSIONES) {
+  const v = (await readFile(join(RAIZ, f), 'utf8')).match(re)?.[1];
+  if (!v) mal(f, `${f} no declara VERSION_ICONO: el logotipo se serviría sin marca de versión`);
+  else leidas.push([f, v]);
+}
+const distintas = new Set(leidas.map(([, v]) => v));
+if (leidas.length === VERSIONES.length && distintas.size > 1) {
+  mal('herramientas/iconos.mjs', 'La versión del logotipo no coincide: '
+    + leidas.map(([f, v]) => `${f} dice ${v}`).join(' · ')
+    + '. Con dos números distintos, parte de la casa enseña el logotipo viejo');
+} else if (leidas.length === VERSIONES.length) {
+  bien(`Los tres archivos versionan el logotipo con ${[...distintas][0]}`);
+}
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

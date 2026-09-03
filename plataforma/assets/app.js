@@ -14,6 +14,14 @@ export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* La marca de versión del logotipo. Tiene que decir lo MISMO que VERSION_ICONO
+   en herramientas/iconos.mjs y en herramientas/generar-seo.mjs: es la fecha del
+   dibujo, no la de la publicación, y se sube a mano sólo cuando el dibujo
+   cambia. Existe porque el navegador guarda las imágenes con la dirección como
+   única llave: sin cambiarla seguía enseñando el logotipo viejo en la cabecera
+   aunque el servidor ya sirviera el nuevo. */
+const VERSION_ICONO = '2026-09-03';
+
 /* ============ utilidades ============ */
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const $ = (sel, root = document) => root.querySelector(sel);
@@ -2222,7 +2230,12 @@ function renderShell(p, area, active) {
   shell.innerHTML = `
     <aside class="sidebar" id="cemSidebar">
       <div class="brand">
-        <img class="mark" src="${raizPublica()}assets/favicon.svg" alt="" width="30" height="30">
+        <!-- Con la misma marca de versión que los <link rel="icon">: una imagen
+             guardada por el navegador sólo se vuelve a pedir si cambia su
+             dirección, y sin esto la cabecera seguía enseñando el logotipo
+             viejo aunque el servidor ya diera el nuevo. -->
+        <img class="mark" src="${raizPublica()}assets/favicon.svg?v=${VERSION_ICONO}"
+             alt="" width="30" height="30">
         <div><b>CEM</b><span>${areaLabel}</span></div>
       </div>
       ${sideHtml}

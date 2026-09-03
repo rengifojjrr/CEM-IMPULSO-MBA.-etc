@@ -2235,7 +2235,47 @@ html:root:not([data-estilo="plano"]){
   }
 }
 
+/* En el escaparate pinta UNA capa, no dos. La otra era el barro.
+   ═══════════════════════════════════════════════════════════════════════════
+   El fondo de la casa son dos capas: `::before`, la de la plataforma, hecha
+   con `--primary` y `--secondary` —el azul y el verde institucionales, que son
+   oscuros—; y `::after`, la del escaparate, hecha con los `--vivo-*`, que son
+   esos mismos tonos encendidos para que se lean como color sobre blanco.
+
+   En lo público se pintaban las dos, una encima de la otra, y el resultado era
+   la nube sucia que este archivo lleva advirtiendo desde hace páginas. Medido
+   en la esquina superior izquierda de la portada, que es donde peor se veía:
+
+     las dos juntas ............ (155,172,197)  saturación 21 %, y OSCURO
+     sólo `::before` ........... (177,185,194)  saturación  9 %  ← el gris
+     sólo `::after` ............ (210,223,247)  saturación 15 %, claro y azul
+
+   O sea: la capa institucional no aportaba color —nueve por ciento es gris—,
+   sólo aportaba suciedad y peso, y arrastraba hacia el gris a la que sí tenía
+   color. Quitarla deja el blanco limpio con la luz de la marca encima, que es
+   justo lo que el escaparate quería ser.
+
+   Va aquí y no en temas.js a propósito: la portada del dominio y las páginas
+   de programa no cargan app.js, y eran las que peor se veían. */
+:root[data-publico="si"] body::before{ display:none; }
+
 :root[data-publico="si"] body::after{
+  /* La capa se declara ENTERA aquí, y esto era el otro medio fallo.
+     ─────────────────────────────────────────────────────────────────────
+     Antes esta regla sólo ponía el fondo y la opacidad, y heredaba `content`,
+     `position` e `inset` de `:root[data-animacion="si"] body::after`. Sin
+     `content` no hay pseudoelemento: en las 24 páginas que genera el SEO —la
+     portada del dominio incluida— `data-animacion` no existe, porque no cargan
+     temas.js, así que la capa de color NUNCA se dibujó ahí. Lo único que se
+     veía en ellas era la capa gris institucional. Por eso eran las más feas de
+     todo el sitio, y por eso quitar la gris las dejaba en blanco liso.
+
+     El movimiento sigue atado a `data-animacion` más abajo, que es lo
+     correcto: quien tiene activado «reducir movimiento» ve el color quieto,
+     no se queda sin color. */
+  content:'';
+  position:fixed; inset:0; z-index:-1; pointer-events:none;
+
   /* Cada mancha lleva un NÚCLEO sólido antes de empezar a desvanecerse, y esa
      es la diferencia entre que se vea el color y que no.
 
