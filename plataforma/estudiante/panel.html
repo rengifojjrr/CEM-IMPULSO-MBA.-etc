@@ -585,7 +585,19 @@ async function pintarMisLogros() {
 
   const misCerts = certs || [];
   const misIns = insignias || [];
-  if (!misCerts.length && !misIns.length) return;
+
+  /* Sin certificados enlazados: se ofrece reclamarlos.
+     ═══════════════════════════════════════════════════════════════════════
+     Quien se graduó por la vía de siempre tiene sus certificados en el
+     registro del generador, no en la plataforma, y el enlace entre los dos
+     mundos es la cédula. Pero la cédula no basta: está impresa en el propio
+     papel y `verificar.html` la acepta como búsqueda, así que cualquiera
+     podría teclear la de un graduado. Por eso se pide el código del QR, que
+     sí hay que tener.
+
+     Sólo se ofrece a quien no tenga ya certificados enlazados; a quien los
+     tiene, esta tarjeta no le dice nada nuevo. */
+  if (!misCerts.length && !misIns.length) { ofrecerReclamar(caja); return; }
 
   caja.innerHTML = `<div class="card">
     <h2 class="sec">Lo que ya te has ganado</h2>
@@ -615,6 +627,39 @@ async function pintarMisLogros() {
           ${esc(a.cem_badges?.nombre || '')}</span>`).join('')}
       </div>` : ''}
   </div>`;
+}
+
+/** «¿Ya estudiaste en el CEM antes?» — para enlazar los certificados de papel. */
+function ofrecerReclamar(caja) {
+  caja.innerHTML = `<div class="card">
+    <h2 class="sec">¿Ya te graduaste con nosotros?</h2>
+    <p class="tiny muted">Si tienes certificados del CEM de antes, enlázalos a tu cuenta
+      y aparecerán aquí y en tu perfil público.</p>
+    <div class="field sep"><label for="recCodigo">Código de uno de tus certificados</label>
+      <input id="recCodigo" autocomplete="off"
+        placeholder="Está debajo del QR, o en el enlace que abre al escanearlo">
+      <span class="pista">Con uno basta: enlazamos todos los que estén a tu nombre.
+        Te pedimos el código y no sólo la cédula porque la cédula está impresa en el
+        propio certificado — el código lo tienes tú.</span></div>
+    <div id="recMsg"></div>
+    <button class="btn" id="recBtn">
+      <span class="material-symbols-outlined" aria-hidden="true">link</span>
+      Enlazar mis certificados</button>
+  </div>`;
+
+  $('#recBtn', caja).onclick = async () => {
+    const btn = $('#recBtn', caja);
+    const cod = $('#recCodigo', caja).value.trim();
+    if (!cod) { avisar('#recMsg', 'Escribe el código del certificado.'); return; }
+    btn.disabled = true;
+    const { data, error } = await sb.rpc('cem_reclamar_certificados', { p_codigo: cod });
+    btn.disabled = false;
+    if (error) { avisar('#recMsg', mensajeError(error)); return; }
+    ok(`Enlazados ${data.certificados} certificado(s).`);
+    /* Se vuelve a pintar en vez de recargar: la insignia puede haberse dado en
+       esta misma llamada y se ve aparecer. */
+    await pintarMisLogros();
+  };
 }
 
 async function pintarAvisoDatos() {
