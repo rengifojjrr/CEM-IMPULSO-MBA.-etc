@@ -131,8 +131,8 @@
       hacer el diplomado entero para tenerlo: al terminarlo se emite un certificado a nombre de
       la persona, con su propio código. Quien completa los ocho recibe además el diploma de
       cierre.</p>
-    <p class="tiny muted">El CEM lleva 521 certificados emitidos
-      y 56 personas graduadas desde 2016. Todos se
+    <p class="tiny muted">El CEM lleva 529 certificados emitidos
+      y 58 personas graduadas desde 2016. Todos se
       pueden comprobar uno a uno.</p>
   </div>
 </section>
@@ -258,5 +258,29 @@
     </nav>
   </div>
 </footer>
+
+<script>
+(function () {
+  try {
+    var pantalla = "programas/creacion-de-contenido-con-ia";
+    /* Una vez por pestaña y pantalla: recargar diez veces no son diez visitas. */
+    if (sessionStorage.getItem('cemVisto:' + pantalla)) return;
+    sessionStorage.setItem('cemVisto:' + pantalla, '1');
+    var p = new URLSearchParams(location.search);
+    var canal = p.get('utm_source') || p.get('origen') || p.get('ref') || '';
+    if (!canal && document.referrer) {
+      var h = new URL(document.referrer).hostname;
+      if (h && h !== location.hostname) canal = h.replace(/^www\./, '');
+    }
+    fetch('https://vajbsfgojtunamhrzrpf.supabase.co/rest/v1/rpc/cem_visita_anotar', {
+      method: 'POST', keepalive: true,
+      headers: { 'apikey': 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl', 'Authorization': 'Bearer sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl',
+                 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_pantalla: pantalla, p_canal: canal || null,
+                             p_campana: p.get('utm_campaign') || null }),
+    }).catch(function () {});
+  } catch (e) { /* almacenamiento bloqueado o navegación privada: da igual */ }
+})();
+</script>
 </body>
 </html>

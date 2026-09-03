@@ -115,9 +115,9 @@
 <section class="franja tenue">
   <div class="dentro">
     <div class="cifras-casa">
-      <div><b>521</b><span>certificados emitidos</span></div>
-      <div><b>56</b><span>personas graduadas</span></div>
-      <div><b>6</b><span>promociones</span></div>
+      <div><b>529</b><span>certificados emitidos</span></div>
+      <div><b>58</b><span>personas graduadas</span></div>
+      <div><b>7</b><span>promociones</span></div>
       <div><b>2016</b><span>en funcionamiento desde</span></div>
     </div>
   </div>
@@ -141,7 +141,7 @@
     <p class="entrada">El CEM lleva desde 2016 formando en marketing digital e
       inteligencia artificial desde Caracas 1060, estado
       Miranda, y desde aquí expide sus certificados: los
-      521 emitidos hasta hoy llevan Caracas como lugar de
+      529 emitidos hasta hoy llevan Caracas como lugar de
       expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
       desde cualquier parte de Venezuela sin perder ninguna.</p>
     <p><a href="https://escuelacem.com/preguntas-frecuentes.html">Dónde está el CEM y cómo son las clases →</a></p>
@@ -378,9 +378,9 @@
       escribe ese código o la cédula y ve ahí mismo si es auténtico, a nombre de quién está y de
       qué es. Sin crear ninguna cuenta.</p>
     <div class="cifras-casa" style="margin:var(--e3) 0">
-      <div><b>521</b><span>certificados comprobables</span></div>
-      <div><b>56</b><span>personas graduadas</span></div>
-      <div><b>6</b><span>promociones</span></div>
+      <div><b>529</b><span>certificados comprobables</span></div>
+      <div><b>58</b><span>personas graduadas</span></div>
+      <div><b>7</b><span>promociones</span></div>
     </div>
     <a class="btn" href="https://escuelacem.com/plataforma/verificar.html">
       <span class="material-symbols-outlined" aria-hidden="true">verified</span>
@@ -406,5 +406,29 @@
     </nav>
   </div>
 </footer>
+
+<script>
+(function () {
+  try {
+    var pantalla = "inicio";
+    /* Una vez por pestaña y pantalla: recargar diez veces no son diez visitas. */
+    if (sessionStorage.getItem('cemVisto:' + pantalla)) return;
+    sessionStorage.setItem('cemVisto:' + pantalla, '1');
+    var p = new URLSearchParams(location.search);
+    var canal = p.get('utm_source') || p.get('origen') || p.get('ref') || '';
+    if (!canal && document.referrer) {
+      var h = new URL(document.referrer).hostname;
+      if (h && h !== location.hostname) canal = h.replace(/^www\./, '');
+    }
+    fetch('https://vajbsfgojtunamhrzrpf.supabase.co/rest/v1/rpc/cem_visita_anotar', {
+      method: 'POST', keepalive: true,
+      headers: { 'apikey': 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl', 'Authorization': 'Bearer sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl',
+                 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_pantalla: pantalla, p_canal: canal || null,
+                             p_campana: p.get('utm_campaign') || null }),
+    }).catch(function () {});
+  } catch (e) { /* almacenamiento bloqueado o navegación privada: da igual */ }
+})();
+</script>
 </body>
 </html>

@@ -405,10 +405,54 @@ ${/* «VE-M» es Miranda en ISO 3166-2, que es lo que dice la dirección de la
 ${cabecera(activa)}
 ${cuerpo}
 ${pie()}
+${contarLaVisita(url)}
 </body>
 </html>
 `;
 }
+
+/* Contar la visita, sin traerse `app.js` por delante.
+   ═══════════════════════════════════════════════════════════════════════════
+   `cem_visitas` llevaba meses vacía, y no era porque faltara nada en la base:
+   la función `cem_visita_anotar` existe, su índice único existe, y las
+   pantallas de la plataforma que llaman a `mount({pub:true})` la llaman bien.
+   Vacía estaba porque LAS PÁGINAS QUE RECIBEN LA VISITA no la llamaban: éstas,
+   las veinticuatro que genera este archivo, que son justamente a las que manda
+   Google y para las que se hizo todo el trabajo de SEO. No cargan `app.js`, y
+   por tanto no cargaban nada.
+
+   Va suelto y a mano en lugar de importar `app.js` a propósito: esa es la
+   diferencia entre 4 KB y 190 KB de JavaScript en una página cuya única virtud
+   es abrir rápido. Aquí sólo hace falta una llamada.
+
+   Y va con `keepalive`, que es lo que permite que la petición sobreviva a que
+   la persona se vaya de la página en el mismo segundo. Sin eso se pierde justo
+   la visita más corta, que es la mayoría. Si falla, no pasa nada: contar
+   visitas no puede romperle la página a nadie. */
+const contarLaVisita = (url) => `
+<script>
+(function () {
+  try {
+    var pantalla = ${JSON.stringify(new URL(url).pathname.replace(/\.html$/, '').replace(/^\/|\/$/g, '') || 'inicio')};
+    /* Una vez por pestaña y pantalla: recargar diez veces no son diez visitas. */
+    if (sessionStorage.getItem('cemVisto:' + pantalla)) return;
+    sessionStorage.setItem('cemVisto:' + pantalla, '1');
+    var p = new URLSearchParams(location.search);
+    var canal = p.get('utm_source') || p.get('origen') || p.get('ref') || '';
+    if (!canal && document.referrer) {
+      var h = new URL(document.referrer).hostname;
+      if (h && h !== location.hostname) canal = h.replace(/^www\\./, '');
+    }
+    fetch('${BASE}/rest/v1/rpc/cem_visita_anotar', {
+      method: 'POST', keepalive: true,
+      headers: { 'apikey': '${CLAVE}', 'Authorization': 'Bearer ${CLAVE}',
+                 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_pantalla: pantalla, p_canal: canal || null,
+                             p_campana: p.get('utm_campaign') || null }),
+    }).catch(function () {});
+  } catch (e) { /* almacenamiento bloqueado o navegación privada: da igual */ }
+})();
+</script>`;
 
 // ── una página por programa ───────────────────────────────────────────────
 

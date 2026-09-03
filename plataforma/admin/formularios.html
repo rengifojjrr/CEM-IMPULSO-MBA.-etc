@@ -85,18 +85,23 @@
 </style>
 </head>
 <body>
-<main class="wrap" id="app">
-  <div class="head-row">
-    <div>
-      <h1>Listas de pre-registro</h1>
-      <p class="sub">Formularios con enlace propio para pegar en redes y saber quién
-        quiere qué antes de abrir una convocatoria.</p>
+<!-- `#page` y `hidden` no son decoración: `mount()` busca ese id, se lleva el
+     bloque dentro de su armazón y sólo entonces le quita `hidden`. Sin ese id
+     la pantalla se queda FUERA del armazón y el menú la tapa entera — se vio
+     en pantalla, en blanco, y no lo cazó ninguna comprobación. -->
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Listas de pre-registro</h1>
+      <p>Formularios con enlace propio para pegar en redes y saber quién quiere
+         qué antes de abrir una convocatoria.</p></div>
+    <div class="actions">
+      <button class="btn" id="btnNueva">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva lista</button>
     </div>
-    <button class="btn" id="btnNueva">
-      <span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva lista</button>
   </div>
-  <div id="lista"><p class="tiny muted">Cargando…</p></div>
-</main>
+
+  <div id="lista"><span class="cargando"></span></div>
+</div>
 
 <script type="module">
 /* Listas de pre-registro: crearlas, elegir qué se pregunta y ver quién contestó.

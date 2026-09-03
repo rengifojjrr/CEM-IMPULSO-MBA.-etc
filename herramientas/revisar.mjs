@@ -232,6 +232,44 @@ for (const f of await archivos('plataforma/**/*.html')) {
 if (sinControl.length) sinControl.forEach((f) => mal(f, `${f} no llama a mount(): no comprueba el rol`));
 else bien('Todas las pantallas privadas llaman a mount() antes de mostrar nada');
 
+/* ══════════ 6b. …y tienen el `#page` que mount() va a buscar ══════════
+   `mount()` no dibuja la pantalla donde está: la ARRANCA de su sitio y la mete
+   dentro del armazón que acaba de construir, buscándola por `id="page"`. Una
+   pantalla sin ese id se queda fuera, el armazón la tapa entera, y lo que se ve
+   es un panel en blanco — sin error de consola, sin nada roto en la consulta,
+   sin ninguna pista de por dónde empezar a mirar.
+
+   Pasó de verdad con `admin/formularios.html`: llamaba a `mount()`, cargaba sus
+   datos, no daba un solo error, y estaba en blanco. La otra mitad —`hidden`—
+   también hace falta: sin ella la pantalla parpadea sin menú antes de que
+   `mount()` la mueva. */
+titulo('Toda pantalla del portal trae el «page» que mount() va a buscar');
+const sinPage = [];
+for (const f of await archivos('plataforma/**/*.html')) {
+  const texto = await readFile(join(RAIZ, f), 'utf8');
+  /* Se busca la llamada con `area:`, no la palabra «mount».
+     ─────────────────────────────────────────────────────────────────────────
+     La primera versión buscaba `/\bmount\s*\(/` y señalaba cuatro pantallas
+     que estaban perfectamente. Dos de ellas —cambiar-clave e invitacion— sólo
+     NOMBRAN a mount() dentro de un comentario, para explicar por qué no lo
+     llaman; la regla leía el comentario como si fuera código. Las otras dos
+     usan `mount({ pub:true })`, que monta la cabecera pública y no el armazón,
+     así que no mueven nada y no necesitan `#page`.
+
+     `area:` es la marca correcta porque es la que lleva al armazón, y lo
+     lleva SIEMPRE: las 52 llamadas de armazón que hay la pasan, y ninguna de
+     las públicas. Casi «arreglo» cuatro pantallas buenas por fiarme de una
+     comprobación que no había comprobado. */
+  if (!/\bmount\s*\(\s*\{[^}]*\barea\s*:/.test(texto)) continue;
+  const etiqueta = texto.match(/<[a-z]+[^>]*\bid="page"[^>]*>/);
+  if (!etiqueta) { sinPage.push(`${f} no tiene ningún elemento con id="page": mount() no encuentra qué mover y la pantalla sale en blanco`); continue; }
+  if (!/\bclass="[^"]*\bhidden\b/.test(etiqueta[0])) {
+    sinPage.push(`${f} tiene id="page" pero sin «hidden»: se verá un instante sin menú antes de que mount() la coloque`);
+  }
+}
+if (sinPage.length) sinPage.forEach((q) => mal(q.split(' ')[0], q));
+else bien('Todas las pantallas del portal traen su «page» oculto, listo para que mount() lo coloque');
+
 /* ══════════ 7. El menú ofrece lo que se puede abrir, ni más ni menos ══════════
    El menú del portal lleva, en cada entrada, los roles que la pueden abrir; la
    pantalla lleva los suyos en `mount({ require })`. Son dos listas que dicen lo

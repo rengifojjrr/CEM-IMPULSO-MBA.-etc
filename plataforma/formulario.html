@@ -95,6 +95,15 @@
 import { sb, $, esc, qs, mensajeError } from './assets/app.js?v=2026-08-29-2';
 
 const codigo = (qs('f') || '').trim().toLowerCase();
+
+/* Contar la visita. Esta pantalla no llama a `mount()` —no hay sesión que
+   comprobar— y `mount()` es quien lo hace en las demás públicas, así que sin
+   esta línea la lista no aparecería en ningún informe: se sabría cuánta gente
+   se apuntó, pero no cuánta la abrió y se fue. Que es la mitad interesante. */
+sb.rpc('cem_visita_anotar', {
+  p_pantalla: `lista/${codigo || 'sin-codigo'}`,
+  p_canal: (qs('o') || '').trim() || null,
+}).catch(() => { /* contar no puede romperle la página a nadie */ });
 /* De dónde viene, para saber qué publicación trae gente. El enlace que se pega
    en una historia puede llevar `?o=historia-septiembre`. */
 const origen = (qs('o') || '').trim() || null;

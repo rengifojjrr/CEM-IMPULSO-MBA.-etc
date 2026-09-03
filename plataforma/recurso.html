@@ -93,6 +93,15 @@ const origen = (qs('o') || '').trim() || null;
 const LLAVE = 'cem_mis_datos';
 const cuerpo = $('#cuerpo');
 
+/* Contar la visita, igual que en formulario.html y por lo mismo: aquí no hay
+   `mount()` que lo haga. Sin esto sólo se sabía quién dejó sus datos, nunca
+   cuánta gente llegó al muro y dio media vuelta — que es el número que dice si
+   el muro está pidiendo demasiado. */
+sb.rpc('cem_visita_anotar', {
+  p_pantalla: `recurso/${codigo || 'sin-codigo'}`,
+  p_canal: origen || null,
+}).catch(() => { /* contar no puede romperle la página a nadie */ });
+
 const recordado = () => {
   try { return JSON.parse(localStorage.getItem(LLAVE) || 'null'); } catch { return null; }
 };
