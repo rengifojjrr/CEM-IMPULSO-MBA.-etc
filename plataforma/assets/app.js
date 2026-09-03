@@ -1155,6 +1155,9 @@ const ADMIN_NAV = [
     ['videos.html', 'smart_display', 'Vídeo de cada lección', ['coordinador','admin','superadmin']],
     ['multimedia.html', 'perm_media', 'Biblioteca', ['coordinador','admin','superadmin','profesor','auditor']],
     ['recursos.html', 'redeem', 'Recursos para redes', ['coordinador','admin','superadmin']],
+    /* Las campañas van con dirección y no con coordinación: deciden descuentos,
+       o sea dinero. Por eso la pantalla exige admin y el menú dice lo mismo. */
+    ['campanas.html', 'local_activity', 'Campañas y premios', ['admin','superadmin']],
     ['profesores.html', 'psychology', 'Profesores', ['coordinador','admin','superadmin','auditor']],
     ['revision.html', 'fact_check', 'Revisión de contenido', ['coordinador','admin','superadmin','profesor','auditor']],
   ]},

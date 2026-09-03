@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Campañas y premios</title>
+<!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,
+     PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180
+     para el iPhone. Ver herramientas/iconos.mjs. -->
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="apple-touch-icon" href="../assets/icono-180.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
+     Sin esto el navegador descubre cada uno cuando le toca, y paga el
+     DNS y el saludo TLS de cada cual por separado, con la pantalla en
+     blanco mientras tanto. Ver herramientas/acelerar-cabeceras.mjs. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../assets/app.js?v=2026-08-29-2">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-08-29-2">
+<style>
+  .ficha-camp{display:flex;flex-direction:column;gap:var(--e2);}
+  .ficha-cab{display:flex;align-items:flex-start;gap:var(--e1);flex-wrap:wrap;}
+  .ficha-ico{font-size:26px;color:var(--primary);flex:none;margin-top:2px;}
+  .ficha-tit{margin:0;font-size:var(--t-lg);line-height:1.2;}
+  .ficha-mandos{display:flex;align-items:center;gap:6px;flex:none;margin-left:auto;}
+  @media (max-width:560px){ .ficha-mandos{margin-left:0;width:100%;} }
+
+  .ficha-cifras{display:flex;gap:var(--e3);flex-wrap:wrap;
+    border-top:1px solid var(--filete);border-bottom:1px solid var(--filete);
+    padding:var(--e1) 0;}
+  .ficha-cifras div{min-width:96px;}
+  .ficha-cifras b{display:block;font-size:var(--t-lg);line-height:1.1;
+    font-variant-numeric:tabular-nums;}
+  .ficha-cifras span{font-size:var(--t-xs);color:var(--tinta-3);}
+
+  /* El premio dicho como se lee, no como se guarda. «descuento 15» no es nada;
+     «15 % de descuento» sí. */
+  .premio{font-weight:var(--peso-fuerte);color:var(--primary);}
+
+  /* La barra del cupo. Sólo aparece cuando hay cupo: una barra al 0 % en una
+     campaña sin límite diría que no queda nada, que es lo contrario. */
+  .cupo-barra{height:6px;border-radius:999px;background:var(--hueco);overflow:hidden;}
+  .cupo-barra i{display:block;height:100%;background:var(--primary);}
+  .cupo-agotado i{background:var(--peligro,#c0392b);}
+
+  /* sin-caja: es el marco de una fila del diálogo, no un panel de la pantalla.
+     Doce de éstos dentro de otra caja darían tres bordes superpuestos. */
+  .tipo-op{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;
+    border:1px solid var(--filete);border-radius:var(--r);cursor:pointer;}
+  .tipo-op:has(input:checked){border-color:var(--primary);
+    background:color-mix(in srgb, var(--primary) 7%, transparent);}
+  .tipo-op input{margin-top:3px;flex:none;width:18px;height:18px;}
+  .tipo-op b{display:block;}
+  .tipo-op span{font-size:var(--t-xs);color:var(--tinta-3);}
+  .rejilla-tipos{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));}
+
+  .cod{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;
+    letter-spacing:.03em;}
+</style>
+</head>
+<body>
+<!-- `#page` y `hidden` porque mount() se lleva este bloque dentro de su
+     armazón buscándolo por ese id. Ver la comprobación 6b de revisar.mjs. -->
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Campañas y premios</h1>
+      <p>Las mecánicas que se ofrecen en la web: descuento por registrarse, premio por
+         compartir, referidos. El premio, las fechas y el cupo se escriben aquí; el
+         programa sólo los aplica.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnCanjear">
+        <span class="material-symbols-outlined" aria-hidden="true">redeem</span> Canjear un código</button>
+      <button class="btn" id="btnNueva">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva campaña</button>
+    </div>
+  </div>
+
+  <div id="lista"><span class="cargando"></span></div>
+</div>
+
+<script type="module">
+/* Campañas: la escuela arma la mecánica, el programa la aplica.
+   ═══════════════════════════════════════════════════════════════════════════
+   Mismo reparto que las insignias, que ya funcionaba así y por la misma razón:
+   el TIPO vive en el código —cada uno se comporta distinto— y el premio, las
+   fechas, el cupo y los textos viven en la base. Subir un descuento del 10 al
+   15 % a las once de la noche no debería ser una publicación de código.
+
+   Lo que esta pantalla NO deja hacer, a propósito:
+     · Cambiar el código de una campaña que ya entregó premios. Ese código va
+       DENTRO de cada premio, y cambiarlo dejaría códigos con un prefijo que no
+       existe. Lo impide la función, no sólo esta pantalla.
+     · Borrar una campaña con premios dados: se apaga. Hay gente con ese código
+       guardado en el móvil esperando usarlo.
+     · Poner un descuento mayor que 100 %, o un descuento sin número. */
+import { sb, mount, $, $$, esc, num, chip, fdate, fdatetime, ok, fail, toast, modal,
+         confirmDialog, mensajeError, download, toCSV }
+  from '../assets/app.js?v=2026-08-29-2';
+
+await mount({ require:['admin','superadmin'], area:'admin', active:'campanas.html' });
+
+/* Los seis tipos. La explicación de cada uno es lo que se lee al elegirlo, así
+   que está escrita para quien decide una promoción, no para quien programa. */
+const TIPOS = [
+  ['registro',  'Deja tu correo',  'La más simple: da su correo y se lleva el premio al momento.'],
+  ['compartir', 'Comparte y abre', 'Comparte el enlace y se le abre algo concreto.'],
+  ['referido',  'Trae a alguien',  'Cada quien tiene su código; ganan los dos.'],
+  ['racha',     'Vuelve N días',   'Premia volver varios días seguidos.'],
+  ['reto',      'Antes de la fecha','Haz algo concreto antes de que cierre.'],
+  ['sorteo',    'Sorteo',          'Entra quien cumpla; se elige después.'],
+];
+
+const PREMIOS = [
+  ['descuento',       '% de descuento'],
+  ['descuento_fijo',  'Descuento fijo en dinero'],
+  ['regalo',          'Un regalo (una clase, el temario…)'],
+  ['sorteo',          'Entrada a un sorteo'],
+];
+
+/* Dónde puede salir. Vacío = en todas las públicas. Los nombres son los que
+   usa `cem_visita_anotar` para la pantalla, así que casan con los informes. */
+const PANTALLAS = [
+  ['inicio',       'La portada'],
+  ['programas',    'El catálogo de programas'],
+  ['verificar',    'Verificar un certificado'],
+  ['nosotros',     'Quiénes somos'],
+  ['preguntas-frecuentes', 'Preguntas frecuentes'],
+];
+
+let campanas = [], cursos = [];
+
+/** El premio, dicho como se lee. */
+function premioTexto(c) {
+  if (c.premio_tipo === 'descuento') return `${num(c.premio_valor)} % de descuento`;
+  if (c.premio_tipo === 'descuento_fijo') return `${num(c.premio_valor)} de descuento`;
+  if (c.premio_tipo === 'sorteo') return c.premio_texto || 'Entrada a un sorteo';
+  return c.premio_texto || 'Un regalo';
+}
+
+const estadoDe = (c) => {
+  if (!c.activa) return chip('Apagada', '');
+  if (c.empieza_en && new Date(c.empieza_en) > new Date()) return chip('Aún no empieza', 'warn');
+  if (c.termina_en && new Date(c.termina_en) <= new Date()) return chip('Terminada', 'warn');
+  if (c.cupo != null && c.dados >= c.cupo) return chip('Cupo agotado', 'warn');
+  return chip('En marcha', 'ok');
+};
+
+async function cargar() {
+  const [{ data, error }, { data: c }] = await Promise.all([
+    sb.rpc('cem_campanas_listar'),
+    sb.from('cem_courses').select('id,nombre').order('nombre'),
+  ]);
+  if (error) { $('#lista').innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+  campanas = data || [];
+  cursos = c || [];
+  pintar();
+}
+
+function pintar() {
+  const caja = $('#lista');
+  if (!campanas.length) {
+    caja.innerHTML = `<div class="caja vacio">
+      <span class="material-symbols-outlined" aria-hidden="true">local_activity</span>
+      <h3>Todavía no hay ninguna campaña</h3>
+      <p>Una campaña es un gancho que aparece en la web: «déjanos tu correo y te
+        llevas un 15 %», «comparte y te abrimos el temario». Cada persona que la pide
+        recibe un código propio, y ese código se canjea una sola vez.</p>
+      <p class="tiny muted">Todo lo que decide la promoción —cuánto, hasta cuándo,
+        cuántas plazas y qué se lee— se escribe aquí. Nada de eso está en el programa.</p>
+    </div>`;
+    return;
+  }
+  caja.innerHTML = campanas.map(ficha).join('');
+  $$('[data-editar]').forEach(b => b.onclick = () => editar(campanas.find(x => x.id === b.dataset.editar)));
+  $$('[data-ver]').forEach(b => b.onclick = () => verPremios(campanas.find(x => x.id === b.dataset.ver)));
+  $$('[data-borrar]').forEach(b => b.onclick = () => borrar(campanas.find(x => x.id === b.dataset.borrar)));
+}
+
+function ficha(c) {
+  const usados = c.cupo != null ? Math.min(c.dados, c.cupo) : 0;
+  const pct = c.cupo ? Math.round((usados / c.cupo) * 100) : 0;
+  const tipo = TIPOS.find(t => t[0] === c.tipo);
+  /* De cada cien que lo pidieron, cuántos lo usaron. Es LA cifra: mil códigos
+     dados y dos canjeados no es una campaña que funcione, por mucho que la
+     primera cifra impresione. */
+  const canje = c.dados ? Math.round((c.canjeados / c.dados) * 100) : null;
+  return `<div class="caja ficha-camp">
+    <div class="ficha-cab">
+      <span class="material-symbols-outlined ficha-ico" aria-hidden="true">local_activity</span>
+      <div style="flex:1;min-width:min(100%,220px)">
+        <h2 class="ficha-tit">${esc(c.nombre)}</h2>
+        <p class="tiny muted" style="margin:2px 0 0">
+          ${esc(tipo ? tipo[1] : c.tipo)} · <span class="premio">${esc(premioTexto(c))}</span>
+          · ${estadoDe(c)}
+          ${c.termina_en ? ` · hasta el ${fdate(c.termina_en)}` : ''}
+          ${c.curso ? ` · ${esc(c.curso)}` : ''}</p>
+      </div>
+      <div class="ficha-mandos">
+        <button class="icon-btn" data-editar="${c.id}" title="Editar la campaña"
+          aria-label="Editar la campaña"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+        <button class="icon-btn" data-borrar="${c.id}" title="Borrar o apagar la campaña"
+          aria-label="Borrar o apagar la campaña"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
+      </div>
+    </div>
+
+    ${c.titular ? `<p style="margin:0"><b>${esc(c.titular)}</b></p>` : ''}
+    ${c.explicacion ? `<p class="tiny muted" style="margin:0">${esc(c.explicacion)}</p>` : ''}
+
+    ${c.cupo != null ? `<div>
+      <div class="cupo-barra ${usados >= c.cupo ? 'cupo-agotado' : ''}">
+        <i style="width:${pct}%"></i></div>
+      <p class="tiny muted" style="margin:4px 0 0">${num(usados)} de ${num(c.cupo)} plazas
+        ${usados >= c.cupo ? '· agotado, ya no se ofrece' : `· quedan ${num(c.cupo - usados)}`}</p>
+    </div>` : ''}
+
+    <div class="ficha-cifras">
+      <div><b>${num(c.dados)}</b><span>códigos dados</span></div>
+      <div><b>${num(c.canjeados)}</b><span>ya canjeados</span></div>
+      <div><b>${canje == null ? '—' : canje + ' %'}</b><span>de los dados se usaron</span></div>
+      <div><b>${c.ultimo ? fdate(c.ultimo) : '—'}</b><span>último pedido</span></div>
+    </div>
+
+    <div>
+      <button class="btn outline" data-ver="${c.id}" ${c.dados ? '' : 'disabled'}>
+        <span class="material-symbols-outlined" aria-hidden="true">group</span>
+        ${c.dados ? `Ver los ${num(c.dados)} códigos` : 'Todavía no lo ha pedido nadie'}</button>
+    </div>
+  </div>`;
+}
+
+/* ── crear y editar ─────────────────────────────────────────────────────── */
+function editar(c) {
+  const esNueva = !c;
+  const yaDioPremios = !esNueva && c.dados > 0;
+  const pantallas = new Set(c?.pantallas || []);
+
+  const m = modal({
+    title: esNueva ? 'Nueva campaña' : 'Editar campaña',
+    wide: true,
+    body: `
+      <div class="field"><label for="cNombre">Nombre <span class="tiny muted">(interno)</span></label>
+        <input id="cNombre" value="${esc(c?.nombre || '')}" placeholder="Lanzamiento septiembre">
+        <span class="pista">Es como la vas a reconocer tú en esta lista. No lo ve nadie de fuera.</span></div>
+
+      <div class="field"><label for="cCodigo">Código</label>
+        <input id="cCodigo" value="${esc(c?.codigo || '')}" placeholder="sept-15" autocomplete="off"
+          ${yaDioPremios ? 'disabled' : ''}>
+        <span class="pista">${yaDioPremios
+          ? '<b>No se puede cambiar:</b> esta campaña ya entregó códigos y este prefijo va dentro de cada uno.'
+          : 'Minúsculas, números y guiones. Va al principio de cada código que se entregue: <code>SEPT-15-K4M2P</code>.'}</span></div>
+
+      <div class="field"><label>Qué tiene que hacer la persona</label>
+        <div class="rejilla-tipos">
+          ${TIPOS.map(([v, t, d]) => `<label class="tipo-op">
+            <input type="radio" name="cTipo" value="${v}" ${(c?.tipo || 'registro') === v ? 'checked' : ''}>
+            <span><b>${esc(t)}</b><span>${esc(d)}</span></span></label>`).join('')}
+        </div></div>
+
+      <div class="field"><label for="cPremioTipo">Qué se lleva</label>
+        <select id="cPremioTipo">
+          ${PREMIOS.map(([v, t]) => `<option value="${v}" ${(c?.premio_tipo || 'descuento') === v ? 'selected' : ''}>${t}</option>`).join('')}
+        </select></div>
+
+      <div class="field" id="fValor"><label for="cValor">Cuánto</label>
+        <input id="cValor" type="number" step="0.01" min="0" value="${c?.premio_valor ?? ''}">
+        <span class="pista" id="pistaValor"></span></div>
+
+      <div class="field" id="fTextoPremio"><label for="cTextoPremio">El premio, escrito</label>
+        <input id="cTextoPremio" value="${esc(c?.premio_texto || '')}"
+          placeholder="Una clase suelta del diplomado">
+        <span class="pista">Lo que se le dice a la persona que gana.</span></div>
+
+      <div class="field"><label for="cTitular">Titular</label>
+        <input id="cTitular" value="${esc(c?.titular || '')}" placeholder="15 % en tu primer diplomado">
+        <span class="pista">Es lo grande que se lee en la web.</span></div>
+
+      <div class="field"><label for="cExplica">Una línea más <span class="tiny muted">(opcional)</span></label>
+        <input id="cExplica" value="${esc(c?.explicacion || '')}"
+          placeholder="Déjanos tu correo y te mandamos el código."></div>
+
+      <div class="field"><label for="cBoton">Texto del botón</label>
+        <input id="cBoton" value="${esc(c?.boton || '')}" placeholder="Quiero mi 15 %"></div>
+
+      <div class="field"><label for="cGracias">Qué se lee al conseguirlo <span class="tiny muted">(opcional)</span></label>
+        <textarea id="cGracias" rows="2"
+          placeholder="Guarda este código y dínoslo al inscribirte.">${esc(c?.gracias || '')}</textarea></div>
+
+      <div class="field"><label>Dónde sale</label>
+        <div class="rejilla-tipos">
+          ${PANTALLAS.map(([v, t]) => `<label class="tipo-op">
+            <input type="checkbox" class="cPant" value="${v}" ${pantallas.has(v) ? 'checked' : ''}>
+            <span><b>${esc(t)}</b></span></label>`).join('')}
+        </div>
+        <span class="pista">Si no marcas ninguna, sale en todas las páginas públicas.</span></div>
+
+      <div class="field"><label for="cCurso">Programa <span class="tiny muted">(opcional)</span></label>
+        <select id="cCurso"><option value="">Ninguno en concreto</option>
+          ${cursos.map(k => `<option value="${k.id}" ${c?.course_id === k.id ? 'selected' : ''}>${esc(k.nombre)}</option>`).join('')}</select></div>
+
+      <div class="field"><label for="cCupo">Cuántas plazas <span class="tiny muted">(opcional)</span></label>
+        <input id="cCupo" type="number" min="1" step="1" value="${c?.cupo ?? ''}" placeholder="Sin límite">
+        <span class="pista">Si pones un número, en la web se enseña cuántas quedan y la campaña
+          <b>deja de ofrecerse sola</b> al agotarse. Déjalo vacío si no hay límite:
+          un contador que nunca baja se nota, y deja de creerse lo demás.</span></div>
+
+      <div class="row" style="gap:var(--e1);flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:150px"><label for="cDesde">Empieza</label>
+          <input id="cDesde" type="date" value="${c?.empieza_en ? String(c.empieza_en).slice(0,10) : ''}"></div>
+        <div class="field" style="flex:1;min-width:150px"><label for="cHasta">Termina</label>
+          <input id="cHasta" type="date" value="${c?.termina_en ? String(c.termina_en).slice(0,10) : ''}">
+          <span class="pista">Los códigos caducan ese día.</span></div>
+      </div>
+
+      <div class="field"><label class="obl"><input type="checkbox" id="cActiva"
+        ${c?.activa ? 'checked' : ''}> La campaña está en marcha</label>
+        <span class="pista">Apagada no la ve nadie. Se puede crear con calma y encender después.</span></div>
+      <div id="cErr"></div>`,
+    footer: `<button class="btn ghost" data-x>Cancelar</button>
+             <button class="btn" data-s id="cGuardar">Guardar</button>`,
+  });
+
+  /* Según el premio, se pide un número o un texto, no las dos cosas. Un
+     «regalo» con un campo «cuánto» vacío al lado invita a rellenarlo con algo. */
+  const ajustar = () => {
+    const t = $('#cPremioTipo', m).value;
+    const conNumero = t === 'descuento' || t === 'descuento_fijo';
+    $('#fValor', m).hidden = !conNumero;
+    $('#fTextoPremio', m).hidden = conNumero;
+    $('#pistaValor', m).textContent = t === 'descuento'
+      ? 'En por ciento, de 1 a 100.' : 'En la moneda con la que cobras.';
+  };
+  $('#cPremioTipo', m).onchange = ajustar;
+  ajustar();
+
+  $('#cGuardar', m).onclick = async () => {
+    const t = $('#cPremioTipo', m).value;
+    const conNumero = t === 'descuento' || t === 'descuento_fijo';
+    const hasta = $('#cHasta', m).value;
+    const desde = $('#cDesde', m).value;
+    const { error } = await sb.rpc('cem_campana_guardar', {
+      p_id: c?.id || null,
+      /* Con el campo desactivado el navegador no da valor: se manda el de antes. */
+      p_codigo: (yaDioPremios ? c.codigo : $('#cCodigo', m).value.trim().toLowerCase()),
+      p_nombre: $('#cNombre', m).value.trim(),
+      p_tipo: $('input[name="cTipo"]:checked', m)?.value || 'registro',
+      p_premio_tipo: t,
+      p_premio_valor: conNumero ? (Number($('#cValor', m).value) || null) : null,
+      p_premio_texto: conNumero ? null : ($('#cTextoPremio', m).value.trim() || null),
+      p_titular: $('#cTitular', m).value.trim() || null,
+      p_explicacion: $('#cExplica', m).value.trim() || null,
+      p_boton: $('#cBoton', m).value.trim() || null,
+      p_gracias: $('#cGracias', m).value.trim() || null,
+      p_cupo: Number($('#cCupo', m).value) || null,
+      p_pantallas: $$('.cPant:checked', m).map(i => i.value),
+      p_course_id: $('#cCurso', m).value || null,
+      p_empieza_en: desde ? `${desde}T00:00:00` : null,
+      /* Fin del día: «hasta el 30» quiere decir que el 30 todavía vale. */
+      p_termina_en: hasta ? `${hasta}T23:59:59` : null,
+      p_activa: $('#cActiva', m).checked,
+    });
+    if (error) { $('#cErr', m).innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+    m.close();
+    ok(esNueva ? 'Campaña creada.' : 'Campaña guardada.');
+    await cargar();
+  };
+}
+
+/* ── quién pidió qué ─────────────────────────────────────────────────────── */
+async function verPremios(c) {
+  const { data, error } = await sb.rpc('cem_premios_listar', { p_campana_id: c.id });
+  if (error) { fail(mensajeError(error)); return; }
+  const filas = data || [];
+
+  const m = modal({
+    title: `${num(filas.length)} código(s) · ${c.nombre}`,
+    wide: true,
+    body: `<div class="table-wrap"><table class="tarjetas">
+        <thead><tr>
+          <th>Código</th><th>Quién</th><th>Cuándo</th><th>Estado</th>
+          <th>Lo trajo</th><th>Cuenta</th>
+        </tr></thead>
+        <tbody>${filas.map(p => `<tr>
+          <td class="cod">${esc(p.codigo)}</td>
+          <td>${esc(p.nombre || '—')}<div class="tiny muted">${esc(p.email || '')}</div></td>
+          <td>${fdatetime(p.created_at)}</td>
+          <td>${p.estado === 'canjeado'
+                ? chip(`Canjeado ${fdate(p.canjeado_en)}`, 'ok')
+                : p.estado === 'vigente' ? chip('Sin usar', '') : chip(p.estado, 'warn')}</td>
+          <td class="cod tiny">${esc(p.lo_trajo || '—')}</td>
+          <td>${p.tiene_cuenta ? chip('Sí', 'ok') : chip('No', '')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`,
+    footer: `<button class="btn ghost" data-x>Cerrar</button>
+             <button class="btn outline" id="pCsv">
+               <span class="material-symbols-outlined" aria-hidden="true">download</span> Bajar en Excel</button>`,
+  });
+
+  $('#pCsv', m).onclick = () => {
+    download(`${c.codigo}-codigos-${new Date().toISOString().slice(0,10)}.csv`,
+      toCSV(filas.map(p => ({
+        Código: p.codigo, Nombre: p.nombre || '', Correo: p.email || '',
+        Teléfono: p.telefono || '', Pedido: fdatetime(p.created_at),
+        Estado: p.estado, Canjeado: p.canjeado_en ? fdatetime(p.canjeado_en) : '',
+        'Lo trajo': p.lo_trajo || '', 'Tiene cuenta': p.tiene_cuenta ? 'Sí' : 'No',
+      }))));
+  };
+}
+
+/* ── canjear ─────────────────────────────────────────────────────────────── */
+function canjear() {
+  const m = modal({
+    title: 'Canjear un código',
+    body: `<p class="tiny muted">Escribe el código que te dio la persona. Antes de
+        canjearlo se comprueba y se te dice qué es y si sirve.</p>
+      <div class="field"><label for="kCodigo">Código</label>
+        <input id="kCodigo" class="cod" autocomplete="off" placeholder="SEPT-15-K4M2P"
+          style="text-transform:uppercase"></div>
+      <div id="kQue"></div>
+      <div class="field" id="fNota" hidden><label for="kNota">Nota <span class="tiny muted">(opcional)</span></label>
+        <input id="kNota" placeholder="Aplicado a la cuota de septiembre"></div>`,
+    footer: `<button class="btn ghost" data-x>Cerrar</button>
+             <button class="btn outline" id="kMirar">Comprobar</button>
+             <button class="btn" data-s id="kCanjear" hidden>Sí, canjear</button>`,
+  });
+
+  const mirar = async () => {
+    const cod = $('#kCodigo', m).value.trim().toUpperCase();
+    if (!cod) return;
+    const { data, error } = await sb.rpc('cem_premio_comprobar', { p_codigo: cod });
+    if (error) { $('#kQue', m).innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+    if (!data?.sirve) {
+      $('#kQue', m).innerHTML = `<div class="nota err">${esc(data?.porque || 'Ese código no sirve.')}</div>`;
+      $('#kCanjear', m).hidden = true; $('#fNota', m).hidden = true;
+      return;
+    }
+    const premio = data.premio_tipo === 'descuento' ? `${num(data.premio_valor)} % de descuento`
+      : data.premio_tipo === 'descuento_fijo' ? `${num(data.premio_valor)} de descuento`
+      : (data.premio_texto || 'Un regalo');
+    $('#kQue', m).innerHTML = `<div class="nota ok"><b>${esc(premio)}</b>
+      <div class="tiny">Campaña: ${esc(data.campana || '—')}</div></div>`;
+    $('#kCanjear', m).hidden = false;
+    $('#fNota', m).hidden = false;
+  };
+
+  $('#kMirar', m).onclick = mirar;
+  $('#kCodigo', m).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); mirar(); } });
+
+  $('#kCanjear', m).onclick = async () => {
+    const { data, error } = await sb.rpc('cem_premio_canjear', {
+      p_codigo: $('#kCodigo', m).value.trim().toUpperCase(),
+      p_nota: $('#kNota', m).value.trim() || null,
+    });
+    if (error) { $('#kQue', m).innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`; return; }
+    m.close();
+    ok(`Canjeado: ${data?.codigo}.`);
+    await cargar();
+  };
+}
+
+async function borrar(c) {
+  const conPremios = c.dados > 0;
+  const mensaje = conPremios
+    ? `«${esc(c.nombre)}» ya entregó <b>${num(c.dados)} código(s)</b>, así que
+       <b>no se borra: se apaga</b>. Deja de ofrecerse en la web.<br><br>
+       <span class="tiny muted">Hay gente con esos códigos guardados en el móvil esperando
+       usarlos. Borrarla los invalidaría a todos de golpe.</span>`
+    : `«${esc(c.nombre)}» no ha entregado ningún código, así que se borra del todo.`;
+  if (!await confirmDialog(mensaje, conPremios ? 'Apagar la campaña' : 'Borrar la campaña',
+      { html: true, confirmar: conPremios ? 'Sí, apagarla' : 'Sí, borrarla', peligro: true })) return;
+  const { data, error } = await sb.rpc('cem_campana_borrar', { p_id: c.id });
+  if (error) { fail(mensajeError(error)); return; }
+  ok(data?.apagada ? 'Campaña apagada.' : 'Campaña borrada.');
+  await cargar();
+}
+
+$('#btnNueva').onclick = () => editar(null);
+$('#btnCanjear').onclick = canjear;
+await cargar();
+</script>
+</body>
+</html>
