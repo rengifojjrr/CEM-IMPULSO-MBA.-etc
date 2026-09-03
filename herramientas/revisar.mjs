@@ -592,6 +592,47 @@ if (leidas.length === VERSIONES.length && distintas.size > 1) {
   bien(`Los tres archivos versionan el logotipo con ${[...distintas][0]}`);
 }
 
+/* ══════════ 17. La hoja de estilos no tiene comentarios mal cerrados ══════════
+   CSS no anida comentarios: el primer cierre que aparece cierra, y lo que
+   venga detrás —hasta el siguiente cierre— es basura que el navegador se traga
+   en silencio, con las reglas que hubiera en medio.
+
+   Pasó al escribir esta misma tanda: se añadió un párrafo a un comentario que
+   ya estaba cerrado, quedó una marca de cierre suelta, y las dos reglas que
+   venían después desaparecieron. Lo peor no fue eso: fue que la pantalla
+   PARECÍA correcta, porque lo que se perdía era justo lo que se estaba
+   arreglando. Se cazó midiendo, no mirando.
+
+   (Y la primera versión de esta comprobación se rompió igual, porque el
+   comentario que la explicaba escribía la marca de cierre con todas sus
+   letras. De ahí que aquí se nombren y no se dibujen.)
+
+   Se cuentan aperturas y cierres y se comprueba que ninguno quede descolocado. */
+titulo('Ningún comentario mal cerrado en la hoja de estilos');
+
+const hojaCss = await readFile(join(RAIZ, 'plataforma/assets/styles.css'), 'utf8');
+let prof = 0, descolocados = 0, lineaSuelta = 0;
+for (let i = 0; i < hojaCss.length - 1; i++) {
+  if (hojaCss[i] === '/' && hojaCss[i + 1] === '*') {
+    if (prof > 0) { descolocados++; lineaSuelta ||= hojaCss.slice(0, i).split('\n').length; }
+    prof = 1; i++;
+  } else if (hojaCss[i] === '*' && hojaCss[i + 1] === '/') {
+    if (prof === 0) { descolocados++; lineaSuelta ||= hojaCss.slice(0, i).split('\n').length; }
+    prof = 0; i++;
+  }
+}
+if (prof !== 0) {
+  mal('plataforma/assets/styles.css',
+    'styles.css termina con un comentario sin cerrar: todo lo que venga después se pierde');
+} else if (descolocados) {
+  mal('plataforma/assets/styles.css',
+    `styles.css tiene ${descolocados} apertura/cierre de comentario descolocado (el primero, `
+    + `hacia la línea ${lineaSuelta}): CSS no anida comentarios, y las reglas que queden `
+    + 'en medio desaparecen sin dar error');
+} else {
+  bien('Todos los comentarios de styles.css abren y cierran donde deben');
+}
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

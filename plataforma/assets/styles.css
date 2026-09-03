@@ -1236,7 +1236,37 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 
    El signo de la derecha se gira al abrir en vez de cambiar de carácter: así
    no salta el ancho de la línea al pulsar. */
-.dentro.estrecho{max-width:760px;}
+/* La columna estrecha empieza donde empiezan las demás.
+   ═══════════════════════════════════════════════════════════════════════════
+   `.estrecho` recorta la medida a 760 px para que un párrafo largo se lea sin
+   barrer la pantalla con la vista. Eso está bien. Lo que estaba mal es que
+   heredaba el `margin:0 auto` de `.dentro` y se CENTRABA: en la portada eso
+   dejaba tres bordes izquierdos distintos, uno detrás de otro —medidos a
+   1440 px de ancho—:
+
+       «Un centro de estudios de Caracas» ... x = 340   (estrecho, centrado)
+       «Diplomado en Marketing Digital» ..... x = 120   (dentro, 1200 de ancho)
+       las tarjetas de módulo ............... x = 121
+
+   Doscientos veinte píxeles de diferencia entre una sección y la siguiente. La
+   página se leía descuadrada, y con razón: no había una línea vertical común
+   de la que colgara todo.
+
+   Se estrecha el CONTENIDO, no el contenedor, y esa es la clave. Recortar el
+   contenedor a 760 daba una de dos, y las dos se probaron y se midieron:
+   centrado, se despegaba del borde común (x=340 contra x=120); pegado a la
+   izquierda con `margin-inline:0`, se iba al borde de la franja (x=24) y
+   descuadraba igual, sólo que hacia el otro lado. Dejando el contenedor donde
+   estaba —1200 px centrados, o sea x=120— y capando lo que lleva dentro, el
+   bloque arranca en la misma vertical que todos los demás y el párrafo sigue
+   sin pasar de 760.
+
+   `centrado` es para el bloque que SÍ quiere ir en el eje —el del certificado,
+   el de «cuándo abre la próxima»—: ahí la columna de 760 se centra dentro de
+   los 1200. Lo que ya no pasa es que un texto alineado a la izquierda flote en
+   mitad de la franja sin nada con qué alinearse. */
+.dentro.estrecho > *{max-width:760px;}
+.dentro.estrecho.centrado > *{margin-inline:auto;}
 .pregunta{border-bottom:1px solid var(--filete);}
 .pregunta > summary{list-style:none;cursor:pointer;padding:var(--e2) 0;
   font-weight:600;display:flex;align-items:center;justify-content:space-between;

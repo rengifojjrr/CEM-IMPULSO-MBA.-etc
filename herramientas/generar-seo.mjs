@@ -935,7 +935,7 @@ const tiraDeModulos = (dip, aqui) => `
 /** El bloque del certificado, que es el argumento de venta que sí es cierto. */
 const bloqueCertificado = (temario, dentro) => `
 <section class="franja tenue">
-  <div class="dentro estrecho" style="text-align:center">
+  <div class="dentro estrecho centrado" style="text-align:center">
     <span class="ojal">Lo que te llevas</span>
     <h2>Un certificado que cualquiera puede comprobar</h2>
     <p class="entrada" style="margin-left:auto;margin-right:auto">Cada certificado del CEM lleva
@@ -1024,7 +1024,7 @@ function paginaDelModulo(mod, dip, temario) {
 </section>
 
 <section class="franja">
-  <div class="dentro estrecho" style="text-align:center">
+  <div class="dentro estrecho centrado" style="text-align:center">
     <h2>¿Cuándo abre la próxima promoción?</h2>
     <p class="entrada" style="margin-left:auto;margin-right:auto">Las fechas y el precio cambian
       con cada convocatoria, así que no los dejamos escritos aquí para no darte un dato viejo.
