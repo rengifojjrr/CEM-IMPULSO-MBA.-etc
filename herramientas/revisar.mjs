@@ -592,6 +592,24 @@ if (leidas.length === VERSIONES.length && distintas.size > 1) {
   bien(`Los tres archivos versionan el logotipo con ${[...distintas][0]}`);
 }
 
+/* Y que no quede NINGUNA referencia al logotipo sin marca. Contar que los tres
+   números coincidan no basta: la primera vez se versionaron los <link> y la
+   marca del portal, y se quedó fuera la de la cabecera pública. Resultado
+   visible: las páginas generadas enseñaban el birrete e inicio.html seguía con
+   la «E» vieja de la caché. Dos logotipos en el mismo sitio. */
+const sinMarca = [];
+for (const f of ['plataforma/assets/app.js', 'herramientas/generar-seo.mjs',
+                 'herramientas/iconos.mjs']) {
+  const texto = await readFile(join(RAIZ, f), 'utf8');
+  for (const m of texto.matchAll(/(?:src|href)\s*=\s*["'`][^"'`]*favicon\.svg(?!\?v=)/g)) {
+    const linea = texto.slice(0, m.index).split('\n').length;
+    sinMarca.push(`${f}:${linea} pinta el logotipo sin «?v=»: el navegador seguirá `
+      + 'enseñando el que tenga guardado');
+  }
+}
+if (sinMarca.length) sinMarca.forEach((x) => mal(x.split(':')[0], x));
+else bien('Ninguna referencia al logotipo se sirve sin marca de versión');
+
 /* ══════════ 17. La hoja de estilos no tiene comentarios mal cerrados ══════════
    CSS no anida comentarios: el primer cierre que aparece cierra, y lo que
    venga detrás —hasta el siguiente cierre— es basura que el navegador se traga

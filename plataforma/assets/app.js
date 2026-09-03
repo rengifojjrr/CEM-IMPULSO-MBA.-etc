@@ -2691,7 +2691,15 @@ function renderPublicHeader(p) {
   const activa = (archivo) => location.pathname.endsWith(archivo) ? ' class="on"' : '';
   h.innerHTML = `<div class="pub-inner">
     <a class="pub-brand" href="${r}inicio.html">
-      <img src="${r}assets/favicon.svg" alt="" width="28" height="28"> CEM International</a>
+      <!-- Con marca de versión, como las otras dos veces que se pinta el
+           logotipo. Ésta se quedó fuera en el primer intento y se notaba a
+           simple vista: las páginas generadas enseñaban el birrete y la portada
+           del portal seguía con la «E» vieja, la que el navegador tenía
+           guardada. Dos logotipos distintos en el mismo sitio.
+           (Sin acentos graves en este comentario: va dentro de una plantilla de
+           texto, y el primero que aparezca la cierra. Costó un error de
+           sintaxis descubrirlo.) -->
+      <img src="${r}assets/favicon.svg?v=${VERSION_ICONO}" alt="" width="28" height="28"> CEM International</a>
     <nav id="pubNav">
       <a href="${r}inicio.html"${activa('inicio.html')}>Inicio</a>
       <!-- Una sola entrada, no dos.

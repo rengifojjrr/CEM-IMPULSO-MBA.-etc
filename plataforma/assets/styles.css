@@ -1268,6 +1268,10 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 .dentro.estrecho > *{max-width:760px;}
 .dentro.estrecho.centrado > *{margin-inline:auto;}
 .pregunta{border-bottom:1px solid var(--filete);}
+/* La última no lleva raya: dentro de una caja quedaba una línea a dos píxeles
+   del borde de abajo, que se lee como un renglón que falta. La raya separa
+   preguntas, y después de la última no hay ninguna que separar. */
+.pregunta:last-child{border-bottom:0;}
 .pregunta > summary{list-style:none;cursor:pointer;padding:var(--e2) 0;
   font-weight:600;display:flex;align-items:center;justify-content:space-between;
   gap:var(--e2);}
@@ -3742,6 +3746,42 @@ details.card h3.sec{margin-top:var(--e3);}
    así que el mismo módulo se reconoce en la portada, en el índice y en su
    propia página. Ver herramientas/temario.mjs. */
 
+/* La portada de un diplomado en el índice de programas.
+   ═══════════════════════════════════════════════════════════════════════════
+   Una sola pieza por diplomado, no dieciséis tarjetas de módulo repartidas por
+   la página. La decisión que se toma en el índice es entre DOS diplomados; el
+   temario se ve al entrar.
+
+   La tira de colores de arriba son los ocho módulos, en su orden y con su
+   color: enseña de un vistazo que hay ocho cosas dentro sin ocupar el sitio de
+   ocho tarjetas. Es decorativa —cada módulo tiene su enlace dentro—, así que
+   va con `aria-hidden`: para quien navega escuchando serían ocho «imagen» sin
+   nombre. */
+.portada-programa{background:var(--papel);border:1px solid var(--filete);
+  border-radius:var(--r);overflow:hidden;}
+.pp-tira{display:flex;height:6px;}
+.pp-tira i{flex:1;}
+.pp-cuerpo{padding:var(--e4);display:flex;flex-direction:column;align-items:flex-start;}
+.pp-cuerpo h2{margin:0 0 var(--e1);}
+.pp-cuerpo h2 a{color:inherit;text-decoration:none;}
+.pp-cuerpo h2 a:hover{color:var(--primary);}
+.pp-cuerpo .entrada{margin-bottom:var(--e3);}
+
+/* Las cuatro cifras. `tabular-nums` para que no bailen al comparar los dos
+   diplomados uno debajo del otro. */
+.pp-datos{list-style:none;margin:0 0 var(--e2);padding:0;
+  display:flex;flex-wrap:wrap;gap:var(--e4);
+  border-top:1px solid var(--filete);border-bottom:1px solid var(--filete);
+  padding-block:var(--e2);width:100%;}
+.pp-datos b{display:block;font-size:var(--t-xl);line-height:1.05;
+  font-variant-numeric:tabular-nums;color:var(--mod-color, var(--primary));}
+.pp-datos span{font-size:var(--t-xs);color:var(--tinta-3);}
+
+@media (max-width:640px){
+  .pp-cuerpo{padding:var(--e3);}
+  .pp-datos{gap:var(--e3);}
+}
+
 .rejilla-modulos{display:grid;gap:var(--e2);
   grid-template-columns:repeat(auto-fit,minmax(238px,1fr));}
 
@@ -3837,7 +3877,36 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
 
    Va como clase aparte y no cambiando la regla de origen porque la portada de
    la plataforma está bien como está: lo que cambia es el caso, no la regla. */
-.portada-cem h1.titular-largo{max-width:26ch;text-wrap:balance;}
+/* Y con aire entre renglones, que es la otra mitad.
+   ───────────────────────────────────────────────────────────────────────────
+   A 26ch el titular de la portada del dominio salía en CINCO renglones, y a
+   `line-height:1.08` esos cinco iban tan juntos que las mayúsculas de uno casi
+   tocaban las bajas del anterior: una masa negra, no un titular. El 1,08 está
+   bien para dos o tres renglones cortos —que es para lo que se eligió—, no
+   para cinco.
+
+   Se ensancha la medida para que quepan menos renglones y se les da aire.
+   `balance` reparte las palabras para que no quede un último renglón de dos
+   letras colgando. */
+.portada-cem h1.titular-largo{max-width:34ch;text-wrap:balance;line-height:1.16;}
+
+/* Y el 34ch no servía de nada sin esto, que costó una medición entender.
+   ───────────────────────────────────────────────────────────────────────────
+   Quien mandaba no era la medida del titular sino la de su contenedor:
+   `.portada-una .portada-dicho` está capado a 62ch, y esos «ch» se cuentan con
+   la letra HEREDADA —16 px—, o sea unos 490 px. El titular va a 46 px, así que
+   sus 34ch son unos 780: nunca llegaba a usarlos. Medido: la caja salía de
+   486 px por mucho que se ensanchara el h1.
+
+   El 62ch del contenedor existe para que el PÁRRAFO no cruce la pantalla, y
+   eso ya lo garantiza `.lema`, que se capa solo a 52ch. Así que aquí se
+   ensancha la caja y cada pieza se queda con su propia medida: el titular
+   ancho porque es un titular, el párrafo estrecho porque se lee.
+
+   Con `:has()` para que sólo afecte al héroe que tiene un titular largo. El de
+   la plataforma —«Educamos hoy, lideras mañana»— cabe en dos renglones y no
+   necesita nada. */
+.portada-una .portada-dicho:has(h1.titular-largo){max-width:76ch;}
 
 /* La cabecera de las páginas que no cargan JavaScript.
    ═══════════════════════════════════════════════════════════════════════════

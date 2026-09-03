@@ -734,19 +734,48 @@ function paginaDelCatalogo(cursos, temario) {
   </div>
 </section>
 
+${/* La portada de cada diplomado, y nada más. Los módulos, al entrar.
+     ═══════════════════════════════════════════════════════════════════════
+     Antes esta página listaba los DIECISÉIS módulos de los dos diplomados,
+     con su tarjeta cada uno. Quien llegaba buscando «qué ofrece el CEM» se
+     encontraba dieciséis cosas y ninguna manera de saber cuáles van juntas:
+     la decisión que se toma aquí es entre dos diplomados, no entre dieciséis
+     módulos, y la página la estaba enterrando bajo el detalle.
+
+     Ahora se ve una portada por diplomado —qué es, para quién, cuánta gente
+     lo ha cursado, cuántos módulos y certificados tiene— y se entra a ver el
+     temario. Lo de dentro no desaparece: cada módulo conserva su página, su
+     certificado y su sitio en el mapa del sitio, y la tira de colores de
+     abajo los enseña todos de un vistazo sin ocupar media pantalla. */''}
 ${temario.diplomados.map((d, i) => `
 <section class="franja${i % 2 === 0 ? ' tenue' : ''}">
   <div class="dentro">
-    <span class="ojal">Diplomado</span>
-    <h2 style="margin-top:0"><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
-    <p class="entrada">${esc(d.que)}</p>
-    <p class="avala" style="--mod-color:${d.modulos[0]?.color || 'var(--primary)'}">
-      <span class="punto"></span>
-      ${d.personas} personas lo han cursado en ${d.promociones}
-      promoci${d.promociones === 1 ? 'ón' : 'ones'} · ${d.diplomas} diplomas de cierre emitidos</p>
-    <div class="rejilla-modulos" style="margin-top:var(--e3)">
-      ${d.modulos.map((m) => tarjetaModulo(m, d)).join('')}
-    </div>
+    <article class="portada-programa" style="--mod-color:${d.modulos[0]?.color || 'var(--primary)'}">
+      <div class="pp-tira" aria-hidden="true">
+        ${d.modulos.map((m) => `<i style="background:${m.color}"></i>`).join('')}
+      </div>
+      <div class="pp-cuerpo">
+        <span class="ojal">Diplomado · ${d.modulos.length} módulos</span>
+        <h2><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
+        <p class="entrada">${esc(d.que)}</p>
+
+        <ul class="pp-datos">
+          <li><b>${d.modulos.length}</b><span>módulos</span></li>
+          <li><b>${d.modulos.length}</b><span>certificados</span></li>
+          <li><b>${d.personas}</b><span>lo han cursado</span></li>
+          <li><b>${d.diplomas}</b><span>diplomas emitidos</span></li>
+        </ul>
+
+        <p class="avala"><span class="punto"></span>
+          ${d.personas} personas en ${d.promociones}
+          promoci${d.promociones === 1 ? 'ón' : 'ones'} · cada módulo se certifica por separado</p>
+
+        <div class="portada-manos" style="margin-bottom:0">
+          <a class="btn" href="${SITIO}/programas/${d.apodo}.html">
+            Ver el temario y los ${d.modulos.length} certificados</a>
+        </div>
+      </div>
+    </article>
   </div>
 </section>`).join('')}
 
@@ -1185,19 +1214,52 @@ function paginaDePreguntas(temario) {
     }],
   };
 
+  /* Un acordeón sobre papel, y no ocho bloques sueltos sobre el fondo.
+     ═══════════════════════════════════════════════════════════════════════
+     Antes eran ocho `<section>` con un h2 y un párrafo, uno detrás de otro,
+     flotando directamente sobre la luz de color del fondo. Sin nada debajo que
+     los sostuviera se leía como un documento pegado encima de la página, y con
+     las ocho respuestas abiertas a la vez había que recorrer toda la pantalla
+     para encontrar la que uno venía a leer.
+
+     Ahora es el acordeón que ya existe en la casa —`.pregunta`, el mismo de la
+     portada—: se lee la lista de preguntas de un vistazo y se abre la que
+     interesa. La primera va abierta para que se entienda que se abren.
+
+     Va dentro de una `.caja` con su relleno: papel debajo del texto. Y la
+     medida se queda en 760, que es la de lectura. */
   const cuerpo = `
-<main class="pub-main" style="max-width:760px">
+<main class="pub-main" style="max-width:820px">
   ${migas(pasos)}
   <h1>Preguntas frecuentes</h1>
-  <p class="entrada">Lo que más nos preguntan, contestado sin rodeos.</p>
-  ${qa.map(([p, r]) => `<section style="margin-top:26px">
-    <h2 style="font-size:19px">${esc(p)}</h2>
-    <p>${esc(r)}</p>
-  </section>`).join('')}
-  <section class="caja" style="padding:20px;margin-top:32px">
+  <p class="entrada">Lo que más nos preguntan, contestado sin rodeos. Pulsa la que
+    te interese.</p>
+
+  <div class="caja" style="padding:var(--e1) var(--e3);margin-top:var(--e3)">
+    ${qa.map(([p, r], i) => `<details class="pregunta"${i === 0 ? ' open' : ''}>
+      <summary>${esc(p)}</summary>
+      <p>${esc(r)}</p>
+    </details>`).join('')}
+  </div>
+
+  <!-- El cierre no es un aviso, es una puerta.
+       ─────────────────────────────────────────────────────────────────────
+       Decía «Escríbenos desde la página de contacto» y dejaba el trabajo de
+       encontrarla a quien acababa de no encontrar su respuesta. Quien llega
+       hasta el final de las preguntas frecuentes es justo quien tiene una
+       duda que no está resuelta: es el momento de más intención de toda la
+       página, y hasta hoy lo único que había era un enlace en medio de una
+       frase. Ahora hay un botón que lleva derecho al formulario. -->
+  <div class="caja" style="padding:var(--e3);margin-top:var(--e3);text-align:center">
     <h2 style="margin-top:0">¿No está tu pregunta?</h2>
-    <p>Escríbenos desde <a href="${SITIO}/plataforma/nosotros.html">la página de contacto</a>.</p>
-  </section>
+    <p class="entrada" style="margin-inline:auto">Escríbenos y te contestamos con el
+      precio, las fechas y el horario de la convocatoria que esté abierta.</p>
+    <div class="portada-manos" style="justify-content:center;margin-bottom:0">
+      <a class="btn" href="${SITIO}/plataforma/nosotros.html#contacto">
+        Pedir información</a>
+      <a class="btn outline" href="${SITIO}/programas/">Ver los programas</a>
+    </div>
+  </div>
 </main>`;
 
   return pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });

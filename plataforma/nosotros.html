@@ -128,7 +128,11 @@
           <a class="btn outline" href="index.html?registro=1">Crear mi cuenta</a>
         </div>
       </div>
-      <div class="card sin-margen">
+      <!-- `id="contacto"` para que se pueda enlazar desde fuera. Lo pide el
+           botón «Pedir información» del final de las preguntas frecuentes:
+           sin ancla, ese botón dejaba a la gente en lo alto de esta página
+           buscando el formulario con la vista. -->
+      <div class="card sin-margen" id="contacto" style="scroll-margin-top:88px">
         <h3 class="sec">Déjanos tus datos</h3>
         <form id="formLead" novalidate>
           <div class="field"><label for="lNombre">Tu nombre</label>
