@@ -29,7 +29,10 @@
   /* Una ficha por lista, no una fila de tabla — misma decisión que en
      recursos.html: lo que se mira de una lista es su enlace (largo, que hay
      que poder copiar) y dos o tres cifras, y eso en una celda no cabe. */
-  .ficha-lista{display:flex;flex-direction:column;gap:var(--e2);}
+  /* El relleno va aquí: `caja` da fondo, filete y esquinas, y nada más. Sin
+     esta línea el texto salía pegado al borde. Ver el comentario de
+     campanas.html, que tenía el mismo fallo. */
+  .ficha-lista{display:flex;flex-direction:column;gap:var(--e2);padding:var(--e3);}
   .ficha-cab{display:flex;align-items:flex-start;gap:var(--e1);flex-wrap:wrap;}
   .ficha-ico{font-size:26px;color:var(--primary);flex:none;margin-top:2px;}
   .ficha-tit{margin:0;font-size:var(--t-lg);line-height:1.2;}
@@ -176,16 +179,23 @@ async function cargar() {
 function pintar() {
   const caja = $('#lista');
   if (!listas.length) {
-    caja.innerHTML = `<div class="caja vacio">
-      <span class="material-symbols-outlined" aria-hidden="true">list_alt</span>
-      <h3>Todavía no hay ninguna lista</h3>
+    /* `.empty` dentro de `.card`, como las otras nueve pantallas con un hueco
+       que explicar. `vacio` no existe en ninguna hoja: era un recuadro sin
+       relleno con el texto pegado al filete. */
+    caja.innerHTML = `<div class="card"><div class="empty">
+      <span class="material-symbols-outlined ico" aria-hidden="true">list_alt</span>
+      <b>Todavía no hay ninguna lista</b>
       <p>Una lista de pre-registro es un formulario con su propio enlace. Se pega en
         una historia de Instagram o en la biografía, y quien lo rellena entra
         directo en Contactos con lo que haya respondido.</p>
       <p class="tiny muted">Sirve para saber cuánta gente quiere un diplomado
         <b>antes</b> de abrir la convocatoria, y para preguntar lo que haga falta:
         qué horario le viene, si ya sabe del tema, desde qué ciudad.</p>
-    </div>`;
+      <button class="btn" id="btnNueva2">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>
+        Crear la primera lista</button>
+    </div></div>`;
+    $('#btnNueva2').onclick = () => editar(null);
     return;
   }
   caja.innerHTML = listas.map(ficha).join('');

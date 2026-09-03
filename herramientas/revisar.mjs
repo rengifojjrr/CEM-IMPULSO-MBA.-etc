@@ -474,6 +474,55 @@ for (const f of await archivos('**/*.html')) {
 if (conTemaDoble.length) conTemaDoble.forEach((s) => mal(s.split(':')[0], s));
 else bien('Ninguna pantalla pública se pinta de noche sobre su fondo blanco');
 
+/* ══════════ 13. Una «caja» sin relleno es texto pegado al filete ══════════
+   `.caja` promete fondo, filete y esquinas. NO promete relleno —a propósito:
+   se le añade a la clase propia de la pantalla, que es la que sabe si dentro
+   va un texto (que necesita aire) o una tabla (que va a ras)—. Las dieciocho
+   pantallas que la usan lo hacen así: `.met` en Formas de pago, `.cuota` en
+   Pagos, `.socio` en Inversionistas.
+
+   Dos pantallas nuevas se saltaron el paso, y se veía: en Campañas y en
+   Listas de pre-registro el título salía tocando el borde. Nadie lo avisó
+   porque un relleno que falta no da error, sólo queda feo.
+
+   Se mira: las otras clases del elemento, ¿le dan relleno en el `<style>` de
+   la pantalla? ¿Hay un `style="padding…"` a mano? Si no hay ninguna de las
+   dos, esa caja se está pintando sin relleno. Para el caso legítimo —una caja
+   cuyo relleno ponen sus hijos— se escribe `caja-sin-relleno: porque…` en un
+   comentario cerca, igual que `sin-caja:` en la comprobación 10. */
+titulo('Ninguna «caja» se queda sin relleno');
+
+const cajasSinAire = [];
+for (const f of await archivos('**/*.html')) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  if (!/\bcaja\b/.test(html)) continue;
+  const hoja = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
+  /* ¿Esta clase recibe la propiedad `padding` en el <style> de la pantalla? */
+  const daRelleno = (clase) => {
+    const seguro = clase.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+    const bloques = hoja.matchAll(new RegExp(`\\.${seguro}(?![\\w-])[^{]*\\{([^}]*)\\}`, 'g'));
+    return [...bloques].some((b) => /(^|[;\s])padding\s*:/.test(b[1]));
+  };
+  for (const m of html.matchAll(/class="([^"]*)"/g)) {
+    const clases = m[1].split(/[\s${}'"?:]+/).filter((c) => /^[a-z][\w-]*$/.test(c));
+    if (!clases.includes('caja')) continue;
+    /* `.card` sí trae relleno de fábrica: una caja que además es card ya lo tiene. */
+    if (clases.includes('card')) continue;
+    if (clases.some((c) => c !== 'caja' && daRelleno(c))) continue;
+    // Un `style="padding:…"` escrito a mano en la misma etiqueta.
+    const etiqueta = html.slice(Math.max(0, m.index - 300), m.index + m[0].length + 200);
+    if (/style="[^"]*padding/.test(etiqueta)) continue;
+    // La salida declarada, por si el relleno lo ponen los hijos.
+    if (/caja-sin-relleno\s*:/.test(html.slice(Math.max(0, m.index - 400), m.index))) continue;
+    const linea = html.slice(0, m.index).split('\n').length;
+    cajasSinAire.push(`${f}:${linea} pinta una «caja» sin relleno («${m[1].trim()}»): el texto `
+      + 'sale pegado al filete. Ponle padding a su clase, o escribe '
+      + '«caja-sin-relleno: porque…» si el relleno lo ponen los hijos');
+  }
+}
+if (cajasSinAire.length) cajasSinAire.forEach((s) => mal(s.split(':')[0], s));
+else bien('Todas las «caja» reciben su relleno de la clase de su pantalla');
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

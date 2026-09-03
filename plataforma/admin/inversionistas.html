@@ -56,6 +56,14 @@
      leer el nombre en cada fila para saber de quién es la cifra. */
   .pinta{display:inline-block;width:9px;height:9px;border-radius:50%;
     margin-right:6px;vertical-align:baseline;}
+
+  /* El resumen de cada liquidación, separado del filete. `caja` da fondo,
+     borde y esquinas —eso es todo lo que promete—; el relleno lo pone la
+     pantalla. Sin esto la fecha salía pegada al borde de arriba.
+     La tabla de dentro sí va a ras, como en cualquier tarjeta que sólo lleva
+     una tabla: el aire lo ponen las celdas. */
+  #historial > details > summary{padding:var(--e1) var(--e2);cursor:pointer;}
+  #historial > details[open] > summary{border-bottom:1px solid var(--filete);}
 </style>
 </head>
 <body>
@@ -495,6 +503,10 @@ function pintarHistorial(){
   if (!historial.length) {
     host.innerHTML = '<p class="tiny muted">Todavía no se le ha pagado nada a nadie.</p>'; return;
   }
+  /* caja-sin-relleno: el relleno lo pone `#historial > details > summary` en
+     el <style> de esta pantalla, porque sólo lo necesita el resumen. La tabla
+     que hay debajo va a ras de la caja, como en cualquier tarjeta que sólo
+     lleva una tabla: el aire lo ponen las celdas. */
   host.innerHTML = historial.map(ev => `<details class="caja sep-poco">
     <summary>
       <b>${esc(fdate(ev.fecha))}</b> · ${esc(money(ev.total))} a ${num(ev.socios)} socio(s)

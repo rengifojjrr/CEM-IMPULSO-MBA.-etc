@@ -487,6 +487,10 @@ function documentoDeLaLeccion(l){
       </div></div>`;
   }
 
+  /* caja-sin-relleno: el visor del documento ocupa la caja entera y las tres
+     piezas que llevan texto —la barra de arriba, el aviso de vacío y el pie—
+     traen su propio relleno. Un `padding` aquí metería el PDF hacia dentro y
+     dejaría un marco gris alrededor. */
   return `<div class="documento caja">
     <div class="documento-barra">
       <span class="material-symbols-outlined">${icono}</span>

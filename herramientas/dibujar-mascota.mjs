@@ -315,10 +315,25 @@ const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 460" role=
    tamaño son los ojos, la sonrisa y el birrete, así que hay un segundo archivo
    con el mismo dibujo y otro encuadre. Mismo dibujo, no otro: si algún día se
    cambia el bicho, cambian los dos a la vez. */
+/* El encuadre es CUADRADO, y eso es lo que estaba mal.
+   ───────────────────────────────────────────────────────────────────────────
+   Era «72 88 256 186»: más ancho que alto. El marco donde se pinta es un
+   círculo de 44 px con `object-fit:cover`, así que el navegador ampliaba hasta
+   cubrir el alto y se comía 8 px por cada lado — justo las dos puntas del
+   birrete—, y el círculo remataba cortándole la barbilla. Cemi salía sin
+   sombrero y sin mentón, que es exactamente lo que se veía en el botón del
+   chat y en cada respuesta suya.
+
+   Un dibujo apaisado no cabe entero en un marco redondo: no hay CSS que lo
+   arregle, hay que cuadrar el encuadre. «58 60 284 284» es cuadrado y deja el
+   birrete completo con el mínimo aire alrededor —con más aire la cara se
+   encoge y a 44 px deja de reconocerse—. Se probó contra 284, 296, 304 y 312
+   de lado; éste es el que mejor se lee. */
+const VB_CARA = '58 60 284 284';
 const CARA = SVG
-  .replace('viewBox="0 0 400 460" width="400" height="460"', 'viewBox="72 88 256 186" width="256" height="186"')
-  .replace('viewBox="0 0 400 460"', 'viewBox="72 88 256 186"')
-  .replace('width="400" height="460"', 'width="256" height="186"')
+  .replace('viewBox="0 0 400 460" width="400" height="460"', `viewBox="${VB_CARA}" width="284" height="284"`)
+  .replace('viewBox="0 0 400 460"', `viewBox="${VB_CARA}"`)
+  .replace('width="400" height="460"', 'width="284" height="284"')
   .replace('id="tituloMascota"', 'id="tituloMascotaCara"')
   .replace('aria-labelledby="tituloMascota"', 'aria-labelledby="tituloMascotaCara"');
 

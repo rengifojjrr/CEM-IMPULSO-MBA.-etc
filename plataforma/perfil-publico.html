@@ -185,6 +185,9 @@ async function cargar(){
           cualquiera con cuenta, y esta página la publica la institución. */''}
     ${trabajo.length ? `
       <h2 class="titulo-seccion">Su trabajo</h2>
+      <!-- caja-sin-relleno: la foto de la obra va de borde a borde —recortarla
+           con un margen la convertiría en una miniatura pegada— y el aire lo
+           pone `.obra-txt`, que es donde está el texto. -->
       <div class="obras">${trabajo.map(o => `
         <div class="obra caja">
           ${o.imagen_url ? `<img src="${esc(o.imagen_url)}" alt="${esc(o.titulo)}" loading="lazy">` : ''}
