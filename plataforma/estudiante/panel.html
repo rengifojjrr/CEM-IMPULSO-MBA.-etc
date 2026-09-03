@@ -55,6 +55,18 @@
        que sigue ahí cuando ya lo resolviste enseña a ignorar los avisos. -->
   <div id="avisoDatos"></div>
 
+  <!-- Los certificados que ya tiene, y las insignias.
+       ─────────────────────────────────────────────────────────────────────
+       Los certificados de verdad viven en el registro del generador —529
+       vigentes— y hasta ahora el panel no sabía de ellos: mira la tabla de la
+       plataforma, que tiene una fila. Quien se gradúa por la vía de siempre y
+       luego se hace cuenta entraba a un panel que le decía que no tiene nada.
+
+       Se cruzan por cédula, así que sólo aparecen a quien tenga la suya puesta
+       en su perfil. Si no hay ninguno, este bloque no se dibuja: un «0
+       certificados» a alguien que empieza no informa, desanima. -->
+  <div id="misLogros"></div>
+
   <!-- item 22 · antes, «meterte a otro curso» era una inscripción que aparecía
        en tu panel sin que nadie te la hubiera propuesto, con sus cuotas ya
        emitidas. Aquí la oferta está a la vista, con su precio, y no pasa nada
@@ -117,6 +129,7 @@ if (p) init();
 async function init(){
   $('#saludo').textContent = `Hola, ${p.nombre}`;
   pintarAvisoDatos();
+  pintarMisLogros();
   const { data: ens } = await sb.from('cem_enrollments')
     .select('*,cem_courses(id,nombre,imagen_url,modalidad),cem_cohorts(id,nombre)')
     .eq('profile_id',p.id).neq('estado','cancelada').limit(500);
@@ -547,6 +560,63 @@ async function pintarGraficos(ens){
    Se pregunta por lo mismo que mide la pantalla de Mis datos, y con los
    mismos nombres, para que las dos digan siempre lo mismo. Si esto contara
    una cosa y allí saliera otra, nadie volvería a creerse ninguna de las dos. */
+/* Los certificados del registro de verdad, y las insignias ganadas.
+   ═══════════════════════════════════════════════════════════════════════════
+   Los 529 certificados que existen viven en la tabla del generador, cargados
+   desde una hoja de cálculo y sin `profile_id`: la mayoría de esa gente nunca
+   ha tenido cuenta. El panel miraba `cem_certificates`, que tiene una fila, así
+   que a un graduado de verdad que se hiciera cuenta le decía que no tiene nada.
+
+   Se cruzan por cédula en el servidor —`cem_certificados_del_registro`—, así
+   que sólo los ve quien tenga la suya puesta en su perfil, y sólo los suyos.
+
+   Si no hay ninguno no se dibuja nada. Un «0 certificados» a alguien que
+   empieza no informa: desanima. */
+async function pintarMisLogros() {
+  const caja = $('#misLogros');
+  if (!caja) return;
+
+  const [{ data: certs }, { data: insignias }] = await Promise.all([
+    sb.rpc('cem_certificados_del_registro'),
+    sb.from('cem_badge_awards')
+      .select('otorgado_en,cem_badges(nombre,descripcion,icono,color)')
+      .eq('profile_id', p.id).order('otorgado_en', { ascending: false }).limit(50),
+  ]);
+
+  const misCerts = certs || [];
+  const misIns = insignias || [];
+  if (!misCerts.length && !misIns.length) return;
+
+  caja.innerHTML = `<div class="card">
+    <h2 class="sec">Lo que ya te has ganado</h2>
+
+    ${misCerts.length ? `
+      <div class="row between" style="align-items:baseline">
+        <b>${num(misCerts.length)} certificado${misCerts.length === 1 ? '' : 's'} del CEM</b>
+        <a class="tiny" href="../verificar.html">Verificarlos</a>
+      </div>
+      <ul class="lista-limpia sep">
+        ${misCerts.slice(0, 10).map(c => `<li class="row between" style="padding:6px 0">
+          <span>${esc(c.titulo || 'Certificado')}
+            <span class="tiny muted">· ${esc(c.entidad || 'CEM')}</span></span>
+          <span class="tiny muted">${esc(c.fecha || fdate(c.emitido_en))}</span>
+        </li>`).join('')}
+      </ul>
+      ${misCerts.length > 10
+        ? `<p class="tiny muted">y ${num(misCerts.length - 10)} más.</p>` : ''}` : ''}
+
+    ${misIns.length ? `
+      <div class="sep"><b>Insignias</b></div>
+      <div class="row" style="flex-wrap:wrap;gap:var(--e1);margin-top:6px">
+        ${misIns.map(a => `<span class="chip" title="${esc(a.cem_badges?.descripcion || '')}">
+          <span class="material-symbols-outlined" aria-hidden="true"
+            style="font-size:16px;color:${esc(a.cem_badges?.color || 'var(--primary)')}"
+            >${esc(a.cem_badges?.icono || 'military_tech')}</span>
+          ${esc(a.cem_badges?.nombre || '')}</span>`).join('')}
+      </div>` : ''}
+  </div>`;
+}
+
 async function pintarAvisoDatos() {
   const [{ data: perf }, { data: iden }] = await Promise.all([
     sb.from('cem_profiles').select('nombre,apellido,documento,pais,telefono').eq('id', p.id).single(),

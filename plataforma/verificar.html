@@ -60,7 +60,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, $, esc, fdate, qs } from './assets/app.js?v=2026-08-29-2';
+import { sb, $, $$, esc, fdate, qs } from './assets/app.js?v=2026-08-29-2';
 
 /* Un solo verificador para los dos sistemas.
    ═══════════════════════════════════════════════════════════════════════════
@@ -155,8 +155,43 @@ async function verificar(texto){
         <a class="btn block sep" href="perfil-publico.html?p=${encodeURIComponent(c.perfil_slug)}">
           <span class="material-symbols-outlined" aria-hidden="true">badge</span>
           Ver todas las credenciales de ${esc(c.estudiante)}</a>` : ''}
+
+      ${!anulado ? `
+        <!-- Compartir el propio certificado.
+             ═══════════════════════════════════════════════════════════════
+             Ésta es la pantalla con más credibilidad del sitio: aquí llega
+             quien acaba de comprobar que un título es de verdad. Hasta hoy
+             no ofrecía nada.
+
+             Comparte la dirección de ESTE certificado, no la portada: lo que
+             convence a alguien no es «mira esta escuela», es «mira lo que
+             estudié y compruébalo tú mismo». -->
+        <button class="btn outline block sep" data-compartir="${esc(c.codigo)}"
+          data-titulo="${esc(c.titulo)}" data-quien="${esc(c.estudiante)}">
+          <span class="material-symbols-outlined" aria-hidden="true">share</span>
+          Compartir este certificado</button>` : ''}
     </div>`;
   }).join('');
+
+  /* Compartir con el menú del propio teléfono si lo hay —WhatsApp, Instagram,
+     lo que tenga instalado—, y si no, copiando el enlace. `navigator.share`
+     sólo existe en móvil y sólo sobre HTTPS: la alternativa no es un lujo, es
+     la mitad de los casos. */
+  $$('[data-compartir]').forEach((b) => {
+    b.onclick = async () => {
+      const url = `${location.origin}${location.pathname}?codigo=${encodeURIComponent(b.dataset.compartir)}`;
+      const texto = `${b.dataset.quien} — ${b.dataset.titulo} · CEM International.`
+        + ' Se puede comprobar aquí:';
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'Certificado del CEM', text: texto, url });
+          return;
+        }
+        await navigator.clipboard.writeText(`${texto} ${url}`);
+        b.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">check</span> Enlace copiado';
+      } catch { /* si cancela el menú de compartir no hay nada que hacer */ }
+    };
+  });
 }
 
 $('#f').onsubmit = (e) => { e.preventDefault(); verificar($('#codigo').value.trim()); };

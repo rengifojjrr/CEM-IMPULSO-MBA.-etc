@@ -150,7 +150,19 @@ async function load(){
   const partic = (ens||[]).length? (ens||[]).reduce((a,e)=>a+Number(e.progreso||0),0)/(ens||[]).length : 0;
   $('#kpis').innerHTML = [
     kpi('Alumnos activos', num(totalAlumnos),'group',`en ${cohortes.length} grupo(s)`),
-    kpi('Entregas por calificar', num(subsPend.length),'assignment', subsPend.length?'requieren tu revisión':'todo al día'),
+    /* Se mide la ESPERA, no el volumen.
+       ─────────────────────────────────────────────────────────────────────
+       «Cuántas tienes pendientes» dice poco: veinte recién entregadas están
+       mejor que dos de hace nueve días. Lo que el alumno sufre es el tiempo
+       que su entrega lleva parada, así que ése es el número que se enseña —y
+       con él debajo, «todo al día» deja de ser una frase y pasa a ser un
+       hecho comprobable.
+
+       Y a propósito NO se premia el volumen: reconocer «más corregidas» o
+       «más clases» empuja a inflar, y aquí lo que hay que empujar es a que
+       nadie espere. Con la cola limpia se dice, y ya. */
+    kpi('Entregas por calificar', num(subsPend.length), 'assignment',
+        subsPend.length ? 'requieren tu revisión' : 'nadie está esperando'),
     kpi('Sesiones dictadas', num(clases.filter(c=>c.estado==='dictada').length),'co_present','histórico'),
     kpi('Participación media', pct(partic),'trending_up','progreso de tus grupos'),
   ].join('');
@@ -190,6 +202,22 @@ async function load(){
         curso: s.cem_assessments?.cem_courses?.nombre }));
 
   $('#nPend').textContent = ordenadas.length === 1 ? '1 pendiente' : `${ordenadas.length} pendientes`;
+
+  /* La espera más larga, en la tarjeta de arriba. Se calcula aquí porque es
+     donde ya está la cola con sus días contados por el servidor; volver a
+     pedirlos sería otra consulta para lo mismo. */
+  const espera = Math.max(0, ...ordenadas.map(c => Number(c.dias) || 0));
+  /* `k-sub` es la clase que pone `kpi()` en app.js, no «kpi-sub»: escribí la
+     segunda de memoria y el selector no encontraba nada — sin error, sin aviso,
+     simplemente no pasaba. Y va por posición porque la tarjeta se dibuja arriba,
+     antes de que llegue la cola; el orden lo fija el array de `#kpis` que hay
+     unas líneas más arriba, así que si se reordena hay que mirar aquí. */
+  const tarjeta = $('#kpis .kpi:nth-child(2) .k-sub');
+  if (tarjeta) {
+    tarjeta.textContent = !ordenadas.length ? 'nadie está esperando'
+      : espera === 0 ? 'todas entregadas hoy'
+      : `la más antigua lleva ${espera} día${espera > 1 ? 's' : ''}`;
+  }
   $('#tbEntregas').innerHTML = ordenadas.length ? ordenadas.map(c=>`<tr>
       <td>${esc(c.estudiante || '—')}</td>
       <td class="wrap">${esc(c.evaluacion || '')}</td>

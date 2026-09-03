@@ -74,6 +74,17 @@ const ICONOS = ['military_tech','insights','public','campaign','emoji_events','w
 const REGLAS = {
   curso_completado:       { texto:'Termina un programa' },
   primer_certificado:     { texto:'Recibe su primer certificado' },
+  /* La que mira el registro DE VERDAD.
+     ─────────────────────────────────────────────────────────────────────────
+     `primer_certificado` lee `cem_certificates`, la tabla de la plataforma, y
+     ahí hay una fila. Los 529 certificados que existen viven en la otra tabla,
+     la del generador, cargados desde una hoja de cálculo y sin `profile_id`:
+     esa gente nunca ha tenido cuenta. Ésta los encuentra cruzando por cédula.
+
+     Sirve para las dos cosas según el número: 1 es «tienes tu primer
+     certificado del CEM», 8 es «completaste el diplomado entero». */
+  certificado_del_registro: { texto:'Tiene certificados en el registro del CEM',
+    valor:{ etiqueta:'Cuántos como mínimo', def:1, min:1, max:50, unidad:'certificados' } },
   al_dia_con_pagos:       { texto:'Está al día con los pagos' },
   sin_entregas_tarde:     { texto:'Entrega siempre a tiempo',
     valor:{ etiqueta:'Con cuántas entregas como mínimo', def:3, min:1, max:50, unidad:'entregas' } },
