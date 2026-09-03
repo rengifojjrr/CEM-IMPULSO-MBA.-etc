@@ -255,9 +255,45 @@
       <div><b>58</b><span>personas graduadas</span></div>
       <div><b>7</b><span>promociones</span></div>
     </div>
-    <a class="btn" href="https://escuelacem.com/plataforma/verificar.html">
-      <span class="material-symbols-outlined" aria-hidden="true">verified</span>
-      Verificar un certificado</a>
+
+    <!-- Que se pueda comprobar AQUÍ, y no que se prometa que se puede.
+         ═══════════════════════════════════════════════════════════════════
+         Esto era un botón que llevaba a otra pantalla. Y «nuestros
+         certificados son verificables» lo escribe cualquiera en su web: es
+         exactamente el tipo de frase que no prueba nada porque no cuesta nada
+         decirla. Lo que no puede copiar quien no lo tiene es el campo: se
+         escribe un código —o una cédula— y sale el nombre, el programa y la
+         fecha, de la base, delante de quien mira.
+
+         Es lo único de esta página que FUNCIONA en vez de contar. Por eso se
+         sube desde el final hasta aquí, y por eso lleva su propio ejemplo:
+         quien no tiene un código a mano puede probar igual.
+
+         Funciona sin JavaScript propio: el formulario va por GET a la pantalla
+         de verificar, que ya sabe leer «?codigo=» y consultar sola. Estas
+         páginas no cargan app.js, así que un campo que necesitara JS aquí
+         sería un campo muerto.
+
+         Sin comillas invertidas en este comentario: está DENTRO de una
+         plantilla de JavaScript, y una sola cierra la cadena a mitad. -->
+    <form class="verificar-aqui" action="https://escuelacem.com/plataforma/verificar.html" method="get">
+      <label for="codigoPortada" class="ojal" style="margin-bottom:var(--e0)">
+        Compruébalo ahora</label>
+      <div class="verificar-fila">
+        <!-- El marcador es corto porque en un móvil de 390 px el campo mide
+             225 y «Código del certificado o cédula» se cortaba en «…o». El
+             nombre largo sigue entero en el aria-label, que es lo que oye
+             quien usa lector de pantalla, y en el pie de debajo. -->
+        <input type="search" id="codigoPortada" name="codigo" required
+          placeholder="Código o cédula"
+          aria-label="Código del certificado o cédula">
+        <button class="btn" type="submit">
+          <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+          Verificar</button>
+      </div>
+      <p class="tiny muted" style="margin:var(--e0) 0 0">Sin crear cuenta. Con la cédula salen
+        todos los títulos de esa persona.</p>
+    </form>
     
   </div>
 </section>

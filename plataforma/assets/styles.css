@@ -1005,6 +1005,52 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
   font-variant-numeric:tabular-nums;color:var(--primary);line-height:1.1;}
 .cifras-casa span{font-size:var(--t-xs);color:var(--tinta-2);}
 
+/* Las mismas cifras, dentro del héroe. Antes vivían en una franja aparte, tan
+   lejos del titular que no probaban nada de lo que el titular afirmaba: 178 px
+   de página para decir ocho palabras. Aquí van pegadas debajo, más juntas y
+   sobre una línea que las separa del texto sin partir la sección en dos. */
+.cifras-heroe{width:100%;margin-top:var(--e3);padding-top:var(--e3);
+  border-top:1px solid var(--filete);gap:var(--e2);
+  /* Tres columnas fijas, no `auto-fit`. Siempre son tres cifras exactamente,
+     así que aquí `auto-fit` no adapta nada: sólo decide en qué ancho se rompe
+     la fila y deja una cifra sola. A 390 px partía 2+1. Con tres columnas la
+     fila aguanta entera en cualquier pantalla; lo que se estrecha es cada
+     columna, y el rótulo pasa a dos renglones, que es simétrico. */
+  grid-template-columns:repeat(3,minmax(0,1fr));}
+.cifras-heroe b{font-size:var(--t-lg);}
+@media (max-width:420px){
+  .cifras-heroe{gap:var(--e1);}
+  .cifras-heroe b{font-size:var(--t-md);}
+}
+
+/* Los tres hechos del héroe: cómo son las clases, dónde y qué te llevas.
+   ───────────────────────────────────────────────────────────────────────────
+   Apilados, no en fila. Lo intenté en fila y se partía 2+1: la columna del
+   héroe mide 596 px y los tres renglones suman 818, así que en una fila no
+   caben en NINGUNA pantalla —no es cosa del móvil—. Y un 2+1 centrado se lee
+   como un descuadre, no como una lista.
+
+   Apilados, además, se leen de verdad en vez de barrerse de un vistazo. Van
+   alineados a la izquierda dentro de una caja centrada: los iconos forman
+   columna y el ojo baja por ella. Centrar cada renglón por su cuenta dejaría
+   los iconos en zigzag. */
+.portada-hechos{list-style:none;margin:var(--e2) auto 0;padding:0;
+  display:grid;gap:var(--e1);justify-content:center;justify-items:start;
+  text-align:left;width:max-content;max-width:100%;}
+.portada-hechos li{display:flex;align-items:center;gap:8px;
+  font-size:var(--t-sm);color:var(--tinta-2);}
+.portada-hechos .material-symbols-outlined{font-size:19px;color:var(--secondary);
+  flex:none;}
+
+/* El verificador en la portada. Es lo único de la página que funciona en vez
+   de contar, así que se le da el tamaño de un buscador y no el de un campo
+   más: quien llega aquí con un código en la mano tiene que verlo. */
+.verificar-aqui{width:100%;max-width:520px;margin:var(--e3) auto 0;text-align:left;}
+.verificar-fila{display:flex;gap:var(--e1);flex-wrap:wrap;}
+.verificar-fila input{flex:1;min-width:min(100%,220px);min-height:48px;
+  border-radius:var(--r-full);padding-inline:var(--e2);}
+.verificar-fila .btn{min-height:48px;white-space:nowrap;}
+
 /* Misión, visión y valores: tarjetas iguales, ninguna manda sobre otra. */
 .tarjetas-idea{display:grid;gap:var(--aire);grid-template-columns:repeat(auto-fit,minmax(260px,1fr));}
 .tarjeta-idea{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
