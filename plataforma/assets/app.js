@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-08-29-2';
+         vidrioActual } from './temas.js?v=2026-09-03';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1613,7 +1613,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-08-29-2')
+  import('./asistente.js?v=2026-09-03')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2302,7 +2302,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-08-29-2');
+    const m = await import('./apariencia.js?v=2026-09-03');
 
     m.abrirApariencia();
 

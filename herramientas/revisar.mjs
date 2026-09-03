@@ -439,6 +439,41 @@ for (const f of await archivos('**/*.html', '**/*.js')) {
 if (mudos.length) mudos.forEach((s) => mal(s.split(':')[0], s));
 else bien('Todos los botones y enlaces de sólo icono llevan su nombre en castellano');
 
+/* ══════════ 12. Una pantalla pública no cambia de tema ══════════
+   El escaparate es de un solo tema, y a propósito: el fondo va blanco fijo
+   —`:root[data-publico="si"] body{background:#fff}` en styles.css— porque los
+   colores vivos de la portada sólo se leen como color sobre blanco.
+
+   Lo que estuvo roto meses: la portada del dominio y las páginas de programa
+   llevaban ADEMÁS su propio `@media (prefers-color-scheme:dark)` en el CSS que
+   va en línea. Resultado para quien tiene el sistema en modo noche: tinta clara
+   (#e9ecef) sobre ese blanco fijo. Titulares invisibles y cajas oscuras en una
+   página clara — la primera pantalla que ve quien llega de Google.
+
+   No lo salvaba temas.js, que es quien pone `data-theme="light"` en lo público:
+   estas páginas no cargan app.js, así que ese módulo no llega nunca. Por eso la
+   regla se comprueba en el HTML y no en el navegador.
+
+   Se mira sólo el `<style>` en línea. La hoja grande sí lleva su bloque
+   nocturno —lo necesita el portal— y ya se protege del escaparate con
+   `:root[data-publico="si"]`. */
+titulo('Una pantalla pública no cambia de tema con el sistema');
+
+const conTemaDoble = [];
+for (const f of await archivos('**/*.html')) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  if (!/<html[^>]*\bdata-publico="si"/.test(html)) continue;
+  for (const m of html.matchAll(/<style>([\s\S]*?)<\/style>/g)) {
+    if (!/prefers-color-scheme\s*:\s*dark/.test(m[1])) continue;
+    const linea = html.slice(0, m.index).split('\n').length;
+    conTemaDoble.push(`${f}:${linea} es pública —fondo blanco fijo— y trae un bloque `
+      + 'de modo oscuro en línea: de noche pinta tinta clara sobre blanco. '
+      + 'Si viene del generador, quítalo en herramientas/generar-seo.mjs');
+  }
+}
+if (conTemaDoble.length) conTemaDoble.forEach((s) => mal(s.split(':')[0], s));
+else bien('Ninguna pantalla pública se pinta de noche sobre su fondo blanco');
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

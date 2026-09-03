@@ -2171,6 +2171,45 @@ html:root:not([data-estilo="plano"]){
 }
 :root[data-publico="si"] body{ background:#fff; }
 
+/* …y con el blanco, la tinta oscura. Las dos cosas o ninguna.
+   ═══════════════════════════════════════════════════════════════════════════
+   Esta era la pantalla rota. El escaparate fija el fondo en blanco —la regla
+   de arriba, sin condiciones— pero los TOKENS seguían obedeciendo al sistema
+   operativo: quien tiene el Mac en modo oscuro se encontraba `--tinta:#e9ecef`
+   y `--primary:#a9c6ec` —letra clara, pensada para fondo negro— escritas sobre
+   ese blanco. Titulares que no se leen, tarjetas oscuras flotando en una
+   página clara, botones lavados. De día no se notaba nunca, porque #fff y
+   #f7f8fa se parecen: por eso llevaba tanto tiempo ahí.
+
+   El escaparate ya se pintaba claro a la fuerza, pero lo hacía desde temas.js,
+   que pone `data-theme="light"` al arrancar. Eso deja fuera dos casos, y los
+   dos son visibles: la portada del dominio y las páginas generadas no cargan
+   app.js —ni existe ese `data-theme`—, y en las que sí lo cargan hay un
+   instante entre que llega esta hoja y que corre el módulo. Un escaparate no
+   puede depender de que un módulo llegue para no verse roto.
+
+   Así que se dice aquí, en CSS, junto a la regla del fondo blanco que lo
+   provocaba. `color-scheme:light` va con ellas porque las barras de
+   desplazamiento y los controles del navegador no leen tokens: sin eso salían
+   negras al borde de una página blanca. */
+@media (prefers-color-scheme:dark){
+  :root[data-publico="si"]:not([data-theme="dark"]){
+    color-scheme:light;
+    --fondo:#f7f8fa; --papel:#ffffff; --hueco:#eef0f3;
+    --tinta:#15181c; --tinta-2:#5a616b; --tinta-3:#6c7179;
+    --filete:#dfe3e8; --filete-fuerte:#c2c8d0;
+    --primary:#0d2440; --primary-suave:#e8edf5; --on-primary:#fff;
+    --secondary:#0b7268; --secondary-container:#d6f2ee;
+    --gold:#856517; --gold-suave:#f6ecd2; --on-gold:#ffffff;
+    --ok:#166534;    --ok-suave:#e3f2e7;
+    --warn:#9a5b06;  --warn-suave:#fbeed8;
+    --error:#a51d1d; --error-suave:#fbe4e3;
+    --info:#1f4fa8;  --info-suave:#e4ebf9;
+    --sombra:0 1px 2px rgba(16,24,40,.06), 0 8px 24px -12px rgba(16,24,40,.18);
+    --inverse-surface:#22262c; --inverse-on-surface:#f2f4f6;
+  }
+}
+
 :root[data-publico="si"] body::after{
   /* Cada mancha lleva un NÚCLEO sólido antes de empezar a desvanecerse, y esa
      es la diferencia entre que se vea el color y que no.

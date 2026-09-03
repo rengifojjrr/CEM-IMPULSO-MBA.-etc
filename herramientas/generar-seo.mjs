@@ -277,12 +277,27 @@ const pie = () => `
    cabecera—, en línea, para que el texto esté en pantalla antes de que el CSS
    grande termine de bajar. Cuando llega, manda él: esto no lleva !important ni
    pelea con nada, sólo llega antes. */
+/* Aquí NO hay modo oscuro, y quitarlo fue arreglar una pantalla rota.
+   ═══════════════════════════════════════════════════════════════════════════
+   Lo había, y hacía esto: estas páginas llevan todas `data-publico="si"`, y en
+   styles.css el escaparate fija el fondo en blanco sin condiciones —los colores
+   vivos de la portada sólo se leen como color sobre blanco—. Con el bloque
+   oscuro puesto, quien tuviera el sistema en modo noche recibía la tinta clara
+   (#e9ecef) escrita sobre ese blanco: titulares invisibles y cajas oscuras
+   flotando en una página clara. Era la portada del dominio, la primera pantalla
+   que ve quien llega de Google.
+
+   Ninguna de estas páginas carga app.js, así que temas.js —que es quien pone
+   `data-theme="light"` en lo público— no llega nunca aquí. El escaparate es de
+   un solo tema a propósito; esto lo dice también en el CSS que va en línea, que
+   es el que manda durante el primer pantallazo.
+
+   `color-scheme:light` para que las barras de desplazamiento y los controles
+   del navegador, que no leen tokens, tampoco se pinten de noche. */
 const CSS_CRITICO = `
-:root{--fondo:#f4f6f8;--papel:#fff;--tinta:#1f2937;--tinta-2:#6b7280;
+:root{color-scheme:light;
+  --fondo:#f4f6f8;--papel:#fff;--tinta:#1f2937;--tinta-2:#6b7280;
   --filete:#dde3ea;--primary:#132743;--on-primary:#fff;--secondary:#1b7f76;}
-@media (prefers-color-scheme:dark){:root{--fondo:#111418;--papel:#181b20;
-  --tinta:#e9ecef;--tinta-2:#a6adb8;--filete:#2a2f38;--primary:#a9c6ec;
-  --on-primary:#0d2440;--secondary:#5ecfc2;}}
 body{margin:0;background:var(--fondo);color:var(--tinta);
   font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   line-height:1.6;}
