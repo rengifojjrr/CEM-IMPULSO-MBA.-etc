@@ -1360,6 +1360,13 @@ export async function mount(opts = {}) {
        Salvo si ya entró: quien tiene sesión y pasa por una pantalla pública
        merece el Cemi que sí conoce su curso y sus cuotas. */
     montarElAsistente(p ? 'estudiante' : 'visitante');
+    /* Y la promoción que haya, si hay alguna. Va aquí por lo mismo que las dos
+       de arriba: quince pantallas son quince sitios donde olvidarse de ponerla,
+       y una campaña que no aparece no da error — simplemente no la ve nadie.
+
+       Sólo a quien NO tiene sesión. Ofrecerle a un alumno matriculado un
+       «15 % en tu primer diplomado» es enseñarle que llegó tarde. */
+    if (!p) sinRomperNada(montarLaPromocion());
     return p;
   }
 
@@ -1466,13 +1473,30 @@ function anotarLaVisita() {
   } catch { /* navegación privada, o almacenamiento bloqueado: se cuenta igual */ }
 
   const curso = qs('id') || qs('curso');
-  sb.rpc('cem_visita_anotar', {
+  sinRomperNada(sb.rpc('cem_visita_anotar', {
     p_pantalla: pantalla,
     p_course_id: /^[0-9a-f-]{36}$/i.test(curso || '') ? curso : null,
     p_canal: canal || null,
     p_campana: campana || null,
-  }).catch(() => { /* contar es un adorno: nunca puede romper la página */ });
+  }));
 }
+
+/* Lanzar algo y no dejar que su fallo se lleve la página por delante.
+   ═══════════════════════════════════════════════════════════════════════════
+   Existe porque `sb.rpc(...)` NO devuelve una promesa: devuelve el constructor
+   de consulta de Supabase, que es «thenable» —sabe hacer `then`— pero no tiene
+   `.catch`. Así que `sb.rpc(...).catch(…)` no es una red de seguridad: es un
+   TypeError que revienta antes de llegar a ninguna red.
+
+   Y reventaba de verdad. `anotarLaVisita()` terminaba justo así, y como se
+   llama dentro de `mount()`, el error se llevaba por delante el resto del
+   montaje de TODAS las páginas públicas. Ésa —y no otra— es la razón de que
+   `cem_visitas` estuviera vacía también para las seis pantallas de la
+   plataforma que sí la llamaban: la llamada nunca llegaba a salir.
+
+   `Promise.resolve()` convierte cualquier thenable en promesa de verdad, y a
+   partir de ahí `.catch` es el de siempre. */
+export const sinRomperNada = (p) => Promise.resolve(p).catch(() => {});
 
 /* ============ contacto en las pantallas públicas ============
    Dos caminos, y sólo dos, porque quien mira un programa quiere una de dos
@@ -2532,6 +2556,119 @@ function seguirElRaton() {
     y = -((e.clientY / window.innerHeight) * 2 - 1);
     if (!pedido) { pedido = true; requestAnimationFrame(pintar); }
   }, { passive: true });
+}
+
+/* ============ la promoción que haya, si la hay ============
+   Una barra abajo del todo con lo que la escuela esté ofreciendo hoy. Se pide
+   a la base al abrir; si no hay campaña activa para esta pantalla, no se dibuja
+   nada y no se ha gastado más que una consulta.
+
+   Va abajo y no como ventana encima a propósito. Un modal que tapa la página
+   antes de que la persona haya leído nada es lo que hace que se cierre la
+   pestaña — y encima Google penaliza el intersticial en móvil. Abajo se ve,
+   se puede ignorar, y no estorba para leer lo que se vino a leer.
+
+   Se recuerda cerrada durante una semana. No «para siempre», porque la
+   siguiente campaña es otra oferta y merece su oportunidad; no «en cada
+   página», porque eso es acoso. */
+const LLAVE_PROMO = 'cemPromoCerrada';
+
+async function montarLaPromocion() {
+  const pantalla = (location.pathname.split('/').pop() || 'inicio')
+    .replace('.html', '') || 'inicio';
+  try {
+    const cerrada = JSON.parse(localStorage.getItem(LLAVE_PROMO) || 'null');
+    if (cerrada && Date.now() - cerrada.cuando < 7 * 24 * 3600 * 1000) return;
+  } catch { /* incógnito: se enseña */ }
+
+  const { data: c } = await sb.rpc('cem_campana_para', { p_pantalla: pantalla });
+  if (!c) return;
+
+  /* Lo que se lleva, dicho como se lee. «descuento 15» no es nada. */
+  const premio = c.premio_tipo === 'descuento' ? `${c.premio_valor} % de descuento`
+    : c.premio_tipo === 'descuento_fijo' ? `${c.premio_valor} de descuento`
+    : (c.premio_texto || 'un regalo');
+
+  const barra = document.createElement('div');
+  barra.className = 'promo-barra';
+  barra.innerHTML = `
+    <div class="promo-dentro">
+      <div class="promo-dicho">
+        <b>${esc(c.titular || premio)}</b>
+        ${c.explicacion ? `<span>${esc(c.explicacion)}</span>` : ''}
+        ${/* Las plazas, sólo si el cupo es de verdad. Nunca un número inventado. */''}
+        ${c.quedan != null ? `<span class="promo-quedan">Quedan ${c.quedan}
+          ${c.quedan === 1 ? 'plaza' : 'plazas'}</span>` : ''}
+      </div>
+      <form class="promo-forma" id="promoForma">
+        <input type="email" id="promoEmail" required placeholder="Tu correo"
+          autocomplete="email" aria-label="Tu correo">
+        <button class="btn" type="submit">${esc(c.boton || 'Lo quiero')}</button>
+      </form>
+      <button class="icon-btn promo-x" id="promoX" title="Cerrar"
+        aria-label="Cerrar la promoción">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+    </div>`;
+  document.body.appendChild(barra);
+  requestAnimationFrame(() => barra.classList.add('se-ve'));
+
+  /* Apartar lo que ya vive abajo. Cemi está pegado abajo a la derecha y el
+     botón de contacto abajo a la izquierda: sin esto la barra les cae encima y
+     Cemi tapa justo el botón de la promoción. Se vio dibujando la pantalla, no
+     leyendo el código.
+
+     Se mide la barra en vez de dar por buena una altura: en un teléfono se
+     apila en tres renglones y en escritorio va en uno, y una cifra fija estaría
+     mal en uno de los dos casos. Se vuelve a medir si cambia de tamaño —el
+     código conseguido ocupa distinto que el formulario—. */
+  const medir = () => document.documentElement.style
+    .setProperty('--promo-alto', `${barra.offsetHeight}px`);
+  medir();
+  document.body.classList.add('con-promo');
+  try { new ResizeObserver(medir).observe(barra); } catch { /* navegador viejo */ }
+
+  const cerrar = () => {
+    barra.remove();
+    document.body.classList.remove('con-promo');
+    document.documentElement.style.removeProperty('--promo-alto');
+    try { localStorage.setItem(LLAVE_PROMO, JSON.stringify({ cuando: Date.now() })); } catch {}
+  };
+  $('#promoX', barra).onclick = cerrar;
+
+  $('#promoForma', barra).onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = $('button', e.target);
+    const email = $('#promoEmail', barra).value.trim();
+    btn.disabled = true;
+    const { data, error } = await sb.rpc('cem_campana_pedir', {
+      p_codigo: c.codigo, p_email: email,
+      p_referido: qs('ref') || null,
+      p_origen: `promo:${pantalla}`,
+    });
+    if (error) {
+      btn.disabled = false;
+      $('.promo-dicho', barra).innerHTML = `<b>${esc(mensajeError(error))}</b>`;
+      return;
+    }
+    /* El código, grande y copiable. Es lo único que la persona tiene que
+       llevarse de aquí, así que no compite con nada más. */
+    $('.promo-dentro', barra).innerHTML = `
+      <div class="promo-dicho">
+        <b>Tu código: <span class="promo-codigo">${esc(data.codigo)}</span></b>
+        <span>${esc(data.gracias || 'Guárdalo: se usa una sola vez.')}</span>
+      </div>
+      <button class="btn outline" id="promoCopiar">
+        <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>
+      <button class="icon-btn promo-x" id="promoX2" title="Cerrar"
+        aria-label="Cerrar la promoción">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span></button>`;
+    $('#promoCopiar', barra).onclick = async () => {
+      try { await navigator.clipboard.writeText(data.codigo); ok('Código copiado.'); }
+      catch { toast('Cópialo a mano: ' + data.codigo); }
+    };
+    $('#promoX2', barra).onclick = cerrar;
+    medir();
+  };
 }
 
 function renderPublicHeader(p) {

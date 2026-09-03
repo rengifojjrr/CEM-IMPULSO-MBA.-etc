@@ -83,7 +83,7 @@
    · Ni la ruta del archivo ni el identificador del vídeo llegan al navegador
      antes de dejar los datos: la ficha que se pide al principio sólo trae el
      título y de qué va. El muro no se salta mirando la respuesta de la red. */
-import { sb, $, esc, qs, mensajeError, SUPABASE_URL, SUPABASE_KEY }
+import { sb, $, esc, qs, mensajeError, sinRomperNada, SUPABASE_URL, SUPABASE_KEY }
   from './assets/app.js?v=2026-08-29-2';
 
 const codigo = (qs('c') || '').trim().toLowerCase();
@@ -97,10 +97,10 @@ const cuerpo = $('#cuerpo');
    `mount()` que lo haga. Sin esto sólo se sabía quién dejó sus datos, nunca
    cuánta gente llegó al muro y dio media vuelta — que es el número que dice si
    el muro está pidiendo demasiado. */
-sb.rpc('cem_visita_anotar', {
+sinRomperNada(sb.rpc('cem_visita_anotar', {
   p_pantalla: `recurso/${codigo || 'sin-codigo'}`,
   p_canal: origen || null,
-}).catch(() => { /* contar no puede romperle la página a nadie */ });
+}));   // contar no puede romperle la página a nadie: ver sinRomperNada
 
 const recordado = () => {
   try { return JSON.parse(localStorage.getItem(LLAVE) || 'null'); } catch { return null; }

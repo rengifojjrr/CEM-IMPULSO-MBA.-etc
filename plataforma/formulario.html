@@ -92,7 +92,7 @@
    Y lo que valida esta pantalla es cortesía, no seguridad. Quien quiera puede
    llamar a `cem_formulario_enviar` sin pasar por aquí, así que las mismas
    reglas están otra vez dentro de la función, que es donde cuentan. */
-import { sb, $, esc, qs, mensajeError } from './assets/app.js?v=2026-08-29-2';
+import { sb, $, esc, qs, mensajeError, sinRomperNada } from './assets/app.js?v=2026-08-29-2';
 
 const codigo = (qs('f') || '').trim().toLowerCase();
 
@@ -100,10 +100,10 @@ const codigo = (qs('f') || '').trim().toLowerCase();
    comprobar— y `mount()` es quien lo hace en las demás públicas, así que sin
    esta línea la lista no aparecería en ningún informe: se sabría cuánta gente
    se apuntó, pero no cuánta la abrió y se fue. Que es la mitad interesante. */
-sb.rpc('cem_visita_anotar', {
+sinRomperNada(sb.rpc('cem_visita_anotar', {
   p_pantalla: `lista/${codigo || 'sin-codigo'}`,
   p_canal: (qs('o') || '').trim() || null,
-}).catch(() => { /* contar no puede romperle la página a nadie */ });
+}));   // contar no puede romperle la página a nadie: ver sinRomperNada
 /* De dónde viene, para saber qué publicación trae gente. El enlace que se pega
    en una historia puede llevar `?o=historia-septiembre`. */
 const origen = (qs('o') || '').trim() || null;

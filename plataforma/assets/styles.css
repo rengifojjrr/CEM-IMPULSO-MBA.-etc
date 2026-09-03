@@ -3704,3 +3704,85 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
     margin-left:0;padding-bottom:var(--e1);}
   .pub-header.estatica .pub-cta > .btn{flex:1;justify-content:center;}
 }
+
+/* La barra de promoción, abajo del todo.
+   ═══════════════════════════════════════════════════════════════════════════
+   Abajo y no como ventana encima, a propósito. Un modal que tapa la página
+   antes de que la persona haya leído nada es lo que hace que se cierre la
+   pestaña, y encima Google penaliza el intersticial en móvil. Abajo se ve, se
+   puede ignorar, y no estorba para leer lo que se vino a leer.
+
+   Entra deslizándose desde abajo y no de golpe: algo que aparece de la nada en
+   mitad de la lectura se lee como un error de la página. Con `translateY`, que
+   no obliga a recalcular la disposición — animar `bottom` sí, y en un móvil
+   viejo eso da tirones.
+
+   La va a ver poca gente en escritorio y mucha en el teléfono, así que el
+   teléfono manda: en menos de 640 px se apila y el botón ocupa todo el ancho,
+   que es lo único que se puede pulsar sin mirar. */
+.promo-barra{position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:var(--panel,#fff);border-top:1px solid var(--filete);
+  box-shadow:0 -8px 32px -18px rgba(13,36,64,.45);
+  transform:translateY(110%);transition:transform .32s cubic-bezier(.22,1,.36,1);
+  padding-bottom:env(safe-area-inset-bottom,0);}
+.promo-barra.se-ve{transform:translateY(0);}
+@media (prefers-reduced-motion:reduce){
+  .promo-barra{transition:none;}
+}
+
+/* `relative` para que la X pueda anclarse a la esquina en el móvil. Sin esto
+   se ancla al primer padre posicionado que encuentre —que es la ventana— y en
+   una página con scroll se va a la esquina de la pantalla, lejos de la barra. */
+.promo-dentro{position:relative;max-width:1100px;margin:0 auto;display:flex;
+  align-items:center;gap:var(--e2);padding:var(--e2) var(--e3);}
+.promo-dicho{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.promo-dicho b{font-size:var(--t-md);line-height:1.25;}
+.promo-dicho span{font-size:var(--t-sm);color:var(--tinta-2);}
+
+/* Las plazas que quedan, en el color de aviso. Sólo sale cuando el cupo es de
+   verdad, así que aquí puede permitirse llamar la atención sin mentir. */
+.promo-quedan{font-weight:var(--peso-fuerte);color:var(--primary)!important;
+  font-variant-numeric:tabular-nums;}
+
+.promo-forma{display:flex;gap:8px;align-items:center;flex:none;}
+.promo-forma input{min-width:min(46vw,230px);}
+.promo-forma .btn{white-space:nowrap;}
+
+/* El código conseguido: grande, monoespaciado y seleccionable de un golpe.
+   Es lo único que la persona tiene que llevarse, así que no compite con nada. */
+.promo-codigo{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.06em;background:var(--hueco);border:1px solid var(--filete);
+  border-radius:var(--r-sm);padding:2px 8px;user-select:all;}
+
+.promo-x{flex:none;}
+
+@media (max-width:640px){
+  .promo-dentro{flex-wrap:wrap;padding:var(--e2);gap:var(--e1);}
+  .promo-dicho{flex:1 1 100%;order:1;padding-right:34px;}
+  /* El `.btn` suelto es el «Copiar» que aparece con el código ya conseguido.
+     Sin nombrarlo aquí se queda en el orden 0 —el de fábrica— y sale ENCIMA
+     del código, ofreciendo copiar algo que todavía no se ha leído. Se vio
+     dibujando la pantalla; en escritorio, en una sola fila, no se nota. */
+  .promo-forma,
+  .promo-dentro > .btn{flex:1 1 100%;order:3;}
+  .promo-forma input{flex:1;min-width:0;}
+  /* La X, en la esquina y sin empujar el texto a otro renglón. */
+  .promo-x{order:2;position:absolute;top:8px;right:8px;}
+}
+
+/* Con la barra puesta, lo que ya vivía abajo se aparta.
+   ═══════════════════════════════════════════════════════════════════════════
+   Cemi está pegado abajo a la derecha y el botón de contacto abajo a la
+   izquierda. Sin esto la barra les cae encima, y en un móvil Cemi tapa justo
+   el botón de la promoción: el único que hay que pulsar. Se vio dibujando la
+   pantalla, no leyendo el código.
+
+   La altura la mide `app.js` y la deja en `--promo-alto`, porque la barra mide
+   distinto en un teléfono (tres renglones) que en escritorio (uno), y cambia
+   otra vez al enseñar el código conseguido. Un número fijo estaría mal en dos
+   de esos tres casos. El `12px` es el aire que ya tenían. */
+body.con-promo .chat-boton,
+body.con-promo .chat-panel{bottom:calc(var(--promo-alto,0px) + 12px);}
+body.con-promo .contacto-flotante{bottom:calc(var(--promo-alto,0px) + 12px);}
+/* Y que el pie no se quede debajo de la barra sin poder leerse. */
+body.con-promo{padding-bottom:var(--promo-alto,0px);}
