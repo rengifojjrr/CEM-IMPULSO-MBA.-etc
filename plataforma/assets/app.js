@@ -8,7 +8,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-09-03-2';
+         vidrioActual } from './temas.js?v=2026-09-03-3';
 
 export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
@@ -1365,6 +1365,7 @@ export async function mount(opts = {}) {
        de contacto no da error — simplemente pierde a esa persona sin que
        nadie se entere. */
     montarContactoPublico();
+    renderPublicFooter();
     /* Y Cemi. Estaba en las 62 pantallas privadas y en ninguna de las 15
        públicas: en todas menos donde hay dudas de compra. Como visitante no
        sabe nada de nadie —sólo el catálogo— y lo único que puede hacer es
@@ -1626,7 +1627,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-09-03-2')
+  import('./asistente.js?v=2026-09-03-3')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2320,7 +2321,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-09-03-2');
+    const m = await import('./apariencia.js?v=2026-09-03-3');
 
     m.abrirApariencia();
 
@@ -2763,6 +2764,20 @@ function renderPublicHeader(p) {
       <a href="${r}catalogo.html"${activa('catalogo.html')}>Programas</a>
       <a href="${r}nosotros.html"${activa('nosotros.html')}>Quiénes somos</a>
       <a href="${r}verificar.html"${activa('verificar.html')}>Verificar certificado</a>
+      <!-- «Preguntas» también aquí: había DOS menús públicos distintos.
+           ═══════════════════════════════════════════════════════════════════
+           Las páginas generadas (portada, programas, módulos) llevan su propia
+           cabecera estática, y ésa sí tenía «Preguntas». Ésta, la que monta
+           mount() en nosotros, catálogo, verificar y comprar, no. Así que el
+           menú se encogía al cambiar de página, que es de las cosas que más
+           desorientan: parece que te has salido del sitio.
+
+           El enlace sale del prefijo de raíz porque estas pantallas viven en
+           /plataforma/ y la página de preguntas está en la raíz.
+
+           Sin comillas invertidas en este comentario: está dentro de una
+           plantilla de JavaScript y una sola la cierra a mitad. -->
+      <a href="${r}../preguntas-frecuentes.html">Preguntas</a>
     </nav>
     <div class="pub-cta">
       ${p ? `<a class="btn outline sm" href="${r}${homeForRoot(p.rol)}">Mi panel</a>
@@ -2782,6 +2797,43 @@ function renderPublicHeader(p) {
   conectarMenuPublico(h);
   const page = $('#page');
   if (page) page.classList.remove('hidden');
+}
+
+/* ── el pie de las públicas ────────────────────────────────────────────────
+   NINGUNA de las seis pantallas públicas de /plataforma/ tenía pie: ni
+   nosotros, ni el catálogo, ni la ficha de un curso, ni comprar, ni inicio, ni
+   verificar. El pie sólo existía en las páginas generadas, que llevan el suyo
+   escrito. Así que al pasar de la portada a cualquiera de éstas el sitio se
+   quedaba de pronto sin suelo: se acababa el contenido y ya.
+
+   Se monta aquí, y no en cada archivo, por lo mismo que la cabecera: seis
+   sitios donde olvidarse, y una página sin pie no da error.
+
+   Va antes que los botones flotantes en el orden del documento pero después
+   en la pantalla, porque flotan; no se estorban. */
+function renderPublicFooter() {
+  if ($('#cemPie')) return;
+  const r = raizPublica();
+  const f = document.createElement('footer');
+  f.id = 'cemPie';
+  f.className = 'franja tenue';
+  f.style.marginTop = 'var(--e4)';
+  f.innerHTML = `<div class="dentro pub-pie">
+    <div>
+      <b>CEM International</b>
+      <p class="tiny muted" style="max-width:46ch">Centro de estudios de marketing, negocios,
+        inteligencia artificial y tecnología en Caracas, Venezuela. Formación práctica con
+        certificado verificable.</p>
+    </div>
+    <nav class="tiny pub-pie-nav" aria-label="Enlaces del pie">
+      <a href="${r}../programas/">Todos los programas</a>
+      <a href="${r}nosotros.html">Quiénes somos</a>
+      <a href="${r}verificar.html">Verificar un certificado</a>
+      <a href="${r}../preguntas-frecuentes.html">Preguntas frecuentes</a>
+      <a href="${r}index.html?registro=1">Crear mi cuenta</a>
+    </nav>
+  </div>`;
+  document.body.appendChild(f);
 }
 
 /* ── el menú del teléfono ──────────────────────────────────────────────────

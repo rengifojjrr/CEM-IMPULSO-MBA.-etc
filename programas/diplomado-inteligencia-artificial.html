@@ -58,7 +58,7 @@
 <style>:root{color-scheme:light;--fondo:#f4f6f8;--papel:#fff;--tinta:#1f2937;--tinta-2:#6b7280;--filete:#dde3ea;--primary:#132743;--on-primary:#fff;--secondary:#1b7f76;}body{margin:0;background:var(--fondo);color:var(--tinta);font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.6;}.pub-header{background:var(--papel);border-bottom:1px solid var(--filete);}.pub-inner{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:16px;}.pub-brand{font-weight:700;color:var(--tinta);text-decoration:none;}.pub-main{max-width:1080px;margin:0 auto;padding:24px 20px 64px;}h1{font-size:clamp(26px,5vw,40px);line-height:1.15;margin:0 0 12px;}h2{font-size:22px;margin:32px 0 10px;}h3{font-size:17px;margin:0 0 6px;}a{color:var(--secondary);}.entrada{font-size:18px;color:var(--tinta-2);max-width:62ch;}.caja{background:var(--papel);border:1px solid var(--filete);border-radius:10px;}.migas{font-size:13px;color:var(--tinta-2);margin:0 0 14px;}.migas a{color:var(--tinta-2);}.tiny{font-size:13px;}.muted{color:var(--tinta-2);}</style>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../plataforma/assets/styles.css?v=2026-09-03">
+<link rel="stylesheet" href="../plataforma/assets/styles.css?v=2026-09-03-3">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"EducationalOrganization","@id":"https://escuelacem.com#escuela","name":"CEM International","alternateName":["CEM · Centro de Estudios de Marketing","Centro de Estudios de Marketing"],"description":"Centro de estudios de marketing, negocios, inteligencia artificial y tecnología en Caracas, Venezuela. Formación práctica con certificado verificable.","url":"https://escuelacem.com","foundingDate":"2016","knowsAbout":["Marketing digital","Community management","Gestión de anuncios","Inteligencia artificial aplicada","Producción y edición de video","Fotografía","Diseño gráfico","Branding"],"logo":{"@type":"ImageObject","url":"https://escuelacem.com/plataforma/assets/icono-512.png","width":512,"height":512,"caption":"Logotipo de CEM International"},"image":"https://escuelacem.com/plataforma/assets/compartir.png","address":{"@type":"PostalAddress","addressLocality":"Caracas","postalCode":"1060","addressRegion":"Miranda","addressCountry":"VE"},"areaServed":[{"@type":"City","name":"Caracas"},{"@type":"Country","name":"Venezuela"}],"inLanguage":"es"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://escuelacem.com/"},{"@type":"ListItem","position":2,"name":"Programas","item":"https://escuelacem.com/programas/"},{"@type":"ListItem","position":3,"name":"Inteligencia Artificial"}]},{"@type":"Course","@id":"https://escuelacem.com/programas/diplomado-inteligencia-artificial.html#curso","name":"Diplomado en Inteligencia Artificial y Producción Digital","description":"Ocho módulos que combinan producción visual —fotografía, video, Photoshop, Illustrator, branding— con dos módulos dedicados a la inteligencia artificial aplicada al trabajo. Cada módulo se certifica por separado.","url":"https://escuelacem.com/programas/diplomado-inteligencia-artificial.html","inLanguage":"es","provider":{"@id":"https://escuelacem.com#escuela"},"hasCourseInstance":{"@type":"CourseInstance","courseMode":"Online","inLanguage":"es","courseWorkload":"PT0H"}},{"@type":"ItemList","name":"Módulos del Diplomado en Inteligencia Artificial y Producción Digital","numberOfItems":8,"itemListElement":[{"@type":"ListItem","position":1,"name":"Fotografía","url":"https://escuelacem.com/programas/fotografia.html"},{"@type":"ListItem","position":2,"name":"Grabación de videos","url":"https://escuelacem.com/programas/grabacion-de-videos.html"},{"@type":"ListItem","position":3,"name":"Edición de video en PC","url":"https://escuelacem.com/programas/edicion-de-video-en-pc.html"},{"@type":"ListItem","position":4,"name":"Inteligencia artificial I","url":"https://escuelacem.com/programas/inteligencia-artificial-i.html"},{"@type":"ListItem","position":5,"name":"Inteligencia artificial II","url":"https://escuelacem.com/programas/inteligencia-artificial-ii.html"},{"@type":"ListItem","position":6,"name":"Photoshop","url":"https://escuelacem.com/programas/photoshop.html"},{"@type":"ListItem","position":7,"name":"Branding","url":"https://escuelacem.com/programas/branding.html"},{"@type":"ListItem","position":8,"name":"Illustrator","url":"https://escuelacem.com/programas/illustrator.html"}]}]}</script>
 </head>
 <body class="cem-publico">
@@ -117,7 +117,13 @@
       >8</a>
   </nav>
     <div class="portada-manos" style="margin-top:var(--e3)">
-      <a class="btn" href="https://escuelacem.com/plataforma/nosotros.html">Preguntar por la próxima promoción</a>
+      <!-- Con «#contacto», que es lo que el botón promete.
+           Sin el fragmento, «Preguntar por la próxima promoción» dejaba a la
+           persona en la cabecera de una página de filosofía institucional, con
+           el formulario al 89 % del desplazamiento. El ancla ya existía en
+           nosotros.html; lo que faltaba eran nueve caracteres aquí. -->
+      <a class="btn" href="https://escuelacem.com/plataforma/nosotros.html#contacto">Preguntar por la próxima
+        promoción</a>
       <a class="btn outline" href="https://escuelacem.com/plataforma/verificar.html">Verificar un certificado</a>
     </div>
   </div>
@@ -298,6 +304,11 @@
   </div>
 </section>
 
+<div class="contacto-flotante">
+  <a class="btn contacto-btn" href="https://escuelacem.com/plataforma/nosotros.html#contacto">
+    <span class="material-symbols-outlined" aria-hidden="true">forum</span>
+    <span class="contacto-txt">¿Tienes dudas?</span></a>
+</div>
 <footer class="franja tenue" style="margin-top:var(--e4)">
   <div class="dentro" style="display:flex;flex-wrap:wrap;gap:var(--e3);justify-content:space-between">
     <div>
@@ -308,6 +319,7 @@
       <a href="https://escuelacem.com/programas/">Todos los programas</a>
       <a href="https://escuelacem.com/plataforma/nosotros.html">Quiénes somos</a>
       <a href="https://escuelacem.com/plataforma/verificar.html">Verificar un certificado</a>
+      <a href="https://escuelacem.com/preguntas-frecuentes.html">Preguntas frecuentes</a>
       <a href="https://escuelacem.com/plataforma/index.html?registro=1">Crear mi cuenta</a>
     </nav>
   </div>

@@ -2,7 +2,7 @@
 
    Tres cosas que se rompieron antes y no queremos que vuelvan a romperse:
 
-   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-09-03-2) y lo montan
+   1. El motor vive en UN solo archivo (certificados/generador.js?v=2026-09-03-3) y lo montan
       dos pantallas distintas. Si alguien toca una y no la otra, se separan.
    2. Los fondos ya no viajan incrustados en la configuración (eran 15 MB por
       abrir la pantalla): están en el almacenamiento y se piden con CORS. Sin
@@ -12,7 +12,7 @@
       conserva su número y cada PDF combinado, una página por estudiante. */
 
 import { acta, nuevaPestana, entrar, BASE, DESDE_MEMORIA } from '../entorno.mjs';
-import { agruparPorDia, claveDelDia, diaEnLetras } from '../../certificados/generador.js?v=2026-09-03-2';
+import { agruparPorDia, claveDelDia, diaEnLetras } from '../../certificados/generador.js?v=2026-09-03-3';
 
 const ALUMNOS = ['Ana Prueba', 'Bruno Prueba', 'Carla Prueba', 'Diego Prueba'];
 

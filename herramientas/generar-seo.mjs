@@ -252,7 +252,30 @@ const cabecera = (activa) => `
   </div>
 </header>`;
 
-const pie = () => `
+/* El botón de contacto, también en las páginas generadas.
+   ═══════════════════════════════════════════════════════════════════════════
+   Las pantallas de /plataforma/ montan `montarContactoPublico()` y llevan su
+   botón flotante desde hace tiempo. Éstas no: no cargan app.js. O sea que las
+   24 páginas que más visitas reciben —la portada, las dos fichas de diplomado,
+   los dieciséis módulos— eran justamente las que NO tenían por dónde
+   preguntar. Quien llegaba de Google a un módulo y quería saber el precio no
+   tenía a quién escribir.
+
+   Aquí es un enlace, no un botón: sin JavaScript no hay diálogo que abrir, así
+   que lleva al formulario de nosotros.html, que es el mismo sitio donde acaba
+   el diálogo de las otras. Con `#contacto` para aterrizar en el formulario y
+   no en lo alto de la página.
+
+   Reutiliza las clases del flotante de app.js para que sea el mismo botón en
+   los dos sitios: si un día cambia el estilo, cambia en ambos. */
+const botonContacto = () => `
+<div class="contacto-flotante">
+  <a class="btn contacto-btn" href="${SITIO}/plataforma/nosotros.html#contacto">
+    <span class="material-symbols-outlined" aria-hidden="true">forum</span>
+    <span class="contacto-txt">¿Tienes dudas?</span></a>
+</div>`;
+
+const pie = () => `${botonContacto()}
 <footer class="franja tenue" style="margin-top:var(--e4)">
   <div class="dentro" style="display:flex;flex-wrap:wrap;gap:var(--e3);justify-content:space-between">
     <div>
@@ -263,6 +286,7 @@ const pie = () => `
       <a href="${SITIO}/programas/">Todos los programas</a>
       <a href="${SITIO}/plataforma/nosotros.html">Quiénes somos</a>
       <a href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
+      <a href="${SITIO}/preguntas-frecuentes.html">Preguntas frecuentes</a>
       <a href="${SITIO}/plataforma/index.html?registro=1">Crear mi cuenta</a>
     </nav>
   </div>
@@ -1065,7 +1089,7 @@ function paginaDelModulo(mod, dip, temario) {
     ${tiraDeModulos(dip, mod.apodo)}
     <p class="avala"><span class="punto"></span> ${esc(loQueAvala(mod))}</p>
     <div class="portada-manos" style="margin-top:var(--e3)">
-      <a class="btn" href="${urlDip}">Ver el ${esc(dip.corto)} completo</a>
+      <a class="btn" href="${urlDip}">Ver el diplomado de ${esc(dip.corto)}</a>
       <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
     </div>
   </div>
@@ -1153,7 +1177,13 @@ function paginaDelDiplomado(dip, temario) {
     <p class="lema">${esc(dip.que)}</p>
     ${tiraDeModulos(dip)}
     <div class="portada-manos" style="margin-top:var(--e3)">
-      <a class="btn" href="${SITIO}/plataforma/nosotros.html">Preguntar por la próxima promoción</a>
+      <!-- Con «#contacto», que es lo que el botón promete.
+           Sin el fragmento, «Preguntar por la próxima promoción» dejaba a la
+           persona en la cabecera de una página de filosofía institucional, con
+           el formulario al 89 % del desplazamiento. El ancla ya existía en
+           nosotros.html; lo que faltaba eran nueve caracteres aquí. -->
+      <a class="btn" href="${SITIO}/plataforma/nosotros.html#contacto">Preguntar por la próxima
+        promoción</a>
       <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
     </div>
   </div>
@@ -1459,9 +1489,16 @@ ${temario.diplomados.map((d, i) => `
           <li><b>${d.diplomas}</b><span>diplomas emitidos</span></li>
         </ul>
 
+        <!-- «Ver el diplomado de X», no «Ver el X completo».
+             El nombre corto es «Marketing Digital» o «Inteligencia
+             Artificial», así que la plantilla vieja producía «Ver el
+             Inteligencia Artificial completo»: el artículo no concuerda y
+             «completo» se queda colgando de un nombre que no es un sustantivo
+             contable. Con «el diplomado de» delante, el nombre entra como
+             complemento y concuerda siempre, venga el que venga. -->
         <div class="portada-manos" style="margin-bottom:0">
           <a class="btn" href="${SITIO}/programas/${d.apodo}.html">
-            Ver el ${esc(d.corto)} completo</a>
+            Ver el diplomado de ${esc(d.corto)}</a>
         </div>
       </div>
     </article>

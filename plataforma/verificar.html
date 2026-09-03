@@ -21,10 +21,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-09-03-2">
+<link rel="modulepreload" href="assets/app.js?v=2026-09-03-3">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-09-03-2">
+<link rel="stylesheet" href="assets/styles.css?v=2026-09-03-3">
+<style>
+  /* «¿Qué es el CEM?», el bloque del final. El relleno lo pone esta clase y no
+     «caja», que sólo da fondo, filete y esquinas. Ver la comprobación 13. */
+  .verif-quienes{margin-top:var(--e3);padding:var(--e3);}
+  .verif-quienes h2{font-size:var(--t-lg);}
+</style>
 <meta name="description" content="Comprueba si un certificado del CEM es auténtico. Escribe su código y verás a quién se le emitió, de qué programa y en qué fecha.">
 <link rel="canonical" href="https://escuelacem.com/plataforma/verificar.html">
 <meta property="og:type" content="website">
@@ -43,24 +49,69 @@
 <meta name="twitter:image" content="https://escuelacem.com/plataforma/assets/compartir.png">
 </head>
 <body>
-<div class="auth-wrap">
-  <div class="auth-card" style="max-width:520px">
-    <div class="brand-badge"><span class="material-symbols-outlined">verified</span></div>
-    <h1>Verificar certificado</h1>
-    <div class="sub">Consulta la autenticidad de un certificado emitido por CEM International Education.</div>
-    <form id="f">
-      <div class="field"><label for="codigo">Código, cédula o enlace del QR</label>
-        <input id="codigo" placeholder="CEM-2026-00000, o 12.345.678" required>
-        <span class="tiny muted">Si tienes el certificado delante, con la cédula basta:
-          salen todos los títulos de esa persona.</span></div>
-      <button class="btn block" type="submit">Verificar <span class="material-symbols-outlined" aria-hidden="true">search</span></button>
-    </form>
-    <div id="res" style="margin-top:16px"></div>
-    <div class="demo-list"><a href="catalogo.html">Ver catálogo de programas</a></div>
-  </div>
+<!-- Esta pantalla es del sitio, no de la puerta de atrás.
+     ═══════════════════════════════════════════════════════════════════════════
+     Estaba montada sobre `auth-wrap`/`auth-card`, el armazón de la pantalla de
+     acceso: una tarjeta suelta en medio de la nada, sin cabecera y sin pie.
+
+     Y quien llega aquí es, muchas veces, el visitante de más valor que tiene el
+     CEM: una empresa comprobando a un candidato, o alguien que acaba de
+     escanear el QR de un certificado. Llegaba, comprobaba y se iba sin haber
+     visto nunca qué es esta escuela ni qué enseña, porque no había ni un enlace
+     que se lo contara.
+
+     Con `mount({pub:true})` recibe la misma cabecera y el mismo pie que el
+     resto del sitio público. `id="page"` y `hidden` porque mount() se lleva
+     este bloque dentro de su armazón buscándolo por ese id; ver la
+     comprobación 6b de revisar.mjs. -->
+<div id="page" class="hidden">
+  <section class="franja">
+    <!-- Sin «centrado»: dejaba el ojal y el párrafo a 120 px y el titular y la
+         tarjeta a 340, porque «centrado» centra los hijos de bloque y el ojal
+         es un span en línea. Alineados todos a la izquierda de la misma
+         columna, que es lo que hace el resto del sitio. -->
+    <div class="dentro estrecho">
+      <span class="ojal">Comprobación pública</span>
+      <h1 style="margin-top:var(--e0)">Verificar un certificado del CEM</h1>
+      <p class="entrada">Cada certificado del CEM lleva un código único y un QR. Escribe ese
+        código —o la cédula de la persona— y verás ahí mismo si es auténtico, a nombre de quién
+        está y de qué es. Sin crear ninguna cuenta.</p>
+
+      <div class="card">
+        <form id="f">
+          <div class="field"><label for="codigo">Código, cédula o enlace del QR</label>
+            <input id="codigo" placeholder="CEM-2026-00000, o 12.345.678" required>
+            <span class="tiny muted">Si tienes el certificado delante, con la cédula basta:
+              salen todos los títulos de esa persona.</span></div>
+          <button class="btn block" type="submit">Verificar <span
+            class="material-symbols-outlined" aria-hidden="true">search</span></button>
+        </form>
+        <!-- `role="status"` para que el resultado se anuncie.
+             Sin esto, quien usa lector de pantalla pulsaba «Verificar» y no oía
+             nada: el resultado aparecía en el documento sin avisar de que había
+             aparecido. «status» y no «alert» porque esto no es una alarma; se
+             lee cuando el lector termine lo que esté diciendo. -->
+        <div id="res" role="status" aria-live="polite" style="margin-top:16px"></div>
+      </div>
+
+      <!-- Qué es esto, para quien acaba de escanear un QR y no nos conoce. -->
+      <div class="caja verif-quienes">
+        <h2 style="margin-top:0">¿Qué es el CEM?</h2>
+        <p>Un centro de estudios de marketing digital e inteligencia artificial en Caracas,
+          desde 2016. Los certificados que emite llevan código y QR justamente para que
+          cualquiera pueda comprobarlos aquí, como acabas de hacer.</p>
+        <div class="portada-manos" style="margin-bottom:0">
+          <a class="btn" href="../programas/">Ver los dos diplomados</a>
+          <a class="btn outline" href="nosotros.html#contacto">Pedir información</a>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 <script type="module">
-import { sb, $, $$, esc, fdate, qs } from './assets/app.js?v=2026-09-03-2';
+import { sb, mount, $, $$, esc, fdate, qs } from './assets/app.js?v=2026-09-03-3';
+
+await mount({ pub: true });
 
 /* Un solo verificador para los dos sistemas.
    ═══════════════════════════════════════════════════════════════════════════
@@ -194,7 +245,40 @@ async function verificar(texto){
   });
 }
 
-$('#f').onsubmit = (e) => { e.preventDefault(); verificar($('#codigo').value.trim()); };
+/* Lo que se busca queda en la dirección, para que se pueda compartir.
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes el resultado no cambiaba la URL: quien acababa de comprobar un
+   certificado no tenía forma de mandarle a nadie lo que estaba viendo, ni de
+   guardarlo, ni de recargar sin volver a escribir el código. Justo lo que
+   quiere hacer un empleador que necesita adjuntar la comprobación a un
+   expediente.
+
+   `pushState` y no `replace`: así el botón de atrás deshace la búsqueda en vez
+   de sacar a la persona de la página. La comprobación de `?codigo=` que ya
+   había al cargar es la otra mitad de esto —una la escribe, la otra la lee—, y
+   es también a donde apunta el QR de los certificados. */
+function enLaDireccion(texto) {
+  const u = new URL(location.href);
+  if (u.searchParams.get('codigo') === texto) return;   // recarga, no búsqueda nueva
+  u.searchParams.set('codigo', texto);
+  history.pushState({ codigo: texto }, '', u);
+}
+
+$('#f').onsubmit = (e) => {
+  e.preventDefault();
+  const t = $('#codigo').value.trim();
+  if (!t) return;
+  enLaDireccion(t);
+  verificar(t);
+};
+
+/* Y que el botón de atrás haga lo que promete: volver a la búsqueda anterior. */
+addEventListener('popstate', () => {
+  const t = qs('codigo');
+  $('#codigo').value = t || '';
+  if (t) verificar(t); else $('#res').innerHTML = '';
+});
+
 const c = qs('codigo');
 if (c) { $('#codigo').value = c; verificar(c); }
 </script>

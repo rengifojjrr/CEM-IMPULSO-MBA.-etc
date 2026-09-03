@@ -1042,6 +1042,11 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 .portada-hechos .material-symbols-outlined{font-size:19px;color:var(--secondary);
   flex:none;}
 
+/* El pie de las pantallas públicas montadas, igual que el de las generadas:
+   la marca a la izquierda, los enlaces a la derecha, y en el móvil apilados. */
+.pub-pie{display:flex;flex-wrap:wrap;gap:var(--e3);justify-content:space-between;}
+.pub-pie-nav{display:flex;flex-direction:column;gap:6px;}
+
 /* El verificador en la portada. Es lo único de la página que funciona en vez
    de contar, así que se le da el tamaño de un buscador y no el de un campo
    más: quien llega aquí con un código en la mano tiene que verlo. */
