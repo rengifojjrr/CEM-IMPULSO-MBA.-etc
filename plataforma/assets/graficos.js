@@ -21,7 +21,7 @@
    kilobytes para dibujar rectángulos. El sitio se publica como archivos
    estáticos y no hay paso de compilación donde meterla. */
 
-import { esc, num } from './app.js?v=2026-09-03-4';
+import { esc, num } from './app.js?v=2026-09-03-5';
 
 /* ============ utilidades ============ */
 

@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-03-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-03-5">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-03-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-03-5">
 <style>
   .plan{border:2px solid var(--filete);border-radius:var(--r);padding:14px;cursor:pointer;flex:1;min-width:190px;}
   .plan.on{border-color:var(--primary);background:var(--primary-suave);}
@@ -92,8 +92,8 @@
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, money, fdate, qs, ok, fail, run, audit, profile, etiqueta, ocupado, avisar,
-         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-09-03-4';
-import { opcionesDePais } from '../assets/paises.js?v=2026-09-03-4';
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-09-03-5';
+import { opcionesDePais } from '../assets/paises.js?v=2026-09-03-5';
 const me = await mount({ require:['estudiante','admin','superadmin','coordinador'], area:'estudiante', active:'catalogo.html' });
 const cursoId = qs('curso');
 let curso, cohortes=[], plan=1, descuento=0, hayTarjeta=false;

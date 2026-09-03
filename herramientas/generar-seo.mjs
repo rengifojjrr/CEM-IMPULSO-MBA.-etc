@@ -433,17 +433,17 @@ ${/* «VE-M» es Miranda en ISO 3166-2, que es lo que dice la dirección de la
 <meta name="geo.placename" content="Caracas ${ESCUELA.codigoPostal}, ${ESCUELA.paisNombre}">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 
-<!-- Los servidores de fuera, avisados de golpe y no en fila.
-     Sin esto el navegador descubre cada uno cuando le toca y paga el DNS y el
-     saludo TLS de cada cual por separado, con la pantalla en blanco mientras
-     tanto. El de fonts.gstatic.com estaba DESPUÉS de la hoja que lo dispara,
-     o sea llegando tarde a su propia fiesta.
-
-     Esto vive aquí y no en el HTML generado, y esa distinción costó una
-     regresión: herramientas/acelerar-cabeceras.mjs arregló las 75 pantallas
-     escritas a mano Y las de /programas/, pero éstas se regeneran solas cada
-     noche desde esta plantilla — así que a la mañana siguiente volvían atrás.
-     Lo que se genera se arregla en el generador. -->
+/* Los servidores de fuera, avisados de golpe y no en fila.
+   Sin esto el navegador descubre cada uno cuando le toca y paga el DNS y el
+   saludo TLS de cada cual por separado, con la pantalla en blanco mientras
+   tanto. El de fonts.gstatic.com estaba DESPUÉS de la hoja que lo dispara,
+   o sea llegando tarde a su propia fiesta.
+   
+   Esto vive aquí y no en el HTML generado, y esa distinción costó una
+   regresión: herramientas/acelerar-cabeceras.mjs arregló las 75 pantallas
+   escritas a mano Y las de /programas/, pero éstas se regeneran solas cada
+   noche desde esta plantilla — así que a la mañana siguiente volvían atrás.
+   Lo que se genera se arregla en el generador. */
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>${CSS_CRITICO}</style>
@@ -1020,31 +1020,31 @@ const bloqueCertificado = (temario, dentro, sinCifras) => `
       <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
     </div>`}
 
-    <!-- Que se pueda comprobar AQUÍ, y no que se prometa que se puede.
-         ═══════════════════════════════════════════════════════════════════
-         Esto era un botón que llevaba a otra pantalla. Y «nuestros
-         certificados son verificables» lo escribe cualquiera en su web: es
-         exactamente el tipo de frase que no prueba nada porque no cuesta nada
-         decirla. Lo que no puede copiar quien no lo tiene es el campo: se
-         escribe un código —o una cédula— y sale el nombre, el programa y la
-         fecha, de la base, delante de quien mira.
-
-         Es lo único de esta página que FUNCIONA en vez de contar. Por eso se
-         sube desde el final hasta aquí, y por eso lleva su propio ejemplo:
-         quien no tiene un código a mano puede probar igual.
-
-         Funciona sin JavaScript propio: el formulario va por GET a la pantalla
-         de verificar, que ya sabe leer «?codigo=» y consultar sola. Estas
-         páginas no cargan app.js, así que un campo que necesitara JS aquí
-         sería un campo muerto.
-
-         El marcador del campo es corto —«Código o cédula»— porque en un móvil
-         de 390 px el campo mide 225 y el nombre largo se cortaba a la mitad.
-         El nombre entero sigue en el aria-label, que es lo que oye quien usa
-         lector de pantalla, y en el pie de debajo.
-
-         Sin comillas invertidas en este comentario: está DENTRO de una
-         plantilla de JavaScript, y una sola cierra la cadena a mitad. -->
+    /* Que se pueda comprobar AQUÍ, y no que se prometa que se puede.
+       ═══════════════════════════════════════════════════════════════════
+       Esto era un botón que llevaba a otra pantalla. Y «nuestros
+       certificados son verificables» lo escribe cualquiera en su web: es
+       exactamente el tipo de frase que no prueba nada porque no cuesta nada
+       decirla. Lo que no puede copiar quien no lo tiene es el campo: se
+       escribe un código —o una cédula— y sale el nombre, el programa y la
+       fecha, de la base, delante de quien mira.
+       
+       Es lo único de esta página que FUNCIONA en vez de contar. Por eso se
+       sube desde el final hasta aquí, y por eso lleva su propio ejemplo:
+       quien no tiene un código a mano puede probar igual.
+       
+       Funciona sin JavaScript propio: el formulario va por GET a la pantalla
+       de verificar, que ya sabe leer «?codigo=» y consultar sola. Estas
+       páginas no cargan app.js, así que un campo que necesitara JS aquí
+       sería un campo muerto.
+       
+       El marcador del campo es corto —«Código o cédula»— porque en un móvil
+       de 390 px el campo mide 225 y el nombre largo se cortaba a la mitad.
+       El nombre entero sigue en el aria-label, que es lo que oye quien usa
+       lector de pantalla, y en el pie de debajo.
+       
+       Sin comillas invertidas en este comentario: está DENTRO de una
+       plantilla de JavaScript, y una sola cierra la cadena a mitad. */
     <form class="verificar-aqui" action="${SITIO}/plataforma/verificar.html" method="get">
       <label for="codigoPortada" class="ojal" style="margin-bottom:var(--e0)">
         Compruébalo ahora</label>
@@ -1191,11 +1191,11 @@ function paginaDelDiplomado(dip, temario) {
     <p class="lema">${esc(dip.que)}</p>
     ${tiraDeModulos(dip)}
     <div class="portada-manos" style="margin-top:var(--e3)">
-      <!-- Con «#contacto», que es lo que el botón promete.
-           Sin el fragmento, «Preguntar por la próxima promoción» dejaba a la
-           persona en la cabecera de una página de filosofía institucional, con
-           el formulario al 89 % del desplazamiento. El ancla ya existía en
-           nosotros.html; lo que faltaba eran nueve caracteres aquí. -->
+      /* Con «#contacto», que es lo que el botón promete.
+         Sin el fragmento, «Preguntar por la próxima promoción» dejaba a la
+         persona en la cabecera de una página de filosofía institucional, con
+         el formulario al 89 % del desplazamiento. El ancla ya existía en
+         nosotros.html; lo que faltaba eran nueve caracteres aquí. */
       <a class="btn" href="${SITIO}/plataforma/nosotros.html#contacto">Preguntar por la próxima
         promoción</a>
       <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
@@ -1328,14 +1328,14 @@ function paginaDePreguntas(temario) {
     </details>`).join('')}
   </div>
 
-  <!-- El cierre no es un aviso, es una puerta.
-       ─────────────────────────────────────────────────────────────────────
-       Decía «Escríbenos desde la página de contacto» y dejaba el trabajo de
-       encontrarla a quien acababa de no encontrar su respuesta. Quien llega
-       hasta el final de las preguntas frecuentes es justo quien tiene una
-       duda que no está resuelta: es el momento de más intención de toda la
-       página, y hasta hoy lo único que había era un enlace en medio de una
-       frase. Ahora hay un botón que lleva derecho al formulario. -->
+  /* El cierre no es un aviso, es una puerta.
+     ─────────────────────────────────────────────────────────────────────
+     Decía «Escríbenos desde la página de contacto» y dejaba el trabajo de
+     encontrarla a quien acababa de no encontrar su respuesta. Quien llega
+     hasta el final de las preguntas frecuentes es justo quien tiene una
+     duda que no está resuelta: es el momento de más intención de toda la
+     página, y hasta hoy lo único que había era un enlace en medio de una
+     frase. Ahora hay un botón que lleva derecho al formulario. */
   <div class="caja" style="padding:var(--e3);margin-top:var(--e3);text-align:center">
     <h2 style="margin-top:0">¿No está tu pregunta?</h2>
     <p class="entrada" style="margin-inline:auto">Escríbenos y te contestamos con el
@@ -1407,25 +1407,25 @@ function paginaDeInicio(temario) {
         módulo se certifica por separado, y cualquiera puede verificar ese certificado con su
         código.</p>
 
-      <!-- Un solo botón, y esto era lo que sobraba.
-           ═══════════════════════════════════════════════════════════════════
-           Al lado de «Ver los dos diplomados» había un «Verificar un
-           certificado», y le estaba robando la atención al único botón que
-           importa aquí. Además sirve a OTRA persona: verificar lo usa un
-           empleador comprobando a alguien, o un egresado que perdió su papel —
-           no quien está decidiendo si estudiar. Sigue en el menú de arriba,
-           que es su sitio, y más abajo hay un bloque entero dedicado. -->
+      /* Un solo botón, y esto era lo que sobraba.
+         ═══════════════════════════════════════════════════════════════════
+         Al lado de «Ver los dos diplomados» había un «Verificar un
+         certificado», y le estaba robando la atención al único botón que
+         importa aquí. Además sirve a OTRA persona: verificar lo usa un
+         empleador comprobando a alguien, o un egresado que perdió su papel —
+         no quien está decidiendo si estudiar. Sigue en el menú de arriba,
+         que es su sitio, y más abajo hay un bloque entero dedicado. */
       <div class="portada-manos">
         <a class="btn" href="${SITIO}/programas/">Ver los dos diplomados</a>
       </div>
 
-      <!-- Lo que hacía falta saber y no estaba en ninguna parte.
-           ─────────────────────────────────────────────────────────────────
-           Ni la duración, ni si las clases son en vivo, ni si hay que estar en
-           Caracas. Estaba contestado en las preguntas frecuentes, o sea a dos
-           pantallas de distancia de donde se decide. El precio y las fechas
-           siguen sin publicarse —cambian con cada convocatoria y un dato viejo
-           es peor que ninguno—, pero esto no cambia nunca. -->
+      /* Lo que hacía falta saber y no estaba en ninguna parte.
+         ─────────────────────────────────────────────────────────────────
+         Ni la duración, ni si las clases son en vivo, ni si hay que estar en
+         Caracas. Estaba contestado en las preguntas frecuentes, o sea a dos
+         pantallas de distancia de donde se decide. El precio y las fechas
+         siguen sin publicarse —cambian con cada convocatoria y un dato viejo
+         es peor que ninguno—, pero esto no cambia nunca. */
       <ul class="portada-hechos">
         <li><span class="material-symbols-outlined" aria-hidden="true">videocam</span>
           Clases en vivo, y quedan grabadas</li>
@@ -1435,16 +1435,16 @@ function paginaDeInicio(temario) {
           Un certificado por módulo, verificable</li>
       </ul>
 
-      <!-- Las cifras, pegadas al titular y no en una franja aparte.
-           ─────────────────────────────────────────────────────────────────
-           Estaban solas en una banda de 178 px para decir ocho palabras, tan
-           lejos del titular que no probaban nada de lo que el titular afirma.
-           Aquí, debajo, son lo que sostiene la frase de arriba.
-
-           Son TRES y no cuatro. La cuarta era «${ESCUELA.fundada} · desde», que ya
-           está dicha en el ojal de arriba —«desde ${ESCUELA.fundada}»— y encima se
-           leía al revés, con el año encima de la palabra. Repetida partía la
-           rejilla en 3+1 y dejaba una cifra suelta en una segunda fila. -->
+      /* Las cifras, pegadas al titular y no en una franja aparte.
+         ─────────────────────────────────────────────────────────────────
+         Estaban solas en una banda de 178 px para decir ocho palabras, tan
+         lejos del titular que no probaban nada de lo que el titular afirma.
+         Aquí, debajo, son lo que sostiene la frase de arriba.
+         
+         Son TRES y no cuatro. La cuarta era «${ESCUELA.fundada} · desde», que ya
+         está dicha en el ojal de arriba —«desde ${ESCUELA.fundada}»— y encima se
+         leía al revés, con el año encima de la palabra. Repetida partía la
+         rejilla en 3+1 y dejaba una cifra suelta en una segunda fila. */
       <div class="cifras-casa cifras-heroe">
         <div><b>${esc(temario.totales.certificados)}</b><span>certificados emitidos</span></div>
         <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
@@ -1454,17 +1454,17 @@ function paginaDeInicio(temario) {
   </div>
 </section>
 
-<!-- Dónde está esto, dicho en el cuerpo de la página y no sólo en el <title>.
-     ═══════════════════════════════════════════════════════════════════════════
-     Google no se fía de una ciudad que sólo aparece en la etiqueta del título:
-     eso lo escribe cualquiera. Lo que le da peso local es que la ciudad esté en
-     el texto que lee una persona, con algo comprobable al lado —aquí, que los
-     certificados emitidos llevan Caracas como lugar de expedición.
-
-     Y por eso mismo no hay dirección de calle ni teléfono inventados: son el
-     tipo de dato que Google contrasta, y uno falso hace que deje de creerse
-     también lo que sí es verdad. Cuando la sede tenga ficha, va aquí y en el
-     «streetAddress» de los datos estructurados, los dos a la vez. -->
+/* Dónde está esto, dicho en el cuerpo de la página y no sólo en el <title>.
+   ═══════════════════════════════════════════════════════════════════════════
+   Google no se fía de una ciudad que sólo aparece en la etiqueta del título:
+   eso lo escribe cualquiera. Lo que le da peso local es que la ciudad esté en
+   el texto que lee una persona, con algo comprobable al lado —aquí, que los
+   certificados emitidos llevan Caracas como lugar de expedición.
+   
+   Y por eso mismo no hay dirección de calle ni teléfono inventados: son el
+   tipo de dato que Google contrasta, y uno falso hace que deje de creerse
+   también lo que sí es verdad. Cuando la sede tenga ficha, va aquí y en el
+   «streetAddress» de los datos estructurados, los dos a la vez. */
 <section class="franja">
   <div class="dentro estrecho">
     <span class="ojal">Caracas ${ESCUELA.codigoPostal} · Estado ${esc(ESCUELA.region)}</span>
@@ -1503,13 +1503,6 @@ ${temario.diplomados.map((d, i) => `
           <li><b>${d.diplomas}</b><span>diplomas emitidos</span></li>
         </ul>
 
-        <!-- «Ver el diplomado de X», no «Ver el X completo».
-             El nombre corto es «Marketing Digital» o «Inteligencia
-             Artificial», así que la plantilla vieja producía «Ver el
-             Inteligencia Artificial completo»: el artículo no concuerda y
-             «completo» se queda colgando de un nombre que no es un sustantivo
-             contable. Con «el diplomado de» delante, el nombre entra como
-             complemento y concuerda siempre, venga el que venga. -->
         <div class="portada-manos" style="margin-bottom:0">
           <a class="btn" href="${SITIO}/programas/${d.apodo}.html">
             Ver el diplomado de ${esc(d.corto)}</a>

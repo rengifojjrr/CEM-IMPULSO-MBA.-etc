@@ -59,7 +59,7 @@
    docs/videos-y-copia.md.
 */
 
-import { $, $$, esc } from './app.js?v=2026-09-03-4';
+import { $, $$, esc } from './app.js?v=2026-09-03-5';
 
 /* ── La librería de YouTube, una sola vez ─────────────────────────────────
    Se pide siempre a `youtube.com`, no al dominio sin cookies: es la librería

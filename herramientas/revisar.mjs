@@ -651,6 +651,50 @@ if (prof !== 0) {
   bien('Todos los comentarios de styles.css abren y cierran donde deben');
 }
 
+/* ══════════ 19. Las explicaciones del código no se le sirven al visitante ══
+   Un comentario HTML escrito DENTRO de una plantilla de generar-seo.mjs no se
+   queda en el código: se imprime en la página, y si la plantilla se repite —la
+   tarjeta de un módulo, por ejemplo— se imprime una vez por cada tarjeta.
+
+   Así se estaban sirviendo ocho explicaciones de por qué el generador está
+   escrito como está, unos 23 KB repartidos por las 22 páginas, cuando la
+   portada entera pesa 22. Una de ellas iba en las 22, y otra salía dieciséis
+   veces en la misma página.
+
+   La regla es la del sitio: lo que explica el CÓDIGO va en el código; en el
+   HTML sólo lo que le sirva a quien abra el HTML. Se permiten comentarios
+   cortos —un aviso de «esto es generado», una marca condicional— y se corta a
+   los largos, que son siempre los de razonar.
+
+   Sólo mira las páginas que ESCRIBE el generador. En un archivo escrito a
+   mano, el comentario está en su sitio: quien lo abre es justamente quien lee
+   el código. El peligro es exclusivo de la plantilla, donde lo que uno cree
+   que es un comentario del código resulta ser texto del documento.
+
+   La lista va a mano y refleja lo que genera generar-seo.mjs. Que no se quede
+   corta lo cuida la comprobación del sitemap en revisar-seo.mjs, que compara
+   las direcciones publicadas con los archivos que hay. */
+titulo('El HTML servido no lleva explicaciones del código');
+
+const TOPE_COMENTARIO = 160;
+const generadas = (await archivos('**/*.html')).filter((f) =>
+  f === 'index.html' || f === '404.html' || f === 'preguntas-frecuentes.html'
+  || f.startsWith('programas/'));
+const parlanchinas = [];
+for (const f of generadas) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  for (const m of html.matchAll(/<!--([\s\S]*?)-->/g)) {
+    const texto = m[1].replace(/\s+/g, ' ').trim();
+    if (texto.length <= TOPE_COMENTARIO) continue;
+    const linea = html.slice(0, m.index).split('\n').length;
+    parlanchinas.push(`${f}:${linea} sirve ${texto.length} caracteres de comentario `
+      + `(«${texto.slice(0, 60)}…»): si explica el código, va en generar-seo.mjs, `
+      + 'no dentro de la plantilla — desde ahí se imprime en la página');
+  }
+}
+if (parlanchinas.length) parlanchinas.forEach((s) => mal(s.split(':')[0], s));
+else bien(`Las ${generadas.length} páginas servidas no llevan comentarios de código`);
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

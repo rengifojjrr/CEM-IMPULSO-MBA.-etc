@@ -136,7 +136,7 @@ export default async function correr(navegador) {
      una copia del razonamiento escrita aquí: una prueba que reimplementa lo
      que comprueba pasa siempre. */
   const traduce = await E.evaluate(async () => {
-    const m = await import('/plataforma/assets/paises.js?v=2026-09-03-4');
+    const m = await import('/plataforma/assets/paises.js?v=2026-09-03-5');
     return {
       usa: m.paisDesdeTexto('usa'),
       venezuela: m.paisDesdeTexto('Venezuela'),
