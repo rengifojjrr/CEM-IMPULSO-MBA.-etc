@@ -1364,18 +1364,36 @@ function paginaDeInicio(temario) {
   </div>
 </section>
 
+${/* La portada del dominio, igual que el índice de programas: la portada de
+     cada diplomado y no sus dieciséis módulos. Aquí pesa todavía más — es la
+     primera pantalla de quien llega de Google, y le contestaba «qué hay» con
+     dieciséis tarjetas antes de haber dicho qué son las dos cosas que se
+     estudian. Se entra al temario desde el botón. */''}
 ${temario.diplomados.map((d, i) => `
 <section class="franja${i % 2 ? ' tenue' : ''}">
   <div class="dentro">
-    <span class="ojal">Diplomado · 8 módulos</span>
-    <h2 style="margin-top:0"><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
-    <p class="entrada">${esc(d.que)}</p>
-    <div class="rejilla-modulos">
-      ${d.modulos.map((m) => tarjetaModulo(m, d)).join('')}
-    </div>
-    <p style="margin-top:var(--e3)">
-      <a class="btn outline" href="${SITIO}/programas/${d.apodo}.html">
-        Ver el ${esc(d.corto)} completo</a></p>
+    <article class="portada-programa" style="--mod-color:${d.modulos[0]?.color || 'var(--primary)'}">
+      <div class="pp-tira" aria-hidden="true">
+        ${d.modulos.map((m) => `<i style="background:${m.color}"></i>`).join('')}
+      </div>
+      <div class="pp-cuerpo">
+        <span class="ojal">Diplomado · ${d.modulos.length} módulos</span>
+        <h2><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
+        <p class="entrada">${esc(d.que)}</p>
+
+        <ul class="pp-datos">
+          <li><b>${d.modulos.length}</b><span>módulos</span></li>
+          <li><b>${d.modulos.length}</b><span>certificados</span></li>
+          <li><b>${d.personas}</b><span>lo han cursado</span></li>
+          <li><b>${d.diplomas}</b><span>diplomas emitidos</span></li>
+        </ul>
+
+        <div class="portada-manos" style="margin-bottom:0">
+          <a class="btn" href="${SITIO}/programas/${d.apodo}.html">
+            Ver el ${esc(d.corto)} completo</a>
+        </div>
+      </div>
+    </article>
   </div>
 </section>`).join('')}
 
