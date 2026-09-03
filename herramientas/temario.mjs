@@ -219,6 +219,32 @@ export function apodoDe(texto) {
  * titulada «GRABACION DE VIDEOS» en mayúsculas y sin tildes es peor que no
  * publicarla: sale así en el resultado de búsqueda y ahí se queda.
  */
+/**
+ * La próxima convocatoria que el equipo escribió en Configuración, o null.
+ *
+ * Es la mitad que faltaba de ese campo: se guardaba y no lo leía nadie. La
+ * función de la base ya devuelve null si no hay fecha o si ya pasó, así que
+ * aquí no hay que decidir nada: si viene algo, se pinta; si no, no.
+ *
+ * Si la base no contesta, se devuelve null y la página sale sin la línea. Una
+ * portada sin convocatoria es normal; una portada que no se genera porque la
+ * convocatoria no cargó, no.
+ */
+export async function traerConvocatoria() {
+  try {
+    const res = await fetch(`${BASE}/rest/v1/rpc/cem_convocatoria_publica`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: CLAVE, Authorization: `Bearer ${CLAVE}` },
+      body: '{}',
+    });
+    if (!res.ok) return null;
+    const c = await res.json();
+    return c && c.fecha ? c : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function traerTemario() {
   const res = await fetch(`${BASE}/rest/v1/rpc/cem_temario_publico`, {
     method: 'POST',

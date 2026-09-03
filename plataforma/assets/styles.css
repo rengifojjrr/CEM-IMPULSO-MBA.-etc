@@ -1042,6 +1042,18 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 .portada-hechos .material-symbols-outlined{font-size:19px;color:var(--secondary);
   flex:none;}
 
+/* La próxima convocatoria: la única línea de los hechos que cambia, y la única
+   con fecha. Va en tinta entera y con su icono en dorado, para que se
+   distinga de las tres de arriba, que son permanentes. La nota («Cupos
+   limitados») baja de tono porque es un matiz, no el dato. */
+.portada-hechos li.conv{color:var(--tinta);flex-wrap:wrap;}
+.portada-hechos li.conv .material-symbols-outlined{color:var(--gold);}
+.conv-nota{color:var(--tinta-2);font-size:var(--t-xs);}
+/* En la ficha del diplomado, como párrafo sobre los botones. */
+.convocatoria{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:var(--e2) 0 0;font-size:var(--t-sm);color:var(--tinta);}
+.convocatoria .material-symbols-outlined{font-size:19px;color:var(--gold);flex:none;}
+
 /* El pie de las pantallas públicas montadas, igual que el de las generadas:
    la marca a la izquierda, los enlaces a la derecha, y en el móvil apilados. */
 .pub-pie{display:flex;flex-wrap:wrap;gap:var(--e3);justify-content:space-between;}

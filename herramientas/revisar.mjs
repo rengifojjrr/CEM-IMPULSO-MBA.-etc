@@ -691,6 +691,23 @@ for (const f of generadas) {
       + `(«${texto.slice(0, 60)}…»): si explica el código, va en generar-seo.mjs, `
       + 'no dentro de la plantilla — desde ahí se imprime en la página');
   }
+
+  /* Y el fallo simétrico, que es el que cometí al arreglar el anterior: un
+     comentario de JavaScript escrito DENTRO de una plantilla tampoco es un
+     comentario, es texto, y sale impreso con su barra y su asterisco en la
+     página. Fuera de <style> y <script> —donde sí es un comentario de
+     verdad— no hay ninguna razón para que una página servida contenga esa
+     pareja de caracteres.
+
+     (Aquí no se escribe la pareja entera ni siquiera como ejemplo: cerraría
+     ESTE comentario a mitad. Ya pasó una vez en este archivo.) */
+  const sinCodigo = html.replace(/<(style|script)\b[^>]*>[\s\S]*?<\/\1>/g, '');
+  for (const m of sinCodigo.matchAll(/\/\*([\s\S]{0,60})/g)) {
+    const linea = html.indexOf(m[0]) >= 0 ? html.slice(0, html.indexOf(m[0])).split('\n').length : '?';
+    parlanchinas.push(`${f}:${linea} imprime un comentario de JavaScript como texto `
+      + `(«/*${m[1].replace(/\s+/g, ' ').trim().slice(0, 50)}…»): está dentro de una `
+      + 'plantilla de generar-seo.mjs; sácalo encima de la función');
+  }
 }
 if (parlanchinas.length) parlanchinas.forEach((s) => mal(s.split(':')[0], s));
 else bien(`Las ${generadas.length} páginas servidas no llevan comentarios de código`);
