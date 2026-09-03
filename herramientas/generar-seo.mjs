@@ -961,8 +961,14 @@ const tiraDeModulos = (dip, aqui) => `
       >${m.orden}</a>`).join('')}
   </nav>`;
 
-/** El bloque del certificado, que es el argumento de venta que sí es cierto. */
-const bloqueCertificado = (temario, dentro) => `
+/** El bloque del certificado, que es el argumento de venta que sí es cierto.
+ *
+ *  `sinCifras` existe por la portada. Desde que las cifras subieron al titular,
+ *  repetirlas aquí abajo sería decir el mismo número dos veces en la misma
+ *  página, y un dato repetido pesa menos que dicho una sola vez. En las demás
+ *  páginas —las de módulo, las de diplomado— no hay banda arriba, así que
+ *  siguen apareciendo. */
+const bloqueCertificado = (temario, dentro, sinCifras) => `
 <section class="franja tenue">
   <div class="dentro estrecho centrado" style="text-align:center">
     <span class="ojal">Lo que te llevas</span>
@@ -971,14 +977,50 @@ const bloqueCertificado = (temario, dentro) => `
       un código único y un QR. Quien lo reciba —una empresa que va a contratar, un cliente—
       escribe ese código o la cédula y ve ahí mismo si es auténtico, a nombre de quién está y de
       qué es. Sin crear ninguna cuenta.</p>
-    <div class="cifras-casa" style="margin:var(--e3) 0">
+    ${sinCifras ? '' : `<div class="cifras-casa" style="margin:var(--e3) 0">
       <div><b>${esc(temario.totales.certificados)}</b><span>certificados comprobables</span></div>
       <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
       <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
-    </div>
-    <a class="btn" href="${SITIO}/plataforma/verificar.html">
-      <span class="material-symbols-outlined" aria-hidden="true">verified</span>
-      Verificar un certificado</a>
+    </div>`}
+
+    <!-- Que se pueda comprobar AQUÍ, y no que se prometa que se puede.
+         ═══════════════════════════════════════════════════════════════════
+         Esto era un botón que llevaba a otra pantalla. Y «nuestros
+         certificados son verificables» lo escribe cualquiera en su web: es
+         exactamente el tipo de frase que no prueba nada porque no cuesta nada
+         decirla. Lo que no puede copiar quien no lo tiene es el campo: se
+         escribe un código —o una cédula— y sale el nombre, el programa y la
+         fecha, de la base, delante de quien mira.
+
+         Es lo único de esta página que FUNCIONA en vez de contar. Por eso se
+         sube desde el final hasta aquí, y por eso lleva su propio ejemplo:
+         quien no tiene un código a mano puede probar igual.
+
+         Funciona sin JavaScript propio: el formulario va por GET a la pantalla
+         de verificar, que ya sabe leer «?codigo=» y consultar sola. Estas
+         páginas no cargan app.js, así que un campo que necesitara JS aquí
+         sería un campo muerto.
+
+         Sin comillas invertidas en este comentario: está DENTRO de una
+         plantilla de JavaScript, y una sola cierra la cadena a mitad. -->
+    <form class="verificar-aqui" action="${SITIO}/plataforma/verificar.html" method="get">
+      <label for="codigoPortada" class="ojal" style="margin-bottom:var(--e0)">
+        Compruébalo ahora</label>
+      <div class="verificar-fila">
+        <!-- El marcador es corto porque en un móvil de 390 px el campo mide
+             225 y «Código del certificado o cédula» se cortaba en «…o». El
+             nombre largo sigue entero en el aria-label, que es lo que oye
+             quien usa lector de pantalla, y en el pie de debajo. -->
+        <input type="search" id="codigoPortada" name="codigo" required
+          placeholder="Código o cédula"
+          aria-label="Código del certificado o cédula">
+        <button class="btn" type="submit">
+          <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+          Verificar</button>
+      </div>
+      <p class="tiny muted" style="margin:var(--e0) 0 0">Sin crear cuenta. Con la cédula salen
+        todos los títulos de esa persona.</p>
+    </form>
     ${dentro || ''}
   </div>
 </section>`;
@@ -1320,21 +1362,50 @@ function paginaDeInicio(temario) {
       <p class="lema">Dos diplomados de ocho módulos cada uno, impartidos desde Caracas. Cada
         módulo se certifica por separado, y cualquiera puede verificar ese certificado con su
         código.</p>
+
+      <!-- Un solo botón, y esto era lo que sobraba.
+           ═══════════════════════════════════════════════════════════════════
+           Al lado de «Ver los dos diplomados» había un «Verificar un
+           certificado», y le estaba robando la atención al único botón que
+           importa aquí. Además sirve a OTRA persona: verificar lo usa un
+           empleador comprobando a alguien, o un egresado que perdió su papel —
+           no quien está decidiendo si estudiar. Sigue en el menú de arriba,
+           que es su sitio, y más abajo hay un bloque entero dedicado. -->
       <div class="portada-manos">
         <a class="btn" href="${SITIO}/programas/">Ver los dos diplomados</a>
-        <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
       </div>
-    </div>
-  </div>
-</section>
 
-<section class="franja tenue">
-  <div class="dentro">
-    <div class="cifras-casa">
-      <div><b>${esc(temario.totales.certificados)}</b><span>certificados emitidos</span></div>
-      <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
-      <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
-      <div><b>${ESCUELA.fundada}</b><span>en funcionamiento desde</span></div>
+      <!-- Lo que hacía falta saber y no estaba en ninguna parte.
+           ─────────────────────────────────────────────────────────────────
+           Ni la duración, ni si las clases son en vivo, ni si hay que estar en
+           Caracas. Estaba contestado en las preguntas frecuentes, o sea a dos
+           pantallas de distancia de donde se decide. El precio y las fechas
+           siguen sin publicarse —cambian con cada convocatoria y un dato viejo
+           es peor que ninguno—, pero esto no cambia nunca. -->
+      <ul class="portada-hechos">
+        <li><span class="material-symbols-outlined" aria-hidden="true">videocam</span>
+          Clases en vivo, y quedan grabadas</li>
+        <li><span class="material-symbols-outlined" aria-hidden="true">public</span>
+          Desde cualquier parte de Venezuela</li>
+        <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+          Un certificado por módulo, verificable</li>
+      </ul>
+
+      <!-- Las cifras, pegadas al titular y no en una franja aparte.
+           ─────────────────────────────────────────────────────────────────
+           Estaban solas en una banda de 178 px para decir ocho palabras, tan
+           lejos del titular que no probaban nada de lo que el titular afirma.
+           Aquí, debajo, son lo que sostiene la frase de arriba.
+
+           Son TRES y no cuatro. La cuarta era «${ESCUELA.fundada} · desde», que ya
+           está dicha en el ojal de arriba —«desde ${ESCUELA.fundada}»— y encima se
+           leía al revés, con el año encima de la palabra. Repetida partía la
+           rejilla en 3+1 y dejaba una cifra suelta en una segunda fila. -->
+      <div class="cifras-casa cifras-heroe">
+        <div><b>${esc(temario.totales.certificados)}</b><span>certificados emitidos</span></div>
+        <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
+        <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1400,7 +1471,8 @@ ${temario.diplomados.map((d, i) => `
 ${bloqueCertificado(temario, `
     <p class="tiny muted" style="margin-top:var(--e3)">¿Otra duda? Las
       <a href="${SITIO}/preguntas-frecuentes.html">preguntas frecuentes</a> contestan si se puede
-      cursar un módulo suelto, qué pasa si perdiste tu certificado y qué diplomados hay.</p>`)}`;
+      cursar un módulo suelto, qué pasa si perdiste tu certificado y qué diplomados hay.</p>`,
+  true)}`;
 
   let html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
 
