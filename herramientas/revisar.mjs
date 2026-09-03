@@ -523,6 +523,44 @@ for (const f of await archivos('**/*.html')) {
 if (cajasSinAire.length) cajasSinAire.forEach((s) => mal(s.split(':')[0], s));
 else bien('Todas las «caja» reciben su relleno de la clase de su pantalla');
 
+/* ══════════ 15. La promoción sólo se ofrece donde cabe ══════════
+   La barra de promoción la monta `mount({pub:true})`, así que sólo puede salir
+   en una pantalla que lo llame, y se identifica por el nombre de su archivo.
+
+   La pantalla de Campañas ofrece una lista de «dónde sale». Esa lista estuvo
+   ofreciendo cinco sitios de los que sólo dos funcionaban: «programas» no era
+   el nombre de ninguna pantalla —el catálogo es `catalogo.html`— y «verificar»
+   y «preguntas-frecuentes» no montan el armazón público. Se marcaban tres
+   casillas y la promoción aparecía en una, sin decir nada.
+
+   Nadie lo iba a notar: una campaña que no aparece no da error. Por eso hay
+   que comprobarlo aquí, comparando la lista con los archivos de verdad. */
+titulo('La promoción sólo se ofrece donde de verdad cabe');
+
+const camp = await readFile(join(RAIZ, 'plataforma/admin/campanas.html'), 'utf8');
+const bloquePantallas = camp.match(/const PANTALLAS = \[([\s\S]*?)\];/)?.[1] || '';
+const ofrecidas = [...bloquePantallas.matchAll(/\[\s*'([^']+)'/g)].map((m) => m[1]);
+
+/* Las que montan el armazón público, por el nombre de su archivo. */
+const conBarra = new Set();
+for (const f of await archivos('plataforma/*.html')) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  if (!/mount\s*\(\s*\{[^}]*\bpub\s*:\s*true/.test(html)) continue;
+  conBarra.add(f.split('/').pop().replace('.html', ''));
+}
+
+const imposibles = ofrecidas.filter((p) => !conBarra.has(p));
+if (!ofrecidas.length) {
+  mal('plataforma/admin/campanas.html', 'No se pudo leer la lista PANTALLAS de campanas.html');
+} else if (imposibles.length) {
+  imposibles.forEach((p) => mal('plataforma/admin/campanas.html',
+    `Campañas ofrece «${p}» como sitio donde sale la promoción, y ahí no puede salir: `
+    + `no hay plataforma/${p}.html que llame a mount({pub:true}). `
+    + `Las que sí lo llaman: ${[...conBarra].sort().join(', ')}`));
+} else {
+  bien(`Las ${ofrecidas.length} pantallas que ofrece Campañas montan todas la barra`);
+}
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {

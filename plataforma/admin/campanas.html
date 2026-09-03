@@ -130,14 +130,31 @@ const PREMIOS = [
   ['sorteo',          'Entrada a un sorteo'],
 ];
 
-/* Dónde puede salir. Vacío = en todas las públicas. Los nombres son los que
-   usa `cem_visita_anotar` para la pantalla, así que casan con los informes. */
+/* Dónde puede salir, y aquí sólo van pantallas donde de verdad puede salir.
+   ═══════════════════════════════════════════════════════════════════════════
+   La lista anterior ofrecía cinco y sólo dos funcionaban. Se marcaban tres y
+   la promoción aparecía en una — sin aviso, sin error, sin nada que lo
+   explicara.
+
+   Dos motivos distintos, los dos invisibles desde esta pantalla:
+
+     · «programas» no es el nombre de ninguna pantalla. La barra se identifica
+       por el nombre del archivo, y el catálogo es `catalogo.html`, o sea
+       «catalogo». «programas» no casaba con nada, nunca.
+
+     · «verificar» y «preguntas-frecuentes» sí existen, pero esas pantallas no
+       llaman a `mount({pub:true})` —verificar es una tarjeta suelta sin
+       armazón, y las preguntas ni siquiera cargan app.js—, y es mount() quien
+       monta la barra. No hay campaña que pueda salir ahí.
+
+   Lo que queda son las cuatro que montan el armazón público. Si mañana otra
+   pantalla lo monta, se añade aquí y la comprobación 15 de revisar.mjs avisa
+   si esta lista y la realidad dejan de coincidir. */
 const PANTALLAS = [
-  ['inicio',       'La portada'],
-  ['programas',    'El catálogo de programas'],
-  ['verificar',    'Verificar un certificado'],
-  ['nosotros',     'Quiénes somos'],
-  ['preguntas-frecuentes', 'Preguntas frecuentes'],
+  ['inicio',    'La portada'],
+  ['catalogo',  'El catálogo de programas'],
+  ['curso',     'La ficha de un programa'],
+  ['nosotros',  'Quiénes somos'],
 ];
 
 let campanas = [], cursos = [];
@@ -333,7 +350,10 @@ function editar(c) {
             <input type="checkbox" class="cPant" value="${v}" ${pantallas.has(v) ? 'checked' : ''}>
             <span><b>${esc(t)}</b></span></label>`).join('')}
         </div>
-        <span class="pista">Si no marcas ninguna, sale en todas las páginas públicas.</span></div>
+        <span class="pista">Si no marcas ninguna, sale en las cuatro. Son las pantallas
+          públicas donde cabe la barra: la portada del portal, el catálogo, la ficha de
+          un programa y Quiénes somos. En «Verificar un certificado» y en las páginas
+          que lee Google no puede salir —no llevan la barra— y por eso no están.</span></div>
 
       <div class="field"><label for="cCurso">Programa <span class="tiny muted">(opcional)</span></label>
         <select id="cCurso"><option value="">Ninguno en concreto</option>
