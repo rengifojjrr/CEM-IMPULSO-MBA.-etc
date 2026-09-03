@@ -7,10 +7,10 @@
 <!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,
      PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180
      para el iPhone. Ver herramientas/iconos.mjs. -->
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png">
-<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
-<link rel="apple-touch-icon" href="../assets/icono-180.png">
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="../assets/icono-180.png?v=2026-09-03">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0d2440">
 <!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
@@ -149,6 +149,25 @@ let hayExpress = false;
 let filtro = { texto:'', pendientes:false, despues:false };
 if (me) load();
 
+/* Los tres callejones sin salida de esta pantalla, dichos DENTRO del armazón.
+   ═══════════════════════════════════════════════════════════════════════════
+   Los tres hacían `document.body.innerHTML = …`, y eso llega después de que
+   mount() haya montado el menú, la barra de arriba y la barra de abajo: los
+   borraba los tres. Quien abría el enlace de una clase sin tener inscripción
+   se encontraba una tarjeta suelta en una página en blanco, sin menú y sin más
+   salida que ese único enlace. No estaba roto por dentro —hacía lo que decía—
+   pero es exactamente lo que se ve como una pantalla rota.
+
+   Ahora se escribe en `#page`, que es el hueco que el armazón deja para el
+   contenido, con el `.empty` de la casa. El menú se queda donde estaba. */
+function callejon(icono, titulo, texto, boton) {
+  const dentro = document.getElementById('page') || document.body;
+  dentro.innerHTML = `<div class="card"><div class="empty">
+    <span class="material-symbols-outlined ico" aria-hidden="true">${icono}</span>
+    <b>${titulo}</b><p>${texto}</p>${boton || ''}</div></div>`;
+  dentro.classList.remove('hidden');
+}
+
 async function load(){
   let cursoId = qs('curso');
   const claseId = qs('clase');
@@ -160,7 +179,13 @@ async function load(){
     const { data: ens } = await sb.from('cem_enrollments')
       .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id).limit(500);
     enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
-    if (!enr) { document.body.innerHTML='<div class="content"><div class="card">No tienes inscripciones activas. <a href="catalogo.html">Ver catálogo</a></div></div>'; return; }
+    if (!enr) {
+      callejon('school', 'Todavía no estás inscrito en ningún programa',
+        'Las clases se abren al inscribirse. En el catálogo están los diplomados y '
+        + 'los módulos sueltos, con lo que dura cada uno y lo que cuesta.',
+        '<a class="btn" href="catalogo.html">Ver el catálogo</a>');
+      return;
+    }
     curso = enr.cem_courses;
   } else {
     /* Vista previa: no hay inscripción que mirar, así que se arma una de
@@ -168,14 +193,21 @@ async function load(){
        abajo; esto sólo existe para que el resto de la pantalla —que da por
        hecho que hay una inscripción— no tenga que preguntarlo en cada línea. */
     if (!cursoId) {
-      document.body.innerHTML = `<div class="content"><div class="card">
-        Para ver un aula en vista previa hace falta decir cuál:
-        <a href="../admin/contenido.html">elige un programa</a>.</div></div>`;
+      callejon('preview', 'Falta decir qué aula quieres ver',
+        'La vista previa enseña un aula concreta tal y como la verá quien esté '
+        + 'inscrito. Elige el programa en Contenidos y entra desde ahí.',
+        '<a class="btn" href="../admin/contenido.html">Ir a Contenidos</a>');
       return;
     }
     const { data: c } = await sb.from('cem_courses')
       .select('id,nombre').eq('id', cursoId).maybeSingle();
-    if (!c) { document.body.innerHTML='<div class="content"><div class="card">Ese programa no existe.</div></div>'; return; }
+    if (!c) {
+      callejon('search_off', 'Ese programa no existe',
+        'El enlace apunta a un programa que ya no está. Puede que se haya borrado '
+        + 'o que la dirección venga mal copiada.',
+        '<a class="btn" href="../admin/contenido.html">Ver los programas</a>');
+      return;
+    }
     curso = c;
     enr = { id: null, course_id: c.id, cohort_id: null, progreso: 0, cem_courses: c, cem_cohorts: null };
   }

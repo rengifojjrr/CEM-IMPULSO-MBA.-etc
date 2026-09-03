@@ -460,6 +460,19 @@ p{max-width:68ch;}
 .enlace:hover{color:var(--tinta);}
 .enlace:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:2px;}
 
+/* Un valor largo en monoespaciada parte, no empuja la página.
+   ------------------------------------------------------------------------
+   Hay 106 `<code>` en la plataforma y sólo siete llevan clase propia: los
+   demás no tenían ninguna regla, ni siquiera para partirse. Un código, una
+   dirección de retorno o un identificador es UNA sola palabra para el
+   navegador, así que en un teléfono no cabía y salía por el lado derecho
+   arrastrando la página entera con él —se veía en la pantalla de YouTube, con
+   la dirección de retorno—.
+
+   `anywhere` y no `break-word`: sólo el primero deja partir cuando la palabra
+   es más ancha que TODO el contenedor, que es justo este caso. */
+code{overflow-wrap:anywhere;}
+
 /* ───────────────────────── SUPERFICIES ─────────────────────────────────── */
 /* Una tarjeta lleva fondo O filete, nunca las dos cosas más una sombra. */
 .card{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
@@ -490,7 +503,19 @@ p{max-width:68ch;}
    menos a la primera. */
 .grid > .card + .card{margin-top:0;}
 .card-pad0{padding:0;overflow:hidden;}
-.grid{display:grid;gap:var(--aire);}
+/* Una cuadrícula sin modificador declara UNA columna, y no se la deja al azar.
+   ------------------------------------------------------------------------
+   Antes era sólo `display:grid`: el navegador se inventaba una columna «auto»,
+   que se dimensiona a partir del contenido. `minmax(0,1fr)` la declara, y el
+   mínimo 0 importa —el mínimo automático de una pista es `auto`, así que una
+   tabla ancha o una palabra larga dentro hinchaban la columna por encima del
+   contenedor—. Con mínimo 0 nunca crece más que su sitio. `g2`, `g3` y `g4`
+   la sobreescriben.
+
+   (Esto NO era lo que encogía la tarjeta de la portada a 50 px: se probó una
+   columna `1fr` explícita y seguía igual. Aquello era la contención de tamaño
+   de `.card`; está contado donde se arregló, junto a la regla `@container`.) */
+.grid{display:grid;gap:var(--aire);grid-template-columns:minmax(0,1fr);}
 .g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
 .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));}
 .g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
@@ -2981,7 +3006,27 @@ a.gr-hito:focus-visible{outline:2px solid var(--primary);outline-offset:2px;
 /* Con sitio de sobra, el nombre de la barra puede ocupar más y dejar de
    partirse en tres líneas. */
 @container (min-width:460px){ .gr-fila{grid-template-columns:minmax(150px,1.3fr) minmax(0,2fr) auto;} }
-.card{container-type:inline-size;}
+/* Contenedor de consulta SÓLO en la tarjeta que lleva un gráfico dentro.
+   ═══════════════════════════════════════════════════════════════════════════
+   Esto era `.card{container-type:inline-size;}` a secas —todas las tarjetas de
+   la plataforma— para que funcionara la única regla `@container` que hay, la
+   de aquí arriba. Y salía caro: `container-type:inline-size` implica
+   `contain:inline-size`, o sea «no mires dentro para calcular el ancho». En
+   una rejilla cuyas columnas se dimensionan por el contenido, el navegador se
+   queda entonces sin nada de lo que deducir el ancho y la tarjeta sale del
+   tamaño de una palabra.
+
+   Se veía en la portada: cuando no hay convocatoria abierta, `inicio.html` le
+   quita la clase `g3` a la rejilla para dejar una sola tarjeta centrada, y sin
+   `g3` no queda ninguna columna declarada. La tarjeta «Te avisamos en cuanto
+   abra» salía de 50 px de ancho —un renglón por palabra— en medio de una
+   franja de 1.200. Medido en el navegador: quitándole `container-type` a mano,
+   520 px; con él, 50. Ni una columna `1fr` explícita ni `justify-self:stretch`
+   lo arreglaban, porque el problema no era la columna: era la contención.
+
+   `:has()` acota la contención a lo que de verdad la necesita. El resto de las
+   tarjetas vuelven a medirse como cualquier caja. */
+.card:has(.gr-fila){container-type:inline-size;}
 
 /* ── LO QUE SE QUEDA PEGADO TIENE QUE TAPAR ────────────────────────────────
    Una barra pegajosa se queda quieta mientras el resto se desplaza POR DEBAJO

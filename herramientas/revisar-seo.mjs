@@ -192,7 +192,14 @@ titulo('El logotipo llega a quien lo pide');
    cuando no encuentra favicon. Buscaba /favicon.ico en la raíz del dominio
    —lo hace ANTES de leer el HTML— y ahí había un 404. Lo único declarado era
    un SVG, que admite pero recoge peor. */
-const sinIco = paginas.filter((p) => !/<link rel="icon" href="\/favicon\.ico"/.test(p.html));
+/* El `?v=…` es opcional en el patrón, y tiene que serlo: los iconos llevan
+   marca de versión desde que se vio que el navegador guarda los favicon en una
+   caché aparte, con la dirección como única llave, y seguía enseñando la «E»
+   vieja aunque el servidor ya diera el birrete. Ver VERSION_ICONO en
+   herramientas/iconos.mjs. Lo que esta comprobación exige es que la página
+   DECLARE el .ico de la raíz, no que lo declare sin versión. */
+const sinIco = paginas.filter((p) =>
+  !/<link rel="icon" href="\/favicon\.ico(?:\?[^"]*)?"/.test(p.html));
 const hayIco = existsSync(join(RAIZ, 'favicon.ico'));
 if (!hayIco) mal('No existe /favicon.ico en la raíz: Google pondrá la inicial del dominio');
 sinIco.forEach((p) => mal(`${p.f} no declara /favicon.ico`));

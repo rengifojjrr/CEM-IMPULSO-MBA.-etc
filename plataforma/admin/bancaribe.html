@@ -7,10 +7,10 @@
 <!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,
      PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180
      para el iPhone. Ver herramientas/iconos.mjs. -->
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png">
-<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
-<link rel="apple-touch-icon" href="../assets/icono-180.png">
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="../assets/icono-180.png?v=2026-09-03">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0d2440">
 <!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
@@ -187,7 +187,16 @@ async function llamar(accion, params = {}){
     body: JSON.stringify({ accion, ...params }),
   });
   const json = await res.json().catch(()=>({ error:'Respuesta ilegible del servidor' }));
-  if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+  if (!res.ok) throw new Error(json?.error || `Error ${res.status}`);
+  /* Un 200 con el cuerpo vacío también es un fallo, y hay que decirlo aquí.
+     Pasa —arranque en frío de la función, un proxy que se come el cuerpo— y
+     antes se devolvía `null` como si fuera una respuesta buena: renderEstado()
+     leía `estado.ambiente` de null, reventaba, y con ello se llevaba por
+     delante el resto de cargar(). La tabla de conciliación se quedaba vacía
+     para siempre sin que nada dijera por qué. */
+  if (json === null || typeof json !== 'object') {
+    throw new Error('El servidor contestó sin contenido. Vuelve a intentarlo.');
+  }
   return json;
 }
 

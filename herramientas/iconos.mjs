@@ -130,6 +130,28 @@ function htmls(dir, acc = []) {
 /* Cualquier declaración de icono que hubiera, para reemplazarla entera. */
 const VIEJOS = /^[ \t]*<link rel="(?:icon|shortcut icon|apple-touch-icon)"[^>]*>\n/gm;
 
+/* La marca de versión del icono, y por qué la lleva.
+   ═══════════════════════════════════════════════════════════════════════════
+   El icono del CEM cambió —de la «E» al birrete— y en la pestaña seguía
+   saliendo la «E» semanas después. No era el servidor: se comprobó, y
+   escuelacem.com/favicon.ico devuelve el birrete, byte por byte el mismo
+   archivo que hay aquí. Es que el navegador guarda los iconos en una caché
+   APARTE de la de las páginas, con su propia caducidad, y no la vacía ni
+   recargando con Cmd+Shift+R: la única llave de esa caché es la DIRECCIÓN del
+   icono.
+
+   Así que se le cambia la dirección. `?v=…` la convierte en otra distinta, no
+   hay nada guardado para ella, y el navegador baja el icono nuevo la primera
+   vez que alguien entra.
+
+   Se sube A MANO y sólo cuando el dibujo cambie de verdad: ponerle la fecha de
+   hoy en cada pasada obligaría a todo el mundo a rebajar el mismo icono cada
+   día, que es justo lo que la caché existe para evitar.
+
+   (En el resultado de Google la «E» tarda más y no depende de esto: ese icono
+   lo guarda Google y se cambia cuando vuelve a rastrear la portada.) */
+const VERSION_ICONO = '2026-09-03';
+
 function bloque(rutaRelativa) {
   /* El .ico va con dirección absoluta a propósito: vive en la raíz del dominio
      porque es donde Google lo busca, y desde una pantalla en /plataforma/admin/
@@ -142,10 +164,10 @@ function bloque(rutaRelativa) {
   return '<!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,\n'
     + '     PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180\n'
     + '     para el iPhone. Ver herramientas/iconos.mjs. -->\n'
-    + '<link rel="icon" href="/favicon.ico" sizes="32x32">\n'
-    + `<link rel="icon" type="image/png" sizes="96x96" href="${rutaRelativa}favicon-96.png">\n`
-    + `<link rel="icon" type="image/svg+xml" href="${rutaRelativa}favicon.svg">\n`
-    + `<link rel="apple-touch-icon" href="${rutaRelativa}icono-180.png">\n`;
+    + `<link rel="icon" href="/favicon.ico?v=${VERSION_ICONO}" sizes="32x32">\n`
+    + `<link rel="icon" type="image/png" sizes="96x96" href="${rutaRelativa}favicon-96.png?v=${VERSION_ICONO}">\n`
+    + `<link rel="icon" type="image/svg+xml" href="${rutaRelativa}favicon.svg?v=${VERSION_ICONO}">\n`
+    + `<link rel="apple-touch-icon" href="${rutaRelativa}icono-180.png?v=${VERSION_ICONO}">\n`;
 }
 
 /* Lo que escribe herramientas/generar-seo.mjs, y que por tanto NO se toca aquí.

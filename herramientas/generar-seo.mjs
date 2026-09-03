@@ -294,6 +294,13 @@ const pie = () => `
 
    `color-scheme:light` para que las barras de desplazamiento y los controles
    del navegador, que no leen tokens, tampoco se pinten de noche. */
+/* La misma marca de versión del icono que usa herramientas/iconos.mjs, y por
+   la misma razón: el navegador guarda los iconos en una caché aparte cuya
+   única llave es la dirección, y sin cambiarla seguía saliendo la «E» vieja en
+   la pestaña aunque el servidor ya diera el birrete. Se sube a mano y sólo
+   cuando el dibujo cambie; las dos herramientas tienen que decir lo mismo. */
+const VERSION_ICONO = '2026-09-03';
+
 const CSS_CRITICO = `
 :root{color-scheme:light;
   --fondo:#f4f6f8;--papel:#fff;--tinta:#1f2937;--tinta-2:#6b7280;
@@ -350,10 +357,10 @@ ${/* El .ico va con dirección absoluta y el primero. Google lo busca en la raí
       del dominio ANTES de leer esta línea, y mientras no estuvo enseñaba en el
       resultado de búsqueda un cuadrito negro con la inicial del dominio.
       Ver herramientas/iconos.mjs. */''}
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" type="image/png" sizes="96x96" href="${arriba}plataforma/assets/favicon-96.png">
-<link rel="icon" type="image/svg+xml" href="${arriba}plataforma/assets/favicon.svg">
-<link rel="apple-touch-icon" href="${arriba}plataforma/assets/icono-180.png">
+<link rel="icon" href="/favicon.ico?v=${VERSION_ICONO}" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="${arriba}plataforma/assets/favicon-96.png?v=${VERSION_ICONO}">
+<link rel="icon" type="image/svg+xml" href="${arriba}plataforma/assets/favicon.svg?v=${VERSION_ICONO}">
+<link rel="apple-touch-icon" href="${arriba}plataforma/assets/icono-180.png?v=${VERSION_ICONO}">
 <link rel="manifest" href="/site.webmanifest">
 <meta name="theme-color" content="#0d2440">
 
