@@ -81,7 +81,7 @@ export default async function correr(navegador) {
      Con un tope, para que si de verdad dejara de cambiar siguiera fallando. */
   const cambiarYEsperar = async (ajuste, distintoDe) => {
     await D.evaluate(async (a2) => {
-      const t = await import('/plataforma/assets/temas.js?v=2026-09-03-5');
+      const t = await import('/plataforma/assets/temas.js?v=2026-09-03-6');
       t.aplicarApariencia(a2);
     }, ajuste);
     await D.waitForFunction((previo) => {
@@ -105,14 +105,14 @@ export default async function correr(navegador) {
 
   // La forma manda en las esquinas de las barras.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-09-03-5');
+    const t = await import('/plataforma/assets/temas.js?v=2026-09-03-6');
     t.aplicarApariencia({ forma: 'recta' });
   });
   await D.waitForTimeout(500);
   const recto = await D.evaluate(() =>
     getComputedStyle(document.querySelector('#graficos .gr-relleno')).borderTopLeftRadius);
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-09-03-5');
+    const t = await import('/plataforma/assets/temas.js?v=2026-09-03-6');
     t.aplicarApariencia({ forma: 'redonda' });
   });
   await D.waitForTimeout(500);
@@ -124,7 +124,7 @@ export default async function correr(navegador) {
   // Dejarlo como estaba: si esta prueba le cambia la apariencia a la siguiente,
   // la siguiente falla por algo que no es suyo.
   await D.evaluate(async () => {
-    const t = await import('/plataforma/assets/temas.js?v=2026-09-03-5');
+    const t = await import('/plataforma/assets/temas.js?v=2026-09-03-6');
     t.aplicarApariencia(t.aparienciaDeFabrica());
   });
   await D.waitForTimeout(400);
