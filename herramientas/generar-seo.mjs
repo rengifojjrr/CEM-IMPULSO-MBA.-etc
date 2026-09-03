@@ -962,7 +962,20 @@ function loQueAvala(m) {
    diplomado y en la del módulo. Así el mismo módulo se ve igual en los cuatro
    sitios, que es lo que hace que un sitio parezca uno y no cuatro. */
 
-/** La tarjeta de un módulo: su cubierta de color, su nombre y su definición. */
+/** La tarjeta de un módulo: su cubierta de color, su nombre y su definición.
+ *
+ *  La definición va ENTERA, sin recortar. Se cortaba a 96 caracteres y quince
+ *  de los dieciséis módulos pasan de ahí, así que la ficha del diplomado —la
+ *  página que tiene que vender— enseñaba quince frases partidas a la mitad:
+ *  «Es la…», «responder a…». Y no había ningún «ver más» al lado, con lo que
+ *  parecía un fallo más que una invitación a seguir leyendo.
+ *
+ *  La más larga mide 155 caracteres: dos renglones. Recortar ahorraba sesenta
+ *  caracteres y costaba el sentido de la frase. La tarjeta entera sigue siendo
+ *  un enlace al módulo, que es donde está el desarrollo largo.
+ *
+ *  (Esta explicación va aquí, en el código, y no dentro de la plantilla: un
+ *  comentario HTML ahí dentro se imprime en las dieciséis tarjetas.) */
 const tarjetaModulo = (m, dip, { conDiplomado = false } = {}) => `
   <a class="mod" style="--mod-color:${m.color}" href="${SITIO}/programas/${m.apodo}.html">
     <div class="mod-cubierta">
@@ -972,7 +985,7 @@ const tarjetaModulo = (m, dip, { conDiplomado = false } = {}) => `
     </div>
     <div class="mod-cuerpo">
       <h3>${esc(m.nombre)}</h3>
-      <p>${esc(recortar(m.que, 96))}</p>
+      <p>${esc(m.que)}</p>
       <p class="mod-pie">${m.personas} con este certificado</p>
     </div>
   </a>`;
@@ -1025,16 +1038,17 @@ const bloqueCertificado = (temario, dentro, sinCifras) => `
          páginas no cargan app.js, así que un campo que necesitara JS aquí
          sería un campo muerto.
 
+         El marcador del campo es corto —«Código o cédula»— porque en un móvil
+         de 390 px el campo mide 225 y el nombre largo se cortaba a la mitad.
+         El nombre entero sigue en el aria-label, que es lo que oye quien usa
+         lector de pantalla, y en el pie de debajo.
+
          Sin comillas invertidas en este comentario: está DENTRO de una
          plantilla de JavaScript, y una sola cierra la cadena a mitad. -->
     <form class="verificar-aqui" action="${SITIO}/plataforma/verificar.html" method="get">
       <label for="codigoPortada" class="ojal" style="margin-bottom:var(--e0)">
         Compruébalo ahora</label>
       <div class="verificar-fila">
-        <!-- El marcador es corto porque en un móvil de 390 px el campo mide
-             225 y «Código del certificado o cédula» se cortaba en «…o». El
-             nombre largo sigue entero en el aria-label, que es lo que oye
-             quien usa lector de pantalla, y en el pie de debajo. -->
         <input type="search" id="codigoPortada" name="codigo" required
           placeholder="Código o cédula"
           aria-label="Código del certificado o cédula">

@@ -19,7 +19,7 @@
    El servidor compara con la misma forma en cem_es_correcta(). Si aquí se
    cambia una, allá hay que cambiarla también. */
 
-import { esc, $, $$, montarAyudas } from './app.js?v=2026-09-03-3';
+import { esc, $, $$, montarAyudas } from './app.js?v=2026-09-03-4';
 
 export const TIPOS = {
   multiple:            { etq: 'Selección múltiple',      icono: 'radio_button_checked', opciones: true },

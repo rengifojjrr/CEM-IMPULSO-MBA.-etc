@@ -155,7 +155,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Fotografía</h3>
-      <p>La imagen fija: luz, encuadre y las decisiones que hacen que una foto de producto se vea…</p>
+      <p>La imagen fija: luz, encuadre y las decisiones que hacen que una foto de producto se vea profesional o se vea casera.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -167,7 +167,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Grabación de videos</h3>
-      <p>Lo que pasa antes de editar: qué se graba, con qué luz, con qué sonido y en qué orden, para no…</p>
+      <p>Lo que pasa antes de editar: qué se graba, con qué luz, con qué sonido y en qué orden, para no tener que arreglarlo después.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -179,7 +179,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Edición de video en PC</h3>
-      <p>El montaje en computadora, que es donde un material bruto se convierte en algo que alguien…</p>
+      <p>El montaje en computadora, que es donde un material bruto se convierte en algo que alguien mira hasta el final.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -191,7 +191,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Inteligencia artificial I</h3>
-      <p>La primera mitad de la inteligencia artificial aplicada: qué hacen de verdad estas…</p>
+      <p>La primera mitad de la inteligencia artificial aplicada: qué hacen de verdad estas herramientas y para qué trabajos sirven hoy.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -203,7 +203,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Inteligencia artificial II</h3>
-      <p>La segunda mitad, donde la IA deja de ser una curiosidad y se mete en el flujo de trabajo de…</p>
+      <p>La segunda mitad, donde la IA deja de ser una curiosidad y se mete en el flujo de trabajo de todos los días.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -215,7 +215,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Photoshop</h3>
-      <p>El programa con el que se retoca y se compone una imagen, y que sigue siendo el estándar de la…</p>
+      <p>El programa con el que se retoca y se compone una imagen, y que sigue siendo el estándar de la industria treinta años después.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -227,7 +227,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Branding</h3>
-      <p>La identidad de una marca: cómo se llama, cómo se ve, cómo suena y por qué alguien la reconoce…</p>
+      <p>La identidad de una marca: cómo se llama, cómo se ve, cómo suena y por qué alguien la reconoce sin leer el nombre.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -239,7 +239,7 @@
     </div>
     <div class="mod-cuerpo">
       <h3>Illustrator</h3>
-      <p>El dibujo vectorial: logotipos, iconos y todo lo que tiene que verse igual de nítido en una…</p>
+      <p>El dibujo vectorial: logotipos, iconos y todo lo que tiene que verse igual de nítido en una tarjeta y en una valla.</p>
       <p class="mod-pie">13 con este certificado</p>
     </div>
   </a>
@@ -280,16 +280,17 @@
          páginas no cargan app.js, así que un campo que necesitara JS aquí
          sería un campo muerto.
 
+         El marcador del campo es corto —«Código o cédula»— porque en un móvil
+         de 390 px el campo mide 225 y el nombre largo se cortaba a la mitad.
+         El nombre entero sigue en el aria-label, que es lo que oye quien usa
+         lector de pantalla, y en el pie de debajo.
+
          Sin comillas invertidas en este comentario: está DENTRO de una
          plantilla de JavaScript, y una sola cierra la cadena a mitad. -->
     <form class="verificar-aqui" action="https://escuelacem.com/plataforma/verificar.html" method="get">
       <label for="codigoPortada" class="ojal" style="margin-bottom:var(--e0)">
         Compruébalo ahora</label>
       <div class="verificar-fila">
-        <!-- El marcador es corto porque en un móvil de 390 px el campo mide
-             225 y «Código del certificado o cédula» se cortaba en «…o». El
-             nombre largo sigue entero en el aria-label, que es lo que oye
-             quien usa lector de pantalla, y en el pie de debajo. -->
         <input type="search" id="codigoPortada" name="codigo" required
           placeholder="Código o cédula"
           aria-label="Código del certificado o cédula">

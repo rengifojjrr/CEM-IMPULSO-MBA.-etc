@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-03-3">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-03-4">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-03-3">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-03-4">
 <style>
   /* Las marcas de «ya recibió este mensaje». Van dentro de la celda, así que
      no dibujan caja: heredan la de la fila. */
@@ -57,6 +57,12 @@
      el móvil salía «134636 62418» en dos líneas, que no se lee ni se copia. */
   #tb a[href^="tel:"]{white-space:nowrap;}
   #tb a[href^="mailto:"]{overflow-wrap:anywhere;}
+  /* El enlace de WhatsApp en la tabla: en su renglón y con el icono pegado,
+     para que se distinga de un vistazo del correo y del teléfono. */
+  .wa-enlace{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+    font-weight:var(--peso-fuerte);}
+  .wa-enlace .material-symbols-outlined{font-size:17px;}
+  .wa-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
 
   /* sin-caja: la barra vive dentro de la tarjeta de filtros y hereda la suya;
      lo único propio es la raya de arriba que la separa de los filtros. */
@@ -191,8 +197,8 @@
 <script type="module">
 import { sb, mount, $, $$, esc, fdate, fdatetime, kpi, num, emptyRow, match, modal,
          ok, chipEstado, etiqueta, mensajeError, montarAyudas, avisar, ocupado,
-         confirmDialog } from '../assets/app.js?v=2026-09-03-3';
-import { barras } from '../assets/graficos.js?v=2026-09-03-3';
+         confirmDialog } from '../assets/app.js?v=2026-09-03-4';
+import { barras } from '../assets/graficos.js?v=2026-09-03-4';
 const p = await mount({ require: ['cobranza', 'coordinador', 'admin', 'superadmin'],
                         active: 'leads.html', area: 'admin' });
 let filas = [];
@@ -273,6 +279,52 @@ async function cargar() {
   montarAyudas();
 }
 
+/* ── escribirle por WhatsApp, que es por donde de verdad se contesta ───────
+   Había «mailto:» y «tel:» y nada más. En Venezuela, llamar por teléfono a
+   alguien que dejó su número en una web es la vía menos probable de las tres,
+   y el correo es la segunda. La primera es WhatsApp, y era justo la que
+   faltaba, teniendo el número ya guardado en la ficha.
+
+   El número hay que normalizarlo porque la gente lo escribe de cinco maneras.
+   wa.me sólo acepta dígitos con código de país y sin «+»:
+
+     0412 1234567   → 584121234567   (local con el cero de salida)
+     +58 412-123 45 67 → 584121234567
+     412 1234567    → 584121234567   (sin cero ni país)
+
+   Si no se puede saber, se devuelve null y no se pinta el botón: un enlace de
+   WhatsApp a un número mal formado abre la aplicación con un error, y eso es
+   peor que no ofrecerlo. */
+function paraWhatsApp(tel) {
+  const d = String(tel || '').replace(/\D/g, '');
+  if (!d) return null;
+  if (d.startsWith('58') && d.length === 12) return d;          // ya viene con país
+  if (d.startsWith('0') && d.length === 11) return '58' + d.slice(1);
+  if (d.length === 10 && d.startsWith('4')) return '58' + d;    // móvil sin cero
+  if (d.length >= 11 && d.length <= 15) return d;               // de otro país, tal cual
+  return null;
+}
+
+/** El primer mensaje, ya escrito. Lo que frena a quien tiene que contestar
+    veinte contactos no es abrir WhatsApp: es pensar cómo empezar cada uno. */
+function saludoWhatsApp(x) {
+  const nombre = String(x.nombre || '').trim().split(/\s+/)[0] || '';
+  const porQue = x.interes ? `por ${x.interes}` : 'por los diplomados del CEM';
+  return `Hola${nombre ? ' ' + nombre : ''}, te escribo del CEM International. `
+    + `Nos dejaste tus datos en la web preguntando ${porQue}. `
+    + '¿Te cuento cómo funciona y cuándo arranca la próxima promoción?';
+}
+
+/** El enlace entero, o cadena vacía si no hay número que valga. */
+function enlaceWhatsApp(x, { texto = 'WhatsApp', clase = '' } = {}) {
+  const n = paraWhatsApp(x.telefono);
+  if (!n) return '';
+  return `<a class="${clase}" target="_blank" rel="noopener"
+    href="https://wa.me/${n}?text=${encodeURIComponent(saludoWhatsApp(x))}"
+    title="Escribirle por WhatsApp con el saludo ya puesto">
+    <span class="material-symbols-outlined" aria-hidden="true">chat</span>${esc(texto)}</a>`;
+}
+
 const recibio = (leadId, clave) => (ENVIOS[leadId] || []).find((e) => e.clave === clave);
 const cuantosMateriales = (leadId) => (MATERIALES[leadId] || []).length;
 
@@ -344,7 +396,8 @@ function render() {
       : '<span class="tiny muted">—</span>'}</td>
     <td class="wrap" data-col="Cómo contactarle">
       ${x.email ? `<a href="mailto:${esc(x.email)}">${esc(x.email)}</a><br>` : ''}
-      ${x.telefono ? `<a href="tel:${esc(x.telefono.replace(/\s/g, ''))}">${esc(x.telefono)}</a>` : ''}</td>
+      ${x.telefono ? `<a href="tel:${esc(x.telefono.replace(/\s/g, ''))}">${esc(x.telefono)}</a>` : ''}
+      ${enlaceWhatsApp(x, { texto: 'Escribirle', clase: 'wa-enlace' })}</td>
     <td class="wrap" data-col="Ya recibió">${suyos.length
       ? `<div class="sellos">${suyos.map((e) =>
           `<span class="chip ok" title="Salió el ${fdatetime(e.cuando)}">${esc(e.nombre)}</span>`).join('')}</div>`
@@ -468,6 +521,8 @@ function ficha(x) {
         <div><b class="tiny">Teléfono</b><div>${x.telefono
           ? `<a href="tel:${esc(x.telefono.replace(/\s/g, ''))}">${esc(x.telefono)}</a>` : '<span class="muted">—</span>'}</div></div>
       </div>
+      ${enlaceWhatsApp(x, { texto: 'Escribirle por WhatsApp', clase: 'btn block sep wa-btn' })
+        || '<p class="tiny muted sep">Sin un teléfono válido no se puede abrir WhatsApp.</p>'}
       <div class="sep"><b class="tiny">Qué le interesa</b>
         <div>${esc(x.interes || 'No lo dijo')}</div></div>
       ${x.mensaje ? `<div class="sep"><b class="tiny">Lo que escribió</b>

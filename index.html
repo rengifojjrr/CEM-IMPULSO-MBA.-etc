@@ -277,16 +277,17 @@
          páginas no cargan app.js, así que un campo que necesitara JS aquí
          sería un campo muerto.
 
+         El marcador del campo es corto —«Código o cédula»— porque en un móvil
+         de 390 px el campo mide 225 y el nombre largo se cortaba a la mitad.
+         El nombre entero sigue en el aria-label, que es lo que oye quien usa
+         lector de pantalla, y en el pie de debajo.
+
          Sin comillas invertidas en este comentario: está DENTRO de una
          plantilla de JavaScript, y una sola cierra la cadena a mitad. -->
     <form class="verificar-aqui" action="https://escuelacem.com/plataforma/verificar.html" method="get">
       <label for="codigoPortada" class="ojal" style="margin-bottom:var(--e0)">
         Compruébalo ahora</label>
       <div class="verificar-fila">
-        <!-- El marcador es corto porque en un móvil de 390 px el campo mide
-             225 y «Código del certificado o cédula» se cortaba en «…o». El
-             nombre largo sigue entero en el aria-label, que es lo que oye
-             quien usa lector de pantalla, y en el pie de debajo. -->
         <input type="search" id="codigoPortada" name="codigo" required
           placeholder="Código o cédula"
           aria-label="Código del certificado o cédula">
