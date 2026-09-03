@@ -1227,6 +1227,11 @@ const STUDENT_NAV = [
   ['pagos.html', 'payments', 'Mis pagos'],
   ['biblioteca.html', 'local_library', 'Biblioteca'],
   ['certificados.html', 'workspace_premium', 'Certificados'],
+  /* Los cupones tienen entrada propia y no un rincón dentro de Mis pagos.
+     Quien consiguió un descuento se acuerda de que lo tiene y va a buscarlo por
+     su nombre; si está escondido dentro de otra pantalla, no lo encuentra y no
+     lo usa — y un descuento que no se usa no trajo a nadie. */
+  ['cupones.html', 'local_activity', 'Mis cupones'],
   ['perfil.html', 'account_circle', 'Mi perfil'],
   /* «Mis datos» ya no está en el menú, y no porque haya dejado de importar.
      ─────────────────────────────────────────────────────────────────────
@@ -2585,7 +2590,21 @@ function seguirElRaton() {
    siguiente campaña es otra oferta y merece su oportunidad; no «en cada
    página», porque eso es acoso. */
 const LLAVE_PROMO = 'cemPromoCerrada';
+/* La promoción, como botón flotante y no como franja pegada abajo.
+   ═══════════════════════════════════════════════════════════════════════════
+   Era una barra que ocupaba el ancho entero de la pantalla y empujaba todo lo
+   demás hacia arriba. Tres problemas, y los tres se veían: tapaba el final de
+   la página, obligaba a Cemi y al botón de contacto a apartarse —con su cuenta
+   de píxeles y su ResizeObserver para no chocar—, y siendo tan ancha se leía
+   como uno de esos avisos de galletas que uno cierra sin mirar.
 
+   Ahora son dos estados. Cerrada es una pastilla pequeña que enseña el gancho
+   —«10 % OFF»— y nada más. Al pulsarla se abre una tarjeta con el formulario.
+   Ocupa la esquina y no la pantalla, así que no hay nada que apartar.
+
+   Se apila SOBRE el botón de contacto, en la misma columna de la izquierda:
+   dos cosas en la misma esquina se ordenan una encima de otra, no una tapando
+   a la otra. Cemi se queda solo a la derecha. */
 async function montarLaPromocion() {
   const pantalla = (location.pathname.split('/').pop() || 'inicio')
     .replace('.html', '') || 'inicio';
@@ -2602,56 +2621,60 @@ async function montarLaPromocion() {
     : c.premio_tipo === 'descuento_fijo' ? `${c.premio_valor} de descuento`
     : (c.premio_texto || 'un regalo');
 
-  const barra = document.createElement('div');
-  barra.className = 'promo-barra';
-  barra.innerHTML = `
-    <div class="promo-dentro">
-      <div class="promo-dicho">
-        <b>${esc(c.titular || premio)}</b>
-        ${c.explicacion ? `<span>${esc(c.explicacion)}</span>` : ''}
-        ${/* Las plazas, sólo si el cupo es de verdad. Nunca un número inventado. */''}
-        ${c.quedan != null ? `<span class="promo-quedan">Quedan ${c.quedan}
-          ${c.quedan === 1 ? 'plaza' : 'plazas'}</span>` : ''}
-      </div>
-      <form class="promo-forma" id="promoForma">
-        <input type="email" id="promoEmail" required placeholder="Tu correo"
-          autocomplete="email" aria-label="Tu correo">
-        <button class="btn" type="submit">${esc(c.boton || 'Lo quiero')}</button>
-      </form>
-      <button class="icon-btn promo-x" id="promoX" title="Cerrar"
+  const caja = document.createElement('div');
+  caja.className = 'promo-flota';
+  caja.innerHTML = `
+    <div class="promo-panel" id="promoPanel" hidden>
+      <button class="icon-btn promo-x" id="promoX" title="Cerrar la promoción"
         aria-label="Cerrar la promoción">
         <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
-    </div>`;
-  document.body.appendChild(barra);
-  requestAnimationFrame(() => barra.classList.add('se-ve'));
+      <div class="promo-cuerpo" id="promoCuerpo">
+        <span class="promo-sello">${esc(c.titular || premio)}</span>
+        ${c.explicacion ? `<p class="promo-linea">${esc(c.explicacion)}</p>` : ''}
+        ${/* Las plazas, sólo si el cupo es de verdad. Nunca un número inventado. */''}
+        ${c.quedan != null ? `<p class="promo-quedan">Quedan ${c.quedan}
+          ${c.quedan === 1 ? 'plaza' : 'plazas'}</p>` : ''}
+        <form class="promo-forma" id="promoForma">
+          <input type="email" id="promoEmail" required placeholder="Tu correo"
+            autocomplete="email" aria-label="Tu correo">
+          <button class="btn block" type="submit">${esc(c.boton || 'Lo quiero')}</button>
+        </form>
+        <p class="promo-pie">Te lo mandamos por correo. No lo usamos para nada más.</p>
+      </div>
+    </div>
+    <button class="promo-pastilla" id="promoAbrir" aria-expanded="false"
+      aria-controls="promoPanel">
+      <span class="material-symbols-outlined" aria-hidden="true">redeem</span>
+      <span class="promo-pastilla-txt">${esc(c.titular || premio)}</span>
+    </button>`;
+  document.body.appendChild(caja);
+  requestAnimationFrame(() => caja.classList.add('se-ve'));
 
-  /* Apartar lo que ya vive abajo. Cemi está pegado abajo a la derecha y el
-     botón de contacto abajo a la izquierda: sin esto la barra les cae encima y
-     Cemi tapa justo el botón de la promoción. Se vio dibujando la pantalla, no
-     leyendo el código.
+  const panel = $('#promoPanel', caja);
+  const pastilla = $('#promoAbrir', caja);
 
-     Se mide la barra en vez de dar por buena una altura: en un teléfono se
-     apila en tres renglones y en escritorio va en uno, y una cifra fija estaría
-     mal en uno de los dos casos. Se vuelve a medir si cambia de tamaño —el
-     código conseguido ocupa distinto que el formulario—. */
-  const medir = () => document.documentElement.style
-    .setProperty('--promo-alto', `${barra.offsetHeight}px`);
-  medir();
-  document.body.classList.add('con-promo');
-  try { new ResizeObserver(medir).observe(barra); } catch { /* navegador viejo */ }
+  const abrir = (si) => {
+    panel.hidden = !si;
+    pastilla.setAttribute('aria-expanded', String(si));
+    if (si) $('#promoEmail', caja)?.focus();
+  };
+  pastilla.onclick = () => abrir(panel.hidden);
 
+  /* Cerrar es cerrar del todo, y se recuerda una semana. Quien la cerró ya
+     contestó que no; volver a enseñársela en la siguiente pantalla es la
+     manera más rápida de que deje de leer nada de esta casa. */
   const cerrar = () => {
-    barra.remove();
-    document.body.classList.remove('con-promo');
-    document.documentElement.style.removeProperty('--promo-alto');
+    caja.remove();
     try { localStorage.setItem(LLAVE_PROMO, JSON.stringify({ cuando: Date.now() })); } catch {}
   };
-  $('#promoX', barra).onclick = cerrar;
+  $('#promoX', caja).onclick = cerrar;
+  // Escape cierra el panel, no la promoción: no es lo mismo.
+  caja.addEventListener('keydown', (e) => { if (e.key === 'Escape') { abrir(false); pastilla.focus(); } });
 
-  $('#promoForma', barra).onsubmit = async (e) => {
+  $('#promoForma', caja).onsubmit = async (e) => {
     e.preventDefault();
-    const btn = $('button', e.target);
-    const email = $('#promoEmail', barra).value.trim();
+    const btn = $('button[type="submit"]', e.target);
+    const email = $('#promoEmail', caja).value.trim();
     btn.disabled = true;
     const { data, error } = await sb.rpc('cem_campana_pedir', {
       p_codigo: c.codigo, p_email: email,
@@ -2660,27 +2683,53 @@ async function montarLaPromocion() {
     });
     if (error) {
       btn.disabled = false;
-      $('.promo-dicho', barra).innerHTML = `<b>${esc(mensajeError(error))}</b>`;
+      avisar('#promoForma', mensajeError(error), 'err');
       return;
     }
-    /* El código, grande y copiable. Es lo único que la persona tiene que
-       llevarse de aquí, así que no compite con nada más. */
-    $('.promo-dentro', barra).innerHTML = `
-      <div class="promo-dicho">
-        <b>Tu código: <span class="promo-codigo">${esc(data.codigo)}</span></b>
-        <span>${esc(data.gracias || 'Guárdalo: se usa una sola vez.')}</span>
+
+    /* Un correo, un código. Y decirlo cuando se repite.
+       ─────────────────────────────────────────────────────────────────────
+       La base ya lo garantiza —hay un índice único por campaña y correo— y la
+       función devuelve el MISMO código en vez de uno nuevo. Lo que faltaba era
+       contarlo: enseñar «Tu código: X» sin más a quien acaba de pedirlo por
+       segunda vez le hace creer que ahora tiene dos, y que puede repartir uno.
+       Se dice que es el que ya tenía. */
+    const url = raizPublica();
+    $('#promoCuerpo', caja).innerHTML = `
+      <span class="material-symbols-outlined promo-tic" aria-hidden="true">check_circle</span>
+      <b class="promo-titulo">${data.repetido ? 'Ya tenías tu código' : '¡Listo! Éste es tuyo'}</b>
+      ${data.repetido
+        ? '<p class="promo-linea">Con este correo ya lo pediste, así que es el mismo de antes: '
+          + 'es uno por persona.</p>'
+        : `<p class="promo-linea">${esc(data.gracias || 'Guárdalo: se usa una sola vez.')}</p>`}
+      <div class="promo-codigo-caja">
+        <code class="promo-codigo">${esc(data.codigo)}</code>
+        <button class="icon-btn" id="promoCopiar" title="Copiar el código"
+          aria-label="Copiar el código">
+          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>
       </div>
-      <button class="btn outline" id="promoCopiar">
-        <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>
-      <button class="icon-btn promo-x" id="promoX2" title="Cerrar"
-        aria-label="Cerrar la promoción">
-        <span class="material-symbols-outlined" aria-hidden="true">close</span></button>`;
-    $('#promoCopiar', barra).onclick = async () => {
+      ${data.caduca_en ? `<p class="promo-quedan">Vale hasta el ${fdate(data.caduca_en)}</p>` : ''}
+
+      <!-- Y aquí es donde esto deja de ser un descuento y pasa a ser una cuenta.
+           ═════════════════════════════════════════════════════════════════
+           Quien acaba de dar su correo por un código está más dispuesto que
+           nunca a terminar el registro: ya dio el paso difícil. Si cierra la
+           pestaña, el código se pierde en un correo entre otros cuarenta. Con
+           cuenta, lo tiene guardado en «Mis cupones» el día que decida
+           inscribirse — que es cuando de verdad hace falta.
+           El correo va en la dirección para que no lo tenga que escribir otra
+           vez: el registro lo recoge de ahí. -->
+      <a class="btn block sep" href="${url}index.html?registro=1&correo=${encodeURIComponent(email)}">
+        <span class="material-symbols-outlined" aria-hidden="true">bookmark_added</span>
+        Guardarlo en mi cuenta</a>
+      <p class="promo-pie">Así lo tienes a mano cuando te inscribas, sin buscar el correo.</p>`;
+    $('#promoCopiar', caja).onclick = async () => {
       try { await navigator.clipboard.writeText(data.codigo); ok('Código copiado.'); }
       catch { toast('Cópialo a mano: ' + data.codigo); }
     };
-    $('#promoX2', barra).onclick = cerrar;
-    medir();
+    /* La pastilla deja de vender y pasa a recordar: quien ya lo tiene no
+       necesita que le vuelvan a ofrecer lo mismo. */
+    $('.promo-pastilla-txt', caja).textContent = 'Tu código';
   };
 }
 

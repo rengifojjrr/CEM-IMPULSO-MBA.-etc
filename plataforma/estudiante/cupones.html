@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Mis cupones y descuentos</title>
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="../assets/icono-180.png?v=2026-09-03">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-03">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-03">
+<style>
+  /* El cupón se dibuja como un cupón: el descuento grande a la izquierda y el
+     código a la derecha, con el filete de por medio donde se «cortaría». Es una
+     forma que todo el mundo reconoce sin que haya que explicarla.
+
+     El relleno lo pone esta clase, no `caja`: `caja` da fondo, filete y
+     esquinas, y nada más. Ver la comprobación 13 de revisar.mjs. */
+  .cupon{display:flex;align-items:stretch;overflow:hidden;padding:0;}
+  .cupon-valor{flex:none;width:132px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2px;padding:var(--e2);
+    background:var(--gold-suave);color:var(--gold);text-align:center;
+    border-right:1px dashed var(--filete-fuerte);}
+  .cupon-valor b{font-size:var(--t-xl);line-height:1.05;font-variant-numeric:tabular-nums;}
+  .cupon-valor span{font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+    text-transform:uppercase;letter-spacing:.06em;}
+  .cupon-cuerpo{flex:1;min-width:0;padding:var(--e2) var(--e3);
+    display:flex;flex-direction:column;gap:var(--e0);justify-content:center;}
+  .cupon-cuerpo h3{margin:0;font-size:var(--t-md);}
+  .cupon-linea{display:flex;align-items:center;gap:var(--e1);flex-wrap:wrap;}
+  /* sin-caja: un valor en monoespaciada dentro de una línea, no un panel.
+     Con «caja» sería una tarjeta dentro de otra tarjeta. */
+  .cupon-codigo{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:var(--t-md);font-weight:600;letter-spacing:.04em;
+    background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r-sm);
+    padding:5px 10px;}
+
+  /* Gastado o caducado no se esconde: se apaga. Esconderlo haría dudar de si
+     el cupón existió; apagarlo cuenta lo que pasó. */
+  .cupon.gastado{opacity:.62;}
+  .cupon.gastado .cupon-valor{background:var(--hueco);color:var(--tinta-3);
+    border-right-color:var(--filete);}
+
+  @media (max-width:520px){
+    .cupon{flex-direction:column;}
+    .cupon-valor{width:100%;flex-direction:row;gap:var(--e0);
+      border-right:0;border-bottom:1px dashed var(--filete-fuerte);}
+  }
+</style>
+</head>
+<body>
+<!-- `#page` y `hidden` porque mount() se lleva este bloque dentro de su
+     armazón buscándolo por ese id. Ver la comprobación 6b de revisar.mjs. -->
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Mis cupones y descuentos</h1>
+      <p>Los códigos que has conseguido, guardados aquí para cuando te inscribas.
+         Cada uno se usa una sola vez.</p></div>
+  </div>
+
+  <div id="lista"><span class="cargando"></span></div>
+</div>
+
+<script type="module">
+/* Mis cupones: dónde acaba el código que alguien pidió antes de tener cuenta.
+   ═══════════════════════════════════════════════════════════════════════════
+   Un cupón se pide en la web pública, sin cuenta, dejando un correo. Hasta hoy
+   el código vivía en ese correo y en ningún sitio más: el día que la persona
+   se decidía a inscribirse tenía que ir a buscarlo entre otros cuarenta
+   mensajes, y el que no lo encontraba no lo usaba.
+
+   Guardarlo aquí cierra el círculo, y de paso le da a la promoción una razón
+   honesta para pedir el registro: no «regístrate», sino «regístrate y no
+   pierdes tu descuento». Lo que enlaza el cupón con la persona es el CORREO,
+   que es lo único que había cuando lo pidió; de eso se encarga
+   `cem_mis_cupones`, que lo enlaza al leerlo. */
+import { sb, mount, $, esc, num, fdate, ok, toast, mensajeError }
+  from '../assets/app.js?v=2026-09-03';
+
+await mount({ require:['estudiante'], area:'estudiante', active:'cupones.html' });
+
+/** El premio, dicho como se lee. «descuento 15» no es nada; «15 %» sí. */
+function valorDe(c) {
+  if (c.premio_tipo === 'descuento') return { cifra:`${num(c.premio_valor)} %`, pie:'de descuento' };
+  if (c.premio_tipo === 'descuento_fijo') return { cifra:num(c.premio_valor), pie:'de descuento' };
+  return { cifra:'REGALO', pie:c.premio_tipo === 'sorteo' ? 'sorteo' : 'para ti' };
+}
+
+const ESTADOS = {
+  vigente:  { chip:'Disponible', clase:'ok',   gastado:false },
+  canjeado: { chip:'Ya usado',   clase:'',     gastado:true },
+  caducado: { chip:'Caducado',   clase:'warn', gastado:true },
+  anulado:  { chip:'Anulado',    clase:'err',  gastado:true },
+};
+
+function ficha(c) {
+  const v = valorDe(c);
+  const e = ESTADOS[c.estado] || ESTADOS.vigente;
+  return `<div class="caja cupon ${e.gastado ? 'gastado' : ''}">
+    <div class="cupon-valor">
+      <b>${esc(v.cifra)}</b><span>${esc(v.pie)}</span>
+    </div>
+    <div class="cupon-cuerpo">
+      <h3>${esc(c.titular || c.campana || 'Descuento del CEM')}</h3>
+      ${c.curso ? `<p class="tiny muted" style="margin:0">Para ${esc(c.curso)}</p>` : ''}
+      <div class="cupon-linea">
+        <code class="cupon-codigo">${esc(c.codigo)}</code>
+        <span class="chip ${e.clase}">${esc(e.chip)}</span>
+        ${!e.gastado ? `<button class="icon-btn" data-copiar="${esc(c.codigo)}"
+          title="Copiar el código" aria-label="Copiar el código">
+          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>` : ''}
+      </div>
+      <p class="tiny muted" style="margin:0">
+        ${c.estado === 'canjeado' && c.canjeado_en ? `Lo usaste el ${fdate(c.canjeado_en)}.`
+          : c.estado === 'caducado' ? `Venció el ${fdate(c.caduca_en)}.`
+          : c.caduca_en ? `Vale hasta el ${fdate(c.caduca_en)}.`
+          : 'Sin fecha de vencimiento.'}
+        ${!e.gastado ? ' Dínoslo al inscribirte y te lo aplicamos.' : ''}</p>
+    </div>
+  </div>`;
+}
+
+async function cargar() {
+  const { data, error } = await sb.rpc('cem_mis_cupones');
+  const caja = $('#lista');
+  if (error) {
+    caja.innerHTML = `<div class="nota err">${esc(mensajeError(error))}</div>`;
+    return;
+  }
+  const cupones = data || [];
+  if (!cupones.length) {
+    /* El hueco explica de dónde salen, porque quien llega aquí sin ninguno
+       normalmente no sabe que existen. */
+    caja.innerHTML = `<div class="card"><div class="empty">
+      <span class="material-symbols-outlined ico" aria-hidden="true">local_activity</span>
+      <b>Todavía no tienes ningún cupón</b>
+      <p>Los descuentos del CEM se consiguen en la web: cuando hay una promoción
+        abierta aparece un botón para pedir el tuyo, y el código se guarda aquí.</p>
+      <a class="btn" href="../catalogo.html">Ver el catálogo</a>
+    </div></div>`;
+    return;
+  }
+  const vivos = cupones.filter((c) => c.estado === 'vigente').length;
+  caja.innerHTML = (vivos
+    ? `<p class="nota ok" style="text-align:left">Tienes ${num(vivos)}
+        cupón${vivos === 1 ? '' : 'es'} sin usar. Dínoslo al inscribirte y te lo aplicamos
+        al total.</p>`
+    : '') + cupones.map(ficha).join('');
+
+  caja.querySelectorAll('[data-copiar]').forEach((b) => {
+    b.onclick = async () => {
+      try { await navigator.clipboard.writeText(b.dataset.copiar); ok('Código copiado.'); }
+      catch { toast('Cópialo a mano: ' + b.dataset.copiar); }
+    };
+  });
+}
+
+cargar();
+</script>
+</body>
+</html>

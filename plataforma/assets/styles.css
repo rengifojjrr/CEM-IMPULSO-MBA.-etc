@@ -3928,84 +3928,86 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
   .pub-header.estatica .pub-cta > .btn{flex:1;justify-content:center;}
 }
 
-/* La barra de promoción, abajo del todo.
+/* La promoción, flotando en la esquina.
    ═══════════════════════════════════════════════════════════════════════════
-   Abajo y no como ventana encima, a propósito. Un modal que tapa la página
-   antes de que la persona haya leído nada es lo que hace que se cierre la
-   pestaña, y encima Google penaliza el intersticial en móvil. Abajo se ve, se
-   puede ignorar, y no estorba para leer lo que se vino a leer.
+   Antes era una franja pegada al borde de abajo, de lado a lado. Ocupaba el
+   ancho entero para decir «10 % OFF», y a cambio: tapaba el final de la
+   página, obligaba a Cemi y al botón de contacto a apartarse —con su medición
+   de altura y su ResizeObserver para no chocar—, y por ancha se leía como uno
+   de esos avisos de galletas que se cierran sin mirar.
 
-   Entra deslizándose desde abajo y no de golpe: algo que aparece de la nada en
-   mitad de la lectura se lee como un error de la página. Con `translateY`, que
-   no obliga a recalcular la disposición — animar `bottom` sí, y en un móvil
-   viejo eso da tirones.
+   Ahora son dos estados en la esquina de abajo a la izquierda, apilados SOBRE
+   el botón de contacto —dos cosas en la misma esquina se ordenan, no se
+   tapan—. Cemi se queda solo a la derecha, y ya no hay nada que apartar: sin
+   `--promo-alto`, sin `body.con-promo`, sin observador.
 
-   La va a ver poca gente en escritorio y mucha en el teléfono, así que el
-   teléfono manda: en menos de 640 px se apila y el botón ocupa todo el ancho,
-   que es lo único que se puede pulsar sin mirar. */
-.promo-barra{position:fixed;left:0;right:0;bottom:0;z-index:60;
-  background:var(--panel,#fff);border-top:1px solid var(--filete);
-  box-shadow:0 -8px 32px -18px rgba(13,36,64,.45);
-  transform:translateY(110%);transition:transform .32s cubic-bezier(.22,1,.36,1);
-  padding-bottom:env(safe-area-inset-bottom,0);}
-.promo-barra.se-ve{transform:translateY(0);}
+     · Cerrada: una pastilla con el gancho y nada más.
+     · Abierta: una tarjeta de 300 px con el formulario.
+
+   El aviso de galletas se cierra sin mirar porque interrumpe. Éste no
+   interrumpe: está ahí, se ve, y se abre si interesa. */
+.promo-flota{position:fixed;left:18px;bottom:76px;z-index:56;
+  display:flex;flex-direction:column;align-items:flex-start;gap:var(--e1);
+  /* Entra deslizándose y no de golpe: algo que aparece de la nada en mitad de
+     la lectura se lee como un fallo de la página. `translateY` y no `bottom`
+     porque no obliga a recalcular la disposición. */
+  transform:translateY(14px);opacity:0;
+  transition:transform var(--entra,.24s) ease-out, opacity var(--entra,.24s) ease-out;}
+.promo-flota.se-ve{transform:none;opacity:1;}
 @media (prefers-reduced-motion:reduce){
-  .promo-barra{transition:none;}
+  .promo-flota{transition:none;transform:none;opacity:1;}
 }
 
-/* `relative` para que la X pueda anclarse a la esquina en el móvil. Sin esto
-   se ancla al primer padre posicionado que encuentre —que es la ventana— y en
-   una página con scroll se va a la esquina de la pantalla, lejos de la barra. */
-.promo-dentro{position:relative;max-width:1100px;margin:0 auto;display:flex;
-  align-items:center;gap:var(--e2);padding:var(--e2) var(--e3);}
-.promo-dicho{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
-.promo-dicho b{font-size:var(--t-md);line-height:1.25;}
-.promo-dicho span{font-size:var(--t-sm);color:var(--tinta-2);}
+/* La pastilla. Lleva el dorado de la casa —el color que esta casa reserva para
+   las credenciales y los premios— porque es lo único de la pantalla que regala
+   algo, y tiene que distinguirse del botón de contacto que lleva debajo. */
+.promo-pastilla{display:inline-flex;align-items:center;gap:var(--e0);
+  padding:11px 16px 11px 13px;border:0;border-radius:var(--r-full);cursor:pointer;
+  background:var(--gold);color:var(--on-gold);
+  font-size:var(--t-sm);font-weight:var(--peso-fuerte);font-family:inherit;
+  box-shadow:0 6px 20px -6px rgba(133,101,23,.55);
+  transition:transform var(--rapido);}
+.promo-pastilla:hover{transform:translateY(-2px);}
+.promo-pastilla:focus-visible{outline:2px solid var(--primary);outline-offset:3px;}
+.promo-pastilla .material-symbols-outlined{font-size:20px;}
 
-/* Las plazas que quedan, en el color de aviso. Sólo sale cuando el cupo es de
-   verdad, así que aquí puede permitirse llamar la atención sin mentir. */
-.promo-quedan{font-weight:var(--peso-fuerte);color:var(--primary)!important;
-  font-variant-numeric:tabular-nums;}
+/* El panel. 300 px: cabe un correo y un botón, y no tapa la pantalla de un
+   teléfono. `max-height` con desplazamiento propio por si la campaña trae una
+   explicación larga y unas plazas restantes. */
+.promo-panel{position:relative;width:min(300px, calc(100vw - 36px));
+  max-height:min(70vh, 520px);overflow:auto;
+  background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
+  box-shadow:var(--sombra);padding:var(--e3);
+  animation:subir var(--entra) ease-out;}
+.promo-x{position:absolute;top:6px;right:6px;}
+.promo-cuerpo{display:flex;flex-direction:column;gap:var(--e1);align-items:flex-start;}
 
-.promo-forma{display:flex;gap:8px;align-items:center;flex:none;}
-.promo-forma input{min-width:min(46vw,230px);}
-.promo-forma .btn{white-space:nowrap;}
+/* El gancho, grande. Es lo que hace que alguien se pare. */
+.promo-sello{font-size:var(--t-xl);font-weight:var(--peso-fuerte);
+  line-height:1.1;color:var(--gold);letter-spacing:-.01em;padding-right:26px;}
+.promo-titulo{font-size:var(--t-md);}
+.promo-linea{margin:0;font-size:var(--t-sm);color:var(--tinta-2);line-height:1.45;}
+.promo-pie{margin:0;font-size:var(--t-xs);color:var(--tinta-3);line-height:1.4;}
+.promo-quedan{margin:0;font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  color:var(--primary);}
+.promo-tic{font-size:34px;color:var(--ok);}
 
-/* El código conseguido: grande, monoespaciado y seleccionable de un golpe.
-   Es lo único que la persona tiene que llevarse, así que no compite con nada. */
-.promo-codigo{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  letter-spacing:.06em;background:var(--hueco);border:1px solid var(--filete);
-  border-radius:var(--r-sm);padding:2px 8px;user-select:all;}
+.promo-forma{display:flex;flex-direction:column;gap:var(--e1);width:100%;}
+.promo-forma input{width:100%;}
 
-.promo-x{flex:none;}
+/* El código conseguido: grande, en monoespaciada y con su botón de copiar al
+   lado. Es lo único que la persona tiene que llevarse, así que no compite con
+   nada. */
+.promo-codigo-caja{display:flex;align-items:center;gap:var(--e0);width:100%;
+  background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r-sm);
+  padding:8px 8px 8px 12px;}
+.promo-codigo{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:var(--t-md);font-weight:600;letter-spacing:.04em;color:var(--tinta);}
 
+/* En el teléfono la pastilla se queda con el texto —es el gancho, sin él no es
+   nada— pero el panel ocupa el ancho disponible menos los márgenes. */
 @media (max-width:640px){
-  .promo-dentro{flex-wrap:wrap;padding:var(--e2);gap:var(--e1);}
-  .promo-dicho{flex:1 1 100%;order:1;padding-right:34px;}
-  /* El `.btn` suelto es el «Copiar» que aparece con el código ya conseguido.
-     Sin nombrarlo aquí se queda en el orden 0 —el de fábrica— y sale ENCIMA
-     del código, ofreciendo copiar algo que todavía no se ha leído. Se vio
-     dibujando la pantalla; en escritorio, en una sola fila, no se nota. */
-  .promo-forma,
-  .promo-dentro > .btn{flex:1 1 100%;order:3;}
-  .promo-forma input{flex:1;min-width:0;}
-  /* La X, en la esquina y sin empujar el texto a otro renglón. */
-  .promo-x{order:2;position:absolute;top:8px;right:8px;}
+  .promo-flota{left:14px;right:14px;bottom:72px;}
+  .promo-panel{width:100%;}
 }
-
-/* Con la barra puesta, lo que ya vivía abajo se aparta.
-   ═══════════════════════════════════════════════════════════════════════════
-   Cemi está pegado abajo a la derecha y el botón de contacto abajo a la
-   izquierda. Sin esto la barra les cae encima, y en un móvil Cemi tapa justo
-   el botón de la promoción: el único que hay que pulsar. Se vio dibujando la
-   pantalla, no leyendo el código.
-
-   La altura la mide `app.js` y la deja en `--promo-alto`, porque la barra mide
-   distinto en un teléfono (tres renglones) que en escritorio (uno), y cambia
-   otra vez al enseñar el código conseguido. Un número fijo estaría mal en dos
-   de esos tres casos. El `12px` es el aire que ya tenían. */
-body.con-promo .chat-boton,
-body.con-promo .chat-panel{bottom:calc(var(--promo-alto,0px) + 12px);}
-body.con-promo .contacto-flotante{bottom:calc(var(--promo-alto,0px) + 12px);}
-/* Y que el pie no se quede debajo de la barra sin poder leerse. */
-body.con-promo{padding-bottom:var(--promo-alto,0px);}
+@media print{ .promo-flota{display:none;} }
