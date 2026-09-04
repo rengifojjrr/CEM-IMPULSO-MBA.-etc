@@ -245,6 +245,35 @@ export async function traerConvocatoria() {
   }
 }
 
+/**
+ * La convocatoria abierta de cada diplomado, por su apodo.
+ *
+ * Devuelve un objeto {apodo: convocatoria | null}. La base ya decide qué es
+ * «abierta» y ya hace la conversión a bolívares y dólares con la tasa del día,
+ * así que aquí no se calcula nada: sólo se pide.
+ *
+ * Si la base no contesta, todas quedan en null y las páginas salen con su
+ * estado vacío, que es una página correcta. Plantarse aquí dejaría el sitio
+ * sin regenerar por no poder pintar un precio.
+ */
+export async function traerConvocatorias(apodos) {
+  const salida = {};
+  await Promise.all(apodos.map(async (apodo) => {
+    salida[apodo] = null;
+    try {
+      const res = await fetch(`${BASE}/rest/v1/rpc/cem_convocatoria_de`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: CLAVE, Authorization: `Bearer ${CLAVE}` },
+        body: JSON.stringify({ p_diplomado: apodo }),
+      });
+      if (!res.ok) return;
+      const c = await res.json();
+      if (c && c.fecha) salida[apodo] = c;
+    } catch { /* sin convocatoria, la página sale igual */ }
+  }));
+  return salida;
+}
+
 export async function traerTemario() {
   const res = await fetch(`${BASE}/rest/v1/rpc/cem_temario_publico`, {
     method: 'POST',

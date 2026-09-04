@@ -34,7 +34,7 @@ import { writeFile, readFile, mkdir, readdir, rm } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { traerTemario, traerConvocatoria } from './temario.mjs';
+import { traerTemario, traerConvocatoria, traerConvocatorias } from './temario.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SITIO = 'https://escuelacem.com';
@@ -998,6 +998,89 @@ const tiraDeModulos = (dip, aqui) => `
       >${m.orden}</a>`).join('')}
   </nav>`;
 
+/** Un importe en bolívares, como se escribe en Venezuela: 93.280,80. */
+const bolivares = (n) => new Intl.NumberFormat('es-VE',
+  { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n));
+
+/** Una fecha larga y en letras: «15 de octubre de 2026». */
+const enLetras = (iso, conAno = true) => new Date(iso + 'T00:00:00')
+  .toLocaleDateString('es-ES', conAno
+    ? { day: 'numeric', month: 'long', year: 'numeric' }
+    : { day: 'numeric', month: 'long' });
+
+/* La tarjeta de compra del hero, que es el sitio más valioso de la página.
+   ═══════════════════════════════════════════════════════════════════════════
+   El hero del diplomado medía 473 px y TODO —título, descripción, píldoras y
+   botones— vivía en el 45 % izquierdo. Los ~700 px de la derecha eran degradado
+   y nada más. Domestika, Hotmart, Whop y Coursera ponen ahí exactamente esto:
+   precio, fecha, y un botón.
+
+   El precio no se escribe a mano, se pinta desde la base y con la tasa del BCV
+   del día, así que no puede quedarse viejo — que era el miedo por el que no se
+   publicaba. El bolívar manda porque es lo que la persona paga; el dólar va
+   pequeño y como equivalente, calculado bolívares ÷ tasa del dólar y NUNCA
+   asumiendo que un euro es un dólar: hoy 100 € son 115,90 $, no 100.
+
+   Sin convocatoria abierta no se deja el hueco en blanco ni se vuelve a
+   esconder el dato: se dice que no hay fecha todavía y se recoge un correo.
+   Eso también es una respuesta. */
+function tarjetaDeCompra(dip, conv) {
+  const cta = `<a class="btn block compra-cta" href="${SITIO}/contacto.html?d=${esc(dip.apodo)}"
+        >Inscribirme en el diplomado</a>`;
+  const garantias = `<ul class="compra-garantias">
+      <li><span class="material-symbols-outlined" aria-hidden="true">verified</span>
+        Certificado verificable</li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">videocam</span>
+        Clases en vivo, y quedan grabadas</li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+        Un certificado por cada módulo</li>
+    </ul>`;
+
+  if (!conv) {
+    return `<aside class="compra" aria-label="Próxima convocatoria">
+    <span class="ojal">Próxima convocatoria</span>
+    <p class="compra-sinfecha">Todavía no hay fecha confirmada.</p>
+    <p class="tiny muted">Déjanos tu correo y te avisamos en cuanto se abra, con el precio y el
+      horario. Sin más correos que ése.</p>
+    <form class="compra-avisame" data-diplomado="${esc(dip.apodo)}">
+      <label class="ojal" for="av-${esc(dip.apodo)}">Tu correo</label>
+      <div class="compra-avisame-fila">
+        <input type="email" id="av-${esc(dip.apodo)}" required autocomplete="email"
+          placeholder="tu@correo.com" aria-label="Tu correo electrónico">
+        <button class="btn" type="submit">Avísame</button>
+      </div>
+      <div class="compra-aviso" role="status" aria-live="polite"></div>
+    </form>
+    ${garantias}
+  </aside>`;
+  }
+
+  const quedan = conv.quedan != null && conv.cupos != null && conv.quedan > 0
+    ? `<p class="compra-cupos"><span class="material-symbols-outlined" aria-hidden="true">group</span>
+         Quedan ${conv.quedan} de ${conv.cupos} cupos</p>` : '';
+
+  const precio = conv.precio_bs != null
+    ? `<p class="compra-precio"><span class="compra-moneda">Bs</span>${esc(bolivares(conv.precio_bs))}</p>
+       <p class="compra-equivale">${conv.precio_usd != null
+          ? `≈ $${esc(bolivares(conv.precio_usd))} · ` : ''}${esc(conv.precio_eur)} €
+         <span class="compra-tasa">Tasa BCV del ${esc(enLetras(conv.tasa_fecha, false))}</span></p>`
+    : `<p class="compra-precio-pendiente">Escríbenos por el precio de esta convocatoria.</p>`;
+
+  return `<aside class="compra" aria-label="Convocatoria abierta">
+    <span class="ojal">Empieza el ${esc(enLetras(conv.fecha, false))}</span>
+    ${conv.titulo ? `<p class="compra-titulo">${esc(conv.titulo)}</p>` : ''}
+    ${precio}
+    <ul class="compra-datos">
+      <li>${dip.modulos.length} módulos${conv.horario ? ` · ${esc(conv.horario)}` : ''}</li>
+      ${conv.modalidad ? `<li>${esc(conv.modalidad)}</li>` : ''}
+    </ul>
+    ${quedan}
+    ${cta}
+    ${conv.nota ? `<p class="tiny muted compra-nota">${esc(conv.nota)}</p>` : ''}
+    ${garantias}
+  </aside>`;
+}
+
 /** La próxima convocatoria, dicha en una línea. O nada.
  *
  *  Es la urgencia legítima que pide el punto 3.4 de la auditoría: no un reloj
@@ -1174,6 +1257,7 @@ function paginaDelModulo(mod, dip, temario) {
    el formulario al 89 % del desplazamiento. El ancla ya existía en
    nosotros.html; lo que faltaba eran nueve caracteres aquí. */
 function paginaDelDiplomado(dip, temario) {
+  const conv = (temario.convocatorias || {})[dip.apodo] || null;
   const url = `${SITIO}/programas/${dip.apodo}.html`;
   /* «en Caracas» dentro del título y no al final: es lo que se teclea —«curso
      de marketing digital en Caracas»— y si va al final, se corta. El nombre
@@ -1208,17 +1292,16 @@ function paginaDelDiplomado(dip, temario) {
 
   const color = dip.modulos[0]?.color || '#0091FF';
   const cuerpo = `
-<section class="portada-cem cabecera-tema" style="--mod-color:${color}">
-  <div class="dentro">
-    ${migas(pasos)}
-    <span class="ojal">Diplomado · 8 módulos · certificado por módulo</span>
-    <h1 class="titular-largo">${esc(dip.nombre)}</h1>
-    <p class="lema">${esc(dip.que)}</p>
-    ${tiraDeModulos(dip)}
-    ${lineaConvocatoria(temario) ? `<p class="convocatoria">${lineaConvocatoria(temario)}</p>` : ''}
-    <div class="portada-manos" style="margin-top:var(--e3)">
-      <a class="btn" href="${SITIO}/contacto.html?d=${esc(dip.apodo)}">Inscribirme en el diplomado</a>
+<section class="portada-cem cabecera-tema hero-compra" style="--mod-color:${color}">
+  <div class="dentro hero-dos">
+    <div class="hero-dicho">
+      ${migas(pasos)}
+      <span class="ojal">Diplomado · ${dip.modulos.length} módulos · certificado por módulo</span>
+      <h1 class="titular-largo">${esc(dip.nombre)}</h1>
+      <p class="lema">${esc(dip.que)}</p>
+      ${tiraDeModulos(dip)}
     </div>
+    ${tarjetaDeCompra(dip, conv)}
   </div>
 </section>
 
@@ -1246,7 +1329,49 @@ function paginaDelDiplomado(dip, temario) {
 
 ${bloqueCertificado(temario)}`;
 
-  return pagina({ titulo, descripcion, url, cuerpo, jsonLd, activa: 'programas', profundidad: 1 });
+  const html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, activa: 'programas', profundidad: 1 });
+
+  /* El «avísame» del estado sin fecha, sin app.js. Guarda el correo como un
+     contacto normal, con el diplomado por el que preguntó, para que quien
+     abra Contactos vea exactamente a quién avisar cuando abra la convocatoria. */
+  return html.replace('</body>', `<script>
+(function () {
+  var f = document.querySelector('.compra-avisame');
+  if (!f) return;
+  var aviso = f.querySelector('.compra-aviso');
+  var di = function (clase, texto) {
+    aviso.innerHTML = '<div class="nota ' + clase + ' sep"></div>';
+    aviso.firstChild.textContent = texto;
+  };
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var campo = f.querySelector('input');
+    var correo = campo.value.trim();
+    if (!correo || correo.indexOf('@') < 1) { di('err', 'Escribe un correo para poder avisarte.'); return; }
+    var boton = f.querySelector('button');
+    boton.disabled = true;
+    di('', 'Un momento…');
+    fetch('${BASE}/rest/v1/rpc/cem_dejar_contacto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: '${CLAVE}',
+                 Authorization: 'Bearer ${CLAVE}' },
+      body: JSON.stringify({
+        p_nombre: 'Avisar cuando abra', p_email: correo,
+        p_interes: f.dataset.diplomado,
+        p_mensaje: 'Pidió que le avisen cuando se abra la convocatoria.',
+        p_origen: 'aviso-convocatoria'
+      })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('');
+      f.reset();
+      di('ok', 'Apuntado. Te escribimos en cuanto haya fecha.');
+    }).catch(function () {
+      di('err', 'No se pudo guardar. Inténtalo otra vez en un momento.');
+    }).then(function () { boton.disabled = false; });
+  });
+})();
+</script>
+</body>`);
 }
 
 /* Las preguntas que de verdad se hacen, con las respuestas que de verdad sé.
@@ -1293,9 +1418,10 @@ const PREGUNTAS = (t) => [
      segunda de la lista y con la respuesta ampliada. Dos preguntas distintas
      con la misma respuesta le dicen a Google que la página se repite. */
   ['¿Cuánto cuesta y cuándo empieza la próxima promoción?',
-   'El precio y las fechas cambian con cada convocatoria, así que no los publicamos aquí para '
-   + 'no dejar un dato viejo. Escríbenos desde la página de contacto y te decimos los de la '
-   + 'convocatoria abierta.'],
+   'El precio y la fecha están publicados en la página de cada diplomado, arriba a la derecha. '
+   + 'El precio se enseña en bolívares a la tasa del BCV del día —se actualiza sola, así que no '
+   + 'se queda vieja— con su equivalente en dólares al lado. Si un diplomado todavía no tiene '
+   + 'fecha, lo dice y puedes dejar tu correo para que te avisemos en cuanto se abra.'],
   ['Perdí mi certificado. ¿Me lo pueden volver a dar?',
    'Sí. El certificado no vive sólo en el papel: está registrado con su código. Escríbenos con '
    + 'tu nombre y tu cédula y te lo volvemos a emitir con el mismo código.'],
@@ -1346,8 +1472,9 @@ function paginaDeContacto(temario) {
     ${migas(pasos)}
     <span class="ojal">Hablemos</span>
     <h1 style="margin-top:var(--e0)">Escríbenos y te contestamos</h1>
-    <p class="entrada">Dinos qué te interesa y te respondemos con el precio, las fechas y el
-      horario de la convocatoria que esté abierta. Normalmente el mismo día.</p>
+    <p class="entrada">Dinos qué te interesa y te contestamos, normalmente el mismo día. El
+      precio y la fecha de cada diplomado están publicados en
+      <a href="${SITIO}/programas/">su página</a>; aquí resolvemos lo que no esté ahí.</p>
 
     <form class="card contacto-form" id="f" novalidate>
       <div class="field"><label for="cNombre">Tu nombre</label>
@@ -1503,12 +1630,11 @@ function paginaDePreguntas(temario) {
 
   <div class="caja" style="padding:var(--e3);margin-top:var(--e3);text-align:center">
     <h2 style="margin-top:0">¿No está tu pregunta?</h2>
-    <p class="entrada" style="margin-inline:auto">Escríbenos y te contestamos con el
-      precio, las fechas y el horario de la convocatoria que esté abierta.</p>
+    <p class="entrada" style="margin-inline:auto">Escríbenos y te contestamos, normalmente el
+      mismo día. El precio y las fechas ya están en la página de cada diplomado.</p>
     <div class="portada-manos" style="justify-content:center;margin-bottom:0">
-      <a class="btn" href="${SITIO}/plataforma/nosotros.html#contacto">
-        Pedir información</a>
-      <a class="btn outline" href="${SITIO}/programas/">Ver los programas</a>
+      <a class="btn" href="${SITIO}/contacto.html">Escribirnos</a>
+      <a class="btn outline" href="${SITIO}/programas/">Ver los diplomados y sus precios</a>
     </div>
   </div>
 </main>`;
@@ -1832,6 +1958,7 @@ async function main() {
      firma de las seis funciones que pintan páginas: todas reciben ya el
      temario. Null cuando no hay fecha o ya pasó — lo decide la base. */
   temario.convocatoria = await traerConvocatoria();
+  temario.convocatorias = await traerConvocatorias(temario.diplomados.map((d) => d.apodo));
   const [cursosCrudos, modulos, lecciones, cohortes] = await Promise.all([
     traer('cem_courses?select=*&estado=eq.publicado&order=destacado.desc,nombre.asc'),
     traer('cem_modules?select=id,course_id,titulo,descripcion,orden'),

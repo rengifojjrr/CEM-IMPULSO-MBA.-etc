@@ -1281,6 +1281,66 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
    Abajo a la izquierda, no a la derecha: en las públicas la derecha es de
    Cemi, y dos burbujas peleándose por la misma esquina es lo que hace que no
    se pulse ninguna. En el teléfono se queda sólo el icono. */
+/* El hero del diplomado, en dos columnas.
+   ═══════════════════════════════════════════════════════════════════════════
+   Medía 473 px con TODO el contenido en el 45 % izquierdo y ~700 px de
+   degradado a la derecha. Ahí va ahora la tarjeta de compra, que es lo que
+   ponen Domestika, Hotmart, Whop y Coursera en ese mismo sitio.
+
+   `minmax(0,1fr)` en la columna del texto y no `1fr` a secas: sin el mínimo en
+   cero, una palabra larga del titular ensancha la columna y estruja la tarjeta.
+   La tarjeta se pide 340 px y no crece: es un panel, no una columna de texto. */
+.hero-dos{display:grid;gap:var(--e4);align-items:start;
+  grid-template-columns:minmax(0,1fr) 340px;}
+.hero-dicho{min-width:0;}
+
+.compra{background:var(--papel);border:1px solid var(--filete);
+  border-radius:var(--r-lg,14px);padding:var(--e3);
+  box-shadow:var(--sombra-2,0 6px 24px rgba(13,36,64,.10));
+  position:sticky;top:88px;}
+.compra .ojal{display:block;color:var(--gold);}
+.compra-titulo{margin:var(--e0) 0 0;font-weight:var(--peso-fuerte);}
+
+/* El bolívar manda porque es lo que se paga; el resto es contexto. */
+.compra-precio{margin:var(--e1) 0 2px;font-family:var(--cifra);
+  font-size:var(--t-2xl,32px);font-weight:var(--peso-fuerte);line-height:1.1;
+  color:var(--primary);font-variant-numeric:tabular-nums;}
+.compra-precio .compra-moneda{font-family:var(--fuente,inherit);font-size:var(--t-lg);
+  font-weight:var(--peso-fuerte);margin-right:6px;letter-spacing:0;}
+.compra-equivale{margin:0;font-size:var(--t-sm);color:var(--tinta-2);}
+.compra-tasa{display:block;font-size:var(--t-xs);color:var(--tinta-3);margin-top:2px;}
+.compra-precio-pendiente{margin:var(--e1) 0;font-size:var(--t-sm);color:var(--tinta-2);}
+
+.compra-datos{list-style:none;margin:var(--e2) 0 0;padding:0;display:grid;gap:4px;
+  font-size:var(--t-sm);color:var(--tinta-2);}
+.compra-cupos{display:flex;align-items:center;gap:6px;margin:var(--e1) 0 0;
+  font-size:var(--t-sm);font-weight:var(--peso-fuerte);color:var(--gold);}
+.compra-cupos .material-symbols-outlined{font-size:18px;}
+.compra-cta{margin-top:var(--e2);}
+.compra-nota{margin-top:var(--e1);}
+
+.compra-garantias{list-style:none;margin:var(--e2) 0 0;padding:var(--e2) 0 0;
+  border-top:1px solid var(--filete);display:grid;gap:8px;
+  font-size:var(--t-sm);color:var(--tinta-2);}
+.compra-garantias li{display:flex;align-items:flex-start;gap:8px;}
+.compra-garantias .material-symbols-outlined{font-size:18px;color:var(--secondary);
+  flex:none;margin-top:1px;}
+
+/* Sin fecha todavía: se dice, y se recoge un correo. Nunca un hueco en blanco. */
+.compra-sinfecha{margin:var(--e0) 0 var(--e1);font-weight:var(--peso-fuerte);
+  font-size:var(--t-lg);}
+.compra-avisame{margin-top:var(--e2);}
+.compra-avisame-fila{display:flex;gap:8px;}
+.compra-avisame-fila input{flex:1;min-width:0;}
+.compra-aviso:empty{display:none;}
+
+@media (max-width:900px){
+  /* En el teléfono la tarjeta se apila DEBAJO del título, que es donde la
+     ponen las referencias: primero qué es, después cuánto cuesta. */
+  .hero-dos{grid-template-columns:minmax(0,1fr);gap:var(--e3);}
+  .compra{position:static;}
+}
+
 /* La página de contacto, que hasta hoy era un 404. */
 .contacto-form{margin-top:var(--e3);}
 /* `card` ya trae su relleno; aquí sólo la separación. */
