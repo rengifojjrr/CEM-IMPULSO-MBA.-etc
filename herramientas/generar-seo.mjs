@@ -796,7 +796,7 @@ ${temario.diplomados.map((d, i) => `
 
         <div class="portada-manos" style="margin-bottom:0">
           <a class="btn" href="${SITIO}/programas/${d.apodo}.html">
-            Ver el temario y los ${d.modulos.length} certificados</a>
+            Ver el diplomado de ${esc(d.corto)}</a>
         </div>
       </div>
     </article>
@@ -1217,9 +1217,7 @@ function paginaDelDiplomado(dip, temario) {
     ${tiraDeModulos(dip)}
     ${lineaConvocatoria(temario) ? `<p class="convocatoria">${lineaConvocatoria(temario)}</p>` : ''}
     <div class="portada-manos" style="margin-top:var(--e3)">
-      <a class="btn" href="${SITIO}/plataforma/nosotros.html#contacto">Preguntar por la próxima
-        promoción</a>
-      <a class="btn outline" href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
+      <a class="btn" href="${SITIO}/contacto.html?d=${esc(dip.apodo)}">Inscribirme en el diplomado</a>
     </div>
   </div>
 </section>
@@ -1269,7 +1267,8 @@ const PREGUNTAS = (t) => [
    `En Caracas ${ESCUELA.codigoPostal}, estado ${ESCUELA.region}, ${ESCUELA.paisNombre}. Desde `
    + `${ESCUELA.fundada} expide desde aquí sus certificados: los ${t.totales.certificados} `
    + 'emitidos hasta hoy llevan Caracas como lugar de expedición. Para la dirección exacta de '
-   + 'la sede y el horario de atención, escríbenos desde la página de contacto.'],
+   + 'la sede y el horario de atención, escríbenos desde '
+   + `<a href="${SITIO}/contacto.html">la página de contacto</a>.`],
   ['¿Las clases son presenciales en Caracas o se pueden seguir a distancia?',
    'Las promociones se imparten con clases en vivo, y todo el material queda grabado y '
    + 'disponible en la plataforma, así que se puede seguir el diplomado desde cualquier parte '
@@ -1310,6 +1309,151 @@ const PREGUNTAS = (t) => [
    duda que no está resuelta: es el momento de más intención de toda la
    página, y hasta hoy lo único que había era un enlace en medio de una
    frase. Ahora hay un botón que lleva derecho al formulario. */
+/* La página de contacto, que hasta hoy devolvía 404.
+   ═══════════════════════════════════════════════════════════════════════════
+   Dos respuestas de las preguntas frecuentes decían «escríbenos desde la
+   página de contacto». Esa página no existía —/contacto.html, /contacto/ y
+   /plataforma/contacto.html daban 404— y la frase ni siquiera era un enlace.
+   O sea que a quien acababa de levantar la mano para preguntar el precio se le
+   mandaba a un callejón sin salida.
+
+   Se genera aquí, y no en /plataforma/, por dos razones. La primera es que la
+   dirección corta es la que se teclea y la que se enlaza. La segunda es la
+   velocidad: estas páginas no cargan app.js a propósito —196 KB antes de
+   pintar—, así que el formulario llama a la RPC pública directamente con
+   fetch. Son treinta líneas y no depende de nada.
+
+   `?d=` viene del botón «Inscribirme» de cada diplomado y rellena el asunto
+   solo, para que quien llega desde ahí no tenga que repetir de qué venía. */
+function paginaDeContacto(temario) {
+  const url = `${SITIO}/contacto.html`;
+  const titulo = 'Contacto · CEM International, Caracas';
+  const descripcion = recortar('Escríbenos y te contamos el precio, las fechas y el horario de '
+    + 'la convocatoria abierta de los diplomados del CEM en Caracas.');
+  const pasos = [{ nombre: 'Inicio', url: `${SITIO}/` }, { nombre: 'Contacto' }];
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ContactPage',
+    name: titulo,
+    url,
+    about: { '@type': 'EducationalOrganization', name: ESCUELA.nombre, url: `${SITIO}/` },
+  };
+
+  const cuerpo = `
+<section class="franja">
+  <div class="dentro estrecho">
+    ${migas(pasos)}
+    <span class="ojal">Hablemos</span>
+    <h1 style="margin-top:var(--e0)">Escríbenos y te contestamos</h1>
+    <p class="entrada">Dinos qué te interesa y te respondemos con el precio, las fechas y el
+      horario de la convocatoria que esté abierta. Normalmente el mismo día.</p>
+
+    <form class="card contacto-form" id="f" novalidate>
+      <div class="field"><label for="cNombre">Tu nombre</label>
+        <input id="cNombre" name="nombre" autocomplete="name" maxlength="80" required></div>
+      <div class="grid g2">
+        <div class="field"><label for="cEmail">Tu correo</label>
+          <input id="cEmail" name="email" type="email" autocomplete="email" maxlength="120"></div>
+        <div class="field"><label for="cTel">Tu teléfono o WhatsApp</label>
+          <input id="cTel" name="telefono" type="tel" autocomplete="tel" maxlength="30"></div>
+      </div>
+      <p class="tiny muted" style="margin:calc(var(--e1) * -1) 0 var(--e2)">Con uno de los dos
+        basta. Sin ninguno no podríamos contestarte.</p>
+      <div class="field"><label for="cInteres">¿Qué te interesa?</label>
+        <select id="cInteres" name="interes">
+          <option value="">Lo que sea</option>
+          ${temario.diplomados.map((d) =>
+            `<option value="${esc(d.apodo)}">${esc(d.nombre)}</option>`).join('')}
+          <option value="modulo-suelto">Un módulo suelto</option>
+          <option value="certificado">Algo sobre un certificado ya emitido</option>
+        </select></div>
+      <div class="field"><label for="cMsg">Cuéntanos</label>
+        <textarea id="cMsg" name="mensaje" rows="4" maxlength="2000"
+          placeholder="Qué te gustaría estudiar, para cuándo, desde dónde escribes…"></textarea></div>
+      <div aria-hidden="true" class="visually-hidden">
+        <label for="cWeb">No rellenes esto</label>
+        <input id="cWeb" name="website" tabindex="-1" autocomplete="off"></div>
+      <button class="btn block" type="submit" id="cEnviar">
+        <span class="material-symbols-outlined" aria-hidden="true">send</span> Enviar</button>
+      <div id="cAviso" role="status" aria-live="polite"></div>
+    </form>
+
+    <div class="card contacto-otros">
+      <h2 style="margin-top:0">Otras formas de llegar a nosotros</h2>
+      <ul class="contacto-lista">
+        <li><span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+          Caracas ${ESCUELA.codigoPostal}, estado ${esc(ESCUELA.region)}, ${esc(ESCUELA.paisNombre)}</li>
+        <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+          ¿Comprobar un certificado? No hace falta escribir:
+          <a href="${SITIO}/plataforma/verificar.html">se verifica solo, con su código</a>.</li>
+        <li><span class="material-symbols-outlined" aria-hidden="true">help</span>
+          Puede que ya esté contestado en
+          <a href="${SITIO}/preguntas-frecuentes.html">las preguntas frecuentes</a>.</li>
+      </ul>
+    </div>
+  </div>
+</section>`;
+
+  const html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
+
+  /* El formulario, sin app.js. `cem_dejar_contacto` es pública y ya valida por
+     dentro nombre + (correo o teléfono) y el formato del correo, así que aquí
+     sólo hay que avisar antes de molestar al servidor y enseñar lo que diga. */
+  return html.replace('</body>', `<script>
+(function () {
+  var f = document.getElementById('f');
+  var aviso = document.getElementById('cAviso');
+  var boton = document.getElementById('cEnviar');
+  var di = function (clase, texto) {
+    aviso.innerHTML = '<div class="nota ' + clase + ' sep"></div>';
+    aviso.firstChild.textContent = texto;
+  };
+
+  // Si se llega desde el botón de un diplomado, el asunto ya viene puesto.
+  var d = new URLSearchParams(location.search).get('d');
+  if (d) {
+    var sel = document.getElementById('cInteres');
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === d) { sel.selectedIndex = i; break; }
+    }
+  }
+
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (document.getElementById('cWeb').value) { di('ok', 'Gracias, te escribimos pronto.'); return; }
+    var nombre = document.getElementById('cNombre').value.trim();
+    var email = document.getElementById('cEmail').value.trim();
+    var tel = document.getElementById('cTel').value.trim();
+    if (!nombre) { di('err', 'Dinos cómo te llamas, para no escribirte «hola».'); return; }
+    if (!email && !tel) { di('err', 'Déjanos un correo o un teléfono, o no podremos contestarte.'); return; }
+
+    boton.disabled = true;
+    di('', 'Enviando…');
+    fetch('${BASE}/rest/v1/rpc/cem_dejar_contacto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: '${CLAVE}',
+                 Authorization: 'Bearer ${CLAVE}' },
+      body: JSON.stringify({
+        p_nombre: nombre, p_email: email || null, p_telefono: tel || null,
+        p_mensaje: document.getElementById('cMsg').value.trim() || null,
+        p_interes: document.getElementById('cInteres').value || null,
+        p_origen: 'contacto.html'
+      })
+    }).then(function (r) {
+      return r.ok ? r.json() : r.json().then(function (j) { throw new Error(j.message || ''); });
+    }).then(function () {
+      f.reset();
+      di('ok', 'Recibido. Te escribimos pronto, normalmente el mismo día.');
+    }).catch(function (err) {
+      di('err', err.message || 'No se pudo enviar. Inténtalo otra vez en un momento.');
+    }).then(function () { boton.disabled = false; });
+  });
+})();
+</script>
+</body>`);
+}
+
 function paginaDePreguntas(temario) {
   const url = `${SITIO}/preguntas-frecuentes.html`;
   const titulo = 'Preguntas frecuentes · Diplomados del CEM en Caracas';
@@ -1609,6 +1753,7 @@ function sitemap(cursos, temario) {
     ['/', '1.0', 'weekly'],
     ['/programas/', '0.9', 'weekly'],
     ['/preguntas-frecuentes.html', '0.7', 'monthly'],
+    ['/contacto.html', '0.7', 'monthly'],
     ['/plataforma/verificar.html', '0.7', 'monthly'],
     ['/plataforma/nosotros.html', '0.6', 'monthly'],
   ];
@@ -1759,6 +1904,8 @@ async function main() {
   console.log('  ✓ / (la portada del dominio)');
   await writeFile(join(RAIZ, 'preguntas-frecuentes.html'), paginaDePreguntas(temario), 'utf8');
   console.log('  ✓ /preguntas-frecuentes.html');
+  await writeFile(join(RAIZ, 'contacto.html'), paginaDeContacto(temario), 'utf8');
+  console.log('  ✓ /contacto.html');
   await writeFile(join(RAIZ, '404.html'), pagina404(), 'utf8');
   console.log('  ✓ /404.html');
 
