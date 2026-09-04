@@ -97,6 +97,19 @@ const ESCUELA = {
      Yo había puesto Distrito Capital por ser lo más común, sin que nadie me lo
      hubiera dicho. El dato de la casa es Miranda, y cuadra con el código
      postal: el 1060 cae del lado de Miranda. */
+  /* 2.4 · El primer pantallazo es sólo texto, y de las seis referencias
+     ninguna lo deja así: Skool pone vídeo de Loom, Domestika tráiler, Hotmart
+     ilustración a media pantalla. El hueco está hecho y VACÍO a propósito: no
+     hay ni una foto de una clase ni del certificado en el repositorio, y una
+     imagen de archivo de gente sonriendo con un portátil dice justo lo
+     contrario de lo que vende esta escuela.
+
+     Para encenderlo basta poner aquí la ruta de una imagen —lo más barato de
+     producir y lo que más movería es un vídeo de 60-90 segundos del director,
+     o una foto real de una clase o de un certificado en la mano— y su texto
+     alternativo. La portada la coloca sola. */
+  heroImagen: '',
+  heroImagenAlt: '',
   region: 'Miranda',
   codigoPostal: '1060',
   pais: 'VE',
@@ -1979,6 +1992,10 @@ function paginaDeInicio(temario) {
         ${lineaConvocatoria(temario) ? `<li class="conv">${lineaConvocatoria(temario)}</li>` : ''}
       </ul>
 
+      ${ESCUELA.heroImagen ? `<figure class="portada-imagen">
+        <img src="${ESCUELA.heroImagen}" alt="${esc(ESCUELA.heroImagenAlt)}"
+          width="880" height="560" fetchpriority="high" decoding="async">
+      </figure>` : ''}
       <div class="cifras-casa cifras-heroe">
         <div><b>${esc(temario.totales.certificados)}</b><span>certificados emitidos</span></div>
         <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
