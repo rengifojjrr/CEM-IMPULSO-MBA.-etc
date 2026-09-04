@@ -1281,6 +1281,62 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
    Abajo a la izquierda, no a la derecha: en las públicas la derecha es de
    Cemi, y dos burbujas peleándose por la misma esquina es lo que hace que no
    se pulse ninguna. En el teléfono se queda sólo el icono. */
+/* 3.8 · Dos separaciones, no una.
+   Todas las secciones se separaban exactamente igual, y cuando todo se separa
+   igual nada se agrupa: los dos diplomados —que son hermanos y deberían leerse
+   como un par— quedaban tan lejos entre sí como del bloque de certificados.
+   `franja + franja` del mismo tono son hermanas y se juntan; el cambio de tono
+   es lo que marca que empieza otro bloque. */
+.franja + .franja{padding-top:var(--e3);}
+.franja.tenue + .franja.tenue{padding-top:var(--e3);}
+
+/* La barra de garantías, pegada al hero.
+   Va en su propia franja estrecha y sin separación arriba: es la continuación
+   del hero, no una sección nueva. */
+.franja-garantias{padding:var(--e3) 0;border-bottom:1px solid var(--filete);}
+.garantias{list-style:none;margin:0;padding:0;display:grid;gap:var(--e3);
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr));}
+.garantias li{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;
+  column-gap:10px;align-items:center;}
+.garantias .material-symbols-outlined{grid-row:1 / span 2;font-size:26px;color:var(--secondary);}
+.garantias b{font-size:var(--t-sm);}
+.garantias span:not(.material-symbols-outlined){font-size:var(--t-xs);color:var(--tinta-2);}
+
+/* Para quién es: tres perfiles, no adjetivos. */
+/* `align-items:stretch` explícito y altura completa: sin esto las tres
+   tarjetas quedaban a distinta altura —220, 180 y 180— y con los iconos a
+   distinta línea, que es lo que hace que una fila de tarjetas parezca
+   desalineada aunque el texto esté bien. */
+.perfiles{display:grid;gap:var(--e2);grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  margin-top:var(--e3);align-items:stretch;}
+.perfil{height:100%;}
+.perfil h3{margin:var(--e1) 0 6px;font-size:var(--t-md);}
+.perfil p{margin:0;font-size:var(--t-sm);color:var(--tinta-2);}
+.perfil-ico{font-size:28px;color:var(--secondary);}
+
+/* Qué vas a lograr: seis resultados con su marca. Dos columnas en pantalla
+   ancha porque son frases cortas y en una sola quedarían seis renglones
+   sueltos con medio ancho vacío al lado. */
+.logros{list-style:none;margin:var(--e3) 0 0;padding:0;display:grid;gap:var(--e2);
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));}
+.logros li{display:flex;align-items:flex-start;gap:10px;font-size:var(--t-sm);}
+.logros .material-symbols-outlined{font-size:20px;color:var(--secondary);flex:none;margin-top:1px;}
+
+/* Quién enseña. Vacío hoy: no hay ni un profesor en el temario y no se
+   inventa a una persona. Cuando los haya, cae aquí. */
+.profes{display:grid;gap:var(--e2);grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  margin-top:var(--e3);align-items:stretch;}
+.profe{height:100%;}
+.profe{display:flex;gap:var(--e2);align-items:flex-start;}
+.profe img{border-radius:var(--r-full);flex:none;object-fit:cover;}
+.profe h3{margin:0 0 4px;font-size:var(--t-md);}
+.profe-credencial{margin:0;font-size:var(--t-sm);color:var(--tinta-2);}
+
+/* El CTA repetido, tras el temario. Centrado y con aire, para que se lea como
+   una parada y no como el pie de la rejilla. */
+.cta-medio{margin-top:var(--e4);text-align:center;}
+.cta-medio p{margin:var(--e1) 0 0;}
+
 /* El hero del diplomado, en dos columnas.
    ═══════════════════════════════════════════════════════════════════════════
    Medía 473 px con TODO el contenido en el 45 % izquierdo y ~700 px de
@@ -1421,14 +1477,17 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
   font-weight:600;display:flex;align-items:center;justify-content:space-between;
   gap:var(--e2);}
 .pregunta > summary::-webkit-details-marker{display:none;}
+/* 3.4 · Lo contrario de «+» es «−», no «×».
+   Se giraba el «+» 45 grados, que da una equis. Y la equis significa cerrar o
+   borrar —otra cosa—, en la página que existe justamente para resolver dudas.
+   Ahora se cambia el signo en vez de girarlo. */
 .pregunta > summary::after{content:'+';font-size:1.35rem;font-weight:400;line-height:1;
-  color:var(--tinta-3);transition:transform .18s ease;}
-.pregunta[open] > summary::after{transform:rotate(45deg);}
+  color:var(--tinta-3);}
+.pregunta[open] > summary::after{content:'−';}
 .pregunta > summary:hover{color:var(--primary);}
 .pregunta > summary:focus-visible{outline:2px solid var(--primary);outline-offset:3px;
   border-radius:6px;}
 .pregunta > p{margin:0 0 var(--e2);color:var(--tinta-2);max-width:62ch;}
-@media (prefers-reduced-motion:reduce){ .pregunta > summary::after{transition:none;} }
 
 /* El siguiente paso, en la tarjeta de cada curso del panel.
    Se apoya en un fondo tenue y no en un recuadro con borde: es una pista
@@ -3918,8 +3977,15 @@ details.card h3.sec{margin-top:var(--e3);}
   display:flex;flex-wrap:wrap;gap:var(--e4);
   border-top:1px solid var(--filete);border-bottom:1px solid var(--filete);
   padding-block:var(--e2);width:100%;}
+/* 3.1 · Las cifras, SIEMPRE del mismo color.
+   Heredaban `--mod-color`, que es el color del primer módulo del diplomado: en
+   la tarjeta de Marketing salía rojo y en la de IA naranja, mientras el mismo
+   componente en la portada y en la ficha salía navy. El rojo sobre números
+   neutros —«8 módulos», «48 lo han cursado»— se lee como una alerta: en un
+   tablero, rojo significa que algo va mal. Aquí sólo significaba «módulos».
+   El color del diplomado se queda donde sí distingue: la tira de arriba. */
 .pp-datos b{display:block;font-size:var(--t-xl);line-height:1.05;
-  font-variant-numeric:tabular-nums;color:var(--mod-color, var(--primary));}
+  font-variant-numeric:tabular-nums;color:var(--primary);}
 .pp-datos span{font-size:var(--t-xs);color:var(--tinta-3);}
 
 @media (max-width:640px){
@@ -4156,3 +4222,18 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
   .promo-panel{width:100%;}
 }
 @media print{ .promo-flota{display:none;} }
+
+/* Opiniones de graduados. Hoy no sale ninguna —no hay testimonios recogidos y
+   no se inventan—, pero el sitio está hecho: nombre, qué hace ahora y en qué
+   promoción estuvo, que es el dato comprobable contra su certificado. */
+.resenas{display:grid;gap:var(--e2);grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  margin-top:var(--e3);align-items:stretch;}
+.resena{height:100%;}
+.resena{margin:0;display:flex;flex-direction:column;gap:var(--e2);}
+.resena blockquote{margin:0;}
+.resena blockquote p{margin:0;font-size:var(--t-sm);}
+.resena figcaption{display:flex;align-items:center;gap:10px;margin-top:auto;}
+.resena figcaption img{border-radius:var(--r-full);object-fit:cover;flex:none;}
+.resena figcaption b{display:block;font-size:var(--t-sm);}
+.resena figcaption span{display:block;font-size:var(--t-xs);color:var(--tinta-2);}
+.resena-cuando{color:var(--tinta-3);}

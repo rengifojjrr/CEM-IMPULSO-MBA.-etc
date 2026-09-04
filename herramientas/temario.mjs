@@ -188,6 +188,33 @@ export const DIPLOMADOS = {
       + 'por separado, y al terminarlos todos se emite el diploma del diplomado.',
     busca: 'diplomado en marketing digital, curso de marketing digital en Venezuela, '
       + 'marketing digital Caracas',
+    /* Para quién es, con perfiles concretos y no adjetivos.
+       ─────────────────────────────────────────────────────────────────────
+       El documento de diseño lo pide así a propósito: «tres perfiles
+       concretos, no adjetivos». «Para emprendedores dinámicos» no describe a
+       nadie; «tienes un negocio y llevas las redes por intuición» sí, y quien
+       se reconoce sabe en la primera línea si esto es para él. */
+    paraQuien: [
+      ['storefront', 'Tienes un negocio y llevas tú las redes',
+       'Publicas cuando te acuerdas y no sabes si sirve de algo. Aquí aprendes a decidirlo '
+       + 'con criterio y a medir si funciona.'],
+      ['badge', 'Te pusieron las redes encima en el trabajo',
+       'Sin haberlo estudiado y sin nadie a quien preguntar. Sales sabiendo montar el '
+       + 'calendario, la pauta y el informe que te van a pedir.'],
+      ['work', 'Quieres cobrar por esto',
+       'Llevar cuentas de otros, por tu cuenta o en agencia. El diplomado recorre el oficio '
+       + 'entero, que es lo que un cliente espera que sepas.'],
+    ],
+    /* Qué se lleva, en resultados que se pueden comprobar. Cada uno sale de un
+       módulo que existe de verdad; ninguno promete un sueldo ni un empleo. */
+    lograras: [
+      'Escribir el plan de marketing de un negocio real, con presupuesto y orden',
+      'Llevar las cuentas de una marca: calendario, publicaciones y respuestas',
+      'Montar campañas en Instagram y TikTok pensadas para vender, no para gustar',
+      'Crear, medir y ajustar una campaña de anuncios pagados',
+      'Grabar y editar tus propios vídeos sin depender de nadie',
+      'Usar inteligencia artificial para producir más rápido sin que se note',
+    ],
   },
   IA: {
     clave: 'IA',
@@ -199,6 +226,25 @@ export const DIPLOMADOS = {
       + 'aplicada al trabajo. Cada módulo se certifica por separado.',
     busca: 'diplomado en inteligencia artificial, curso de IA en Venezuela, '
       + 'producción digital, diseño gráfico Caracas',
+    paraQuien: [
+      ['photo_camera', 'Produces contenido visual y vas improvisando',
+       'Fotos, vídeo, algún diseño. Funciona a ratos y no sabes por qué unas veces sí y '
+       + 'otras no. Aquí está el oficio ordenado.'],
+      ['palette', 'Diseñas, o quieres diseñar',
+       'Y estás aprendiendo a base de tutoriales sueltos. Photoshop, Illustrator y branding '
+       + 'con criterio, no atajos.'],
+      ['bolt', 'Ya trabajas y quieres que la IA te quite horas',
+       'Dos módulos enteros dedicados a usarla en el trabajo real: qué le puedes pedir, qué '
+       + 'no, y cómo revisar lo que devuelve.'],
+    ],
+    lograras: [
+      'Montar y fotografiar una sesión con la luz bajo control',
+      'Grabar vídeo y editarlo en el ordenador de principio a fin',
+      'Editar en Photoshop con criterio, no a base de tutoriales sueltos',
+      'Dibujar en Illustrator lo que hasta ahora encargabas fuera',
+      'Construir la identidad visual de una marca entera',
+      'Usar la inteligencia artificial en tu trabajo diario sabiendo revisarla',
+    ],
   },
 };
 
@@ -297,7 +343,16 @@ export async function traerTemario() {
         /* El color por su sitio en el diplomado, no al azar: así el módulo 1
            es siempre el mismo rojo en la portada, en el índice y en su propia
            página, y se reconoce de una a otra. Los dos diplomados recorren el
-           arcoíris al revés para que no parezcan la misma lista repetida. */
+           arcoíris al revés para que no parezcan la misma lista repetida.
+
+           El punto 3.7 del documento de diseño del 4 de septiembre pide
+           «mismo sentido en las dos, o una diferencia que signifique algo»,
+           porque desde fuera el giro parece un descuido. Se queda como está:
+           es la segunda opción de las dos que ofrece, la diferencia sí
+           significa —son dos diplomados distintos y la tira lo dice antes de
+           leer el título— y volverlas idénticas dejaría dos tarjetas con
+           exactamente la misma franja de ocho colores. Queda anotado aquí
+           para que no se vuelva a levantar como si nadie lo hubiera pensado. */
         color: PALETA[(d.familia === 'IA' ? PALETA.length - m.orden : m.orden - 1) % PALETA.length],
       };
     });

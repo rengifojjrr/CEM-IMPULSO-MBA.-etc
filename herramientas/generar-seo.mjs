@@ -986,7 +986,6 @@ const tarjetaModulo = (m, dip, { conDiplomado = false } = {}) => `
     <div class="mod-cuerpo">
       <h3>${esc(m.nombre)}</h3>
       <p>${esc(m.que)}</p>
-      <p class="mod-pie">${m.personas} con este certificado</p>
     </div>
   </a>`;
 
@@ -1080,6 +1079,220 @@ function tarjetaDeCompra(dip, conv) {
     ${garantias}
   </aside>`;
 }
+
+/* La barra de garantías, justo debajo del hero.
+   Cuatro hechos permanentes que contestan lo que se pregunta antes de seguir
+   leyendo. Es el patrón que Hotmart llama «sales_arguments»: no vende, quita
+   dudas, y por eso va lo más arriba posible. */
+const barraGarantias = (dip) => `
+<section class="franja-garantias">
+  <div class="dentro">
+    <ul class="garantias">
+      <li><span class="material-symbols-outlined" aria-hidden="true">verified</span>
+        <b>Certificado verificable</b><span>con código y QR, comprobable por cualquiera</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">videocam</span>
+        <b>Clases en vivo</b><span>y quedan grabadas, por si no puedes ese día</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+        <b>${dip.modulos.length} certificados</b><span>uno por módulo, más el diploma final</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">public</span>
+        <b>Desde toda Venezuela</b><span>no hace falta estar en Caracas</span></li>
+    </ul>
+  </div>
+</section>`;
+
+/* Para quién es. Tres perfiles concretos, no adjetivos: quien se reconoce en
+   uno sabe en la primera línea si esto va con él. Si un diplomado no los tiene
+   escritos, la sección no sale — mejor nada que un relleno. */
+const paraQuienEs = (dip) => !dip.paraQuien ? '' : `
+<section class="franja">
+  <div class="dentro">
+    <span class="ojal">Para quién es</span>
+    <h2 style="margin-top:var(--e0)">Esto es para ti si te reconoces aquí</h2>
+    <div class="perfiles">
+      ${dip.paraQuien.map(([icono, quien, detalle]) => `<div class="card perfil">
+        <span class="material-symbols-outlined perfil-ico" aria-hidden="true">${icono}</span>
+        <h3>${esc(quien)}</h3>
+        <p>${esc(detalle)}</p>
+      </div>`).join('')}
+    </div>
+  </div>
+</section>`;
+
+/* Qué vas a lograr. Resultados que se pueden comprobar, cada uno salido de un
+   módulo que existe. Ninguno promete un sueldo ni un empleo: eso no depende
+   de la escuela y prometerlo es justo lo que hace que no te crean el resto. */
+const queLograras = (dip) => !dip.lograras ? '' : `
+<section class="franja tenue">
+  <div class="dentro">
+    <span class="ojal">Qué vas a lograr</span>
+    <h2 style="margin-top:var(--e0)">Al terminar sabrás hacer esto</h2>
+    <ul class="logros">
+      ${dip.lograras.map((l) => `<li>
+        <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+        ${esc(l)}</li>`).join('')}
+    </ul>
+  </div>
+</section>`;
+
+/* Quién enseña.
+   ═══════════════════════════════════════════════════════════════════════════
+   Las seis referencias lo ponen, con foto y una credencial EN NÚMEROS —«ocho
+   años gestionando pauta para cuarenta marcas», nunca «profesional con amplia
+   experiencia»—. Aquí la sección está construida y vacía, y sale sólo cuando
+   haya a quién poner: en el temario no hay ni un profesor, y no se inventa a
+   una persona ni se le atribuyen méritos que nadie ha comprobado.
+
+   Para llenarla hacen falta tres cosas por profesor: nombre y apellido, una
+   foto, y una credencial que sea un número. */
+const quienEnsena = (dip) => !(dip.profesores && dip.profesores.length) ? '' : `
+<section class="franja">
+  <div class="dentro">
+    <span class="ojal">Quién enseña</span>
+    <h2 style="margin-top:var(--e0)">Da clase quien vive de esto</h2>
+    <div class="profes">
+      ${dip.profesores.map((p) => `<div class="card profe">
+        ${p.foto ? `<img src="${esc(p.foto)}" alt="" width="72" height="72" loading="lazy">` : ''}
+        <div><h3>${esc(p.nombre)}</h3>
+          <p class="profe-credencial">${esc(p.credencial)}</p>
+          ${p.modulos ? `<p class="tiny muted">${esc(p.modulos)}</p>` : ''}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+</section>`;
+
+/* El mismo botón, otra vez, después del temario.
+   Las seis referencias repiten el CTA entre dos y cinco veces, con el TEXTO
+   IDÉNTICO. Aquí van tres: en la tarjeta del hero, aquí —justo cuando alguien
+   acaba de leerse los ocho módulos y está decidiendo— y al cerrar. */
+const ctaRepetido = (dip, conv) => `
+    <div class="cta-medio">
+      <a class="btn" href="${SITIO}/contacto.html?d=${esc(dip.apodo)}"
+        >Inscribirme en el diplomado</a>
+      ${conv && conv.fecha
+        ? `<p class="tiny muted">Empieza el ${esc(enLetras(conv.fecha, false))}${
+            conv.quedan != null && conv.quedan > 0 ? ` · quedan ${conv.quedan} cupos` : ''}.</p>`
+        : '<p class="tiny muted">Todavía sin fecha: escríbenos y te avisamos en cuanto se abra.</p>'}
+    </div>`;
+
+/* El certificado, particularizado.
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes esta página repetía LITERAL el bloque de la portada, con las mismas
+   cifras 529/58/7: en una sola visita se veía dos veces lo mismo. Aquí se
+   cuenta el certificado DE ESTE diplomado —cuántos lleva emitidos, qué dice—
+   y el verificador queda donde ya está, que es su pantalla. */
+const certificadoDelDiplomado = (dip) => `
+<section class="franja">
+  <div class="dentro estrecho">
+    <span class="ojal">Lo que te llevas</span>
+    <h2 style="margin-top:var(--e0)">${dip.modulos.length} certificados, no uno</h2>
+    <p class="entrada">Cada módulo del ${esc(dip.corto)} se certifica por separado en cuanto lo
+      terminas, así que no hay que esperar al final para tener algo que enseñar. Al completarlos
+      todos se emite además el diploma del diplomado. De este programa se han emitido
+      ${esc(dip.diplomas)} diplomas de cierre a ${esc(dip.personas)} personas.</p>
+    <p>Todos llevan un código único y un QR: quien lo reciba —una empresa que va a contratar, un
+      cliente— <a href="${SITIO}/plataforma/verificar.html">lo comprueba en el verificador</a>
+      sin crear ninguna cuenta.</p>
+  </div>
+</section>`;
+
+/* Opiniones de quien ya lo hizo.
+   ═══════════════════════════════════════════════════════════════════════════
+   Las seis referencias las llevan, y es de lo que más pesa al decidir. La
+   sección está construida y HOY NO SALE: no hay ni un testimonio recogido, y
+   un testimonio inventado —o «adaptado»— es exactamente lo que no se puede
+   hacer aquí. El producto de esta escuela es un certificado que cualquiera
+   puede comprobar; falsear una reseña destruye justo eso.
+
+   Para llenarla hace falta pedírselos a los graduados. Skool y Whop añaden el
+   dato antifraude —«sigue siendo miembro un mes después», «escrita 22 días
+   después de comprar»—; aquí el equivalente honesto es la promoción en la que
+   estuvo, que además se puede comprobar contra su certificado.
+
+   Cada opinión: nombre y apellido, qué hace ahora, la promoción, y el texto. */
+const opiniones = (dip) => !(dip.opiniones && dip.opiniones.length) ? '' : `
+<section class="franja tenue">
+  <div class="dentro">
+    <span class="ojal">Opiniones</span>
+    <h2 style="margin-top:var(--e0)">Lo que dicen quienes ya lo hicieron</h2>
+    <div class="resenas">
+      ${dip.opiniones.map((o) => `<figure class="card resena">
+        <blockquote><p>${esc(o.texto)}</p></blockquote>
+        <figcaption>
+          ${o.foto ? `<img src="${esc(o.foto)}" alt="" width="44" height="44" loading="lazy">` : ''}
+          <div><b>${esc(o.nombre)}</b>
+            ${o.hace ? `<span>${esc(o.hace)}</span>` : ''}
+            ${o.promocion ? `<span class="resena-cuando">${esc(o.promocion)}</span>` : ''}</div>
+        </figcaption>
+      </figure>`).join('')}
+    </div>
+  </div>
+</section>`;
+
+/* Las preguntas, aquí mismo y no en otra página.
+   ═══════════════════════════════════════════════════════════════════════════
+   Whop, Domestika y Coursera las ponen en la propia página de producto, y con
+   razón: quien está decidiendo no se va a otra pantalla a resolver una duda,
+   se va y ya. Aquí van las seis que se preguntan antes de inscribirse, no las
+   diecisiete de la página general.
+
+   Se reutiliza el mismo acordeón de la página de preguntas —mismo marcado,
+   mismo «+» y «−»— para que se comporte igual en los dos sitios. No lleva
+   datos estructurados: la FAQPage completa es la otra página, y declarar dos
+   le dice a Google que el sitio se repite. */
+const preguntasDelDiplomado = (dip, conv) => `
+<section class="franja">
+  <div class="dentro estrecho">
+    <span class="ojal">Antes de decidirte</span>
+    <h2 style="margin-top:var(--e0)">Lo que se suele preguntar</h2>
+    <div class="card">
+      ${[
+        ['¿Puedo cursar un módulo suelto, sin hacer el diplomado entero?',
+         `Sí. Cada uno de los ${dip.modulos.length} módulos se certifica por separado y se puede `
+         + 'cursar solo. El diploma del diplomado se emite a quien los completa todos.'],
+        ['¿Las clases son en vivo o grabadas?',
+         'En vivo, y quedan grabadas. Si no puedes asistir un día, la ves después; no se pierde '
+         + 'la clase.'],
+        ['¿Hay que estar en Caracas?',
+         'No. El CEM está en Caracas y desde ahí expide los certificados, pero el diplomado se '
+         + 'sigue desde cualquier parte de Venezuela.'],
+        ['¿Qué certificado me llevo?',
+         `Uno por cada módulo que termines —${dip.modulos.length} en total— más el diploma del `
+         + 'diplomado al completarlos. Todos con código y QR: cualquiera puede comprobarlos en '
+         + 'el verificador sin crear cuenta.'],
+        ['¿Cuánto cuesta?',
+         conv && conv.precio_bs != null
+           ? `Esta convocatoria cuesta Bs ${bolivares(conv.precio_bs)}`
+             + (conv.precio_usd != null ? ` (≈ $${bolivares(conv.precio_usd)})` : '')
+             + `, a la tasa del BCV del ${enLetras(conv.tasa_fecha, false)}. El precio está `
+             + 'arriba, en la tarjeta, y se actualiza solo con la tasa del día.'
+           : 'El precio se publica en la tarjeta de arriba en cuanto se abre la convocatoria. '
+             + 'Si todavía no hay fecha, déjanos tu correo ahí y te lo mandamos con ella.'],
+        ['¿Y si empiezo y no puedo seguir?',
+         'Escríbenos. Los módulos se certifican uno a uno, así que lo que ya terminaste queda '
+         + 'certificado y se puede retomar en otra promoción desde donde lo dejaste.'],
+      ].map(([q, a]) => `<details class="pregunta">
+        <summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}
+    </div>
+    <p class="tiny muted" style="margin-top:var(--e2)">¿Otra cosa?
+      <a href="${SITIO}/contacto.html?d=${esc(dip.apodo)}">Escríbenos</a> o mira
+      <a href="${SITIO}/preguntas-frecuentes.html">todas las preguntas</a>.</p>
+  </div>
+</section>`;
+
+/* El cierre: el mismo botón por tercera vez, y nada más. */
+const cierreDelDiplomado = (dip, conv) => `
+<section class="franja tenue">
+  <div class="dentro estrecho centrado" style="text-align:center">
+    <h2 style="margin-top:0">¿Te decides?</h2>
+    <p class="entrada" style="margin-inline:auto">${conv && conv.fecha
+      ? `La próxima convocatoria empieza el ${esc(enLetras(conv.fecha))}.`
+      : 'Escríbenos y te avisamos en cuanto se abra la próxima convocatoria.'}</p>
+    <div class="portada-manos" style="justify-content:center;margin-bottom:0">
+      <a class="btn" href="${SITIO}/contacto.html?d=${esc(dip.apodo)}"
+        >Inscribirme en el diplomado</a>
+    </div>
+  </div>
+</section>`;
 
 /** La próxima convocatoria, dicha en una línea. O nada.
  *
@@ -1305,10 +1518,28 @@ function paginaDelDiplomado(dip, temario) {
   </div>
 </section>
 
+${barraGarantias(dip)}
+
+${paraQuienEs(dip)}
+
+${queLograras(dip)}
+
+<section class="franja">
+  <div class="dentro">
+    <h2>Los ${dip.modulos.length} módulos</h2>
+    <p class="entrada">En este orden. Cada uno se certifica por separado, así que se puede
+      cursar suelto; quien los completa todos recibe además el diploma del diplomado.</p>
+    <div class="rejilla-modulos">
+      ${dip.modulos.map((m) => tarjetaModulo(m, dip)).join('')}
+    </div>
+    ${ctaRepetido(dip, conv)}
+  </div>
+</section>
+
 <section class="franja tenue">
   <div class="dentro">
     <div class="cifras-casa">
-      <div><b>8</b><span>módulos, cada uno con su certificado</span></div>
+      <div><b>${dip.modulos.length}</b><span>módulos, cada uno con su certificado</span></div>
       <div><b>${dip.personas}</b><span>personas lo han cursado</span></div>
       <div><b>${dip.promociones}</b><span>promociones impartidas</span></div>
       <div><b>${dip.diplomas}</b><span>diplomas de cierre emitidos</span></div>
@@ -1316,18 +1547,15 @@ function paginaDelDiplomado(dip, temario) {
   </div>
 </section>
 
-<section class="franja">
-  <div class="dentro">
-    <h2>Los ocho módulos</h2>
-    <p class="entrada">En este orden. Cada uno se certifica por separado, así que se puede
-      cursar suelto; quien los completa todos recibe además el diploma del diplomado.</p>
-    <div class="rejilla-modulos">
-      ${dip.modulos.map((m) => tarjetaModulo(m, dip)).join('')}
-    </div>
-  </div>
-</section>
+${quienEnsena(dip)}
 
-${bloqueCertificado(temario)}`;
+${opiniones(dip)}
+
+${certificadoDelDiplomado(dip)}
+
+${preguntasDelDiplomado(dip, conv)}
+
+${cierreDelDiplomado(dip, conv)}`;
 
   const html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, activa: 'programas', profundidad: 1 });
 
@@ -1760,20 +1988,6 @@ function paginaDeInicio(temario) {
   </div>
 </section>
 
-<section class="franja">
-  <div class="dentro estrecho">
-    <span class="ojal">Caracas ${ESCUELA.codigoPostal} · Estado ${esc(ESCUELA.region)}</span>
-    <h2 style="margin-top:0">Un centro de estudios de Caracas</h2>
-    <p class="entrada">El CEM lleva desde ${ESCUELA.fundada} formando en marketing digital e
-      inteligencia artificial desde Caracas ${ESCUELA.codigoPostal}, estado
-      ${esc(ESCUELA.region)}, y desde aquí expide sus certificados: los
-      ${esc(temario.totales.certificados)} emitidos hasta hoy llevan Caracas como lugar de
-      expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
-      desde cualquier parte de Venezuela sin perder ninguna.</p>
-    <p><a href="${SITIO}/preguntas-frecuentes.html">Dónde está el CEM y cómo son las clases →</a></p>
-  </div>
-</section>
-
 ${/* La portada del dominio, igual que el índice de programas: la portada de
      cada diplomado y no sus dieciséis módulos. Aquí pesa todavía más — es la
      primera pantalla de quien llega de Google, y le contestaba «qué hay» con
@@ -1806,6 +2020,31 @@ ${temario.diplomados.map((d, i) => `
     </article>
   </div>
 </section>`).join('')}
+
+${/* 2.5 · La escuela va DESPUÉS del producto.
+     ═══════════════════════════════════════════════════════════════════════
+     Esta sección era la primera después del hero, o sea que lo primero que la
+     portada hacía tras el titular era hablar de sí misma. Las seis referencias
+     abren con el producto. Aquí abajo hace mejor trabajo: quien ya ha visto
+     los dos diplomados y sigue leyendo es a quien le sirve saber desde cuándo
+     existe la escuela y desde dónde expide.
+
+     Sigue siendo la sección que le dice a Google que esto es un centro de
+     Caracas, y para eso da igual el orden: lo que cuenta es que la ciudad esté
+     en el texto que lee una persona. */''}
+<section class="franja">
+  <div class="dentro estrecho">
+    <span class="ojal">Caracas ${ESCUELA.codigoPostal} · Estado ${esc(ESCUELA.region)}</span>
+    <h2 style="margin-top:0">Un centro de estudios de Caracas</h2>
+    <p class="entrada">El CEM lleva desde ${ESCUELA.fundada} formando en marketing digital e
+      inteligencia artificial desde Caracas ${ESCUELA.codigoPostal}, estado
+      ${esc(ESCUELA.region)}, y desde aquí expide sus certificados: los
+      ${esc(temario.totales.certificados)} emitidos hasta hoy llevan Caracas como lugar de
+      expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
+      desde cualquier parte de Venezuela sin perder ninguna.</p>
+    <p><a href="${SITIO}/preguntas-frecuentes.html">Dónde está el CEM y cómo son las clases →</a></p>
+  </div>
+</section>
 
 ${bloqueCertificado(temario, `
     <p class="tiny muted" style="margin-top:var(--e3)">¿Otra duda? Las

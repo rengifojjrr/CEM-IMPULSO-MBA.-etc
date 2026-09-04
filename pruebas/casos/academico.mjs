@@ -266,7 +266,7 @@ export default async function correr(navegador) {
      Se montan tres sesiones propias en un mes futuro para no depender de lo que
      hubiera en el calendario, y se borran al terminar. */
   const puesto = await A.evaluate(async () => {
-    const m = await import('/plataforma/assets/app.js?v=2026-09-04-2');
+    const m = await import('/plataforma/assets/app.js?v=2026-09-04-3');
     const { data: coh } = await m.sb.from('cem_cohorts').select('id').limit(1);
     const { data: profes } = await m.sb.from('cem_profiles').select('id,nombre')
       .eq('rol', 'profesor').limit(2);
@@ -328,7 +328,7 @@ export default async function correr(navegador) {
     await A.waitForTimeout(4000);
 
     const quedaron = await A.evaluate(async (arg) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-09-04-2');
+      const m = await import('/plataforma/assets/app.js?v=2026-09-04-3');
       const { data } = await m.sb.from('cem_classes').select('id,teacher_id').in('id', arg.ids);
       return (data || []).filter((x) => x.teacher_id === arg.profesor).length;
     }, puesto);
@@ -337,7 +337,7 @@ export default async function correr(navegador) {
 
     // Y se limpia: estas sesiones son de la prueba, no del calendario de nadie.
     await A.evaluate(async (ids) => {
-      const m = await import('/plataforma/assets/app.js?v=2026-09-04-2');
+      const m = await import('/plataforma/assets/app.js?v=2026-09-04-3');
       await m.sb.from('cem_classes').delete().in('id', ids);
     }, puesto.ids);
   }
