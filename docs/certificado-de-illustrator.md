@@ -61,36 +61,56 @@ el propio sitio, así que la dirección definitiva es
 El fondo viejo sigue en el almacenamiento de Supabase, intacto, por si alguna
 vez hace falta comparar.
 
-## Lo que queda por hacer, y en qué orden
+## Qué está hecho ya
 
 Los certificados **se dibujan al vuelo** a partir de la plantilla: nadie
-guarda un PDF. Por eso, en cuanto la plantilla apunte al fondo bueno, quedan
-bien los 19 de golpe —los ya emitidos también—, sin tocar ni un registro y
-sin cambiar ningún código de verificación. Sólo hay que volver a
-descargarlos y reenviarlos.
+guarda un PDF. Por eso bastó con que la plantilla apuntara al fondo bueno
+para que quedaran bien los 19 de golpe —los ya emitidos también—, sin tocar
+ni un registro y sin cambiar ningún código de verificación. Sólo hay que
+volver a descargarlos y reenviarlos.
 
-El cambio de la plantilla está escrito en
-`supabase/migrations/20260905000001_fondo_illustrator.sql`, pero **no se ha
-aplicado todavía, a propósito**: GitHub Pages publica desde `main`, así que
-el archivo no existe en esa dirección hasta que esta rama esté fusionada.
-Aplicarlo antes dejaría los certificados sin fondo, que es peor que la falta
-de ortografía.
+La plantilla `8_IA_ILLUSTRATOR` **ya está apuntando al fondo corregido**, así
+que descargar cualquiera de los dos grupos desde el generador ya sale bien.
 
-Así que:
+## Lo que queda: mover el fondo a su dirección definitiva
+
+Hacía falta imprimir el mismo día, y GitHub Pages sólo publica desde `main`,
+así que el fondo se dejó apuntando de forma **provisional** al archivo que
+GitHub sirve desde esta rama. Funciona, pero depende de que la rama siga
+existiendo; la dirección definitiva no depende de nada.
+
+El cambio está escrito en
+`supabase/migrations/20260905000001_fondo_illustrator.sql`. El orden:
 
 1. Fusionar esta rama en `main` y esperar a que Pages publique.
 2. Comprobar que el archivo está:
    `curl -sI https://escuelacem.com/certificados/fondos/8_IA_ILLUSTRATOR.jpg`
    tiene que devolver `200`.
 3. Aplicar la migración.
-4. En el generador, Certificados emitidos → los dos grupos de arriba →
-   «Descargar grupo». Esa carpeta ya son los certificados buenos.
 
-### Si no quieres esperar a la fusión
+Aplicarla antes del paso 2 dejaría los certificados sin fondo, que es peor
+que la falta de ortografía.
 
-Hay un atajo, porque el generador ya sabe hacerlo solo: si a una plantilla le
-pones el fondo **incrustado**, al guardarla lo sube al almacenamiento y deja
-la dirección puesta (`externalizarFondo`, en `certificados/generador.js`).
-Basta con abrir la plantilla `8_IA_ILLUSTRATOR`, cambiarle el fondo por el
-archivo corregido y guardar. Con eso queda arreglado en el momento, y luego
-la migración ya no hace falta.
+### El otro camino, si prefieres no depender de la rama
+
+El generador ya sabe hacerlo solo: si a una plantilla le pones el fondo
+**incrustado**, al guardarla lo sube al almacenamiento y deja la dirección
+puesta (`externalizarFondo`, en `certificados/generador.js`). Abrir la
+plantilla `8_IA_ILLUSTRATOR`, cambiarle el fondo por el archivo corregido y
+guardar. Con eso el fondo queda en el almacenamiento de Supabase, junto a los
+de los demás módulos, y la migración ya no hace falta.
+
+## Dónde está la «carpeta» de estos certificados
+
+En la pantalla de Plantillas, una carpeta es un **grupo de graduación**
+entero: 6 o 7 personas por los 9 módulos del diplomado, 54 o 63 certificados.
+No hay una carpeta por módulo suelto. Los 13 de Illustrator viven dentro de
+dos grupos que ya existen:
+
+- **IA · Mañana 11:00 AM–1:30 PM · Grupo 2 · 2026** — 7 personas, 63 archivos
+- **IA · Sábado 1:00–5:00 PM · Grupo 2 · 2026** — 6 personas, 54 archivos
+
+Con «ZIP» o «Un solo PDF» de esos dos grupos salen todos los módulos, ya con
+Illustrator bien escrito. Si lo que se quiere es sólo el módulo 8, en
+Certificados emitidos se pueden marcar los 13 con su casilla y usar
+«Descargar seleccionados».

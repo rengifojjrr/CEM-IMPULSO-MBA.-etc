@@ -6,14 +6,23 @@
 -- esquina. El fondo corregido está en el repositorio, en
 -- certificados/fondos/8_IA_ILLUSTRATOR.jpg, y se sirve desde el propio sitio.
 --
--- IMPORTANTE — el orden importa. Esta migración sólo debe aplicarse cuando el
--- archivo ya esté publicado, es decir, cuando esta rama esté fusionada en main
--- y GitHub Pages lo haya subido. Comprobación de un vistazo:
+-- ESTADO: la plantilla YA está corregida en producción, pero apuntando a una
+-- dirección provisional —el archivo servido por GitHub desde esta misma rama—
+-- porque hacía falta imprimir el mismo día y Pages sólo publica desde main.
+-- Esta migración es el paso de limpieza: mueve el fondo a su dirección
+-- definitiva, la del propio sitio.
+--
+-- IMPORTANTE — el orden importa. Aplicarla sólo cuando el archivo ya esté
+-- publicado, es decir, cuando esta rama esté fusionada en main y GitHub Pages
+-- lo haya subido. Comprobación de un vistazo:
 --
 --   curl -sI https://escuelacem.com/certificados/fondos/8_IA_ILLUSTRATOR.jpg
 --
 -- Si eso no devuelve 200, aplicarla dejaría los certificados sin fondo, que es
 -- peor que la falta de ortografía. En ese caso, esperar.
+--
+-- Conviene no dejarlo indefinidamente a medias: la dirección provisional
+-- depende de que la rama siga existiendo, y la definitiva no depende de nada.
 --
 -- Los certificados se dibujan al vuelo a partir de la plantilla, así que con
 -- cambiar esta dirección quedan bien los 19 de golpe —los ya emitidos y los
