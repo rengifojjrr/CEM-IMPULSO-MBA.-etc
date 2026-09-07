@@ -211,46 +211,37 @@ módulo» copia la fecha de un compañero y aquí no hay ninguno de quien copiar
 El `puntaje` sale en blanco a propósito, igual que en los demás grupos: es de
 cada quien y más vale que se vea que falta a que salga con el de otro.
 
-### 1.10 · Dos cosas del diploma que hay que decidir
+### 1.10 · El diploma, y por qué la fecha y el puntaje no son de cada quien
 
-Al rehacer los 34 diplomas —porque decían «indentidad»— salieron tres cosas
-más. La primera ya está arreglada; las otras dos no, porque son decisiones y
-no fallos.
+Al rehacer los 34 diplomas salieron cuatro cosas. Las cuatro están arregladas,
+pero la última conviene entenderla porque va a volver a aparecer.
 
-**Arreglado: la misma frase tenía dos faltas más.** Decía «quien **a**
-culminado con **exito**»; ahora dice «quien **ha** culminado con **éxito**».
-Estaba en el `plantillaTexto` del campo `titular...` de las dos plantillas de
-diploma que se usan, y también en la copia dormida de `overrides`. La frase
-completa quedó así:
+**Tres faltas en la misma frase**, la de la cédula. Quedó así:
 
     Titular de la cédula de identidad V: {{cedula}} quien ha culminado con éxito el
 
-**El puntaje sale 99 en los 34.** En la ficha de cada persona está vacío
-—`cert_lote_agregar_persona` lo deja así a propósito—, pero la plantilla lo
-fuerza con un valor fijo `"99"` en `overrides`, y el valor fijo gana sobre el
-dato de la persona. O es lo que se quiere, o es un resto de cuando se diseñó
-la plantilla.
+Sobraba una `n` en «indentidad», faltaba la `h` de «ha» y la tilde de «éxito».
+Corregido en las dos plantillas que se usan, en `FORMATO_DIPLOMA_EXITUS` —que
+la tenía viva y no había salido en ningún diploma sólo porque Exitus todavía
+no lleva— y en la copia dormida de `overrides` de la de Marketing, que habría
+reaparecido en cuanto alguien desmarcara la casilla de plantilla de texto.
 
-**La fecha tampoco es la de cada grupo,** por lo mismo:
+**El mes, que en Marketing decía julio.** Los dos diplomas dicen ahora «En
+Caracas en el mes de agosto del 2026». En minúscula, que es como se escriben
+los meses en castellano y como ya estaba en el de IA.
 
-| Plantilla | Valor fijo que se imprime | Fechas reales de sus grupos |
-|---|---|---|
-| IA | «En Caracas en el mes de agosto del 2026» | 27 de junio · 7 de septiembre |
-| Marketing | «En Caracas en el mes de Julio del 2026» | 14 de agosto · 10 de septiembre |
-
-El de Marketing dice julio, que no le toca a ninguno de los dos grupos.
-
-> **El mecanismo, que no es evidente:** en `renderCertificateCanvas` el orden
-> de preferencia es ajuste manual → plantilla de texto → **valor fijo** → dato
-> de la persona. El valor fijo va *antes* que el dato, así que mientras haya
-> algo escrito en `overrides` para un campo, lo que traiga cada certificado no
-> se ve. Con `usarPlantillaTexto` activado, el valor fijo ni se mira.
-
-Ese mismo orden dejó dos copias de «indentidad» escondidas, ya corregidas:
-`FORMATO_DIPLOMA_EXITUS` la tenía viva en su `plantillaTexto` (no había salido
-en ningún diploma sólo porque Exitus todavía no lleva), y la de Marketing la
-tenía dormida en `overrides`, lista para reaparecer en cuanto alguien
-desmarcara la casilla de plantilla de texto.
+> **Lo que hay que saber, porque no es evidente:** la fecha y el puntaje del
+> diploma **no salen de la ficha de cada persona**. Salen de un valor fijo de
+> la plantilla, en `overrides`, y ese valor gana. El orden en
+> `renderCertificateCanvas` es ajuste manual → plantilla de texto → **valor
+> fijo** → dato de la persona, así que mientras haya algo escrito en
+> `overrides` para un campo, lo que traiga cada certificado no se ve.
+>
+> Hoy eso es lo que se quiere: los 34 llevan «agosto» y puntaje **99** a
+> propósito. Pero significa que la fecha del grupo que guarda cada certificado
+> —27 de junio, 7 de septiembre, 14 de agosto, 10 de septiembre— no se imprime
+> en el diploma. Si algún día se quiere la fecha real de cada promoción, hay
+> que **vaciar** `overrides.Fecha`, no rellenar el dato.
 
 ---
 
