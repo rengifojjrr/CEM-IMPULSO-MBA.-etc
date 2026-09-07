@@ -211,17 +211,19 @@ módulo» copia la fecha de un compañero y aquí no hay ninguno de quien copiar
 El `puntaje` sale en blanco a propósito, igual que en los demás grupos: es de
 cada quien y más vale que se vea que falta a que salga con el de otro.
 
-### 1.10 · Tres cosas del diploma que hay que decidir
+### 1.10 · Dos cosas del diploma que hay que decidir
 
 Al rehacer los 34 diplomas —porque decían «indentidad»— salieron tres cosas
-más. Ninguna es un fallo técnico: las tres son decisiones, y por eso están
-aquí y no arregladas.
+más. La primera ya está arreglada; las otras dos no, porque son decisiones y
+no fallos.
 
-**La misma frase tiene dos faltas más.** Dice «quien **a** culminado con
-**exito**»; debería ser «quien **ha** culminado con **éxito**». Está en el
-`plantillaTexto` del campo `titular...` de las tres plantillas de diploma. Es
-la línea que se acaba de corregir, así que si se va a tocar, es ahora y no en
-la próxima tanda.
+**Arreglado: la misma frase tenía dos faltas más.** Decía «quien **a**
+culminado con **exito**»; ahora dice «quien **ha** culminado con **éxito**».
+Estaba en el `plantillaTexto` del campo `titular...` de las dos plantillas de
+diploma que se usan, y también en la copia dormida de `overrides`. La frase
+completa quedó así:
+
+    Titular de la cédula de identidad V: {{cedula}} quien ha culminado con éxito el
 
 **El puntaje sale 99 en los 34.** En la ficha de cada persona está vacío
 —`cert_lote_agregar_persona` lo deja así a propósito—, pero la plantilla lo
