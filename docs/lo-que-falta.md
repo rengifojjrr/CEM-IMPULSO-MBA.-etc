@@ -172,6 +172,45 @@ uno que se estrena delante de un cliente.
 > se llame de otro modo, se cambia en **Configuración**, clave
 > `asistente_nombre_whatsapp`, sin desplegar nada.
 
+### 1.9 · Los 12 diplomas de Marketing · Noche · Grupo 12
+
+Ese grupo tiene **12 personas con sus 8 módulos completos y ningún diploma**.
+No es que se anularan: nunca se emitieron, no hay ni una fila en ningún
+estado. Es el único grupo terminado al que le falta.
+
+Comparado con los demás, se ve solo:
+
+| Grupo | Personas | Módulos | Diplomas |
+|---|---|---|---|
+| Marketing · Viernes 9:00 AM · Grupo 12 | 10 | 9 | 10 |
+| Marketing · Matutino 8:30–11:00 · Grupo 14 | 10 | 9 | 10 |
+| IA · Mañana 11:00 · Grupo 2 | 8 | 9 | 8 |
+| IA · Sábado 1:00–5:00 · Grupo 2 | 6 | 9 | 6 |
+| **Marketing · Noche 4:30–6:30 · Grupo 12** | **12** | **8** | **0** |
+| Exitus Lab · Agosto | 2 | 4 | — sin diploma, por indicación expresa |
+
+Por eso al buscar «diploma» en Certificados emitidos salen 34 y no 46. La
+pantalla no recorta nada: 34 son todos los que existen.
+
+**Lo que falta para poder emitirlos: la fecha.** Los certificados de módulo de
+Marketing no guardan fecha en sus datos —va dibujada en el fondo—, y el único
+que la lleva es el diploma. El del grupo hermano (Viernes · Grupo 12) dice
+*14 de Agosto de 2026*, pero eso es una suposición, no un dato de este grupo,
+y no conviene estampar 12 diplomas oficiales con una fecha adivinada.
+
+**Cómo hacerlo cuando se sepa la fecha.** Ojo al orden, porque «completar
+módulo» copia la fecha de un compañero y aquí no hay ninguno de quien copiar
+—la función lo dice con todas las letras y se niega—:
+
+1. En el generador, emitir el diploma **de una sola persona** del grupo, con
+   la fecha buena, y **registrarlo**.
+2. Ya con ese modelo dentro, usar **«dar este módulo al resto del grupo»**
+   (`cert_lote_completar_modulo`) y salen los 11 restantes heredando esa
+   misma fecha.
+
+El `puntaje` sale en blanco a propósito, igual que en los demás grupos: es de
+cada quien y más vale que se vea que falta a que salga con el de otro.
+
 ---
 
 ## 2 · Lo que falta en el producto
