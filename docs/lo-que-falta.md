@@ -211,6 +211,45 @@ módulo» copia la fecha de un compañero y aquí no hay ninguno de quien copiar
 El `puntaje` sale en blanco a propósito, igual que en los demás grupos: es de
 cada quien y más vale que se vea que falta a que salga con el de otro.
 
+### 1.10 · Tres cosas del diploma que hay que decidir
+
+Al rehacer los 34 diplomas —porque decían «indentidad»— salieron tres cosas
+más. Ninguna es un fallo técnico: las tres son decisiones, y por eso están
+aquí y no arregladas.
+
+**La misma frase tiene dos faltas más.** Dice «quien **a** culminado con
+**exito**»; debería ser «quien **ha** culminado con **éxito**». Está en el
+`plantillaTexto` del campo `titular...` de las tres plantillas de diploma. Es
+la línea que se acaba de corregir, así que si se va a tocar, es ahora y no en
+la próxima tanda.
+
+**El puntaje sale 99 en los 34.** En la ficha de cada persona está vacío
+—`cert_lote_agregar_persona` lo deja así a propósito—, pero la plantilla lo
+fuerza con un valor fijo `"99"` en `overrides`, y el valor fijo gana sobre el
+dato de la persona. O es lo que se quiere, o es un resto de cuando se diseñó
+la plantilla.
+
+**La fecha tampoco es la de cada grupo,** por lo mismo:
+
+| Plantilla | Valor fijo que se imprime | Fechas reales de sus grupos |
+|---|---|---|
+| IA | «En Caracas en el mes de agosto del 2026» | 27 de junio · 7 de septiembre |
+| Marketing | «En Caracas en el mes de Julio del 2026» | 14 de agosto · 10 de septiembre |
+
+El de Marketing dice julio, que no le toca a ninguno de los dos grupos.
+
+> **El mecanismo, que no es evidente:** en `renderCertificateCanvas` el orden
+> de preferencia es ajuste manual → plantilla de texto → **valor fijo** → dato
+> de la persona. El valor fijo va *antes* que el dato, así que mientras haya
+> algo escrito en `overrides` para un campo, lo que traiga cada certificado no
+> se ve. Con `usarPlantillaTexto` activado, el valor fijo ni se mira.
+
+Ese mismo orden dejó dos copias de «indentidad» escondidas, ya corregidas:
+`FORMATO_DIPLOMA_EXITUS` la tenía viva en su `plantillaTexto` (no había salido
+en ningún diploma sólo porque Exitus todavía no lleva), y la de Marketing la
+tenía dormida en `overrides`, lista para reaparecer en cuanto alguien
+desmarcara la casilla de plantilla de texto.
+
 ---
 
 ## 2 · Lo que falta en el producto
