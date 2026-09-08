@@ -68,6 +68,13 @@
   <h2 class="sec">Certificados oficiales</h2>
   <div class="grid g2" id="certs"></div>
 
+  <div id="egresado" hidden>
+    <h2 class="sec sep-mucho">Tus diplomados</h2>
+    <p class="tiny muted" style="margin:-6px 0 10px">
+      Encontrados por tu cédula. Si hiciste más de un diplomado, aquí salen todos.</p>
+    <div class="card" id="egresado-lista"></div>
+  </div>
+
   <h2 class="sec sep-mucho">Camino a la certificación</h2>
   <div class="card" id="camino"></div>
 
@@ -240,6 +247,68 @@ function verCertificado(c){
       <body>${$('#lienzo',m).outerHTML}<script>onload=()=>print()<\/script></body></html>`);
     w.document.close();
   };
+}
+
+/* ============ Los diplomados, encontrados por la cédula ============
+   Los diplomas y los certificados de módulo no viven en cem_certificates:
+   los emite el generador y sólo guardan la cédula dentro de sus datos, sin
+   ninguna relación con una cuenta. Un graduado de 2026 puede registrarse hoy
+   y no ver nada suyo, aunque su diploma esté emitido desde hace meses.
+
+   El puente es la cédula del perfil. La función se atiene a auth.uid() y no
+   acepta que se le diga de quién, así que nadie puede pedir los de otro.
+
+   Va aparte de load() a propósito: si esto falla, el resto de la pantalla
+   —los certificados de la plataforma, las insignias— tiene que seguir. */
+if (me) cargarEgresado();
+
+async function cargarEgresado(){
+  let docs = [];
+  try {
+    // Deja rastro de que esta cuenta reclamó esa cédula, y trae lo que hay.
+    const [, { data }] = await Promise.all([
+      sb.rpc('cem_vincular_mis_certificados'),
+      sb.rpc('cem_mis_certificados_de_egresado'),
+    ]);
+    docs = data || [];
+  } catch { return; }          // ver arriba
+  if (!docs.length) return;    // sin cédula puesta, o sin nada a su nombre
+
+  const caja = $('#egresado');
+  caja.hidden = false;
+
+  /* Agrupados por diplomado, que es como los piensa la persona: «lo mío de
+     Marketing» y «lo mío de IA», no una lista de veinte papeles seguidos. */
+  const porPrograma = new Map();
+  docs.forEach(d => {
+    if (!porPrograma.has(d.programa)) porPrograma.set(d.programa, []);
+    porPrograma.get(d.programa).push(d);
+  });
+
+  $('#egresado-lista').innerHTML = [...porPrograma.entries()].map(([programa, lista]) => {
+    const diplomas = lista.filter(d => d.es_diploma);
+    const modulos  = lista.filter(d => !d.es_diploma);
+    return `<section class="sep">
+      <h3 style="margin:0 0 6px;font-size:15px">${esc(programa)}</h3>
+      ${diplomas.map(d => `
+        <div class="row" style="justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--filete)">
+          <div><span class="chip ok">Diploma</span>
+            <b style="margin-left:6px">${esc(d.titulo)}</b>
+            <div class="tiny muted">A nombre de ${esc(d.nombre)} · ${esc(d.cedula)}</div></div>
+          <a class="btn sm" href="../../certificados/verificar.html?c=${encodeURIComponent(d.id)}" target="_blank"
+             rel="noopener"><span class="material-symbols-outlined" aria-hidden="true">verified</span> Ver</a>
+        </div>`).join('')}
+      ${modulos.length ? `<details class="sep">
+        <summary class="tiny">Y sus ${modulos.length} certificado${modulos.length === 1 ? '' : 's'} de módulo</summary>
+        ${modulos.map(d => `
+          <div class="row" style="justify-content:space-between;gap:10px;padding:6px 0">
+            <span class="tiny">${esc(d.titulo)}</span>
+            <a class="tiny" href="../../certificados/verificar.html?c=${encodeURIComponent(d.id)}"
+               target="_blank" rel="noopener">Ver</a>
+          </div>`).join('')}
+      </details>` : ''}
+    </section>`;
+  }).join('');
 }
 </script>
 </body>
