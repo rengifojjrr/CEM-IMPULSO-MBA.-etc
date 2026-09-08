@@ -1187,6 +1187,9 @@ const ADMIN_NAV = [
   { lbl: 'Certificar', items: [
     ['certificados.html', 'workspace_premium', 'Certificados', ['coordinador','admin','superadmin','auditor']],
     ['certificados-plantillas.html', 'design_services', 'Plantillas', ['coordinador','admin','superadmin']],
+    /* Entra el auditor porque aquí hay direcciones y un gasto de imprenta que
+       la escuela asume: es material de auditoría, aunque él no mueva nada. */
+    ['diplomas-fisicos.html', 'local_shipping', 'Diplomas en físico', ['coordinador','admin','superadmin','auditor']],
     ['insignias.html', 'military_tech', 'Insignias', ['coordinador','admin','superadmin','auditor']],
   ]},
   { lbl: 'Hablar con la gente', items: [

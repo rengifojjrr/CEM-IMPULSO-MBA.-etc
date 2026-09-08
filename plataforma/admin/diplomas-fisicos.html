@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Diplomas en físico</title>
+<!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,
+     PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180
+     para el iPhone. Ver herramientas/iconos.mjs. -->
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="../assets/icono-180.png?v=2026-09-03">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
+     Sin esto el navegador descubre cada uno cuando le toca, y paga el
+     DNS y el saludo TLS de cada cual por separado, con la pantalla en
+     blanco mientras tanto. Ver herramientas/acelerar-cabeceras.mjs. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Diplomas en físico</h1>
+      <p>Quién ha pedido su diploma o su certificado impreso, a qué dirección va y en qué punto está.</p></div>
+    <div class="actions">
+      <button class="btn outline" id="btnPlazo">
+        <span class="material-symbols-outlined" aria-hidden="true">event</span> Cambiar el plazo</button>
+      <button class="btn" id="btnImprenta">
+        <span class="material-symbols-outlined" aria-hidden="true">download</span> Hoja para la imprenta</button>
+    </div>
+  </div>
+
+  <!-- El plazo es el motor de todo esto: mientras corre, la gente contesta, y
+       es cuando la escuela puede juntar los pedidos en una sola tirada. Va
+       arriba del todo porque es el dato que decide si hay prisa. -->
+  <div id="plazo" class="nota">Cargando el plazo…</div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="field grow"><label for="q">Buscar</label>
+        <input type="search" id="q" placeholder="Nombre, cédula, ciudad o diploma…"></div>
+      <div class="field"><label for="fEstado">Estado</label><select id="fEstado">
+        <option value="">Todos</option>
+        <option value="pedido">Por imprimir</option>
+        <option value="en imprenta">En imprenta</option>
+        <option value="enviado">Enviado</option>
+        <option value="entregado">Entregado</option>
+        <option value="anulado">Anulado</option>
+      </select></div>
+      <div class="field"><label for="fPago">Quién paga</label><select id="fPago">
+        <option value="">Todos</option>
+        <option value="si">Los que entraron gratis</option>
+        <option value="no">Los de pago</option>
+      </select></div>
+    </div>
+    <div class="row between sep-poco"><span id="cuenta" class="tiny muted"></span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Persona</th><th>Documento</th><th>Dónde va</th><th>Pedido</th>
+        <th>Imprenta y envío</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </div>
+</div>
+<script type="module">
+import { sb, mount, $, $$, esc, chip, num, fdate, fdateRel, emptyRow, match, kpi, modal,
+         ok, fail, run, audit, toCSV, download, cargarEn,
+         filtrosEnLaDireccion } from '../assets/app.js?v=2026-09-04-4';
+
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'diplomas-fisicos.html', area:'admin' });
+/* El auditor lee y no toca nada: es su definición. Aquí eso significa que ve
+   los pedidos y las direcciones, pero no mueve un pedido de estado ni corre la
+   fecha límite. */
+const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
+
+/* Cada estado con su color. No van al CHIP_MAP de la casa porque «entregado» y
+   «enviado» ya significan otra cosa en las entregas de los estudiantes, y
+   pintarlos igual confundiría dos pantallas distintas. */
+const TONO = { 'pedido':'warn', 'en imprenta':'info', 'enviado':'info', 'entregado':'ok', 'anulado':'err' };
+const ESTADOS = ['pedido','en imprenta','enviado','entregado','anulado'];
+const COMO_SE_LLAMA = { 'pedido':'Por imprimir', 'en imprenta':'En imprenta', 'enviado':'Enviado',
+                        'entregado':'Entregado', 'anulado':'Anulado' };
+
+let pedidos = [], plazo = null;
+if (p) load();
+
+async function load(){
+  await cargarEn('#tb', () => Promise.all([
+    sb.rpc('cem_admin_pedidos_fisicos'),
+    sb.rpc('cem_plazo_diploma_fisico'),
+  ]).then((rs) => ({ data: rs, error: rs.find(r => r.error)?.error })), ([rPed, rPlazo]) => {
+    pedidos = rPed.data || [];
+    plazo   = (rPlazo.data || [])[0] || null;
+    pintarPlazo();
+    pintarKpis();
+    render();
+  });
+}
+
+/* ============ el plazo ============ */
+function pintarPlazo(){
+  const el = $('#plazo');
+  if (!plazo) { el.className = 'nota'; el.textContent = 'No se pudo leer el plazo.'; return; }
+  const dias = Number(plazo.dias_restantes) || 0;
+  if (plazo.aun_gratis) {
+    el.className = 'nota ok';
+    el.innerHTML = `La impresión y el envío corren por cuenta de la escuela hasta el
+      <b>${esc(fdate(plazo.gratis_hasta))}</b> — ${dias === 0 ? 'hoy es el último día'
+        : `quedan <b>${num(dias)}</b> ${dias === 1 ? 'día' : 'días'}`}.
+      Lo que se pida después entra como de pago: ${esc(plazo.precio || '—')}.`;
+  } else {
+    el.className = 'nota warn';
+    el.innerHTML = `El plazo gratis terminó el <b>${esc(fdate(plazo.gratis_hasta))}</b>.
+      Todo lo que se pida ahora entra como de pago: ${esc(plazo.precio || '—')}.`;
+  }
+}
+
+$('#btnPlazo').onclick = () => {
+  if (!puede) return fail('Tu cuenta puede mirar esta pantalla, pero no cambiar el plazo.');
+  const hoy = new Date().toISOString().slice(0, 10);
+  const m = modal({ title:'Hasta cuándo se imprime gratis', body:`
+    <div class="field"><label for="pFecha">Último día para pedirlo sin pagar</label>
+      <input type="date" id="pFecha" value="${esc(plazo?.gratis_hasta || hoy)}" min="${esc(hoy)}"></div>
+    <div class="field"><label for="pPrecio">Qué se le dice a quien pide fuera de plazo</label>
+      <input id="pPrecio" value="${esc(plazo?.precio || '')}" placeholder="Imprenta y envío según destino"></div>
+    <!-- Lo importante de esta pantalla, y lo que la gente da por hecho al
+         revés: mover la fecha no le quita lo gratis a nadie. Cada pedido se
+         guardó con su condición el día que entró y ya no se recalcula. -->
+    <p class="tiny muted">Mover esta fecha sólo afecta a lo que se pida a partir de ahora.
+      Quien ya pidió dentro de plazo lo tiene gratis aunque se imprima meses después.</p>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar</button>` });
+
+  $('[data-s]', m).onclick = async () => {
+    const fecha = $('#pFecha', m).value;
+    if (!fecha) return fail('Hace falta una fecha.');
+    await run(sb.from('cem_settings').upsert([
+      { clave:'diploma_fisico_gratis_hasta', valor:fecha, actualizado_en:new Date().toISOString(),
+        descripcion:'Hasta qué día (inclusive) se puede pedir el diploma impreso sin pagar. Después, el pedido queda marcado como de pago.' },
+      { clave:'diploma_fisico_precio', valor:$('#pPrecio', m).value.trim() || 'Imprenta y envío según destino',
+        actualizado_en:new Date().toISOString(),
+        descripcion:'Lo que se le dice a quien pide fuera de plazo. Texto libre: puede ser un precio o «te lo cotizamos».' },
+    ], { onConflict:'clave' }), 'No se pudo guardar el plazo');
+    await audit('plazo_diploma_fisico_cambiado', 'cem_settings', null, 'alto', { hasta:fecha });
+    m.close(); ok('Plazo guardado'); load();
+  };
+};
+
+/* ============ las cifras ============ */
+function pintarKpis(){
+  const cuantos = (e) => pedidos.filter(x => x.estado === e).length;
+  const vivos = pedidos.filter(x => x.estado !== 'anulado');
+  $('#kpis').innerHTML = [
+    kpi('Por imprimir', num(cuantos('pedido')), 'print', '', '',
+        'Pedidos que aún no ha visto la imprenta. Son los que hay que juntar en la próxima tirada.'),
+    kpi('En imprenta', num(cuantos('en imprenta')), 'local_printshop'),
+    kpi('En camino', num(cuantos('enviado')), 'local_shipping'),
+    kpi('Los paga la escuela', num(vivos.filter(x => x.gratis).length), 'redeem',
+        `${num(vivos.filter(x => !x.gratis).length)} de pago`, '',
+        'Lo decidió el servidor el día que entró cada pedido, y ya no cambia aunque se mueva la fecha límite.'),
+  ].join('');
+}
+
+/* ============ la tabla ============ */
+/* Sólo `filtrosEnLaDireccion`: ya escucha los tres campos por su cuenta, y
+   volver a conectarlos con `conectarFiltros` repinta la tabla dos veces por
+   tecla. */
+filtrosEnLaDireccion({ q:'#q', estado:'#fEstado', pago:'#fPago' }, render);
+
+function visibles(){
+  const q = $('#q').value.trim(), est = $('#fEstado').value, pago = $('#fPago').value;
+  return pedidos.filter(x =>
+    (!est || x.estado === est) &&
+    (!pago || (pago === 'si') === !!x.gratis) &&
+    match(x, q, ['nombre', 'cedula', 'titulo', 'ciudad', 'pais', 'telefono', 'direccion']));
+}
+
+function render(){
+  const filas = visibles();
+  $('#cuenta').textContent = pedidos.length
+    ? `${num(filas.length)} de ${num(pedidos.length)} ${pedidos.length === 1 ? 'pedido' : 'pedidos'}`
+    : '';
+  $('#tb').innerHTML = filas.length ? filas.map(x => `<tr>
+    <td><b>${esc(x.nombre)}</b><div class="tiny muted">${esc(x.cedula)}</div></td>
+    <td>${esc(x.titulo)}</td>
+    <td class="tiny">${esc([x.ciudad, x.pais].filter(Boolean).join(', ') || '—')}
+      <div class="muted">${esc(x.telefono)}</div></td>
+    <td class="tiny">${fdateRel(x.pedido_en)}</td>
+    <td>${x.gratis ? chip('Los paga la escuela', 'ok') : chip('De pago', 'warn')}</td>
+    <td>${chip(COMO_SE_LLAMA[x.estado] || x.estado, TONO[x.estado])}</td>
+    <td><button class="btn outline sm" data-ver="${esc(x.id)}">Abrir</button></td>
+  </tr>`).join('')
+    : emptyRow(7, pedidos.length ? 'Ninguno coincide con el filtro.'
+        : 'Todavía no ha pedido nadie su diploma impreso.');
+
+  $$('[data-ver]').forEach(b => { b.onclick = () => abrir(pedidos.find(x => x.id === b.dataset.ver)); });
+}
+
+/* ============ un pedido ============ */
+function abrir(x){
+  if (!x) return;
+  const m = modal({ title:x.nombre, wide:true, body:`
+    <div class="field"><label>Qué se imprime</label>
+      <div>${esc(x.titulo)} <span class="tiny muted">· cédula ${esc(x.cedula)}</span></div></div>
+    <div class="field"><label>A dónde va</label>
+      <div>${esc(x.direccion)}</div>
+      <div class="tiny muted">${esc([x.ciudad, x.pais].filter(Boolean).join(', ') || 'Sin ciudad ni país')}
+        · teléfono ${esc(x.telefono)}</div></div>
+    <div class="nota ${x.gratis ? 'ok' : 'warn'}">${x.gratis
+      ? `Entró dentro del plazo${x.gratis_hasta ? ` (vencía el ${esc(fdate(x.gratis_hasta))})` : ''}:
+         la imprenta y el envío los pone la escuela.`
+      : 'Entró fuera de plazo: la imprenta y el envío los paga quien lo pidió.'}</div>
+    <div class="row">
+      <div class="field grow"><label for="eEstado">En qué punto está</label>
+        <select id="eEstado" ${puede ? '' : 'disabled'}>
+          ${ESTADOS.map(e => `<option value="${e}" ${e === x.estado ? 'selected' : ''}>${esc(COMO_SE_LLAMA[e])}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="field"><label for="eNota">Nota interna</label>
+      <textarea id="eNota" style="min-height:60px" ${puede ? '' : 'disabled'}
+        placeholder="Número de guía, con quién va, lo que haga falta recordar…">${esc(x.nota || '')}</textarea></div>
+    <p class="tiny muted">Pedido el ${esc(fdate(x.pedido_en))}. Última anotación el ${esc(fdate(x.actualizado_en))}.</p>`,
+    footer: puede
+      ? `<button class="btn outline" data-x>Cerrar</button><button class="btn" data-s>Guardar</button>`
+      : `<button class="btn outline" data-x>Cerrar</button>` });
+
+  if (!puede) return;
+  $('[data-s]', m).onclick = async () => {
+    const estado = $('#eEstado', m).value, nota = $('#eNota', m).value.trim();
+    /* La nota se manda siempre, aunque quede vacía. La función guarda
+       `coalesce(p_nota, nota)`, así que un null significa «no la toques»: si al
+       borrarla se mandara null, la nota volvería a aparecer al recargar y
+       parecería que la pantalla no guarda. */
+    await run(sb.rpc('cem_pedido_fisico_estado', { p_id:x.id, p_estado:estado, p_nota:nota }),
+              'No se pudo guardar el pedido');
+    await audit('pedido_fisico_actualizado', 'cem_diploma_fisico', x.id, 'bajo', { estado });
+    m.close(); ok('Pedido actualizado'); load();
+  };
+}
+
+/* ============ la hoja que se le pasa a la imprenta ============
+   Se baja lo que está filtrado y no la tabla entera: quien va a mandar una
+   tirada mira primero «por imprimir» y luego descarga, y bajarle además los
+   entregados de hace dos meses sería darle trabajo de más. */
+$('#btnImprenta').onclick = () => {
+  const filas = visibles();
+  if (!filas.length) return fail('No hay nada que descargar con este filtro.');
+  download(`diplomas-en-fisico-${new Date().toISOString().slice(0, 10)}.csv`, toCSV(filas.map(x => ({
+    Nombre: x.nombre, Cedula: x.cedula, Documento: x.titulo,
+    Telefono: x.telefono, Direccion: x.direccion, Ciudad: x.ciudad || '', Pais: x.pais || '',
+    'Lo paga': x.gratis ? 'La escuela' : 'Quien lo pidió',
+    Estado: COMO_SE_LLAMA[x.estado] || x.estado,
+    Pedido: fdate(x.pedido_en), Nota: x.nota || '',
+  }))));
+  ok(`${filas.length} ${filas.length === 1 ? 'pedido descargado' : 'pedidos descargados'}`);
+};
+</script>
+</body>
+</html>

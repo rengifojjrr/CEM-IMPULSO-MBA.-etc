@@ -462,6 +462,34 @@ El agrupado en sí está probado aparte, con fechas inventadas
 certificados reales): tres días, un día partido en horas lejanas, y el caso de
 la emisión nocturna en Caracas, que en UTC ya es el día siguiente.
 
+### 3.6 · `cem_settings` la puede leer cualquiera desde la calle
+
+La tabla tiene RLS encendida, pero la política de lectura es `using (true)` y
+`anon` conserva el `select`. Es decir: con la clave publicable —que va en el
+código de todas las páginas, y es pública a propósito— cualquiera puede
+descargarse la tabla entera de ajustes sin tener cuenta.
+
+**Hoy no se escapa nada**: dentro hay el nombre del instituto, la URL del sitio,
+la escala de notas, los países de la portada, el dibujo de la mascota y las URLs
+de la tasa del dólar. Todo eso ya se enseña. La escritura sí está bien cerrada
+(`cem_is_staff()`), así que nadie puede cambiar los ajustes.
+
+Lo que preocupa es lo siguiente que se guarde ahí. El propio código ya lo tiene
+visto: la portada pide los países por la función `cem_paises_de_la_portada()` y
+el comentario dice, con todas las letras, «la portada la abre gente sin cuenta y
+`cem_settings` guarda además cosas que no son para enseñar». Falta rematar esa
+idea en la base.
+
+El arreglo son dos pasos y no se puede dar sólo el primero:
+
+1. Pasar `plataforma/assets/asistente.js` a una función que devuelva únicamente
+   `asistente_nombre` y `mascota_url` —es el único sitio que lee la tabla desde
+   una pantalla que abre gente sin cuenta—.
+2. Y sólo entonces quitarle el `select` a `anon` y estrechar la política de
+   lectura a `cem_is_staff()`.
+
+Al revés, la mascota se queda sin cara en las páginas públicas.
+
 ---
 
 ## 4 · Lo que NO conviene hacer
