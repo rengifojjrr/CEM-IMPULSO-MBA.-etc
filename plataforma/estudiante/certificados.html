@@ -262,15 +262,21 @@ function verCertificado(c){
    —los certificados de la plataforma, las insignias— tiene que seguir. */
 if (me) cargarEgresado();
 
+let plazoFisico = null, pedidos = new Map();
+
 async function cargarEgresado(){
   let docs = [];
   try {
     // Deja rastro de que esta cuenta reclamó esa cédula, y trae lo que hay.
-    const [, { data }] = await Promise.all([
+    const [, { data }, { data:plazo }, { data:mios }] = await Promise.all([
       sb.rpc('cem_vincular_mis_certificados'),
       sb.rpc('cem_mis_certificados_de_egresado'),
+      sb.rpc('cem_plazo_diploma_fisico'),
+      sb.rpc('cem_mis_pedidos_fisicos'),
     ]);
     docs = data || [];
+    plazoFisico = Array.isArray(plazo) ? plazo[0] : plazo;
+    (mios || []).forEach(p => pedidos.set(p.certificado_id, p));
   } catch { return; }          // ver arriba
   if (!docs.length) return;    // sin cédula puesta, o sin nada a su nombre
 
@@ -295,8 +301,11 @@ async function cargarEgresado(){
           <div><span class="chip ok">Diploma</span>
             <b style="margin-left:6px">${esc(d.titulo)}</b>
             <div class="tiny muted">A nombre de ${esc(d.nombre)} · ${esc(d.cedula)}</div></div>
-          <a class="btn sm" href="../../certificados/verificar.html?c=${encodeURIComponent(d.id)}" target="_blank"
-             rel="noopener"><span class="material-symbols-outlined" aria-hidden="true">verified</span> Ver</a>
+          <div class="row" style="gap:6px">
+            <a class="btn outline sm" href="../../certificados/verificar.html?c=${encodeURIComponent(d.id)}" target="_blank"
+               rel="noopener"><span class="material-symbols-outlined" aria-hidden="true">verified</span> Ver</a>
+            ${botonFisico(d)}
+          </div>
         </div>`).join('')}
       ${modulos.length ? `<details class="sep">
         <summary class="tiny">Y sus ${modulos.length} certificado${modulos.length === 1 ? '' : 's'} de módulo</summary>
@@ -309,6 +318,71 @@ async function cargarEgresado(){
       </details>` : ''}
     </section>`;
   }).join('');
+
+  /* El aviso del plazo va arriba del todo y con los días contados, no con una
+     fecha suelta: «quedan 12 días» mueve a pedirlo hoy; «hasta el 8 de octubre»
+     se lee y se pospone. Cuando se acaba, el mismo hueco explica qué pasa
+     ahora, en vez de desaparecer y dejar a la gente sin saber si puede pedirlo. */
+  if (plazoFisico) {
+    const p = plazoFisico;
+    $('#egresado-lista').insertAdjacentHTML('afterbegin', p.aun_gratis
+      ? `<div class="nota ok" style="margin-bottom:12px">
+           <b>¿Lo quieres impreso?</b> Pídelo antes del ${fdate(p.gratis_hasta)} y la impresión
+           y el envío corren por cuenta del CEM.
+           ${p.dias_restantes === 0 ? 'Hoy es el último día.'
+             : `Quedan ${p.dias_restantes} día${p.dias_restantes === 1 ? '' : 's'}.`}</div>`
+      : `<div class="nota warn" style="margin-bottom:12px">
+           El plazo para pedirlo impreso gratis terminó el ${fdate(p.gratis_hasta)}.
+           Puedes seguir pidiéndolo: ${esc(p.precio)}.</div>`);
+  }
+
+  $$('[data-fisico]', caja).forEach(b => b.addEventListener('click', () => pedirFisico(b.dataset.fisico, b.dataset.titulo)));
+}
+
+function botonFisico(d){
+  const ya = pedidos.get(d.id);
+  if (ya) {
+    return `<span class="chip ok" title="${esc(ya.direccion)}">
+      <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+      ${esc(ya.estado)}${ya.gratis ? '' : ' · de pago'}</span>`;
+  }
+  return `<button class="btn sm" data-fisico="${d.id}" data-titulo="${esc(d.titulo)}">
+    <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span> Lo quiero impreso</button>`;
+}
+
+async function pedirFisico(id, titulo){
+  const p = plazoFisico || {};
+  const m = modal({ title: 'Pedir el diploma impreso', body: `
+    <p class="tiny muted">${esc(titulo)}</p>
+    ${p.aun_gratis
+      ? `<div class="nota ok">Sin coste. El plazo termina el ${fdate(p.gratis_hasta)}.</div>`
+      : `<div class="nota warn">Fuera de plazo: ${esc(p.precio || '')}. El equipo te escribe para cerrarlo.</div>`}
+    <div class="field sep"><label for="fTel">Teléfono con WhatsApp</label>
+      <input id="fTel" required placeholder="0412 000 0000"></div>
+    <div class="field"><label for="fDir">Dirección de entrega</label>
+      <textarea id="fDir" required rows="3" placeholder="Calle, edificio, piso, punto de referencia"></textarea></div>
+    <div class="row">
+      <div class="field crece"><label for="fCiudad">Ciudad</label><input id="fCiudad"></div>
+      <div class="field crece"><label for="fPais">País</label><input id="fPais" value="Venezuela"></div>
+    </div>
+    <div class="row sep"><button class="btn" id="fEnviar">Pedirlo</button>
+      <button class="btn outline" data-x>Ahora no</button></div>
+    <div id="fMsg" class="tiny" role="status"></div>` });
+
+  $('#fEnviar', m).addEventListener('click', async () => {
+    const tel = $('#fTel', m).value.trim(), dir = $('#fDir', m).value.trim();
+    if (!tel || !dir) { $('#fMsg', m).textContent = 'Hacen falta el teléfono y la dirección.'; return; }
+    $('#fEnviar', m).disabled = true;
+    const { data, error } = await sb.rpc('cem_pedir_diploma_fisico', {
+      p_certificado_id: id, p_telefono: tel, p_direccion: dir,
+      p_ciudad: $('#fCiudad', m).value.trim() || null,
+      p_pais: $('#fPais', m).value.trim() || null,
+    });
+    if (error) { $('#fMsg', m).textContent = error.message; $('#fEnviar', m).disabled = false; return; }
+    pedidos.set(id, Array.isArray(data) ? data[0] : data);
+    m.close();
+    cargarEgresado();
+  });
 }
 </script>
 </body>
