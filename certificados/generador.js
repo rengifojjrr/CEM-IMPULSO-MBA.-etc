@@ -4121,10 +4121,29 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     renderLotes();
   }
 
+  /* Un grupo del que no queda ni un certificado vigente ya no es un grupo: es
+     el rastro de una carga que se rehízo entera. Ocupaba una fila igual de
+     grande que las de verdad, con sus botones de descargar, y descargarlo daba
+     documentos que no valen. Se apartan a un desplegable —no se borran, porque
+     cada uno de esos certificados está apuntado por el vivo que lo reemplazó, y
+     borrarlos dejaría a los buenos sin decir a qué sustituyen. */
   function renderLotes(){
     const wrap = document.getElementById('listaLotesWrap');
     if(!lotes.length){ wrap.innerHTML = '<p class="hint">Todavía no hay ningún grupo registrado.</p>'; return; }
-    wrap.innerHTML = `<table><thead><tr>
+    const vivos    = lotes.filter(l => Number(l.vigentes) > 0);
+    const acabados = lotes.filter(l => Number(l.vigentes) === 0);
+    wrap.innerHTML = tablaDeLotes(vivos) + (acabados.length
+      ? `<details class="sep"><summary class="hint">
+           ${acabados.length} grupo${acabados.length === 1 ? '' : 's'} ya reemplazado${acabados.length === 1 ? '' : 's'}
+           por completo — se guardan para saber qué sustituye a qué</summary>
+         ${tablaDeLotes(acabados)}</details>`
+      : '');
+    engancharLotes(wrap);
+  }
+
+  function tablaDeLotes(lotes){
+    if(!lotes.length) return '';
+    return `<table><thead><tr>
       <th>Grupo</th><th>Graduados</th><th>Módulos</th><th>Certificados</th><th>Emitido</th><th>Acciones</th>
     </tr></thead><tbody>${lotes.map(l => `<tr>
       <td><b>${escapeHtml(l.nombre)}</b>
@@ -4149,7 +4168,9 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       </td>
     </tr>
     <tr id="previa-${l.lote_id}" style="display:none;"><td colspan="6" class="previa-lote"></td></tr>`).join('')}</tbody></table>`;
+  }
 
+  function engancharLotes(wrap){
     wrap.querySelectorAll('[data-ver-lote]').forEach(b => b.addEventListener('click', () =>
       previsualizarLote(b.dataset.verLote, b.dataset.nombre)));
 
