@@ -62,7 +62,7 @@
       <img src="https://escuelacem.com/plataforma/assets/favicon.svg?v=2026-09-03" alt=""
            width="22" height="22"
            style="vertical-align:-4px" decoding="async" fetchpriority="high"> CEM International</a>
-    <nav>
+    <nav id="pubNav">
       <a href="https://escuelacem.com/">Inicio</a>
       <a href="https://escuelacem.com/programas/" class="on">Programas</a>
       <a href="https://escuelacem.com/plataforma/nosotros.html">Quiénes somos</a>
@@ -73,6 +73,14 @@
       <a class="btn outline sm" href="https://escuelacem.com/plataforma/index.html">Iniciar sesión</a>
       <a class="btn sm" href="https://escuelacem.com/plataforma/index.html?registro=1">Registrarse</a>
     </div>
+    
+    <button type="button" class="pub-menu-btn" id="pubMenu" hidden
+      aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+        <path class="raya sup" d="M4 7h16"></path>
+        <path class="raya med" d="M4 12h16"></path>
+        <path class="raya inf" d="M4 17h16"></path>
+      </svg></button>
   </div>
 </header>
 
@@ -304,9 +312,9 @@
   <div class="dentro">
     <div class="cifras-casa">
       <div><b>8</b><span>módulos, cada uno con su certificado</span></div>
-      <div><b>13</b><span>personas lo han cursado</span></div>
+      <div><b>15</b><span>personas lo han cursado</span></div>
       <div><b>2</b><span>promociones impartidas</span></div>
-      <div><b>13</b><span>diplomas de cierre emitidos</span></div>
+      <div><b>24</b><span>diplomas de cierre emitidos</span></div>
     </div>
   </div>
 </section>
@@ -323,7 +331,7 @@
     <p class="entrada">Cada módulo del Inteligencia Artificial se certifica por separado en cuanto lo
       terminas, así que no hay que esperar al final para tener algo que enseñar. Al completarlos
       todos se emite además el diploma del diplomado. De este programa se han emitido
-      13 diplomas de cierre a 13 personas.</p>
+      24 diplomas de cierre a 15 personas.</p>
     <p>Todos llevan un código único y un QR: quien lo reciba —una empresa que va a contratar, un
       cliente— <a href="https://escuelacem.com/plataforma/verificar.html">lo comprueba en el verificador</a>
       sin crear ninguna cuenta.</p>
@@ -382,6 +390,33 @@
     </nav>
   </div>
 </footer>
+
+<script>
+(function () {
+  var h = document.querySelector('.pub-header.estatica');
+  var b = h && h.querySelector('#pubMenu');
+  if (!b) return;
+  b.hidden = false;
+  h.classList.add('con-menu');
+  function abrir(si) {
+    h.classList.toggle('abierto', si);
+    b.setAttribute('aria-expanded', si ? 'true' : 'false');
+    b.setAttribute('aria-label', si ? 'Cerrar el menú' : 'Abrir el menú');
+  }
+  b.addEventListener('click', function () {
+    abrir(!h.classList.contains('abierto'));
+  });
+  Array.prototype.forEach.call(h.querySelectorAll('nav a, .pub-cta a'), function (a) {
+    a.addEventListener('click', function () { abrir(false); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && h.classList.contains('abierto')) { abrir(false); b.focus(); }
+  });
+  document.addEventListener('click', function (e) {
+    if (h.classList.contains('abierto') && !h.contains(e.target)) abrir(false);
+  });
+})();
+</script>
 
 <script>
 (function () {

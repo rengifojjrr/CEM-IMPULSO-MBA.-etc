@@ -251,7 +251,7 @@ const cabecera = (activa) => `
       <img src="${SITIO}/plataforma/assets/favicon.svg?v=${VERSION_ICONO}" alt=""
            width="22" height="22"
            style="vertical-align:-4px" decoding="async" fetchpriority="high"> ${ESCUELA.nombre}</a>
-    <nav>
+    <nav id="pubNav">
       <a href="${SITIO}/"${activa === 'inicio' ? ' class="on"' : ''}>Inicio</a>
       <a href="${SITIO}/programas/"${activa === 'programas' ? ' class="on"' : ''}>Programas</a>
       <a href="${SITIO}/plataforma/nosotros.html">Quiénes somos</a>
@@ -262,6 +262,29 @@ const cabecera = (activa) => `
       <a class="btn outline sm" href="${SITIO}/plataforma/index.html">Iniciar sesión</a>
       <a class="btn sm" href="${SITIO}/plataforma/index.html?registro=1">Registrarse</a>
     </div>
+    ${/* El botón del menú en el teléfono. Va el último en el marcado y se
+          coloca con `order`, igual que en la cabecera que monta app.js: quien
+          navega con teclado o lector de pantalla debe encontrar antes la marca
+          y los enlaces; en la pantalla, en cambio, el botón cae a la derecha.
+
+          Las tres rayas van en un SVG y NO en la tipografía de iconos, por lo
+          mismo que el birrete de aquí arriba: los iconos de Google son
+          ligaduras, y si esa fuente tarda o no llega, dentro de un botón de 42
+          píxeles se lee la palabra «menu». Un SVG viene con la página y no
+          depende de nadie.
+
+          Nace `hidden` a propósito. Estas páginas no cargan app.js, así que si
+          el JavaScript de abajo no llega a correr —o está desactivado— el
+          botón no existe y el menú se queda partido en dos renglones, que es
+          como estaba y funciona sin nada. Un botón visible que no abre nada
+          sería peor que no tener botón. */''}
+    <button type="button" class="pub-menu-btn" id="pubMenu" hidden
+      aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+        <path class="raya sup" d="M4 7h16"></path>
+        <path class="raya med" d="M4 12h16"></path>
+        <path class="raya inf" d="M4 17h16"></path>
+      </svg></button>
   </div>
 </header>`;
 
@@ -469,6 +492,7 @@ ${/* «VE-M» es Miranda en ISO 3166-2, que es lo que dice la dirección de la
 ${cabecera(activa)}
 ${cuerpo}
 ${pie()}
+${menuDelTelefono}
 ${contarLaVisita(url)}
 </body>
 </html>
@@ -515,6 +539,58 @@ const contarLaVisita = (url) => `
                              p_campana: p.get('utm_campaign') || null }),
     }).catch(function () {});
   } catch (e) { /* almacenamiento bloqueado o navegación privada: da igual */ }
+})();
+</script>`;
+
+/* El menú del teléfono, en las páginas que no cargan app.js.
+   ═══════════════════════════════════════════════════════════════════════════
+   En un móvil esta cabecera era estática: la marca, los cinco enlaces en dos
+   renglones y los dos botones, todo desplegado y pegado arriba mientras se
+   lee. Cerca de ciento veinte píxeles de los ochocientos que hay en un
+   teléfono de 390, ocupados de forma permanente por un menú que se usa una vez.
+
+   La cabecera que monta `app.js` ya se pliega en un botón desde hace tiempo, y
+   toda la mecánica —las clases `.abierto`, el ancho del botón, cómo cae el
+   menú desplegado— está escrita en `styles.css` y compartida. Lo único que
+   faltaba aquí era quien la encendiera, porque estas páginas no cargan app.js:
+   son estáticas a propósito, tienen que pintar sin esperar 190 KB.
+
+   Así que va suelto, por lo mismo que el contador de visitas de aquí arriba:
+   veinte líneas dentro del HTML no cuestan una petición ni un byte de espera,
+   y traerse `app.js` entero para un botón sería pagar la casa por una llave.
+
+   Encender el menú es además lo que APAGA el reparto en dos renglones: la
+   regla de `styles.css` que lo parte pide `.estatica:not(.con-menu)`. Sin
+   JavaScript no hay clase, y el menú se queda como estaba — desplegado, feo y
+   funcionando. Lo que no puede fallar es lo que no depende de nada.
+
+   Se cierra al elegir un enlace, con Escape y tocando fuera, que son las tres
+   formas en que la gente sale de un menú sin pensarlo. */
+const menuDelTelefono = `
+<script>
+(function () {
+  var h = document.querySelector('.pub-header.estatica');
+  var b = h && h.querySelector('#pubMenu');
+  if (!b) return;
+  b.hidden = false;
+  h.classList.add('con-menu');
+  function abrir(si) {
+    h.classList.toggle('abierto', si);
+    b.setAttribute('aria-expanded', si ? 'true' : 'false');
+    b.setAttribute('aria-label', si ? 'Cerrar el menú' : 'Abrir el menú');
+  }
+  b.addEventListener('click', function () {
+    abrir(!h.classList.contains('abierto'));
+  });
+  Array.prototype.forEach.call(h.querySelectorAll('nav a, .pub-cta a'), function (a) {
+    a.addEventListener('click', function () { abrir(false); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && h.classList.contains('abierto')) { abrir(false); b.focus(); }
+  });
+  document.addEventListener('click', function (e) {
+    if (h.classList.contains('abierto') && !h.contains(e.target)) abrir(false);
+  });
 })();
 </script>`;
 

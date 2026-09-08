@@ -62,7 +62,7 @@
       <img src="https://escuelacem.com/plataforma/assets/favicon.svg?v=2026-09-03" alt=""
            width="22" height="22"
            style="vertical-align:-4px" decoding="async" fetchpriority="high"> CEM International</a>
-    <nav>
+    <nav id="pubNav">
       <a href="https://escuelacem.com/">Inicio</a>
       <a href="https://escuelacem.com/programas/" class="on">Programas</a>
       <a href="https://escuelacem.com/plataforma/nosotros.html">Quiénes somos</a>
@@ -73,6 +73,14 @@
       <a class="btn outline sm" href="https://escuelacem.com/plataforma/index.html">Iniciar sesión</a>
       <a class="btn sm" href="https://escuelacem.com/plataforma/index.html?registro=1">Registrarse</a>
     </div>
+    
+    <button type="button" class="pub-menu-btn" id="pubMenu" hidden
+      aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+        <path class="raya sup" d="M4 7h16"></path>
+        <path class="raya med" d="M4 12h16"></path>
+        <path class="raya inf" d="M4 17h16"></path>
+      </svg></button>
   </div>
 </header>
 
@@ -106,7 +114,7 @@
           <li><b>8</b><span>módulos</span></li>
           <li><b>8</b><span>certificados</span></li>
           <li><b>48</b><span>lo han cursado</span></li>
-          <li><b>20</b><span>diplomas emitidos</span></li>
+          <li><b>121</b><span>diplomas emitidos</span></li>
         </ul>
 
         <p class="avala"><span class="punto"></span>
@@ -135,12 +143,12 @@
         <ul class="pp-datos">
           <li><b>8</b><span>módulos</span></li>
           <li><b>8</b><span>certificados</span></li>
-          <li><b>13</b><span>lo han cursado</span></li>
-          <li><b>13</b><span>diplomas emitidos</span></li>
+          <li><b>15</b><span>lo han cursado</span></li>
+          <li><b>24</b><span>diplomas emitidos</span></li>
         </ul>
 
         <p class="avala"><span class="punto"></span>
-          13 personas en 2
+          15 personas en 2
           promociones · cada módulo se certifica por separado</p>
 
         <div class="portada-manos" style="margin-bottom:0">
@@ -164,9 +172,9 @@
       escribe ese código o la cédula y ve ahí mismo si es auténtico, a nombre de quién está y de
       qué es. Sin crear ninguna cuenta.</p>
     <div class="cifras-casa" style="margin:var(--e3) 0">
-      <div><b>529</b><span>certificados comprobables</span></div>
-      <div><b>58</b><span>personas graduadas</span></div>
-      <div><b>7</b><span>promociones</span></div>
+      <div><b>657</b><span>certificados comprobables</span></div>
+      <div><b>125</b><span>personas graduadas</span></div>
+      <div><b>9</b><span>promociones</span></div>
     </div>
 
     <form class="verificar-aqui" action="https://escuelacem.com/plataforma/verificar.html" method="get">
@@ -212,6 +220,33 @@
     </nav>
   </div>
 </footer>
+
+<script>
+(function () {
+  var h = document.querySelector('.pub-header.estatica');
+  var b = h && h.querySelector('#pubMenu');
+  if (!b) return;
+  b.hidden = false;
+  h.classList.add('con-menu');
+  function abrir(si) {
+    h.classList.toggle('abierto', si);
+    b.setAttribute('aria-expanded', si ? 'true' : 'false');
+    b.setAttribute('aria-label', si ? 'Cerrar el menú' : 'Abrir el menú');
+  }
+  b.addEventListener('click', function () {
+    abrir(!h.classList.contains('abierto'));
+  });
+  Array.prototype.forEach.call(h.querySelectorAll('nav a, .pub-cta a'), function (a) {
+    a.addEventListener('click', function () { abrir(false); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && h.classList.contains('abierto')) { abrir(false); b.focus(); }
+  });
+  document.addEventListener('click', function (e) {
+    if (h.classList.contains('abierto') && !h.contains(e.target)) abrir(false);
+  });
+})();
+</script>
 
 <script>
 (function () {

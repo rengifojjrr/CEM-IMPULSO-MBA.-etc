@@ -4122,21 +4122,49 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
 /* La cabecera de las páginas que no cargan JavaScript.
    ═══════════════════════════════════════════════════════════════════════════
    En un teléfono, `.pub-inner nav` y `.pub-cta` se esconden y sólo vuelven con
-   la clase `.abierto`, que pone el botón de hamburguesa que inyecta `app.js`.
-   Las páginas de /programas/ y la portada del dominio NO cargan app.js —a
-   propósito: son estáticas y tienen que pintar sin esperar 196 KB—, así que en
-   un móvil se quedaban con la marca y nada más. Ni un enlace. Y de un buscador
-   llega sobre todo gente con el teléfono en la mano.
+   la clase `.abierto`, que pone el botón de hamburguesa. Las páginas de
+   /programas/ y la portada del dominio NO cargan app.js —a propósito: son
+   estáticas y tienen que pintar sin esperar 196 KB—, así que en un móvil se
+   quedaban con la marca y nada más. Ni un enlace. Y de un buscador llega sobre
+   todo gente con el teléfono en la mano.
 
-   Se resuelve sin JavaScript: en estas páginas el menú no se pliega, se parte
-   en dos renglones. Cinco enlaces caben. Lo que no puede fallar es lo que no
-   depende de nada. */
+   Ahora esas páginas traen el botón y veinte líneas sueltas que lo encienden,
+   escritas dentro del propio HTML (ver `menuDelTelefono` en
+   herramientas/generar-seo.mjs): no cuestan una petición, y a cambio la
+   cabecera se pliega igual que en el resto del sitio.
+
+   Lo de abajo es lo que queda cuando eso NO ocurre —JavaScript desactivado, o
+   el navegador de un buscador—: el menú no se pliega, se parte en dos
+   renglones. Cinco enlaces caben. De ahí el `:not(.con-menu)`: la clase la
+   pone ese mismo script, así que si no corrió, esto sigue mandando. Lo que no
+   puede fallar es lo que no depende de nada. */
 @media(max-width:720px){
-  .pub-header.estatica .pub-inner nav{display:flex;order:3;width:100%;
+  .pub-header.estatica:not(.con-menu) .pub-inner nav{display:flex;order:3;width:100%;
     flex-wrap:wrap;gap:var(--e1) var(--e3);padding-bottom:var(--e1);}
-  .pub-header.estatica .pub-inner .pub-cta{display:flex;order:4;width:100%;
+  .pub-header.estatica:not(.con-menu) .pub-inner .pub-cta{display:flex;order:4;width:100%;
     margin-left:0;padding-bottom:var(--e1);}
-  .pub-header.estatica .pub-cta > .btn{flex:1;justify-content:center;}
+  .pub-header.estatica:not(.con-menu) .pub-cta > .btn{flex:1;justify-content:center;}
+}
+
+/* Las tres rayas del botón, y la equis en que se convierten.
+   ═══════════════════════════════════════════════════════════════════════════
+   La cabecera de app.js usa la ligadura `menu` de la tipografía de iconos;
+   ésta lleva un SVG dibujado, porque estas páginas tienen que aguantar que esa
+   fuente no llegue. Se dibujan las dos igual: la de arriba y la de abajo giran
+   hasta cruzarse y la del medio se va, que es lo que hace entender que el
+   mismo botón cierra lo que abrió.
+
+   `transform-box: fill-box` es imprescindible: sin él, el origen del giro es
+   la esquina del lienzo del SVG y las rayas salen despedidas fuera del botón
+   en vez de cruzarse en el centro. */
+.pub-menu-btn svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;}
+.pub-menu-btn .raya{transform-box:fill-box;transform-origin:center;
+  transition:transform .18s ease, opacity .12s ease;}
+.pub-header.abierto .pub-menu-btn .raya.sup{transform:translateY(5px) rotate(45deg);}
+.pub-header.abierto .pub-menu-btn .raya.inf{transform:translateY(-5px) rotate(-45deg);}
+.pub-header.abierto .pub-menu-btn .raya.med{opacity:0;}
+@media(prefers-reduced-motion:reduce){
+  .pub-menu-btn .raya{transition:none;}
 }
 
 /* La promoción, flotando en la esquina.

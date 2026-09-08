@@ -62,7 +62,7 @@
       <img src="https://escuelacem.com/plataforma/assets/favicon.svg?v=2026-09-03" alt=""
            width="22" height="22"
            style="vertical-align:-4px" decoding="async" fetchpriority="high"> CEM International</a>
-    <nav>
+    <nav id="pubNav">
       <a href="https://escuelacem.com/">Inicio</a>
       <a href="https://escuelacem.com/programas/" class="on">Programas</a>
       <a href="https://escuelacem.com/plataforma/nosotros.html">Quiénes somos</a>
@@ -73,6 +73,14 @@
       <a class="btn outline sm" href="https://escuelacem.com/plataforma/index.html">Iniciar sesión</a>
       <a class="btn sm" href="https://escuelacem.com/plataforma/index.html?registro=1">Registrarse</a>
     </div>
+    
+    <button type="button" class="pub-menu-btn" id="pubMenu" hidden
+      aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+        <path class="raya sup" d="M4 7h16"></path>
+        <path class="raya med" d="M4 12h16"></path>
+        <path class="raya inf" d="M4 17h16"></path>
+      </svg></button>
   </div>
 </header>
 
@@ -107,7 +115,7 @@
       title="Módulo 8 · Illustrator" aria-current="page"
       >8</a>
   </nav>
-    <p class="avala"><span class="punto"></span> 13 personas tienen este certificado, de 2 promociones.</p>
+    <p class="avala"><span class="punto"></span> 15 personas tienen este certificado, de 2 promociones.</p>
     <div class="portada-manos" style="margin-top:var(--e3)">
       <a class="btn" href="https://escuelacem.com/programas/diplomado-inteligencia-artificial.html">Ver el diplomado de Inteligencia Artificial</a>
       <a class="btn outline" href="https://escuelacem.com/plataforma/verificar.html">Verificar un certificado</a>
@@ -122,8 +130,8 @@
       hacer el diplomado entero para tenerlo: al terminarlo se emite un certificado a nombre de
       la persona, con su propio código. Quien completa los ocho recibe además el diploma de
       cierre.</p>
-    <p class="tiny muted">El CEM lleva 529 certificados emitidos
-      y 58 personas graduadas desde 2016. Todos se
+    <p class="tiny muted">El CEM lleva 657 certificados emitidos
+      y 125 personas graduadas desde 2016. Todos se
       pueden comprobar uno a uno.</p>
   </div>
 </section>
@@ -248,6 +256,33 @@
     </nav>
   </div>
 </footer>
+
+<script>
+(function () {
+  var h = document.querySelector('.pub-header.estatica');
+  var b = h && h.querySelector('#pubMenu');
+  if (!b) return;
+  b.hidden = false;
+  h.classList.add('con-menu');
+  function abrir(si) {
+    h.classList.toggle('abierto', si);
+    b.setAttribute('aria-expanded', si ? 'true' : 'false');
+    b.setAttribute('aria-label', si ? 'Cerrar el menú' : 'Abrir el menú');
+  }
+  b.addEventListener('click', function () {
+    abrir(!h.classList.contains('abierto'));
+  });
+  Array.prototype.forEach.call(h.querySelectorAll('nav a, .pub-cta a'), function (a) {
+    a.addEventListener('click', function () { abrir(false); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && h.classList.contains('abierto')) { abrir(false); b.focus(); }
+  });
+  document.addEventListener('click', function (e) {
+    if (h.classList.contains('abierto') && !h.contains(e.target)) abrir(false);
+  });
+})();
+</script>
 
 <script>
 (function () {
