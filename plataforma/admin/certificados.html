@@ -58,6 +58,25 @@
       <thead><tr><th>Código</th><th>Estudiante</th><th>Certificado</th><th>Programa</th><th>Emitido</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
+
+  <!-- Los diplomados: los emite el generador, viven en otra tabla y hasta ahora
+       no se veían desde aquí. Esta pantalla enseñaba un certificado de ensayo y
+       parecía que la escuela no había certificado a nadie, con 657 documentos
+       emitidos al lado. -->
+  <div class="card">
+    <div class="row between"><h2 class="sec">Diplomados
+      <button type="button" class="ayuda-btn" data-ayuda="Los diplomas y los certificados de módulo de los diplomados, que se emiten desde el generador. Se buscan por nombre, cédula o módulo: la búsqueda la hace la base, así que encuentra en todos, no sólo en los que se ven. Para descargarlos por grupo, ve a Plantillas.">?</button></h2>
+      <a class="btn outline sm" href="certificados-plantillas.html">
+        <span class="material-symbols-outlined" aria-hidden="true">folder</span> Grupos y descargas</a></div>
+    <div class="filters">
+      <div class="field grow"><label for="qDip">Buscar en los diplomados</label>
+        <input type="search" id="qDip" placeholder="Nombre, cédula o módulo…"></div>
+    </div>
+    <div class="row between sep-poco"><span id="cuentaDip" class="tiny muted"></span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Persona</th><th>Cédula</th><th>Documento</th><th>Emitido</th><th>Estado</th><th></th></tr></thead>
+      <tbody id="tbDip"></tbody></table></div>
+  </div>
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi, modal, ok, okDeshacer, fail, run, audit, toCSV, download, confirmDialog, mensajeError, chipEstado, avisar, filtrosEnLaDireccion, cargarEn, contarFilas } from '../assets/app.js?v=2026-09-04-4';
@@ -309,6 +328,61 @@ function ver(c){
       <body>${$('#lienzo',m).outerHTML}<script>onload=()=>print()<\/script></body></html>`);
     w.document.close();
   };
+}
+
+/* ============ Los diplomados ============
+   Se emiten desde el generador y viven en cert_certificates, otra tabla que
+   esta pantalla nunca miró. El resultado era que aquí se veía un certificado
+   de ensayo, como si la escuela no hubiera certificado a nadie, con 657
+   documentos emitidos al lado.
+
+   La búsqueda la hace la base —la misma función que usa el generador— y no el
+   navegador: filtrar sobre los últimos que se hayan traído deja fuera a
+   cualquiera que no esté entre ellos y le dice al usuario «sin resultados»,
+   que suena a que esa persona no existe. */
+let dipCargados = false;
+cargarDiplomados();
+$('#qDip').addEventListener('input', () => {
+  clearTimeout($('#qDip').__t);
+  $('#qDip').__t = setTimeout(cargarDiplomados, 300);
+});
+
+async function cargarDiplomados(){
+  const busca = $('#qDip').value.trim();
+  const cuenta = $('#cuentaDip');
+  if (!dipCargados) { cuenta.textContent = 'Cargando…'; }
+  const { data, error } = await sb.rpc('list_cert_certificates', { p_busca: busca || null });
+  dipCargados = true;
+  if (error) { cuenta.textContent = mensajeError(error); return; }
+  const filas = data || [];
+  cuenta.textContent = filas.length
+    ? `${filas.length} documento${filas.length === 1 ? '' : 's'}${busca ? ' que coinciden' : ' (los más recientes)'}`
+    : 'Ninguno coincide.';
+
+  $('#tbDip').innerHTML = filas.length ? filas.map(c => {
+    const d = c.datos || {};
+    const esDiploma = /DIPLOMAS EDITABLE|^FORMATO_DIPLOMA/.test(c.plantilla_nombre || '');
+    return `<tr>
+      <td>${esc(d.Nombre || d.nombre || '—')}</td>
+      <td class="tiny">${esc(d['Cédula'] || d.cedula || d.Cedula || '—')}</td>
+      <td>${esDiploma ? '<span class="chip ok">Diploma</span> ' : ''}${esc(bonito(c.plantilla_nombre))}</td>
+      <td class="tiny">${fdate(c.created_at)}</td>
+      <td>${chipEstado(c.estado)}</td>
+      <td><a class="btn outline sm" target="_blank" rel="noopener"
+             href="../../certificados/verificar.html?c=${encodeURIComponent(c.id)}">Ver</a></td>
+    </tr>`;
+  }).join('') : emptyRow(6, 'Ninguno coincide.');
+}
+
+/* «8_IA_ILLUSTRATOR» es un nombre de archivo, no algo que leer en una tabla.
+   Reparte lo mismo que cert_titulo_bonito en la base, salvo el «Diplomado
+   Internacional de» delantero: aquí la etiqueta de al lado ya dice Diploma y
+   repetirlo en cada fila sólo estorba la lectura de la columna. */
+function bonito(p){
+  if (/DIPLOMAS EDITABLE.*INTELIGENCIA ARTIFICIAL/i.test(p)) return 'Creación de Contenido e Inteligencia Artificial';
+  if (/DIPLOMAS EDITABLE/i.test(p)) return 'Marketing';
+  if (/^FORMATO_DIPLOMA_EXITUS/i.test(p)) return 'Exitus Lab';
+  return (p || '').replace(/^[0-9]+_[A-Za-z]+_/, '').replace(/_/g, ' ');
 }
 </script>
 </body>
