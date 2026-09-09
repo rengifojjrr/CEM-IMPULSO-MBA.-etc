@@ -25,6 +25,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<!-- El QR que lleva a comprobar el diploma. Va por <script> y no por import
+     porque la librería se cuelga de `window.qrcode`, que es lo que espera el
+     dibujante. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 </head>
 <body>
 <div id="page" class="hidden">
@@ -52,6 +56,10 @@ import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, money, pct, fdate, fdate
          campoDescuento, saldo as saldoCelda, avatar, avisar } from '../assets/app.js?v=2026-09-04-4';
 import { paisConBandera } from '../assets/paises.js?v=2026-09-04-4';
 import { barras, linea, hitos } from '../assets/graficos.js?v=2026-09-04-4';
+/* El MISMO dibujante que el generador y que el panel del egresado, no una
+   copia: si fueran dos, el día que cambie el escudo o la firma cambiarían en
+   uno solo y saldrían dos documentos distintos según por dónde se pidan. */
+import { dibujarCertificadoEmitido } from '../../certificados/dibujar.js?v=2026-09-04-4';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
@@ -375,6 +383,10 @@ function tab(t){
           : 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>
       ${pintarDiplomas()}
       <div id="porModulos"></div>`;
+    /* Toda la fila lleva a lo mismo: la lámina y el botón «Ver». Quien quiere
+       verlo pulsa la imagen antes que el botón, siempre. */
+    $$('[data-ver]').forEach(b => b.onclick = () => verDiploma(b.dataset.ver));
+    pintarMiniaturas();
     pintarModulos();
   }
   if (t==='pagos') pintarPagos(P);
@@ -405,15 +417,109 @@ function pintarDiplomas(){
     </div>
     <p class="tiny muted" style="margin-top:-2px">Se cruzan con esta ficha por la cédula
       <code>${esc(stu?.documento || '')}</code>. Son los mismos que ve el egresado en su panel.</p>
-    <div class="table-wrap sep-poco"><table>
-      <thead><tr><th>Título</th><th>Qué es</th><th>A nombre de</th><th>Emitido</th><th>Estado</th></tr></thead>
-      <tbody>${diplomas.map(d => `<tr>
-        <td class="wrap">${esc(d.titulo)}</td>
-        <td>${d.es_diploma ? chip('diploma','info') : chip('módulo')}</td>
-        <td class="wrap muted">${esc(d.nombre || '—')}</td>
-        <td class="muted nowrap">${fdate(d.emitido_en)}</td>
-        <td>${chipEstado(d.estado)}</td>
-      </tr>`).join('')}</tbody></table></div></div>`;
+    <div class="sep-poco">${diplomas.map(d => `
+      <div class="dip-fila">
+        <button type="button" class="dip-mini" data-mini="${esc(d.id)}" data-ver="${esc(d.id)}"
+          aria-label="Ver el diploma de ${esc(d.titulo)}">
+          <span class="tiny muted">Dibujando…</span></button>
+        <div class="dip-texto">
+          <b>${esc(d.titulo)}</b>
+          <div class="tiny muted">${d.es_diploma ? 'Diploma' : 'Módulo'}
+            · a nombre de ${esc(d.nombre || '—')}
+            · ${fdate(d.emitido_en)}</div>
+          <div class="sep-poco">${chipEstado(d.estado)}</div>
+        </div>
+        <div class="acciones nowrap">
+          <button class="btn outline sm" data-ver="${esc(d.id)}">
+            <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver</button>
+          <a class="btn ghost sm" target="_blank" rel="noopener"
+             href="../../certificados/verificar.html?c=${encodeURIComponent(d.id)}"
+             title="Comprobar que es válido" aria-label="Comprobar que es válido">
+            <span class="material-symbols-outlined" aria-hidden="true">verified</span></a>
+        </div>
+      </div>`).join('')}</div></div>`;
+}
+
+/* ============ las láminas ============
+   El diploma no está guardado como imagen: se dibuja cada vez juntando la
+   plantilla con los datos del certificado, con el MISMO módulo que el generador
+   y que el panel del egresado. Se guarda la promesa y no el resultado para que
+   dos peticiones a la vez —la miniatura y el botón «Ver»— no dibujen dos veces
+   lo mismo. */
+const laminas = new Map();
+
+async function laminaDe(certificadoId){
+  if (laminas.has(certificadoId)) return laminas.get(certificadoId);
+  const tarea = (async () => {
+    const { data, error } = await sb.rpc('cert_publico_para_dibujar', { p_id: certificadoId });
+    if (error) throw error;
+    const fila = (data || [])[0];
+    if (!fila) throw new Error('Ese documento ya no está vigente, así que no se dibuja.');
+    const url = new URL('../../certificados/verificar.html', location.href).href
+              + '?c=' + encodeURIComponent(certificadoId);
+    return { lienzo: await dibujarCertificadoEmitido(fila, fila.config, url), titulo: fila.titulo };
+  })();
+  laminas.set(certificadoId, tarea);
+  tarea.catch(() => laminas.delete(certificadoId));   // un fallo no se cachea
+  return tarea;
+}
+
+/* Las miniaturas se dibujan DESPUÉS de pintar la lista y de una en una: cada
+   lámina son varios millones de píxeles, y lanzar nueve a la vez deja el
+   navegador clavado mientras alguien intenta leer la ficha. */
+async function pintarMiniaturas(){
+  for (const b of $$('[data-mini]')) {
+    try {
+      const { lienzo } = await laminaDe(b.dataset.mini);
+      /* Se reduce a un lienzo pequeño en vez de encoger el grande con CSS: así
+         el navegador no guarda en memoria una imagen enorme por cada fila. */
+      const ancho = 168, alto = Math.round(ancho * lienzo.height / lienzo.width);
+      const mini = document.createElement('canvas');
+      mini.width = ancho; mini.height = alto;
+      const cx = mini.getContext('2d');
+      cx.imageSmoothingQuality = 'high';
+      cx.drawImage(lienzo, 0, 0, ancho, alto);
+      b.innerHTML = ''; b.appendChild(mini);
+    } catch {
+      /* El hueco no puede quedarse diciendo «Dibujando…» para siempre. El botón
+         «Ver» sigue ahí para intentarlo con el mensaje completo. */
+      b.innerHTML = '<span class="tiny muted">No se pudo dibujar</span>';
+    }
+  }
+}
+
+async function verDiploma(id){
+  const m = modal({ title:'Diploma', wide:true,
+    body:`<div class="dip-grande" id="dipGrande"><span class="tiny muted">Dibujando el diploma…</span></div>`,
+    footer:`<a class="btn outline" target="_blank" rel="noopener"
+              href="../../certificados/verificar.html?c=${encodeURIComponent(id)}">
+              <span class="material-symbols-outlined" aria-hidden="true">verified</span> Comprobar que es válido</a>
+            <button class="btn" id="dipBajar" disabled>
+              <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar</button>` });
+  try {
+    const { lienzo, titulo } = await laminaDe(id);
+    const img = new Image();
+    img.alt = 'Diploma de ' + titulo;
+    img.src = lienzo.toDataURL('image/png');
+    $('#dipGrande', m).innerHTML = '';
+    $('#dipGrande', m).appendChild(img);
+    m.querySelector('.modal-h h3').textContent = titulo;
+
+    const bajar = $('#dipBajar', m);
+    bajar.disabled = false;
+    bajar.onclick = () => {
+      /* En JPEG y no en PNG: la misma lámina pesa unas seis veces menos y para
+         un fondo fotográfico se ve igual. Es lo mismo que baja el egresado. */
+      const a = document.createElement('a');
+      a.href = lienzo.toDataURL('image/jpeg', 0.92);
+      a.download = (titulo || 'diploma').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') + '.jpg';
+      a.click();
+      ok('Descargado.');
+    };
+  } catch (e) {
+    $('#dipGrande', m).innerHTML =
+      `<p class="nota err sin-margen">${esc(mensajeError(e, 'No se pudo dibujar el diploma.'))}</p>`;
+  }
 }
 
 /* Los títulos de cada módulo.

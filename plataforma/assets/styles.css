@@ -3842,6 +3842,45 @@ details.card h3.sec{margin-top:var(--e3);}
 
 /* El contador de sin leer, pegado a la derecha de su entrada del menú. */
 .nav-item .nav-cuenta{margin-left:auto;flex:none;}
+
+/* ══════════════ LA LÁMINA DE UN DIPLOMA, EN PEQUEÑO Y EN GRANDE ═════════════
+   Vivían en el `<style>` del panel del egresado, cuando sólo él veía diplomas.
+   Ahora también los enseña la ficha que mira el equipo, y dos copias de estas
+   reglas serían dos miniaturas distintas dentro de un mes.
+
+   sin-caja: enmarca una lámina, no un panel. El diploma ya trae su fondo y sus
+   colores, así que esto debe ser un filete neutro y no heredar el relleno ni la
+   sombra de una tarjeta, que competirían con él. */
+.dip-mini{flex:none;width:168px;min-height:56px;padding:0;border:1px solid var(--filete);
+  border-radius:var(--r);background:var(--hueco);cursor:pointer;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color var(--rapido);}
+.dip-mini:hover{border-color:var(--primary);}
+.dip-mini:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.dip-mini canvas{display:block;width:100%;height:auto;}
+
+/* La fila de un diploma: la lámina, el texto y los botones. La lámina va
+   primero y con tamaño fijo porque es lo que la persona viene a ver. */
+.dip-fila{display:flex;align-items:center;gap:14px;padding:10px 0;
+  border-bottom:1px solid var(--filete);}
+.dip-texto{flex:1;min-width:0;}
+
+/* La lámina grande, dentro de la ventana. Se limita por alto además de por
+   ancho: un diploma apaisado que ocupe todo el ancho deja los botones de abajo
+   fuera de la pantalla, y no se ve que se puede descargar. */
+.dip-grande{display:flex;align-items:center;justify-content:center;min-height:180px;
+  background:var(--hueco);border-radius:var(--r);padding:10px;}
+.dip-grande img{max-width:100%;max-height:70vh;height:auto;display:block;
+  box-shadow:0 2px 14px rgba(0,0,0,.18);}
+
+/* En un teléfono la fila se apila y la lámina pasa a ocupar el ancho: a 168 px
+   en una columna estrecha no se lee lo que dice el diploma, que es justo para
+   lo que está. */
+@media(max-width:560px){
+  .dip-fila{flex-wrap:wrap;}
+  .dip-mini{width:100%;}
+  .dip-texto{flex-basis:100%;}
+}
 /* El nombre de arriba abre su ficha: es lo primero que se intenta cuando no
    sabes con quién estás hablando.
    sin-caja: no dibuja recuadro, sólo se subraya al pasar por encima. */
