@@ -26,6 +26,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<!-- Para armar la constancia de fe de erratas: un .docx es un zip, y se le
+     sustituyen las marcas sin tocar nada más. El mismo JSZip que usa el
+     generador para los ZIP de cada grupo. -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
   .cert{background:var(--papel);border:1px solid var(--filete);
     border-radius:var(--r);padding:18px;display:flex;gap:14px;align-items:flex-start;}
@@ -90,6 +94,26 @@
     background:var(--hueco);border-radius:var(--r);padding:10px;}
   .dip-grande img{max-width:100%;max-height:70vh;height:auto;display:block;
     box-shadow:0 2px 14px rgba(0,0,0,.18);}
+
+  /* El aviso de la fe de erratas. Va en ámbar y no con el azul de la casa
+     porque no es una acción más de la fila: es algo que hay que leer una vez.
+     Ámbar y no rojo, que es la otra tentación — el título de esta persona no
+     tiene ningún problema, y pintarlo de alarma diría lo contrario. */
+  .dip-aviso{background:var(--warn);border-color:var(--warn);color:#1f2937;}
+  .dip-aviso:hover{filter:brightness(.95);}
+
+  /* La constancia, dentro de la ventana: se lee como un documento, no como una
+     pantalla, así que se le da medida de lectura y un poco de aire. */
+  .constancia{padding:var(--e3);max-width:70ch;}
+  .constancia p{margin:0 0 var(--e1);}
+  .constancia h4{margin-top:var(--e2);font-size:var(--t-sm);}
+  .cons-datos{margin:var(--e1) 0 0;}
+  .cons-datos > div{display:flex;justify-content:space-between;gap:var(--e2);
+    padding:7px 0;border-bottom:1px solid var(--filete);}
+  .cons-datos > div:last-child{border-bottom:0;}
+  .cons-datos dt{color:var(--tinta-2);font-size:var(--t-xs);margin:0;flex:none;}
+  .cons-datos dd{margin:0;text-align:right;min-width:0;overflow-wrap:anywhere;
+    font-weight:var(--peso-fuerte);}
 </style>
 </head>
 <body>
@@ -120,6 +144,8 @@ import { lienzoCertificado } from '../assets/certificado.js?v=2026-09-04-4';
    módulo del que tira el generador. Es lo que garantiza que el diploma que se
    ve aquí y el que llega impreso sean el mismo documento. */
 import { dibujarCertificadoEmitido } from '../../certificados/dibujar.js?v=2026-09-04-4';
+import { construirConstancia, nombreDeArchivo, textoDeLaConstancia }
+  from '../../certificados/constancia.js?v=2026-09-04-4';
 const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
 if (me) load();
 
@@ -298,21 +324,23 @@ function verCertificado(c){
    —los certificados de la plataforma, las insignias— tiene que seguir. */
 if (me) cargarEgresado();
 
-let plazoFisico = null, pedidos = new Map();
+let plazoFisico = null, pedidos = new Map(), fechaErratas = null;
 
 async function cargarEgresado(){
   let docs = [];
   try {
     // Deja rastro de que esta cuenta reclamó esa cédula, y trae lo que hay.
-    const [, { data }, { data:plazo }, { data:mios }] = await Promise.all([
+    const [, { data }, { data:plazo }, { data:mios }, { data:fErratas }] = await Promise.all([
       sb.rpc('cem_vincular_mis_certificados'),
       sb.rpc('cem_mis_certificados_de_egresado'),
       sb.rpc('cem_plazo_diploma_fisico'),
       sb.rpc('cem_mis_pedidos_fisicos'),
+      sb.rpc('cem_fecha_fe_de_erratas'),
     ]);
     docs = data || [];
     plazoFisico = Array.isArray(plazo) ? plazo[0] : plazo;
     (mios || []).forEach(p => pedidos.set(p.certificado_id, p));
+    fechaErratas = fErratas;
   } catch { return; }          // ver arriba
   if (!docs.length) return;    // sin cédula puesta, o sin nada a su nombre
 
@@ -343,6 +371,9 @@ async function cargarEgresado(){
             <button class="btn outline sm" data-ver="${d.id}">
               <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver</button>
             ${botonFisico(d)}
+            ${d.fe_erratas ? `<button class="btn sm dip-aviso" data-erratas="${d.id}">
+              <span class="material-symbols-outlined" aria-hidden="true">campaign</span>
+              Aviso importante</button>` : ''}
           </div>
         </div>`).join('')}
       ${modulos.length ? `<details class="sep">
@@ -375,6 +406,8 @@ async function cargarEgresado(){
 
   $$('[data-fisico]', caja).forEach(b => b.addEventListener('click', () => pedirFisico(b.dataset.fisico, b.dataset.titulo)));
   $$('[data-ver]', caja).forEach(b => b.addEventListener('click', () => verDiploma(b.dataset.ver)));
+  $$('[data-erratas]', caja).forEach(b => b.addEventListener('click',
+    () => verConstancia(docs.find(x => x.id === b.dataset.erratas))));
 
   /* Las miniaturas se dibujan DESPUÉS de pintar la lista y de una en una.
      Cada una tiene que bajarse el fondo de su plantilla —cerca de un mega— y
@@ -468,6 +501,70 @@ async function verDiploma(id){
     $('#dipGrande', m).innerHTML =
       `<div class="nota err">No pudimos dibujar tu diploma. ${esc(e.message || '')}</div>`;
   }
+}
+
+/* ============ la constancia de fe de erratas ============
+   ═══════════════════════════════════════════════════════════════════════════
+   Los diplomas que ya se imprimieron dicen «Titular de la cédula de
+   indentidad». La errata está corregida en las plantillas —lo que se dibuja hoy
+   sale bien— pero el papel que 143 personas tienen en la mano no se arregla con
+   un despliegue, así que la Dirección Académica emitió una constancia oficial.
+
+   Va al lado del diploma, y no como un aviso arriba de la pantalla, porque la
+   constancia es de UN documento concreto: lleva su código, y quien hizo los dos
+   diplomados necesita las dos. Arriba habría que explicar a cuál se refiere; al
+   lado no hay nada que explicar.
+
+   Y se lee entera aquí antes de descargar nada. Quien abre esto se acaba de
+   asustar por su título: obligarle a bajarse un Word y abrirlo para enterarse
+   de que no pasa nada sería poner una puerta justo delante de la tranquilidad. */
+function verConstancia(d){
+  if (!d) return;
+  const t = textoDeLaConstancia(d, fechaErratas || new Date());
+  const m = modal({ title:'Aviso importante sobre tu diploma', wide:true, body:`
+    <div class="nota ok">
+      <b>Tu diploma es válido y no tienes que hacer nada.</b> En la impresión se coló una letra
+      de más en una palabra —«indentidad» en vez de «identidad»—. La Dirección Académica emitió
+      esta constancia oficial que lo hace constar y ratifica que el título mantiene toda su
+      validez. Guárdala junto a tu diploma.</div>
+
+    <div class="caja constancia sep">
+      <p class="tiny muted" style="margin:0">${esc(t.entidad)}</p>
+      <h3 style="margin:2px 0 10px">${esc(t.titulo)}</h3>
+      <p>${esc(t.entrada)}</p>
+      <dl class="cons-datos">
+        ${t.datos.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
+      </dl>
+      <h4 class="sep" style="margin-bottom:4px">Detalle de la rectificación</h4>
+      <p style="margin:0"><span class="muted tiny">Donde dice:</span> <b>${esc(t.donde_dice)}</b></p>
+      <p style="margin:2px 0 0"><span class="muted tiny">Debe decir:</span> <b>${esc(t.debe_decir)}</b></p>
+      <h4 class="sep" style="margin-bottom:4px">Declaración de validez</h4>
+      ${t.validez.map(p => `<p>${esc(p)}</p>`).join('')}
+      <p>${esc(t.cierre)}</p>
+      <p class="tiny muted" style="margin-bottom:0">${esc(t.firma)}</p>
+    </div>`,
+    footer:`<button class="btn outline" data-x>Cerrar</button>
+            <button class="btn" id="bajarConstancia">
+              <span class="material-symbols-outlined" aria-hidden="true">download</span>
+              Descargar la constancia oficial</button>` });
+
+  $('#bajarConstancia', m).onclick = async () => {
+    try {
+      /* Lo que se baja es el .docx original de la Dirección Académica con sus
+         siete huecos rellenos. Ni maquetado de nuevo ni convertido a otra cosa:
+         el mismo archivo, con su membrete y su sello intactos. */
+      const blob = await construirConstancia(d, fechaErratas || new Date(),
+                                             new URL('../../certificados/', location.href).href);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = nombreDeArchivo(d);
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      ok('Constancia descargada.');
+    } catch (e) {
+      fail(e.message || 'No pudimos preparar la constancia. Vuelve a intentarlo.');
+    }
+  };
 }
 
 function botonFisico(d){
