@@ -557,7 +557,7 @@ $('#formReg').onsubmit = async (e) => {
 
   const btn = $('#rCrear');
   btn.disabled = true;
-  const { error } = await sb.auth.signUp({
+  const { data, error } = await sb.auth.signUp({
     email: correo, password: $('#rPass').value,
     options: {
       /* Sin esto el enlace del correo va al «Site URL» del proyecto, que puede
@@ -597,6 +597,39 @@ $('#formReg').onsubmit = async (e) => {
       return;
     }
     queja(mensajeError(error, 'No se pudo crear la cuenta.'));
+    return;
+  }
+
+  /* Ya tenía cuenta, y Supabase NO lo dice con un error.
+     ═══════════════════════════════════════════════════════════════════════════
+     Con la confirmación por correo encendida, registrar un correo que ya existe
+     devuelve un éxito fingido: ni error, ni correo enviado. Es a propósito —así
+     nadie puede ir probando direcciones para averiguar quién tiene cuenta— pero
+     deja a la persona mirando «revisa tu correo» y esperando un mensaje que no
+     va a llegar nunca. El aviso de «ya hay una cuenta» que hay más arriba está
+     colgado de `error`, así que no llegaba a saltar jamás.
+
+     La señal está en la respuesta: a un usuario que ya existe se le devuelve un
+     `user` sin ninguna identidad. Es la forma documentada de detectarlo, y no
+     abre la puerta a nada nuevo: sólo lo ve quien acaba de escribir esa
+     dirección y su contraseña en este formulario.
+
+     Se le ofrecen las dos salidas de verdad —entrar, o recuperar la contraseña—
+     porque «ya tienes cuenta» a secas deja a alguien que no la recuerda
+     exactamente igual de atascado que antes. */
+  if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    regMsg.innerHTML = `<div class="nota warn sep">
+      <b>Ya hay una cuenta con ${esc(correo)}.</b>
+      No hemos creado otra ni te hemos mandado ningún correo.
+      Entra con tu contraseña; y si no la recuerdas, pide una nueva.
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button type="button" class="btn sm" id="regEntrar">Entrar con este correo</button>
+        <button type="button" class="btn outline sm" id="regOlvide">Olvidé mi contraseña</button>
+      </div></div>`;
+    /* Se le deja el correo puesto: volver a escribirlo es el paso donde la
+       gente se equivoca y acaba pensando que el sistema está roto. */
+    $('#regEntrar').onclick = () => { mostrar('cardLogin'); $('#email').value = correo; $('#pass').focus(); };
+    $('#regOlvide').onclick = () => { mostrar('cardOlvide'); const c = $('#oEmail'); if (c) c.value = correo; };
     return;
   }
 
