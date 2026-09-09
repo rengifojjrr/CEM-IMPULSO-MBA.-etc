@@ -2554,7 +2554,13 @@ async function montarCampana() {
    de estudiante/. Con los enlaces escritos a mano, el mismo encabezado llevaba a
    404 desde la mitad de ellas. Se calcula de dónde se está mirando. */
 const enSubcarpeta = () => /\/(estudiante|admin|docente)\//.test(location.pathname);
-export const raizPublica = () => (enSubcarpeta() ? '../' : './');
+/* `/certificados/` no cuelga de la plataforma, cuelga de la raíz del sitio, así
+   que desde ahí no basta con subir un nivel: hay que subir y entrar. Es donde
+   vive la pantalla a la que apunta el QR de todos los diplomas impresos, y sin
+   esto su cabecera saldría con los cinco enlaces a 404. */
+const enCertificados = () => /\/certificados\//.test(location.pathname);
+export const raizPublica = () =>
+  enCertificados() ? '../plataforma/' : enSubcarpeta() ? '../' : './';
 
 /* ── el fondo responde al ratón ────────────────────────────────────────────
    Sólo en las pantallas públicas, y sólo con ratón: en un teléfono no hay

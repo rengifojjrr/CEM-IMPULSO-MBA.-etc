@@ -1,85 +1,299 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-publico="si">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Verificar certificado · SEM</title>
-<!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,
-     PNG para todo lo demás, SVG para quien prefiera un vector, y el de 180
-     para el iPhone. Ver herramientas/iconos.mjs. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Certificado verificado | CEM International</title>
 <link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
 <link rel="icon" type="image/png" sizes="96x96" href="../plataforma/assets/favicon-96.png?v=2026-09-03">
 <link rel="icon" type="image/svg+xml" href="../plataforma/assets/favicon.svg?v=2026-09-03">
 <link rel="apple-touch-icon" href="../plataforma/assets/icono-180.png?v=2026-09-03">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../plataforma/assets/app.js?v=2026-09-04-4">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../plataforma/assets/styles.css?v=2026-09-04-4">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
-  :root{ --navy:#132743; --teal:#1b7f76; --gold:#c9a227; --bg:#f4f6f8; --border:#dde3ea; --text:#1f2937; --muted:#6b7280; }
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px;}
-  .card{background:#fff;border:1px solid var(--border);border-radius:12px;max-width:480px;width:100%;padding:28px 26px;text-align:center;}
-  .icon{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:28px;color:#fff;}
-  .icon.ok{background:#16a34a;}
-  .icon.warn{background:#dc2626;}
-  .icon.neutral{background:#6b7280;}
-  h1{font-size:18px;color:var(--navy);margin:0 0 6px;}
-  .sub{color:var(--muted);font-size:13px;margin-bottom:18px;}
-  table{width:100%;border-collapse:collapse;text-align:left;margin-top:10px;}
-  td{padding:7px 4px;font-size:13.5px;border-bottom:1px solid var(--border);}
-  td.k{color:var(--muted);width:40%;}
-  .badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:12px;color:#fff;}
-  .badge.vigente{background:#16a34a;}
-  .badge.revocado{background:#dc2626;}
-  .badge.reemplazado{background:#6b7280;}
-  .footer{margin-top:20px;font-size:11px;color:var(--muted);}
+  /* El documento a la izquierda y los datos a la derecha. En cuanto la columna
+     se estrecha, el documento pasa arriba: es lo que la persona ha venido a
+     comparar con el papel que tiene en la mano. */
+  .ver-dos{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
+    gap:var(--e3);align-items:start;}
+  @media(max-width:820px){ .ver-dos{grid-template-columns:1fr;} }
+
+  /* sin-caja: enmarca una lámina, no un panel. El documento trae su propio
+     fondo y sus colores, así que esto es un filete neutro y no hereda el
+     relleno ni la sombra de una tarjeta, que competirían con él. */
+  .ver-lamina{border:1px solid var(--filete);border-radius:var(--r);
+    background:var(--hueco);padding:10px;display:flex;align-items:center;
+    justify-content:center;min-height:220px;}
+  .ver-lamina img{max-width:100%;height:auto;display:block;
+    box-shadow:0 2px 18px rgba(0,0,0,.16);}
+  .ver-lamina canvas{max-width:100%;height:auto;display:block;}
+
+  /* El veredicto. Es lo primero que hay que poder leer desde lejos, antes que
+     ningún dato: quien escanea quiere saber «sí o no» en un segundo. */
+  .ver-sello{display:flex;align-items:center;gap:var(--e2);}
+  .ver-sello .ico{width:52px;height:52px;border-radius:var(--r-full);flex:none;
+    display:flex;align-items:center;justify-content:center;color:#fff;}
+  .ver-sello .ico .material-symbols-outlined{font-size:30px;}
+  .ver-sello.ok  .ico{background:var(--ok);}
+  .ver-sello.err .ico{background:var(--error);}
+  .ver-sello.warn .ico{background:var(--warn);}
+  .ver-sello h1{font-size:clamp(21px,3.2vw,30px);margin:0;line-height:1.15;}
+
+  /* Los datos, en pares. `dt`/`dd` y no una tabla: no son filas y columnas, son
+     etiquetas y valores, y así un lector de pantalla los lee emparejados. */
+  .ver-datos{margin:0;}
+  .ver-datos > div{display:flex;justify-content:space-between;gap:var(--e2);
+    padding:9px 0;border-bottom:1px solid var(--filete);}
+  .ver-datos > div:last-child{border-bottom:0;}
+  .ver-datos dt{color:var(--tinta-2);font-size:var(--t-xs);margin:0;flex:none;}
+  .ver-datos dd{margin:0;text-align:right;min-width:0;overflow-wrap:anywhere;}
+  .ver-datos dd.grande{font-weight:var(--peso-fuerte);font-size:var(--t-md);}
+  .ver-codigo{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:var(--t-xs);color:var(--tinta-2);overflow-wrap:anywhere;}
+
+  /* «¿Qué es el CEM?», el bloque del final. El relleno lo pone esta clase y no
+     «caja», que sólo da fondo, filete y esquinas. Ver la comprobación 13. */
+  .ver-quienes{padding:var(--e3);}
+  .ver-quienes h2{font-size:var(--t-lg);}
 </style>
+<meta name="description" content="Comprobación pública de un certificado emitido por CEM International.">
+<meta name="robots" content="noindex, follow">
 </head>
 <body>
-<div class="card" id="card">
-  <div class="icon neutral">⏳</div>
-  <h1>Verificando…</h1>
-  <div class="sub">Consultando el registro oficial de certificados de SEM.</div>
+<!-- A esta pantalla se llega escaneando el QR de un diploma impreso.
+     ═══════════════════════════════════════════════════════════════════════════
+     Es decir: quien la abre suele ser una empresa mirando a un candidato, con
+     el papel delante. Era una tarjeta blanca suelta en medio de un fondo gris,
+     sin cabecera, sin pie, sin el nombre de la escuela por ningún lado, con los
+     nombres de campo tal como salen de la base («cedula», sin tilde) y con la
+     palabra «SEM» en el título. La primera impresión del CEM ante la persona
+     que más importa convencer.
+
+     Ahora es una pantalla del sitio —misma cabecera, mismo pie, mismo menú de
+     teléfono— y, sobre todo, enseña el documento dibujado: lo que hay que poder
+     hacer aquí es comparar la pantalla con el papel. -->
+<div id="page" class="hidden">
+  <section class="franja">
+    <div class="dentro">
+      <div id="veredicto" class="ver-sello">
+        <div class="ico"><span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span></div>
+        <div><h1>Comprobando…</h1>
+          <p class="tiny muted" style="margin:2px 0 0">Consultando el registro de certificados del CEM.</p></div>
+      </div>
+
+      <div class="ver-dos sep-mucho" id="cuerpo" hidden>
+        <div>
+          <div class="ver-lamina" id="lamina">
+            <span class="tiny muted">Dibujando el documento…</span>
+          </div>
+          <div class="row sep-poco" style="gap:8px;flex-wrap:wrap">
+            <button class="btn outline sm" id="btnBajar" disabled>
+              <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar</button>
+            <button class="btn outline sm" id="btnCompartir">
+              <span class="material-symbols-outlined" aria-hidden="true">share</span> Compartir</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <dl class="ver-datos" id="datos"></dl>
+          </div>
+          <!-- Quien acaba de comprobar un título suele querer saber qué MÁS ha
+               estudiado esa persona, no sólo si este papel vale. -->
+          <a class="btn block sep" id="btnTodos" hidden>
+            <span class="material-symbols-outlined" aria-hidden="true">badge</span>
+            Ver todos sus títulos del CEM</a>
+
+          <!-- Qué es esto, para quien acaba de escanear un QR y no nos conoce.
+               ═══════════════════════════════════════════════════════════════
+               Va en esta columna y no debajo de todo por dos razones. Una es de
+               composición: el documento es mucho más alto que la ficha de
+               datos, y sin esto la mitad derecha se queda vacía. La otra pesa
+               más — es el único momento en que el CEM tiene la atención de una
+               empresa que acaba de comprobar que un título suyo es de verdad, y
+               abajo del todo no lo lee nadie. -->
+          <div class="caja ver-quienes sep">
+            <h2 style="margin-top:0">¿Qué es el CEM?</h2>
+            <p>Un centro de estudios de marketing digital e inteligencia artificial en
+              Caracas, desde 2016. Los certificados que emite llevan un código y un QR
+              justamente para que cualquiera pueda comprobarlos aquí, como acabas de hacer.</p>
+            <div class="portada-manos" style="margin-bottom:0">
+              <a class="btn" href="../programas/">Ver los dos diplomados</a>
+              <a class="btn outline" href="../plataforma/verificar.html">Comprobar otro</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
-
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+import { sb, mount, $, esc, fdate, qs, ok, fail } from '../plataforma/assets/app.js?v=2026-09-04-4';
+/* El mismo dibujante que usa la escuela para imprimir. Es lo que hace que la
+   lámina de esta pantalla y el papel que tiene delante quien la mira sean el
+   mismo documento — que es justo lo que se le está pidiendo que compruebe. */
+import { dibujarCertificadoEmitido } from './dibujar.js?v=2026-09-04-4';
 
-function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+await mount({ pub: true });
 
-const ESTADO_LABEL = { vigente: 'Vigente', revocado: 'Revocado', reemplazado: 'Reemplazado por una versión más reciente' };
+const id = qs('c');
+const veredicto = $('#veredicto');
+
+function sello(tono, icono, titulo, bajo){
+  veredicto.className = 'ver-sello ' + tono;
+  veredicto.innerHTML = `<div class="ico"><span class="material-symbols-outlined" aria-hidden="true">${icono}</span></div>
+    <div><h1>${esc(titulo)}</h1>
+      <p class="tiny muted" style="margin:2px 0 0">${bajo}</p></div>`;
+  document.title = titulo + ' | CEM International';
+}
+
+/* Los nombres de campo salen del Excel con el que se cargó cada grupo, así que
+   en la base conviven «cedula», «Cédula» y «CEDULA». Enseñarlos en crudo, con
+   su minúscula y sin tilde, es enseñar la tripa de la base a quien ha venido a
+   comprobar un título. */
+const COMO_SE_LLAMA = {
+  nombre:'A nombre de', cedula:'Cédula', fecha:'Fecha', puntaje:'Puntaje',
+  correo:'Correo', modulo:'Módulo', programa:'Programa', horas:'Horas',
+};
+const sinTildes = (s) => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+const bonito = (clave) => COMO_SE_LLAMA[sinTildes(clave)]
+  || (String(clave).charAt(0).toUpperCase() + String(clave).slice(1));
+
+/* En qué orden se leen. Lo primero es de quién es, después qué es, y al final
+   los detalles; lo que no esté en esta lista va después, en el orden en que
+   viniera. */
+const ORDEN = ['nombre', 'cedula', 'fecha', 'puntaje'];
+const peso = (clave) => {
+  const i = ORDEN.indexOf(sinTildes(clave));
+  return i === -1 ? ORDEN.length : i;
+};
 
 async function verificar(){
-  const id = new URLSearchParams(location.search).get('c');
-  const card = document.getElementById('card');
-  if(!id){
-    card.innerHTML = `<div class="icon warn">?</div><h1>Falta el código de certificado</h1><div class="sub">Este enlace no incluye un identificador válido para verificar.</div>`;
+  if (!id) {
+    sello('warn', 'help', 'Falta el código del certificado',
+      'Este enlace no trae ningún código que comprobar. ' +
+      '<a href="../plataforma/verificar.html">Escríbelo aquí</a>.');
     return;
   }
-  const { data, error } = await supabase.rpc('get_certificado_publico', { p_id: id });
-  const row = Array.isArray(data) ? data[0] : data;
-  if(error || !row){
-    card.innerHTML = `<div class="icon warn">✕</div><h1>Certificado no encontrado</h1><div class="sub">No existe ningún certificado con ese código en nuestro registro.</div>`;
+
+  const { data, error } = await sb.rpc('get_certificado_publico', { p_id: id });
+  const fila = Array.isArray(data) ? data[0] : data;
+
+  if (error) {
+    /* «No pudimos preguntar» y «no existe» no son lo mismo, y decir lo segundo
+       cuando pasó lo primero es acusar de falso un título que puede ser bueno. */
+    sello('warn', 'cloud_off', 'No pudimos comprobarlo ahora',
+      'El registro no contestó. Vuelve a intentarlo en un momento.');
     return;
   }
-  const iconClass = row.estado === 'vigente' ? 'ok' : 'warn';
-  const iconChar = row.estado === 'vigente' ? '✓' : '!';
-  const datos = row.datos || {};
-  const filas = Object.entries(datos)
-    .filter(([, v]) => v !== null && v !== '')
-    .map(([k, v]) => `<tr><td class="k">${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`)
-    .join('');
-  card.innerHTML = `
-    <div class="icon ${iconClass}">${iconChar}</div>
-    <h1>${row.estado === 'vigente' ? 'Certificado válido' : 'Certificado no vigente'}</h1>
-    <div class="sub">Emitido por ${escapeHtml(row.entidad_emisora)}</div>
-    <table>
-      ${filas}
-      <tr><td class="k">Estado</td><td><span class="badge ${row.estado}">${ESTADO_LABEL[row.estado] || row.estado}</span></td></tr>
-    </table>
-    <div class="footer">Código de verificación: ${escapeHtml(id)}</div>
-  `;
+  if (!fila) {
+    sello('err', 'gpp_bad', 'No encontrado',
+      'No hay ningún certificado del CEM con este código.');
+    return;
+  }
+
+  const datos = fila.datos || {};
+  const vigente = fila.estado === 'vigente';
+  sello(
+    vigente ? 'ok' : 'err',
+    vigente ? 'verified' : 'gpp_bad',
+    vigente ? 'Certificado auténtico' : 'Este certificado ya no está vigente',
+    vigente
+      ? `Emitido por ${esc(fila.entidad_emisora || 'CEM International')}`
+      : (fila.estado === 'reemplazado'
+          ? 'Se rehízo, y hay una versión más reciente. La formación es válida.'
+          : 'Lo emitió el CEM pero fue anulado. Ya no acredita nada.'));
+
+  $('#cuerpo').hidden = false;
+
+  /* Los datos primero, y el dibujo después: la lámina tarda —hay que bajarse un
+     fondo de un mega— y el veredicto no debe esperar a que llegue. */
+  const claves = Object.keys(datos)
+    .filter((k) => datos[k] !== null && String(datos[k]).trim() !== '')
+    .sort((a, b) => peso(a) - peso(b));
+
+  $('#datos').innerHTML = claves.map((k) => `
+      <div><dt>${esc(bonito(k))}</dt>
+        <dd${sinTildes(k) === 'nombre' ? ' class="grande"' : ''}>${esc(datos[k])}</dd></div>`).join('')
+    + `<div><dt>Documento</dt><dd>${esc(fila.titulo || tituloDe(datos))}</dd></div>`
+    + `<div><dt>Emitido</dt><dd>${fdate(fila.emitido_en)}</dd></div>`
+    + `<div><dt>Código</dt><dd class="ver-codigo">${esc(id)}</dd></div>`;
+
+  /* Con la cédula se pueden ver todos los títulos de esa persona, que es lo que
+     de verdad quiere saber quien está a punto de contratarla. */
+  const ced = datos['Cédula'] || datos.cedula || datos.Cedula;
+  if (ced) {
+    const b = $('#btnTodos');
+    b.href = '../plataforma/verificar.html?codigo=' + encodeURIComponent(ced);
+    b.hidden = false;
+  }
+
+  if (!vigente) {
+    /* De un certificado retirado no se entrega una lámina limpia: se dice qué
+       pasó, y ya. La función del servidor tampoco la daría. */
+    $('#lamina').innerHTML = '<span class="tiny muted">De un certificado que ya no está '
+      + 'vigente no se muestra el documento.</span>';
+    $('#btnBajar').remove();
+    return;
+  }
+  dibujar();
 }
+
+function tituloDe(){ return 'Certificado del CEM'; }
+
+async function dibujar(){
+  try {
+    const { data, error } = await sb.rpc('cert_publico_para_dibujar', { p_id: id });
+    if (error) throw error;
+    const fila = (data || [])[0];
+    if (!fila) throw new Error('sin plantilla');
+
+    const lienzo = await dibujarCertificadoEmitido(fila, fila.config, location.href);
+    const img = new Image();
+    img.alt = 'Certificado de ' + (fila.datos?.Nombre || fila.datos?.nombre || 'la persona');
+    img.src = lienzo.toDataURL('image/png');
+    $('#lamina').innerHTML = '';
+    $('#lamina').appendChild(img);
+
+    const bajar = $('#btnBajar');
+    bajar.disabled = false;
+    bajar.onclick = () => {
+      const a = document.createElement('a');
+      a.href = lienzo.toDataURL('image/jpeg', 0.92);
+      a.download = String(fila.titulo || 'certificado')
+        .replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') + '.jpg';
+      a.click();
+      ok('Descargado.');
+    };
+  } catch {
+    /* Que no se pueda dibujar no cambia el veredicto: el certificado sigue
+       siendo auténtico y los datos siguen ahí. Se dice sólo lo que falta. */
+    $('#lamina').innerHTML = '<span class="tiny muted">No pudimos dibujar el documento, '
+      + 'pero la comprobación de arriba es válida.</span>';
+    $('#btnBajar').remove();
+  }
+}
+
+/* Compartir la comprobación, no la portada. Lo que convence a alguien no es
+   «mira esta escuela»: es «mira este título, y compruébalo tú mismo». */
+$('#btnCompartir').onclick = async () => {
+  const texto = 'Certificado del CEM International. Se puede comprobar aquí:';
+  try {
+    if (navigator.share) { await navigator.share({ title:'Certificado del CEM', text:texto, url:location.href }); return; }
+    await navigator.clipboard.writeText(texto + ' ' + location.href);
+    ok('Enlace copiado.');
+  } catch { fail('No se pudo compartir. Copia la dirección de la barra.'); }
+};
+
 verificar();
 </script>
 </body>
