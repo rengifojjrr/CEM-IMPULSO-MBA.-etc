@@ -58,6 +58,38 @@
     display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px;}
   .badge-ico .material-symbols-outlined{font-size:var(--t-2xl);}
   .badge-card.locked{opacity:.5;} .badge-card.locked .badge-ico{background:var(--hueco);color:var(--filete-fuerte);}
+
+  /* La fila de un diploma: la lámina, el texto y los botones.
+     La lámina va primero y con tamaño fijo porque es lo que la persona viene a
+     ver; el texto crece y encoge con lo que quede. */
+  .dip-fila{display:flex;align-items:center;gap:14px;padding:10px 0;
+    border-bottom:1px solid var(--filete);}
+  .dip-texto{flex:1;min-width:0;}
+  /* sin-caja: enmarca una lámina, no un panel. El diploma ya trae su fondo y
+     sus colores, así que esto debe ser un filete neutro y no heredar el
+     relleno ni la sombra de una tarjeta, que competirían con él. */
+  .dip-mini{flex:none;width:168px;min-height:56px;padding:0;border:1px solid var(--filete);
+    border-radius:var(--r);background:var(--hueco);cursor:pointer;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    transition:border-color var(--rapido);}
+  .dip-mini:hover{border-color:var(--primary);}
+  .dip-mini canvas{display:block;width:100%;height:auto;}
+  /* En un teléfono la fila se apila y la lámina pasa a ocupar el ancho: a
+     168 px en una columna estrecha no se lee lo que dice el diploma, que es
+     justo para lo que está. */
+  @media(max-width:560px){
+    .dip-fila{flex-wrap:wrap;}
+    .dip-mini{width:100%;}
+    .dip-texto{flex-basis:100%;}
+  }
+
+  /* La lámina grande, dentro de la ventana. Se limita por alto además de por
+     ancho: un diploma apaisado que ocupe todo el ancho deja los botones de
+     abajo fuera de la pantalla, y no se ve que se puede descargar. */
+  .dip-grande{display:flex;align-items:center;justify-content:center;min-height:180px;
+    background:var(--hueco);border-radius:var(--r);padding:10px;}
+  .dip-grande img{max-width:100%;max-height:70vh;height:auto;display:block;
+    box-shadow:0 2px 14px rgba(0,0,0,.18);}
 </style>
 </head>
 <body>
@@ -82,8 +114,12 @@
   <div class="grid g4" id="badges"></div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio } from '../assets/app.js?v=2026-09-04-4';
+import { sb, mount, $, $$, esc, chip, bar, pct, fdate, modal, vacio, ok, fail } from '../assets/app.js?v=2026-09-04-4';
 import { lienzoCertificado } from '../assets/certificado.js?v=2026-09-04-4';
+/* El MISMO dibujante que usa la escuela para imprimir. No una copia: el propio
+   módulo del que tira el generador. Es lo que garantiza que el diploma que se
+   ve aquí y el que llega impreso sean el mismo documento. */
+import { dibujarCertificadoEmitido } from '../../certificados/dibujar.js?v=2026-09-04-4';
 const me = await mount({ require:['estudiante'], active:'certificados.html', area:'estudiante' });
 if (me) load();
 
@@ -297,13 +333,15 @@ async function cargarEgresado(){
     return `<section class="sep">
       <h3 style="margin:0 0 6px;font-size:15px">${esc(programa)}</h3>
       ${diplomas.map(d => `
-        <div class="row" style="justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--filete)">
-          <div><span class="chip ok">Diploma</span>
+        <div class="dip-fila">
+          <button type="button" class="dip-mini" data-mini="${d.id}" data-ver="${d.id}"
+            aria-label="Ver el diploma de ${esc(d.titulo)}"><span class="tiny muted">Dibujando…</span></button>
+          <div class="dip-texto"><span class="chip ok">Diploma</span>
             <b style="margin-left:6px">${esc(d.titulo)}</b>
             <div class="tiny muted">A nombre de ${esc(d.nombre)} · ${esc(d.cedula)}</div></div>
           <div class="row" style="gap:6px">
-            <a class="btn outline sm" href="../../certificados/verificar.html?c=${encodeURIComponent(d.id)}" target="_blank"
-               rel="noopener"><span class="material-symbols-outlined" aria-hidden="true">verified</span> Ver</a>
+            <button class="btn outline sm" data-ver="${d.id}">
+              <span class="material-symbols-outlined" aria-hidden="true">visibility</span> Ver</button>
             ${botonFisico(d)}
           </div>
         </div>`).join('')}
@@ -312,8 +350,7 @@ async function cargarEgresado(){
         ${modulos.map(d => `
           <div class="row" style="justify-content:space-between;gap:10px;padding:6px 0">
             <span class="tiny">${esc(d.titulo)}</span>
-            <a class="tiny" href="../../certificados/verificar.html?c=${encodeURIComponent(d.id)}"
-               target="_blank" rel="noopener">Ver</a>
+            <button class="btn ghost sm" data-ver="${d.id}">Ver</button>
           </div>`).join('')}
       </details>` : ''}
     </section>`;
@@ -337,6 +374,100 @@ async function cargarEgresado(){
   }
 
   $$('[data-fisico]', caja).forEach(b => b.addEventListener('click', () => pedirFisico(b.dataset.fisico, b.dataset.titulo)));
+  $$('[data-ver]', caja).forEach(b => b.addEventListener('click', () => verDiploma(b.dataset.ver)));
+
+  /* Las miniaturas se dibujan DESPUÉS de pintar la lista y de una en una.
+     Cada una tiene que bajarse el fondo de su plantilla —cerca de un mega— y
+     dibujar un lienzo de 3300×2400; lanzarlas todas a la vez deja el teléfono
+     clavado justo cuando la persona acaba de entrar. Así la lista se lee de
+     inmediato y las láminas van apareciendo. */
+  for (const b of $$('[data-mini]', caja)) await miniatura(b);
+}
+
+/* ============ el diploma, dibujado ============
+   ═══════════════════════════════════════════════════════════════════════════
+   El diploma no está guardado como imagen en ningún sitio: se dibuja cada vez
+   juntando el fondo y las posiciones de la plantilla con los datos del
+   certificado. Por eso «Ver» llevaba antes a una tarjeta de texto — era lo
+   único que esta pantalla podía enseñar sin la plantilla, que sólo lee el
+   equipo. `cem_mi_certificado_para_dibujar` abre esa puerta, y sólo para los
+   documentos que llevan la cédula de quien pregunta.
+
+   Se guarda lo dibujado: abrir, cerrar y volver a abrir no vuelve a bajarse el
+   fondo ni a repintar. */
+const dibujados = new Map();
+
+async function lienzoDeMiDiploma(id){
+  if (dibujados.has(id)) return dibujados.get(id);
+  const tarea = (async () => {
+    const { data, error } = await sb.rpc('cem_mi_certificado_para_dibujar', { p_id: id });
+    if (error) throw error;
+    const fila = (data || [])[0];
+    if (!fila) throw new Error('Ese documento no está a tu nombre, o ya no está vigente.');
+    const verifyUrl = new URL('../../certificados/verificar.html', location.href).href
+                    + '?c=' + encodeURIComponent(id);
+    return { lienzo: await dibujarCertificadoEmitido(fila, fila.config, verifyUrl), titulo: fila.titulo };
+  })();
+  dibujados.set(id, tarea);
+  // Un fallo no se queda guardado: la próxima vez se reintenta.
+  tarea.catch(() => dibujados.delete(id));
+  return tarea;
+}
+
+async function miniatura(boton){
+  try {
+    const { lienzo } = await lienzoDeMiDiploma(boton.dataset.mini);
+    /* La miniatura se reduce a un lienzo pequeño en vez de encoger el grande
+       con CSS: así el navegador no guarda en memoria una imagen de ocho
+       millones de píxeles por cada fila. */
+    const ancho = 168, alto = Math.round(ancho * lienzo.height / lienzo.width);
+    const mini = document.createElement('canvas');
+    mini.width = ancho; mini.height = alto;
+    const cx = mini.getContext('2d');
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(lienzo, 0, 0, ancho, alto);
+    boton.innerHTML = '';
+    boton.appendChild(mini);
+  } catch {
+    /* Si no se pudo dibujar, el hueco no puede quedarse diciendo «Dibujando…»
+       para siempre. Se dice que no se pudo, y el botón «Ver» sigue ahí para
+       intentarlo otra vez con el mensaje completo. */
+    boton.innerHTML = '<span class="tiny muted">No se pudo dibujar</span>';
+  }
+}
+
+async function verDiploma(id){
+  const m = modal({ title:'Tu diploma', wide:true,
+    body:`<div class="dip-grande" id="dipGrande"><span class="tiny muted">Dibujando tu diploma…</span></div>`,
+    footer:`<a class="btn outline" id="dipComprobar" target="_blank" rel="noopener"
+              href="../../certificados/verificar.html?c=${encodeURIComponent(id)}">
+              <span class="material-symbols-outlined" aria-hidden="true">verified</span> Comprobar que es válido</a>
+            <button class="btn" id="dipBajar" disabled>
+              <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar</button>` });
+  try {
+    const { lienzo, titulo } = await lienzoDeMiDiploma(id);
+    const img = new Image();
+    img.alt = 'Tu diploma de ' + titulo;
+    img.src = lienzo.toDataURL('image/png');
+    $('#dipGrande', m).innerHTML = '';
+    $('#dipGrande', m).appendChild(img);
+    m.querySelector('.modal-h h3').textContent = titulo;
+
+    const bajar = $('#dipBajar', m);
+    bajar.disabled = false;
+    bajar.onclick = () => {
+      /* En JPEG y no en PNG: la misma lámina pesa unas seis veces menos y para
+         un fondo fotográfico se ve igual. Es lo mismo que baja la escuela. */
+      const a = document.createElement('a');
+      a.href = lienzo.toDataURL('image/jpeg', 0.92);
+      a.download = (titulo || 'diploma').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') + '.jpg';
+      a.click();
+      ok('Descargado.');
+    };
+  } catch (e) {
+    $('#dipGrande', m).innerHTML =
+      `<div class="nota err">No pudimos dibujar tu diploma. ${esc(e.message || '')}</div>`;
+  }
 }
 
 function botonFisico(d){
