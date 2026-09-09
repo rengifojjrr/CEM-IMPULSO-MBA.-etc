@@ -3770,6 +3770,41 @@ details.card h3.sec{margin-top:var(--e3);}
   padding:var(--e1) var(--e2);font-family:var(--cifra);font-size:var(--t-sm);
   word-break:break-all;}
 
+/* Lo que queda del perfil, y por qué está aquí y no en su pantalla.
+   ═══════════════════════════════════════════════════════════════════════════
+   El perfil dejó de ser una pantalla del estudiante: hoy lo montan también el
+   equipo y los profesores desde sus carpetas. Con estas reglas en el `<style>`
+   de una de las tres páginas, las otras dos salían sin ellas — la lista de
+   diplomas sin filas y los datos amontonados en una columna. */
+.sub-perfil{font-size:var(--t-xs);color:var(--tinta-3);font-weight:var(--peso-fuerte);
+  margin-bottom:var(--e1);}
+
+/* La lista de diplomas. Cada fila entera es el botón: en un teléfono apuntar a
+   un enlace pequeño dentro de una fila es la diferencia entre abrirlo a la
+   primera y pelearse con el dedo. */
+.lista-diplomas{display:flex;flex-direction:column;}
+.fila-diploma{display:flex;align-items:center;gap:var(--e1);width:100%;
+  padding:var(--e2) var(--e1);background:none;border:0;border-bottom:1px solid var(--filete);
+  text-align:left;color:inherit;font:inherit;cursor:pointer;min-height:56px;}
+.fila-diploma:last-child{border-bottom:0;}
+.fila-diploma:hover{background:var(--hueco);}
+.fila-diploma .crece{flex:1;min-width:0;display:flex;flex-direction:column;}
+.fila-diploma .crece b{overflow-wrap:anywhere;}
+.fila-diploma > .material-symbols-outlined{color:var(--gold,#C9A227);flex:none;}
+.fila-diploma .flecha{color:var(--tinta-3);}
+
+/* Los datos, para mirarlos. Dos columnas en pantalla ancha y una en el
+   teléfono; lo que falta se marca, porque un hueco vacío en una lista pasa
+   desapercibido y «falta» no. */
+.datos-mirar{display:grid;gap:0;margin:var(--e2) 0 0;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));}
+.datos-mirar .dato{padding:10px 0;border-bottom:1px solid var(--filete);
+  display:flex;flex-direction:column;gap:2px;padding-right:var(--e2);}
+.datos-mirar dt{font-size:var(--t-xs);color:var(--tinta-3);
+  font-weight:var(--peso-fuerte);}
+.datos-mirar dd{margin:0;overflow-wrap:anywhere;}
+.datos-mirar dd.falta{color:var(--warn);font-weight:var(--peso-fuerte);}
+
 /* ══════════════════════════ EL DIPLOMA ═══════════════════════════════════
    El dibujo del certificado. Vive aquí y no en la pantalla del estudiante
    porque el mismo diploma se enseña en tres sitios —su cuenta, la ficha del

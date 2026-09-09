@@ -1218,6 +1218,16 @@ const ADMIN_NAV = [
     ['auditoria.html', 'history', 'Auditoría', ['admin','superadmin','auditor']],
     ['usuarios.html', 'manage_accounts', 'Usuarios y roles', ['admin','superadmin','auditor']],
     ['permisos.html', 'admin_panel_settings', 'Matriz de permisos', ['admin','superadmin','auditor']],
+    /* El equipo también es gente. Hasta ahora el perfil era una pantalla del
+       estudiante y de nadie más: quien coordina, cobra o dirige no tenía dónde
+       poner su cara ni a dónde llevar a quien pulse su nombre.
+
+       Cobranza y auditoría salen aquí con todos los demás aunque tengan su
+       propio menú y esta lista no les llegue nunca — es lo mismo que hace
+       `seguridad.html`. Esta lista es la que dice quién puede abrir la
+       pantalla, y la comprobación 8 la compara con lo que la pantalla exige;
+       la entrada que ellos ven de verdad está repetida en su menú. */
+    ['perfil.html', 'account_circle', 'Mi perfil', ['cobranza','coordinador','admin','superadmin','auditor']],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta', ['cobranza','coordinador','admin','superadmin','auditor']],
     ['configuracion.html', 'settings', 'Configuración', ['admin','superadmin']],
   ]},
@@ -1265,6 +1275,7 @@ const TEACHER_NAV = [
   ['aula.html', 'menu_book', 'Mi aula'],
   ['grupo.html', 'insights', 'Cómo va mi grupo'],
   ['asistencia.html', 'how_to_reg', 'Asistencia'],
+  ['perfil.html', 'account_circle', 'Mi perfil'],
 ];
 
 /* Barra inferior del teléfono: el menú institucional tiene 23 entradas y no cabe.
@@ -1289,6 +1300,11 @@ const AUDITOR_NAV = [
     ['auditoria.html', 'history', 'Registro de auditoría'],
     ['reportes.html', 'analytics', 'Reportes'],
     ['permisos.html', 'admin_panel_settings', 'Matriz de permisos'],
+    /* También aquí, y no sólo en el menú del administrador: el auditor tiene su
+       propio menú, así que una entrada puesta allí no le llega nunca. Su perfil
+       es de mirar —la base le prohíbe escribir en los perfiles— pero es la
+       página a la que va a parar quien pulse su nombre. */
+    ['perfil.html', 'account_circle', 'Mi perfil'],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
   ]},
   { lbl: 'Consulta', items: [
@@ -1313,6 +1329,8 @@ const COBRANZA_NAV = [
     ['cierre-mes.html', 'event_available', 'Cierre de mes'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
     ['estudiantes.html', 'person', 'Estudiantes'],
+    // Por lo mismo que en el del auditor: cobranza también tiene menú propio.
+    ['perfil.html', 'account_circle', 'Mi perfil'],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
   ]},
 ];
@@ -2278,18 +2296,13 @@ function renderShell(p, area, active) {
         <button class="icon-btn campana" id="cemCampana" title="Avisos">
           <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
           <i class="punto" id="cemCampanaPunto" hidden></i></button>
-        <!-- El estudiante tiene su pantalla de perfil entera, con portada,
-             certificados y portafolio, y ahí va. Los demás no tenían ninguna:
-             para ellos esto abre el diálogo de la foto, que es lo que les
-             faltaba. Antes era un enlace a «#» que no hacía nada. -->
-        ${area === 'estudiante'
-          ? `<a class="avatar" id="cemMiAvatar" href="perfil.html" title="${esc(p.email)}"
-               >${initials(p.nombre, p.apellido)}${p.avatar_url
-                 ? `<img src="${esc(p.avatar_url)}" alt="">` : ''}</a>`
-          : `<button class="avatar" id="cemMiAvatar" type="button"
-               title="${esc(p.email)} — cambiar tu foto"
-               >${initials(p.nombre, p.apellido)}${p.avatar_url
-                 ? `<img src="${esc(p.avatar_url)}" alt="">` : ''}</button>`}
+        <!-- Al perfil, y ahora sí para todo el mundo: antes sólo el estudiante
+             tenía esa pantalla, así que al resto se le abría el diálogo de la
+             foto porque el enlace habría dado un 404. Ya existe en las tres
+             carpetas. -->
+        <a class="avatar" id="cemMiAvatar" href="perfil.html" title="${esc(p.email)}"
+           >${initials(p.nombre, p.apellido)}${p.avatar_url
+             ? `<img src="${esc(p.avatar_url)}" alt="">` : ''}</a>
       </header>
       <main class="content" id="cemContent"></main>
     </div>
@@ -2304,11 +2317,6 @@ function renderShell(p, area, active) {
   if (page) { $('#cemContent', shell).appendChild(page); page.classList.remove('hidden'); }
 
   $('#cemLogout').onclick = logout;
-
-  /* Sólo cuando es botón: para el estudiante es un enlace a su perfil y ahí
-     no hay que interceptar nada. */
-  const miAvatar = $('#cemMiAvatar', shell);
-  if (miAvatar && miAvatar.tagName === 'BUTTON') miAvatar.onclick = abrirMiFoto;
 
   // Plegar y desplegar los grupos del menú, recordando cuáles quedaron abiertos.
   $$('.nav-group .lbl', shell).forEach((btn) => btn.addEventListener('click', () => {
@@ -3587,8 +3595,14 @@ export function recortarCuadrado(file, lado = 600) {
    El auditor es la excepción y la tiene la base, no esta pantalla: hay una
    regla que le prohíbe TODA escritura sobre los perfiles, para que quien
    revisa no pueda cambiar lo revisado. Aquí se dice con esas palabras en vez
-   de dejar que pulse y reciba un error de permisos. */
-const ROLES_SIN_FOTO = { auditor:
+   de dejar que pulse y reciba un error de permisos.
+
+   Desde que todos los roles tienen pantalla de perfil, el avatar de la cabecera
+   lleva allí y ya no abre esta ventana: la foto se cambia tocándola, como en
+   cualquier sitio. Se queda por si hace falta pedirla desde otro lado, y
+   `ROLES_SIN_FOTO` lo usa además el perfil para no ofrecerle al auditor un
+   botón que la base le va a negar. */
+export const ROLES_SIN_FOTO = { auditor:
   'Tu cuenta es de auditoría y no puede escribir en los perfiles, tampoco en el '
   + 'tuyo. Es a propósito: quien revisa no cambia lo que revisa.' };
 

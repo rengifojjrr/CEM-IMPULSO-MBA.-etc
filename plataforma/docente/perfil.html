@@ -41,7 +41,7 @@
 import { mount } from '../assets/app.js?v=2026-09-04-4';
 import { montarPerfil } from '../assets/perfil.js?v=2026-09-04-4';
 
-const p = await mount({ require:['estudiante'], active:'perfil.html', area:'estudiante' });
+const p = await mount({ require:['profesor'], active:'perfil.html', area:'docente' });
 if (p) montarPerfil(p);
 </script>
 </body>
