@@ -3805,6 +3805,91 @@ details.card h3.sec{margin-top:var(--e3);}
 .datos-mirar dd{margin:0;overflow-wrap:anywhere;}
 .datos-mirar dd.falta{color:var(--warn);font-weight:var(--peso-fuerte);}
 
+/* ══════════════════════════ LOS MENSAJES ═══════════════════════════════════
+   La bandeja a la izquierda y la conversación a la derecha, como cualquier
+   buzón. En el teléfono no caben las dos: se enseña la lista, y al abrir una
+   conversación ésta la tapa entera —el cuerpo lleva `msg-abierta` mientras hay
+   una abierta— porque media pantalla para cada cosa no sirve para ninguna.
+
+   Las burbujas no se definen aquí: son las mismas `.chat-linea` y
+   `.chat-burbuja` que usa Cemi. Dos conversaciones con dos aspectos distintos
+   en la misma casa se notan, y no para bien. */
+.msg-tablero{display:grid;grid-template-columns:minmax(260px, 360px) 1fr;
+  gap:var(--e2);align-items:start;}
+.msg-lista{max-height:calc(100vh - 220px);overflow-y:auto;}
+.msg-hilo{display:flex;flex-direction:column;min-height:420px;
+  max-height:calc(100vh - 220px);}
+
+/* Cada conversación de la lista. Toda la fila es el botón: apuntar con el dedo
+   a un enlace pequeño dentro de una fila es pelearse con la pantalla.
+   sin-caja: son filas dentro de la tarjeta, separadas por una raya. */
+.msg-fila{display:flex;align-items:flex-start;gap:var(--e1);width:100%;
+  padding:var(--e1);background:none;border:0;border-bottom:1px solid var(--filete);
+  text-align:left;color:inherit;font:inherit;cursor:pointer;}
+.msg-fila:last-child{border-bottom:0;}
+.msg-fila:hover{background:var(--hueco);}
+.msg-fila.abierta{background:var(--hueco);}
+.msg-fila .crece{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.msg-arriba{display:flex;justify-content:space-between;gap:var(--e1);align-items:baseline;}
+.msg-fila:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}
+
+.msg-cab{display:flex;align-items:center;gap:var(--e1);
+  padding-bottom:var(--e1);border-bottom:1px solid var(--filete);}
+/* El botón de volver a la lista sólo tiene sentido donde la lista se esconde,
+   o sea en el teléfono. En pantalla ancha las dos columnas están a la vista y
+   un «atrás» que no lleva a ninguna parte sobra. */
+.solo-estrecho{display:none;}
+
+/* El contador de sin leer, pegado a la derecha de su entrada del menú. */
+.nav-item .nav-cuenta{margin-left:auto;flex:none;}
+/* El nombre de arriba abre su ficha: es lo primero que se intenta cuando no
+   sabes con quién estás hablando.
+   sin-caja: no dibuja recuadro, sólo se subraya al pasar por encima. */
+.msg-quien{display:flex;align-items:center;gap:var(--e1);flex:1;min-width:0;
+  background:none;border:0;padding:0;font:inherit;color:inherit;
+  text-align:left;cursor:pointer;}
+.msg-quien .crece{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25;}
+.msg-quien:hover b{color:var(--primary);text-decoration:underline;}
+.msg-quien:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.msg-asunto{font-weight:var(--peso-fuerte);padding:var(--e1) 0;}
+.msg-cuerpo{flex:1;min-height:200px;padding:var(--e1) 0;}
+.msg-hora{font-size:var(--t-xs);opacity:.7;margin-top:4px;}
+
+.msg-pie{display:flex;gap:var(--e1);align-items:flex-end;
+  padding-top:var(--e1);border-top:1px solid var(--filete);}
+.msg-pie textarea{flex:1;min-width:0;resize:vertical;}
+
+.msg-nada{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--e1);min-height:320px;text-align:center;color:var(--tinta-3);}
+.msg-nada .material-symbols-outlined{font-size:44px;opacity:.5;}
+
+/* El directorio y la ficha, dentro de sus ventanas. */
+.msg-directorio{max-height:46vh;overflow-y:auto;margin-top:var(--e1);}
+/* sin-caja: filas de una lista, no paneles. */
+.msg-persona{display:flex;align-items:center;gap:var(--e1);width:100%;
+  padding:var(--e1);background:none;border:0;border-bottom:1px solid var(--filete);
+  text-align:left;color:inherit;font:inherit;cursor:pointer;}
+.msg-persona:last-child{border-bottom:0;}
+.msg-persona:hover{background:var(--hueco);}
+.msg-persona .crece{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3;}
+
+.ficha{display:flex;flex-direction:column;gap:var(--e2);}
+.ficha-portada{height:110px;border-radius:var(--r);background:var(--hueco);overflow:hidden;}
+.ficha-portada img{width:100%;height:100%;object-fit:cover;display:block;}
+.ficha-quien{display:flex;align-items:center;gap:var(--e2);margin-top:-46px;
+  padding-left:var(--e2);}
+.ficha-quien > div{padding-top:46px;}
+
+@media (max-width: 900px) {
+  .msg-tablero{grid-template-columns:1fr;}
+  .msg-lista{max-height:none;}
+  .msg-hilo{max-height:none;}
+  /* Una cosa cada vez: con una conversación abierta, la lista se va. */
+  body.msg-abierta .msg-lista{display:none;}
+  body:not(.msg-abierta) .msg-hilo{display:none;}
+  .solo-estrecho{display:inline-flex;}
+}
+
 /* ══════════════════════════ EL DIPLOMA ═══════════════════════════════════
    El dibujo del certificado. Vive aquí y no en la pantalla del estudiante
    porque el mismo diploma se enseña en tres sitios —su cuenta, la ficha del

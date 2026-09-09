@@ -1196,6 +1196,11 @@ const ADMIN_NAV = [
     ['comunicaciones.html', 'mail', 'Comunicaciones', ['coordinador','admin','superadmin','profesor','auditor']],
     ['correo.html', 'outgoing_mail', 'Envío de correo', ['admin','superadmin']],
     ['soporte.html', 'support_agent', 'Soporte', ['coordinador','admin','superadmin','auditor']],
+    /* Los mensajes van con Soporte y no en Gobierno: son las dos vías por las
+       que llega alguien con un problema, y se miran en la misma visita. La
+       diferencia es que un ticket cae en una cola y un mensaje va a una
+       persona — que es justo lo que faltaba. */
+    ['mensajes.html', 'forum', 'Mensajes', ['cobranza','coordinador','admin','superadmin','auditor']],
     /* El asistente vive aquí y no en Gobierno porque no es una pieza de
        configuración: es quien habla con la gente cuando no hay nadie. Se abre
        por la misma razón por la que se abre Soporte —para ver qué se está
@@ -1254,6 +1259,7 @@ const STUDENT_NAV = [
      su nombre; si está escondido dentro de otra pantalla, no lo encuentra y no
      lo usa — y un descuento que no se usa no trajo a nadie. */
   ['cupones.html', 'local_activity', 'Mis cupones'],
+  ['mensajes.html', 'forum', 'Mensajes'],
   ['perfil.html', 'account_circle', 'Mi perfil'],
   /* «Mis datos» ya no está en el menú, y no porque haya dejado de importar.
      ─────────────────────────────────────────────────────────────────────
@@ -1275,6 +1281,7 @@ const TEACHER_NAV = [
   ['aula.html', 'menu_book', 'Mi aula'],
   ['grupo.html', 'insights', 'Cómo va mi grupo'],
   ['asistencia.html', 'how_to_reg', 'Asistencia'],
+  ['mensajes.html', 'forum', 'Mensajes'],
   ['perfil.html', 'account_circle', 'Mi perfil'],
 ];
 
@@ -1304,6 +1311,7 @@ const AUDITOR_NAV = [
        propio menú, así que una entrada puesta allí no le llega nunca. Su perfil
        es de mirar —la base le prohíbe escribir en los perfiles— pero es la
        página a la que va a parar quien pulse su nombre. */
+    ['mensajes.html', 'forum', 'Mensajes'],
     ['perfil.html', 'account_circle', 'Mi perfil'],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
   ]},
@@ -1330,6 +1338,9 @@ const COBRANZA_NAV = [
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
     ['estudiantes.html', 'person', 'Estudiantes'],
     // Por lo mismo que en el del auditor: cobranza también tiene menú propio.
+    // Y los mensajes le importan más que a nadie: es a quien se le escribe
+    // cuando hay una duda con una cuota.
+    ['mensajes.html', 'forum', 'Mensajes'],
     ['perfil.html', 'account_circle', 'Mi perfil'],
     ['seguridad.html', 'shield_lock', 'Seguridad de mi cuenta'],
   ]},
@@ -2211,6 +2222,29 @@ export function homeFor(rol) {
   if (rol === 'auditor') return '../admin/auditoria.html';
   return '../admin/index.html';
 }
+/* Cuántos mensajes sin leer, en la entrada del menú.
+   ═══════════════════════════════════════════════════════════════════════════
+   Un buzón del que no te enteras es un buzón donde la gente escribe y nadie
+   contesta — y eso es peor que no tenerlo, porque quien escribió se queda
+   esperando. El número va en el menú y no en la campana a propósito: la
+   campana son avisos del sistema, y esto es una persona esperando respuesta.
+
+   Si la consulta falla no se dice nada y no se pinta nada: un menú es lo
+   primero que se ve al entrar y no es sitio para un error de red. */
+async function marcarMensajesSinLeer(shell) {
+  try {
+    const { data, error } = await sb.rpc('cem_msg_sin_leer');
+    if (error || !data) return;
+    const entrada = $('.nav-item[href="mensajes.html"]', shell);
+    if (!entrada) return;
+    const punto = document.createElement('span');
+    punto.className = 'chip info nav-cuenta';
+    punto.textContent = data > 99 ? '99+' : String(data);
+    punto.setAttribute('aria-label', `${data} sin leer`);
+    entrada.appendChild(punto);
+  } catch { /* el menú nunca se rompe por esto */ }
+}
+
 export function homeForRoot(rol) {
   if (rol === 'estudiante') return 'estudiante/panel.html';
   if (rol === 'profesor') return 'docente/panel.html';
@@ -2317,6 +2351,7 @@ function renderShell(p, area, active) {
   if (page) { $('#cemContent', shell).appendChild(page); page.classList.remove('hidden'); }
 
   $('#cemLogout').onclick = logout;
+  marcarMensajesSinLeer(shell);
 
   // Plegar y desplegar los grupos del menú, recordando cuáles quedaron abiertos.
   $$('.nav-group .lbl', shell).forEach((btn) => btn.addEventListener('click', () => {
