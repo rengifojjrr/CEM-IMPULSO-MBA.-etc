@@ -14,9 +14,15 @@
 -- constancia de quien no es CUÁNDO se imprimió su diploma — los que se emitan a
 -- partir de ahora salen ya con «identidad» y no les hace falta ninguna
 -- constancia. Una fecha dice eso exactamente; una lista sólo lo dice hoy.
+--
+-- El corte se puso primero en el 8 de septiembre y se movió al 9 al registrar el
+-- diploma de Oscar Beltrán: es de la misma tanda impresa —su papel lleva la
+-- misma errata— pero se dio de alta un día después que los demás, y con el corte
+-- en el 8 se habría quedado sin la constancia siendo justo el único a quien le
+-- hacía falta ese día. Aquí queda ya con el valor bueno.
 
 insert into public.cem_settings (clave, valor, descripcion) values
-  ('fe_erratas_diplomas_hasta', '"2026-09-08"'::jsonb,
+  ('fe_erratas_diplomas_hasta', '"2026-09-09"'::jsonb,
    'Los diplomas emitidos hasta este día (inclusive) se imprimieron con la errata «indentidad» y llevan la constancia. Los posteriores ya no.'),
   ('fe_erratas_fecha', '"2026-09-09"'::jsonb,
    'La fecha con la que se extiende la constancia de fe de erratas. Es un acto institucional único: la misma para todos, no la del día en que cada quien la descarga.')
