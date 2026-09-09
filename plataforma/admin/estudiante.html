@@ -55,7 +55,7 @@ import { barras, linea, hitos } from '../assets/graficos.js?v=2026-09-04-4';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const id = qs('id');
-let stu, ens=[], subs=[], certs=[], insts=[], pays=[], badges=[], exp=null;
+let stu, ens=[], subs=[], certs=[], insts=[], pays=[], badges=[], exp=null, diplomas=[];
 if (p) { if (!id) location.href='estudiantes.html'; else load(); }
 
 async function load(){
@@ -73,6 +73,20 @@ async function load(){
      y que es justo la que se preguntaba. */
   const { data: ex } = await sb.rpc('cem_expediente', { p_profile_id: id });
   exp = ex || null;
+
+  /* Los diplomas de la tanda impresa, que NO están en `cem_certificates`.
+     ═══════════════════════════════════════════════════════════════════════
+     En la casa hay dos sistemas de certificados: los de la plataforma, que
+     salen de una inscripción terminada y van atados al `profile_id`, y los del
+     generador —los 143 diplomas que se imprimieron—, que no tienen perfil y se
+     cruzan por la cédula que llevan dentro.
+
+     Esta pestaña sólo miraba el primero, así que de un egresado de la tanda
+     decía «todavía no se le ha emitido ningún certificado» teniendo nueve. Y
+     quedaba al revés de como tiene que ser: el egresado los veía en «Mis
+     logros» y quien lo atiende desde aquí le decía que no tenía ninguno. */
+  const { data: dip } = await sb.rpc('cem_diplomas_de', { p_profile_id: id });
+  diplomas = dip || [];
   const eids = ens.map(x=>x.id);
   if (eids.length){
     const [{data:sb1},{data:i1},{data:p1}] = await Promise.all([
@@ -356,11 +370,50 @@ function tab(t){
         <td class="wrap">${esc(c.cem_courses?.nombre||'')}</td><td class="muted">${fdate(c.emitido_en)}</td>
         <td>${chipEstado(c.estado)}</td>
         <td><a class="btn ghost sm" href="../verificar.html?codigo=${encodeURIComponent(c.codigo)}" target="_blank" title="Verificar el certificado" aria-label="Verificar el certificado"><span class="material-symbols-outlined" aria-hidden="true">verified</span></a></td>
-      </tr>`).join('') : emptyRow(6, 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>
+      </tr>`).join('') : emptyRow(6, certs.length === 0 && diplomas.length
+          ? 'Por la plataforma no se le ha emitido ninguno. Los de la tanda impresa están abajo.'
+          : 'Todavía no se le ha emitido ningún certificado.')}</tbody></table></div></div>
+      ${pintarDiplomas()}
       <div id="porModulos"></div>`;
     pintarModulos();
   }
   if (t==='pagos') pintarPagos(P);
+}
+
+/* Los diplomas del generador, en su propia tarjeta y no mezclados con los de
+   la plataforma. Son dos cosas distintas y juntarlas en una sola tabla haría
+   creer que salen del mismo sitio: éstos se cruzan por la cédula, se
+   imprimieron en papel, y no tienen código de verificación de la plataforma
+   sino el suyo propio dentro del QR. */
+function pintarDiplomas(){
+  if (!diplomas.length) {
+    /* Sin cédula no hay forma de cruzarlos, y eso hay que decirlo: si no, la
+       pantalla parece estar afirmando que no tiene ninguno cuando lo que pasa
+       es que no se puede saber. */
+    return stu && !stu.documento
+      ? `<div class="card"><h2 class="sec">Diplomas de la tanda impresa</h2>
+           <p class="nota warn sin-margen">Esta ficha no tiene documento, y los diplomas
+           impresos se cruzan por la cédula. Ponle el documento en «Editar» y aparecerán
+           aquí si los tiene.</p></div>`
+      : '';
+  }
+  return `<div class="card">
+    <div class="row between" style="align-items:flex-start;gap:10px">
+      <h2 class="sec sin-margen">Diplomas de la tanda impresa
+        <button type="button" class="ayuda-btn" data-ayuda="Son los diplomas que se generaron e imprimieron por lotes. No salen de una inscripción de la plataforma: se cruzan con esta ficha por la cédula. El estudiante los ve en «Mis logros».">?</button></h2>
+      <span class="chip neutral">${diplomas.length}</span>
+    </div>
+    <p class="tiny muted" style="margin-top:-2px">Se cruzan con esta ficha por la cédula
+      <code>${esc(stu?.documento || '')}</code>. Son los mismos que ve el egresado en su panel.</p>
+    <div class="table-wrap sep-poco"><table>
+      <thead><tr><th>Título</th><th>Qué es</th><th>A nombre de</th><th>Emitido</th><th>Estado</th></tr></thead>
+      <tbody>${diplomas.map(d => `<tr>
+        <td class="wrap">${esc(d.titulo)}</td>
+        <td>${d.es_diploma ? chip('diploma','info') : chip('módulo')}</td>
+        <td class="wrap muted">${esc(d.nombre || '—')}</td>
+        <td class="muted nowrap">${fdate(d.emitido_en)}</td>
+        <td>${chipEstado(d.estado)}</td>
+      </tr>`).join('')}</tbody></table></div></div>`;
 }
 
 /* Los títulos de cada módulo.
