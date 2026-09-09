@@ -25,6 +25,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<!-- Para sacar los diplomas listos para la imprenta desde aquí mismo: el QR va
+     dentro del documento, y jsPDF junta la tirada en un solo archivo. Son los
+     mismos que usa el generador. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<style>
+  /* sin-caja: enmarca una lámina, no un panel. El diploma trae su propio fondo
+     y sus colores; esto es un filete neutro que no compite con él. */
+  .ped-lamina{border:1px solid var(--filete);border-radius:var(--r);
+    background:var(--hueco);padding:8px;display:flex;align-items:center;
+    justify-content:center;min-height:150px;}
+  .ped-lamina img{max-width:100%;max-height:52vh;height:auto;display:block;
+    box-shadow:0 2px 12px rgba(0,0,0,.16);}
+</style>
 </head>
 <body>
 <div id="page" class="hidden">
@@ -34,8 +48,12 @@
     <div class="actions">
       <button class="btn outline" id="btnPlazo">
         <span class="material-symbols-outlined" aria-hidden="true">event</span> Cambiar el plazo</button>
-      <button class="btn" id="btnImprenta">
-        <span class="material-symbols-outlined" aria-hidden="true">download</span> Hoja para la imprenta</button>
+      <button class="btn outline" id="btnImprenta">
+        <span class="material-symbols-outlined" aria-hidden="true">table_view</span> Hoja para la imprenta</button>
+      <!-- Lo que de verdad se manda a imprimir. La hoja de al lado son los
+           datos del envío; esto son las láminas. -->
+      <button class="btn" id="btnDiplomas">
+        <span class="material-symbols-outlined" aria-hidden="true">print</span> Los diplomas en PDF</button>
     </div>
   </div>
 
@@ -75,6 +93,10 @@
 import { sb, mount, $, $$, esc, chip, num, fdate, fdateRel, emptyRow, match, kpi, modal,
          ok, fail, run, audit, toCSV, download, cargarEn,
          filtrosEnLaDireccion } from '../assets/app.js?v=2026-09-04-4';
+/* El mismo dibujante que ya usa el generador. Que sea el mismo es lo que hace
+   que lo que sale de aquí y lo que sale de Plantillas sean el mismo documento:
+   si se imprimieran por dos caminos distintos, un día no coincidirían. */
+import { dibujarCertificadoEmitido } from '../../certificados/dibujar.js?v=2026-09-04-4';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'diplomas-fisicos.html', area:'admin' });
 /* El auditor lee y no toca nada: es su definición. Aquí eso significa que ve
@@ -210,6 +232,16 @@ function abrir(x){
   const m = modal({ title:x.nombre, wide:true, body:`
     <div class="field"><label>Qué se imprime</label>
       <div>${esc(x.titulo)} <span class="tiny muted">· cédula ${esc(x.cedula)}</span></div></div>
+    <!-- La lámina de verdad, no una descripción de ella. Antes había que
+         fiarse del título escrito para saber qué se estaba mandando a la
+         imprenta; ahora se ve. -->
+    <div class="ped-lamina" id="pedLamina"><span class="tiny muted">Dibujando el diploma…</span></div>
+    <div class="row sep-poco" style="gap:8px;flex-wrap:wrap">
+      <button class="btn outline sm" id="pedImprimir" disabled>
+        <span class="material-symbols-outlined" aria-hidden="true">print</span> Imprimir este</button>
+      <button class="btn outline sm" id="pedBajar" disabled>
+        <span class="material-symbols-outlined" aria-hidden="true">download</span> Descargar en PDF</button>
+    </div>
     <div class="field"><label>A dónde va</label>
       <div>${esc(x.direccion)}</div>
       <div class="tiny muted">${esc([x.ciudad, x.pais].filter(Boolean).join(', ') || 'Sin ciudad ni país')}
@@ -232,6 +264,38 @@ function abrir(x){
       ? `<button class="btn outline" data-x>Cerrar</button><button class="btn" data-s>Guardar</button>`
       : `<button class="btn outline" data-x>Cerrar</button>` });
 
+  /* Va aparte del guardar y sin bloquear: si el dibujo falla —la plantilla
+     cambió, se cayó el fondo— el pedido tiene que poder seguir gestionándose
+     igual. Lo único que se pierde es la vista previa. */
+  (async () => {
+    try {
+      const lienzo = await laminaDe(x.certificado_id);
+      const img = new Image();
+      img.alt = 'Diploma de ' + x.nombre;
+      img.src = lienzo.toDataURL('image/png');
+      $('#pedLamina', m).innerHTML = '';
+      $('#pedLamina', m).appendChild(img);
+
+      const bajar = $('#pedBajar', m), imprimir = $('#pedImprimir', m);
+      bajar.disabled = imprimir.disabled = false;
+      const archivo = () => `${String(x.nombre).replace(/[^a-z0-9]+/gi, '_')
+        .replace(/^_+|_+$/g, '')}-diploma.pdf`;
+      bajar.onclick = () => { paginaDe(lienzo, null).save(archivo()); ok('Descargado.'); };
+      /* «Imprimir» abre el PDF en una pestaña con el diálogo de impresión ya
+         puesto: es lo que se espera de un botón que dice imprimir, en vez de
+         dejar un archivo en Descargas para que lo busques. */
+      imprimir.onclick = () => {
+        const pdf = paginaDe(lienzo, null);
+        pdf.autoPrint();
+        const url = pdf.output('bloburl');
+        if (!window.open(url, '_blank')) fail('El navegador bloqueó la ventana. Usa «Descargar en PDF».');
+      };
+    } catch (e) {
+      $('#pedLamina', m).innerHTML =
+        `<span class="tiny muted">${esc(e.message || 'No se pudo dibujar el diploma.')}</span>`;
+    }
+  })();
+
   if (!puede) return;
   $('[data-s]', m).onclick = async () => {
     const estado = $('#eEstado', m).value, nota = $('#eNota', m).value.trim();
@@ -245,6 +309,81 @@ function abrir(x){
     m.close(); ok('Pedido actualizado'); load();
   };
 }
+
+/* ============ las láminas, listas para la imprenta ============
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes, para mandar una tirada había que salir de aquí, ir a Plantillas,
+   buscar a cada persona y bajar su diploma de uno en uno. Los datos del envío
+   estaban en una pantalla y el documento a imprimir en otra.
+
+   El diploma no está guardado como imagen: se dibuja cada vez juntando la
+   plantilla con los datos del certificado. Aquí se usa el MISMO módulo que el
+   generador, no una copia, para que no puedan salir dos documentos distintos
+   según por dónde se pidan. */
+const laminas = new Map();
+
+async function laminaDe(certificadoId){
+  if (laminas.has(certificadoId)) return laminas.get(certificadoId);
+  const tarea = (async () => {
+    const { data, error } = await sb.rpc('cert_publico_para_dibujar', { p_id: certificadoId });
+    if (error) throw error;
+    const fila = (data || [])[0];
+    if (!fila) throw new Error('Ese documento ya no está vigente, así que no se dibuja.');
+    const url = new URL('../../certificados/verificar.html', location.href).href
+              + '?c=' + encodeURIComponent(certificadoId);
+    return dibujarCertificadoEmitido(fila, fila.config, url);
+  })();
+  laminas.set(certificadoId, tarea);
+  tarea.catch(() => laminas.delete(certificadoId));   // un fallo no se cachea
+  return tarea;
+}
+
+/** Una página de PDF con la lámina, a su tamaño real. */
+function paginaDe(lienzo, pdf){
+  /* jsPDF llega por <script> y se cuelga de `window.jspdf`, como en el
+     generador. Si la página no lo cargó, se dice qué falta en vez de reventar
+     con «jspdf is not defined» a mitad de una tirada de cuarenta. */
+  const jsPDF = window.jspdf?.jsPDF;
+  if (!jsPDF) throw new Error('Falta jsPDF: la página tiene que cargarlo por <script>.');
+  const jpg = lienzo.toDataURL('image/jpeg', 0.92);
+  const anchoPt = lienzo.width * 72 / 96, altoPt = lienzo.height * 72 / 96;
+  const orientacion = anchoPt > altoPt ? 'landscape' : 'portrait';
+  if (!pdf) pdf = new jsPDF({ orientation:orientacion, unit:'pt', format:[anchoPt, altoPt] });
+  /* Cada página con su propio tamaño: en una misma tirada conviven láminas de
+     1600×2263 y de otras medidas, y forzarlas a una sola estiraría unas. */
+  else pdf.addPage([anchoPt, altoPt], orientacion);
+  pdf.addImage(jpg, 'JPEG', 0, 0, anchoPt, altoPt);
+  return pdf;
+}
+
+/* Toda la tirada en un solo archivo, en el mismo orden que la hoja de datos:
+   quien la recibe imprime y va emparejando página con fila sin pensar. */
+$('#btnDiplomas').onclick = async function(){
+  const filas = visibles().filter(x => x.estado !== 'anulado');
+  if (!filas.length) return fail('No hay pedidos que imprimir con este filtro.');
+
+  const antes = this.innerHTML;
+  this.disabled = true;
+  const fallidos = [];
+  let pdf = null;
+  try {
+    for (let i = 0; i < filas.length; i++) {
+      this.textContent = `Dibujando ${i + 1} de ${filas.length}…`;
+      try { pdf = paginaDe(await laminaDe(filas[i].certificado_id), pdf); }
+      catch { fallidos.push(filas[i].nombre); }
+    }
+    if (!pdf) return fail('No se pudo dibujar ninguno.');
+    pdf.save(`diplomas-para-imprimir-${new Date().toISOString().slice(0, 10)}.pdf`);
+    /* Si alguno se cayó hay que decirlo con nombres: un PDF con 39 páginas en
+       vez de 40 no se nota al abrirlo, y el que falta es una persona que se
+       queda sin su diploma. */
+    if (fallidos.length) fail(`Faltan ${fallidos.length}: ${fallidos.join(', ')}.`);
+    else ok(`${filas.length} ${filas.length === 1 ? 'diploma listo' : 'diplomas listos'} para la imprenta.`);
+  } finally {
+    this.disabled = false;
+    this.innerHTML = antes;
+  }
+};
 
 /* ============ la hoja que se le pasa a la imprenta ============
    Se baja lo que está filtrado y no la tabla entera: quien va a mandar una

@@ -25,7 +25,22 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css?v=2026-09-04-4">
+<!-- Para dibujar la lámina de cada certificado: el QR va dentro del propio
+     documento, así que sin esto el dibujo fallaría a mitad. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
+  /* sin-caja: enmarca una lámina, no un panel. El documento trae su fondo y
+     sus colores; esto es sólo un filete neutro que no compite con él. */
+  .ver-mini{width:100%;max-width:230px;border:1px solid var(--filete);
+    border-radius:var(--r);background:var(--hueco);padding:0;cursor:pointer;
+    overflow:hidden;min-height:52px;display:flex;align-items:center;
+    justify-content:center;transition:border-color var(--rapido);}
+  .ver-mini:hover{border-color:var(--primary);}
+  .ver-mini canvas{display:block;width:100%;height:auto;}
+  .ver-grande{display:flex;align-items:center;justify-content:center;
+    min-height:180px;background:var(--hueco);border-radius:var(--r);padding:10px;}
+  .ver-grande img{max-width:100%;max-height:70vh;height:auto;display:block;
+    box-shadow:0 2px 14px rgba(0,0,0,.18);}
   /* «¿Qué es el CEM?», el bloque del final. El relleno lo pone esta clase y no
      «caja», que sólo da fondo, filete y esquinas. Ver la comprobación 13. */
   .verif-quienes{margin-top:var(--e3);padding:var(--e3);}
@@ -109,7 +124,11 @@
   </section>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, fdate, qs } from './assets/app.js?v=2026-09-04-4';
+import { sb, mount, $, $$, esc, fdate, qs, modal } from './assets/app.js?v=2026-09-04-4';
+/* El mismo dibujante que usa la escuela para imprimir. Poder ver el documento
+   es la mitad de comprobarlo: quien llega aquí suele tener el papel delante y
+   lo que quiere es contrastarlo, no leer una tabla de campos. */
+import { dibujarCertificadoEmitido } from '../certificados/dibujar.js?v=2026-09-04-4';
 
 await mount({ pub: true });
 
@@ -189,6 +208,8 @@ async function verificar(texto){
         c.anulado_motivo ? `: ${esc(c.anulado_motivo)}` : '.'}
         ${c.sustituto ? `<a href="?codigo=${encodeURIComponent(c.sustituto)}">Ver el que
           está vigente</a>.` : ''}</p>` : ''}
+      ${esDibujable(c) ? `<button type="button" class="ver-mini sep" data-mini="${esc(c.codigo)}"
+        aria-label="Ver el documento de ${esc(c.titulo)}"><span class="tiny muted">Dibujando…</span></button>` : ''}
       <div class="sep">
         ${linea('Estudiante', esc(c.estudiante), true)}
         ${c.cedula ? linea('Cédula', esc(c.cedula)) : ''}
@@ -224,6 +245,12 @@ async function verificar(texto){
     </div>`;
   }).join('');
 
+  /* Las láminas, después de pintar la lista y de una en una. Buscando por
+     cédula pueden salir diez certificados, y cada uno se baja el fondo de su
+     plantilla —cerca de un mega— y pinta un lienzo de varios millones de
+     píxeles. Lanzarlos a la vez deja el teléfono clavado justo al contestar. */
+  for (const b of $$('[data-mini]')) await miniatura(b);
+
   /* Compartir con el menú del propio teléfono si lo hay —WhatsApp, Instagram,
      lo que tenga instalado—, y si no, copiando el enlace. `navigator.share`
      sólo existe en móvil y sólo sobre HTTPS: la alternativa no es un lujo, es
@@ -243,6 +270,74 @@ async function verificar(texto){
       } catch { /* si cancela el menú de compartir no hay nada que hacer */ }
     };
   });
+}
+
+/* ============ la lámina de cada certificado ============
+   ═══════════════════════════════════════════════════════════════════════════
+   Sólo se pueden dibujar los del generador —los de la plataforma no tienen fila
+   en `cert_certificates`, que es de donde salen el fondo y las posiciones— y
+   sólo los vigentes: de un documento retirado no se entrega una imagen limpia,
+   y la función del servidor tampoco la daría.
+
+   El código de esos es un uuid; el de la plataforma es del tipo CEM-2026-00000.
+   Distinguirlos por la forma del código evita pedirle a la base algo que ya se
+   sabe que no va a contestar. */
+const esUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || ''));
+const esDibujable = (c) => esUuid(c.codigo) && !c.anulado && !c.reemplazado;
+
+const dibujados = new Map();
+async function lienzoDe(id){
+  if (dibujados.has(id)) return dibujados.get(id);
+  const tarea = (async () => {
+    const { data, error } = await sb.rpc('cert_publico_para_dibujar', { p_id: id });
+    if (error) throw error;
+    const fila = (data || [])[0];
+    if (!fila) throw new Error('sin documento');
+    const url = new URL('../certificados/verificar.html', location.href).href
+              + '?c=' + encodeURIComponent(id);
+    return { lienzo: await dibujarCertificadoEmitido(fila, fila.config, url), titulo: fila.titulo };
+  })();
+  dibujados.set(id, tarea);
+  tarea.catch(() => dibujados.delete(id));   // un fallo no se queda guardado
+  return tarea;
+}
+
+async function miniatura(boton){
+  const id = boton.dataset.mini;
+  try {
+    const { lienzo } = await lienzoDe(id);
+    /* Se reduce a un lienzo pequeño en vez de encoger el grande con CSS: así el
+       navegador no guarda en memoria diez imágenes de ocho millones de píxeles
+       para enseñarlas a 230. */
+    const ancho = 460, alto = Math.round(ancho * lienzo.height / lienzo.width);
+    const mini = document.createElement('canvas');
+    mini.width = ancho; mini.height = alto;
+    const cx = mini.getContext('2d');
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(lienzo, 0, 0, ancho, alto);
+    boton.innerHTML = '';
+    boton.appendChild(mini);
+    boton.onclick = () => verGrande(id);
+  } catch {
+    /* Que no se pueda dibujar no cambia el veredicto: el certificado sigue
+       siendo auténtico y sus datos siguen ahí debajo. */
+    boton.remove();
+  }
+}
+
+async function verGrande(id){
+  const { lienzo, titulo } = await lienzoDe(id);
+  const m = modal({ title: titulo || 'Certificado', wide: true,
+    body: '<div class="ver-grande" id="verGrande"></div>',
+    footer: `<button class="btn outline" data-x>Cerrar</button>
+             <a class="btn" id="verAbrir" target="_blank" rel="noopener"
+                href="../certificados/verificar.html?c=${encodeURIComponent(id)}">
+               <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+               Abrir su comprobación</a>` });
+  const img = new Image();
+  img.alt = 'Documento de ' + (titulo || 'la persona');
+  img.src = lienzo.toDataURL('image/png');
+  $('#verGrande', m).appendChild(img);
 }
 
 /* Lo que se busca queda en la dirección, para que se pueda compartir.
