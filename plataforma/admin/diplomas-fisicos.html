@@ -43,6 +43,9 @@
      al nombre, que es lo que se lee. */
   .col-marca{width:36px;text-align:center;}
   .col-marca input{cursor:pointer;}
+  /* «Abrir», pegado a la casilla y sin estirarse: las dos cosas que se hacen
+     con una fila, juntas y al principio. */
+  .col-abrir{width:1%;white-space:nowrap;}
 
   /* La barra de lo seleccionado. El filete y el fondo los pone `caja`, así que
      sigue el estilo que cada quien haya elegido en Apariencia; el relleno lo
@@ -114,14 +117,19 @@
       <thead><tr>
         <th class="col-marca"><input type="checkbox" id="marcarTodos"
           aria-label="Seleccionar todos los pedidos de la lista"></th>
+        <!-- «Abrir» va aquí y no al final: la fila es larga y el botón se
+             quedaba a un barrido de ojos del nombre de la persona, al otro
+             lado de seis columnas. Junto a la casilla, las dos cosas que se
+             hacen con una fila —marcarla y abrirla— están en el mismo sitio. -->
+        <th class="col-abrir"></th>
         <th>Persona</th><th>Documento</th><th>Dónde va</th><th>Pedido</th>
-        <th>Imprenta y envío</th><th>Estado</th><th></th></tr></thead>
+        <th>Imprenta y envío</th><th>Estado</th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdate, fdateRel, emptyRow, match, kpi, modal,
-         ok, fail, run, audit, toCSV, download, cargarEn, ocupado, avisar, mensajeError,
+         ok, fail, run, audit, toCSV, download, cargarEn, ocupado, avisar, mensajeError, confirmDialog,
          filtrosEnLaDireccion } from '../assets/app.js?v=2026-09-04-4';
 /* El mismo dibujante que ya usa el generador. Que sea el mismo es lo que hace
    que lo que sale de aquí y lo que sale de Plantillas sean el mismo documento:
@@ -244,6 +252,7 @@ function render(){
     <td class="col-marca"><input type="checkbox" data-marca="${esc(x.id)}"
       ${elegidos.has(x.id) ? 'checked' : ''}
       aria-label="Seleccionar el pedido de ${esc(x.nombre)}"></td>
+    <td class="col-abrir"><button class="btn outline sm" data-ver="${esc(x.id)}">Abrir</button></td>
     <td><b>${esc(x.nombre)}</b><div class="tiny muted">${esc(x.cedula)}</div></td>
     <td>${esc(x.titulo)}</td>
     <td class="tiny">${esc([x.ciudad, x.pais].filter(Boolean).join(', ') || '—')}
@@ -251,7 +260,6 @@ function render(){
     <td class="tiny">${fdateRel(x.pedido_en)}</td>
     <td>${x.gratis ? chip('Los paga la escuela', 'ok') : chip('De pago', 'warn')}</td>
     <td>${chip(COMO_SE_LLAMA[x.estado] || x.estado, TONO[x.estado])}</td>
-    <td><button class="btn outline sm" data-ver="${esc(x.id)}">Abrir</button></td>
   </tr>`).join('')
     : emptyRow(8, pedidos.length ? 'Ninguno coincide con el filtro.'
         : 'Todavía no ha pedido nadie su diploma impreso.');
@@ -309,6 +317,10 @@ $('#lotePdf').onclick = async function(){
   const filas = elegidosVisibles().filter(x => x.estado !== 'anulado');
   if (!filas.length) return fail('Los que seleccionaste están anulados, así que no hay nada que imprimir.');
   await bajarPdfDe(filas, this);
+  /* Aquí sí van los que se pidieron, incluso si ya habían salido: si alguien
+     los marcó a mano es porque quiere reimprimirlos. Sólo se ofrece cerrar el
+     ciclo de los que aún no habían salido. */
+  await ofrecerMarcarImpresos(filas.filter(x => x.estado === 'pedido'));
 };
 
 $('#loteEstado').onclick = () => {
@@ -488,11 +500,57 @@ function paginaDe(lienzo, pdf){
 
 /* Toda la tirada en un solo archivo, en el mismo orden que la hoja de datos:
    quien la recibe imprime y va emparejando página con fila sin pensar. */
+/* Sólo los que NO han salido todavía.
+   ═══════════════════════════════════════════════════════════════════════════
+   Antes este botón se llevaba todo lo filtrado menos lo anulado, incluidos los
+   que ya estaban en imprenta o entregados. Quien lo pulsaba dos semanas después
+   para mandar los pedidos nuevos se llevaba otra vez los cuarenta de la tanda
+   anterior — y eso no es un archivo de más: es papel, tinta y una imprenta
+   cobrando por imprimir lo mismo dos veces.
+
+   «Por imprimir» es exactamente eso: lo que aún no ha salido. Si quien mira
+   quiere reimprimir uno concreto —se estropeó, se perdió en el envío— lo marca
+   y usa el botón de la selección, que sí respeta lo que se le pide. */
 $('#btnDiplomas').onclick = async function(){
-  const filas = visibles().filter(x => x.estado !== 'anulado');
-  if (!filas.length) return fail('No hay pedidos que imprimir con este filtro.');
+  const alcance = visibles().filter(x => x.estado !== 'anulado');
+  const filas = alcance.filter(x => x.estado === 'pedido');
+  const yaSalieron = alcance.length - filas.length;
+
+  if (!filas.length) {
+    return fail(yaSalieron
+      ? `No queda ninguno por imprimir: los ${yaSalieron} de este filtro ya salieron. `
+        + 'Para reimprimir alguno, márcalo y usa «Descargar en PDF» de la selección.'
+      : 'No hay pedidos que imprimir con este filtro.');
+  }
   await bajarPdfDe(filas, this);
+  /* Decir qué se dejó fuera y por qué. Un PDF con menos páginas de las que
+     alguien esperaba, sin explicación, se lee como que falló algo. */
+  if (yaSalieron) ok(`Se dejaron fuera ${yaSalieron} que ya habían salido a imprenta.`);
+  await ofrecerMarcarImpresos(filas);
 };
+
+/* Cerrar el ciclo: lo que acaba de bajar a la imprenta ya no está «por
+   imprimir». Se ofrece, no se hace solo — descargar el archivo no es lo mismo
+   que haberlo mandado, y marcarlo por su cuenta le dispararía el aviso a
+   catorce personas sin que nadie lo haya decidido. */
+async function ofrecerMarcarImpresos(filas){
+  if (!puede) return;
+  const ids = filas.map(x => x.id);
+  const si = await confirmDialog(
+    `¿Marcar esos ${ids.length} como «En imprenta»? Así no vuelven a salir en la próxima `
+    + 'tirada, y a cada persona le aparece el aviso de que su diploma se está imprimiendo.',
+    'Ya los mandé a imprimir', { confirmar: 'Sí, márcalos' });
+  if (!si) return;
+
+  const { data, error } = await sb.rpc('cem_pedidos_fisicos_estado_lote',
+    { p_ids: ids, p_estado: 'en imprenta', p_nota: null });
+  if (error) return fail(mensajeError(error));
+  await audit('pedidos_fisicos_lote', 'cem_diploma_fisico', null, 'bajo',
+    { estado: 'en imprenta', cuantos: ids.length });
+  ok(`${data.cambiados} en imprenta · ${data.avisados} avisados`);
+  elegidos.clear();
+  await load();
+}
 
 /* El armado del PDF, en un solo sitio: lo piden el botón de arriba —toda la
    tirada filtrada— y el de lo seleccionado. Si fueran dos, un día uno saldría
