@@ -38,6 +38,18 @@
     justify-content:center;min-height:150px;}
   .ped-lamina img{max-width:100%;max-height:52vh;height:auto;display:block;
     box-shadow:0 2px 12px rgba(0,0,0,.16);}
+
+  /* La columna de las casillas: estrecha y centrada, para que no le robe ancho
+     al nombre, que es lo que se lee. */
+  .col-marca{width:36px;text-align:center;}
+  .col-marca input{cursor:pointer;}
+
+  /* La barra de lo seleccionado. El filete y el fondo los pone `caja`, así que
+     sigue el estilo que cada quien haya elegido en Apariencia; el relleno lo
+     pone ella porque es una barra de acciones y no un panel de contenido. */
+  .barra-lote{display:flex;align-items:center;gap:var(--e1);flex-wrap:wrap;
+    padding:var(--e1) var(--e2);margin-bottom:var(--e1);}
+  .barra-lote .crece{flex:1;min-width:0;}
 </style>
 </head>
 <body>
@@ -83,15 +95,33 @@
       </select></div>
     </div>
     <div class="row between sep-poco"><span id="cuenta" class="tiny muted"></span></div>
+
+    <!-- La barra de lo seleccionado. Aparece sólo cuando hay algo marcado: una
+         barra permanente con los botones apagados ocupa sitio y no dice nada. -->
+    <div class="barra-lote caja" id="barraLote" hidden>
+      <b id="loteCuenta"></b>
+      <div class="crece"></div>
+      <button class="btn outline sm" id="loteQuitar">Quitar la selección</button>
+      <button class="btn outline sm" id="lotePdf">
+        <span class="material-symbols-outlined" aria-hidden="true">print</span>
+        Descargar en PDF</button>
+      <button class="btn sm" id="loteEstado">
+        <span class="material-symbols-outlined" aria-hidden="true">move_down</span>
+        Cambiar el estado</button>
+    </div>
+
     <div class="table-wrap"><table>
-      <thead><tr><th>Persona</th><th>Documento</th><th>Dónde va</th><th>Pedido</th>
+      <thead><tr>
+        <th class="col-marca"><input type="checkbox" id="marcarTodos"
+          aria-label="Seleccionar todos los pedidos de la lista"></th>
+        <th>Persona</th><th>Documento</th><th>Dónde va</th><th>Pedido</th>
         <th>Imprenta y envío</th><th>Estado</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
   </div>
 </div>
 <script type="module">
 import { sb, mount, $, $$, esc, chip, num, fdate, fdateRel, emptyRow, match, kpi, modal,
-         ok, fail, run, audit, toCSV, download, cargarEn,
+         ok, fail, run, audit, toCSV, download, cargarEn, ocupado, avisar, mensajeError,
          filtrosEnLaDireccion } from '../assets/app.js?v=2026-09-04-4';
 /* El mismo dibujante que ya usa el generador. Que sea el mismo es lo que hace
    que lo que sale de aquí y lo que sale de Plantillas sean el mismo documento:
@@ -211,6 +241,9 @@ function render(){
     ? `${num(filas.length)} de ${num(pedidos.length)} ${pedidos.length === 1 ? 'pedido' : 'pedidos'}`
     : '';
   $('#tb').innerHTML = filas.length ? filas.map(x => `<tr>
+    <td class="col-marca"><input type="checkbox" data-marca="${esc(x.id)}"
+      ${elegidos.has(x.id) ? 'checked' : ''}
+      aria-label="Seleccionar el pedido de ${esc(x.nombre)}"></td>
     <td><b>${esc(x.nombre)}</b><div class="tiny muted">${esc(x.cedula)}</div></td>
     <td>${esc(x.titulo)}</td>
     <td class="tiny">${esc([x.ciudad, x.pais].filter(Boolean).join(', ') || '—')}
@@ -220,11 +253,108 @@ function render(){
     <td>${chip(COMO_SE_LLAMA[x.estado] || x.estado, TONO[x.estado])}</td>
     <td><button class="btn outline sm" data-ver="${esc(x.id)}">Abrir</button></td>
   </tr>`).join('')
-    : emptyRow(7, pedidos.length ? 'Ninguno coincide con el filtro.'
+    : emptyRow(8, pedidos.length ? 'Ninguno coincide con el filtro.'
         : 'Todavía no ha pedido nadie su diploma impreso.');
 
   $$('[data-ver]').forEach(b => { b.onclick = () => abrir(pedidos.find(x => x.id === b.dataset.ver)); });
+  $$('[data-marca]').forEach(c => { c.onchange = () => {
+    if (c.checked) elegidos.add(c.dataset.marca); else elegidos.delete(c.dataset.marca);
+    pintarLote();
+  }; });
+  pintarLote();
 }
+
+/* ============ lo seleccionado ============
+   La tanda se manda a la imprenta entera, vuelve entera y se envía entera.
+   Cambiar catorce pedidos abriendo catorce ventanas es catorce veces el mismo
+   gesto, y a la décima alguien se salta uno.
+
+   Lo elegido se guarda por id y no por posición: la lista se repinta al filtrar
+   y al buscar, y una selección atada a la fila número tres se convertiría en
+   «la tercera de lo que haya ahora», que es otra persona. */
+const elegidos = new Set();
+
+/** Lo elegido que además se está viendo: filtrar no debe operar a ciegas. */
+const elegidosVisibles = () => visibles().filter(x => elegidos.has(x.id));
+
+function pintarLote(){
+  /* Si alguien elige diez, filtra y quedan tres a la vista, los botones actúan
+     sobre esos tres y lo dicen. Operar sobre siete que no se ven es la forma
+     más rápida de mandar a imprenta lo que no era. */
+  const lista = elegidosVisibles();
+  const n = lista.length;
+  $('#barraLote').hidden = n === 0;
+  const ocultos = elegidos.size - n;
+  $('#loteCuenta').textContent = n === 1 ? '1 pedido seleccionado'
+    : `${num(n)} pedidos seleccionados${ocultos > 0 ? ` (${num(ocultos)} más fuera del filtro)` : ''}`;
+
+  const enPantalla = visibles();
+  const todos = $('#marcarTodos');
+  todos.checked = enPantalla.length > 0 && n === enPantalla.length;
+  todos.indeterminate = n > 0 && n < enPantalla.length;
+}
+
+$('#marcarTodos').onchange = function(){
+  /* «Todos» son los que se ven, no los de la base entera: el filtro está puesto
+     porque alguien decidió mirar sólo eso. */
+  visibles().forEach(x => this.checked ? elegidos.add(x.id) : elegidos.delete(x.id));
+  render();
+};
+
+$('#loteQuitar').onclick = () => { elegidos.clear(); render(); };
+
+/* El PDF de lo elegido. Es el mismo dibujo y el mismo armado de páginas que el
+   botón de arriba; lo único que cambia es de dónde salen las filas. */
+$('#lotePdf').onclick = async function(){
+  const filas = elegidosVisibles().filter(x => x.estado !== 'anulado');
+  if (!filas.length) return fail('Los que seleccionaste están anulados, así que no hay nada que imprimir.');
+  await bajarPdfDe(filas, this);
+};
+
+$('#loteEstado').onclick = () => {
+  const filas = elegidosVisibles();
+  if (!filas.length) return;
+  if (!puede) return fail('Tu cuenta puede mirar los pedidos, pero no moverlos de estado.');
+
+  const m = modal({ title:`Cambiar el estado de ${filas.length} ${filas.length === 1 ? 'pedido' : 'pedidos'}`, body:`
+    <div class="field"><label for="loEstado">Nuevo estado</label>
+      <select id="loEstado">${ESTADOS.map(e =>
+        `<option value="${e}">${esc(COMO_SE_LLAMA[e])}</option>`).join('')}</select></div>
+    <div class="field"><label for="loNota">Nota (opcional)</label>
+      <input id="loNota" placeholder="Guía 4415-2, salió el martes"></div>
+    <p class="tiny muted">Se les avisa dentro de la plataforma a las personas cuyo pedido
+      cambie de verdad. Con «enviado», «entregado» y «anulado» además les llega un correo;
+      «en imprenta» sólo avisa dentro de la aplicación.</p>
+    <div class="nota sep-poco" id="loQuienes"></div>
+    <div id="loMsg"></div>`,
+    footer:`<button class="btn outline" data-x>Cancelar</button>
+            <button class="btn" data-s>Cambiarlos</button>` });
+
+  /* Los nombres a la vista antes de pulsar: es lo único que deja darse cuenta
+     de que se coló alguien que no era. */
+  $('#loQuienes', m).innerHTML = `<b>A quién afecta:</b> ${
+    esc(filas.slice(0, 8).map(x => x.nombre).join(', '))}${
+    filas.length > 8 ? ` y ${filas.length - 8} más` : ''}.`;
+
+  $('[data-s]', m).onclick = () => ocupado($('[data-s]', m), 'Cambiando…', async () => {
+    const estado = $('#loEstado', m).value, nota = $('#loNota', m).value.trim();
+    const { data, error } = await sb.rpc('cem_pedidos_fisicos_estado_lote',
+      { p_ids: filas.map(x => x.id), p_estado: estado, p_nota: nota || null });
+    if (error) { avisar($('#loMsg', m), mensajeError(error), 'err'); return; }
+
+    await audit('pedidos_fisicos_lote', 'cem_diploma_fisico', null, 'bajo',
+      { estado, cuantos: filas.length });
+    m.close();
+    /* Se dice lo que pasó de verdad, no «listo»: cuántos se movieron, cuántos
+       ya estaban así y a cuántos se les avisó. */
+    const partes = [`${data.cambiados} ${data.cambiados === 1 ? 'cambiado' : 'cambiados'}`];
+    if (data.ya_estaban) partes.push(`${data.ya_estaban} ya estaban así`);
+    if (data.avisados) partes.push(`${data.avisados} ${data.avisados === 1 ? 'avisado' : 'avisados'}`);
+    ok(partes.join(' · '));
+    elegidos.clear();
+    await load();
+  });
+};
 
 /* ============ un pedido ============ */
 function abrir(x){
@@ -361,14 +491,20 @@ function paginaDe(lienzo, pdf){
 $('#btnDiplomas').onclick = async function(){
   const filas = visibles().filter(x => x.estado !== 'anulado');
   if (!filas.length) return fail('No hay pedidos que imprimir con este filtro.');
+  await bajarPdfDe(filas, this);
+};
 
-  const antes = this.innerHTML;
-  this.disabled = true;
+/* El armado del PDF, en un solo sitio: lo piden el botón de arriba —toda la
+   tirada filtrada— y el de lo seleccionado. Si fueran dos, un día uno saldría
+   con las páginas a otro tamaño. */
+async function bajarPdfDe(filas, boton){
+  const antes = boton.innerHTML;
+  boton.disabled = true;
   const fallidos = [];
   let pdf = null;
   try {
     for (let i = 0; i < filas.length; i++) {
-      this.textContent = `Dibujando ${i + 1} de ${filas.length}…`;
+      boton.textContent = `Dibujando ${i + 1} de ${filas.length}…`;
       try { pdf = paginaDe(await laminaDe(filas[i].certificado_id), pdf); }
       catch { fallidos.push(filas[i].nombre); }
     }
@@ -380,10 +516,10 @@ $('#btnDiplomas').onclick = async function(){
     if (fallidos.length) fail(`Faltan ${fallidos.length}: ${fallidos.join(', ')}.`);
     else ok(`${filas.length} ${filas.length === 1 ? 'diploma listo' : 'diplomas listos'} para la imprenta.`);
   } finally {
-    this.disabled = false;
-    this.innerHTML = antes;
+    boton.disabled = false;
+    boton.innerHTML = antes;
   }
-};
+}
 
 /* ============ la hoja que se le pasa a la imprenta ============
    Se baja lo que está filtrado y no la tabla entera: quien va a mandar una
