@@ -374,6 +374,11 @@ button{cursor:pointer;}
 #page{animation:entrar var(--entra) ease-out;}
 @keyframes entrar{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 
+/* Lo que mide la barra de abajo: 48 del enlace más su relleno arriba y abajo,
+   más lo que el teléfono se reserva para su propia barra de gestos. Se declara
+   una vez porque hay dos cosas que tienen que esquivarla —Cemi y su ventana— y
+   con el número escrito a mano en tres sitios se despegan al primer cambio. */
+:root{--alto-bottomnav:calc(48px + var(--e0) * 2 + env(safe-area-inset-bottom));}
 .bottomnav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--papel);
   border-top:1px solid var(--filete);z-index:40;
   padding:var(--e0) var(--e0) calc(var(--e0) + env(safe-area-inset-bottom));}
@@ -397,6 +402,28 @@ button{cursor:pointer;}
   .content{padding:var(--e3) var(--e3) 96px;}
   .bottomnav{display:flex;}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55;}
+
+  /* Cemi encima de la barra, no encima del menú.
+     ═════════════════════════════════════════════════════════════════════════
+     El botón estaba clavado a 16 px del fondo, y a partir de aquí abajo el
+     menú ocupa justo ese sitio: la mascota se plantaba sobre «Mis
+     evaluaciones» y tapaba una de las cuatro entradas.
+
+     El `:has` es el que decide: la barra sólo existe en las pantallas de
+     dentro. En las públicas Cemi también sale, y ahí no hay nada que esquivar,
+     así que se queda donde estaba. */
+  body:has(.bottomnav) .chat-boton{
+    bottom:calc(var(--alto-bottomnav) + var(--e2));}
+}
+
+/* La ventana del chat, sólo en la franja donde sigue siendo una ventana. Por
+   debajo de 640 se abre a pantalla completa y tapa la barra a propósito; si
+   esta regla llegara hasta ahí le ganaría por especificidad y la dejaría
+   flotando a media altura. */
+@media (min-width:641px) and (max-width:900px){
+  body:has(.bottomnav) .chat-caja{
+    bottom:calc(var(--alto-bottomnav) + var(--e2) + 56px);
+    height:min(560px, calc(100dvh - var(--alto-bottomnav) - 150px));}
 }
 
 /* ─────────────────────── TÍTULOS Y TEXTO ───────────────────────────────── */

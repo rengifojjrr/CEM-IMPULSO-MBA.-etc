@@ -81,11 +81,28 @@
   .constancia h4{margin-top:var(--e2);font-size:var(--t-sm);}
   .cons-datos{margin:var(--e1) 0 0;}
   .cons-datos > div{display:flex;justify-content:space-between;gap:var(--e2);
-    padding:7px 0;border-bottom:1px solid var(--filete);}
+    align-items:baseline;padding:8px 0;border-bottom:1px solid var(--filete);}
   .cons-datos > div:last-child{border-bottom:0;}
   .cons-datos dt{color:var(--tinta-2);font-size:var(--t-xs);margin:0;flex:none;}
   .cons-datos dd{margin:0;text-align:right;min-width:0;overflow-wrap:anywhere;
     font-weight:var(--peso-fuerte);}
+  /* El código de verificación en letra de cifras: son 36 caracteres que alguien
+     va a leer en voz alta o a comparar carácter a carácter, y en la tipografía
+     del texto el 0 y la O se parecen demasiado. */
+  .cons-datos dd.codigo{font-family:var(--cifra);font-size:var(--t-xs);
+    font-weight:400;letter-spacing:.02em;line-height:1.5;}
+
+  /* En el teléfono, el dato debajo de su etiqueta.
+     ═══════════════════════════════════════════════════════════════════════
+     Con las dos cosas en la misma línea, la etiqueta se queda con su ancho
+     —`flex:none`— y al dato le sobra una columna de nada: el código de
+     verificación salía partido de uno en uno, seis líneas para leer algo que
+     es un solo dato. Apilado ocupa el ancho entero y se lee de corrido. */
+  @media (max-width:560px){
+    .cons-datos > div{flex-direction:column;gap:2px;}
+    .cons-datos dd{text-align:left;}
+    .constancia{padding:var(--e2);}
+  }
 </style>
 </head>
 <body>
@@ -505,7 +522,8 @@ function verConstancia(d){
       <h3 style="margin:2px 0 10px">${esc(t.titulo)}</h3>
       <p>${esc(t.entrada)}</p>
       <dl class="cons-datos">
-        ${t.datos.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}
+        ${t.datos.map(([k, v]) => `<div><dt>${esc(k)}</dt>
+          <dd${/verificaci|c[oó]digo/i.test(k) ? ' class="codigo"' : ''}>${esc(v)}</dd></div>`).join('')}
       </dl>
       <h4 class="sep" style="margin-bottom:4px">Detalle de la rectificación</h4>
       <p style="margin:0"><span class="muted tiny">Donde dice:</span> <b>${esc(t.donde_dice)}</b></p>
