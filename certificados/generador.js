@@ -457,6 +457,13 @@ export const CONTROLES_GENERADOR = String.raw`  <div id="appContent">
         <button type="button" class="ayuda-btn" data-ayuda-texto="Trae los campos completos de la otra plantilla —textos, imágenes con su archivo y códigos QR— con sus posiciones, márgenes, tipografías y opacidades, y reemplaza los campos que haya aquí. El fondo de este certificado no se toca.">?</button>
       </div>
 
+      <div class="row" style="background:var(--hundido);border:1px solid var(--border);border-radius:8px;padding:10px 12px;align-items:center;">
+        <label class="hint" style="min-width:150px;">Copiar sólo algunos campos de:</label>
+        <select id="selCopiarPiezas" style="flex:1;min-width:180px;"></select>
+        <button class="btn outline" id="btnCopiarPiezas">Elegir cuáles…</button>
+        <button type="button" class="ayuda-btn" data-ayuda-texto="Para llevarse piezas sueltas en vez de el diseño entero: por ejemplo los dos sellos de un diplomado, a otro diplomado que todavía no los tiene. Marcas los campos que quieras de la otra plantilla y vienen tal cual —posición, tamaño, archivo de imagen, tipografía y opacidad—. Lo que ya tenga esta plantilla se queda donde está: los campos elegidos se añaden al final, y si aquí ya existe uno con el mismo nombre y del mismo tipo, ese se actualiza en su sitio en vez de duplicarse. Puedes mandarlos a esta plantilla sola o a todas las de una carpeta.">?</button>
+      </div>
+
       <div class="row" style="align-items:center;">
         <span class="hint">Sube el diseño exportado de tu Canva (PDF, PNG o JPG).</span>
         <button type="button" class="ayuda-btn" data-ayuda-texto="Cada campo tiene un cuadro de márgenes (dos marcas doradas): arrastra la marca izquierda para fijar dónde empieza el texto y la derecha dónde termina. El tamaño de letra se ajusta solo para que el texto de cada estudiante quepa ahí, entre el máximo y el mínimo que definas.">?</button>
@@ -1560,6 +1567,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     actualizarBotonesOrdenCarpeta();
     renderCarpetasBoard();
     renderCopiarEstiloSelector();
+    renderCopiarPiezasSelector();
     renderCopiaMasivaSelectores();
   }
 
@@ -1604,6 +1612,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     actualizarBotonesOrdenCarpeta();
     renderCarpetasBoard();
     renderCopiarEstiloSelector();
+    renderCopiarPiezasSelector();
     renderTemplatePreview();
   });
 
@@ -1859,6 +1868,194 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       `${cuenta.imagen||0} imagen(es) (${conFoto} con archivo) y ${cuenta.qr||0} QR. ` +
       `Recuerda guardar la plantilla.`;
     setTimeout(() => { if(msg.textContent.startsWith('Copiado de')) msg.textContent = ''; }, 12000);
+  });
+
+  /* ---------- Copiar sólo algunas piezas ----------
+     «Copiar a esta plantilla» sirve para arrancar una plantilla nueva desde
+     otra, pero arrasa con lo que hubiera. Cuando lo que se quiere es una pieza
+     suelta —los dos sellos de un diplomado, el QR, la firma— reemplazarlo todo
+     obliga a rehacer a mano lo que ya estaba bien puesto. Esto trae sólo lo
+     marcado y deja en su sitio todo lo demás. */
+
+  function renderCopiarPiezasSelector(){
+    const sel = document.getElementById('selCopiarPiezas');
+    if(!sel) return;
+    const grupos = agruparPorCarpeta(templatesFull, currentIdx);
+    const hayOtras = grupos.some(g => g.items.length);
+    sel.innerHTML = hayOtras
+      ? grupos.map(g => {
+          const opts = g.items.map(({ t, i }) => `<option value="${i}">${escapeHtml(t.nombre)}</option>`).join('');
+          return g.carpeta ? `<optgroup label="${escapeHtml(etiquetaCarpeta(g.carpeta))}">${opts}</optgroup>` : opts;
+        }).join('')
+      : '<option value="">— no hay otra plantilla —</option>';
+    sel.disabled = !hayOtras;
+    document.getElementById('btnCopiarPiezas').disabled = !hayOtras;
+  }
+
+  /** Dos campos son "el mismo" si coinciden nombre (sin tildes ni mayúsculas) y tipo. */
+  function mismoCampo(a, b){
+    return a.tipo === b.tipo && normalizarNombreCampo(a.nombre) === normalizarNombreCampo(b.nombre);
+  }
+
+  /** Una línea de la lista: qué es el campo, para reconocerlo sin abrirlo. */
+  function piezaHtml(f, i){
+    const tipoEt = f.tipo === 'qr' ? 'QR' : f.tipo === 'imagen' ? 'Imagen' : 'Texto';
+    const muestra = f.tipo === 'imagen'
+      ? `<span class="img-muestra">${f.dataUrl
+          ? `<img loading="lazy" decoding="async" src="${f.dataUrl}" alt="">`
+          : '<i>sin archivo</i>'}</span>`
+      : `<span class="hint" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${
+          escapeHtml(f.tipo === 'qr' ? 'código de verificación' : textoMuestra(f))}</span>`;
+    const yaEstaba = (config.fields || []).some(g => mismoCampo(g, f));
+    return `<label class="row" style="align-items:center;gap:10px;margin:0;padding:7px 4px;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" data-pieza="${i}" ${f.activo === false ? '' : 'checked'}>
+      <span class="campo-tipo">${tipoEt}</span>
+      <b style="min-width:120px;">${escapeHtml(f.nombre || '(sin nombre)')}</b>
+      ${muestra}
+      ${yaEstaba ? '<span class="hint" style="color:var(--ojo);">ya está aquí: se actualiza</span>' : ''}
+    </label>`;
+  }
+
+  /**
+   * Pregunta qué campos traer y a dónde. Devuelve {campos, destino} o null si
+   * se cancela. `destino` es 'esta' o el nombre de una carpeta.
+   */
+  function elegirPiezas(origen){
+    const campos = origen.config.fields || [];
+    const carpetas = carpetasExistentes();
+    return new Promise((resolver) => {
+      const fondo = document.createElement('div');
+      fondo.className = 'modal-fondo';
+      fondo.innerHTML = `<div class="modal-caja">
+        <div class="modal-cab"><b>Traer campos de «${escapeHtml(origen.nombre)}»</b></div>
+        <div class="modal-cuerpo">
+          <p class="hint" style="margin:0 0 8px;">Marca lo que quieras llevarte. Viene tal cual está aquí:
+            posición, tamaño, archivo de imagen, tipografía y opacidad.</p>
+          <div class="row" style="margin:0 0 6px;">
+            <button type="button" class="btn outline small" data-todas>Marcar todas</button>
+            <button type="button" class="btn outline small" data-ninguna>Desmarcar todas</button>
+          </div>
+          <div style="max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:0 10px;">
+            ${campos.map((f, i) => piezaHtml(f, i)).join('') || '<p class="hint">Esa plantilla no tiene campos.</p>'}
+          </div>
+          <div class="row" style="margin-top:12px;align-items:center;">
+            <label class="hint" style="min-width:70px;">Llevarlos a:</label>
+            <select data-destino style="flex:1;min-width:180px;">
+              <option value="esta">sólo esta plantilla — ${escapeHtml(templatesFull[currentIdx].nombre)}</option>
+              ${carpetas.map(c => `<option value="carpeta:${escapeHtml(c)}">todas las de ${escapeHtml(etiquetaCarpeta(c))}</option>`).join('')}
+            </select>
+          </div>
+          <p class="hint" data-nota style="margin:8px 0 0;"></p>
+          <div class="row" style="margin-top:14px;justify-content:flex-end">
+            <button class="btn outline small" data-no>Cancelar</button>
+            <button class="btn teal small" data-si>Traer los marcados</button>
+          </div>
+        </div></div>`;
+      document.body.appendChild(fondo);
+      const caja = fondo.querySelector('.modal-caja');
+      const marcas = () => [...caja.querySelectorAll('[data-pieza]')];
+      const elegidos = () => marcas().filter(m => m.checked).map(m => Number(m.dataset.pieza));
+      const nota = caja.querySelector('[data-nota]');
+      const btnSi = caja.querySelector('[data-si]');
+
+      function ponerNota(){
+        const n = elegidos().length;
+        const destino = caja.querySelector('[data-destino]').value;
+        btnSi.disabled = !n;
+        if(!n){ nota.textContent = 'No has marcado ninguno.'; return; }
+        if(destino === 'esta'){
+          nota.textContent = `${n} campo(s) a esta plantilla. Después hay que guardarla.`;
+        } else {
+          const carpeta = destino.slice('carpeta:'.length);
+          const cuantas = templatesFull.filter(t => (t.config.carpeta || '').trim() === carpeta).length;
+          nota.textContent = `${n} campo(s) a las ${cuantas} plantilla(s) de «${etiquetaCarpeta(carpeta)}», y se guardan solas.`;
+        }
+      }
+      caja.addEventListener('change', ponerNota);
+      caja.querySelector('[data-todas]').onclick = () => { marcas().forEach(m => m.checked = true); ponerNota(); };
+      caja.querySelector('[data-ninguna]').onclick = () => { marcas().forEach(m => m.checked = false); ponerNota(); };
+      ponerNota();
+
+      const cerrar = (r) => { fondo.remove(); document.removeEventListener('keydown', porTecla); resolver(r); };
+      const porTecla = (e) => { if(e.key === 'Escape') cerrar(null); };
+      caja.querySelector('[data-no]').onclick = () => cerrar(null);
+      btnSi.onclick = () => cerrar({ campos: elegidos().map(i => campos[i]), destino: caja.querySelector('[data-destino]').value });
+      fondo.addEventListener('click', (e) => { if(e.target === fondo) cerrar(null); });
+      document.addEventListener('keydown', porTecla);
+      btnSi.focus();
+    });
+  }
+
+  /**
+   * Mete los campos elegidos en una plantilla: el que ya existiera con el mismo
+   * nombre y tipo se actualiza donde está —si no, copiar dos veces dejaría dos
+   * sellos superpuestos—, y el que no, se añade al final.
+   * Copia profunda siempre: si no, mover el sello aquí movería el del origen.
+   */
+  function meterPiezas(destinoCfg, piezas){
+    destinoCfg.fields = destinoCfg.fields || [];
+    let actualizados = 0, añadidos = 0;
+    for(const pieza of piezas){
+      const copia = JSON.parse(JSON.stringify(pieza));
+      const donde = destinoCfg.fields.findIndex(g => mismoCampo(g, copia));
+      if(donde >= 0){ destinoCfg.fields[donde] = copia; actualizados++; }
+      else { destinoCfg.fields.push(copia); añadidos++; }
+    }
+    normalizarConfig(destinoCfg);
+    return { actualizados, añadidos };
+  }
+
+  document.getElementById('btnCopiarPiezas').addEventListener('click', async () => {
+    const origen = templatesFull[Number(document.getElementById('selCopiarPiezas').value)];
+    if(!origen){ alert('Elige la plantilla de la que quieres copiar.'); return; }
+    const elegido = await elegirPiezas(origen);
+    if(!elegido || !elegido.campos.length) return;
+
+    const msg = document.getElementById('tplMsg');
+    const cuantos = elegido.campos.length;
+    const listaNombres = elegido.campos.map(f => f.nombre || '(sin nombre)').join(', ');
+
+    if(elegido.destino === 'esta'){
+      const { actualizados, añadidos } = meterPiezas(config, elegido.campos);
+      campoSel = null;
+      renderChips(); renderFieldSettings();
+      msg.textContent = `Traído de «${origen.nombre}»: ${listaNombres}. ` +
+        `${añadidos} añadido(s)${actualizados ? `, ${actualizados} actualizado(s)` : ''}. Recuerda guardar la plantilla.`;
+      setTimeout(() => { if(msg.textContent.startsWith('Traído de')) msg.textContent = ''; }, 14000);
+      return;
+    }
+
+    const carpeta = elegido.destino.slice('carpeta:'.length);
+    const destinos = templatesFull.filter(t => (t.config.carpeta || '').trim() === carpeta);
+    if(!destinos.length){ alert('Esa carpeta todavía no tiene ninguna plantilla.'); return; }
+    if(!await preguntar({
+      titulo: `Traer ${cuantos} campo(s) a ${destinos.length} plantilla(s)`,
+      aceptar: `Sí, a las ${destinos.length}`,
+      cuerpo: `<p>Se llevan <b>${escapeHtml(listaNombres)}</b> de «${escapeHtml(origen.nombre)}» a las
+        ${destinos.length} plantilla(s) de «<b>${escapeHtml(etiquetaCarpeta(carpeta))}</b>», y se guardan de una vez.</p>
+        <p>El resto de campos de cada plantilla se queda como está. El fondo tampoco se toca.</p>`,
+    })) return;
+
+    const btn = document.getElementById('btnCopiarPiezas');
+    btn.disabled = true;
+    let ok = 0, fallos = 0;
+    for(const t of destinos){
+      meterPiezas(t.config, elegido.campos);
+      await externalizarFondo(t.config);
+      const { data, error } = await supabase.rpc('save_cert_template', { p_id: t.id, p_nombre: t.nombre, p_config: t.config });
+      if(error){ fallos++; continue; }
+      t.id = data.id;
+      ok++;
+    }
+    btn.disabled = false;
+    config = templatesFull[currentIdx].config;   // por si la abierta estaba entre las tocadas
+    campoSel = null;
+    renderChips(); renderFieldSettings();
+    renderTemplateSelector(); renderMatrixTplSelector(); renderMatrix();
+    msg.textContent = fallos
+      ? `Traído a ${ok} de ${destinos.length} plantilla(s) de «${etiquetaCarpeta(carpeta)}» (${fallos} con error).`
+      : `Traído y guardado en las ${ok} plantilla(s) de «${etiquetaCarpeta(carpeta)}» ✓.`;
+    setTimeout(() => { if(msg.textContent.startsWith('Traído')) msg.textContent = ''; }, 14000);
   });
 
   function renderTemplatePreview(){
