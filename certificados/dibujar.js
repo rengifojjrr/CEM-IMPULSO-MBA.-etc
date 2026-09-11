@@ -26,15 +26,64 @@
    certificados de un grupo. Se pide una vez por dirección. */
 const fondosEnMemoria = new Map();
 
+/* Las que el editor ofrece, con los grosores que Google sirve de cada una.
+   UnifrakturCook sólo existe en negrita; las de mano alzada y las góticas, sólo
+   en un grosor. Pedir un grosor que no existe devuelve el que haya, pero pedir
+   el que es evita una redirección por cada letra. */
+const PESOS_DE_FUENTE = {
+  'Playfair Display': '400;700', 'Cormorant Garamond': '400;700', 'EB Garamond': '400;700',
+  'Merriweather': '400;700', 'Lora': '400;700', 'PT Serif': '400;700',
+  'Libre Baskerville': '400;700', 'Roboto Slab': '400;700', 'Cinzel': '400;700',
+  'Montserrat': '400;700', 'Open Sans': '400;700', 'Lato': '400;700',
+  'Raleway': '400;700', 'Poppins': '400;700', 'UnifrakturCook': '700',
+  'Marcellus': '', 'Great Vibes': '', 'Dancing Script': '', 'Pacifico': '',
+  'Sacramento': '', 'Alex Brush': '', 'Allura': '', 'Parisienne': '',
+  'UnifrakturMaguntia': '', 'Pirata One': '',
+};
+
 /* Las que el editor ofrece. Sólo se piden las que la plantilla use de verdad. */
-export const GOOGLE_FONT_FAMILIES = [
-  'Playfair Display','Cormorant Garamond','EB Garamond','Merriweather','Lora','PT Serif',
-  'Libre Baskerville','Roboto Slab','Cinzel','Marcellus','Montserrat','Open Sans','Lato',
-  'Raleway','Poppins','Great Vibes','Dancing Script','Pacifico','Sacramento','Alex Brush',
-  'Allura','Parisienne','UnifrakturMaguntia','UnifrakturCook','Pirata One',
-];
+export const GOOGLE_FONT_FAMILIES = Object.keys(PESOS_DE_FUENTE);
 
 const fontsLoadedCache = new Set();
+
+/**
+ * Se asegura de que la página DECLARE las tipografías antes de pedirlas.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `document.fonts.load()` sólo sabe traer una letra que alguna hoja de estilo
+ * haya declarado con @font-face. Si nadie la declaró, no falla: resuelve
+ * tranquilamente sin traer nada, y el lienzo dibuja con la letra de reserva.
+ *
+ * Y eso es justo lo que pasaba. El enlace a Google Fonts estaba sólo en las dos
+ * pantallas del generador; las demás —el verificador público del QR, «Mis
+ * logros» del estudiante, «Diplomas en físico» donde se arma el PDF para la
+ * imprenta, la ficha del estudiante— no lo tenían. Los diplomas salían con una
+ * letra cualquiera en vez de la gótica del diseño, en pantalla y en el papel.
+ *
+ * Se hace aquí y no en cada página a propósito: la receta de cómo se dibuja un
+ * certificado vive en este archivo, y una pantalla nueva no debería tener que
+ * acordarse de pegar un enlace de novecientos caracteres para que sus diplomas
+ * salgan bien.
+ *
+ * Si la hoja no llega (sin red, un cortafuegos), se sigue adelante con la letra
+ * de reserva: más vale un certificado con otra letra que una pantalla colgada.
+ */
+async function asegurarHojaDeFuentes(familias){
+  if(typeof document === 'undefined' || !familias.length) return;
+  const yaDeclaradas = [...document.querySelectorAll('link[rel="stylesheet"]')]
+    .map(l => l.href).filter(h => h.includes('fonts.googleapis.com')).join(' ');
+  const faltan = familias.filter(f => !yaDeclaradas.includes(f.replace(/ /g, '+')));
+  if(!faltan.length) return;
+
+  const enlace = document.createElement('link');
+  enlace.rel = 'stylesheet';
+  enlace.href = 'https://fonts.googleapis.com/css2?' + faltan.map(f => {
+    const peso = PESOS_DE_FUENTE[f];
+    return 'family=' + f.replace(/ /g, '+') + (peso ? ':wght@' + peso : '');
+  }).join('&') + '&display=swap';
+  const llega = new Promise(res => { enlace.onload = res; enlace.onerror = res; });
+  document.head.appendChild(enlace);
+  await Promise.race([llega, new Promise(res => setTimeout(res, 5000))]);
+}
 
 /**
  * Pide al navegador las tipografías que ESTA plantilla usa, y espera a que
@@ -59,6 +108,8 @@ export async function ensureFontsLoadedForConfig(cfg){
     }
   }
   if(!toLoad.size) return;
+  // primero que la página las declare; si no, lo de abajo no trae nada
+  await asegurarHojaDeFuentes([...toLoad]);
   await Promise.all([...toLoad].flatMap(name => [
     document.fonts.load(`16px "${name}"`).catch(()=>{}),
     document.fonts.load(`700 16px "${name}"`).catch(()=>{}),
@@ -203,8 +254,9 @@ export function fitFontSizeMixto(ctx, text, estilos, bold, maxSize, minSize, max
  * todas, que es lo que ocupa el conjunto.
  */
 export function tintaDe(ctx, text, estilos, startIdx, bold, fontFamily, size){
-  const anterior = ctx.textBaseline;
+  const antesBase = ctx.textBaseline, antesAlin = ctx.textAlign;
   ctx.textBaseline = 'alphabetic';   // `actualBoundingBox*` se mide desde la línea activa
+  ctx.textAlign = 'left';            // ...y a los lados, desde el punto de partida
   let sube = 0, baja = 0;
   if(!estilos){
     ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`;
@@ -219,8 +271,15 @@ export function tintaDe(ctx, text, estilos, startIdx, bold, fontFamily, size){
       baja = Math.max(baja, m.actualBoundingBoxDescent);
     }
   }
-  ctx.textBaseline = anterior;
-  return { sube, baja };
+  // Cuánto se sale el trazo por los lados de lo que la letra "ocupa" al avanzar.
+  // Son dos o tres píxeles —el rabo de una «J», la panza de una gótica— pero si
+  // el texto justo llena la caja, el recorte se los come y la letra sale partida.
+  ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`;
+  const m = ctx.measureText(text);
+  const izquierda = Math.max(0, m.actualBoundingBoxLeft);
+  const derecha = Math.max(0, m.actualBoundingBoxRight - m.width);
+  ctx.textBaseline = antesBase; ctx.textAlign = antesAlin;
+  return { sube, baja, izquierda, derecha };
 }
 
 /**
@@ -428,14 +487,21 @@ export async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     // El texto se ancla al CENTRO de la caja, no a una línea suelta: por eso
     // dos campos con la misma caja quedan alineados aunque cambie el cuerpo.
     const centroPx = ((centroV(f) + dy)/100) * canvas.height;
+    const tinta = tintaDe(ctx, text, estilos, 0, f.bold, fontFamily, fitSize);
     const yPx = baseCentrada(ctx, text, estilos, 0, f.bold, fontFamily, fitSize, centroPx);
     const topPx = ((v.topPct + dy)/100) * canvas.height;
     const anchoTextoCompleto = medirAncho(ctx, text, estilos, 0, f.bold, fontFamily, fitSize);
+    // El recorte deja pasar el poco trazo que sobresale a los lados, para que el
+    // rabo de una «J» no salga rebanado cuando el texto justo llena la caja. Y
+    // se redondea hacia afuera: cortar por una coordenada con decimales parte el
+    // píxel del borde y deja el filo de la letra a medias.
+    const recorteIzq = Math.floor(leftPx - tinta.izquierda);
+    const recorteAncho = Math.ceil(rightPx + tinta.derecha) - recorteIzq;
 
     if(anchoTextoCompleto <= boxWidthPx){
       // cabe entero en una sola línea: se dibuja igual que siempre.
       ctx.beginPath();
-      ctx.rect(leftPx, topPx, boxWidthPx, altoCajaPx);
+      ctx.rect(recorteIzq, topPx, recorteAncho, altoCajaPx);
       ctx.clip();
       if(!estilos){
         ctx.fillText(text, drawX, yPx);
@@ -480,7 +546,7 @@ export async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
       // el bloque va centrado en la caja, igual que cuando es una sola línea
       const arribaBloque = topPx + Math.max(0, (altoCajaPx - altoBloque) / 2);
       ctx.beginPath();
-      ctx.rect(leftPx, topPx, boxWidthPx, Math.max(altoCajaPx, altoBloque));
+      ctx.rect(recorteIzq, topPx, recorteAncho, Math.max(altoCajaPx, altoBloque));
       ctx.clip();
       lineas.forEach((linea, li) => {
         // cada línea, centrada por su tinta dentro del renglón que le toca
