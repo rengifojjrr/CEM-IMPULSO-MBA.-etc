@@ -28,7 +28,7 @@ import {
   normalizarNombreCampo, cajaV, centroV, boxOf, opacityOf, aplicarFormato,
   formatearCedula, resolverPlantillaTexto, posicionesPorPalabra, estilosPorCaracter,
   fitFontSize, fitFontSizeMixto, anchoMixto, medirAncho, envolverLineas,
-  envolverLineasBalanceado, fondoDecodificado,
+  envolverLineasBalanceado, fondoDecodificado, tintaDe,
 } from './dibujar.js';
 
 export const ESTILOS_GENERADOR = String.raw`  :root{
@@ -2241,6 +2241,34 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
    */
   function capaDe(i){ return Math.max(1, Math.min(99, config.fields.length - i)); }
 
+  /**
+   * Cuánto hay que subir o bajar la muestra para que quede donde la pondrá el
+   * lienzo.
+   * ═══════════════════════════════════════════════════════════════════════════
+   * El navegador centra el renglón (line-height:1), que es el cuadratín de la
+   * tipografía; el lienzo centra la tinta de verdad (ver `baseCentrada`). Si no
+   * se corrige, el editor enseña el nombre a una altura y el certificado lo
+   * imprime a otra, y lo que se coloca aquí no es lo que sale. Devuelve píxeles
+   * de pantalla, a sumar con translateY.
+   */
+  function desvioDeMuestra(texto, f, cuerpoPx, altoCajaPx){
+    if(!texto || cuerpoPx <= 0) return 0;
+    const cv = desvioDeMuestra._cv || (desvioDeMuestra._cv = document.createElement('canvas'));
+    const ctx = cv.getContext('2d');
+    const familia = f.fontFamily || 'Georgia, serif';
+    const estilos = estilosPorCaracter(texto, f);
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `${f.bold ? 'bold ' : ''}${cuerpoPx}px ${familia}`;
+    const m = ctx.measureText(texto);
+    const alto = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent;
+    // dónde cae la línea base hoy: el renglón mide `cuerpoPx` y va centrado en
+    // la caja, y dentro del renglón el medio-interlineado puede ser negativo
+    const baseAhora = (altoCajaPx - cuerpoPx) / 2 + (cuerpoPx - alto) / 2 + m.fontBoundingBoxAscent;
+    const t = tintaDe(ctx, texto, estilos, 0, f.bold, familia, cuerpoPx);
+    const baseQueToca = (altoCajaPx - (t.sube + t.baja)) / 2 + t.sube;
+    return baseQueToca - baseAhora;
+  }
+
   function renderChips(){
     const wrap = document.getElementById('tplPreviewWrap');
     wrap.querySelectorAll('.field-chip,.field-handle,.field-box,.field-label,.img-box,.img-handle').forEach(el => el.remove());
@@ -2309,9 +2337,13 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       // para que el tope de tamaño sea el mismo en la muestra y en la impresión
       const altoCajaPx = ((v.botPct - v.topPct)/100) * (config.bgHeight || 1131);
       const cuerpo = ajustarMuestra(muestra.textContent, f, anchoCajaPx, altoCajaPx);
+      const cuerpoEnPantalla = Math.max(6, cuerpo * escalaX);
+      const altoCajaEnPantalla = ((v.botPct - v.topPct)/100) * altoImg;
+      const desvio = desvioDeMuestra(muestra.textContent, f, cuerpoEnPantalla, altoCajaEnPantalla);
       muestra.style.cssText = `font-family:${f.fontFamily || 'Georgia, serif'};` +
         `font-weight:${f.bold ? '700' : '400'};color:${f.color};opacity:${opacityOf(f)};` +
-        `text-align:${f.align};font-size:${Math.max(6, cuerpo * escalaX)}px;`;
+        `text-align:${f.align};font-size:${cuerpoEnPantalla}px;` +
+        `transform:translateY(${desvio.toFixed(2)}px);`;
       caja.appendChild(muestra);
       wrap.appendChild(caja);
 

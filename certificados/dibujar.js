@@ -196,6 +196,56 @@ export function fitFontSizeMixto(ctx, text, estilos, bold, maxSize, minSize, max
   return size;
 }
 
+/**
+ * Cuánto sube y cuánto baja la TINTA de `text`: no el cuadratín de la
+ * tipografía, sino lo que de verdad se ve, medido desde la línea base.
+ * Con letras de tipografía propia se queda con lo más alto y lo más bajo de
+ * todas, que es lo que ocupa el conjunto.
+ */
+export function tintaDe(ctx, text, estilos, startIdx, bold, fontFamily, size){
+  const anterior = ctx.textBaseline;
+  ctx.textBaseline = 'alphabetic';   // `actualBoundingBox*` se mide desde la línea activa
+  let sube = 0, baja = 0;
+  if(!estilos){
+    ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`;
+    const m = ctx.measureText(text);
+    sube = m.actualBoundingBoxAscent; baja = m.actualBoundingBoxDescent;
+  } else {
+    for(let i = 0; i < text.length; i++){
+      const e = estilos[startIdx + i] || { fontFamily };
+      ctx.font = `${bold ? 'bold ' : ''}${size}px ${e.fontFamily}`;
+      const m = ctx.measureText(text[i]);
+      sube = Math.max(sube, m.actualBoundingBoxAscent);
+      baja = Math.max(baja, m.actualBoundingBoxDescent);
+    }
+  }
+  ctx.textBaseline = anterior;
+  return { sube, baja };
+}
+
+/**
+ * Dónde va la línea base para que el texto quede centrado DE VERDAD en su caja.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Antes esto era `textBaseline = 'middle'`, que centra el cuadratín de la
+ * tipografía: el rectángulo que la letra reserva para tildes, astas y bajadas
+ * aunque el texto no las use. Como casi ningún nombre las usa todas, el nombre
+ * no salía centrado sino corrido, y cuánto dependía de las letras que tuviera:
+ *
+ *   «Juan Jose Rengifo» → 32 px de aire arriba y 9 abajo   (pegado al borde)
+ *   «María Ñáñez»       → 13 px arriba y 35 abajo          (pegado arriba)
+ *
+ * Con nueve píxeles bajo un nombre de ciento veinte, la bajada de la «g» roza
+ * el borde y en papel se lee como cortada. Centrando por la tinta, los tres
+ * casos quedan parejos —21/21, 24/24, 36/36— y el margen es el mismo para todo
+ * el mundo, se llame como se llame.
+ *
+ * Sólo mueve el texto dentro de su caja; la caja no se toca.
+ */
+export function baseCentrada(ctx, text, estilos, startIdx, bold, fontFamily, size, centroY){
+  const t = tintaDe(ctx, text, estilos, startIdx, bold, fontFamily, size);
+  return centroY - (t.sube + t.baja) / 2 + t.sube;
+}
+
 /** Ancho de `text` (que empieza en `startIdx` dentro del texto completo) a un tamaño dado, con o sin letras de estilo propio. */
 export function medirAncho(ctx, text, estilos, startIdx, bold, fontFamily, size){
   if(!estilos){ ctx.font = `${bold ? 'bold ' : ''}${size}px ${fontFamily}`; return ctx.measureText(text).width; }
@@ -368,14 +418,17 @@ export async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
     ctx.globalAlpha = opacityOf(f);
     ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
     ctx.fillStyle = f.color;
-    ctx.textBaseline = 'middle';
+    // La línea base se calcula (ver `baseCentrada`); 'middle' centraba el
+    // cuadratín de la letra y dejaba el nombre corrido dentro de su caja.
+    ctx.textBaseline = 'alphabetic';
     let drawX;
     if(f.align === 'left'){ ctx.textAlign = 'left'; drawX = leftPx; }
     else if(f.align === 'right'){ ctx.textAlign = 'right'; drawX = rightPx; }
     else { ctx.textAlign = 'center'; drawX = (leftPx + rightPx) / 2; }
     // El texto se ancla al CENTRO de la caja, no a una línea suelta: por eso
     // dos campos con la misma caja quedan alineados aunque cambie el cuerpo.
-    const yPx = ((centroV(f) + dy)/100) * canvas.height;
+    const centroPx = ((centroV(f) + dy)/100) * canvas.height;
+    const yPx = baseCentrada(ctx, text, estilos, 0, f.bold, fontFamily, fitSize, centroPx);
     const topPx = ((v.topPct + dy)/100) * canvas.height;
     const anchoTextoCompleto = medirAncho(ctx, text, estilos, 0, f.bold, fontFamily, fitSize);
 
@@ -407,22 +460,37 @@ export async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
       // modo "seguir hacia abajo": en "ajustar tamaño al margen" la letra ya
       // se encogió lo necesario para no llegar aquí). Se reparte en varias
       // líneas, cortando sólo entre palabras y respetando los mismos
-      // márgenes izquierdo/derecho. El bloque arranca en el borde SUPERIOR
-      // de la caja y crece sólo hacia abajo —nunca hacia arriba— para no
-      // superponerse con lo que haya encima (p.ej. un encabezado del diseño).
-      const lineas = envolverLineasBalanceado(ctx, text, estilos, f.bold, fontFamily, fitSize, boxWidthPx);
-      const lineHeight = fitSize * 1.22;
+      // márgenes izquierdo/derecho.
+      //
+      // Y si el bloque de líneas tampoco cabe de alto, se sigue achicando
+      // hasta que quepa. Sin esto el bloque se salía por abajo e invadía lo
+      // que hubiera debajo: en el diploma de Jhomreyber Arrechedera, la
+      // segunda línea del nombre quedó escrita encima de «Titular de la
+      // cédula de identidad». Un nombre encima de otro renglón no es un
+      // documento que se le pueda entregar a nadie, así que cabe siempre,
+      // aunque para ello haya que bajar del mínimo configurado.
+      let cuerpo = fitSize;
+      let lineas = envolverLineasBalanceado(ctx, text, estilos, f.bold, fontFamily, cuerpo, boxWidthPx);
+      while(cuerpo > 4 && lineas.length * cuerpo * 1.22 > altoCajaPx){
+        cuerpo--;
+        lineas = envolverLineasBalanceado(ctx, text, estilos, f.bold, fontFamily, cuerpo, boxWidthPx);
+      }
+      const lineHeight = cuerpo * 1.22;
       const altoBloque = lineas.length * lineHeight;
+      // el bloque va centrado en la caja, igual que cuando es una sola línea
+      const arribaBloque = topPx + Math.max(0, (altoCajaPx - altoBloque) / 2);
       ctx.beginPath();
       ctx.rect(leftPx, topPx, boxWidthPx, Math.max(altoCajaPx, altoBloque));
       ctx.clip();
       lineas.forEach((linea, li) => {
-        const yLinea = topPx + lineHeight * (li + 0.5);
+        // cada línea, centrada por su tinta dentro del renglón que le toca
+        const yLinea = baseCentrada(ctx, linea.texto, estilos, linea.inicio, f.bold, fontFamily,
+          cuerpo, arribaBloque + lineHeight * (li + 0.5));
         if(!estilos){
-          ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${fontFamily}`;
+          ctx.font = `${f.bold ? 'bold ' : ''}${cuerpo}px ${fontFamily}`;
           ctx.fillText(linea.texto, drawX, yLinea);
         } else {
-          const anchoLinea = medirAncho(ctx, linea.texto, estilos, linea.inicio, f.bold, fontFamily, fitSize);
+          const anchoLinea = medirAncho(ctx, linea.texto, estilos, linea.inicio, f.bold, fontFamily, cuerpo);
           let x;
           if(f.align === 'left') x = leftPx;
           else if(f.align === 'right') x = rightPx - anchoLinea;
@@ -430,7 +498,7 @@ export async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
           ctx.textAlign = 'left';
           for(let k = 0; k < linea.texto.length; k++){
             const e = estilos[linea.inicio + k];
-            ctx.font = `${f.bold ? 'bold ' : ''}${fitSize}px ${e.fontFamily}`;
+            ctx.font = `${f.bold ? 'bold ' : ''}${cuerpo}px ${e.fontFamily}`;
             ctx.fillStyle = e.color;
             ctx.fillText(linea.texto[k], x, yLinea);
             x += ctx.measureText(linea.texto[k]).width;
