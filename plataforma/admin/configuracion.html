@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
 <style>
 </style>
 </head>
@@ -102,6 +102,34 @@
       </div>
       <div class="field"><label for="pcNota">Una línea más <span class="tiny muted">(opcional)</span></label>
         <input id="pcNota" maxlength="140" placeholder="Cupos limitados. Inscripciones desde el 1 de septiembre."></div>
+    </div>
+
+    <!-- Medir y que nos escriban.
+         ───────────────────────────────────────────────────────────────────
+         Los píxeles y el WhatsApp público. No van escritos en el código: se
+         guardan aquí y las páginas los leen por `cem_sitio_publico()` en cada
+         visita, así que pegarlos basta. Hasta septiembre de 2026 no había
+         ningún píxel conectado y el WhatsApp no estaba en ninguna página. -->
+    <div class="card">
+      <h2 class="sec">Medir y que nos escriban</h2>
+      <p class="tiny muted sin-margen">Los identificadores de Google Analytics 4 y del píxel de
+        Meta, y el WhatsApp y el correo que se enseñan al público. Déjalos vacíos si no los tienes:
+        sin ellos no se mide nada, pero tampoco se rompe nada.</p>
+      <div class="row sep">
+        <div class="field medio"><label for="anGa4">Google Analytics 4 <span class="tiny muted">(ID de medición)</span></label>
+          <input id="anGa4" maxlength="24" placeholder="G-XXXXXXXXXX" spellcheck="false"></div>
+        <div class="field medio"><label for="anMeta">Píxel de Meta <span class="tiny muted">(ID numérico)</span></label>
+          <input id="anMeta" maxlength="24" inputmode="numeric" placeholder="1234567890123456" spellcheck="false"></div>
+      </div>
+      <div class="row sep-poco">
+        <div class="field medio"><label for="cpWhatsapp">WhatsApp público <span class="tiny muted">(con código de país)</span></label>
+          <input id="cpWhatsapp" type="tel" maxlength="24" placeholder="+58 412 000 0000"></div>
+        <div class="field medio"><label for="cpCorreo">Correo público</label>
+          <input id="cpCorreo" type="email" maxlength="120" placeholder="info@escuelacem.com"></div>
+      </div>
+      <p class="tiny muted sin-margen">Con el WhatsApp puesto aparece un botón verde en la portada, el
+        catálogo, contacto y cada programa, y dentro de «¿Tienes dudas?». Las conversiones que se
+        miden: contacto, «avísame», WhatsApp, inscripción, compra y verificación de certificado.</p>
     </div>
 
     <!-- Los países de la portada.
@@ -202,9 +230,9 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, ok, fail, run, audit, confirmDialog, modal,
-         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-09-04-4';
-import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-09-04-4';
-import { panelApariencia } from '../assets/apariencia.js?v=2026-09-04-4';
+         SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-09-15';
+import { opcionesDePais, paisConBandera } from '../assets/paises.js?v=2026-09-15';
+import { panelApariencia } from '../assets/apariencia.js?v=2026-09-15';
 const p = await mount({ require:['admin','superadmin'], active:'configuracion.html', area:'admin' });
 
 /* El panel de apariencia vive en assets/apariencia.js: el mismo que abre
@@ -273,6 +301,10 @@ async function load(){
   $('#pcFecha').value = conv.fecha||''; $('#pcTitulo').value = conv.titulo||'';
   $('#pcNota').value = conv.nota||'';
 
+  const ana = get('analitica'), cp = get('contacto_publico');
+  $('#anGa4').value = ana.ga4||''; $('#anMeta').value = ana.meta||'';
+  $('#cpWhatsapp').value = cp.whatsapp||''; $('#cpCorreo').value = cp.correo||'';
+
   paisesPortada = Array.isArray(get('portada_paises').codigos) ? [...get('portada_paises').codigos] : [];
   $('#ppNuevo').innerHTML = opcionesDePais('', 'Elige un país…');
   pintarPaisesPortada();
@@ -298,7 +330,18 @@ $('#btnSave').onclick = async () => {
     { clave:'proxima_convocatoria', valor:{ fecha:$('#pcFecha').value||null,
         titulo:$('#pcTitulo').value.trim(), nota:$('#pcNota').value.trim() },
       descripcion:'Proxima convocatoria que se anuncia en la portada' },
+    { clave:'analitica', valor:{ ga4:$('#anGa4').value.trim().toUpperCase(),
+        meta:$('#anMeta').value.replace(/[^0-9]/g, '') },
+      descripcion:'Identificadores de Google Analytics 4 y del pixel de Meta (publicos)' },
+    { clave:'contacto_publico', valor:{ whatsapp:$('#cpWhatsapp').value.trim(),
+        correo:$('#cpCorreo').value.trim().toLowerCase() },
+      descripcion:'WhatsApp y correo que se enseñan al publico' },
   ].map(r=>({ ...r, actualizado_en:new Date().toISOString() }));
+  /* Un identificador mal pegado no se guarda a medias: se avisa y se para. */
+  const ga4 = rows.find(r=>r.clave==='analitica').valor.ga4;
+  if (ga4 && !/^G-[A-Z0-9]{4,20}$/.test(ga4)) { fail('El ID de Google Analytics 4 empieza por «G-» seguido de letras y números.'); return; }
+  const wa = rows.find(r=>r.clave==='contacto_publico').valor.whatsapp.replace(/[^0-9]/g, '');
+  if (wa && (wa.length < 8 || wa.length > 15)) { fail('El WhatsApp tiene que llevar el código de país, por ejemplo +58 412 000 0000.'); return; }
   await run(sb.from('cem_settings').upsert(rows, { onConflict:'clave' }), 'No se pudo guardar');
   await audit('configuracion_actualizada','cem_settings',null,'alto',{claves:rows.map(r=>r.clave)});
   ok('Configuración guardada'); load();

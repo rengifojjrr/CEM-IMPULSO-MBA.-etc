@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
 <style>
   .bg-ico{width:56px;height:56px;border-radius:var(--r-full);display:inline-flex;align-items:center;justify-content:center;}
   .bg-ico .material-symbols-outlined{font-size:var(--t-2xl);}
@@ -57,7 +57,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, kpi, modal, ok, fail, run, audit, confirmDialog, accionVacio } from '../assets/app.js?v=2026-09-04-4';
+import { sb, mount, $, $$, esc, chip, num, fdate, emptyRow, kpi, modal, ok, fail, run, audit, confirmDialog, accionVacio } from '../assets/app.js?v=2026-09-15';
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'insignias.html', area:'admin' });
 const puede = p && ['coordinador','admin','superadmin'].includes(p.rol);
 const ICONOS = ['military_tech','insights','public','campaign','emoji_events','workspace_premium','psychology','verified','bolt','school'];
@@ -245,11 +245,26 @@ function form(b){
       ${ICONOS.map(i=>`<button type="button" title="${i.replace(/_/g,' ')}" class="chip chip-btn ${((b?.icono)||'military_tech')===i?'on':''}" data-i="${i}">
         <span class="material-symbols-outlined" aria-hidden="true">${i}</span></button>`).join('')}</div></div>
     <div class="field"><label>Color</label><input type="color" id="bColor" value="${esc(b?.color||'#c9a227')}" style="height:42px"></div>
+    <div class="field"><label>Así la verá el estudiante en Mis logros</label>
+      <div class="row" id="bPrevia" style="align-items:center;gap:var(--e2);flex-wrap:nowrap"></div></div>
     <label class="check"><input type="checkbox" id="bA" ${b? (b.activo?'checked':'') : 'checked'}> Insignia activa</label>`,
     footer:`<button class="btn outline" data-x>Cancelar</button><button class="btn" data-s>Guardar la insignia</button>` });
   let icono = b?.icono || 'military_tech';
+  /* La insignia montada con lo que se está escribiendo: el mismo redondel y
+     el mismo color que pinta la lista y que ve el estudiante. */
+  const pintarPrevia = () => {
+    const color = $('#bColor',m).value || '#c9a227';
+    const nivel = $('#bL',m).value.trim();
+    $('#bPrevia',m).innerHTML = `<div class="bg-ico" style="background:${esc(color)}22;color:${esc(color)};flex:none">
+        <span class="material-symbols-outlined">${esc(icono)}</span></div>
+      <div style="min-width:0"><b>${esc($('#bN',m).value.trim() || 'El nombre de la insignia')}</b>
+        <div class="tiny muted">${esc($('#bC',m).value.trim() || 'La competencia')}${nivel ? ' · ' + esc(nivel) : ''}</div>
+        <div class="tiny muted">${esc($('#bK',m).value.trim() || 'Cómo se consigue')}</div></div>`;
+  };
   $$('[data-i]',m).forEach(el=>el.onclick=()=>{ icono=el.dataset.i;
-    $$('[data-i]',m).forEach(x=>x.classList.toggle('on',x===el)); });
+    $$('[data-i]',m).forEach(x=>x.classList.toggle('on',x===el)); pintarPrevia(); });
+  ['#bN','#bC','#bL','#bK','#bColor'].forEach(s => $(s,m).addEventListener('input', pintarPrevia));
+  pintarPrevia();
 
   /* Cada regla enseña sólo el número que necesita, con su nombre y su unidad.
      Un campo «Valor» a secas obliga a adivinar si 90 son puntos, por ciento o

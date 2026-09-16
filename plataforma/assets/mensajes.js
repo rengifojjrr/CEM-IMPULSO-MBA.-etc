@@ -22,7 +22,7 @@
    ========================================================================= */
 
 import { sb, $, $$, esc, chip, fdatetime, modal, ok, fail, mensajeError,
-         avisar, vacio, ocupado, etiqueta, initials } from './app.js?v=2026-09-04-4';
+         avisar, vacio, ocupado, etiqueta, initials } from './app.js?v=2026-09-15';
 
 /* Cada cuánto se vuelve a preguntar si hay algo nuevo mientras la pantalla
    está abierta. Doce segundos: bastante para que una conversación se sienta

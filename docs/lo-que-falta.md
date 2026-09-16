@@ -1,9 +1,56 @@
 # Lo que falta
 
-Estado a **23 de agosto de 2026**. Las cifras salen de mirar la base, no de
-memoria; si algo aquí no cuadra con lo que ves, gana lo que ves.
+Estado a **23 de agosto de 2026**, con lo que cambió el **15 de septiembre**
+marcado donde corresponde. Las cifras salen de mirar la base, no de memoria;
+si algo aquí no cuadra con lo que ves, gana lo que ves.
 
 Está ordenado por lo que cuesta que salga mal, no por lo que cuesta hacerlo.
+
+---
+
+## 0 · Lo que queda después de la radiografía (15 de septiembre)
+
+La radiografía del 12 de septiembre (`docs/auditoria-2026-09-12.md`) dejó dos
+listas. La de código se hizo entera el día 15: permisos, la cara de Cemi en el
+QR, las cifras, los flotantes, el píxel, Cemi y WhatsApp en las páginas
+públicas, el flujo de contactos, las previsualizaciones y los atajos. Esto es
+lo que **sólo puedes hacer tú**, en el orden en que duele:
+
+1. **Rotar tres claves** que siguen desde agosto: la de Resend, la secreta de
+   Stripe (modo real) y el secreto del webhook. Se generan en cada proveedor y
+   se pegan en Admin → Correo y Admin → Cobros con tarjeta.
+2. **Abrir la convocatoria**: publicar los dos diplomados como cursos con
+   precio, fecha y cohorte, y poner la fecha en Configuración → Próxima
+   convocatoria. Hoy hay 0 cursos publicados; todo lo demás espera esto.
+3. **Pegar los identificadores de medición y el WhatsApp** en Configuración →
+   «Medir y que nos escriban»: el ID de Google Analytics 4, el del píxel de
+   Meta y el número de WhatsApp. El código ya los usa; sin ellos no se mide
+   nada y no sale el botón verde.
+4. **Reconectar el puente de WhatsApp** (escanear el QR desde la máquina donde
+   corre) y pasar `asistente_whatsapp_modo` a «responde». Lleva caído desde
+   el 27 de agosto.
+5. **Decidir las formas de pago locales** (pago móvil, Zelle, transferencia) y
+   ponerles destino en Admin → Formas de pago. Hoy sólo hay tarjeta por Stripe.
+6. **Activar la protección contra contraseñas filtradas** en el panel de
+   Supabase: Authentication → Settings. Es un interruptor.
+7. **Poner al día el periodo activo** en Configuración: dice «Otoño 2024».
+8. **Imprimir los 24 diplomas en físico** que esperan, y **leer las 9 alertas
+   de gobierno** sin leer.
+9. **El proyecto SEM** (`admin.html`, `proyectos.html` y las funciones
+   `upsert_quote`, `upsert_pm_project`, `get_quote`, `get_pm_project`) sigue en
+   uso y comparte la base con el CEM sin ninguna comprobación. Decide si se
+   lleva a su propio proyecto de Supabase o si se le pone una clave. Las
+   páginas y funciones no se tocaron porque están en uso.
+10. **Separar los cuatro proyectos** que comparten la base (`cq_*`,
+    `forest_*`, `fb360_*`, `pm_*`). No urge; cada mes cuesta más.
+11. **Sembrar las cuentas de prueba** `@pruebas.local`, poner `CEM_PASS` como
+    secreto del repositorio y activar `CORRER_PRUEBAS_E2E=si`, para que las
+    32 pruebas de navegador corran en GitHub.
+12. **Decidir el texto**: «2.500+ estudiantes formados» frente a los 126
+    graduados de la base; «desde Caracas» frente a «nueve países». Una sola
+    historia, y las cifras de una sola fuente.
+13. **Casos sueltos**: la cuenta duplicada de Oscar, los 12 diplomas de G12 y
+    los egresados con certificado pero sin inscripción.
 
 ---
 
@@ -43,37 +90,23 @@ Se cambia en **Settings → General → Default branch** del repositorio.
 > después desplegó sin tocar nada. Si vuelve a pasar: relanzar antes de buscar
 > la causa en el código.
 
-### 1.1 · El correo no sale — **138 avisos parados**
+### 1.1 · ~~El correo no sale~~ — resuelto: el correo sale
 
-No hay proveedor de correo configurado. Los avisos se encolan y **no se pierden**,
-pero tampoco salen: ahora mismo hay 138 esperando, el más viejo del 14 de agosto.
+Resend quedó configurado y la cola se vacía sola cada minuto desde la propia
+base (`cem_correo_empujar` / `cem_correo_recoger`). A 12 de septiembre: 67
+correos enviados, cola vacía, y los que iban a direcciones de prueba se
+descartaron a propósito. Lo único que queda de aquí es **rotar la clave de
+Resend**, que es la misma desde agosto (ver §0).
 
-La cifra sube sola cada día que pasa. En este documento llegó a decir 26; no es
-que se corrigiera un error de cuentas, es que la cola **crece**, y cada número de
-esos es alguien que está esperando un correo que no va a llegar. Entre ellos, los
-de confirmar la cuenta: sin proveedor, nadie que se registre hoy puede entrar.
+### 1.2 · Un solo método de pago: tarjeta en euros por Stripe
 
-Esto es lo primero de la lista por una razón concreta: la escalera de cobro
-—aviso a −3 días, el día del vencimiento, +3, +15, +30, y a los 60 pasa a
-cobranza— se construyó entera este mes y **depende de que el correo salga**. Sin
-proveedor, es un motor girando en vacío.
+Lo de agosto (Zelle y PayPal activos sin destino) se cerró apagándolos. Lo que
+hay hoy es lo contrario: **un solo método activo**, tarjeta por Stripe en
+euros, para un público que en su mayoría paga desde Caracas. Sin pago móvil,
+sin Zelle, sin transferencia con destino.
 
-→ **Hablar con la gente → Envío de correo**, dar de alta Resend y pegar la clave.
-
-### 1.2 · Dos formas de pago activas sin dónde pagar
-
-Se le ofrecen al estudiante y no le dicen a dónde mandar el dinero:
-
-| Método | Qué le falta |
-|---|---|
-| **Zelle** | titular y correo/teléfono de destino |
-| **PayPal** | la cuenta de destino |
-
-Las otras cinco —efectivo en dólares, efectivo en euros, pago móvil,
-transferencia y tarjeta— están completas.
-
-→ **Cobrar → Formas de pago**. Un método sin destino es peor que un método
-apagado: el estudiante lo elige y se queda parado.
+→ **Cobrar → Formas de pago**. Decide cuáles se ofrecen y ponles el destino.
+Un método sin destino es peor que un método apagado.
 
 ### 1.3 · Stripe — falta un despliegue
 
@@ -462,33 +495,18 @@ El agrupado en sí está probado aparte, con fechas inventadas
 certificados reales): tres días, un día partido en horas lejanas, y el caso de
 la emisión nocturna en Caracas, que en UTC ya es el día siguiente.
 
-### 3.6 · `cem_settings` la puede leer cualquiera desde la calle
+### 3.6 · ~~`cem_settings` la puede leer cualquiera~~ — cerrado el 15 de septiembre
 
-La tabla tiene RLS encendida, pero la política de lectura es `using (true)` y
-`anon` conserva el `select`. Es decir: con la clave publicable —que va en el
-código de todas las páginas, y es pública a propósito— cualquiera puede
-descargarse la tabla entera de ajustes sin tener cuenta.
+Los dos pasos que pedía este apartado están dados, en el orden que pedía:
 
-**Hoy no se escapa nada**: dentro hay el nombre del instituto, la URL del sitio,
-la escala de notas, los países de la portada, el dibujo de la mascota y las URLs
-de la tasa del dólar. Todo eso ya se enseña. La escritura sí está bien cerrada
-(`cem_is_staff()`), así que nadie puede cambiar los ajustes.
-
-Lo que preocupa es lo siguiente que se guarde ahí. El propio código ya lo tiene
-visto: la portada pide los países por la función `cem_paises_de_la_portada()` y
-el comentario dice, con todas las letras, «la portada la abre gente sin cuenta y
-`cem_settings` guarda además cosas que no son para enseñar». Falta rematar esa
-idea en la base.
-
-El arreglo son dos pasos y no se puede dar sólo el primero:
-
-1. Pasar `plataforma/assets/asistente.js` a una función que devuelva únicamente
-   `asistente_nombre` y `mascota_url` —es el único sitio que lee la tabla desde
-   una pantalla que abre gente sin cuenta—.
-2. Y sólo entonces quitarle el `select` a `anon` y estrechar la política de
-   lectura a `cem_is_staff()`.
-
-Al revés, la mascota se queda sin cara en las páginas públicas.
+1. `plataforma/assets/asistente.js` ya no lee la tabla: pide
+   `cem_sitio_publico()`, que devuelve sólo el nombre y la cara del asistente,
+   los identificadores de medición y el WhatsApp y correo públicos. Es lo que
+   usan también las páginas generadas.
+2. La política de lectura de `cem_settings` pasó de «cualquiera con sesión» a
+   `cem_can_read_all()`: la lee el equipo (Configuración, Asistente, Diplomas
+   en físico) y nadie más. Sin sesión ya no se leía; ahora tampoco un
+   estudiante.
 
 ---
 

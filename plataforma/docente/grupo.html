@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -33,6 +33,10 @@
       <p>Promedio, entregas, asistencia y quién se está quedando atrás.</p></div>
     <div class="actions">
       <select id="selCohorte" style="min-width:220px"></select>
+      <button class="btn outline" id="btnRecordar" title="Un mismo mensaje a cada uno de los que tienen entregas pendientes">
+        <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span> Recordar entrega a quien falta</button>
+      <button class="btn outline" id="btnEscribirTodos">
+        <span class="material-symbols-outlined" aria-hidden="true">forum</span> Escribir a todo el grupo</button>
       <button class="btn outline" id="btnExport">
         <span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar</button>
     </div>
@@ -68,9 +72,9 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, chip, bar, pct, num, fdate, emptyRow, match, kpi,
-         toCSV, download, fail, mensajeError, modal, ok, avisar, ocupado, conectarFiltros } from '../assets/app.js?v=2026-09-04-4';
-import { histograma, columnas, barras } from '../assets/graficos.js?v=2026-09-04-4';
-import { escribirle } from '../assets/aula.js?v=2026-09-04-4';
+         toCSV, download, fail, mensajeError, modal, ok, avisar, ocupado, conectarFiltros } from '../assets/app.js?v=2026-09-15';
+import { histograma, columnas, barras } from '../assets/graficos.js?v=2026-09-15';
+import { escribirle, escribirAVarios } from '../assets/aula.js?v=2026-09-15';
 
 const me = await mount({ require:['profesor','coordinador','admin','superadmin'],
                         active:'grupo.html', area:'docente' });
@@ -223,6 +227,17 @@ function conectarEscribir(){
 }
 
 conectarFiltros(['#q', '#fRiesgo'], render);
+
+/* En lote: a los que les falta una entrega, o a todo el grupo. Escribirle a
+   cada uno desde su fila era media tarde para decir lo mismo doce veces. */
+const persona = (f) => ({ profile_id: f.profile_id, nombre: f.estudiante || f.email });
+$('#btnRecordar').onclick = () => escribirAVarios(
+  filas.filter(f => f.profile_id && Number(f.entregas_hechas || 0) < Number(f.entregas_esperadas || 0)).map(persona),
+  { titulo: 'Recordar la entrega a quien le falta', asunto: 'Te falta una entrega',
+    cuerpo: 'Hola:\n\nVi que todavía tienes una entrega pendiente. Si algo se te atascó, cuéntamelo y lo vemos; '
+      + 'si es cuestión de tiempo, entrégala en cuanto puedas para no quedarte atrás.\n\nUn saludo.' });
+$('#btnEscribirTodos').onclick = () => escribirAVarios(
+  filas.filter(f => f.profile_id).map(persona), { titulo: 'Escribirle a todo el grupo' });
 
 $('#btnExport').onclick = () => {
   const nombre = $('#selCohorte').selectedOptions[0]?.textContent.replace(/[^\w]+/g, '_') || 'grupo';

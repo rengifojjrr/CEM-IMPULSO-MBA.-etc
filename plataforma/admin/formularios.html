@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
 <style>
   /* Una ficha por lista, no una fila de tabla — misma decisión que en
      recursos.html: lo que se mira de una lista es su enlace (largo, que hay
@@ -85,6 +85,9 @@
   .preg-fila select{flex:none;width:auto;min-width:150px;}
   .preg-ops{display:none;}
   .preg-ops.se-ve{display:block;}
+  /* La previa del formulario público, dentro del editor. Antes sólo se podía
+     «abrir en otra pestaña» y se editaba a ciegas. */
+  .previa-formulario{width:100%;height:460px;display:block;}
 </style>
 </head>
 <body>
@@ -123,7 +126,7 @@
    después. Una pregunta libre titulada «Correo» no serviría para nada de eso. */
 import { sb, mount, $, $$, esc, num, chip, fdate, fdatetime, ok, fail, toast, modal,
          confirmDialog, mensajeError, download, toCSV, SUPABASE_URL }
-  from '../assets/app.js?v=2026-09-04-4';
+  from '../assets/app.js?v=2026-09-15';
 
 await mount({ require:['coordinador','admin','superadmin'], area:'admin', active:'formularios.html' });
 
@@ -326,6 +329,11 @@ function editar(f) {
 
       ${esNueva ? '' : `<div class="field"><label class="obl">
         <input type="checkbox" id="fActivo" ${f.activo ? 'checked' : ''}> La lista está abierta</label></div>`}
+      ${esNueva ? '' : `<div class="field"><label>Así se ve el enlace público
+          <span class="tiny muted">(lo guardado; los cambios se ven al guardar)</span></label>
+        <!-- caja-sin-relleno: porque es un marco; lo que se ve dentro es la página pública, que trae su propio relleno. -->
+        <iframe class="caja previa-formulario" title="Vista previa del formulario público" loading="lazy"
+          src="${esc(enlaceDe(f.codigo))}"></iframe></div>`}
       <div id="fErr"></div>`,
     footer: `<button class="btn ghost" data-x>Cancelar</button>
              <button class="btn" data-s id="fGuardar">Guardar</button>`,

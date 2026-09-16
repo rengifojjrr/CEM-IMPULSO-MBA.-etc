@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="assets/styles.css?v=2026-09-15">
 <!-- Para dibujar la lámina de cada certificado: el QR va dentro del propio
      documento, así que sin esto el dibujo fallaría a mitad. -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
@@ -124,7 +124,7 @@
   </section>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, fdate, qs, modal } from './assets/app.js?v=2026-09-04-4';
+import { sb, mount, $, $$, esc, fdate, qs, modal, medir } from './assets/app.js?v=2026-09-15';
 /* El mismo dibujante que usa la escuela para imprimir. Poder ver el documento
    es la mitad de comprobarlo: quien llega aquí suele tener el papel delante y
    lo que quiere es contrastarlo, no leer una tabla de campos. */
@@ -159,6 +159,7 @@ async function verificar(texto){
            de la persona.`}</p></div>`;
     return;
   }
+  medir('verificar');
 
   const linea = (etiqueta, valor, negrita) =>
     `<div class="row between" style="padding:6px 0;border-bottom:1px solid var(--filete)">

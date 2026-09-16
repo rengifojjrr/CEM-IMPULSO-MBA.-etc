@@ -22,10 +22,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="assets/styles.css?v=2026-09-15">
 <!-- El canonical apunta a «/», no a esta dirección, y va al revés de como
      estaba. Ésta y la portada del dominio enseñan lo mismo; la que tiene que
      quedarse con la fuerza de los enlaces es la corta —escuelacem.com— porque
@@ -266,7 +266,7 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, money, num, qs, fdate, portadaDeCurso, abrirAvisame }
-  from './assets/app.js?v=2026-09-04-4';
+  from './assets/app.js?v=2026-09-15';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -311,8 +311,12 @@ $('#atajos').innerHTML = categorias.length
    de la institución sobre su historia, anterior a esta plataforma, y no le
    corresponde a este código rebajarlas a lo que alcanza a contar. */
 const vitrina = await sb.rpc('cem_vitrina_publica').then((r) => r.data).catch(() => null);
+/* «0 programas abiertos» no es una cifra de orgullo: cuando no hay ninguno se
+   enseña la próxima convocatoria, si está puesta, y si no, nada. */
+const proxima = vitrina?.convocatoria?.fecha ? fdate(vitrina.convocatoria.fecha) : null;
 $('#cifras').innerHTML = [
-  [lista.length, 'programas abiertos', null],
+  lista.length ? [lista.length, 'programas abiertos', null]
+               : [proxima, 'próxima convocatoria', null],
   ['2.500+', 'estudiantes formados', null],
   [vitrina?.certificados ? num(vitrina.certificados) : null,
    'certificados verificables', 'verificar.html'],
@@ -470,7 +474,7 @@ $('#formLead').onsubmit = async (e) => {
   const { data: codigos, error } = await sb.rpc('cem_paises_de_la_portada');
   if (error || !codigos?.length) return;
 
-  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-09-04-4');
+  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-09-15');
 
   /* La cuenta sale de la lista, no de un número escrito en el texto. */
   const cuantos = codigos.length;
@@ -495,7 +499,7 @@ $('#formLead').onsubmit = async (e) => {
   fila.hidden = false;
 
   try {
-    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-09-04-4');
+    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-09-15');
     for (const t of $$('.pais-tarjeta', fila)) {
       const d = CONTORNOS[t.dataset.pais];
       /* Los países muy pequeños no tienen contorno a esta resolución. Se

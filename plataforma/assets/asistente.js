@@ -17,7 +17,12 @@
    a una tabla de personas: si la hubiera, el permiso viviría en el navegador,
    que es el único sitio donde no se puede defender. */
 
-import { sb, $, esc, profile } from './app.js?v=2026-09-04-4';
+/* De `nucleo.js`, no de `app.js`: así Cemi se puede montar también en la
+   portada, el catálogo y contacto —las páginas generadas, que no cargan
+   app.js— sin arrastrar las cuatro mil líneas del portal. Es el mismo cliente
+   y la misma caché del perfil que usa app.js, porque app.js los importa de
+   ahí también. */
+import { sb, $, esc, profile, sitioPublico } from './nucleo.js?v=2026-09-15';
 
 /* ── Cómo se llama y qué cara tiene ──────────────────────────────────────── */
 /* El nombre y el render salen de `cem_settings`, no de aquí. El dibujo
@@ -38,13 +43,12 @@ async function ajustes() {
   pidiendoAjustes = (async () => {
     const leidos = { nombre: NOMBRE_POR_DEFECTO, foto: null };
     try {
-      const { data } = await sb.from('cem_settings').select('clave, valor')
-        .in('clave', ['asistente_nombre', 'mascota_url']);
-      for (const f of data ?? []) {
-        const v = typeof f.valor === 'string' ? f.valor : f.valor?.valor ?? f.valor;
-        if (f.clave === 'asistente_nombre' && v) leidos.nombre = String(v);
-        if (f.clave === 'mascota_url' && v) leidos.foto = String(v);
-      }
+      /* Por `cem_sitio_publico()`, no leyendo la tabla de ajustes: la tabla
+         ya no la lee nadie que no sea del equipo, y así la cara y el nombre
+         llegan igual a quien entra sin cuenta y al estudiante en el aula. */
+      const { asistente } = await sitioPublico();
+      if (asistente?.nombre) leidos.nombre = String(asistente.nombre);
+      if (asistente?.foto) leidos.foto = String(asistente.foto);
     } catch { /* si falla, se queda con el nombre y el dibujo de casa */ }
     AJUSTES = leidos;
     ponerLaCaraDeVerdad();
@@ -75,10 +79,12 @@ function ponerLaCaraDeVerdad(raiz = document) {
 // suelen estar listas antes del primer dibujo y no hace falta ningún cambio.
 ajustes();
 
+/* La carpeta de este mismo archivo, venga de donde venga la página. Antes se
+   adivinaba por la ruta de la página («si tiene /admin/, sube uno») y fallaba
+   en `certificados/verificar.html`, que no es ninguna de ésas: pedía
+   `certificados/assets/mascota-cara.svg`, que no existe, y la cara salía rota. */
 function raizAssets() {
-  return location.pathname.includes('/admin/')
-    || location.pathname.includes('/estudiante/')
-    || location.pathname.includes('/docente/') ? '../assets/' : './assets/';
+  return new URL('./', import.meta.url).pathname;
 }
 
 /** La carita, para el botón y para cada respuesta. */

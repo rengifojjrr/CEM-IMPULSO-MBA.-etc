@@ -494,10 +494,37 @@ ${cuerpo}
 ${pie()}
 ${menuDelTelefono}
 ${contarLaVisita(url)}
+${medirYAtender(arriba)}
 </body>
 </html>
 `;
 }
+
+/* Los píxeles, el WhatsApp y Cemi en las páginas generadas.
+   ═══════════════════════════════════════════════════════════════════════════
+   Son las páginas donde cae la gente desde Google y desde los anuncios, y
+   hasta septiembre de 2026 eran las únicas SIN nada de esto: sin píxel no se
+   podía medir una campaña, sin WhatsApp no había por dónde escribir, y Cemi
+   —que existe para las dudas de compra— estaba en las 62 pantallas privadas
+   y en ninguna de éstas.
+
+   Los identificadores y el número no van escritos aquí: los lee `medir.js`
+   de Configuración en cada visita, así que pegarlos ahí basta y no hay que
+   esperar a que la tarea de la noche regenere nada.
+
+   Cemi se carga cuando el navegador está ocioso (o a los dos segundos y
+   medio), no con la página: trae el cliente de la base y aquí cada kilobyte
+   antes de pintar cuenta. Si algo falla, no pasa nada: la página ya está. */
+const medirYAtender = (arriba) => `
+<script type="module">
+${/* Un import necesita «./» delante en la raíz: «plataforma/…» a secas lo
+     toma el navegador por el nombre de un paquete y no lo resuelve. */''}
+import { arrancarMedicion } from '${arriba || './'}plataforma/assets/medir.js?v=${VERSION_ASSETS}';
+arrancarMedicion({ whatsapp: true });
+const cemi = () => import('${arriba || './'}plataforma/assets/asistente.js?v=${VERSION_ASSETS}')
+  .then((m) => m.montarAsistente({ ambito: 'visitante' })).catch(() => {});
+('requestIdleCallback' in window) ? requestIdleCallback(cemi, { timeout: 4000 }) : setTimeout(cemi, 2500);
+</script>`;
 
 /* Contar la visita, sin traerse `app.js` por delante.
    ═══════════════════════════════════════════════════════════════════════════
@@ -1681,6 +1708,7 @@ ${cierreDelDiplomado(dip, conv)}`;
     }).then(function (r) {
       if (!r.ok) throw new Error('');
       f.reset();
+      if (window.cemMedir) window.cemMedir('avisame', { programa: f.dataset.diplomado || '' });
       di('ok', 'Apuntado. Te escribimos en cuanto haya fecha.');
     }).catch(function () {
       di('err', 'No se pudo guardar. Inténtalo otra vez en un momento.');
@@ -1826,14 +1854,17 @@ function paginaDeContacto(temario) {
     <div class="card contacto-otros">
       <h2 style="margin-top:0">Otras formas de llegar a nosotros</h2>
       <ul class="contacto-lista">
+        ${/* Cada texto va en su <span>: el <li> es flex, y sin el span el
+             enlace se convertía en una columna aparte del texto que lo rodea
+             («se verifica solo, con su código» quedaba partido en el teléfono). */''}
         <li><span class="material-symbols-outlined" aria-hidden="true">location_on</span>
-          Caracas ${ESCUELA.codigoPostal}, estado ${esc(ESCUELA.region)}, ${esc(ESCUELA.paisNombre)}</li>
+          <span>Caracas ${ESCUELA.codigoPostal}, estado ${esc(ESCUELA.region)}, ${esc(ESCUELA.paisNombre)}</span></li>
         <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
-          ¿Comprobar un certificado? No hace falta escribir:
-          <a href="${SITIO}/plataforma/verificar.html">se verifica solo, con su código</a>.</li>
+          <span>¿Comprobar un certificado? No hace falta escribir:
+          <a href="${SITIO}/plataforma/verificar.html">se verifica solo, con su código</a>.</span></li>
         <li><span class="material-symbols-outlined" aria-hidden="true">help</span>
-          Puede que ya esté contestado en
-          <a href="${SITIO}/preguntas-frecuentes.html">las preguntas frecuentes</a>.</li>
+          <span>Puede que ya esté contestado en
+          <a href="${SITIO}/preguntas-frecuentes.html">las preguntas frecuentes</a>.</span></li>
       </ul>
     </div>
   </div>
@@ -1888,6 +1919,7 @@ function paginaDeContacto(temario) {
       return r.ok ? r.json() : r.json().then(function (j) { throw new Error(j.message || ''); });
     }).then(function () {
       f.reset();
+      if (window.cemMedir) window.cemMedir('contacto', { programa: document.getElementById('cInteres').value || '' });
       di('ok', 'Recibido. Te escribimos pronto, normalmente el mismo día.');
     }).catch(function (err) {
       di('err', err.message || 'No se pudo enviar. Inténtalo otra vez en un momento.');
@@ -2275,7 +2307,6 @@ Disallow: /plataforma/confirmar.html
 
 # Restos de cuando esto era un repositorio de herramientas sueltas.
 Disallow: /proyectos.html
-Disallow: /mejorasparaelCEM.html
 Disallow: /admin.html
 
 Sitemap: ${SITIO}/sitemap.xml

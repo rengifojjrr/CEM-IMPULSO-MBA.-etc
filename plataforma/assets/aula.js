@@ -11,7 +11,7 @@
    y alguien pueda preguntar. */
 
 import { sb, $, $$, esc, fdate, fdatetime, num, modal, ok, okDeshacer, fail, mensajeError,
-         avisar, ocupado, initials, confirmarBorrado } from './app.js?v=2026-09-04-4';
+         avisar, ocupado, initials, confirmarBorrado } from './app.js?v=2026-09-15';
 
 /** Segundos a «12:04». Se usa en las dudas y al retomar un vídeo. */
 export const reloj = (s) => {
@@ -476,6 +476,52 @@ function unaDuda(d, puedeResponder) {
    Antes su única salida era pedirle el teléfono a administración. Queda
    registrado a propósito: un mensaje de la escuela a un alumno no es una
    conversación privada, y si acaba en una queja tiene que poder consultarse. */
+/** Escribirles a varios de una vez: los que faltan por entregar, los marcados
+    en la lista. Es el mismo mensaje para todos, uno a uno por
+    `cem_mensaje_a_estudiante`, para que cada envío quede registrado igual que
+    si se hubiera mandado a mano. Se avanza de uno en uno y se dice cuántos
+    salieron y cuántos no: un lote que se manda a ciegas es peor que ninguno.
+    @param {{profile_id:string, nombre?:string}[]} personas
+    @param {{titulo?:string, asunto?:string, cuerpo?:string}} previo */
+export function escribirAVarios(personas, { titulo, asunto = '', cuerpo = '' } = {}){
+  const lista = (personas || []).filter(p => p?.profile_id);
+  if (!lista.length) { fail('No hay a quién escribirle.'); return null; }
+  const m = modal({ title: titulo || `Escribirles a ${lista.length} estudiante(s)`, body: `
+    <p class="tiny muted">El mismo mensaje para cada uno. Les llega como aviso dentro de la
+      plataforma y por correo, y cada envío queda registrado.</p>
+    <div class="row sep-poco" style="gap:6px;flex-wrap:wrap">${lista.slice(0, 12).map(p =>
+      `<span class="chip neutral">${esc(p.nombre || 'estudiante')}</span>`).join('')}${
+      lista.length > 12 ? `<span class="chip neutral">y ${lista.length - 12} más</span>` : ''}</div>
+    <div class="field"><label>Asunto *</label>
+      <input id="mAsunto" maxlength="120" value="${esc(asunto)}"></div>
+    <div class="field"><label>Mensaje *</label>
+      <textarea id="mCuerpo" rows="6" maxlength="2000">${esc(cuerpo)}</textarea></div>
+    <div id="mMsg" aria-live="polite"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" id="mGo">Enviar a ${lista.length}</button>` });
+  $('[data-x]', m).onclick = m.close;
+  $('#mGo', m).onclick = () => ocupado('#mGo', 'Enviando…', async () => {
+    const a = $('#mAsunto', m).value.trim(), c = $('#mCuerpo', m).value.trim();
+    if (!a || c.length < 10) {
+      avisar($('#mMsg', m), 'Hace falta un asunto y un mensaje con una frase completa.', 'err');
+      return;
+    }
+    let bien = 0; const mal = [];
+    for (const p of lista) {
+      const { error } = await sb.rpc('cem_mensaje_a_estudiante',
+        { p_profile_id: p.profile_id, p_asunto: a, p_cuerpo: c });
+      if (error) mal.push(p.nombre || p.profile_id); else bien++;
+      avisar($('#mMsg', m), `Enviados ${bien} de ${lista.length}…`, '');
+    }
+    if (mal.length) {
+      avisar($('#mMsg', m), `Salieron ${bien}. No se pudo escribir a: ${mal.join(', ')}.`, 'err');
+      return;
+    }
+    m.close(); ok(`Enviado a ${bien} estudiante(s).`);
+  });
+  return m;
+}
+
 export function escribirle(profileId, nombre){
   const m = modal({ title: `Escribirle a ${nombre || 'un estudiante'}`, body: `
     <p class="tiny muted">Le llega como aviso dentro de la plataforma y por correo.

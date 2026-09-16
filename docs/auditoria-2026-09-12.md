@@ -11,6 +11,66 @@ archivo es la referencia que queda en el repositorio.
 
 ---
 
+## Qué se hizo con esto · 15 de septiembre de 2026
+
+Todo lo de código de las secciones 2, 4 y 5 se aplicó el 15 de septiembre.
+Lo que sigue pendiente es lo que sólo puede hacer el dueño, y está en
+`docs/lo-que-falta.md` §0.
+
+**Hecho (base):** las cinco funciones de reloj revocadas a `authenticated`;
+`cem_alertas_gobierno` y `cem_tasa_bcv_recoger` con guardia de rol;
+`cem_tasa_vigente` con una sola firma; `cem_visita_anotar` conserva la barra y
+no tira la visita si el curso no existe; `cem_mis_notificaciones` cuenta las no
+leídas una vez; `cem_settings` sólo la lee el equipo y lo público sale por
+`cem_sitio_publico()`; cada contacto nuevo —venga por el formulario, un
+recurso, una promoción o el asistente— avisa al equipo (cobranza incluida) y
+recibe un acuse; recordatorio diario de contactos con más de un día sin
+atender; dos plantillas más (convocatoria, cierre).
+
+**Hecho (código):** la cara de Cemi ya no da 404 en el verificador del QR;
+«0 programas abiertos» no se enseña; los flotantes se apartan al abrir a Cemi
+y las páginas públicas dejan sitio al pie; la lista de contacto ya no se parte
+en el teléfono; el sondeo de avisos pasa de 2 a 5 minutos; fuera los 50 MB de
+zips y `mejorasparaelCEM.html`; el módulo `nucleo.js` permite montar a Cemi en
+la portada, el catálogo, contacto y cada programa; `medir.js` inyecta GA4 y el
+píxel de Meta y mide contacto, «avísame», WhatsApp, compra y verificación;
+botón de WhatsApp en las páginas generadas y dentro de «¿Tienes dudas?»;
+Configuración tiene el apartado «Medir y que nos escriban»; Contactos abre por
+`?id=` desde la campana, filtra por `?estado=` y marca «contactado» de un
+clic; previas en correo, comunicaciones, insignias, campañas, listas de
+pre-registro, programas (ficha pública) y evaluaciones; selección múltiple en
+Estudiantes; exportar, anunciar y duplicar en Cohortes; mensajes en lote en Mi
+grupo; las cuatro funciones desplegadas están en el repositorio.
+
+**Pendiente del dueño:** rotar las tres claves; abrir la convocatoria; pegar
+GA4, Meta y el WhatsApp en Configuración; reconectar el puente de WhatsApp;
+formas de pago locales; protección de contraseñas filtradas; periodo activo;
+24 diplomas y 9 alertas; el proyecto SEM; separar proyectos; sembrar cuentas
+de prueba; el texto de la portada.
+
+### ¿Alguien nos escribe? · el flujo de contacto
+
+```mermaid
+flowchart TD
+  A["Alguien escribe<br/>formulario · recurso · promoción · Cemi · «avísame»"] --> B[("cem_leads<br/>estado: nuevo")]
+  B --> C["Disparador cem_lead_al_entrar"]
+  C --> D["Aviso al equipo<br/>cobranza · coordinación · admin<br/>campana + correo"]
+  C --> E["Acuse a la persona<br/>«Recibimos tu mensaje»<br/>(si dejó correo real)"]
+  D --> F{"¿Alguien le escribe<br/>en menos de 24 h?"}
+  F -- "sí: WhatsApp, correo o plantilla<br/>desde Contactos" --> G["contactado"]
+  F -- no --> H["13:00 · cem_leads_recordar<br/>un aviso al día con la cuenta"]
+  H --> F
+  G --> I{"¿Contesta?"}
+  I -- sí --> J["interesado<br/>+3 días: plantilla «seguimiento»"]
+  I -- no --> K["plantilla «cierre» → descartado"]
+  J --> L{"¿Se inscribe?"}
+  L -- sí --> M["inscrito · pasa a estudiante"]
+  L -- "todavía no" --> N["Al abrir convocatoria:<br/>plantilla «convocatoria»"]
+  N --> L
+```
+
+---
+
 ## En una página
 
 **La máquina está bien construida y sana. Lo que no tiene es combustible.**

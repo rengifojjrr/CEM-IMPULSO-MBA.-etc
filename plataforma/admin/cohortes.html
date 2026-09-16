@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -53,7 +53,7 @@
 </div>
 
 <script type="module">
-import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, montarAyudas, conectarFiltros } from '../assets/app.js?v=2026-09-04-4';
+import { sb, mount, $, $$, esc, chip, bar, num, fdate, emptyRow, match, kpi, modal, ok, fail, run, audit, qs, mejorarSelects, montarHorarioPicker, horarioResumen, opciones, chipEstado, accionVacio, etiqueta, ordenable, ordenarPor, montarAyudas, conectarFiltros, toCSV, download, mensajeError } from '../assets/app.js?v=2026-09-15';
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cohortes.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
@@ -105,11 +105,39 @@ function render(){
       <td class="nowrap">
         <a class="btn ghost sm" href="calendario.html?cohorte=${r.id}" title="Calendario" aria-label="Calendario"><span class="material-symbols-outlined" aria-hidden="true">calendar_today</span></a>
         <a class="btn ghost sm" href="inscripciones.html?cohorte=${r.id}" title="Inscritos" aria-label="Inscritos"><span class="material-symbols-outlined" aria-hidden="true">group</span></a>
-        ${editable?`<button class="btn ghost sm" data-edit="${r.id}" title="Editar la cohorte" aria-label="Editar la cohorte"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>`:''}
+        <a class="btn ghost sm" href="comunicaciones.html?cohorte=${r.id}" title="Anunciar algo a este grupo" aria-label="Anunciar algo a este grupo"><span class="material-symbols-outlined" aria-hidden="true">campaign</span></a>
+        <button class="btn ghost sm" data-export="${r.id}" title="Exportar la lista de inscritos" aria-label="Exportar la lista de inscritos"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>
+        ${editable?`<button class="btn ghost sm" data-dup="${r.id}" title="Duplicar para la siguiente convocatoria" aria-label="Duplicar para la siguiente convocatoria"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>
+        <button class="btn ghost sm" data-edit="${r.id}" title="Editar la cohorte" aria-label="Editar la cohorte"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button>`:''}
       </td></tr>`;
   }).join('') : emptyRow(9, 'Todavía no hay cohortes. Una cohorte es el grupo con el que un programa se dicta.', {texto:'Crear la primera cohorte', id:'vacioCohorte', icono:'group_add'});
   $$('[data-edit]').forEach(b => b.onclick = () => form(rows.find(x=>x.id===b.dataset.edit)));
+  /* Duplicar: la siguiente convocatoria es casi siempre la misma cohorte con
+     otras fechas. Se abre el formulario ya relleno, sin fechas y en
+     «planificada», y no se guarda nada hasta que se pulse Guardar. */
+  $$('[data-dup]').forEach(b => b.onclick = () => {
+    const c = rows.find(x=>x.id===b.dataset.dup);
+    form({ ...c, id: undefined, codigo: `${c.codigo}-2`, nombre: `${c.nombre} (siguiente)`,
+           fecha_inicio: null, fecha_fin: null, estado: 'planificada' }, { duplicar: true });
+  });
+  $$('[data-export]').forEach(b => b.onclick = () => exportarCohorte(rows.find(x=>x.id===b.dataset.export)));
   ordenable('#tabla', ordenCohortes, render);
+}
+
+/* La lista de inscritos de una cohorte, en Excel. Antes había que ir a
+   Inscripciones, filtrar y exportar desde allí. */
+async function exportarCohorte(c){
+  const { data, error } = await sb.from('cem_enrollments')
+    .select('estado, progreso, fecha_inscripcion, cem_profiles!cem_enrollments_profile_id_fkey(nombre,apellido,email,telefono,documento,pais)')
+    .eq('cohort_id', c.id).order('fecha_inscripcion');
+  if (error) { fail(mensajeError(error)); return; }
+  if (!data?.length) { fail('Esta cohorte no tiene inscritos todavía.'); return; }
+  download(`cohorte_${String(c.codigo||c.nombre).replace(/[^\w-]+/g,'_')}.csv`, toCSV(data.map(e => ({
+    nombre: e.cem_profiles?.nombre||'', apellido: e.cem_profiles?.apellido||'', email: e.cem_profiles?.email||'',
+    telefono: e.cem_profiles?.telefono||'', documento: e.cem_profiles?.documento||'', pais: e.cem_profiles?.pais||'',
+    estado: e.estado||'', progreso: Math.round(Number(e.progreso||0)),
+    inscrito_el: e.fecha_inscripcion ? String(e.fecha_inscripcion).slice(0,10) : '' }))));
+  ok(`${data.length} inscrito(s) exportado(s).`);
 }
 
 /** item 26 · por qué columna se está ordenando. */
@@ -120,12 +148,12 @@ $('#btnNueva').onclick = () => form(null);
 /* item 19 · el vacío ofrece la acción, no sólo la noticia de que está vacío. */
 accionVacio('vacioCohorte', () => form(null));
 
-function form(c){
-  const isNew = !c;
+function form(c, { duplicar = false } = {}){
+  const isNew = !c || duplicar;
   /* item 22 · eran catorce campos seguidos, sin ningún corte: el nombre pesaba
      lo mismo que el salón. Ahora van en tres bloques —qué grupo es, cuándo se
      da, quién lo dicta— y lo que casi nunca se toca queda plegado. */
-  const m = modal({ title: isNew?'Nueva cohorte':`Editar: ${c.nombre}`, wide:true, body:`
+  const m = modal({ title: duplicar ? `Nueva cohorte, a partir de ${c.nombre.replace(' (siguiente)','')}` : isNew ? 'Nueva cohorte' : `Editar: ${c.nombre}`, wide:true, body:`
     <h3 class="sec">Qué grupo es</h3>
     <div class="row">
       <div class="field largo"><label>Programa *</label><select id="cCurso" required>

@@ -53,8 +53,15 @@ las pruebas que necesitan sembrar algo se saltan ese paso y lo dicen.
 | `casos/certificados.mjs` | el generador compartido y la generación de un lote |
 | `casos/simplificar.mjs` | que la plataforma siga siendo simple: tablas legibles en el teléfono, un solo buscador, columnas a elegir, indicadores que explican qué cuentan y ningún valor crudo de la base |
 
-Hoy son **146 comprobaciones** repartidas en esos siete archivos, y las 146
-pasan. Ese número es la referencia: si baja, algo se dejó de comprobar.
+Esos siete son el núcleo. Con todo lo que se fue añadiendo (público, puertas,
+gamificación, pre-registro, certificados, asistente, mensajería…) hoy son
+**32 archivos y 916 comprobaciones** (`grep -o "comprobar(" casos/*.mjs | wc -l`).
+Ese número es la referencia: si baja, algo se dejó de comprobar.
+
+Y hay que decirlo claro: **no corren solas todavía**. Necesitan las cuentas
+`@pruebas.local` sembradas, `CEM_PASS` como secreto del repositorio y
+`CORRER_PRUEBAS_E2E=si` en la acción de GitHub. Hasta que eso se haga, pasan
+sólo cuando alguien las corre a mano con las cuentas puestas.
 
 `simplificar.mjs` es distinto de los demás: no comprueba que algo funcione,
 sino que siga siendo fácil de usar. Son las cosas que se rompen sin que nadie

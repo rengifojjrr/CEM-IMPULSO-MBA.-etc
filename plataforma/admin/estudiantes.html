@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -57,8 +57,18 @@
       </div>
     </details>
     <div class="row between sep-poco"><span id="cuenta"></span></div>
+    <!-- Lo que se hace con varios a la vez: escribirles o exportar sólo los
+         marcados. Antes no había ni una casilla, y mandar el mismo aviso a
+         doce personas era abrir doce fichas. -->
+    <div class="row sep-poco" id="barraSel" hidden
+      style="gap:var(--e1);align-items:center;flex-wrap:wrap;padding:var(--e1) var(--e2);background:var(--hueco);border-radius:var(--r)">
+      <b><span id="selCuenta">0</span> marcado(s)</b>
+      <button class="btn sm" id="btnSelEscribir"><span class="material-symbols-outlined" aria-hidden="true">mail</span> Escribirles</button>
+      <button class="btn outline sm" id="btnSelExportar"><span class="material-symbols-outlined" aria-hidden="true">download</span> Exportar los marcados</button>
+      <button class="btn ghost sm" id="btnSelNada">Quitar la marca</button>
+    </div>
     <div class="table-wrap"><table class="tarjetas" id="tabla">
-      <thead><tr><th data-ord="nombre">Estudiante</th><th data-ord="pais">País</th><th class="num" data-ord="_n">Cursos</th>
+      <thead><tr><th style="width:1%"><input type="checkbox" id="selTodos" aria-label="Marcar a todos los que se ven"></th><th data-ord="nombre">Estudiante</th><th data-ord="pais">País</th><th class="num" data-ord="_n">Cursos</th>
         <th data-ord="_prog">Progreso</th><th class="num" data-ord="_saldo">Saldo</th>
         <th data-ord="_acceso">Último acceso</th><th data-ord="_estado">Situación</th><th></th></tr></thead>
       <tbody id="tb"></tbody></table></div>
@@ -68,8 +78,9 @@
 <script type="module">
 import { sb, mount, MONEDA_BASE, $, $$, esc, chip, bar, num, money, pct, fdate, emptyRow, match, kpi, initials, avatar,
          toCSV, download, modal, ok, fail, SUPABASE_URL, SUPABASE_KEY,
-         selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor, avisar, filtrosEnLaDireccion, contarFilas, conectarFiltros } from '../assets/app.js?v=2026-09-04-4';
-import { paisConBandera } from '../assets/paises.js?v=2026-09-04-4';
+         selectorColumnas, montarAyudas, accionVacio, ordenable, ordenarPor, avisar, filtrosEnLaDireccion, contarFilas, conectarFiltros } from '../assets/app.js?v=2026-09-15';
+import { paisConBandera } from '../assets/paises.js?v=2026-09-15';
+import { escribirAVarios } from '../assets/aula.js?v=2026-09-15';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'estudiantes.html', area:'admin' });
 let rows=[];
 if (p) load();
@@ -123,6 +134,8 @@ function render(){
   $('#nFiltros').hidden = !n; $('#nFiltros').textContent = n;
   contarFilas('#cuenta', list.length, rows.length, 500);
   $('#tb').innerHTML = list.length? list.map(r=>`<tr class="clickable" onclick="location.href='estudiante.html?id=${r.id}'">
+    <td data-col="" onclick="event.stopPropagation()"><input type="checkbox" class="selEst" value="${r.id}"
+      aria-label="Marcar a ${esc(r.nombre)} ${esc(r.apellido||'')}"></td>
     <td data-col="Estudiante"><div class="row" style="gap:9px;flex-wrap:nowrap">${avatar(r)}
       <div><b>${esc(r.nombre)} ${esc(r.apellido||'')}</b><div class="tiny muted">${esc(r.email)}</div></div></div></td>
     <td data-col="País">${r.pais?esc(paisConBandera(r.pais)):'—'}</td><td class="num" data-col="Cursos">${num(r._n)}</td>
@@ -133,10 +146,30 @@ function render(){
     <td class="muted" data-col="Último acceso">${r._acceso?fdate(r._acceso):'—'}</td>
     <td data-col="Situación">${r._estado==='excelente'?chip('Va muy bien','ok'):r._estado==='riesgo'?chip('En riesgo','err'):r._estado==='inactivo'?chip('Sin entrar','neutral'):chip('Activo','info')}</td>
     <td><span class="material-symbols-outlined">chevron_right</span></td></tr>`).join('')
-    : emptyRow(8, rows.length ? 'Ningún estudiante coincide con lo que buscaste.' : 'Todavía no hay estudiantes.',
+    : emptyRow(9, rows.length ? 'Ningún estudiante coincide con lo que buscaste.' : 'Todavía no hay estudiantes.',
         rows.length ? null : {texto:'Inscribir al primero', id:'irNuevo', icono:'person_add'});
   ordenable('#tabla', ordenEstudiantes, render);
+  $('#selTodos').checked = false; pintarBarraSel();
 }
+
+/* ── varios a la vez ──────────────────────────────────────────────────────── */
+const marcados = () => { const ids = new Set($$('.selEst:checked').map(c => c.value)); return rows.filter(r => ids.has(r.id)); };
+function pintarBarraSel(){ const n = $$('.selEst:checked').length; $('#barraSel').hidden = !n; $('#selCuenta').textContent = n; }
+document.addEventListener('change', (ev) => {
+  if (ev.target.id === 'selTodos') { $$('.selEst').forEach(c => c.checked = ev.target.checked); pintarBarraSel(); }
+  else if (ev.target.classList?.contains('selEst')) pintarBarraSel();
+});
+$('#btnSelNada').onclick = () => { $$('.selEst').forEach(c => c.checked = false); $('#selTodos').checked = false; pintarBarraSel(); };
+$('#btnSelEscribir').onclick = () => escribirAVarios(
+  marcados().map(r => ({ profile_id: r.id, nombre: `${r.nombre} ${r.apellido||''}`.trim() })));
+$('#btnSelExportar').onclick = () => {
+  const list = marcados();
+  if (!list.length) { fail('No hay nadie marcado.'); return; }
+  download('estudiantes_marcados.csv', toCSV(list.map(r=>({
+    nombre:r.nombre, apellido:r.apellido, email:r.email, pais:r.pais?paisConBandera(r.pais):'', documento:r.documento,
+    cursos:r._n, progreso:Math.round(r._prog), saldo:r._saldo, estado:r._estado }))));
+  ok(`${list.length} estudiante(s) exportado(s).`);
+};
 /* items 13 y 14 · el filtro vive en la dirección, así el botón de atrás
    funciona y se puede mandar «mira esta pantalla como la veo yo». Y la lista
    dice cuántas filas se están viendo de cuántas hay: antes se cortaba en
@@ -157,10 +190,11 @@ $('#btnExport').onclick=()=>{
 };
 
 /* item 24 · cada área mira columnas distintas; que cada quien apague las suyas. */
-selectorColumnas('#tabla', '#zonaColumnas', 'cemColEstudiantes', [
-  { i:1, nombre:'Estudiante', fija:true }, { i:2, nombre:'País' }, { i:3, nombre:'Cursos' },
-  { i:4, nombre:'Progreso' }, { i:5, nombre:'Saldo' }, { i:6, nombre:'Último acceso' },
-  { i:7, nombre:'Situación' },
+/* La primera columna es la casilla de marcar; las de datos empiezan en la 2. */
+selectorColumnas('#tabla', '#zonaColumnas', 'cemColEstudiantes2', [
+  { i:2, nombre:'Estudiante', fija:true }, { i:3, nombre:'País' }, { i:4, nombre:'Cursos' },
+  { i:5, nombre:'Progreso' }, { i:6, nombre:'Saldo' }, { i:7, nombre:'Último acceso' },
+  { i:8, nombre:'Situación' },
 ]);
 
 /* ============ importar una cohorte entera desde Excel ============

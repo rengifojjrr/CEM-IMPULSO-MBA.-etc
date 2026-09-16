@@ -1,5 +1,13 @@
 // CEM · Runtime compartido por todas las páginas de la plataforma.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+/* El cliente de la base, las dos ayudas de HTML y el perfil viven en
+   `nucleo.js` y aquí se vuelven a exportar: las pantallas siguen importando
+   de este archivo lo mismo de siempre, y el asistente puede montarse en las
+   páginas generadas sin cargar todo esto. Ver la cabecera de nucleo.js. */
+import { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil,
+         sitioPublico } from './nucleo.js?v=2026-09-15';
+export { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil, sitioPublico };
+import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-09-15';
+export { medir };
 
 /* La apariencia elegida se aplica al importar este módulo, que es lo primero
    que corre en cualquier pantalla y ocurre antes de que `mount()` destape
@@ -8,11 +16,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-09-04-4';
-
-export const SUPABASE_URL = 'https://vajbsfgojtunamhrzrpf.supabase.co';
-export const SUPABASE_KEY = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
-export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+         vidrioActual } from './temas.js?v=2026-09-15';
 
 /* La marca de versión del logotipo. Tiene que decir lo MISMO que VERSION_ICONO
    en herramientas/iconos.mjs y en herramientas/generar-seo.mjs: es la fecha del
@@ -23,9 +27,6 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const VERSION_ICONO = '2026-09-03';
 
 /* ============ utilidades ============ */
-export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export const $ = (sel, root = document) => root.querySelector(sel);
-export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 /* La moneda de la casa. El CEM pone precio en euros a tasa BCV; el dólar y el
    bolívar son formas de pagar, no formas de cobrar. Está aquí y no repetido en
    cincuenta pantallas para que cambiarlo sea cambiar una línea. */
@@ -942,21 +943,6 @@ export function abrirSubidaVideo({ tituloDefault = '' } = {}) {
 }
 
 /* ============ sesión y perfil ============ */
-let _profile = null;
-export async function profile() {
-  if (_profile) return _profile;
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return null;
-  const { data } = await sb.rpc('cem_my_profile');
-  const row = Array.isArray(data) ? data[0] : data;
-  // cem_my_profile() devuelve UNA fila (no un conjunto): si la sesión no
-  // tiene perfil todavía, Postgres no da "sin filas" sino un registro con
-  // todos los campos en null — un objeto, así que sigue siendo verdadero en
-  // JS. Sin este chequeo, una cuenta sin perfil se veía como "desactivada"
-  // en vez de mandarla al login (que sí sabe qué hacer si no hay sesión).
-  _profile = (row && row.id) ? row : null;
-  return _profile;
-}
 let _saliendoAProposito = false;
 export async function logout() {
   _saliendoAProposito = true;
@@ -1098,7 +1084,7 @@ function vigilarSesion() {
   sb.auth.onAuthStateChange((evento, sesion) => {
     if (evento === 'SIGNED_OUT' && !sesion) sesionVencida();
     if (evento === 'TOKEN_REFRESHED' && !sesion) sesionVencida();
-    if (evento === 'USER_UPDATED') _profile = null;
+    if (evento === 'USER_UPDATED') olvidarPerfil();
   });
 }
 
@@ -1407,6 +1393,9 @@ export async function mount(opts = {}) {
        nadie se entere. */
     montarContactoPublico();
     renderPublicFooter();
+    /* Los píxeles de analítica, si el equipo los pegó en Configuración. El
+       botón de WhatsApp aquí no hace falta: va dentro de «¿Tienes dudas?». */
+    sinRomperNada(arrancarMedicion({ whatsapp: false }));
     /* Y Cemi. Estaba en las 62 pantallas privadas y en ninguna de las 15
        públicas: en todas menos donde hay dudas de compra. Como visitante no
        sabe nada de nadie —sólo el catálogo— y lo único que puede hacer es
@@ -1527,7 +1516,11 @@ function anotarLaVisita() {
     sessionStorage.setItem(`cemVisto:${pantalla}`, '1');
   } catch { /* navegación privada, o almacenamiento bloqueado: se cuenta igual */ }
 
-  const curso = qs('id') || qs('curso');
+  /* `?id=` sólo es un curso en la ficha del curso. En verificar.html es el
+     identificador de un certificado, y mandarlo como curso hacía que la base
+     rechazara la visita entera (clave ajena que no existe): las visitas a
+     los certificados no se contaban. La base además lo comprueba. */
+  const curso = qs('curso') || (/curso\.html$/.test(location.pathname) ? qs('id') : null);
   sinRomperNada(sb.rpc('cem_visita_anotar', {
     p_pantalla: pantalla,
     p_course_id: /^[0-9a-f-]{36}$/i.test(curso || '') ? curso : null,
@@ -1588,6 +1581,7 @@ export function abrirContacto({ interes = '', titulo = '' } = {}) {
   const dlg = modal({
     title: titulo || 'Hablemos',
     body: `
+      <div id="ctWhatsApp"></div>
       <p class="tiny muted" style="margin-top:0">Déjanos tus datos y te escribimos.
         Normalmente el mismo día.</p>
       <div class="field"><label for="ctNombre">Tu nombre</label>
@@ -1620,6 +1614,7 @@ export function abrirContacto({ interes = '', titulo = '' } = {}) {
       p_origen: location.pathname.split('/').pop().replace('.html', '') || 'web',
     });
     if (error) { avisar(cajaMsg, mensajeError(error), 'err'); return; }
+    medir(titulo === 'Avísame cuando abra' ? 'avisame' : 'contacto', { programa: interes || '' });
     /* Se confirma dentro de la ventana y no con un mensajito que se va: quien
        acaba de dar su teléfono quiere ver, sin prisa, que llegó. */
     $('.modal-b', dlg).innerHTML = `<div style="text-align:center;padding:12px 0">
@@ -1629,6 +1624,20 @@ export function abrirContacto({ interes = '', titulo = '' } = {}) {
     $('.modal-f', dlg).innerHTML = '<button class="btn block" data-x>Listo</button>';
     $('[data-x]', dlg).onclick = () => dlg.close();
   };
+
+  /* Si el CEM puso su WhatsApp en Configuración, va arriba del todo: es por
+     donde escribe casi todo el mundo, y quien lo prefiere no tiene por qué
+     rellenar un formulario. El formulario sigue debajo para quien no. */
+  sinRomperNada(sitioPublico().then((cfg) => {
+    const href = enlaceWhatsAppPublico(cfg, interes || $('h1')?.textContent?.trim().slice(0, 80) || '');
+    const hueco = $('#ctWhatsApp', dlg);
+    if (!href || !hueco) return;
+    hueco.innerHTML = `<a class="btn block wa-btn" href="${esc(href)}" target="_blank" rel="noopener"
+        style="margin-bottom:var(--e2)">
+        <span class="material-symbols-outlined" aria-hidden="true">chat</span> Escríbenos por WhatsApp</a>
+      <p class="tiny muted" style="text-align:center;margin:0 0 var(--e2)">— o déjanos tus datos —</p>`;
+    $('.wa-btn', hueco).onclick = () => medir('whatsapp', { programa: interes || '' });
+  }));
   return dlg;
 }
 
@@ -1668,7 +1677,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-09-04-4')
+  import('./asistente.js?v=2026-09-15')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2376,7 +2385,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-09-04-4');
+    const m = await import('./apariencia.js?v=2026-09-15');
 
     m.abrirApariencia();
 
@@ -2589,8 +2598,9 @@ async function montarCampana() {
   };
 
   refrescar();
-  // Cada dos minutos alcanza: son avisos, no un chat.
-  setInterval(refrescar, 120000);
+  // Cada cinco minutos alcanza: son avisos, no un chat. Con dos minutos, cada
+  // pestaña abierta del equipo hacía 720 consultas al día para no ver nada nuevo.
+  setInterval(refrescar, 300000);
 }
 
 /* El encabezado público lo usan pantallas de la raíz de la plataforma y también

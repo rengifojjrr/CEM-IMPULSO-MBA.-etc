@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-04-4">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-04-4">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
 </head>
 <body>
 <div id="page" class="hidden">
@@ -51,7 +51,7 @@
   </div>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, chipNota, fdate, kpi, num, match, vacio, qs, conectarFiltros } from '../assets/app.js?v=2026-09-04-4';
+import { sb, mount, $, $$, esc, chip, chipNota, fdate, fdatetime, kpi, num, match, vacio, qs, conectarFiltros, modal } from '../assets/app.js?v=2026-09-15';
 
 /* ============ las evaluaciones, con su propia pantalla ============
    Vivían dentro del panel, en una tarjeta que enseñaba seis y se perdía en
@@ -152,12 +152,41 @@ function render(){
           ${a.tiempo_min ? `${a.tiempo_min} min · ` : ''}${a.intentos||1} intento(s)${
           ult?.entregado_en ? ` · entregado el ${fdate(ult.entregado_en)}` : ''}</div>
       </div>
+      <button class="btn ghost sm" data-info="${a.id}" title="Ver de qué va antes de empezar" aria-label="Ver de qué va antes de empezar">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span></button>
       ${estado}${accion}</div>`;
   }).join('')
     : (tareas.length
       ? '<p class="muted tiny">Ninguna evaluación coincide con lo que has filtrado.</p>'
       : vacio({ icono:'task_alt', titulo:'No tienes nada por entregar',
           texto:'Cuando un profesor abra una evaluación de tus programas, te aparecerá aquí.' }));
+
+  /* De qué va, antes de empezar: cuántas preguntas, cuánto tiempo, cuántos
+     intentos y hasta cuándo. Antes lo único que se sabía era el nombre, y se
+     descubría el resto ya dentro, con el reloj corriendo. */
+  $$('[data-info]').forEach((b) => b.onclick = async () => {
+    const t = tareas.find((x) => x.a.id === b.dataset.info); if (!t) return;
+    const { a, usados, enr } = t;
+    const m = modal({ title: a.nombre, body: `
+      <p class="muted" style="margin-top:0">${esc(t._curso)}</p>
+      ${a.descripcion ? `<p style="white-space:pre-wrap">${esc(a.descripcion)}</p>` : ''}
+      <div class="grid g2" style="gap:var(--e1)">
+        <div><b class="tiny">Preguntas</b><div id="evPreg">Contando…</div></div>
+        <div><b class="tiny">Tiempo</b><div>${a.tiempo_min ? `${a.tiempo_min} minutos desde que empiezas` : 'Sin límite'}</div></div>
+        <div><b class="tiny">Intentos</b><div>${usados} de ${a.intentos || 1} usados</div></div>
+        <div><b class="tiny">Nota mínima</b><div>${a.nota_aprobatoria || 70} de 100</div></div>
+        <div><b class="tiny">Se abre</b><div>${a.abre_en ? fdatetime(a.abre_en) : 'Ya está abierta'}</div></div>
+        <div><b class="tiny">Se cierra</b><div>${a.cierra_en ? fdatetime(a.cierra_en) : 'Sin fecha de cierre'}</div></div>
+      </div>
+      <p class="tiny muted sep-poco">${a.una_por_pagina ? 'Una pregunta por página. ' : ''}${
+        a.barajar ? 'Las preguntas salen en orden distinto cada vez. ' : ''}${
+        a.mostrar_correctas ? 'Al terminar verás cuáles acertaste.' : 'Al terminar verás tu nota, no las respuestas.'}</p>`,
+      footer: `<button class="btn outline" data-x>Cerrar</button>
+        <a class="btn" href="evaluacion.html?id=${a.id}&enr=${enr}">${usados ? 'Ir a la evaluación' : 'Empezar'}</a>` });
+    $('[data-x]', m).onclick = m.close;
+    const { data: n } = await sb.rpc('cem_evaluacion_cuantas_preguntas', { p_assessment_id: a.id });
+    const c = $('#evPreg', m); if (c) c.textContent = n == null ? '—' : `${n} pregunta(s)`;
+  });
 }
 
 const CAMPOS = ['#q','#fCurso','#fEstado'];

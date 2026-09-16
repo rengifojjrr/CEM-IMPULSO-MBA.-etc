@@ -137,7 +137,7 @@
   </section>
 </div>
 <script type="module">
-import { sb, mount, $, esc, fdate, qs, ok, fail } from '../plataforma/assets/app.js?v=2026-09-04-4';
+import { sb, mount, $, esc, fdate, qs, ok, fail, medir } from '../plataforma/assets/app.js?v=2026-09-04-4';
 /* El mismo dibujante que usa la escuela para imprimir. Es lo que hace que la
    lámina de esta pantalla y el papel que tiene delante quien la mira sean el
    mismo documento — que es justo lo que se le está pidiendo que compruebe. */
@@ -203,6 +203,7 @@ async function verificar(){
 
   const datos = fila.datos || {};
   const vigente = fila.estado === 'vigente';
+  medir('verificar', { programa: String(datos.Curso || datos.curso || '').slice(0, 80) });
   sello(
     vigente ? 'ok' : 'err',
     vigente ? 'verified' : 'gpp_bad',

@@ -26,7 +26,6 @@ Disallow: /plataforma/confirmar.html
 
 # Restos de cuando esto era un repositorio de herramientas sueltas.
 Disallow: /proyectos.html
-Disallow: /mejorasparaelCEM.html
 Disallow: /admin.html
 
 Sitemap: https://escuelacem.com/sitemap.xml

@@ -52,3 +52,22 @@ verify_jwt = false
 # El cobro de una cuota de alguien que YA es alumno. Esta sí trae sesión: se
 # llama desde el aula, con la persona dentro.
 verify_jwt = true
+
+# Las cuatro que sólo existían desplegadas y se bajaron al repositorio el 15 de
+# septiembre de 2026 (radiografía). Todas con sesión: las llama el equipo desde
+# la plataforma, y cada una vuelve a comprobar el rol por dentro.
+[functions.cem-bancaribe]
+# El intermediario con el banco. Consulta para cobranza, configuración para admin.
+verify_jwt = true
+
+[functions.cem-bancaribe-probe]
+# Diagnóstico de la conexión con el banco. Sólo admin.
+verify_jwt = true
+
+[functions.cem-youtube-oauth-exchange]
+# Conectar el canal de YouTube. Sólo admin.
+verify_jwt = true
+
+[functions.cem-youtube-upload-token]
+# El permiso de subida de corta duración para quien crea contenido.
+verify_jwt = true
