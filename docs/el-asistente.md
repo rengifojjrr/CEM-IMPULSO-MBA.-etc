@@ -560,6 +560,16 @@ no recordaba haberlo dicho. Arreglado en
 `20260916000002_cemi_visitante_con_memoria.sql`, y el error ahora se escribe
 en el log en vez de tragarse.
 
+Dos cosas más de esa misma prueba. La ficha automática «Grupos con
+inscripción abierta» metía la cohorte del curso de ensayo (un curso pausado,
+con fecha ya pasada): desde `20260916000003` sólo entran cohortes de cursos
+publicados que todavía no hayan empezado. Y el modelo de respaldo pidió
+nombre y correo tres veces seguidas aunque el encargo decía «una sola vez»:
+ahora la función mira el hilo y, si ya lo pidió, se lo prohíbe con todas las
+letras. Cuando el catálogo llega vacío porque no hay convocatoria, se le dice
+eso —«no hay convocatoria abierta»— y no «no lo menciones», que era la orden
+para cuando el catálogo no se podía leer.
+
 Los elegidos se le dan al modelo como un bloque «ASÍ CONTESTAS», con las
 reglas: no copiar letra por letra, elegir entre variantes, nunca la misma
 frase dos veces en una conversación, y los corchetes se rellenan o se callan.

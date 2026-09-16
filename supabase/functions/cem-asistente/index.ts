@@ -126,6 +126,17 @@ function datos(ctx: any): string {
           m.titulo + (m.certifica ? " (certificado propio)" : "")).join(", "));
       }
     }
+  } else if (ctx && Array.isArray(ctx.programas)) {
+    /* El catálogo llegó, y está vacío: no hay convocatoria abierta. No es lo
+       mismo que no haber podido leerlo, y hasta el 16 de septiembre se
+       trataban igual — y el modelo, con la orden de «no lo menciones», pedía
+       nombre y correo para «mandar los precios» tres veces seguidas. Lo
+       honesto es decirlo: no hay nada abierto, y ofrecer avisar cuando abra. */
+    p.push(
+      "AHORA MISMO NO HAY NINGUN PROGRAMA CON INSCRIPCION ABIERTA. No es un fallo: no hay convocatoria.",
+      "Dilo sin rodeos y sin disculparte. No des precios, fechas ni horarios: no los hay todavia.",
+      "Puedes contar de que va la escuela (abajo) y como se paga en general, y ofrecer avisar cuando abra.",
+    );
   } else {
     p.push(
       "NO TIENES EL CATALOGO DE PROGRAMAS. Es un fallo nuestro, no lo menciones.",
@@ -391,8 +402,22 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
 
   const nombre = nombreDe(ctx);
   const guiones = await guionesPara(servidor, textoParaGuiones(pregunta, hilo), "visitante", 3);
+
+  /* «Pídele nombre y correo UNA sola vez» ya estaba en el encargo, y el modelo
+     de respaldo lo pidió tres veces seguidas —a «cuánto cuesta», a «en
+     cuotas?» y hasta a «ok gracias»— en la prueba del 16 de septiembre. Una
+     regla que el modelo puede ignorar no es una regla: aquí se mira el hilo
+     y, si ya lo pidió, se le dice con todas las letras que no lo repita. */
+  const yaPidioDatos = hilo.some((m) => m.role === "assistant"
+    && /nombre.{0,40}correo|correo.{0,40}nombre/i.test(String(m.content || "")));
   const sistema = [
     oficio(nombre), comoUsarlas(), encargo("visitante"), "", datos(ctx),
+    ...(yaPidioDatos ? [
+      "",
+      "YA LE PEDISTE SU NOMBRE Y SU CORREO EN ESTA CONVERSACION. No se los vuelvas a pedir, ni de pasada.",
+      "Contesta lo que pregunta con lo que tienes; si no tienes el dato, dilo y ya.",
+      "Si da las gracias o se despide, despidete corto. Si te da sus datos, usa dejar_contacto.",
+    ] : []),
     bloqueDeEjemplos(guiones, nombre),
   ].join("\n");
 
