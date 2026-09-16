@@ -118,6 +118,7 @@ function oficio(ctx: any): string {
        demás existe para sostenerla. */
     `Te llamas ${yo} y atiendes el WhatsApp del CEM International Education, un centro de estudios.`,
     `Si te preguntan quien eres, di que eres ${yo}, del CEM. Nada mas.`,
+    "Nunca digas que no tienes nombre. Si insisten con como te llamas, dilo distinto, no igual.",
     "NUNCA digas que eres un bot, un asistente virtual ni una IA.",
     "",
     "COMO HABLAS",
@@ -285,7 +286,23 @@ function datos(ctx: any): string {
       if (c.cuotas) t.push("- se puede pagar en cuotas");
       p.push(t.join(" "));
       if (c.resumen) p.push(`  ${c.resumen}`);
+      const mods = (c.modulos ?? []).filter(Boolean);
+      if (mods.length) {
+        p.push("  Modulos: " + mods.map((m: any) =>
+          m.titulo + (m.certifica ? " (certificado propio)" : "")).join(", "));
+      }
     }
+  } else if (ctx && Array.isArray(ctx.programas)) {
+    /* El catálogo llegó, y está vacío: no hay convocatoria. No es lo mismo
+       que no haber podido leerlo, y con la orden de «no lo menciones» el
+       modelo pedía datos para «mandar los precios» una y otra vez (se vio en
+       la web el 16 de septiembre). Lo honesto es decirlo. */
+    p.push(
+      "AHORA MISMO NO HAY NINGUN PROGRAMA CON INSCRIPCION ABIERTA. No es un fallo: no hay convocatoria.",
+      "Dilo sin rodeos. No des precios, fechas ni horarios: no los hay todavia.",
+      "Puedes contar de que va la escuela y como se paga en general. Si quiere que le escriban",
+      "cuando abra, avisa al equipo con avisar_al_equipo y dile que ya avisaste.",
+    );
   } else {
     p.push(
       "NO TIENES EL CATALOGO. Es un fallo nuestro, no lo menciones.",
@@ -293,7 +310,34 @@ function datos(ctx: any): string {
       'Si preguntan por la oferta responde exactamente: "Dejame confirmarte eso con el equipo y te escribo".',
     );
   }
-  for (const k of ctx?.lo_aprendido ?? []) p.push(`- ${k.titulo}: ${k.contenido}`);
+
+  /* Lo mismo que sabe el Cemi de la web: la escuela, cómo se paga, la
+     próxima convocatoria, los certificados emitidos y el correo. Llega en el
+     contexto desde el 16 de septiembre (cem_bot_contexto_whatsapp usa
+     cem_bot_contexto_publico para los números desconocidos). */
+  const esc = ctx?.escuela;
+  if (esc) {
+    p.push("", "LA ESCUELA:",
+      `- ${esc.largo || esc.nombre || "CEM International"}, en ${esc.ciudad || "Caracas"}, desde ${esc.desde || 2016}.`,
+      `- ${esc.que_es || ""}`.trim());
+  }
+  if (ctx?.como_se_paga) p.push(`- Como se paga: ${ctx.como_se_paga}`);
+  const vit = ctx?.vitrina;
+  if (vit?.convocatoria?.fecha) {
+    p.push(`- PROXIMA CONVOCATORIA: empieza el ${vit.convocatoria.fecha}`
+      + (vit.convocatoria.titulo ? ` (${vit.convocatoria.titulo})` : "")
+      + (vit.convocatoria.nota ? `. ${vit.convocatoria.nota}` : "."));
+  } else if (vit) {
+    p.push("- No hay fecha de proxima convocatoria puesta. No la inventes: ofrece avisar cuando abra.");
+  }
+  if (vit?.certificados) p.push(`- Certificados verificables emitidos hasta hoy: ${vit.certificados}.`);
+  if (ctx?.contacto?.correo) p.push(`- Correo del CEM (puedes darlo): ${ctx.contacto.correo}`);
+
+  const aprendido = ctx?.lo_aprendido ?? [];
+  if (aprendido.length) {
+    p.push("", "LO QUE TE HA ENSEÑADO EL EQUIPO:");
+    for (const k of aprendido) p.push(`- ${k.titulo}: ${k.contenido}`);
+  }
   return p.join("\n");
 }
 
@@ -439,8 +483,11 @@ async function atender(
   /* Los guiones, igual que en la web: quien escribe sin cuenta es un
      visitante aunque el contexto lo trate como alumno sin datos. */
   const previas = hilo.filter((m) => m.role === "user").slice(-2).map((m) => String(m.content || ""));
-  const guiones = await guionesPara(sb, [...previas, texto].join(" \n "),
-    ctx?.quien ? (ctx?.ambito || "estudiante") : "visitante", 3);
+  const guiones = (await guionesPara(sb, [...previas, texto].join(" \n "),
+    ctx?.quien ? (ctx?.ambito || "estudiante") : "visitante", 3))
+    /* La mascota es de la web. Por WhatsApp no hay birrete que ver al lado, y
+       con el nombre cambiado («Verónica. Ese birrete con cara…») sería peor. */
+    .map((g) => ({ ...g, guion: g.guion.split("\n").filter((l) => !/birrete|que ves al lado/i.test(l)).join("\n") }));
   const sistema = [oficio(ctx), encargoWa(ctx), "", datos(ctx), "", suyo(ctx),
                    bloqueDeEjemplos(guiones, nombreDe(ctx))].join("\n");
   const mensajes = [{ role: "system", content: sistema }, ...hilo,

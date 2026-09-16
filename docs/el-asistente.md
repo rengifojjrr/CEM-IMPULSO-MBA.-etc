@@ -570,6 +570,17 @@ letras. Cuando el catálogo llega vacío porque no hay convocatoria, se le dice
 eso —«no hay convocatoria abierta»— y no «no lo menciones», que era la orden
 para cuando el catálogo no se podía leer.
 
+**Por WhatsApp, lo mismo** (`20260916000004`). Un número desconocido recibe
+el mismo contexto que la web —`cem_bot_contexto_publico()`: la escuela, cómo
+se paga, la convocatoria, las fichas, el correo— en vez de sólo el catálogo;
+el catálogo vacío se dice como «no hay convocatoria»; los guiones entran sin
+la línea del birrete (por WhatsApp no hay mascota que ver, y con el nombre
+cambiado quedaría «Verónica. Ese birrete con cara…»); y hay dos guiones
+propios del canal: «ya pagué, te mando el comprobante» y «mándame la info por
+aquí». No se pudo probar de punta a punta: el puente lleva caído desde el 27
+de agosto y el secreto del puente no está en este entorno. El cerebro, los
+guiones y el contexto son los mismos que se probaron en la web.
+
 Los elegidos se le dan al modelo como un bloque «ASÍ CONTESTAS», con las
 reglas: no copiar letra por letra, elegir entre variantes, nunca la misma
 frase dos veces en una conversación, y los corchetes se rellenan o se callan.
