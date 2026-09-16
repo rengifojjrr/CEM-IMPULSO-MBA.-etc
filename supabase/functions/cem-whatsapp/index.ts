@@ -440,7 +440,7 @@ async function atender(
      visitante aunque el contexto lo trate como alumno sin datos. */
   const previas = hilo.filter((m) => m.role === "user").slice(-2).map((m) => String(m.content || ""));
   const guiones = await guionesPara(sb, [...previas, texto].join(" \n "),
-    ctx?.quien ? (ctx?.ambito || "estudiante") : "visitante", 4);
+    ctx?.quien ? (ctx?.ambito || "estudiante") : "visitante", 3);
   const sistema = [oficio(ctx), encargoWa(ctx), "", datos(ctx), "", suyo(ctx),
                    bloqueDeEjemplos(guiones, nombreDe(ctx))].join("\n");
   const mensajes = [{ role: "system", content: sistema }, ...hilo,

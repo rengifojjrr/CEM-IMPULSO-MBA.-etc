@@ -19,8 +19,17 @@ import type { Herramienta } from "./herramientas.ts";
    valores son sólo el punto de partida, y hay que darlos por caducados igual
    que caducaron los de antes. */
 export const CADENA = (Deno.env.get("CEM_ASISTENTE_MODELOS") ||
-  "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b").split(",")
+  "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,groq:qwen/qwen3.8-27b").split(",")
   .map((s) => s.trim()).filter(Boolean);
+
+/* Por qué tres eslabones y no dos: el plan gratuito de Groq da 8.000 tokens
+   POR MINUTO Y POR MODELO, y un turno de Cemi pesa unos 2.000 (el oficio, el
+   catálogo, los guiones, el hilo). O sea, cuatro turnos por minuto por modelo.
+   El 16 de septiembre de 2026 una prueba de diez preguntas seguidas dejó a
+   los dos modelos en 429 y a Cemi contestando la frase de avería. Cada
+   modelo tiene su propio contador, así que cada eslabón más es capacidad
+   más. Lo que de verdad lo arregla es el plan Developer de Groq; está en
+   docs/lo-que-falta.md como pendiente del dueño. */
 
 /* Cuánto esfuerzo de razonamiento pedir, si el modelo lo entiende.
    Un modelo que razona gasta el presupuesto razonando y devuelve contenido
@@ -46,8 +55,23 @@ export async function preguntar(
   opciones: { herramientas?: any[]; tope?: number; temperatura?: number } = {},
   intento = 0,
   porQue: string[] = [],
+  /* Lo que se aprendió de los 429 en esta vuelta: cuánto pide esperar el
+     eslabón que antes se libera, y si ya se recorrió la cadena dos veces. */
+  estado: { espera: number; segundoPase: boolean } = { espera: 0, segundoPase: false },
 ): Promise<Respuesta> {
   if (intento >= CADENA.length) {
+    /* Un 429 no es que el modelo esté caído: es que se pidió demasiado en un
+       minuto. Si todos los eslabones dijeron eso y alguno se libera en pocos
+       segundos, se espera ese poco y se recorre la cadena UNA vez más, en
+       lugar de tirar la conversación cuando dos personas escriben a la vez.
+       Se espera al final y no en cada eslabón: primero se prueba si otro
+       modelo está libre ahora mismo, que es gratis y casi siempre lo está. */
+    if (!estado.segundoPase && estado.espera > 0 && estado.espera <= 6000) {
+      await new Promise((r) => setTimeout(r, estado.espera + 250));
+      return preguntar(mensajes, opciones, 0,
+        [...porQue, `se esperó ${estado.espera} ms y se volvió a intentar`],
+        { espera: 0, segundoPase: true });
+    }
     /* Nunca se acaba callando, y arrastra el motivo de CADA eslabón.
        La primera vez que esto falló de verdad, lo único que quedó guardado fue
        «Ningun modelo de la cadena respondio», que no distingue entre una clave
@@ -94,12 +118,29 @@ export async function preguntar(
       cuerpo.tool_choice = "auto";
     }
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const pedir = () => fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${clave}`, "Content-Type": "application/json" },
       body: JSON.stringify(cuerpo),
     });
-    const j = await res.json().catch(() => ({}));
+    let res = await pedir();
+    let j = await res.json().catch(() => ({}));
+
+    /* Si el modelo no entiende el parámetro de razonamiento, se le vuelve a
+       pedir sin él en vez de darlo por caído. Es lo que pasó con los eslabones
+       de agosto: una palabra de otra familia tumbaba la petición entera. */
+    if (res.status === 400 && cuerpo.reasoning_effort && /reasoning/i.test(JSON.stringify(j))) {
+      delete cuerpo.reasoning_effort;
+      res = await pedir();
+      j = await res.json().catch(() => ({}));
+    }
+
+    /* 429: se anota cuánto pide esperar y se pasa al siguiente eslabón YA.
+       La espera, si hace falta, se hace una sola vez al final de la cadena. */
+    if (res.status === 429) {
+      const ms = esperaQuePide(res, j);
+      estado.espera = estado.espera > 0 ? Math.min(estado.espera, ms) : ms;
+    }
     if (!res.ok) throw new Error(`${modelo}: HTTP ${res.status} ${JSON.stringify(j).slice(0, 200)}`);
 
     const m = j?.choices?.[0]?.message ?? {};
@@ -115,8 +156,19 @@ export async function preguntar(
   } catch (e) {
     console.error(`[cerebro] falló ${CADENA[intento]}: ${e}`);
     return preguntar(mensajes, opciones, intento + 1,
-      [...porQue, `${CADENA[intento]}: ${String(e).replace(/^Error:\s*/, "")}`]);
+      [...porQue, `${CADENA[intento]}: ${String(e).replace(/^Error:\s*/, "")}`], estado);
   }
+}
+
+/* Cuánto pide esperar un 429. Groq lo manda en la cabecera `retry-after`
+   (segundos, con decimales) y además lo escribe en el mensaje («Please try
+   again in 1.234s» o «in 850ms»). Si no dice nada, dos segundos. */
+function esperaQuePide(res: Response, j: any): number {
+  const cab = Number(res.headers.get("retry-after"));
+  if (Number.isFinite(cab) && cab > 0) return Math.ceil(cab * 1000);
+  const m = /try again in ([\d.]+)\s*(ms|s)\b/i.exec(String(j?.error?.message ?? ""));
+  if (m) return Math.ceil(Number(m[1]) * (m[2].toLowerCase() === "ms" ? 1 : 1000));
+  return 2000;
 }
 
 /* ── Los guiones: cómo se contesta, con ejemplos ─────────────────────────────

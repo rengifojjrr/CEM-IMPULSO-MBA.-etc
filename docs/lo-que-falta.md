@@ -26,6 +26,13 @@ lo que **sólo puedes hacer tú**, en el orden en que duele:
    «Medir y que nos escriban»: el ID de Google Analytics 4, el del píxel de
    Meta y el número de WhatsApp. El código ya los usa; sin ellos no se mide
    nada y no sale el botón verde.
+3b. **Subir Groq al plan Developer** (console.groq.com → Settings → Billing).
+   El plan gratuito da 8.000 tokens por minuto y por modelo, y un turno de
+   Cemi pesa unos 2.000: cuatro turnos por minuto por modelo. Con tres
+   personas escribiéndole a la vez en la web, la tercera recibe la frase de
+   avería. La cadena ya tiene tres modelos y espera cuando puede (16 de
+   septiembre), pero eso estira el límite, no lo quita. Cuesta lo que se use;
+   con el tráfico de hoy, centavos.
 4. **Reconectar el puente de WhatsApp** (escanear el QR desde la máquina donde
    corre) y pasar `asistente_whatsapp_modo` a «responde». Lleva caído desde
    el 27 de agosto.

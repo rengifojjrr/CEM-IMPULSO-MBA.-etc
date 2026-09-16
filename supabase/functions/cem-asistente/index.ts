@@ -347,9 +347,17 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
     }), { headers: JSON_HEADERS });
   }
 
-  const { data: conv } = await servidor.rpc("cem_bot_conversacion_visitante", {
+  const { data: conv, error: errConv } = await servidor.rpc("cem_bot_conversacion_visitante", {
     p_huella: huella, p_id: body?.conversacion ?? null,
   });
+  /* Se dice en el log, siempre. Esto falló en silencio desde que Cemi salió a
+     las páginas públicas hasta el 16 de septiembre de 2026: la tabla no
+     admitía el canal «visitante», el insert se rechazaba, `conv` llegaba nulo
+     y el asistente contestaba cada mensaje como si fuera el primero — de ahí
+     que repitiera «soy del equipo» dos veces seguidas en la captura. Sin
+     conversación se sigue contestando, pero sin memoria, y eso tiene que
+     verse en los logs y no adivinarse. */
+  if (errConv) console.error("[asistente] no se pudo abrir la conversación del visitante:", errConv.message);
   const conversacion = conv ?? null;
 
   const { data: ctx } = await servidor.rpc("cem_bot_contexto_publico");
@@ -382,7 +390,7 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
   }];
 
   const nombre = nombreDe(ctx);
-  const guiones = await guionesPara(servidor, textoParaGuiones(pregunta, hilo), "visitante", 4);
+  const guiones = await guionesPara(servidor, textoParaGuiones(pregunta, hilo), "visitante", 3);
   const sistema = [
     oficio(nombre), comoUsarlas(), encargo("visitante"), "", datos(ctx),
     bloqueDeEjemplos(guiones, nombre),
@@ -518,7 +526,7 @@ Deno.serve(async (req: Request) => {
        Todo lo demás sigue yendo con el token de quien pregunta. */
     const soloGuiones = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const nombre = nombreDe(ctx);
-    const guiones = await guionesPara(soloGuiones, textoParaGuiones(pregunta, hilo), ambito, 4);
+    const guiones = await guionesPara(soloGuiones, textoParaGuiones(pregunta, hilo), ambito, 3);
     const sistema = [
       oficio(nombre), comoUsarlas(), encargo(ambito, rol), "", datos(ctx), "", suyo(ctx),
       bloqueDeEjemplos(guiones, nombre),

@@ -523,9 +523,11 @@ Si dice «eres un bot?» → Cemi: Soy Cemi, el asistente del CEM. Lo que te
 
 Viven en `cem_bot_guiones`. Cada uno tiene un ámbito (visitante, alumnos,
 equipo o todos), un tema, y sus **disparadores**: palabras o frases que, si
-aparecen en lo que escribe la persona, lo traen. Tres van marcados «siempre»
-—quién es, el tono, cómo salir de lo que no toca— y entran en todas las
-conversaciones.
+aparecen en lo que escribe la persona, lo traen. Uno solo va marcado
+«siempre» —cómo salir de lo que no toca (chistes, tareas, insultos)— porque
+no hay palabras con las que dispararlo. Quién es y el tono entran por
+disparador, como los demás; el nombre va, además, fijo en el oficio del
+asistente, así que lo sabe aunque no entre ningún guion.
 
 ### Cómo llegan al modelo
 
@@ -534,8 +536,29 @@ pregunta de ahora y las dos anteriores de la persona (porque «y en cuotas?»
 sólo se entiende con el «cuánto cuesta» de antes). La base puntúa cada guion
 activo del ámbito: tres puntos por disparador que aparezca, uno por cada
 palabra de cuatro letras o más que coincida. Se lleva los «siempre» y los
-cuatro mejores con dos puntos o más. Entre dos con los mismos puntos, primero
+tres mejores con dos puntos o más. Entre dos con los mismos puntos, primero
 el que menos se ha usado, así con el tiempo se reparten.
+
+Tres y no más por una razón de peso, literalmente: un turno de Cemi pesa
+unos 2.000 tokens (oficio, catálogo, guiones, hilo), y el plan gratuito de
+Groq da **8.000 tokens por minuto y por modelo**. Son cuatro turnos por
+minuto por modelo. El 16 de septiembre de 2026 una prueba de diez preguntas
+seguidas dejó a los dos modelos en 429 y a Cemi diciendo la frase de avería.
+Desde entonces la cadena tiene tres eslabones (cada modelo lleva su propio
+contador), ante un 429 salta al siguiente sin esperar y, si todos están
+llenos y alguno se libera en menos de seis segundos, espera eso y vuelve a
+recorrerla una vez. Lo que lo arregla de verdad es el plan Developer de
+Groq; está en `docs/lo-que-falta.md` como pendiente del dueño.
+
+**Y el visitante no tenía memoria.** Ese mismo día salió a la luz otra cosa:
+`cem_bot_conversacion_visitante` abría la conversación con canal
+«visitante», pero la tabla sólo admitía «web» y «whatsapp». El insert se
+rechazaba, la función se tragaba el error, y cada mensaje del visitante se
+contestaba como si fuera el primero. Es la razón de fondo de la captura del
+15 de septiembre («soy del equipo» dos veces seguidas): no insistía, es que
+no recordaba haberlo dicho. Arreglado en
+`20260916000002_cemi_visitante_con_memoria.sql`, y el error ahora se escribe
+en el log en vez de tragarse.
 
 Los elegidos se le dan al modelo como un bloque «ASÍ CONTESTAS», con las
 reglas: no copiar letra por letra, elegir entre variantes, nunca la misma
