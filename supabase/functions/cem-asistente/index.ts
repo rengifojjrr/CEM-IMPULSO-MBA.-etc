@@ -193,6 +193,14 @@ function textoParaGuiones(pregunta: string, hilo: any[]): string {
   return [...previas, pregunta].join(" \n ");
 }
 
+/* La frase con la que pide nombre y correo, para reconocerla en lo que ya
+   dijo y en lo que está a punto de decir. Tiene que ser una PETICIÓN (con
+   pregunta o con verbo de pedir): «ya guardé tu nombre y correo» no lo es. */
+function pideDatos(s: string): boolean {
+  return /nombre.{0,40}correo|correo.{0,40}nombre/i.test(s)
+    && /\?|dejas|d[eé]jame|dame|p[aá]same|compart|necesito|ind[ií]ca|escr[ií]beme|me das|me dices|me pasas/i.test(s);
+}
+
 /* ── Lo de quien pregunta ────────────────────────────────────────────────── */
 //
 // Del manual: lo que ya se sabe de alguien se inyecta como HECHOS que puede
@@ -274,7 +282,7 @@ const OFICIOS: Record<string, string[]> = {
 };
 OFICIOS.superadmin = OFICIOS.admin;
 
-function encargo(ambito: string, rol?: string): string {
+function encargo(ambito: string, rol?: string, yaPidioDatos = false): string {
   /* Un visitante no es un alumno con menos permisos: es otra cosa. No tiene
      avance, ni cuotas, ni certificados, y el encargo tiene que decirlo, porque
      si no el modelo intenta ayudarle con datos que no existen y termina
@@ -291,8 +299,18 @@ function encargo(ambito: string, rol?: string): string {
       "Cuentale de que va, cuanto dura, cuanto cuesta y como se paga, con los datos de arriba.",
       "Si no hay ningun programa abierto, dilo sin rodeos y ofrecele avisarle cuando abra.",
       "",
-      "Si le interesa algo, o pide precio, o dice que lo va a pensar: pidele nombre y correo",
-      "y usa dejar_contacto. Una sola vez, sin insistir. Si ya te los dio, no se los vuelvas a pedir.",
+      /* Una regla añadida al final del guion no gana a esta, que está en el
+         encargo: el 16 de septiembre se probó y pidió los datos tres veces
+         seguidas igual. Así que cuando ya los pidió, ESTA es la que cambia. */
+      ...(yaPidioDatos ? [
+        "YA LE PEDISTE SU NOMBRE Y SU CORREO EN ESTA CONVERSACION. NO se los vuelvas a pedir,",
+        "ni de pasada, ni 'por si acaso'. Si ya te los dio, estan guardados; si no, es decision suya.",
+        "Contesta lo que pregunta con lo que tienes; si no tienes el dato, dilo y ya.",
+        "Si te los da por su cuenta, usa dejar_contacto.",
+      ] : [
+        "Si le interesa algo, o pide precio, o dice que lo va a pensar: pidele nombre y correo",
+        "y usa dejar_contacto. Una sola vez, sin insistir. Si ya te los dio, no se los vuelvas a pedir.",
+      ]),
       "",
       "NO prometas descuentos, ni fechas, ni cupos que no esten escritos arriba.",
       "Si te preguntan algo de una persona concreta —sus notas, sus pagos, su certificado—",
@@ -404,20 +422,14 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
   const guiones = await guionesPara(servidor, textoParaGuiones(pregunta, hilo), "visitante", 3);
 
   /* «Pídele nombre y correo UNA sola vez» ya estaba en el encargo, y el modelo
-     de respaldo lo pidió tres veces seguidas —a «cuánto cuesta», a «en
-     cuotas?» y hasta a «ok gracias»— en la prueba del 16 de septiembre. Una
-     regla que el modelo puede ignorar no es una regla: aquí se mira el hilo
-     y, si ya lo pidió, se le dice con todas las letras que no lo repita. */
-  const yaPidioDatos = hilo.some((m) => m.role === "assistant"
-    && /nombre.{0,40}correo|correo.{0,40}nombre/i.test(String(m.content || "")));
+     lo pidió tres veces seguidas —a «cuánto cuesta», a «en cuotas?» y hasta a
+     «ok gracias»— en la prueba del 16 de septiembre. Una regla que el modelo
+     puede ignorar no es una regla: aquí se mira el hilo y, si ya lo pidió,
+     el encargo cambia (encargo(), yaPidioDatos) y, si aun así la frase sale,
+     se le quita de la respuesta más abajo. */
+  const yaPidioDatos = hilo.some((m) => m.role === "assistant" && pideDatos(String(m.content || "")));
   const sistema = [
-    oficio(nombre), comoUsarlas(), encargo("visitante"), "", datos(ctx),
-    ...(yaPidioDatos ? [
-      "",
-      "YA LE PEDISTE SU NOMBRE Y SU CORREO EN ESTA CONVERSACION. No se los vuelvas a pedir, ni de pasada.",
-      "Contesta lo que pregunta con lo que tienes; si no tienes el dato, dilo y ya.",
-      "Si da las gracias o se despide, despidete corto. Si te da sus datos, usa dejar_contacto.",
-    ] : []),
+    oficio(nombre), comoUsarlas(), encargo("visitante", undefined, yaPidioDatos), "", datos(ctx),
     bloqueDeEjemplos(guiones, nombre),
   ].join("\n");
 
@@ -435,6 +447,14 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
     });
     modelo = r.modelo; uso = r.uso; usadas = r.usadas;
     texto = limpiar(r.texto) || r.texto.trim();
+    /* La red de la regla de arriba: si ya pidió los datos y los vuelve a
+       pedir, la frase se va. Un modelo no es un sitio donde poner una
+       garantía; el servidor sí. Si la respuesta era SOLO esa frase, se deja
+       —peor es contestar en blanco. */
+    if (yaPidioDatos && pideDatos(texto)) {
+      const sinPedir = texto.split(/(?<=[.!?])\s+/).filter((s) => !pideDatos(s)).join(" ").trim();
+      if (sinPedir) texto = sinPedir;
+    }
     if (!texto) throw new Error("el modelo devolvio texto vacio");
   } catch (e) {
     fallo = String(e).slice(0, 300);
