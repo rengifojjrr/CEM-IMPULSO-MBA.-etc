@@ -198,10 +198,26 @@ function textoParaGuiones(pregunta: string, hilo: any[]): string {
    pregunta o con verbo de pedir): «ya guardé tu nombre y correo» no lo es. */
 function pideDatos(s: string): boolean {
   /* «Te dejo tu contacto?» es la misma petición con otras palabras: se vio
-     en la tercera prueba, justo después de prohibirle «nombre y correo». */
-  return /nombre.{0,40}correo|correo.{0,40}nombre|tus? (datos|contacto)|un contacto/i.test(s)
+     en la tercera prueba, justo después de prohibirle «nombre y correo». Y
+     «Me los compartes?» es lo que queda cuando se recorta la frase anterior. */
+  return /nombre.{0,40}correo|correo.{0,40}nombre|tus? (datos|contacto)|un contacto|me los (compartes|das|pasas|dejas|env[ií]as|mandas)/i.test(s)
     && /\?|dejas|d[eé]jame|dame|p[aá]same|compart|necesito|ind[ií]ca|escr[ií]beme|me das|me dices|me pasas/i.test(s);
 }
+
+/* Quita de una respuesta las frases que piden los datos. Vacío si era toda. */
+function quitarPeticion(s: string): string {
+  return s.split(/(?<=[.!?])\s+/).filter((x) => !pideDatos(x)).join(" ").trim();
+}
+
+/* Un guion sin las líneas que hablan de dejar el contacto, para cuando ya se
+   pidió: un ejemplo que lo pide empuja al modelo a pedirlo otra vez. */
+function sinLineasDeContacto(guion: string): string {
+  return guion.split("\n").filter((l) => !/dejar_contacto|nombre y correo|tus datos|tu contacto|correo/i.test(l)).join("\n");
+}
+
+/* Lo que se dice si, aun con todo, la respuesta entera era volver a pedirlos. */
+const SIN_PEDIR_MAS = "Listo, no te pido nada más. Cuando abra la próxima convocatoria, aquí estaré "
+  + "para contarte precios y cuotas. Algo más que quieras saber?";
 
 /* ── Lo de quien pregunta ────────────────────────────────────────────────── */
 //
@@ -430,9 +446,17 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
      el encargo cambia (encargo(), yaPidioDatos) y, si aun así la frase sale,
      se le quita de la respuesta más abajo. */
   const yaPidioDatos = hilo.some((m) => m.role === "assistant" && pideDatos(String(m.content || "")));
+  /* Cuando ya los pidió, los ejemplos tampoco pueden empujarle a pedirlos, y
+     la regla se repite al final, que es lo último que lee. */
+  const ejemplos = yaPidioDatos
+    ? guiones.map((g) => ({ ...g, guion: sinLineasDeContacto(g.guion) }))
+    : guiones;
   const sistema = [
     oficio(nombre), comoUsarlas(), encargo("visitante", undefined, yaPidioDatos), "", datos(ctx),
-    bloqueDeEjemplos(guiones, nombre),
+    bloqueDeEjemplos(ejemplos, nombre),
+    ...(yaPidioDatos ? ["",
+      "RECUERDA: ya le pediste sus datos en esta conversacion y no te los dio. Contesta su pregunta",
+      "con lo que tienes y NO se los pidas otra vez, con ninguna palabra."] : []),
   ].join("\n");
 
   let texto = "", modelo = "", uso: any = {}, fallo: string | null = null;
@@ -454,8 +478,35 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
        garantía; el servidor sí. Si la respuesta era SOLO esa frase, se deja
        —peor es contestar en blanco. */
     if (yaPidioDatos && pideDatos(texto)) {
-      const sinPedir = texto.split(/(?<=[.!?])\s+/).filter((s) => !pideDatos(s)).join(" ").trim();
-      if (sinPedir) texto = sinPedir;
+      const sinPedir = quitarPeticion(texto);
+      if (sinPedir) {
+        texto = sinPedir;
+      } else {
+        /* La respuesta ENTERA era volver a pedirlos (cuarta prueba del 16 de
+           septiembre: «me puedes dar tu nombre y correo?» a «se puede pagar
+           en cuotas?»). Se le da una vuelta más, con la negativa dicha como
+           la diría la persona y sin herramientas, y si tampoco así, la frase
+           de la casa. Cuesta un turno de modelo, pero sólo llega aquí quien
+           ya ignoró la regla dos veces. */
+        try {
+          const r2 = await conversar({
+            cliente: servidor,
+            mensajes: [{ role: "system", content: sistema }, ...hilo,
+                       { role: "user", content: pregunta },
+                       { role: "assistant", content: texto },
+                       { role: "user", content: "No te voy a dar mis datos ahora. Contesta solo lo que te pregunte, con lo que tengas." }],
+            catalogo: [], delServidor: {}, tope: TOPE_RESPUESTA, temperatura: 0.5,
+          });
+          modelo = r2.modelo || modelo;
+          uso = { prompt_tokens: (uso?.prompt_tokens ?? 0) + (r2.uso?.prompt_tokens ?? 0),
+                  completion_tokens: (uso?.completion_tokens ?? 0) + (r2.uso?.completion_tokens ?? 0) };
+          const t2 = limpiar(r2.texto) || r2.texto.trim();
+          texto = (pideDatos(t2) ? quitarPeticion(t2) : t2) || SIN_PEDIR_MAS;
+        } catch (e2) {
+          console.error("[asistente] la vuelta correctiva falló:", e2);
+          texto = SIN_PEDIR_MAS;
+        }
+      }
     }
     if (!texto) throw new Error("el modelo devolvio texto vacio");
   } catch (e) {
