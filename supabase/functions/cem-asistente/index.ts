@@ -197,7 +197,9 @@ function textoParaGuiones(pregunta: string, hilo: any[]): string {
    dijo y en lo que está a punto de decir. Tiene que ser una PETICIÓN (con
    pregunta o con verbo de pedir): «ya guardé tu nombre y correo» no lo es. */
 function pideDatos(s: string): boolean {
-  return /nombre.{0,40}correo|correo.{0,40}nombre/i.test(s)
+  /* «Te dejo tu contacto?» es la misma petición con otras palabras: se vio
+     en la tercera prueba, justo después de prohibirle «nombre y correo». */
+  return /nombre.{0,40}correo|correo.{0,40}nombre|tus? (datos|contacto)|un contacto/i.test(s)
     && /\?|dejas|d[eé]jame|dame|p[aá]same|compart|necesito|ind[ií]ca|escr[ií]beme|me das|me dices|me pasas/i.test(s);
 }
 
