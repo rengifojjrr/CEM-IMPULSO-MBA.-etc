@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { conversar, limpiar, pareceTexto } from "../_shared/cerebro.ts";
+import { conversar, limpiar, pareceTexto, guionesPara, bloqueDeEjemplos } from "../_shared/cerebro.ts";
 import { HERRAMIENTAS } from "../_shared/herramientas.ts";
 
 // El asistente por WhatsApp.
@@ -436,7 +436,13 @@ async function atender(
     }));
   }
 
-  const sistema = [oficio(ctx), encargoWa(ctx), "", datos(ctx), "", suyo(ctx)].join("\n");
+  /* Los guiones, igual que en la web: quien escribe sin cuenta es un
+     visitante aunque el contexto lo trate como alumno sin datos. */
+  const previas = hilo.filter((m) => m.role === "user").slice(-2).map((m) => String(m.content || ""));
+  const guiones = await guionesPara(sb, [...previas, texto].join(" \n "),
+    ctx?.quien ? (ctx?.ambito || "estudiante") : "visitante", 4);
+  const sistema = [oficio(ctx), encargoWa(ctx), "", datos(ctx), "", suyo(ctx),
+                   bloqueDeEjemplos(guiones, nombreDe(ctx))].join("\n");
   const mensajes = [{ role: "system", content: sistema }, ...hilo,
                     { role: "user", content: texto }];
 
@@ -451,6 +457,7 @@ async function atender(
       catalogo: conv ? HERRAMIENTAS_WHATSAPP : [],
       delServidor: { p_conversacion: conv },
       tope: TOPE_RESPUESTA,
+      temperatura: 0.8,   // por WhatsApp se charla: que no repita la misma frase
     });
     modelo = r.modelo; uso = r.uso; usadas = r.usadas;
     // Si el filtro se lo come todo, gana el original: borrar una respuesta

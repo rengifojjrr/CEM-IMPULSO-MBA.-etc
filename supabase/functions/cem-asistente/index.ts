@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { conversar, limpiar } from "../_shared/cerebro.ts";
+import { conversar, limpiar, guionesPara, bloqueDeEjemplos } from "../_shared/cerebro.ts";
 import { paraQuien } from "../_shared/herramientas.ts";
 import { aDondeLlevar } from "../_shared/pantallas.ts";
 
@@ -43,17 +43,29 @@ const TOPE_PREGUNTA = 1500;   // caracteres
 const TOPE_RESPUESTA = 700;   // tokens
 
 /* ── El oficio: lo que no cambia entre los dos asistentes ────────────────── */
-function oficio(): string {
+/* El nombre va aquí y no en una ficha, porque es lo primero que le preguntan.
+   Sin esta línea, a «cómo te llamas» contestaba «soy del equipo» y a «no
+   tienes nombre?», «no, no tengo nombre». Se leyó en una captura del 15 de
+   septiembre de 2026, con un visitante de verdad. El nombre sale de
+   Configuración (viene en el contexto); si no está, Cemi. */
+function oficio(nombre = "Cemi"): string {
   return [
-    "Eres el asistente del CEM International Education, un centro de estudios.",
-    "Hablas en español, con naturalidad, como alguien del equipo. Nunca digas que eres un bot ni una IA.",
+    `Te llamas ${nombre}. Eres el asistente del CEM International Education, un centro de estudios`,
+    "de Caracas, y su mascota: un birrete con cara. Tienes nombre y tienes personalidad.",
+    `Si te preguntan como te llamas o quien eres, dilo con naturalidad: eres ${nombre}, del CEM.`,
+    "Nunca digas que no tienes nombre.",
+    "Hablas en español, con calidez y sin acartonarte, como alguien del equipo.",
+    "No digas que eres un bot ni una IA. Si insisten, no lo discutas: di quien eres, sigue",
+    "ayudando, y ofrece que le escriba una persona del equipo.",
     "",
     "COMO ESCRIBES:",
     "- Breve. Una o dos frases. Nada de introducciones ni de explicar tu propio papel.",
     "- Sin ¿ ni ¡ de apertura: sólo ? y ! al final.",
     "- Emojis casi nunca. Y JAMAS repitas el emoji de tu mensaje anterior.",
     "- Texto plano. Nada de asteriscos, negritas, titulos ni listas con guiones.",
-    "- NUNCA repitas palabra por palabra algo que ya dijiste. Si insisten, dilo distinto o mas corto.",
+    "- NUNCA repitas palabra por palabra algo que ya dijiste. Si insisten, dilo distinto o mas corto,",
+    "  o pregunta que parte no quedo clara. Cada respuesta tuya en una conversacion tiene que ser nueva.",
+    "- Cierra casi siempre con una pregunta corta o una puerta abierta: que la persona sepa que seguir.",
     "",
     "LO QUE NO HACES NUNCA:",
     "- No te inventas precios, fechas, horarios ni datos de pago. Si no esta en lo que te dieron, NO EXISTE para ti.",
@@ -122,6 +134,31 @@ function datos(ctx: any): string {
     );
   }
 
+  /* Lo que el contexto del visitante ya traía y no se le contaba al modelo:
+     qué es la escuela, cómo se paga, la próxima convocatoria, cuántos
+     certificados hay, y el WhatsApp del CEM cuando esté en Configuración.
+     Sin esto, a «qué es el CEM» respondía con una frase de relleno. */
+  const esc = ctx?.escuela;
+  if (esc) {
+    p.push("", "LA ESCUELA:",
+      `- ${esc.largo || esc.nombre || "CEM International"}, en ${esc.ciudad || "Caracas"}, desde ${esc.desde || 2016}.`,
+      `- ${esc.que_es || ""}`.trim());
+  }
+  if (ctx?.como_se_paga) p.push(`- Como se paga: ${ctx.como_se_paga}`);
+  const vit = ctx?.vitrina;
+  if (vit?.convocatoria?.fecha) {
+    p.push(`- PROXIMA CONVOCATORIA: empieza el ${vit.convocatoria.fecha}`
+      + (vit.convocatoria.titulo ? ` (${vit.convocatoria.titulo})` : "")
+      + (vit.convocatoria.nota ? `. ${vit.convocatoria.nota}` : "."));
+  } else if (vit) {
+    p.push("- No hay fecha de proxima convocatoria puesta. No la inventes: ofrece avisar cuando abra.");
+  }
+  if (vit?.certificados) p.push(`- Certificados verificables emitidos hasta hoy: ${vit.certificados}.`);
+  const con = ctx?.contacto;
+  if (con?.whatsapp) p.push(`- WHATSAPP DEL CEM (puedes darlo): ${con.whatsapp}`);
+  if (con?.correo) p.push(`- Correo del CEM (puedes darlo): ${con.correo}`);
+  if (vit && !con?.whatsapp) p.push("- No tienes el WhatsApp del CEM: si lo piden, pide su numero y que le escriban.");
+
   const aprendido = ctx?.lo_aprendido ?? [];
   if (aprendido.length) {
     p.push("", "LO QUE TE HA ENSEÑADO EL EQUIPO:");
@@ -129,6 +166,20 @@ function datos(ctx: any): string {
   }
 
   return p.join("\n");
+}
+
+/* El nombre viene en el contexto (Configuración → nombre del asistente). */
+function nombreDe(ctx: any): string {
+  const n = String(ctx?.asistente?.nombre ?? "").trim();
+  return n || "Cemi";
+}
+
+/* Lo que se busca en los guiones: la pregunta de ahora y lo último que dijo
+   la persona, porque «y en cuotas?» solo se entiende con el «cuánto cuesta»
+   de antes. */
+function textoParaGuiones(pregunta: string, hilo: any[]): string {
+  const previas = hilo.filter((m) => m.role === "user").slice(-2).map((m) => String(m.content || ""));
+  return [...previas, pregunta].join(" \n ");
 }
 
 /* ── Lo de quien pregunta ────────────────────────────────────────────────── */
@@ -330,8 +381,11 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
     entidad: "cem_leads",
   }];
 
+  const nombre = nombreDe(ctx);
+  const guiones = await guionesPara(servidor, textoParaGuiones(pregunta, hilo), "visitante", 4);
   const sistema = [
-    oficio(), comoUsarlas(), encargo("visitante"), "", datos(ctx),
+    oficio(nombre), comoUsarlas(), encargo("visitante"), "", datos(ctx),
+    bloqueDeEjemplos(guiones, nombre),
   ].join("\n");
 
   let texto = "", modelo = "", uso: any = {}, fallo: string | null = null;
@@ -344,6 +398,7 @@ async function atenderVisitante(body: Record<string, any>, t0: number): Promise<
       catalogo,
       delServidor: {},
       tope: TOPE_RESPUESTA,
+      temperatura: 0.85,   // charla: que no conteste dos veces igual
     });
     modelo = r.modelo; uso = r.uso; usadas = r.usadas;
     texto = limpiar(r.texto) || r.texto.trim();
@@ -458,8 +513,15 @@ Deno.serve(async (req: Request) => {
     const catalogo = paraQuien(ambito, rol)
       .filter((h) => conversacion || h.nombre !== "avisar_al_equipo");
 
+    /* Los guiones no llevan datos de nadie: se leen con la llave de servicio,
+       que es la única forma de leerlos (la función está cerrada al navegador).
+       Todo lo demás sigue yendo con el token de quien pregunta. */
+    const soloGuiones = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const nombre = nombreDe(ctx);
+    const guiones = await guionesPara(soloGuiones, textoParaGuiones(pregunta, hilo), ambito, 4);
     const sistema = [
-      oficio(), comoUsarlas(), encargo(ambito, rol), "", datos(ctx), "", suyo(ctx),
+      oficio(nombre), comoUsarlas(), encargo(ambito, rol), "", datos(ctx), "", suyo(ctx),
+      bloqueDeEjemplos(guiones, nombre),
     ].join("\n");
 
     const mensajes = [
@@ -477,6 +539,7 @@ Deno.serve(async (req: Request) => {
         catalogo,
         delServidor: { p_conversacion: conversacion },
         tope: TOPE_RESPUESTA,
+        temperatura: ambito === "equipo" ? 0.6 : 0.75,   // cifras, con freno; charla, con aire
       });
       modelo = r.modelo; uso = r.uso; usadas = r.usadas;
       /* Si el filtro se lo come todo, gana el original.

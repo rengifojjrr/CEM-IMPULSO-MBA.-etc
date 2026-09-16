@@ -45,6 +45,23 @@
   .rejilla-saber{display:grid;gap:var(--e2);
     grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}
 
+  /* Un guion: la conversación de ejemplo tal como la lee Cemi. Va en
+     monoespaciada y con las líneas de Cemi resaltadas para que se distinga de
+     un vistazo quién habla. La caja la pone `card`. */
+  .guion .texto{margin:0;font-size:var(--t-xs);line-height:1.6;white-space:pre-wrap;
+    overflow-wrap:anywhere;max-height:260px;overflow-y:auto;padding:var(--e1) var(--e2);
+    background:var(--hueco);border-radius:var(--r);}
+  .guion .disparadores{display:flex;flex-wrap:wrap;gap:4px;}
+  .guion .disparadores .chip{margin:0;}
+  .guion .uso{font-variant-numeric:tabular-nums;}
+  /* El probador: escribes lo que escribiría alguien y ves qué guiones usaría. */
+  .probador{display:flex;gap:var(--e1);flex-wrap:wrap;align-items:flex-end;}
+  .probador .field{flex:1;min-width:min(100%,260px);margin:0;}
+  .probador-salida{margin-top:var(--e1);display:flex;flex-wrap:wrap;gap:6px;}
+  /* Dentro de una conversación leída, los botones de «así se contesta». */
+  .hilo .linea .ensenar{display:flex;gap:6px;margin-top:2px;}
+  .hilo .linea.persona .ensenar{display:none;}
+
   /* La conversación leída desde el panel. */
   .hilo{display:flex;flex-direction:column;gap:var(--e1);max-height:60vh;overflow-y:auto;}
   .hilo .linea{display:flex;flex-direction:column;gap:2px;}
@@ -92,6 +109,7 @@
 
   <div class="tabs" id="tabs">
     <button class="active" data-t="saber">Lo que sabe</button>
+    <button data-t="guiones">Cómo contesta</button>
     <button data-t="charlas">Conversaciones</button>
     <button data-t="salud">Cómo va</button>
     <button data-t="preguntan">Lo que preguntan</button>
@@ -120,6 +138,58 @@
           <span class="material-symbols-outlined" aria-hidden="true">add</span> Enseñarle algo</button></div>
     </div>
     <div id="listaSaber"><span class="cargando"></span></div>
+  </section>
+
+  <!-- Cómo contesta: los guiones.
+       ═══════════════════════════════════════════════════════════════════════
+       «Lo que sabe» son datos; esto es la manera. Un guion es una conversación
+       de ejemplo —lo que dice la persona, dos o tres formas de contestar, y
+       qué pasa si sigue por un lado o por otro—. Antes de contestar, el
+       servidor busca los que se parecen a la pregunta y se los da al modelo
+       como «así se contesta». No los copia: los adapta.
+
+       Aquí se leen, se escriben y se prueban. Y desde Conversaciones, cada
+       respuesta real se puede convertir en guion con un clic —tal cual, o
+       corregida—. Así aprende de lo que preguntan de verdad. -->
+  <section id="tGuiones" class="hidden">
+    <div class="nota">
+      Conversaciones de ejemplo que Cemi usa para saber <b>cómo</b> contestar, no sólo qué.
+      Cuando alguien escribe, se le dan las que se parecen a su pregunta; las marcadas
+      «siempre» van en todas. Lo que va entre corchetes [así] es un hueco que rellena con el
+      dato real del catálogo; ningún guion lleva precios ni fechas escritos.
+    </div>
+    <div class="card probador-caja">
+      <div class="probador">
+        <div class="field"><label for="gProbar">Si alguien escribiera esto…</label>
+          <input id="gProbar" placeholder="cuánto cuesta y en cuántas cuotas?"></div>
+        <div class="field" style="flex:0 0 auto"><label for="gProbarAmbito">Como</label>
+          <select id="gProbarAmbito">
+            <option value="visitante">Visitante de la web</option>
+            <option value="estudiante">Alumno</option>
+            <option value="equipo">Equipo</option>
+          </select></div>
+        <button class="btn" id="btnProbarGuion">
+          <span class="material-symbols-outlined" aria-hidden="true">manage_search</span> Qué usaría</button>
+      </div>
+      <div class="probador-salida" id="probadorSalida"></div>
+    </div>
+    <div class="filters">
+      <div class="field"><label for="gAmbito">Para quién</label>
+        <select id="gAmbito">
+          <option value="">Todos</option>
+          <option value="visitante">Visitante de la web</option>
+          <option value="estudiante">Alumnos</option>
+          <option value="equipo">Equipo</option>
+          <option value="ambos">Lo que vale para todos</option>
+        </select></div>
+      <div class="field"><label>&nbsp;</label>
+        <label class="check"><input type="checkbox" id="gApagados"> Ver también los apagados</label></div>
+      <div class="field grow"><label>&nbsp;</label><span></span></div>
+      <div class="field"><label>&nbsp;</label>
+        <button class="btn" id="btnNuevoGuion">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Enseñarle una conversación</button></div>
+    </div>
+    <div id="listaGuiones"><span class="cargando"></span></div>
   </section>
 
   <section id="tCharlas" class="hidden">
@@ -735,6 +805,187 @@ if (!puedeEditar) {
   if (s === '#fAmbito') cargarSaber(); else pintarSaber();
 }; });
 
+/* ── Cómo contesta: los guiones ──────────────────────────────────────────── */
+let GUIONES = [];
+const AMBITO_GUION = { visitante: 'Visitante', estudiante: 'Alumnos', equipo: 'Equipo', ambos: 'Todos' };
+
+async function cargarGuiones() {
+  const { data, error } = await sb.rpc('cem_bot_guiones_listar',
+    { p_ambito: $('#gAmbito').value || null });
+  if (error) { avisar('#listaGuiones', mensajeError(error)); return; }
+  GUIONES = data ?? [];
+  pintarGuiones();
+}
+
+function pintarGuiones() {
+  const verApagados = $('#gApagados').checked;
+  const lista = GUIONES.filter((g) => verApagados || g.activo);
+  if (!lista.length) {
+    $('#listaGuiones').innerHTML = vacio({
+      icono: 'forum',
+      titulo: 'Todavía no tiene conversaciones de ejemplo',
+      texto: 'Escribe la primera: lo que diría alguien y cómo quieres que conteste.',
+    });
+    return;
+  }
+  $('#listaGuiones').innerHTML = `<div class="rejilla-saber">${lista.map((g) => `
+    <article class="card ficha-saber guion ${g.activo ? '' : 'apagada'}">
+      <div class="cab">
+        <b>${esc(g.tema)}</b>
+        ${chip(AMBITO_GUION[g.ambito] || g.ambito)}
+        ${g.siempre ? chip('Siempre', 'info') : ''}
+        ${g.origen === 'semilla' ? chip('De fábrica') : g.origen === 'real' ? chip('De una conversación real', 'ok') : chip('Escrito a mano', 'ok')}
+        ${g.activo ? '' : chip('Apagado', 'warn')}
+      </div>
+      ${g.disparadores?.length ? `<div class="disparadores">${g.disparadores.slice(0, 8).map((d) =>
+          `<span class="chip neutral">${esc(d)}</span>`).join('')}${
+          g.disparadores.length > 8 ? `<span class="chip neutral">+${g.disparadores.length - 8}</span>` : ''}</div>` : ''}
+      <pre class="texto">${esc(g.guion)}</pre>
+      ${g.notas ? `<p class="tiny muted" style="margin:0">${esc(g.notas)}</p>` : ''}
+      <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
+        ${puedeEditar ? `
+          <button class="btn sm" data-editar-guion="${esc(g.id)}">
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span> Cambiar</button>
+          <button class="btn sm" data-apagar-guion="${esc(g.id)}" data-a="${g.activo ? '0' : '1'}">
+            <span class="material-symbols-outlined" aria-hidden="true">${g.activo ? 'visibility_off' : 'visibility'}</span>
+            ${g.activo ? 'Que no lo use' : 'Volver a usarlo'}</button>
+          <button class="icon-btn" data-borrar-guion="${esc(g.id)}" title="Borrar este guion" aria-label="Borrar este guion">
+            <span class="material-symbols-outlined" aria-hidden="true">delete</span></button>` : ''}
+        <span class="tiny muted uso">${g.veces_usado ? `Usado ${num(g.veces_usado)} ${g.veces_usado === 1 ? 'vez' : 'veces'}` : 'Sin usar todavía'}${
+          g.ultimo_uso ? ` · ${esc(fdesde(g.ultimo_uso))}` : ''}</span>
+      </div>
+    </article>`).join('')}</div>`;
+}
+
+/* El editor. `desde` llega de una conversación real o de «Lo que preguntan»,
+   con la pregunta y —si la hay— la respuesta, ya puestas en el formato. */
+function editorDeGuion(g = null, desde = null) {
+  const guionInicial = g?.guion ?? (desde?.pregunta
+    ? `Persona: ${desde.pregunta}\nCemi: ${desde.respuesta || ''}`
+    : '');
+  const caja = modal({
+    title: g ? 'Cambiar cómo contesta' : (desde?.respuesta ? 'Enseñarle esta respuesta' : 'Enseñarle una conversación'),
+    wide: true,
+    body: `
+      <div class="row" style="gap:var(--e2);flex-wrap:wrap">
+        <label style="flex:1;min-width:200px">Para quién
+          <select id="gmAmbito" class="input">
+            <option value="visitante">Visitante de la web</option>
+            <option value="estudiante">Alumnos</option>
+            <option value="equipo">Equipo</option>
+            <option value="ambos">Todos</option>
+          </select></label>
+        <label style="flex:2;min-width:240px">Tema
+          <input id="gmTema" class="input" maxlength="120" placeholder="Por ejemplo: Cuánto cuesta y en cuántas cuotas"></label>
+      </div>
+      <label>Cuándo usarlo <span class="tiny muted">(palabras o frases que lo traen; una por línea o separadas por coma)</span>
+        <textarea id="gmDisparadores" class="input" rows="2"
+          placeholder="cuanto cuesta, precio, cuotas, pago movil"></textarea></label>
+      <label>La conversación
+        <textarea id="gmGuion" class="input" rows="12" style="font-family:var(--cifra);font-size:var(--t-xs)"
+          placeholder="Persona: cuanto cuesta?\nCemi: [Nombre del programa] cuesta [precio]. Se paga de una vez con 10% menos, o en 3 o 6 cuotas.\nCemi: (otra forma de decirlo)\nSi dice «es caro» → Cemi: Por eso están las cuotas…"></textarea>
+        <span class="tiny muted">Cada línea «Persona:» es lo que escribe la gente; cada «Cemi:» una forma
+          de contestar (pon dos o tres, así no repite). «Si dice «…» → Cemi: …» es una rama.
+          Lo que va entre corchetes [así] lo rellena con el dato real; nunca escribas precios ni fechas.</span></label>
+      <label>Notas para el equipo <span class="tiny muted">(opcional; Cemi no las lee)</span>
+        <input id="gmNotas" class="input" maxlength="300" placeholder="Por qué se contesta así"></label>
+      <div class="row" style="gap:var(--e3);flex-wrap:wrap">
+        <label class="check"><input type="checkbox" id="gmSiempre"> Usarlo siempre, se pregunte lo que se pregunte
+          <span class="tiny muted">(sólo para identidad y tono)</span></label>
+        <label class="check"><input type="checkbox" id="gmActivo" checked> Encendido</label>
+      </div>`,
+    footer: `<button class="btn" data-x>Cancelar</button>
+             <button class="btn primary" id="gmGuardar">Guardar</button>`,
+  });
+  if (g) {
+    $('#gmAmbito').value = g.ambito; $('#gmTema').value = g.tema;
+    $('#gmDisparadores').value = (g.disparadores || []).join(', ');
+    $('#gmGuion').value = g.guion; $('#gmNotas').value = g.notas || '';
+    $('#gmSiempre').checked = !!g.siempre; $('#gmActivo').checked = !!g.activo;
+  } else {
+    $('#gmAmbito').value = desde?.ambito || 'visitante';
+    $('#gmGuion').value = guionInicial;
+    if (desde?.pregunta) {
+      $('#gmTema').value = desde.pregunta.slice(0, 120);
+      $('#gmDisparadores').value = desde.pregunta.replace(/[?¿!¡.]/g, '').trim().slice(0, 80);
+    }
+    (desde?.respuesta ? $('#gmGuion') : $('#gmTema')).focus();
+  }
+  $('#gmGuardar').onclick = (e) => ocupado(e.currentTarget, 'Guardando…', async () => {
+    const tema = $('#gmTema').value.trim(), guion = $('#gmGuion').value.trim();
+    if (!tema || !guion) { fail('Hace falta el tema y la conversación.'); return; }
+    if (!/Persona:/i.test(guion)) { fail('La conversación necesita al menos una línea que empiece por «Persona:».'); return; }
+    const disparadores = $('#gmDisparadores').value.split(/[\n,]/).map((d) => d.trim()).filter(Boolean);
+    const { error } = await sb.rpc('cem_bot_guion_guardar', {
+      p_id: g?.id ?? null, p_ambito: $('#gmAmbito').value, p_tema: tema,
+      p_disparadores: disparadores, p_guion: guion, p_notas: $('#gmNotas').value.trim() || null,
+      p_siempre: $('#gmSiempre').checked, p_activo: $('#gmActivo').checked,
+      p_origen: desde?.real ? 'real' : 'manual',
+    });
+    if (error) { fail(mensajeError(error)); return; }
+    caja.close();
+    ok(g ? 'Cambiado.' : 'Ya sabe contestar así.');
+    guionesCargados = true; cargarGuiones();
+  });
+}
+
+$('#listaGuiones').addEventListener('click', async (e) => {
+  const ed = e.target.closest('[data-editar-guion]');
+  if (ed) { editorDeGuion(GUIONES.find((g) => g.id === ed.dataset.editarGuion)); return; }
+  const ap = e.target.closest('[data-apagar-guion]');
+  if (ap) {
+    const g = GUIONES.find((x) => x.id === ap.dataset.apagarGuion); if (!g) return;
+    const activo = ap.dataset.a === '1';
+    const { error } = await sb.rpc('cem_bot_guion_guardar', {
+      p_id: g.id, p_ambito: g.ambito, p_tema: g.tema, p_disparadores: g.disparadores || [],
+      p_guion: g.guion, p_notas: g.notas, p_siempre: g.siempre, p_activo: activo, p_origen: g.origen,
+    });
+    if (error) { fail(mensajeError(error)); return; }
+    ok(activo ? 'Vuelve a usarlo.' : 'Ya no lo usa.'); cargarGuiones(); return;
+  }
+  const bo = e.target.closest('[data-borrar-guion]');
+  if (!bo) return;
+  if (!(await confirmDialog('Se borra del todo. Si sólo quieres que no lo use, apágalo.', 'Borrar el guion'))) return;
+  const { error } = await sb.rpc('cem_bot_guion_borrar', { p_id: bo.dataset.borrarGuion });
+  if (error) { fail(mensajeError(error)); return; }
+  ok('Borrado.'); cargarGuiones();
+});
+
+$('#btnNuevoGuion').onclick = () => editorDeGuion(null);
+if (!puedeEditar) $('#btnNuevoGuion').remove();
+['#gAmbito', '#gApagados'].forEach((s) => { $(s).onchange = () => {
+  if (s === '#gAmbito') cargarGuiones(); else pintarGuiones();
+}; });
+
+/* El probador: sin gastar un turno del modelo, dice qué guiones se llevaría. */
+async function probarGuion() {
+  const texto = $('#gProbar').value.trim();
+  if (!texto) { $('#probadorSalida').innerHTML = ''; return; }
+  const { data, error } = await sb.rpc('cem_bot_guiones_probar', { p_texto: texto, p_ambito: $('#gProbarAmbito').value });
+  if (error) { $('#probadorSalida').innerHTML = `<span class="tiny err-text">${esc(mensajeError(error))}</span>`; return; }
+  const conPuntos = (data ?? []).filter((g) => !g.guion_siempre);
+  $('#probadorSalida').innerHTML = (data ?? []).length
+    ? (data ?? []).map((g) => `<span class="chip ${g.guion_siempre ? 'neutral' : 'ok'}" title="${g.guion_siempre ? 'Va siempre' : g.guion_puntos + ' punto(s)'}">${esc(g.guion_tema)}${g.guion_siempre ? '' : ` · ${g.guion_puntos}`}</span>`).join('')
+      + (conPuntos.length ? '' : `<span class="tiny muted" style="width:100%">Ninguno se parece a eso: contestaría sólo con el catálogo. Si es una pregunta que se repite, escríbele un guion.</span>`)
+    : '<span class="tiny muted">Nada.</span>';
+}
+$('#btnProbarGuion').onclick = probarGuion;
+$('#gProbar').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); probarGuion(); } });
+
+/* Desde una conversación real: «así se contesta» guarda la respuesta tal cual
+   como ejemplo; «corregir» abre el editor con la pregunta y deja la respuesta
+   para escribirla bien. Las dos se guardan como «de una conversación real». */
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ensenar]');
+  if (!b) return;
+  editorDeGuion(null, {
+    pregunta: b.dataset.pregunta,
+    respuesta: b.dataset.ensenar === 'bien' ? b.dataset.respuesta : '',
+    real: true,
+    ambito: ($('#cAmbito')?.value === 'equipo') ? 'equipo' : 'visitante',
+  });
+});
+
 /* ── Las conversaciones ──────────────────────────────────────────────────── */
 async function cargarCharlas() {
   const tb = $('#tablaCharlas tbody');
@@ -766,14 +1017,26 @@ async function leerConversacion(id) {
   modal({
     title: 'La conversación entera',
     wide: true,
-    body: `<div class="hilo">${(data ?? []).map((m) => `
+    body: `<div class="hilo">${(data ?? []).map((m, i, todos) => {
+      /* Lo que dijo la persona justo antes: es el disparador natural del
+         guion que se pueda sacar de esta respuesta. */
+      const antes = [...todos.slice(0, i)].reverse().find((x) => x.quien === 'persona')?.texto || '';
+      return `
       <div class="linea ${m.quien === 'persona' ? 'persona' : 'asistente'}">
         <div class="txt">${esc(m.texto)}</div>
         <div class="pie">${esc(fdatetime(m.cuando))}
           ${m.modelo ? ' · ' + esc(m.modelo) : ''}
           ${m.ms ? ' · ' + (m.ms / 1000).toFixed(1) + ' s' : ''}
           ${m.error ? ' · <span class="err">' + esc(m.error) + '</span>' : ''}</div>
-      </div>`).join('') || `<div class="nota warn">Esta conversación ya no está.
+        ${puedeEditar && m.quien !== 'persona' && antes ? `<div class="ensenar">
+          <button class="btn ghost sm" data-ensenar="bien" data-pregunta="${esc(antes)}" data-respuesta="${esc(m.texto)}"
+            title="Guardar esta respuesta como ejemplo de cómo se contesta">
+            <span class="material-symbols-outlined" aria-hidden="true">thumb_up</span> Así se contesta</button>
+          <button class="btn ghost sm" data-ensenar="corregir" data-pregunta="${esc(antes)}" data-respuesta="${esc(m.texto)}"
+            title="Escribir cómo debería haber contestado">
+            <span class="material-symbols-outlined" aria-hidden="true">edit_note</span> Corregir</button>
+        </div>` : ''}
+      </div>`; }).join('') || `<div class="nota warn">Esta conversación ya no está.
         Puede que se haya borrado desde la base de datos mientras la lista
         seguía en pantalla. Recarga para ver las que hay ahora.</div>`}</div>`,
     footer: '<button class="btn" data-x>Cerrar</button>',
@@ -817,7 +1080,10 @@ async function cargarPreguntan() {
       <div class="row">
         <button class="btn sm" data-ficha="${esc(p.id)}"
                 data-texto="${esc(p.texto)}">
-          <span class="material-symbols-outlined" aria-hidden="true">add</span> Enseñarle a contestar esto</button>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Enseñarle el dato</button>
+        <button class="btn outline sm" data-guion-desde="${esc(p.texto)}"
+                title="Escribir cómo tiene que contestar a esto, como conversación">
+          <span class="material-symbols-outlined" aria-hidden="true">forum</span> Enseñarle cómo contestar</button>
         <button class="icon-btn" data-descartar="${esc(p.id)}" title="No merece una ficha" aria-label="No merece una ficha">
           <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
       </div>` : ''}</td>
@@ -826,6 +1092,8 @@ async function cargarPreguntan() {
 }
 
 $('#tablaPreguntan').addEventListener('click', async (e) => {
+  const g = e.target.closest('[data-guion-desde]');
+  if (g) { editorDeGuion(null, { pregunta: g.dataset.guionDesde }); return; }
   const f = e.target.closest('[data-ficha]');
   if (f) {
     /* Se abre el mismo editor de fichas, con la pregunta ya puesta de título.
@@ -1213,12 +1481,14 @@ $('#hDias').onchange = () => cargarHizo();
 /* ── Las pestañas ────────────────────────────────────────────────────────── */
 let charlasCargadas = false;
 let caraCargada = false;
+let guionesCargados = false;
 let preguntanCargadas = false;
 $('#tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-t]');
   if (!b) return;
   $$('#tabs button').forEach((x) => x.classList.toggle('active', x === b));
   $('#tSaber').classList.toggle('hidden', b.dataset.t !== 'saber');
+  $('#tGuiones').classList.toggle('hidden', b.dataset.t !== 'guiones');
   $('#tCharlas').classList.toggle('hidden', b.dataset.t !== 'charlas');
   $('#tSalud').classList.toggle('hidden', b.dataset.t !== 'salud');
   $('#tPreguntan').classList.toggle('hidden', b.dataset.t !== 'preguntan');
@@ -1243,6 +1513,7 @@ $('#tabs').addEventListener('click', (e) => {
   // Las conversaciones se piden la primera vez que se abre la pestaña, no al
   // cargar la pantalla: son 300 filas que casi nadie mira cada día.
   if (b.dataset.t === 'charlas' && !charlasCargadas) { charlasCargadas = true; cargarCharlas(); }
+  if (b.dataset.t === 'guiones' && !guionesCargados) { guionesCargados = true; cargarGuiones(); }
 });
 
 await cargarPanel();

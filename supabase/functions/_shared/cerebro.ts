@@ -43,7 +43,7 @@ export type Respuesta = {
 /* ── Una vuelta al modelo, con su cadena de respaldo ─────────────────────── */
 export async function preguntar(
   mensajes: any[],
-  opciones: { herramientas?: any[]; tope?: number } = {},
+  opciones: { herramientas?: any[]; tope?: number; temperatura?: number } = {},
   intento = 0,
   porQue: string[] = [],
 ): Promise<Respuesta> {
@@ -81,7 +81,12 @@ export async function preguntar(
       model: modelo,
       messages: mensajes,
       max_tokens: opciones.tope ?? 700,
-      temperature: 0.6,
+      /* 0,6 era lo justo para no inventar; con los guiones como ejemplos ya
+         no hace falta tanto freno, y un poco más de temperatura es lo que
+         evita que conteste dos veces con la misma frase. Cada camino elige
+         la suya: más para el visitante, que charla; menos para el equipo,
+         que pregunta cifras. */
+      temperature: opciones.temperatura ?? 0.6,
       ...esfuerzo(modelo),
     };
     if (opciones.herramientas?.length) {
@@ -112,6 +117,61 @@ export async function preguntar(
     return preguntar(mensajes, opciones, intento + 1,
       [...porQue, `${CADENA[intento]}: ${String(e).replace(/^Error:\s*/, "")}`]);
   }
+}
+
+/* ── Los guiones: cómo se contesta, con ejemplos ─────────────────────────────
+   Lo que le faltaba al asistente no eran datos: eran EJEMPLOS. Con el catálogo
+   solo, a «cómo te llamas» contestaba «soy del equipo» y a la segunda lo
+   repetía igual. Un guion es una conversación de muestra escrita por el
+   equipo —lo que dice la persona, dos o tres formas de contestar, y qué pasa
+   si sigue por un lado o por otro—. La base elige los que se parecen a lo que
+   acaban de escribir (cem_bot_guiones_para) y aquí se le dan al modelo como
+   «así contestas». No los copia: los adapta. Y el equipo puede escribir más
+   desde la pantalla, o convertir una conversación real en uno. */
+export async function guionesPara(
+  servidor: any, texto: string, ambito: string, tope = 4,
+): Promise<{ tema: string; guion: string; siempre: boolean }[]> {
+  try {
+    const { data, error } = await servidor.rpc("cem_bot_guiones_para", {
+      p_texto: texto, p_ambito: ambito, p_tope: tope, p_contar: true,
+    });
+    if (error) throw error;
+    return (data ?? []).map((g: any) => ({
+      tema: g.guion_tema, guion: g.guion_texto, siempre: !!g.guion_siempre,
+    }));
+  } catch (e) {
+    /* Sin guiones se contesta igual, con el catálogo: peor, pero se contesta.
+       Que se caiga el asistente porque falló la búsqueda de ejemplos sería
+       arreglar una cosa rompiendo otra. */
+    console.error("[cerebro] no se pudieron leer los guiones:", e);
+    return [];
+  }
+}
+
+export function bloqueDeEjemplos(
+  guiones: { tema: string; guion: string; siempre: boolean }[], nombre = "Cemi",
+): string {
+  if (!guiones.length) return "";
+  const p = [
+    "",
+    "ASI CONTESTAS. Son conversaciones de ejemplo que te enseñó el equipo. Reglas:",
+    "- No las copies letra por letra: son el tono y el fondo. Elige entre las variantes,",
+    "  mezcla, acorta, cambia el orden. Que se note que es una conversación y no un guion.",
+    "- Si ya dijiste algo parecido en esta conversación, dilo DISTINTO o pregunta qué",
+    "  parte no quedó clara. Nunca la misma frase dos veces.",
+    "- Lo que va entre corchetes [así] no es texto: es un hueco que rellenas con el dato",
+    "  real de arriba. Si no tienes ese dato, no lo digas y no lo inventes.",
+    "- «Si dice …» son ramas: lo que contestas si la persona sigue por ahí.",
+    "- Cuando un ejemplo diga [usa dejar_contacto] o [usa avisar_al_equipo], llama a esa",
+    "  herramienta de verdad; la frase sola no vale.",
+  ];
+  for (const g of guiones) {
+    p.push("", `--- ${g.tema} ---`);
+    /* «Cemi:» en los guiones es el nombre de la casa. Si en Configuración se
+       cambió, aquí se cambia también, para que no aprenda dos nombres. */
+    p.push(nombre === "Cemi" ? g.guion : g.guion.replaceAll("Cemi:", `${nombre}:`).replaceAll("Cemi", nombre));
+  }
+  return p.join("\n");
 }
 
 /* ── Ejecutar lo que el modelo pidió ─────────────────────────────────────── */
@@ -207,6 +267,7 @@ export async function conversar(opciones: {
   delServidor: Record<string, unknown>;
   tope?: number;
   vueltas?: number;
+  temperatura?: number;
 }): Promise<{ texto: string; modelo: string; uso: any; usadas: Ejecutada[] }> {
   const { cliente, catalogo, delServidor } = opciones;
   const mensajes = [...opciones.mensajes];
@@ -227,6 +288,7 @@ export async function conversar(opciones: {
     const r = await preguntar(mensajes, {
       herramientas: ultima ? undefined : enFormato,
       tope: opciones.tope,
+      temperatura: opciones.temperatura,
     });
     modelo = r.modelo;
     uso = sumarUso(uso, r.uso);

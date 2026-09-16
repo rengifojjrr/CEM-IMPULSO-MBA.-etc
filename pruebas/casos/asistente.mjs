@@ -33,6 +33,18 @@ export default async function correr(navegador) {
   a.comprobar(await A.locator('#retrato img').count() === 1,
     'La mascota se ve en su pantalla');
 
+  /* Cómo contesta: los guiones sembrados tienen que estar, y el probador
+     tiene que decir qué usaría para una pregunta de las de todos los días. */
+  await A.click('#tabs button[data-t="guiones"]');
+  await A.waitForTimeout(2000);
+  a.comprobar(await A.locator('#listaGuiones .guion').count() >= 20,
+    'Cemi tiene al menos veinte conversaciones de ejemplo con las que aprender');
+  await A.fill('#gProbar', 'cuánto cuesta y en cuántas cuotas?');
+  await A.click('#btnProbarGuion');
+  await A.waitForTimeout(1500);
+  a.comprobar((await A.textContent('#probadorSalida')).includes('Cuánto cuesta'),
+    'El probador dice qué guion usaría para «cuánto cuesta»');
+
   // Las conversaciones se piden al abrir la pestaña, no al cargar la pantalla.
   await A.click('#tabs button[data-t="charlas"]');
   await A.waitForTimeout(2000);

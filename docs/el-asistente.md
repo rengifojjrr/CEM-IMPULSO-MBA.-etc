@@ -373,7 +373,8 @@ preguntar lo que le acaban de decir.
 - **Decidir la vía de WhatsApp** y dar de alta el número.
 - **Subir el render de la mascota**, para que se vea exactamente igual.
 - **Alimentarlo poco a poco**, que era el plan: cada cosa que el equipo se
-  cansa de explicar es una ficha en «Lo que sabe».
+  cansa de explicar es una ficha en «Lo que sabe», y cada conversación que
+  salió bien —o mal— es un guion en «Cómo contesta» (ver §13).
 - Las pruebas de navegador (`pruebas/casos/asistente.mjs`) están escritas pero
   **no se han podido correr**: necesitan las cuentas `@pruebas.local`, que
   ahora mismo no están sembradas.
@@ -480,3 +481,101 @@ está.
   perder de vista lo que ya se leyó, y por eso «empezar de nuevo» no borra nada
   de la base: suelta el hilo que se le manda al modelo, que es lo que se pide
   cuando se pide empezar de nuevo.
+
+---
+
+## 13 · Cómo aprende: los guiones
+
+El 15 de septiembre de 2026, en la web, con un visitante de verdad:
+
+> «tu como te llamas?» → «Soy del equipo de CEM International Education.»
+> «pero como te llamas?» → lo mismo, palabra por palabra.
+> «no tienes nombre?» → «No, no tengo nombre.»
+
+Dos causas. La primera, tonta: el guion del servidor nunca le decía su
+nombre. Le decía «eres el asistente del CEM» y «nunca digas que eres un
+bot», y con eso el modelo hacía lo único que podía. La segunda es la de
+fondo: lo único que sabía eran DATOS —el catálogo, las fichas— y no tenía ni
+un ejemplo de cómo se contesta a alguien. Un modelo con datos y sin ejemplos
+contesta como una base de datos: la misma frase seca, y a la segunda la
+repite.
+
+### Qué es un guion
+
+Una conversación de ejemplo, en texto plano, con este formato:
+
+```
+Persona: como te llamas?
+Cemi: Me llamo Cemi. Soy quien atiende aquí en el CEM…
+Cemi: Cemi, para servirte. Soy la ayuda del CEM en la web…
+Si dice «eres un bot?» → Cemi: Soy Cemi, el asistente del CEM. Lo que te
+  digo sale de lo que el equipo me enseñó…
+```
+
+- Cada `Persona:` es lo que escribe la gente.
+- Cada `Cemi:` es una forma de contestar. Van dos o tres, y ésa es la razón
+  de que no responda siempre igual: elige, mezcla y cambia las palabras.
+- `Si dice «…» → Cemi: …` es una rama: lo que contesta si la persona sigue
+  por ahí. Un guion puede tener varias.
+- Lo que va entre corchetes `[así]` no es texto: es un hueco que rellena con
+  el dato real del catálogo. **Ningún guion lleva precios ni fechas
+  escritos**; eso sale de la base y sólo de la base.
+
+Viven en `cem_bot_guiones`. Cada uno tiene un ámbito (visitante, alumnos,
+equipo o todos), un tema, y sus **disparadores**: palabras o frases que, si
+aparecen en lo que escribe la persona, lo traen. Tres van marcados «siempre»
+—quién es, el tono, cómo salir de lo que no toca— y entran en todas las
+conversaciones.
+
+### Cómo llegan al modelo
+
+Antes de contestar, la función de borde llama a `cem_bot_guiones_para` con la
+pregunta de ahora y las dos anteriores de la persona (porque «y en cuotas?»
+sólo se entiende con el «cuánto cuesta» de antes). La base puntúa cada guion
+activo del ámbito: tres puntos por disparador que aparezca, uno por cada
+palabra de cuatro letras o más que coincida. Se lleva los «siempre» y los
+cuatro mejores con dos puntos o más. Entre dos con los mismos puntos, primero
+el que menos se ha usado, así con el tiempo se reparten.
+
+Los elegidos se le dan al modelo como un bloque «ASÍ CONTESTAS», con las
+reglas: no copiar letra por letra, elegir entre variantes, nunca la misma
+frase dos veces en una conversación, y los corchetes se rellenan o se callan.
+La temperatura también subió: 0,85 para el visitante, 0,75 para el alumno,
+0,6 para el equipo (que pregunta cifras). Antes era 0,6 para todos.
+
+Va en los tres canales: la web pública, la plataforma y WhatsApp, por la misma
+función compartida (`_shared/cerebro.ts`: `guionesPara` y `bloqueDeEjemplos`).
+
+### Cómo se le enseña
+
+En **Admin → Asistente → Cómo contesta**:
+
+- La lista de guiones, con cuántas veces se ha usado cada uno.
+- «Enseñarle una conversación»: el editor, con el formato explicado al lado.
+- El probador: escribes lo que escribiría alguien y ves qué guiones usaría,
+  sin gastar un turno del modelo. Si no usa ninguno, es una pregunta que
+  merece guion.
+- En **Conversaciones**, al leer una real, cada respuesta de Cemi tiene dos
+  botones: «Así se contesta» la guarda tal cual como ejemplo; «Corregir» abre
+  el editor con la pregunta puesta para escribir cómo debería haber contestado.
+  Las dos quedan marcadas «de una conversación real». Eso es aprender: lo que
+  preguntan de verdad, contestado como el equipo quiere.
+- En **Lo que preguntan**, junto a «Enseñarle el dato» (una ficha) está
+  «Enseñarle cómo contestar» (un guion).
+
+Vienen 27 de fábrica, con ramas: quién es, saludos, qué es el CEM, qué
+programas hay, cuánto cuesta, cómo se paga, duración y horario, online o
+presencial, el certificado, para quién es, marketing o IA, cuándo empieza,
+descuentos, qué hace falta, empresas, cómo inscribirse, ya soy estudiante,
+egresados, hablar con una persona, quejas y reembolsos, desde otro país,
+objeciones, fuera de tema, qué se aprende, alumnos, equipo, y cuántos son.
+Una de fábrica que se edita pasa a ser del equipo y la siguiente siembra no
+la pisa.
+
+### Lo que NO es
+
+No es entrenamiento del modelo. El modelo es el mismo; lo que cambia es lo que
+se le enseña antes de cada respuesta. Es la forma honesta de que «aprenda»
+sin dejar de poder corregirlo mañana: un guion malo se apaga y deja de
+influir en el acto.
+
