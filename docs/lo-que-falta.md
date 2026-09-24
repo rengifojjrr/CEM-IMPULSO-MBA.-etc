@@ -33,6 +33,14 @@ lo que **sólo puedes hacer tú**, en el orden en que duele:
    avería. La cadena ya tiene tres modelos y espera cuando puede (16 de
    septiembre), pero eso estira el límite, no lo quita. Cuesta lo que se use;
    con el tráfico de hoy, centavos.
+3c. **Decidir si los códigos de las campañas se descuentan solos al
+   inscribirse.** Desde el 24 de septiembre la promoción sale en grande en la
+   portada y en Programas, con cuenta atrás, y reparte códigos como
+   `CEM-0926-K4M2P`. Pero el campo «cupón» de la inscripción sólo reconoce el
+   código fijo de cada curso: los de campaña los canjea el equipo a mano, en
+   Admin → Campañas → «Canjear un código», y ajusta el cobro. Hacer que se
+   descuenten solos es tocar cómo se calcula lo que se cobra, y por eso es
+   decisión tuya y no un arreglo de paso.
 4. **Reconectar el puente de WhatsApp** (escanear el QR desde la máquina donde
    corre) y pasar `asistente_whatsapp_modo` a «responde». Lleva caído desde
    el 27 de agosto.

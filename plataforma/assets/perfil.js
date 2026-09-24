@@ -33,9 +33,9 @@
 import { sb, $, $$, esc, chip, bar, pct, num, fdate, modal, ok, fail,
          mensajeError, confirmDialog, chipEstado, avisar, vacio, ocupado,
          campoArchivo, compartir, encogerImagen, recortarCuadrado,
-         TIPOS_ARCHIVO, ROLES_SIN_FOTO } from './app.js?v=2026-09-15';
-import { lienzoCertificado } from './certificado.js?v=2026-09-15';
-import { paisConBandera, opcionesDePais } from './paises.js?v=2026-09-15';
+         TIPOS_ARCHIVO, ROLES_SIN_FOTO } from './app.js?v=2026-09-24';
+import { lienzoCertificado } from './certificado.js?v=2026-09-24';
+import { paisConBandera, opcionesDePais } from './paises.js?v=2026-09-24';
 
 /* Lo que se lee bajo el nombre cuando la persona no ha escrito a qué se
    dedica. Sale también en la página pública, así que dice de qué casa es y no

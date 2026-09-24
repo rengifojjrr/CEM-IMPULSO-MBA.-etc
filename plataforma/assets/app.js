@@ -4,9 +4,9 @@
    de este archivo lo mismo de siempre, y el asistente puede montarse en las
    páginas generadas sin cargar todo esto. Ver la cabecera de nucleo.js. */
 import { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil,
-         sitioPublico } from './nucleo.js?v=2026-09-15';
+         sitioPublico } from './nucleo.js?v=2026-09-24';
 export { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil, sitioPublico };
-import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-09-15';
+import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-09-24';
 export { medir };
 
 /* La apariencia elegida se aplica al importar este módulo, que es lo primero
@@ -16,7 +16,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-09-15';
+         vidrioActual } from './temas.js?v=2026-09-24';
 
 /* La marca de versión del logotipo. Tiene que decir lo MISMO que VERSION_ICONO
    en herramientas/iconos.mjs y en herramientas/generar-seo.mjs: es la fecha del
@@ -1408,9 +1408,12 @@ export async function mount(opts = {}) {
        de arriba: quince pantallas son quince sitios donde olvidarse de ponerla,
        y una campaña que no aparece no da error — simplemente no la ve nadie.
 
-       Sólo a quien NO tiene sesión. Ofrecerle a un alumno matriculado un
-       «15 % en tu primer diplomado» es enseñarle que llegó tarde. */
-    if (!p) sinRomperNada(montarLaPromocion());
+       También a quien TIENE sesión, desde el 24 de septiembre de 2026. Antes
+       se escondía, con la idea de no enseñarle a un alumno que llegó tarde, y
+       el efecto fue otro: el equipo, que entra siempre con su cuenta, no veía
+       nunca las promociones que creaba y creía que la web no las pintaba. Y un
+       alumno de un diplomado es justo quien más fácil se apunta al segundo. */
+    sinRomperNada(montarLaPromocion());
     return p;
   }
 
@@ -1677,7 +1680,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-09-15')
+  import('./asistente.js?v=2026-09-24')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2385,7 +2388,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-09-15');
+    const m = await import('./apariencia.js?v=2026-09-24');
 
     m.abrirApariencia();
 
@@ -2649,160 +2652,22 @@ function seguirElRaton() {
 }
 
 /* ============ la promoción que haya, si la hay ============
-   Una barra abajo del todo con lo que la escuela esté ofreciendo hoy. Se pide
-   a la base al abrir; si no hay campaña activa para esta pantalla, no se dibuja
-   nada y no se ha gastado más que una consulta.
+   La franja vive en promo.js, que es el mismo módulo que cargan las páginas
+   de la raíz (portada, programas, contacto): una sola manera de pintar una
+   campaña, en vez de una aquí y otra allí que se separan con el tiempo.
 
-   Va abajo y no como ventana encima a propósito. Un modal que tapa la página
-   antes de que la persona haya leído nada es lo que hace que se cierre la
-   pestaña — y encima Google penaliza el intersticial en móvil. Abajo se ve,
-   se puede ignorar, y no estorba para leer lo que se vino a leer.
+   Sólo en las pantallas que Campañas ofrece en «Dónde sale». Una campaña sin
+   pantallas marcadas sale «en todas», y «todas» tiene que ser esta lista y no
+   cualquier página pública: en «Crear contraseña» o en «Verificar un
+   certificado» un descuento no pinta nada. La comprobación 15 de revisar.mjs
+   mira que esta lista y la de Campañas no se separen. */
+const PANTALLAS_CON_PROMO = new Set(['inicio', 'catalogo', 'curso', 'nosotros']);
 
-   Se recuerda cerrada durante una semana. No «para siempre», porque la
-   siguiente campaña es otra oferta y merece su oportunidad; no «en cada
-   página», porque eso es acoso. */
-const LLAVE_PROMO = 'cemPromoCerrada';
-/* La promoción, como botón flotante y no como franja pegada abajo.
-   ═══════════════════════════════════════════════════════════════════════════
-   Era una barra que ocupaba el ancho entero de la pantalla y empujaba todo lo
-   demás hacia arriba. Tres problemas, y los tres se veían: tapaba el final de
-   la página, obligaba a Cemi y al botón de contacto a apartarse —con su cuenta
-   de píxeles y su ResizeObserver para no chocar—, y siendo tan ancha se leía
-   como uno de esos avisos de galletas que uno cierra sin mirar.
-
-   Ahora son dos estados. Cerrada es una pastilla pequeña que enseña el gancho
-   —«10 % OFF»— y nada más. Al pulsarla se abre una tarjeta con el formulario.
-   Ocupa la esquina y no la pantalla, así que no hay nada que apartar.
-
-   Se apila SOBRE el botón de contacto, en la misma columna de la izquierda:
-   dos cosas en la misma esquina se ordenan una encima de otra, no una tapando
-   a la otra. Cemi se queda solo a la derecha. */
-async function montarLaPromocion() {
+function montarLaPromocion() {
   const pantalla = (location.pathname.split('/').pop() || 'inicio')
     .replace('.html', '') || 'inicio';
-  try {
-    const cerrada = JSON.parse(localStorage.getItem(LLAVE_PROMO) || 'null');
-    if (cerrada && Date.now() - cerrada.cuando < 7 * 24 * 3600 * 1000) return;
-  } catch { /* incógnito: se enseña */ }
-
-  const { data: c } = await sb.rpc('cem_campana_para', { p_pantalla: pantalla });
-  if (!c) return;
-
-  /* Lo que se lleva, dicho como se lee. «descuento 15» no es nada. */
-  const premio = c.premio_tipo === 'descuento' ? `${c.premio_valor} % de descuento`
-    : c.premio_tipo === 'descuento_fijo' ? `${c.premio_valor} de descuento`
-    : (c.premio_texto || 'un regalo');
-
-  const caja = document.createElement('div');
-  caja.className = 'promo-flota';
-  caja.innerHTML = `
-    <div class="promo-panel" id="promoPanel" hidden>
-      <button class="icon-btn promo-x" id="promoX" title="Cerrar la promoción"
-        aria-label="Cerrar la promoción">
-        <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
-      <div class="promo-cuerpo" id="promoCuerpo">
-        <span class="promo-sello">${esc(c.titular || premio)}</span>
-        ${c.explicacion ? `<p class="promo-linea">${esc(c.explicacion)}</p>` : ''}
-        ${/* Las plazas, sólo si el cupo es de verdad. Nunca un número inventado. */''}
-        ${c.quedan != null ? `<p class="promo-quedan">Quedan ${c.quedan}
-          ${c.quedan === 1 ? 'plaza' : 'plazas'}</p>` : ''}
-        <form class="promo-forma" id="promoForma">
-          <input type="email" id="promoEmail" required placeholder="Tu correo"
-            autocomplete="email" aria-label="Tu correo">
-          <button class="btn block" type="submit">${esc(c.boton || 'Lo quiero')}</button>
-        </form>
-        <p class="promo-pie">Te lo mandamos por correo. No lo usamos para nada más.</p>
-      </div>
-    </div>
-    <button class="promo-pastilla" id="promoAbrir" aria-expanded="false"
-      aria-controls="promoPanel">
-      <span class="material-symbols-outlined" aria-hidden="true">redeem</span>
-      <span class="promo-pastilla-txt">${esc(c.titular || premio)}</span>
-    </button>`;
-  document.body.appendChild(caja);
-  requestAnimationFrame(() => caja.classList.add('se-ve'));
-
-  const panel = $('#promoPanel', caja);
-  const pastilla = $('#promoAbrir', caja);
-
-  const abrir = (si) => {
-    panel.hidden = !si;
-    pastilla.setAttribute('aria-expanded', String(si));
-    if (si) $('#promoEmail', caja)?.focus();
-  };
-  pastilla.onclick = () => abrir(panel.hidden);
-
-  /* Cerrar es cerrar del todo, y se recuerda una semana. Quien la cerró ya
-     contestó que no; volver a enseñársela en la siguiente pantalla es la
-     manera más rápida de que deje de leer nada de esta casa. */
-  const cerrar = () => {
-    caja.remove();
-    try { localStorage.setItem(LLAVE_PROMO, JSON.stringify({ cuando: Date.now() })); } catch {}
-  };
-  $('#promoX', caja).onclick = cerrar;
-  // Escape cierra el panel, no la promoción: no es lo mismo.
-  caja.addEventListener('keydown', (e) => { if (e.key === 'Escape') { abrir(false); pastilla.focus(); } });
-
-  $('#promoForma', caja).onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = $('button[type="submit"]', e.target);
-    const email = $('#promoEmail', caja).value.trim();
-    btn.disabled = true;
-    const { data, error } = await sb.rpc('cem_campana_pedir', {
-      p_codigo: c.codigo, p_email: email,
-      p_referido: qs('ref') || null,
-      p_origen: `promo:${pantalla}`,
-    });
-    if (error) {
-      btn.disabled = false;
-      avisar('#promoForma', mensajeError(error), 'err');
-      return;
-    }
-
-    /* Un correo, un código. Y decirlo cuando se repite.
-       ─────────────────────────────────────────────────────────────────────
-       La base ya lo garantiza —hay un índice único por campaña y correo— y la
-       función devuelve el MISMO código en vez de uno nuevo. Lo que faltaba era
-       contarlo: enseñar «Tu código: X» sin más a quien acaba de pedirlo por
-       segunda vez le hace creer que ahora tiene dos, y que puede repartir uno.
-       Se dice que es el que ya tenía. */
-    const url = raizPublica();
-    $('#promoCuerpo', caja).innerHTML = `
-      <span class="material-symbols-outlined promo-tic" aria-hidden="true">check_circle</span>
-      <b class="promo-titulo">${data.repetido ? 'Ya tenías tu código' : '¡Listo! Éste es tuyo'}</b>
-      ${data.repetido
-        ? '<p class="promo-linea">Con este correo ya lo pediste, así que es el mismo de antes: '
-          + 'es uno por persona.</p>'
-        : `<p class="promo-linea">${esc(data.gracias || 'Guárdalo: se usa una sola vez.')}</p>`}
-      <div class="promo-codigo-caja">
-        <code class="promo-codigo">${esc(data.codigo)}</code>
-        <button class="icon-btn" id="promoCopiar" title="Copiar el código"
-          aria-label="Copiar el código">
-          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button>
-      </div>
-      ${data.caduca_en ? `<p class="promo-quedan">Vale hasta el ${fdate(data.caduca_en)}</p>` : ''}
-
-      <!-- Y aquí es donde esto deja de ser un descuento y pasa a ser una cuenta.
-           ═════════════════════════════════════════════════════════════════
-           Quien acaba de dar su correo por un código está más dispuesto que
-           nunca a terminar el registro: ya dio el paso difícil. Si cierra la
-           pestaña, el código se pierde en un correo entre otros cuarenta. Con
-           cuenta, lo tiene guardado en «Mis cupones» el día que decida
-           inscribirse — que es cuando de verdad hace falta.
-           El correo va en la dirección para que no lo tenga que escribir otra
-           vez: el registro lo recoge de ahí. -->
-      <a class="btn block sep" href="${url}index.html?registro=1&correo=${encodeURIComponent(email)}">
-        <span class="material-symbols-outlined" aria-hidden="true">bookmark_added</span>
-        Guardarlo en mi cuenta</a>
-      <p class="promo-pie">Así lo tienes a mano cuando te inscribas, sin buscar el correo.</p>`;
-    $('#promoCopiar', caja).onclick = async () => {
-      try { await navigator.clipboard.writeText(data.codigo); ok('Código copiado.'); }
-      catch { toast('Cópialo a mano: ' + data.codigo); }
-    };
-    /* La pastilla deja de vender y pasa a recordar: quien ya lo tiene no
-       necesita que le vuelvan a ofrecer lo mismo. */
-    $('.promo-pastilla-txt', caja).textContent = 'Tu código';
-  };
+  if (!PANTALLAS_CON_PROMO.has(pantalla)) return Promise.resolve();
+  return import('./promo.js?v=2026-09-24').then((m) => m.montarPromocion({ pantalla }));
 }
 
 function renderPublicHeader(p) {

@@ -1463,20 +1463,16 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 .whatsapp-flotante .contacto-btn{text-decoration:none;display:inline-flex;align-items:center;}
 
 /* Que los flotantes no se pisen entre ellos ni pisen el pie.
-   Con la ventana de Cemi abierta, la promoción y el «¿Tienes dudas?» se
-   apartan: Cemi ya contesta dudas y ya recoge datos, y tres burbujas a la vez
-   sobre una ventana de chat es lo que se vio en las capturas de la auditoría.
+   Con la ventana de Cemi abierta, el «¿Tienes dudas?» se aparta: Cemi ya
+   contesta dudas y ya recoge datos, y dos burbujas a la vez sobre una ventana
+   de chat es lo que se vio en las capturas de la auditoría. (La promoción ya
+   no flota: es una franja debajo de la cabecera, y no estorba a nadie.)
    Y las páginas públicas dejan sitio abajo, para que la última fila de cifras
    y el pie no queden debajo de las burbujas. */
-body:has(#cemChat:not([hidden])) .promo-flota,
 body:has(#cemChat:not([hidden])) .contacto-flotante{display:none;}
-body.cem-publico:has(.chat-boton, .contacto-flotante, .promo-flota){padding-bottom:88px;}
-body.cem-publico:has(.chat-boton, .contacto-flotante, .promo-flota) > footer{
+body.cem-publico:has(.chat-boton, .contacto-flotante){padding-bottom:88px;}
+body.cem-publico:has(.chat-boton, .contacto-flotante) > footer{
   padding-bottom:calc(var(--e4) + 24px);}
-@media (max-width:640px){
-  /* En el teléfono, la promoción abierta ocupa casi todo: se cierra el resto. */
-  body:has(#promoPanel:not([hidden])) .contacto-flotante{display:none;}
-}
 
 /* ─────────────── LAS PREGUNTAS DE LA PORTADA ───────────────────────────
    Un acordeón y no una rejilla de tarjetas: nadie lee cinco respuestas, cada
@@ -4374,89 +4370,179 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
   .pub-menu-btn .raya{transition:none;}
 }
 
-/* La promoción, flotando en la esquina.
+/* La promoción, como franja debajo de la cabecera.
    ═══════════════════════════════════════════════════════════════════════════
-   Antes era una franja pegada al borde de abajo, de lado a lado. Ocupaba el
-   ancho entero para decir «10 % OFF», y a cambio: tapaba el final de la
-   página, obligaba a Cemi y al botón de contacto a apartarse —con su medición
-   de altura y su ResizeObserver para no chocar—, y por ancha se leía como uno
-   de esos avisos de galletas que se cierran sin mirar.
+   Dos intentos antes que éste. Primero, una barra pegada al borde de abajo, de
+   lado a lado, que se leía como un aviso de galletas. Después, una pastilla en
+   la esquina, tan discreta que nadie la veía — y que además sólo salía en
+   cuatro pantallas del portal y a quien no tuviera sesión, así que el equipo
+   no la vio nunca.
 
-   Ahora son dos estados en la esquina de abajo a la izquierda, apilados SOBRE
-   el botón de contacto —dos cosas en la misma esquina se ordenan, no se
-   tapan—. Cemi se queda solo a la derecha, y ya no hay nada que apartar: sin
-   `--promo-alto`, sin `body.con-promo`, sin observador.
+   Ésta está hecha a partir de las páginas de precios que el equipo enseñó
+   como ejemplo (septiembre de 2026): una cinta rayada con el descuento, el
+   titular a dos tonos, y una tarjeta con la cuenta atrás. Va dentro del flujo
+   de la página, debajo de la cabecera, y no encima del contenido: se ve, se
+   puede leer lo de abajo sin cerrarla, y Google no la cuenta como
+   intersticial.
 
-     · Cerrada: una pastilla con el gancho y nada más.
-     · Abierta: una tarjeta de 300 px con el formulario.
+   Es un mundo propio, oscuro en los dos temas, a propósito: es lo único de la
+   página que vende, y tiene que distinguirse del resto con el tema que sea.
+   Por eso todos sus colores están aquí, explícitos, y no dependen de los
+   tokens del tema. El rosa es sólo de la promoción; no aparece en ningún otro
+   sitio de la casa. */
+.promo-franja{
+  --pf-rosa:#ff4f96; --pf-rosa-2:#ff82b5; --pf-rosa-3:#ffb3cf;
+  --pf-fondo:#120f1d; --pf-fondo-2:#221327; --pf-hundido:rgba(8,7,14,.58);
+  --pf-blanco:#ffffff; --pf-gris:#cdcfdb; --pf-gris-2:#a9abbd;
+  /* z-index propio: el velo blanco que aclara el texto de la portada
+     (.portada-dicho::before) se extiende hacia arriba y, al pintarse después,
+     caía encima de la franja como una mancha clara en el centro. */
+  position:relative;z-index:2;box-sizing:border-box;
+  /* Se adapta a SU ancho y no al de la ventana: la misma franja va a lo ancho
+     de la portada y dentro del diálogo de Campañas, que mide la mitad. */
+  container:franja / inline-size;
+  width:calc(100% - 32px);max-width:1080px;margin:var(--e2) auto 0;
+  border-radius:18px;overflow:hidden;color:var(--pf-blanco);
+  border:1px solid rgba(255,79,150,.45);
+  background:
+    radial-gradient(120% 150% at 88% 40%, rgba(255,79,150,.22), transparent 55%),
+    radial-gradient(rgba(255,255,255,.055) 1px, transparent 1.2px) 0 0 / 14px 14px,
+    linear-gradient(135deg, var(--pf-fondo), var(--pf-fondo-2));
+  box-shadow:0 22px 44px -24px rgba(255,79,150,.55);
+  font-family:inherit;
+  animation:pf-entra .35s ease-out;}
+@keyframes pf-entra{from{opacity:0;transform:translateY(-6px);}}
+@media (prefers-reduced-motion:reduce){ .promo-franja{animation:none;} }
+@media print{ .promo-franja{display:none;} }
 
-   El aviso de galletas se cierra sin mirar porque interrumpe. Éste no
-   interrumpe: está ahí, se ve, y se abre si interesa. */
-.promo-flota{position:fixed;left:18px;bottom:76px;z-index:56;
-  display:flex;flex-direction:column;align-items:flex-start;gap:var(--e1);
-  /* Entra deslizándose y no de golpe: algo que aparece de la nada en mitad de
-     la lectura se lee como un fallo de la página. `translateY` y no `bottom`
-     porque no obliga a recalcular la disposición. */
-  transform:translateY(14px);opacity:0;
-  transition:transform var(--entra,.24s) ease-out, opacity var(--entra,.24s) ease-out;}
-.promo-flota.se-ve{transform:none;opacity:1;}
-@media (prefers-reduced-motion:reduce){
-  .promo-flota{transition:none;transform:none;opacity:1;}
+/* La cinta: rayas en diagonal, como un precinto. */
+.pf-cinta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  min-height:38px;padding:6px 48px 6px 18px;
+  background:repeating-linear-gradient(-45deg, var(--pf-rosa) 0 16px, var(--pf-rosa-2) 16px 32px);}
+.pf-cinta-tag{display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--pf-blanco);text-shadow:0 1px 0 rgba(120,0,50,.35);}
+.pf-cinta-tag .material-symbols-outlined{font-size:17px;}
+.pf-cinta-limite{background:#0b0a12;color:var(--pf-blanco);border-radius:999px;
+  padding:3px 12px;font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;}
+.pf-x{position:absolute;top:5px;right:7px;width:30px;height:30px;border:0;border-radius:999px;
+  display:grid;place-items:center;cursor:pointer;
+  background:rgba(11,10,18,.55);color:var(--pf-blanco);}
+.pf-x .material-symbols-outlined{font-size:18px;}
+.pf-x:hover{background:rgba(11,10,18,.8);}
+.pf-x:focus-visible{outline:2px solid var(--pf-blanco);outline-offset:2px;}
+
+/* El cuerpo: el texto a la izquierda, el reloj a la derecha. */
+.pf-cuerpo{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
+  gap:var(--e3) var(--e4);padding:26px 30px 28px;}
+.pf-texto{min-width:0;}
+.pf-sello{display:inline-flex;align-items:center;gap:6px;border-radius:999px;
+  padding:4px 12px 4px 10px;background:var(--pf-rosa);color:var(--pf-blanco);
+  font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.pf-sello .material-symbols-outlined{font-size:16px;}
+/* El titular es la única excepción de la casa a los dos pesos: 700 y en
+   mayúsculas, porque es un cartel y no un párrafo. */
+.pf-titular{margin:14px 0 10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:-.02em;line-height:1.02;font-size:clamp(26px,4.2cqi,46px);
+  text-wrap:balance;}
+.pf-l1{display:block;color:var(--pf-rosa);}
+.pf-l2{display:block;color:var(--pf-blanco);}
+.pf-linea{margin:0;max-width:58ch;font-size:15px;line-height:1.5;color:var(--pf-gris);}
+.pf-pie{flex-basis:100%;margin:2px 0 0;font-size:12px;color:var(--pf-gris-2);}
+
+.pf-accion{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:18px;}
+.pf-btn{display:inline-flex;align-items:center;gap:8px;min-height:46px;padding:0 22px;
+  border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:15px;font-weight:700;
+  background:var(--pf-rosa);color:var(--pf-blanco);
+  box-shadow:0 10px 24px -10px rgba(255,79,150,.9);
+  transition:transform var(--rapido), filter var(--rapido);}
+.pf-btn .material-symbols-outlined{font-size:20px;}
+.pf-btn:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.pf-btn:focus-visible{outline:2px solid var(--pf-blanco);outline-offset:3px;}
+.pf-btn:disabled{opacity:.6;cursor:progress;transform:none;}
+.pf-forma{display:flex;flex-wrap:wrap;gap:10px;width:100%;max-width:480px;margin:0;}
+.pf-forma input{flex:1 1 220px;min-width:0;min-height:46px;padding:0 18px;
+  border-radius:999px;border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.08);color:var(--pf-blanco);font:inherit;font-size:15px;}
+.pf-forma input::placeholder{color:var(--pf-gris-2);}
+.pf-forma input:focus-visible{outline:2px solid var(--pf-rosa-2);outline-offset:2px;}
+.pf-error{flex-basis:100%;margin:0;font-size:13px;color:var(--pf-rosa-3);}
+
+/* El reloj. Números tabulares: que no bailen al cambiar de segundo. */
+.pf-reloj{position:relative;min-width:300px;border-radius:16px;padding:20px 16px 14px;
+  text-align:center;border:1px solid rgba(255,79,150,.5);
+  background:linear-gradient(160deg, rgba(255,79,150,.24), rgba(255,79,150,.06));}
+.pf-reloj-insignia{position:absolute;top:-12px;right:14px;border-radius:999px;padding:3px 11px;
+  background:var(--pf-rosa);color:var(--pf-blanco);font-size:12px;font-weight:700;}
+.pf-reloj-tit{display:flex;align-items:center;justify-content:center;gap:6px;
+  margin:0 0 12px;font-size:14px;color:var(--pf-gris);}
+.pf-reloj-tit .material-symbols-outlined{font-size:18px;}
+.pf-cajas{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;}
+.pf-caja{border-radius:12px;padding:12px 6px 9px;background:var(--pf-hundido);min-width:62px;}
+.pf-caja b{display:block;font-size:clamp(26px,3.2vw,38px);line-height:1;font-weight:700;
+  font-variant-numeric:tabular-nums;color:var(--pf-blanco);}
+.pf-caja span{display:block;margin-top:6px;font-size:12px;color:var(--pf-gris);}
+.pf-reloj-pie{margin:10px 0 0;font-size:12px;color:var(--pf-gris);}
+.pf-reloj-pie b{color:var(--pf-blanco);}
+
+/* El código conseguido: grande, monoespaciado, con su botón de copiar. */
+.pf-hecho{display:flex;flex-direction:column;align-items:flex-start;gap:10px;
+  width:100%;max-width:480px;}
+.pf-hecho-tit{display:flex;align-items:center;gap:8px;margin:0;font-size:17px;font-weight:700;}
+.pf-hecho-tit .material-symbols-outlined{color:#6ee7a0;font-size:24px;}
+.pf-codigo-caja{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;
+  padding:8px 8px 8px 16px;border-radius:12px;background:var(--pf-hundido);
+  border:1px dashed rgba(255,79,150,.75);}
+.pf-codigo{flex:1;min-width:0;overflow-wrap:anywhere;font-size:18px;font-weight:600;
+  letter-spacing:.06em;color:var(--pf-blanco);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+.pf-copiar{display:inline-flex;align-items:center;gap:6px;flex:none;padding:8px 14px;
+  border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;
+  background:rgba(255,255,255,.12);color:var(--pf-blanco);}
+.pf-copiar .material-symbols-outlined{font-size:17px;}
+.pf-copiar:hover{background:rgba(255,255,255,.2);}
+.pf-copiar:focus-visible{outline:2px solid var(--pf-blanco);outline-offset:2px;}
+.pf-enlace{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.35);color:var(--pf-blanco);text-decoration:none;
+  font-weight:700;font-size:14px;}
+.pf-enlace:hover{background:rgba(255,255,255,.08);}
+.pf-enlace:focus-visible{outline:2px solid var(--pf-blanco);outline-offset:2px;}
+
+/* En el teléfono, una columna: el titular con su botón y, debajo, el reloj
+   a todo el ancho, con las cajas encogidas. */
+@container franja (max-width:720px){
+  .pf-cuerpo{grid-template-columns:1fr;padding:16px 16px 18px;gap:14px;}
+  /* El sello repite lo que ya dicen la cinta y el titular. A lo ancho sobra
+     sitio; en una columna, cada renglón empuja la portada hacia abajo. */
+  .pf-sello{display:none;}
+  .pf-titular{margin-top:2px;font-size:clamp(26px,8cqi,34px);}
+  .pf-linea{font-size:14px;}
+  .pf-accion{margin-top:14px;}
+  .pf-reloj{min-width:0;padding:16px 10px 10px;}
+  .pf-reloj-tit{margin-bottom:8px;font-size:13px;}
+  .pf-caja{min-width:0;padding:8px 2px 6px;}
+  .pf-caja b{font-size:26px;}
+  .pf-caja span{margin-top:4px;font-size:11px;}
+  .pf-cinta{padding-left:14px;}
+}
+@container franja (max-width:460px){
+  /* En una sola línea: «Oferta limitada» ya lo dice el reloj. */
+  .pf-cinta-limite{display:none;}
+}
+/* Para el navegador que no sepa de contenedores (iOS 15 y anteriores): lo
+   imprescindible, que es no salirse de la pantalla del teléfono. */
+@supports not (container-type:inline-size){
+  @media (max-width:760px){
+    .pf-cuerpo{grid-template-columns:1fr;padding:16px;}
+    .pf-reloj{min-width:0;}
+    .pf-caja{min-width:0;}
+    .pf-titular{font-size:30px;}
+  }
 }
 
-/* La pastilla. Lleva el dorado de la casa —el color que esta casa reserva para
-   las credenciales y los premios— porque es lo único de la pantalla que regala
-   algo, y tiene que distinguirse del botón de contacto que lleva debajo. */
-.promo-pastilla{display:inline-flex;align-items:center;gap:var(--e0);
-  padding:11px 16px 11px 13px;border:0;border-radius:var(--r-full);cursor:pointer;
-  background:var(--gold);color:var(--on-gold);
-  font-size:var(--t-sm);font-weight:var(--peso-fuerte);font-family:inherit;
-  box-shadow:0 6px 20px -6px rgba(133,101,23,.55);
-  transition:transform var(--rapido);}
-.promo-pastilla:hover{transform:translateY(-2px);}
-.promo-pastilla:focus-visible{outline:2px solid var(--primary);outline-offset:3px;}
-.promo-pastilla .material-symbols-outlined{font-size:20px;}
-
-/* El panel. 300 px: cabe un correo y un botón, y no tapa la pantalla de un
-   teléfono. `max-height` con desplazamiento propio por si la campaña trae una
-   explicación larga y unas plazas restantes. */
-.promo-panel{position:relative;width:min(300px, calc(100vw - 36px));
-  max-height:min(70vh, 520px);overflow:auto;
-  background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
-  box-shadow:var(--sombra);padding:var(--e3);
-  animation:subir var(--entra) ease-out;}
-.promo-x{position:absolute;top:6px;right:6px;}
-.promo-cuerpo{display:flex;flex-direction:column;gap:var(--e1);align-items:flex-start;}
-
-/* El gancho, grande. Es lo que hace que alguien se pare. */
-.promo-sello{font-size:var(--t-xl);font-weight:var(--peso-fuerte);
-  line-height:1.1;color:var(--gold);letter-spacing:-.01em;padding-right:26px;}
-.promo-titulo{font-size:var(--t-md);}
-.promo-linea{margin:0;font-size:var(--t-sm);color:var(--tinta-2);line-height:1.45;}
-.promo-pie{margin:0;font-size:var(--t-xs);color:var(--tinta-3);line-height:1.4;}
-.promo-quedan{margin:0;font-size:var(--t-xs);font-weight:var(--peso-fuerte);
-  color:var(--primary);}
-.promo-tic{font-size:34px;color:var(--ok);}
-
-.promo-forma{display:flex;flex-direction:column;gap:var(--e1);width:100%;}
-.promo-forma input{width:100%;}
-
-/* El código conseguido: grande, en monoespaciada y con su botón de copiar al
-   lado. Es lo único que la persona tiene que llevarse, así que no compite con
-   nada. */
-.promo-codigo-caja{display:flex;align-items:center;gap:var(--e0);width:100%;
-  background:var(--hueco);border:1px solid var(--filete);border-radius:var(--r-sm);
-  padding:8px 8px 8px 12px;}
-.promo-codigo{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:var(--t-md);font-weight:600;letter-spacing:.04em;color:var(--tinta);}
-
-/* En el teléfono la pastilla se queda con el texto —es el gancho, sin él no es
-   nada— pero el panel ocupa el ancho disponible menos los márgenes. */
-@media (max-width:640px){
-  .promo-flota{left:14px;right:14px;bottom:72px;}
-  .promo-panel{width:100%;}
-}
-@media print{ .promo-flota{display:none;} }
+/* La vista previa de Campañas: la misma franja, quieta y sin márgenes. */
+.promo-franja.es-previa{width:100%;margin:0;animation:none;}
+.promo-franja.es-previa :is(button,input){pointer-events:none;}
 
 /* Opiniones de graduados. Hoy no sale ninguna —no hay testimonios recogidos y
    no se inventan—, pero el sitio está hecho: nombre, qué hace ahora y en qué

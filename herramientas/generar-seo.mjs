@@ -494,7 +494,7 @@ ${cuerpo}
 ${pie()}
 ${menuDelTelefono}
 ${contarLaVisita(url)}
-${medirYAtender(arriba)}
+${medirYAtender(arriba, clavePromo(url))}
 </body>
 </html>
 `;
@@ -515,16 +515,40 @@ ${medirYAtender(arriba)}
    Cemi se carga cuando el navegador está ocioso (o a los dos segundos y
    medio), no con la página: trae el cliente de la base y aquí cada kilobyte
    antes de pintar cuenta. Si algo falla, no pasa nada: la página ya está. */
-const medirYAtender = (arriba) => `
+const medirYAtender = (arriba, promo) => `
 <script type="module">
 ${/* Un import necesita «./» delante en la raíz: «plataforma/…» a secas lo
      toma el navegador por el nombre de un paquete y no lo resuelve. */''}
 import { arrancarMedicion } from '${arriba || './'}plataforma/assets/medir.js?v=${VERSION_ASSETS}';
 arrancarMedicion({ whatsapp: true });
+${promo ? `import('${arriba || './'}plataforma/assets/promo.js?v=${VERSION_ASSETS}')
+  .then((m) => m.montarPromocion({ pantalla: ${JSON.stringify(promo)} })).catch(() => {});` : ''}
 const cemi = () => import('${arriba || './'}plataforma/assets/asistente.js?v=${VERSION_ASSETS}')
   .then((m) => m.montarAsistente({ ambito: 'visitante' })).catch(() => {});
 ('requestIdleCallback' in window) ? requestIdleCallback(cemi, { timeout: 4000 }) : setTimeout(cemi, 2500);
 </script>`;
+
+/* Qué promoción le toca a cada página.
+   ═══════════════════════════════════════════════════════════════════════════
+   Hasta el 24 de septiembre de 2026 estas páginas —la portada de
+   escuelacem.com, /programas/, Contacto, Preguntas y cada programa— no
+   montaban ninguna promoción: sólo las cuatro del portal que llaman a
+   `mount({pub:true})`. O sea que la oferta estaba en todas partes menos donde
+   llega la gente desde Google y desde los anuncios.
+
+   La clave es el TIPO de página, la misma que se marca en Campañas → «Dónde
+   sale»: la portada de aquí y la del portal son las dos «inicio». La franja
+   la carga promo.js en cuanto hay configuración, no cuando el navegador está
+   ocioso como Cemi: va arriba del todo y cuanto antes salga, menos empuja lo
+   que ya se está leyendo. La 404 no lleva ninguna. */
+function clavePromo(url) {
+  const ruta = new URL(url).pathname.replace(/\.html$/, '').replace(/^\/|\/$/g, '');
+  if (ruta === '' || ruta === 'index') return 'inicio';
+  if (ruta === 'programas' || ruta === 'programas/index') return 'catalogo';
+  if (ruta.startsWith('programas/')) return 'curso';
+  if (ruta === 'contacto' || ruta === 'preguntas-frecuentes') return ruta;
+  return null;
+}
 
 /* Contar la visita, sin traerse `app.js` por delante.
    ═══════════════════════════════════════════════════════════════════════════

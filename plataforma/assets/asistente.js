@@ -22,7 +22,7 @@
    app.js— sin arrastrar las cuatro mil líneas del portal. Es el mismo cliente
    y la misma caché del perfil que usa app.js, porque app.js los importa de
    ahí también. */
-import { sb, $, esc, profile, sitioPublico } from './nucleo.js?v=2026-09-15';
+import { sb, $, esc, profile, sitioPublico } from './nucleo.js?v=2026-09-24';
 
 /* ── Cómo se llama y qué cara tiene ──────────────────────────────────────── */
 /* El nombre y el render salen de `cem_settings`, no de aquí. El dibujo

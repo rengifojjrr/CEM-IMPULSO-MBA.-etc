@@ -21,10 +21,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="../assets/app.js?v=2026-09-15">
+<link rel="modulepreload" href="../assets/app.js?v=2026-09-24">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="../assets/styles.css?v=2026-09-15">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-09-24">
 <style>
   /* El relleno va aquí, y hay que ponerlo.
      `caja` da fondo, filete y esquinas —eso es todo lo que promete— y el
@@ -69,11 +69,10 @@
 
   .cod{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;
     letter-spacing:.03em;}
-  /* La vista previa de la promoción dentro del modal: la pastilla y el panel
-     apilados y quietos, no flotando en la esquina de la pantalla. */
-  .promo-previa{display:flex;flex-direction:column;align-items:flex-start;gap:var(--e2);
-    padding:var(--e2);background:var(--hueco);border-radius:var(--r);}
-  .promo-previa .promo-panel{display:block;}
+  /* La vista previa de la promoción dentro del modal: la franja tal cual sale
+     en la web, sin sus márgenes. Tiene su propio fondo oscuro, así que aquí
+     no lleva caja alrededor. */
+  .promo-previa{display:block;}
 </style>
 </head>
 <body>
@@ -113,7 +112,9 @@
      · Poner un descuento mayor que 100 %, o un descuento sin número. */
 import { sb, mount, $, $$, esc, num, chip, fdate, fdatetime, ok, fail, toast, modal,
          confirmDialog, mensajeError, download, toCSV }
-  from '../assets/app.js?v=2026-09-15';
+  from '../assets/app.js?v=2026-09-24';
+/* La misma franja que sale en la web, para la vista previa. */
+import { franja } from '../assets/promo.js?v=2026-09-24';
 
 await mount({ require:['admin','superadmin'], area:'admin', active:'campanas.html' });
 
@@ -152,15 +153,32 @@ const PREMIOS = [
        armazón, y las preguntas ni siquiera cargan app.js—, y es mount() quien
        monta la barra. No hay campaña que pueda salir ahí.
 
-   Lo que queda son las cuatro que montan el armazón público. Si mañana otra
-   pantalla lo monta, se añade aquí y la comprobación 15 de revisar.mjs avisa
-   si esta lista y la realidad dejan de coincidir. */
+   Y el 24 de septiembre de 2026 se vio el tercer motivo, el más caro: las
+   páginas de la raíz —escuelacem.com, /programas/, Contacto, Preguntas—, que
+   son donde cae la gente desde Google y los anuncios, no montaban ninguna
+   promoción. Ahora las montan todas con promo.js, y cada clave de aquí es un
+   TIPO de página, esté en la raíz o en el portal: «inicio» es la portada de
+   escuelacem.com y la del portal; «catalogo», la lista de programas en los
+   dos sitios; «curso», la página de cada programa.
+
+   La comprobación 15 de revisar.mjs mira que cada clave de aquí la monte de
+   verdad alguna página: una generada con esa `pantalla`, o una del portal que
+   esté en PANTALLAS_CON_PROMO de app.js. */
 const PANTALLAS = [
-  ['inicio',    'La portada'],
-  ['catalogo',  'El catálogo de programas'],
-  ['curso',     'La ficha de un programa'],
-  ['nosotros',  'Quiénes somos'],
+  ['inicio',               'La portada',              '../../index.html'],
+  ['catalogo',             'La lista de programas',   '../../programas/'],
+  ['curso',                'La página de cada programa', '../../programas/diplomado-marketing-digital.html'],
+  ['contacto',             'Contacto',                '../../contacto.html'],
+  ['preguntas-frecuentes', 'Preguntas frecuentes',    '../../preguntas-frecuentes.html'],
+  ['nosotros',             'Quiénes somos',           '../nosotros.html'],
 ];
+
+/** Dónde se puede ver una campaña ahora mismo, con ?promo=ver para que salga
+    aunque este navegador la haya cerrado. */
+function dondeVerla(c) {
+  const primera = PANTALLAS.find(([v]) => !c.pantallas?.length || c.pantallas.includes(v));
+  return primera ? `${primera[2]}?promo=ver` : null;
+}
 
 let campanas = [], cursos = [];
 
@@ -171,6 +189,12 @@ function premioTexto(c) {
   if (c.premio_tipo === 'sorteo') return c.premio_texto || 'Entrada a un sorteo';
   return c.premio_texto || 'Un regalo';
 }
+
+/** Si ahora mismo está saliendo en la web. */
+const enMarcha = (c) => c.activa
+  && !(c.empieza_en && new Date(c.empieza_en) > new Date())
+  && !(c.termina_en && new Date(c.termina_en) <= new Date())
+  && !(c.cupo != null && c.dados >= c.cupo);
 
 const estadoDe = (c) => {
   if (!c.activa) return chip('Apagada', '');
@@ -284,10 +308,15 @@ function ficha(c) {
       <div><b>${c.ultimo ? fdate(c.ultimo) : '—'}</b><span>último pedido</span></div>
     </div>
 
-    <div>
+    <div class="row" style="gap:var(--e1);flex-wrap:wrap">
       <button class="btn outline" data-ver="${c.id}" ${c.dados ? '' : 'disabled'}>
         <span class="material-symbols-outlined" aria-hidden="true">group</span>
         ${c.dados ? `Ver los ${num(c.dados)} códigos` : 'Todavía no lo ha pedido nadie'}</button>
+      <!-- Para comprobarlo con tus ojos. Sale aunque la hayas cerrado antes
+           en este navegador: el enlace lleva ?promo=ver. -->
+      ${enMarcha(c) && dondeVerla(c) ? `<a class="btn ghost" href="${dondeVerla(c)}" target="_blank" rel="noopener">
+        <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+        Verla en la web</a>` : ''}
     </div>
   </div>`;
 }
@@ -349,13 +378,12 @@ function editar(c) {
         <textarea id="cGracias" rows="2"
           placeholder="Guarda este código y dínoslo al inscribirte.">${esc(c?.gracias || '')}</textarea></div>
 
-      <!-- La promoción montada como sale en la web: la pastilla que flota en
-           la esquina y el panel que se abre al pulsarla. Mismas clases que
-           pinta app.js, sin el «fixed». -->
+      <!-- La promoción montada como sale en la web: la misma franja que pinta
+           promo.js debajo de la cabecera, con su cuenta atrás de verdad. -->
       <div class="field"><label>Así se verá en la web</label>
         <div class="promo-previa" id="cPrevia"></div>
-        <span class="pista">Arriba, la pastilla que flota en la esquina; abajo, el panel que
-          se abre al pulsarla.</span></div>
+        <span class="pista">Sale debajo de la cabecera. La cuenta atrás va hasta el día que pongas
+          en «Termina»; sin fecha de fin, no hay reloj.</span></div>
 
       <div class="field"><label>Dónde sale</label>
         <div class="rejilla-tipos">
@@ -363,10 +391,9 @@ function editar(c) {
             <input type="checkbox" class="cPant" value="${v}" ${pantallas.has(v) ? 'checked' : ''}>
             <span><b>${esc(t)}</b></span></label>`).join('')}
         </div>
-        <span class="pista">Si no marcas ninguna, sale en las cuatro. Son las pantallas
-          públicas donde cabe la barra: la portada del portal, el catálogo, la ficha de
-          un programa y Quiénes somos. En «Verificar un certificado» y en las páginas
-          que lee Google no puede salir —no llevan la barra— y por eso no están.</span></div>
+        <span class="pista">Si no marcas ninguna, sale en todas. Cada una vale para la página
+          de escuelacem.com y para la del portal: «La portada» es la portada de la web y la
+          del portal. La ve todo el mundo, también quien tiene sesión.</span></div>
 
       <div class="field"><label for="cCurso">Programa <span class="tiny muted">(opcional)</span></label>
         <select id="cCurso"><option value="">Ninguno en concreto</option>
@@ -413,25 +440,29 @@ function editar(c) {
   $('#cPremioTipo', m).onchange = ajustar;
   ajustar();
 
+  /* La franja de verdad, con lo que hay escrito en el formulario. Si falta un
+     número, se enseña uno de ejemplo para que la previa no salga vacía. */
   const pintarPrevia = () => {
-    const t = $('#cPremioTipo', m).value, v = $('#cValor', m).value;
-    const premio = t === 'descuento' ? `${v || '15'} % de descuento`
-      : t === 'descuento_fijo' ? `${v || '20'} de descuento`
-      : ($('#cTextoPremio', m).value.trim() || 'un regalo');
-    const titular = $('#cTitular', m).value.trim() || premio;
-    const linea = $('#cExplica', m).value.trim();
-    $('#cPrevia', m).innerHTML = `
-      <button type="button" class="promo-pastilla" tabindex="-1" aria-hidden="true">
-        <span class="material-symbols-outlined">redeem</span>
-        <span class="promo-pastilla-txt">${esc(titular)}</span></button>
-      <div class="promo-panel"><div class="promo-cuerpo">
-        <span class="promo-sello">${esc(titular)}</span>
-        ${linea ? `<p class="promo-linea">${esc(linea)}</p>` : ''}
-        <div class="promo-forma"><input type="email" placeholder="Tu correo" disabled aria-label="Tu correo">
-          <button type="button" class="btn block" tabindex="-1" aria-hidden="true">${esc($('#cBoton', m).value.trim() || 'Lo quiero')}</button></div>
-        <p class="promo-pie">Te lo mandamos por correo. No lo usamos para nada más.</p></div></div>`;
+    const t = $('#cPremioTipo', m).value;
+    const hasta = $('#cHasta', m).value;
+    const cupo = Number($('#cCupo', m).value) || null;
+    const curso = cursos.find((k) => k.id === $('#cCurso', m).value);
+    const datos = {
+      codigo: 'previa',
+      premio_tipo: t,
+      premio_valor: $('#cValor', m).value || (t === 'descuento' ? 15 : t === 'descuento_fijo' ? 20 : null),
+      premio_texto: $('#cTextoPremio', m).value.trim() || null,
+      titular: $('#cTitular', m).value.trim(),
+      explicacion: $('#cExplica', m).value.trim(),
+      boton: $('#cBoton', m).value.trim() || 'Lo quiero',
+      programa: curso?.nombre || null,
+      termina_en: hasta ? `${hasta}T23:59:59` : null,
+      quedan: cupo,
+    };
+    $('#cPrevia', m).replaceChildren(franja(datos, { previa: true }));
   };
-  ['#cPremioTipo', '#cValor', '#cTextoPremio', '#cTitular', '#cExplica', '#cBoton'].forEach((s) => {
+  ['#cPremioTipo', '#cValor', '#cTextoPremio', '#cTitular', '#cExplica', '#cBoton',
+   '#cHasta', '#cCupo', '#cCurso'].forEach((s) => {
     $(s, m).addEventListener('input', pintarPrevia);
     $(s, m).addEventListener('change', pintarPrevia);
   });

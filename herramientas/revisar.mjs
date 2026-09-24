@@ -524,14 +524,18 @@ if (cajasSinAire.length) cajasSinAire.forEach((s) => mal(s.split(':')[0], s));
 else bien('Todas las «caja» reciben su relleno de la clase de su pantalla');
 
 /* ══════════ 15. La promoción sólo se ofrece donde cabe ══════════
-   La barra de promoción la monta `mount({pub:true})`, así que sólo puede salir
-   en una pantalla que lo llame, y se identifica por el nombre de su archivo.
-
    La pantalla de Campañas ofrece una lista de «dónde sale». Esa lista estuvo
    ofreciendo cinco sitios de los que sólo dos funcionaban: «programas» no era
    el nombre de ninguna pantalla —el catálogo es `catalogo.html`— y «verificar»
-   y «preguntas-frecuentes» no montan el armazón público. Se marcaban tres
-   casillas y la promoción aparecía en una, sin decir nada.
+   y «preguntas-frecuentes» no montaban nada. Se marcaban tres casillas y la
+   promoción aparecía en una, sin decir nada.
+
+   Desde el 24 de septiembre de 2026 la franja la pinta promo.js, y la montan
+   dos clases de página:
+     · las del portal que llaman a mount({pub:true}) y cuyo nombre está en
+       PANTALLAS_CON_PROMO de app.js;
+     · las que genera generar-seo.mjs, que llaman a
+       montarPromocion({ pantalla: "…" }) con su tipo de página.
 
    Nadie lo iba a notar: una campaña que no aparece no da error. Por eso hay
    que comprobarlo aquí, comparando la lista con los archivos de verdad. */
@@ -541,24 +545,35 @@ const camp = await readFile(join(RAIZ, 'plataforma/admin/campanas.html'), 'utf8'
 const bloquePantallas = camp.match(/const PANTALLAS = \[([\s\S]*?)\];/)?.[1] || '';
 const ofrecidas = [...bloquePantallas.matchAll(/\[\s*'([^']+)'/g)].map((m) => m[1]);
 
-/* Las que montan el armazón público, por el nombre de su archivo. */
-const conBarra = new Set();
+/* Las del portal: montan el armazón público Y app.js les monta la franja. */
+const appJs = await readFile(join(RAIZ, 'plataforma/assets/app.js'), 'utf8');
+const conPromoEnApp = new Set([...(appJs.match(/PANTALLAS_CON_PROMO = new Set\(\[([^\]]*)\]/)?.[1] || '')
+  .matchAll(/'([^']+)'/g)].map((m) => m[1]));
+const montan = new Set();
 for (const f of await archivos('plataforma/*.html')) {
   const html = await readFile(join(RAIZ, f), 'utf8');
   if (!/mount\s*\(\s*\{[^}]*\bpub\s*:\s*true/.test(html)) continue;
-  conBarra.add(f.split('/').pop().replace('.html', ''));
+  const nombre = f.split('/').pop().replace('.html', '');
+  if (conPromoEnApp.has(nombre)) montan.add(nombre);
+}
+[...conPromoEnApp].filter((p) => !montan.has(p)).forEach((p) => mal('plataforma/assets/app.js',
+  `PANTALLAS_CON_PROMO incluye «${p}», y no hay plataforma/${p}.html que llame a mount({pub:true}).`));
+
+/* Las generadas, por lo que de verdad llevan escrito. */
+for (const f of [...await archivos('*.html'), ...await archivos('programas/*.html')]) {
+  const html = await readFile(join(RAIZ, f), 'utf8');
+  for (const m of html.matchAll(/montarPromocion\(\{\s*pantalla:\s*"([^"]+)"/g)) montan.add(m[1]);
 }
 
-const imposibles = ofrecidas.filter((p) => !conBarra.has(p));
+const imposibles = ofrecidas.filter((p) => !montan.has(p));
 if (!ofrecidas.length) {
   mal('plataforma/admin/campanas.html', 'No se pudo leer la lista PANTALLAS de campanas.html');
 } else if (imposibles.length) {
   imposibles.forEach((p) => mal('plataforma/admin/campanas.html',
-    `Campañas ofrece «${p}» como sitio donde sale la promoción, y ahí no puede salir: `
-    + `no hay plataforma/${p}.html que llame a mount({pub:true}). `
-    + `Las que sí lo llaman: ${[...conBarra].sort().join(', ')}`));
+    `Campañas ofrece «${p}» como sitio donde sale la promoción, y ninguna página la monta ahí. `
+    + `Las que sí: ${[...montan].sort().join(', ')}`));
 } else {
-  bien(`Las ${ofrecidas.length} pantallas que ofrece Campañas montan todas la barra`);
+  bien(`Las ${ofrecidas.length} pantallas que ofrece Campañas montan todas la franja`);
 }
 
 /* ══════════ 16. Los tres sitios que versionan el logotipo dicen lo mismo ══════════

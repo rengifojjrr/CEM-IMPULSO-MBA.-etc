@@ -89,6 +89,7 @@ const TRADUCCION = {
   avisame:    { ga4: 'generate_lead',   meta: 'Lead' },
   whatsapp:   { ga4: 'contact',         meta: 'Contact' },
   recurso:    { ga4: 'generate_lead',   meta: 'Lead' },
+  promo:      { ga4: 'generate_lead',   meta: 'Lead' },
   inscribirme:{ ga4: 'begin_checkout',  meta: 'InitiateCheckout' },
   comprar:    { ga4: 'begin_checkout',  meta: 'InitiateCheckout' },
   pagado:     { ga4: 'purchase',        meta: 'Purchase' },
