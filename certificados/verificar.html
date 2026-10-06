@@ -141,7 +141,7 @@ import { sb, mount, $, esc, fdate, qs, ok, fail, medir } from '../plataforma/ass
 /* El mismo dibujante que usa la escuela para imprimir. Es lo que hace que la
    lámina de esta pantalla y el papel que tiene delante quien la mira sean el
    mismo documento — que es justo lo que se le está pidiendo que compruebe. */
-import { dibujarCertificadoEmitido } from './dibujar.js?v=2026-09-04-4';
+import { dibujarCertificadoEmitido } from './dibujar.js?v=2026-10-06';
 
 await mount({ pub: true });
 
@@ -219,7 +219,9 @@ async function verificar(){
   /* Los datos primero, y el dibujo después: la lámina tarda —hay que bajarse un
      fondo de un mega— y el veredicto no debe esperar a que llegue. */
   const claves = Object.keys(datos)
-    .filter((k) => datos[k] !== null && String(datos[k]).trim() !== '')
+    /* Lo que empieza por «_» no es un dato de la persona: es cómo se dibuja
+       (la tipografía propia del certificado, por ejemplo). */
+    .filter((k) => !k.startsWith('_') && datos[k] !== null && String(datos[k]).trim() !== '')
     .sort((a, b) => peso(a) - peso(b));
 
   $('#datos').innerHTML = claves.map((k) => `

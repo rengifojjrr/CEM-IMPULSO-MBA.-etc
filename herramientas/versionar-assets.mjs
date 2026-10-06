@@ -72,7 +72,12 @@ const COMPARTIDOS = new RegExp(
        el portal iba por `2026-08-29`, y `--revisar` cantaba que todas
        coincidían porque nunca la miró. Un navegador que hubiera abierto esa
        página seguiría con el motor de aquel día para siempre. */
-    `|(?:\\.\\.\\/)*(?:\\.\\/)?(?:certificados\\/)?generador\\.js` +
+    /* Y su dibujante, `dibujar.js`, con el mismo trato. Lo importan el
+       generador y cinco pantallas más (el verificador, «Mis logros», la ficha
+       del estudiante, los diplomas en físico), y el generador lo importaba SIN
+       marca: el 6 de octubre de 2026 el generador empezó a pedirle algo nuevo,
+       y un navegador con la copia vieja habría dejado la pantalla en blanco. */
+    `|(?:\\.\\.\\/)*(?:\\.\\/)?(?:certificados\\/)?(?:generador|dibujar)\\.js` +
   `)(\\?v=[0-9-]+)?`, 'g');
 
 /** Dónde buscar. Los módulos compartidos se importan entre ellos, así que
@@ -88,6 +93,9 @@ const COMPARTIDOS = new RegExp(
     usuario sin que nada falle a la vista. */
 const CARPETAS = [
   'plataforma/**/*.html', 'plataforma/assets/*.js', 'certificados/*.html',
+  /* Los módulos de certificados, porque el generador importa al dibujante:
+     sin esto su `import … from './dibujar.js'` se quedaba sin marca. */
+  'certificados/*.js',
   'pruebas/*.mjs', 'pruebas/casos/*.mjs',
 ];
 

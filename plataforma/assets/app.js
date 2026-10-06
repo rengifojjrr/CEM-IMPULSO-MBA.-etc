@@ -4,9 +4,9 @@
    de este archivo lo mismo de siempre, y el asistente puede montarse en las
    páginas generadas sin cargar todo esto. Ver la cabecera de nucleo.js. */
 import { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil,
-         sitioPublico } from './nucleo.js?v=2026-09-24';
+         sitioPublico } from './nucleo.js?v=2026-10-06';
 export { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil, sitioPublico };
-import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-09-24';
+import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-10-06';
 export { medir };
 
 /* La apariencia elegida se aplica al importar este módulo, que es lo primero
@@ -16,7 +16,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-09-24';
+         vidrioActual } from './temas.js?v=2026-10-06';
 
 /* La marca de versión del logotipo. Tiene que decir lo MISMO que VERSION_ICONO
    en herramientas/iconos.mjs y en herramientas/generar-seo.mjs: es la fecha del
@@ -1680,7 +1680,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-09-24')
+  import('./asistente.js?v=2026-10-06')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2388,7 +2388,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-09-24');
+    const m = await import('./apariencia.js?v=2026-10-06');
 
     m.abrirApariencia();
 
@@ -2667,7 +2667,7 @@ function montarLaPromocion() {
   const pantalla = (location.pathname.split('/').pop() || 'inicio')
     .replace('.html', '') || 'inicio';
   if (!PANTALLAS_CON_PROMO.has(pantalla)) return Promise.resolve();
-  return import('./promo.js?v=2026-09-24').then((m) => m.montarPromocion({ pantalla }));
+  return import('./promo.js?v=2026-10-06').then((m) => m.montarPromocion({ pantalla }));
 }
 
 function renderPublicHeader(p) {

@@ -12,7 +12,7 @@
    ponen su propia cabecera y le pasan el cliente de Supabase que corresponda.
 
    Uso:
-     import { montarGenerador, ESTILOS_GENERADOR, CONTROLES_GENERADOR } from './generador.js';
+     import { montarGenerador, ESTILOS_GENERADOR, CONTROLES_GENERADOR } from './generador.js?v=2026-10-06';
      montarGenerador({ supabase, contenedor, rutaVerificar: 'verificar.html' });
    ============================================================ */
 
@@ -24,12 +24,12 @@
    el mismo es lo que garantiza que lo que ve en pantalla y lo que la escuela le
    imprime son el mismo documento. */
 import {
-  renderCertificateCanvas, dibujarCertificadoEmitido, ensureFontsLoadedForConfig,
+  renderCertificateCanvas, dibujarCertificadoEmitido, ensureFontsLoadedForConfig, CLAVE_TIPOGRAFIA,
   normalizarNombreCampo, cajaV, centroV, boxOf, opacityOf, aplicarFormato,
   formatearCedula, resolverPlantillaTexto, posicionesPorPalabra, estilosPorCaracter,
   fitFontSize, fitFontSizeMixto, anchoMixto, medirAncho, envolverLineas,
   envolverLineasBalanceado, fondoDecodificado, tintaDe,
-} from './dibujar.js';
+} from './dibujar.js?v=2026-10-06';
 
 export const ESTILOS_GENERADOR = String.raw`  :root{
     /* El generador nació como herramienta suelta y traía su propia paleta,
@@ -393,7 +393,13 @@ export const ESTILOS_GENERADOR = String.raw`  :root{
     .font-picker{display:block;width:100%;}
     .font-picker-btn{min-width:0;max-width:none;width:100%;}
     .font-picker-list{left:0;right:0;min-width:0;}
-  }`;
+  }
+  /* La tipografía de un certificado ya emitido, debajo de su valor en
+     «Editar»: la fuente, el tamaño y la negrita, en una línea. */
+  .tipo-campo{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:6px;font-size:13px;}
+  .tipo-campo select{flex:1 1 220px;min-width:0;}
+  .tipo-campo label{display:inline-flex;align-items:center;gap:6px;color:var(--muted);}
+  .tipo-campo input[type="number"]{width:84px;}`;
 
 export const CONTROLES_GENERADOR = String.raw`  <div id="appContent">
 
@@ -4267,7 +4273,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const propios = [];
     for(const c of suyos){
       for(const [campo, valor] of Object.entries(c.datos || {})){
-        if(DEL_GRUPO.has(campo)) continue;
+        if(DEL_GRUPO.has(campo) || campo.startsWith('_')) continue;   // «_tipografia» no es un dato
         propios.push({ id: c.id, plantilla: c.plantilla_nombre, campo, valor: String(valor ?? '') });
       }
     }
@@ -4608,7 +4614,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
       const reemplazoPor = c.estado === 'reemplazado' ? issued.find(x => x.reemplaza_a === c.id) : null;
       return `<tr id="emitido-${c.id}" class="${issuedSeleccionados.has(c.id) ? 'fila-marcada' : ''}">
       <td><input type="checkbox" data-emitido-check="${c.id}" ${issuedSeleccionados.has(c.id) ? 'checked' : ''}></td>
-      <td class="datos">${Object.entries(c.datos || {}).filter(([,v]) => v).map(([k,v]) => `<b>${escapeHtml(k)}:</b> ${escapeHtml(v)}`).join('<br>')}</td>
+      <td class="datos">${Object.entries(c.datos || {}).filter(([k,v]) => v && !k.startsWith('_')).map(([k,v]) => `<b>${escapeHtml(k)}:</b> ${escapeHtml(v)}`).join('<br>')}</td>
       <td class="plantilla">${escapeHtml(c.plantilla_nombre || '—')}</td>
       <td class="estado"><span class="badge ${c.estado}">${c.estado}</span>${reemplazoPor ? `<br><a href="#" data-ir-a="${reemplazoPor.id}" class="hint">→ ver el que lo reemplaza</a>` : ''}</td>
       <td class="hora">${new Date(c.created_at).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</td>
@@ -4845,9 +4851,24 @@ Bájalos en ZIP, o marca menos de una vez —por día, o por grupo— y repite.`
       <div class="modal-cuerpo">
         <img loading="lazy" decoding="async" id="editarPrev" style="max-width:100%;border:1px solid var(--border);border-radius:6px;margin-bottom:12px;">
         <table><thead><tr><th>Campo</th><th>Valor</th></tr></thead><tbody>
-          ${camposTexto.map(f => `<tr><td><b>${escapeHtml(f.nombre)}</b></td>
-            <td><input type="text" data-campo-editar="${escapeHtml(f.nombre)}" value="${escapeHtml(datos[f.nombre] ?? '')}" style="width:100%;"></td></tr>`).join('')}
+          ${camposTexto.map(f => {
+            const t = (datos[CLAVE_TIPOGRAFIA] || {})[f.nombre] || {};
+            const negrita = typeof t.bold === 'boolean' ? t.bold : !!f.bold;
+            return `<tr><td><b>${escapeHtml(f.nombre)}</b></td>
+            <td><input type="text" data-campo-editar="${escapeHtml(f.nombre)}" value="${escapeHtml(datos[f.nombre] ?? '')}" style="width:100%;">
+              <div class="tipo-campo">
+                <select data-tip-fuente="${escapeHtml(f.nombre)}" aria-label="Tipografía de ${escapeHtml(f.nombre)}">
+                  <option value="">Como la plantilla: ${escapeHtml(fontLabelFor(f.fontFamily))}</option>
+                  ${FONT_OPTIONS.map(o => `<option value="${escapeHtml(o.value)}" style="font-family:${escapeHtml(o.value)};" ${t.fontFamily === o.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+                </select>
+                <label>Tamaño <input type="number" min="6" max="600" step="1" data-tip-tam="${escapeHtml(f.nombre)}"
+                  value="${t.tamano ?? ''}" placeholder="${escapeHtml(String(f.maxFontSize || f.fontSize || 32))}"
+                  aria-label="Tamaño de ${escapeHtml(f.nombre)}"></label>
+                <label><input type="checkbox" data-tip-negrita="${escapeHtml(f.nombre)}" ${negrita ? 'checked' : ''}> Negrita</label>
+              </div></td></tr>`;
+          }).join('')}
         </tbody></table>
+        <p class="hint" style="margin-top:6px;">La tipografía que cambies aquí es sólo de este certificado: la plantilla no se toca. El tamaño nunca pasa del alto de la caja del campo, para que el texto no se salga.</p>
         <div class="row" style="margin-top:12px;">
           <button class="btn teal" data-guardar>Guardar cambios</button>
           <button class="btn gold" data-guardar-descargar>Guardar y descargar PDF</button>
@@ -4859,8 +4880,13 @@ Bájalos en ZIP, o marca menos de una vez —por día, o por grupo— y repite.`
     document.body.appendChild(fondo);
 
     const verifyUrlPreview = new URL(RUTA_VERIFICAR, location.href).href + '?c=preview';
+    /* Cada cambio vuelve a dibujar, y un dibujo tarda: si llegan dos seguidos,
+       sólo se enseña el último, no el que termine después. */
+    let turnoPrevia = 0;
     const pintar = async () => {
+      const mio = ++turnoPrevia;
       const canvas = await renderCertificateCanvas(datos, verifyUrlPreview, tpl.config);
+      if(mio !== turnoPrevia) return;
       fondo.querySelector('#editarPrev').src = canvas.toDataURL('image/jpeg', 0.85);
     };
     await pintar();
@@ -4868,6 +4894,30 @@ Bájalos en ZIP, o marca menos de una vez —por día, o por grupo— y repite.`
     fondo.querySelectorAll('[data-campo-editar]').forEach(inp => inp.addEventListener('input', () => {
       datos[inp.dataset.campoEditar] = inp.value;
       pintar();
+    }));
+
+    /* La tipografía: se guarda sólo lo que se aparta de la plantilla. Volver
+       a dejarla como estaba borra la entrada, y si no queda ninguna, la clave
+       entera: un certificado sin cambios de letra no lleva nada de esto. */
+    const campoDe = (nombre) => camposTexto.find(f => f.nombre === nombre);
+    const ponerTipografia = (campo, clave, valor) => {
+      const todo = { ...(datos[CLAVE_TIPOGRAFIA] || {}) };
+      const suyo = { ...(todo[campo] || {}) };
+      if(valor === null || valor === undefined || valor === '') delete suyo[clave]; else suyo[clave] = valor;
+      if(Object.keys(suyo).length) todo[campo] = suyo; else delete todo[campo];
+      if(Object.keys(todo).length) datos[CLAVE_TIPOGRAFIA] = todo; else delete datos[CLAVE_TIPOGRAFIA];
+      pintar();
+    };
+    fondo.querySelectorAll('[data-tip-fuente]').forEach(sel => sel.addEventListener('change', () => {
+      ponerTipografia(sel.dataset.tipFuente, 'fontFamily', sel.value);
+    }));
+    fondo.querySelectorAll('[data-tip-tam]').forEach(inp => inp.addEventListener('input', () => {
+      const n = Number(inp.value);
+      ponerTipografia(inp.dataset.tipTam, 'tamano', inp.value !== '' && n >= 6 && n <= 600 ? Math.round(n) : '');
+    }));
+    fondo.querySelectorAll('[data-tip-negrita]').forEach(chk => chk.addEventListener('change', () => {
+      const f = campoDe(chk.dataset.tipNegrita);
+      ponerTipografia(chk.dataset.tipNegrita, 'bold', chk.checked === !!(f && f.bold) ? '' : chk.checked);
     }));
     const cerrar = () => fondo.remove();
     fondo.querySelector('[data-cerrar]').addEventListener('click', cerrar);

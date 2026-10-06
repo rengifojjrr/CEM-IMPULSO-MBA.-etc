@@ -97,14 +97,20 @@ async function asegurarHojaDeFuentes(familias){
  * siguientes, porque para el primero la fuente aún no había llegado.
  */
 export async function ensureFontsLoadedForConfig(cfg){
-  const toLoad = new Set();
+  const familias = [];
   for(const f of (cfg?.fields || [])){
     if(f.tipo !== 'texto' || !f.activo) continue;
-    const familias = [f.fontFamily, ...(f.resaltados || []).map(r => r.fontFamily)].filter(Boolean);
-    for(const familia of familias){
-      for(const gf of GOOGLE_FONT_FAMILIES){
-        if(familia.includes(gf) && !fontsLoadedCache.has(gf)) toLoad.add(gf);
-      }
+    familias.push(f.fontFamily, ...(f.resaltados || []).map(r => r.fontFamily));
+  }
+  await cargarFamilias(familias);
+}
+
+/** Trae las tipografías de Google que aparezcan en estas familias CSS. */
+export async function cargarFamilias(familias){
+  const toLoad = new Set();
+  for(const familia of familias.filter(Boolean)){
+    for(const gf of GOOGLE_FONT_FAMILIES){
+      if(String(familia).includes(gf) && !fontsLoadedCache.has(gf)) toLoad.add(gf);
     }
   }
   if(!toLoad.size) return;
@@ -383,12 +389,56 @@ export function fondoDecodificado(url){
   return pendiente;
 }
 
+/* La tipografía de UN certificado.
+   ═══════════════════════════════════════════════════════════════════════════
+   Desde el 6 de octubre de 2026, en «Editar» se puede cambiar la letra, el
+   tamaño y la negrita de cada campo de un certificado ya emitido, sin tocar la
+   plantilla (que es de todos). Se guarda DENTRO de sus datos, bajo
+   `_tipografia`, porque los datos son lo único que viaja con el certificado a
+   todas partes: el verificador del QR, «Mis logros», la ficha del estudiante,
+   los diplomas en físico y las descargas. Guardándolo ahí, todos lo dibujan
+   igual sin que haya que tocar ninguno.
+
+     datos._tipografia = { Nombre: { fontFamily, tamano, bold } }
+
+   La clave empieza por guion bajo a propósito: lo que empieza por «_» no es un
+   dato de la persona, y las pantallas que listan los datos lo saltan. */
+export const CLAVE_TIPOGRAFIA = '_tipografia';
+
+/** Lo que un certificado cambia de la tipografía de un campo, ya saneado. */
+export function tipografiaDe(rowData, nombreCampo){
+  const t = rowData && rowData[CLAVE_TIPOGRAFIA];
+  const x = t && typeof t === 'object' ? t[nombreCampo] : null;
+  if(!x || typeof x !== 'object') return null;
+  const fuera = {};
+  /* La familia va dentro de `ctx.font`: nada de llaves, puntos y comas ni
+     ángulos, y un largo razonable. Lo escribe sólo el equipo, pero se valida
+     igual. */
+  if(typeof x.fontFamily === 'string' && x.fontFamily.length < 120 && !/[;{}<>]/.test(x.fontFamily)){
+    fuera.fontFamily = x.fontFamily;
+  }
+  const tam = Number(x.tamano);
+  if(Number.isFinite(tam) && tam >= 6 && tam <= 600){ fuera.fontSize = tam; fuera.maxFontSize = tam; }
+  if(typeof x.bold === 'boolean') fuera.bold = x.bold;
+  return Object.keys(fuera).length ? fuera : null;
+}
+
+/** Las familias que pide la tipografía propia de un certificado. */
+function familiasDeDatos(rowData){
+  const t = rowData && rowData[CLAVE_TIPOGRAFIA];
+  if(!t || typeof t !== 'object') return [];
+  return Object.values(t).map(x => x && typeof x.fontFamily === 'string' ? x.fontFamily : null).filter(Boolean);
+}
+
 /**
  * Dibuja un certificado.
  * `ajustes` son las correcciones manuales de ESTE certificado concreto
  * (ver sección "Ajustar"): { [nombreCampo]: {texto, dSize, dxPct, dyPct} }.
  */
 export async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
+  /* Si este certificado lleva su propia letra, que esté cargada antes de
+     dibujar: si no, sale con la de reserva y nadie lo nota hasta imprimir. */
+  await cargarFamilias(familiasDeDatos(rowData));
   const bgImg = await fondoDecodificado(cfg.background);
   const canvas = document.createElement('canvas');
   canvas.width = cfg.bgWidth; canvas.height = cfg.bgHeight;
@@ -399,9 +449,14 @@ export async function renderCertificateCanvas(rowData, verifyUrl, cfg, ajustes){
   // primero encima. Así el orden de la lista es el orden de las capas y no
   // importa cuál se creó antes.
   for(let iCapa = cfg.fields.length - 1; iCapa >= 0; iCapa--){
-    const f = cfg.fields[iCapa];
+    let f = cfg.fields[iCapa];
     if(!f.activo) continue;
     const aj = (ajustes && ajustes[f.nombre]) || {};
+    // La tipografía propia de este certificado gana a la de la plantilla.
+    if(f.tipo === 'texto'){
+      const tip = tipografiaDe(rowData, f.nombre);
+      if(tip) f = { ...f, ...tip };
+    }
     const dx = (Number(aj.dxPct) || 0), dy = (Number(aj.dyPct) || 0);
 
     if(f.tipo === 'qr'){

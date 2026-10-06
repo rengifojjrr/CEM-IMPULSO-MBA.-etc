@@ -33,7 +33,7 @@
 
    `?promo=ver` en la dirección la enseña aunque se haya cerrado: es como el
    equipo comprueba que está en la web. */
-import { medir } from './medir.js?v=2026-09-24';
+import { medir } from './medir.js?v=2026-10-06';
 
 const URL_BASE = 'https://vajbsfgojtunamhrzrpf.supabase.co';
 const CLAVE = 'sb_publishable_Xljd7Ep1GxBXSPp5F4A1hg_Qg-iESzl';
