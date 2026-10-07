@@ -12,7 +12,7 @@
    ponen su propia cabecera y le pasan el cliente de Supabase que corresponda.
 
    Uso:
-     import { montarGenerador, ESTILOS_GENERADOR, CONTROLES_GENERADOR } from './generador.js?v=2026-10-06';
+     import { montarGenerador, ESTILOS_GENERADOR, CONTROLES_GENERADOR } from './generador.js?v=2026-10-07';
      montarGenerador({ supabase, contenedor, rutaVerificar: 'verificar.html' });
    ============================================================ */
 
@@ -29,7 +29,7 @@ import {
   formatearCedula, resolverPlantillaTexto, posicionesPorPalabra, estilosPorCaracter,
   fitFontSize, fitFontSizeMixto, anchoMixto, medirAncho, envolverLineas,
   envolverLineasBalanceado, fondoDecodificado, tintaDe,
-} from './dibujar.js?v=2026-10-06';
+} from './dibujar.js?v=2026-10-07';
 
 export const ESTILOS_GENERADOR = String.raw`  :root{
     /* El generador nació como herramienta suelta y traía su propia paleta,
@@ -803,6 +803,17 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   let matrixTemplateSelection = new Set(); // qué índices de templatesFull participan en esta generación
   let issued = [];
   let issuedSeleccionados = new Set();  // ids (uuid, string) marcados en «Certificados emitidos»
+  /* Cada certificado que ha salido en la lista durante esta visita, por id.
+     ─────────────────────────────────────────────────────────────────────────
+     `issued` es sólo el resultado de la búsqueda de AHORA, pero la selección
+     sobrevive a las búsquedas: se busca a una persona y se marca su diploma,
+     se busca a otra y se marca el suyo. Al descargar, los marcados se
+     buscaban en `issued`, así que sólo aparecían los de la última búsqueda y
+     los demás se saltaban sin decir nada. Se vio el 7 de octubre de 2026: tres
+     diplomas de tres personas marcados, y bajaba uno. Lo marcado se busca
+     aquí, que lo recuerda todo. */
+  const vistos = new Map();
+  const certificadoPorId = (id) => issued.find(c => c.id === id) || vistos.get(id);
   let dragging = null;     // { idx, role: 'left'|'right'|'top'|'bot'|'tl'|'tr'|'bl'|'br'|'move'|'point'|'imgW' }
   let campoSel = null;     // campo resaltado en la plantilla y en la lista
   let guiaSel  = null;     // { eje, i } — guía elegida con un clic; Supr la quita
@@ -4545,6 +4556,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const wrap = document.getElementById('listaEmitidosWrap');
     if(error){ wrap.innerHTML = `<div class="msg err">${escapeHtml(error.message)}</div>`; return; }
     issued = data || [];
+    issued.forEach(c => vistos.set(c.id, c));   // lo marcado se encuentra aunque cambie la búsqueda
     renderIssuedTable();
   }
 
@@ -4556,7 +4568,11 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
     const bar = document.getElementById('emitidosSeleccionBar');
     if(!issuedSeleccionados.size){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
     bar.style.display = 'flex';
+    /* Los marcados que no salen en la búsqueda de ahora siguen marcados y se
+       descargan igual: se dice, para que no parezca que se perdieron. */
+    const fuera = [...issuedSeleccionados].filter(id => !issued.some(c => c.id === id)).length;
     bar.innerHTML = `<b>${issuedSeleccionados.size} certificado(s) marcado(s)</b>
+      ${fuera ? `<span class="hint">${fuera === 1 ? '1 de ellos es' : `${fuera} de ellos son`} de otra búsqueda; también entra${fuera === 1 ? '' : 'n'}</span>` : ''}
       <button class="btn teal small" id="btnEditarSeleccionEmitidos">✎ Editar</button>
       <button class="btn outline small" id="btnDescargarSeleccionEmitidos"
         title="Un archivo PDF por certificado, todos dentro de un ZIP">⬇ ZIP · ${issuedSeleccionados.size} archivos</button>
@@ -4699,7 +4715,7 @@ export function montarGenerador({ supabase, contenedor, rutaVerificar = 'verific
   /** Reconstruye y descarga uno o varios certificados ya emitidos, sin cambiar sus datos.
       `opciones.formato`: 'zip' (un archivo por certificado) o 'pdf' (todos en uno). */
   async function descargarCertificados(ids, nombreZip = 'certificados', opciones = {}){
-    const certs = ids.map(id => issued.find(c => c.id === id)).filter(Boolean);
+    const certs = ids.map(certificadoPorId).filter(Boolean);
     if(!certs.length) return;
     const unSoloPdf = opciones.formato === 'pdf';
 
@@ -4944,7 +4960,7 @@ Bájalos en ZIP, o marca menos de una vez —por día, o por grupo— y repite.`
 
   /** Modal para editar VARIOS certificados emitidos de golpe, en una tabla, y descargarlos juntos. */
   async function editarCertificadosSeleccionados(){
-    const seleccion = [...issuedSeleccionados].map(id => issued.find(c => c.id === id)).filter(Boolean);
+    const seleccion = [...issuedSeleccionados].map(certificadoPorId).filter(Boolean);
     const editables = seleccion.filter(c => c.estado === 'vigente' && tplPorNombreEmitido(c.plantilla_nombre));
     const descartados = seleccion.length - editables.length;
     if(!editables.length){ alert('Ninguno de los certificados marcados se puede editar (deben estar vigentes y su plantilla debe seguir existiendo).'); return; }
