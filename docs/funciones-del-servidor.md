@@ -141,6 +141,10 @@ Hay dos familias y conviene no confundirlas:
   `replace_cert_certificate`, `regenerate_certificate`,
   `delete_all_cert_certificates`, `get_cert_settings`, `save_cert_settings`.
   `get_certificado_publico(id)` es **pública**: la usa el QR de esta familia.
+  `replace_cert_certificate` es la única forma de corregir uno emitido: exige
+  ser del equipo (octubre de 2026) y lleva consigo el pedido de diploma en
+  físico a la versión nueva. `regenerate_certificate` es la antigua, ya no la
+  usa nadie y sólo la puede llamar el servidor.
 
 > **Agujero cerrado (agosto de 2026).** Toda la familia `cert_*` estaba en
 > `security definer` y con permiso de ejecución para `anon`, y ninguna
