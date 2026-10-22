@@ -8,75 +8,74 @@ Está ordenado por lo que cuesta que salga mal, no por lo que cuesta hacerlo.
 
 ---
 
-## 0 · Lo que queda después de las radiografías (15 de septiembre y 22 de octubre)
+## 0 · Pendientes del dueño (22 de octubre de 2026)
 
-**22 de octubre.** La segunda radiografía (`docs/auditoria-2026-10-22.md`)
-encontró la lista de abajo casi intacta: siguen 0 cursos publicados y 0
-inscripciones desde septiembre, y **los 8 contactos de la web siguen en
-«nuevo»** — escribirles va ahora justo después de abrir la convocatoria. Lo de
-código se arregló el mismo día: quien volvía a escribir con el mismo correo
-recibía un error y su mensaje se perdía; los formularios públicos no tenían
-tope; una función de Stripe la podía llamar cualquier sesión; las visitas
-cortaban el nombre de la página; y Cemi ahora se ofrece en las páginas de
-programa.
+Lo que **sólo puedes hacer tú**, en el orden de la radiografía del 22 de
+octubre (`docs/auditoria-2026-10-22.md`). Ninguno lo arregla el código: hacen
+falta cuentas, dinero o decisiones. Lo de código de esa radiografía y de la
+del 12 de septiembre ya está hecho y publicado. Marca cada casilla al
+terminar.
 
-La radiografía del 12 de septiembre (`docs/auditoria-2026-09-12.md`) dejó dos
-listas. La de código se hizo entera el día 15: permisos, la cara de Cemi en el
-QR, las cifras, los flotantes, el píxel, Cemi y WhatsApp en las páginas
-públicas, el flujo de contactos, las previsualizaciones y los atajos. Esto es
-lo que **sólo puedes hacer tú**, en el orden en que duele:
+- [ ] **1. Abrir la convocatoria.** Publicar los dos diplomados como cursos
+  con precio, fecha y cohorte, y poner la fecha en Configuración → Próxima
+  convocatoria. Hoy hay 0 cursos publicados y 0 inscripciones desde el 12 de
+  septiembre; todo lo demás espera esto.
+- [ ] **2. Escribir a los 8 contactos en «nuevo»** (Admin → Contactos de la
+  web) y marcarlos como contactados. Algunos esperan desde agosto. Desde el 22
+  de octubre, si alguno vuelve a escribir, llega el aviso «X volvió a
+  escribir».
+- [ ] **3. Pegar los identificadores de medición y el WhatsApp** en
+  Configuración → «Medir y que nos escriban»: el ID de Google Analytics 4, el
+  del píxel de Meta y el número de WhatsApp. El código ya los usa; sin ellos no
+  se mide nada y no sale el botón verde.
+- [ ] **4. Reconectar el puente de WhatsApp** (escanear el QR desde la máquina
+  donde corre) y pasar `asistente_whatsapp_modo` a «responde», o decidir
+  dejarlo apagado. Lleva caído desde el 27 de agosto.
+- [ ] **5. Activar la protección contra contraseñas filtradas** en el panel de
+  Supabase: Authentication → Settings. Es un interruptor.
+- [ ] **6. Rotar tres claves** que siguen desde agosto: la de Resend, la
+  secreta de Stripe (modo real) y el secreto del webhook. Se generan en cada
+  proveedor y se pegan en Admin → Correo y Admin → Cobros con tarjeta.
+- [ ] **7. Decidir las formas de pago locales** (pago móvil, Zelle,
+  transferencia) y ponerles destino en Admin → Formas de pago. Hoy sólo hay
+  tarjeta por Stripe.
+- [ ] **8. Poner al día el periodo activo** en Configuración: dice «Otoño
+  2024».
+- [ ] **9. El proyecto SEM** (`admin.html`, `proyectos.html` y las funciones
+  `upsert_quote`, `upsert_pm_project`, `log_quote_event`,
+  `log_pm_project_event`, `cq_*`) sigue abierto: un anónimo puede escribir en
+  sus tablas, porque comparte la base con el CEM sin ninguna comprobación.
+  Decide si se lleva a su propio proyecto de Supabase o si se le pone una
+  clave. No se tocó porque está en uso.
+- [ ] **10. Groq y los códigos de campaña**, dos decisiones de septiembre:
+  - **Subir Groq al plan Developer** (console.groq.com → Settings → Billing).
+    El plan gratuito da 8.000 tokens por minuto y por modelo, y un turno de
+    Cemi pesa unos 2.000: cuatro turnos por minuto por modelo. Con tres
+    personas escribiéndole a la vez, la tercera recibe la frase de avería. La
+    cadena de tres modelos estira el límite, no lo quita. Con el tráfico de
+    hoy cuesta centavos.
+  - **Decidir si los códigos de las campañas se descuentan solos al
+    inscribirse.** Hoy el campo «cupón» de la inscripción sólo reconoce el
+    código fijo de cada curso; los de campaña (`CEM-0926-K4M2P`) los canjea el
+    equipo a mano en Admin → Campañas → «Canjear un código». Hacerlo
+    automático es tocar cómo se calcula lo que se cobra, y por eso es decisión
+    tuya.
 
-1. **Rotar tres claves** que siguen desde agosto: la de Resend, la secreta de
-   Stripe (modo real) y el secreto del webhook. Se generan en cada proveedor y
-   se pegan en Admin → Correo y Admin → Cobros con tarjeta.
-2. **Abrir la convocatoria**: publicar los dos diplomados como cursos con
-   precio, fecha y cohorte, y poner la fecha en Configuración → Próxima
-   convocatoria. Hoy hay 0 cursos publicados; todo lo demás espera esto.
-3. **Pegar los identificadores de medición y el WhatsApp** en Configuración →
-   «Medir y que nos escriban»: el ID de Google Analytics 4, el del píxel de
-   Meta y el número de WhatsApp. El código ya los usa; sin ellos no se mide
-   nada y no sale el botón verde.
-3b. **Subir Groq al plan Developer** (console.groq.com → Settings → Billing).
-   El plan gratuito da 8.000 tokens por minuto y por modelo, y un turno de
-   Cemi pesa unos 2.000: cuatro turnos por minuto por modelo. Con tres
-   personas escribiéndole a la vez en la web, la tercera recibe la frase de
-   avería. La cadena ya tiene tres modelos y espera cuando puede (16 de
-   septiembre), pero eso estira el límite, no lo quita. Cuesta lo que se use;
-   con el tráfico de hoy, centavos.
-3c. **Decidir si los códigos de las campañas se descuentan solos al
-   inscribirse.** Desde el 24 de septiembre la promoción sale en grande en la
-   portada y en Programas, con cuenta atrás, y reparte códigos como
-   `CEM-0926-K4M2P`. Pero el campo «cupón» de la inscripción sólo reconoce el
-   código fijo de cada curso: los de campaña los canjea el equipo a mano, en
-   Admin → Campañas → «Canjear un código», y ajusta el cobro. Hacer que se
-   descuenten solos es tocar cómo se calcula lo que se cobra, y por eso es
-   decisión tuya y no un arreglo de paso.
-4. **Reconectar el puente de WhatsApp** (escanear el QR desde la máquina donde
-   corre) y pasar `asistente_whatsapp_modo` a «responde». Lleva caído desde
-   el 27 de agosto.
-5. **Decidir las formas de pago locales** (pago móvil, Zelle, transferencia) y
-   ponerles destino en Admin → Formas de pago. Hoy sólo hay tarjeta por Stripe.
-6. **Activar la protección contra contraseñas filtradas** en el panel de
-   Supabase: Authentication → Settings. Es un interruptor.
-7. **Poner al día el periodo activo** en Configuración: dice «Otoño 2024».
-8. **Cerrar los diplomas en físico**: el 22 de octubre había 38 «en imprenta»
-   y 1 recién pedido; marcar como entregados los que ya salieron. Y **leer las
-   alertas de gobierno** sin leer.
-9. **El proyecto SEM** (`admin.html`, `proyectos.html` y las funciones
-   `upsert_quote`, `upsert_pm_project`, `get_quote`, `get_pm_project`) sigue en
-   uso y comparte la base con el CEM sin ninguna comprobación. Decide si se
-   lleva a su propio proyecto de Supabase o si se le pone una clave. Las
-   páginas y funciones no se tocaron porque están en uso.
-10. **Separar los cuatro proyectos** que comparten la base (`cq_*`,
-    `forest_*`, `fb360_*`, `pm_*`). No urge; cada mes cuesta más.
-11. **Sembrar las cuentas de prueba** `@pruebas.local`, poner `CEM_PASS` como
-    secreto del repositorio y activar `CORRER_PRUEBAS_E2E=si`, para que las
-    32 pruebas de navegador corran en GitHub.
-12. **Decidir el texto**: «2.500+ estudiantes formados» frente a los 126
-    graduados de la base; «desde Caracas» frente a «nueve países». Una sola
-    historia, y las cifras de una sola fuente.
-13. **Casos sueltos**: la cuenta duplicada de Oscar, los 12 diplomas de G12 y
-    los egresados con certificado pero sin inscripción.
+### Además, sin prisa
+
+- **Diplomas en físico:** el 22 de octubre había 38 «en imprenta» y 1 recién
+  pedido; marcar como entregados los que ya salieron. Y leer las alertas de
+  gobierno sin leer.
+- **Separar los cuatro proyectos** que comparten la base (`cq_*`, `forest_*`,
+  `fb360_*`, `pm_*`). No urge; cada mes cuesta más.
+- **Sembrar las cuentas de prueba** `@pruebas.local`, poner `CEM_PASS` como
+  secreto del repositorio y activar `CORRER_PRUEBAS_E2E=si`, para que las
+  pruebas de navegador corran en GitHub.
+- **Decidir el texto**: «2.500+ estudiantes formados» frente a los graduados
+  de la base (127 el 22 de octubre); «desde Caracas» frente a «nueve países».
+  Una sola historia, y las cifras de una sola fuente.
+- **Casos sueltos**: la cuenta duplicada de Oscar, los 12 diplomas de G12 y
+  los egresados con certificado pero sin inscripción.
 
 ---
 
