@@ -2090,6 +2090,16 @@ function paginaDePreguntas(temario) {
    body.ini-clara); aquí sólo los de la primera pintada, para que la página
    no salga un instante con los de la otra mientras llega la hoja grande. */
 const TEMA_PORTADA = 'oscura';
+
+/* El botón que cambia de versión. Dos: uno en la fila de botones del
+   escritorio y otro junto a la hamburguesa del teléfono, donde la fila de
+   botones vive dentro del menú plegado y nadie lo encontraría. Los iconos son
+   SVG y no la tipografía de iconos: en la cabecera, si esa fuente tarda, se
+   leería la palabra «light_mode». Se ve el sol en la oscura y la luna en la
+   clara: el botón enseña adónde lleva, no dónde se está. */
+const botonTema = (clase) => `<button type="button" class="ini-tema ${clase}" aria-label="Cambiar de versión">
+      <svg class="sol" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      <svg class="luna" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z"/></svg></button>`;
 const PRIMERA_PINTADA = {
   oscura: '--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;'
     + '--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;'
@@ -2401,13 +2411,70 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
     .replace('<meta name="theme-color" content="#0d2440">',
       `<meta name="theme-color" content="${TEMA_PORTADA === 'clara' ? '#f4f7fc' : '#050a14'}">`)
     .replace('</head>', `<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<style>body.ini-${TEMA_PORTADA}{${PRIMERA_PINTADA[TEMA_PORTADA]}}</style>
+<style>body.ini-oscura{${PRIMERA_PINTADA.oscura}}body.ini-clara{${PRIMERA_PINTADA.clara}}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
 </head>`)
+    .replace(/(<body class="[^"]*">)/, `$1
+<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>`)
+    .replace('<div class="pub-cta">', `<div class="pub-cta">
+      ${botonTema('ini-tema-escritorio')}`)
+    .replace('<button type="button" class="pub-menu-btn" id="pubMenu"', `${botonTema('ini-tema-movil')}
+    <button type="button" class="pub-menu-btn" id="pubMenu"`)
     .replace('</body>', `<script type="module">
 import('./plataforma/assets/globo.js?v=${VERSION_ASSETS}').then(function (m) {
   var c = document.querySelector('.ini-globo-lienzo');
   if (c) m.montarGlobo(c, { paises: (c.dataset.paises || '').split(',').filter(Boolean) });
 }).catch(function () {});
+</script>
+<script>
+(function () {
+  var b = document.body;
+  var botones = document.querySelectorAll('.ini-tema');
+  var quieto = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var poner = function () {
+    var clara = b.classList.contains('ini-clara');
+    botones.forEach(function (x) {
+      x.setAttribute('aria-label', clara ? 'Cambiar a la versión oscura' : 'Cambiar a la versión clara');
+      x.title = clara ? 'Versión oscura' : 'Versión clara';
+    });
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.content = clara ? '#f4f7fc' : '#050a14';
+  };
+  var cambiar = function () {
+    var clara = !b.classList.contains('ini-clara');
+    b.classList.toggle('ini-clara', clara);
+    b.classList.toggle('ini-oscura', !clara);
+    try { localStorage.setItem('cemPortadaTema', clara ? 'clara' : 'oscura'); } catch (e) {}
+    poner();
+    if (window.cemMedir) window.cemMedir('tema', { tema: clara ? 'clara' : 'oscura' });
+  };
+  botones.forEach(function (x) {
+    x.addEventListener('click', function () {
+      if (!document.startViewTransition || quieto) { cambiar(); return; }
+      var r = x.getBoundingClientRect();
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var radio = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
+      document.startViewTransition(cambiar).ready.then(function () {
+        document.documentElement.animate(
+          { clipPath: ['circle(0px at ' + cx + 'px ' + cy + 'px)', 'circle(' + radio + 'px at ' + cx + 'px ' + cy + 'px)'] },
+          { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' });
+      }).catch(function () {});
+    });
+  });
+  poner();
+  if (quieto || !(window.matchMedia && matchMedia('(pointer: fine)').matches)) return;
+  var x = 0, y = 0, pedido = false;
+  window.addEventListener('pointermove', function (e) {
+    x = -((e.clientX / innerWidth) * 2 - 1);
+    y = -((e.clientY / innerHeight) * 2 - 1);
+    if (pedido) return;
+    pedido = true;
+    requestAnimationFrame(function () {
+      pedido = false;
+      document.documentElement.style.setProperty('--raton-x', x.toFixed(3));
+      document.documentElement.style.setProperty('--raton-y', y.toFixed(3));
+    });
+  });
+})();
 </script>
 <script>
 (function () {

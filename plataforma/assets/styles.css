@@ -4620,6 +4620,11 @@ body.ini-oscura{
   --n-filete-luz:linear-gradient(90deg, transparent, rgba(62,230,210,.35), rgba(107,155,255,.35), transparent);
   --n-cierre:linear-gradient(135deg, #0b1830, #070e1d);
   --n-seleccion:rgba(62,230,210,.35);
+  --n-flota-a:radial-gradient(30vmax 28vmax at 14% 22%, rgba(62,230,210,.6), transparent 62%),
+    radial-gradient(26vmax 24vmax at 86% 72%, rgba(124,92,255,.55), transparent 62%);
+  --n-flota-b:radial-gradient(28vmax 26vmax at 82% 14%, rgba(107,155,255,.6), transparent 62%),
+    radial-gradient(24vmax 22vmax at 22% 86%, rgba(240,169,19,.32), transparent 62%);
+  --n-flota-opacidad:.3;
   --globo-punto:rgba(170,198,245,.75); --globo-activo:#3ee6d2; --globo-arco:#7aa6ff;
   --globo-esfera:rgba(62,230,210,.10); --globo-borde:rgba(62,230,210,.38);
   --globo-halo:radial-gradient(circle, rgba(62,230,210,.16), rgba(107,155,255,.06) 45%, transparent 68%);
@@ -4652,6 +4657,11 @@ body.ini-clara{
   --n-filete-luz:linear-gradient(90deg, transparent, rgba(8,122,111,.28), rgba(47,91,234,.28), transparent);
   --n-cierre:linear-gradient(135deg, #ffffff, #eef3ff);
   --n-seleccion:rgba(62,230,210,.35);
+  --n-flota-a:radial-gradient(30vmax 28vmax at 14% 22%, #1f5fd8 0%, #1f5fd8 16%, transparent 62%),
+    radial-gradient(26vmax 24vmax at 86% 72%, #6b4ce0 0%, #6b4ce0 14%, transparent 62%);
+  --n-flota-b:radial-gradient(28vmax 26vmax at 82% 14%, #06b6a4 0%, #06b6a4 16%, transparent 62%),
+    radial-gradient(24vmax 22vmax at 22% 86%, #f0a913 0%, #f0a913 14%, transparent 62%);
+  --n-flota-opacidad:.26;
   --globo-punto:rgba(13,36,64,.42); --globo-activo:#0aa595; --globo-arco:#3b6cf6;
   --globo-esfera:rgba(47,91,234,.06); --globo-borde:rgba(47,91,234,.28);
   --globo-halo:radial-gradient(circle, rgba(62,230,210,.20), rgba(107,155,255,.10) 45%, transparent 68%);
@@ -4667,17 +4677,54 @@ body.ini-portada{
   color:var(--tinta);
 }
 /* El fondo, ganándole al blanco que el escaparate fija en
-   :root[data-publico] body, y sin las dos capas de manchas (::before, la de
-   la plataforma; ::after, la del escaparate): aquí el ambiente lo pone la
-   propia página, y el amarillo de esas manchas ensuciaba el azul. */
+   :root[data-publico] body. */
 :root[data-publico] body.ini-portada{background:var(--fondo);}
-:root[data-publico] body.ini-portada::before,
+/* Los colores flotantes, como en el resto del escaparate pero con los de
+   cada versión: luces sobre el azul de noche en la oscura, el azul, el verde,
+   el violeta y el oro de la casa en la clara. Van y vienen en 40 segundos y
+   se apartan un poco del ratón.
+   Una sola capa con las cuatro manchas, y no dos que se movieran a ritmos
+   distintos: se probó, y la segunda capa costaba un tercio de los cuadros
+   del globo en un ordenador sin tarjeta gráfica (de 37 a 25 por segundo).
+   Sólo `transform` y `translate`, sin `scale`, que obligaría a volver a
+   pintar las manchas a cada cambio de tamaño. Con «reducir movimiento» se
+   quedan quietas (la regla global de arriba). */
+:root[data-publico] body.ini-portada::before{content:'';display:block;position:fixed;inset:-8%;
+  z-index:-1;pointer-events:none;will-change:transform;opacity:var(--n-flota-opacidad);
+  background:var(--n-flota-a), var(--n-flota-b);
+  translate:calc(var(--raton-x, 0) * 2.5%) calc(var(--raton-y, 0) * 2.5%);
+  transition:translate 1.4s cubic-bezier(.22,.61,.36,1);
+  animation:ini-flota 40s ease-in-out infinite alternate;}
 :root[data-publico] body.ini-portada::after{content:none;}
+@keyframes ini-flota{
+  0%{transform:translate3d(0,0,0) rotate(0deg);}
+  50%{transform:translate3d(5%,-4%,0) rotate(7deg);}
+  100%{transform:translate3d(-4%,4%,0) rotate(-5deg);}}
 body.ini-portada .pub-header{background:var(--n-cabecera);
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
 :root[data-publico] body.ini-portada > footer.franja{background:var(--n-pie);
   border-top:1px solid var(--filete);}
 body.ini-portada ::selection{background:var(--n-seleccion);}
+/* El botón de versión: sol en la oscura, luna en la clara. */
+.ini-tema{display:inline-grid;place-items:center;flex:none;width:38px;height:38px;padding:0;
+  border-radius:999px;border:1px solid var(--filete-fuerte);background:var(--n-panel);
+  color:var(--tinta);cursor:pointer;transition:border-color var(--rapido), color var(--rapido);}
+.ini-tema:hover{border-color:var(--n-cian);color:var(--n-cian);}
+.ini-tema:focus-visible{outline:2px solid var(--n-cian);outline-offset:2px;}
+.ini-tema svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .5s cubic-bezier(.4,0,.2,1);}
+.ini-tema:hover svg{transform:rotate(25deg);}
+body.ini-oscura .ini-tema .luna,
+body.ini-clara .ini-tema .sol{display:none;}
+.ini-tema-movil{display:none;}
+/* Sin JavaScript no cambiaría nada: entonces no se enseña. La clase la pone
+   el mismo script del menú del teléfono. */
+.pub-header:not(.con-menu) .ini-tema{display:none;}
+@media(max-width:720px){
+  .ini-tema-escritorio{display:none;}
+  .pub-header.con-menu .ini-tema-movil{display:inline-grid;order:2;margin-left:auto;}
+  body.ini-portada .pub-header.con-menu .pub-menu-btn{margin-left:0;}
+}
 
 .ini-dentro{max-width:1200px;margin:0 auto;padding:0 var(--e3);}
 .ini-franja{position:relative;padding:clamp(64px, 9vw, 112px) 0;}
@@ -4769,10 +4816,13 @@ body.ini-portada ::selection{background:var(--n-seleccion);}
   touch-action:pan-y;cursor:grab;opacity:0;transition:opacity .8s ease;}
 .ini-globo-lienzo.listo{opacity:1;}
 .ini-globo-lienzo:active{cursor:grabbing;}
+/* Sin `backdrop-filter`, a propósito: encima de un lienzo que cambia sesenta
+   veces por segundo, el desenfoque se recalcula sesenta veces por segundo, y
+   era la mitad de lo que costaba cada cuadro. Un fondo casi opaco se ve igual. */
 .ini-dato{position:absolute;display:flex;align-items:center;gap:8px;padding:10px 14px;
   border-radius:12px;font-size:13px;font-weight:600;color:var(--tinta);white-space:nowrap;
-  background:var(--n-vidrio);border:1px solid var(--filete-fuerte);pointer-events:none;
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:var(--sombra);}
+  background:var(--papel);border:1px solid var(--filete-fuerte);pointer-events:none;
+  box-shadow:var(--sombra);}
 .ini-dato .material-symbols-outlined{font-size:20px;color:var(--n-cian);}
 .ini-dato-1{top:12%;right:-2%;}
 .ini-dato-2{bottom:20%;left:-6%;}
@@ -4781,8 +4831,7 @@ body.ini-portada ::selection{background:var(--n-seleccion);}
 
 /* Las cifras, como una lectura de panel. */
 .ini-cifras{margin:clamp(32px, 5vw, 56px) 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
-  border:1px solid var(--filete);border-radius:16px;background:var(--n-vidrio);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);overflow:hidden;}
+  border:1px solid var(--filete);border-radius:16px;background:var(--n-vidrio);overflow:hidden;}
 .ini-cifras > div{padding:22px 24px;border-left:1px solid var(--filete);
   display:flex;flex-direction:column-reverse;gap:6px;}
 .ini-cifras > div:first-child{border-left:0;}

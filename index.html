@@ -50,7 +50,7 @@
 <link rel="stylesheet" href="plataforma/assets/styles.css?v=2026-10-22">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"EducationalOrganization","@id":"https://escuelacem.com#escuela","name":"CEM International","alternateName":["CEM · Centro de Estudios de Marketing","Centro de Estudios de Marketing"],"description":"Centro de estudios de marketing, negocios, inteligencia artificial y tecnología en Caracas, Venezuela. Formación práctica con certificado verificable.","url":"https://escuelacem.com","foundingDate":"2016","knowsAbout":["Marketing digital","Community management","Gestión de anuncios","Inteligencia artificial aplicada","Producción y edición de video","Fotografía","Diseño gráfico","Branding"],"logo":{"@type":"ImageObject","url":"https://escuelacem.com/plataforma/assets/icono-512.png","width":512,"height":512,"caption":"Logotipo de CEM International"},"image":"https://escuelacem.com/plataforma/assets/compartir.png","address":{"@type":"PostalAddress","addressLocality":"Caracas","postalCode":"1060","addressRegion":"Miranda","addressCountry":"VE"},"areaServed":[{"@type":"City","name":"Caracas"},{"@type":"Country","name":"Venezuela"}],"inLanguage":"es"},{"@type":"WebSite","@id":"https://escuelacem.com#sitio","url":"https://escuelacem.com","name":"CEM International","inLanguage":"es","publisher":{"@id":"https://escuelacem.com#escuela"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://escuelacem.com/plataforma/verificar.html?codigo={search_term_string}"},"query-input":"required name=search_term_string"}},{"@type":"ItemList","name":"Diplomados del CEM","numberOfItems":2,"itemListElement":[{"@type":"ListItem","position":1,"name":"Diplomado en Marketing Digital","url":"https://escuelacem.com/programas/diplomado-marketing-digital.html"},{"@type":"ListItem","position":2,"name":"Diplomado en Inteligencia Artificial y Producción Digital","url":"https://escuelacem.com/programas/diplomado-inteligencia-artificial.html"}]}]}</script>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}</style>
+<style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}body.ini-clara{--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;background:#f4f7fc;color:#0b1630;}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
 
 <script>
   (function () {
@@ -60,6 +60,7 @@
 </script>
 </head>
 <body class="cem-publico ini-portada ini-oscura">
+<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>
 
 <header class="pub-header estatica">
   <div class="pub-inner">
@@ -79,10 +80,16 @@
       <a href="https://escuelacem.com/preguntas-frecuentes.html">Preguntas</a>
     </nav>
     <div class="pub-cta">
+      <button type="button" class="ini-tema ini-tema-escritorio" aria-label="Cambiar de versión">
+      <svg class="sol" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      <svg class="luna" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z"/></svg></button>
       <a class="btn outline sm" href="https://escuelacem.com/plataforma/index.html">Iniciar sesión</a>
       <a class="btn sm" href="https://escuelacem.com/plataforma/index.html?registro=1">Registrarse</a>
     </div>
     
+    <button type="button" class="ini-tema ini-tema-movil" aria-label="Cambiar de versión">
+      <svg class="sol" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      <svg class="luna" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z"/></svg></button>
     <button type="button" class="pub-menu-btn" id="pubMenu" hidden
       aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
@@ -506,6 +513,57 @@ import('./plataforma/assets/globo.js?v=2026-10-22').then(function (m) {
   var c = document.querySelector('.ini-globo-lienzo');
   if (c) m.montarGlobo(c, { paises: (c.dataset.paises || '').split(',').filter(Boolean) });
 }).catch(function () {});
+</script>
+<script>
+(function () {
+  var b = document.body;
+  var botones = document.querySelectorAll('.ini-tema');
+  var quieto = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var poner = function () {
+    var clara = b.classList.contains('ini-clara');
+    botones.forEach(function (x) {
+      x.setAttribute('aria-label', clara ? 'Cambiar a la versión oscura' : 'Cambiar a la versión clara');
+      x.title = clara ? 'Versión oscura' : 'Versión clara';
+    });
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.content = clara ? '#f4f7fc' : '#050a14';
+  };
+  var cambiar = function () {
+    var clara = !b.classList.contains('ini-clara');
+    b.classList.toggle('ini-clara', clara);
+    b.classList.toggle('ini-oscura', !clara);
+    try { localStorage.setItem('cemPortadaTema', clara ? 'clara' : 'oscura'); } catch (e) {}
+    poner();
+    if (window.cemMedir) window.cemMedir('tema', { tema: clara ? 'clara' : 'oscura' });
+  };
+  botones.forEach(function (x) {
+    x.addEventListener('click', function () {
+      if (!document.startViewTransition || quieto) { cambiar(); return; }
+      var r = x.getBoundingClientRect();
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var radio = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
+      document.startViewTransition(cambiar).ready.then(function () {
+        document.documentElement.animate(
+          { clipPath: ['circle(0px at ' + cx + 'px ' + cy + 'px)', 'circle(' + radio + 'px at ' + cx + 'px ' + cy + 'px)'] },
+          { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' });
+      }).catch(function () {});
+    });
+  });
+  poner();
+  if (quieto || !(window.matchMedia && matchMedia('(pointer: fine)').matches)) return;
+  var x = 0, y = 0, pedido = false;
+  window.addEventListener('pointermove', function (e) {
+    x = -((e.clientX / innerWidth) * 2 - 1);
+    y = -((e.clientY / innerHeight) * 2 - 1);
+    if (pedido) return;
+    pedido = true;
+    requestAnimationFrame(function () {
+      pedido = false;
+      document.documentElement.style.setProperty('--raton-x', x.toFixed(3));
+      document.documentElement.style.setProperty('--raton-y', y.toFixed(3));
+    });
+  });
+})();
 </script>
 <script>
 (function () {
