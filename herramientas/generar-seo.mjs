@@ -2073,6 +2073,20 @@ function paginaDePreguntas(temario) {
 /* Sólo los enlaces guardados del tablero de proyectos —escuelacem.com/?p=…—
    se desvían. Antes se desviaba TODO el mundo, y por eso esta dirección no
    tenía contenido que un buscador pudiera leer. */
+/* La portada sale en una de sus dos versiones, con el mismo marcado: 'oscura'
+   o 'clara'. Los colores de cada una están en styles.css (body.ini-oscura y
+   body.ini-clara); aquí sólo los de la primera pintada, para que la página
+   no salga un instante con los de la otra mientras llega la hoja grande. */
+const TEMA_PORTADA = 'oscura';
+const PRIMERA_PINTADA = {
+  oscura: '--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;'
+    + '--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;'
+    + 'background:#050a14;color:#eaf1fb;',
+  clara: '--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;'
+    + '--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;'
+    + 'background:#f4f7fc;color:#0b1630;',
+};
+
 /* Los países de la portada, los mismos que enseña /plataforma/inicio.html y
    que se eligen en Configuración. Si la base no contesta, la sección no sale:
    una portada sin mapas es mejor que una portada que no se genera. */
@@ -2120,23 +2134,23 @@ function paginaDeInicio(temario) {
     ],
   };
 
-  /* La portada, a oscuras y con aire de futuro (22 de octubre de 2026).
+  /* La portada, con aire de futuro y alcance global (22 de octubre de 2026).
      ═══════════════════════════════════════════════════════════════════════
-     El dueño la pidió «más futurista», con los mapas de los países y sin el
-     bloque de los dos diplomados, que solo, se veía vacío. Así que:
+     Lo que pidió el dueño, en tres vueltas: «más futurista», con los mapas
+     de los países, sin el bloque de los dos diplomados —solo, se veía
+     vacío—, y que se sienta global y premium, no «impartido desde Caracas».
 
-     · A oscuras, pero sin inventar colores: en body.ini-oscura se redefinen
-       los MISMOS tokens de la casa (--papel, --tinta, --primary…), y la
-       cabecera, el pie, los botones flotantes y el chat de Cemi se vuelven
-       oscuros solos. Encima, lo propio de esta página: una rejilla en
-       perspectiva, una aurora lenta y el radar con Venezuela.
+     · Dos versiones, oscura y clara, con el MISMO marcado: TEMA_PORTADA
+       decide cuál sale. Cada una redefine los tokens de la casa sobre su body
+       (body.ini-oscura / body.ini-clara), y la cabecera, el pie, los
+       flotantes y el chat de Cemi se pintan con ellos sin una regla propia.
+     · Arriba, un globo de puntos que gira (plataforma/assets/globo.js) con
+       los países de Configuración encendidos y unidos por arcos.
      · Lo que se ofrece son los dieciséis programas, cada uno con su icono y
-       su color de siempre, y no dos tarjetas de diplomado.
-     · Los países salen de Configuración (cem_paises_de_la_portada) y se
-       dibujan aquí, con los contornos de paises-contornos.js, sin esperar a
-       ningún JavaScript.
-     · Lo que posiciona no cambia: el mismo título, el mismo h1 y el mismo
-       texto de Caracas.
+       su color de siempre.
+     · Caracas queda como dato —la sede en la ficha—, no como argumento. El
+       título que enseña Google y los datos estructurados siguen diciendo
+       Caracas: lo que posiciona la búsqueda local no se toca sin decidirlo.
 
      Lo que NO hay, a propósito: fotos de archivo, testimonios ni logotipos
      de empresas. No tenemos ninguno de verdad. Cada cifra sale de la base. */
@@ -2146,14 +2160,10 @@ function paginaDeInicio(temario) {
     'diez', 'once', 'doce'][paises.length] || String(paises.length);
   const modulos = temario.diplomados.flatMap((d) => d.modulos.map((m) => ({ ...m, dip: d })));
   const preguntas = PREGUNTAS(temario);
-  const destacadas = [3, 1, 2, 6].map((i) => preguntas[i]).filter(Boolean);
+  const destacadas = [3, 2, 7, 4].map((i) => preguntas[i]).filter(Boolean);
   const conv = temario.convocatoria && temario.convocatoria.fecha
     ? new Date(temario.convocatoria.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })
     : '';
-  /* Caracas dentro del contorno de Venezuela (cuadro de 100×100, Mercator,
-     ajustado por mapas-de-paises.mjs): 10,49° N y 66,90° O caen en (47,6;
-     22,4). El radar coloca el contorno al 72 % y centrado, de ahí la cuenta. */
-  const caracas = { x: 14 + 0.72 * 47.6, y: 14 + 0.72 * 22.4 };
 
   const cuerpo = `
 <section class="ini-heroe">
@@ -2161,13 +2171,14 @@ function paginaDeInicio(temario) {
   <div class="ini-suelo" aria-hidden="true"></div>
   <div class="ini-dentro ini-heroe-rejilla">
     <div class="ini-heroe-texto">
-      <p class="ini-hud"><span class="ini-punto" aria-hidden="true"></span>Caracas · 10,48° N · 66,90° O
+      <p class="ini-hud"><span class="ini-punto" aria-hidden="true"></span>En línea y en vivo
+        ${paises.length > 1 ? `<span class="ini-hud-sep" aria-hidden="true">/</span> ${paises.length} países` : ''}
         <span class="ini-hud-sep" aria-hidden="true">/</span> Desde ${ESCUELA.fundada}</p>
       <h1>Diplomados en <span class="ini-brillo">marketing digital e inteligencia artificial</span>,
         con certificado verificable</h1>
-      <p class="ini-lema">Dos diplomados de ocho módulos cada uno, impartidos desde Caracas. Cada
-        módulo se certifica por separado, y cualquiera puede verificar ese certificado con su
-        código.</p>
+      <p class="ini-lema">Formación en vivo y en línea${paises.length > 1 ? `, con clases en ${enLetra}
+        países` : ''}. Dos diplomados de ocho módulos: cada módulo se certifica por separado, y su
+        certificado se comprueba con un código desde cualquier lugar.</p>
       <div class="ini-manos">
         <a class="ini-boton" href="${SITIO}/programas/">Ver los programas
           <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
@@ -2185,16 +2196,12 @@ function paginaDeInicio(temario) {
         ${lineaConvocatoria(temario) ? `<li class="conv">${lineaConvocatoria(temario)}</li>` : ''}
       </ul>
     </div>
-    ${CONTORNOS.VE ? `<div class="ini-radar" aria-hidden="true">
-      <div class="ini-anillos"><i></i><i></i><i></i></div>
-      <div class="ini-barrido"></div>
-      <svg class="ini-ve" viewBox="0 0 100 100"><path d="${CONTORNOS.VE}"/></svg>
-      <span class="ini-pulso" style="left:${caracas.x.toFixed(1)}%;top:${caracas.y.toFixed(1)}%"></span>
-      <span class="ini-etiqueta" style="left:${caracas.x.toFixed(1)}%;top:${caracas.y.toFixed(1)}%">Caracas</span>
+    <div class="ini-globo" aria-hidden="true">
+      <canvas class="ini-globo-lienzo" data-paises="${esc(paises.join(','))}"></canvas>
       <div class="ini-dato ini-dato-1"><span class="material-symbols-outlined">sensors</span>Clases en vivo</div>
       <div class="ini-dato ini-dato-2"><span class="material-symbols-outlined">verified</span>Certificado verificable</div>
       ${paises.length > 1 ? `<div class="ini-dato ini-dato-3"><span class="material-symbols-outlined">language</span>${paises.length} países</div>` : ''}
-    </div>` : ''}
+    </div>
   </div>
   <div class="ini-dentro">
     <dl class="ini-cifras">
@@ -2234,9 +2241,9 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
   <div class="ini-dentro ini-mapas-rejilla">
     <div>
       <p class="ini-rotulo">Dónde damos clase</p>
-      <h2>Nacimos en Caracas. Hoy damos clase en ${paises.length === 1 ? 'un país' : `${enLetra} países`}.</h2>
-      <p class="ini-entrada">Formación en línea, con clases en vivo que quedan grabadas, y un
-        certificado con código que se comprueba desde cualquier parte.</p>
+      <h2>Presencia en ${paises.length === 1 ? 'un país' : `${enLetra} países`}</h2>
+      <p class="ini-entrada">Clases en vivo y en línea, que quedan grabadas: el mismo programa y el
+        mismo certificado verificable, estés donde estés.</p>
     </div>
     <ul class="ini-paises">
       ${paises.map((c) => `<li class="ini-pais${c === 'VE' ? ' casa' : ''}">
@@ -2310,23 +2317,21 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
 <section class="ini-franja">
   <div class="ini-dentro ini-dos">
     <div>
-      <p class="ini-rotulo">Caracas ${ESCUELA.codigoPostal} · Estado ${esc(ESCUELA.region)}</p>
-      <h2>Un centro de estudios de Caracas</h2>
-      <p class="ini-entrada">El CEM lleva desde ${ESCUELA.fundada} formando en marketing digital e
-        inteligencia artificial desde Caracas ${ESCUELA.codigoPostal}, estado
-        ${esc(ESCUELA.region)}, y desde aquí expide sus certificados: los
-        ${esc(tc.certificados)} emitidos hasta hoy llevan Caracas como lugar de
-        expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
-        desde cualquier parte sin perder ninguna.</p>
-      <a class="ini-mas" href="${SITIO}/preguntas-frecuentes.html">Dónde está el CEM y cómo son las clases
+      <p class="ini-rotulo">Quiénes somos</p>
+      <h2>Desde ${ESCUELA.fundada}, formando en marketing e inteligencia artificial</h2>
+      <p class="ini-entrada">El CEM —Centro de Estudios de Marketing— nació en ${ESCUELA.fundada}${paises.length > 1
+        ? ` y hoy da clase en ${enLetra} países` : ''}, en línea y en vivo. Ha emitido
+        ${esc(tc.certificados)} certificados a ${esc(tc.personas)} personas en
+        ${esc(tc.promociones)} promociones, y cada uno está registrado y se comprueba con su código.</p>
+      <a class="ini-mas" href="${SITIO}/plataforma/nosotros.html">Conoce al CEM
         <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
     </div>
     <dl class="ini-ficha">
       <div><dt>Fundado</dt><dd>${ESCUELA.fundada}</dd></div>
-      <div><dt>Sede</dt><dd>Caracas ${ESCUELA.codigoPostal}, estado ${esc(ESCUELA.region)}</dd></div>
-      <div><dt>Clases</dt><dd>En vivo, y quedan grabadas</dd></div>
-      <div><dt>Alcance</dt><dd>${paises.length > 1 ? `${paises.length} países` : 'Toda Venezuela'}</dd></div>
-      <div><dt>Certificados</dt><dd>${esc(tc.certificados)} emitidos a ${esc(tc.personas)} personas</dd></div>
+      <div><dt>Sede central</dt><dd>${esc(ESCUELA.ciudad)}, ${esc(ESCUELA.paisNombre)}</dd></div>
+      <div><dt>Presencia</dt><dd>${paises.length > 1 ? `${paises.length} países` : esc(ESCUELA.paisNombre)}</dd></div>
+      <div><dt>Modalidad</dt><dd>En línea, en vivo y grabada</dd></div>
+      <div><dt>Certificados</dt><dd>${esc(tc.certificados)} emitidos, todos verificables</dd></div>
     </dl>
   </div>
 </section>
@@ -2373,17 +2378,24 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
 
   let html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
 
-  /* A oscuras desde el primer pintado. Los tokens van también aquí, en línea,
-     porque styles.css tarda en llegar y mientras tanto la cabecera se pintaba
-     blanca y luego saltaba a oscura. Las dos tipografías de esta página —Sora
+  /* Con sus colores desde la primera pintada. Los tokens van también aquí, en
+     línea, porque styles.css tarda en llegar y mientras tanto la cabecera se
+     pintaba con los de siempre y luego saltaba. Las dos tipografías de esta página —Sora
      para los titulares y JetBrains Mono para los rótulos— sólo se piden aquí. */
   html = html
-    .replace('<body class="cem-publico">', '<body class="cem-publico ini-oscura">')
-    .replace('<meta name="theme-color" content="#0d2440">', '<meta name="theme-color" content="#050a14">')
+    .replace('<body class="cem-publico">', `<body class="cem-publico ini-portada ini-${TEMA_PORTADA}">`)
+    .replace('<meta name="theme-color" content="#0d2440">',
+      `<meta name="theme-color" content="${TEMA_PORTADA === 'clara' ? '#f4f7fc' : '#050a14'}">`)
     .replace('</head>', `<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}</style>
+<style>body.ini-${TEMA_PORTADA}{${PRIMERA_PINTADA[TEMA_PORTADA]}}</style>
 </head>`)
-    .replace('</body>', `<script>
+    .replace('</body>', `<script type="module">
+import('./plataforma/assets/globo.js?v=${VERSION_ASSETS}').then(function (m) {
+  var c = document.querySelector('.ini-globo-lienzo');
+  if (c) m.montarGlobo(c, { paises: (c.dataset.paises || '').split(',').filter(Boolean) });
+}).catch(function () {});
+</script>
+<script>
 (function () {
   var f = document.querySelector('.compra-avisame');
   if (!f) return;

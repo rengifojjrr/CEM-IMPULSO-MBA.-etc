@@ -4585,13 +4585,17 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
 .portada-imagen img{width:100%;height:auto;border-radius:var(--r-lg,14px);
   box-shadow:var(--sombra-2,0 8px 30px rgba(13,36,64,.14));display:block;}
 
-/* ═══ La portada del dominio (index.html), a oscuras ═══════════════════════
-   La escribe herramientas/generar-seo.mjs (paginaDeInicio). Es la única
-   página del sitio que va a oscuras, y lo hace redefiniendo los MISMOS tokens
-   de la casa sobre su body: la cabecera, el pie, los flotantes y el chat de
-   Cemi ya saben pintarse con ellos, así que se vuelven oscuros sin una regla
-   propia. Lo que sí es de aquí —el cian, el azul eléctrico, la rejilla, el
-   radar— lleva el prefijo --n- y sólo existe dentro de esta página. */
+/* ═══ La portada del dominio (index.html) ════════════════════════════════════
+   La escribe herramientas/generar-seo.mjs (paginaDeInicio), en una de dos
+   versiones con el mismo marcado: body.ini-oscura o body.ini-clara. Cada una
+   redefine los MISMOS tokens de la casa sobre su body —la cabecera, el pie,
+   los flotantes y el chat de Cemi ya saben pintarse con ellos— y añade los
+   suyos, con el prefijo --n- (lo de esta página: el cian, la rejilla, la
+   aurora) y --globo- (lo que lee globo.js para pintar el mundo).
+
+   Ningún color de abajo está escrito a mano: todos salen de un token. Así la
+   versión clara no es una copia de la oscura con parches, es la misma hoja
+   con otros valores. */
 body.ini-oscura{
   --fondo:#050a14; --papel:#0b1426; --hueco:#101c33;
   --tinta:#eaf1fb; --tinta-2:#a3b3cb; --tinta-3:#7d8fab;
@@ -4601,37 +4605,85 @@ body.ini-oscura{
   --gold:#e6bd5c; --gold-suave:#2a2110; --on-gold:#1d1504;
   --ok:#6ee7b7; --ok-suave:#0d2a20; --error:#fca5a5; --error-suave:#2e1416;
   --sombra:0 18px 50px -12px rgba(0,0,0,.7), 0 0 0 1px rgba(148,190,255,.08);
-  /* El vidrio se calcula en :root con el papel blanco y llega ya resuelto:
-     hay que volver a declararlo aquí para que use el papel oscuro. */
-  --vidrio-papel:color-mix(in srgb, var(--papel) 72%, transparent);
-  --vidrio-borde:color-mix(in srgb, var(--papel) 45%, var(--filete-fuerte));
-  --vidrio-brillo:rgba(255,255,255,.08);
   --n-panel:rgba(148,190,255,.045); --n-panel-2:rgba(148,190,255,.08);
-  --n-cian:#3ee6d2; --n-azul:#6b9bff;
+  --n-vidrio:rgba(11,20,38,.72); --n-cabecera:rgba(5,10,20,.82); --n-pie:#040812;
+  --n-cian:#3ee6d2; --n-azul:#6b9bff; --n-sobre-cian:#04121a; --n-mezcla:#fff;
   --n-brillo:linear-gradient(100deg,#3ee6d2 0%,#6b9bff 62%,#b3caff 100%);
+  --n-boton:linear-gradient(100deg,#3ee6d2 0%,#6b9bff 62%,#b3caff 100%);
+  --n-sobre-boton:#04121a;
+  --n-resplandor:rgba(62,230,210,.6); --n-resplandor-suave:rgba(62,230,210,.18);
+  --n-azul-suave:rgba(107,155,255,.07); --n-azul-medio:rgba(107,155,255,.5);
+  --n-rejilla:rgba(107,155,255,.16);
+  --n-aurora:radial-gradient(38% 46% at 80% 36%, rgba(62,230,210,.22), transparent 70%),
+    radial-gradient(44% 52% at 14% 8%, rgba(107,155,255,.24), transparent 70%),
+    radial-gradient(30% 36% at 55% 88%, rgba(107,155,255,.14), transparent 70%);
+  --n-filete-luz:linear-gradient(90deg, transparent, rgba(62,230,210,.35), rgba(107,155,255,.35), transparent);
+  --n-cierre:linear-gradient(135deg, #0b1830, #070e1d);
+  --n-seleccion:rgba(62,230,210,.35);
+  --globo-punto:rgba(170,198,245,.75); --globo-activo:#3ee6d2; --globo-arco:#7aa6ff;
+  --globo-esfera:rgba(62,230,210,.10); --globo-borde:rgba(62,230,210,.38);
+  --globo-halo:radial-gradient(circle, rgba(62,230,210,.16), rgba(107,155,255,.06) 45%, transparent 68%);
+}
+/* La clara: el mismo cielo de día. Blanco azulado, la tinta marina de la
+   casa, y el cian y el azul oscurecidos lo justo para que el texto pequeño
+   pase de 4,5 sobre blanco. Los botones conservan el degradado claro con la
+   letra oscura encima, que se lee igual en las dos. */
+body.ini-clara{
+  --fondo:#f4f7fc; --papel:#ffffff; --hueco:#edf2fa;
+  --tinta:#0b1630; --tinta-2:#46546e; --tinta-3:#5f6d86;
+  --filete:rgba(13,36,64,.10); --filete-fuerte:rgba(13,36,64,.18);
+  --primary:#0d2440; --primary-suave:#e8edf5; --on-primary:#fff;
+  --secondary:#087a6f; --secondary-container:#d6f2ee; --on-secondary:#fff;
+  --gold:#856517; --gold-suave:#f6ecd2; --on-gold:#fff;
+  --ok:#166534; --ok-suave:#e3f2e7; --error:#a51d1d; --error-suave:#fbe4e3;
+  --sombra:0 18px 44px -20px rgba(13,36,64,.28), 0 0 0 1px rgba(13,36,64,.05);
+  --n-panel:rgba(255,255,255,.72); --n-panel-2:rgba(255,255,255,.9);
+  --n-vidrio:rgba(255,255,255,.82); --n-cabecera:rgba(255,255,255,.82); --n-pie:#eaf0f8;
+  --n-cian:#087a6f; --n-azul:#2f5bea; --n-sobre-cian:#fff; --n-mezcla:#0b1630;
+  --n-brillo:linear-gradient(100deg,#087a6f 0%,#2f5bea 60%,#5b3fd6 100%);
+  --n-boton:linear-gradient(100deg,#3ee6d2 0%,#7aa6ff 62%,#b8ccff 100%);
+  --n-sobre-boton:#04121a;
+  --n-resplandor:rgba(14,170,152,.35); --n-resplandor-suave:rgba(14,170,152,.14);
+  --n-azul-suave:rgba(47,91,234,.05); --n-azul-medio:rgba(47,91,234,.4);
+  --n-rejilla:rgba(13,36,64,.07);
+  --n-aurora:radial-gradient(38% 46% at 80% 36%, rgba(62,230,210,.26), transparent 70%),
+    radial-gradient(44% 52% at 14% 8%, rgba(107,155,255,.26), transparent 70%),
+    radial-gradient(30% 36% at 55% 88%, rgba(150,120,255,.14), transparent 70%);
+  --n-filete-luz:linear-gradient(90deg, transparent, rgba(8,122,111,.28), rgba(47,91,234,.28), transparent);
+  --n-cierre:linear-gradient(135deg, #ffffff, #eef3ff);
+  --n-seleccion:rgba(62,230,210,.35);
+  --globo-punto:rgba(13,36,64,.42); --globo-activo:#0aa595; --globo-arco:#3b6cf6;
+  --globo-esfera:rgba(47,91,234,.06); --globo-borde:rgba(47,91,234,.28);
+  --globo-halo:radial-gradient(circle, rgba(62,230,210,.20), rgba(107,155,255,.10) 45%, transparent 68%);
+}
+body.ini-portada{
   --n-display:'Sora','Hanken Grotesk',system-ui,sans-serif;
   --n-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* El vidrio se calcula en :root con el papel de siempre y llega ya
+     resuelto: hay que volver a declararlo aquí para que use el de la página. */
+  --vidrio-papel:color-mix(in srgb, var(--papel) 72%, transparent);
+  --vidrio-borde:color-mix(in srgb, var(--papel) 45%, var(--filete-fuerte));
+  --vidrio-brillo:color-mix(in srgb, var(--papel) 10%, transparent);
   color:var(--tinta);
 }
 /* El fondo, ganándole al blanco que el escaparate fija en
    :root[data-publico] body, y sin las dos capas de manchas (::before, la de
    la plataforma; ::after, la del escaparate): aquí el ambiente lo pone la
-   propia página, y el amarillo de esas manchas ensuciaba el azul de noche. */
-:root[data-publico] body.ini-oscura{background:var(--fondo);}
-:root[data-publico] body.ini-oscura::before,
-:root[data-publico] body.ini-oscura::after{content:none;}
-body.ini-oscura .pub-header{background:rgba(5,10,20,.82);
+   propia página, y el amarillo de esas manchas ensuciaba el azul. */
+:root[data-publico] body.ini-portada{background:var(--fondo);}
+:root[data-publico] body.ini-portada::before,
+:root[data-publico] body.ini-portada::after{content:none;}
+body.ini-portada .pub-header{background:var(--n-cabecera);
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
-:root[data-publico] body.ini-oscura > footer.franja{background:#040812;
+:root[data-publico] body.ini-portada > footer.franja{background:var(--n-pie);
   border-top:1px solid var(--filete);}
-body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
+body.ini-portada ::selection{background:var(--n-seleccion);}
 
 .ini-dentro{max-width:1200px;margin:0 auto;padding:0 var(--e3);}
 .ini-franja{position:relative;padding:clamp(64px, 9vw, 112px) 0;}
 /* Un filete que brilla en el centro entre franja y franja. */
 .ini-franja::before{content:'';position:absolute;top:0;left:50%;width:min(1200px, 90%);
-  height:1px;transform:translateX(-50%);
-  background:linear-gradient(90deg, transparent, rgba(62,230,210,.35), rgba(107,155,255,.35), transparent);}
+  height:1px;transform:translateX(-50%);background:var(--n-filete-luz);}
 .ini-franja h2,.ini-cierre h2{font-family:var(--n-display);font-weight:600;
   font-size:clamp(28px, 3.4vw, 44px);line-height:1.08;letter-spacing:-.025em;
   margin:0 0 var(--e2);text-wrap:balance;color:var(--tinta);}
@@ -4644,7 +4696,7 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
   font-weight:var(--peso-fuerte);font-size:var(--t-sm);text-decoration:none;white-space:nowrap;
   padding:10px 16px;border-radius:999px;border:1px solid var(--filete-fuerte);
   transition:border-color var(--rapido),background var(--rapido);}
-.ini-mas:hover{border-color:var(--n-cian);background:rgba(62,230,210,.08);}
+.ini-mas:hover{border-color:var(--n-cian);background:var(--n-resplandor-suave);}
 .ini-mas .material-symbols-outlined{font-size:18px;color:var(--n-cian);}
 .ini-cabeza{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--e3);
   margin-bottom:var(--e4);}
@@ -4655,11 +4707,11 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-boton{display:inline-flex;align-items:center;justify-content:center;gap:8px;
   min-height:50px;padding:0 24px;border:0;border-radius:12px;cursor:pointer;
   font:inherit;font-size:16px;font-weight:600;text-decoration:none;white-space:nowrap;
-  color:#04121a;background:var(--n-brillo);
-  box-shadow:0 0 0 1px rgba(62,230,210,.45), 0 12px 40px -12px rgba(62,230,210,.7);
+  color:var(--n-sobre-boton);background:var(--n-boton);
+  box-shadow:0 0 0 1px var(--n-resplandor-suave), 0 12px 40px -12px var(--n-resplandor);
   transition:transform var(--rapido), box-shadow var(--rapido);}
 .ini-boton:hover{transform:translateY(-1px);
-  box-shadow:0 0 0 1px rgba(62,230,210,.7), 0 16px 50px -10px rgba(62,230,210,.85);}
+  box-shadow:0 0 0 1px var(--n-resplandor), 0 16px 50px -10px var(--n-resplandor);}
 .ini-boton:focus-visible,.ini-mas:focus-visible,.ini-mod:focus-visible{
   outline:2px solid var(--n-cian);outline-offset:3px;}
 .ini-boton:disabled{opacity:.6;cursor:progress;}
@@ -4670,35 +4722,31 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-boton.ini-vidrio .material-symbols-outlined{color:var(--n-cian);}
 .ini-boton.ini-vidrio:hover{box-shadow:inset 0 0 0 1px var(--n-cian);}
 
-/* ── el héroe: aurora, rejilla en perspectiva y el radar ─────────────────── */
+/* ── el héroe: aurora, rejilla en perspectiva y el globo ─────────────────── */
 .ini-heroe{position:relative;overflow:hidden;isolation:isolate;
-  padding:clamp(48px, 8vw, 104px) 0 clamp(40px, 6vw, 72px);}
+  padding:clamp(48px, 7vw, 96px) 0 clamp(40px, 6vw, 72px);}
 .ini-aurora{position:absolute;inset:-25% -15% 0;z-index:-2;pointer-events:none;
-  background:
-    radial-gradient(38% 46% at 80% 36%, rgba(62,230,210,.22), transparent 70%),
-    radial-gradient(44% 52% at 14% 8%, rgba(107,155,255,.24), transparent 70%),
-    radial-gradient(30% 36% at 55% 88%, rgba(107,155,255,.14), transparent 70%);
-  animation:ini-deriva 20s ease-in-out infinite alternate;}
+  background:var(--n-aurora);animation:ini-deriva 20s ease-in-out infinite alternate;}
 @keyframes ini-deriva{to{transform:translate3d(-3%, 2%, 0) scale(1.06);}}
 .ini-suelo{position:absolute;left:-50%;right:-50%;bottom:0;height:58%;z-index:-1;
   pointer-events:none;transform:perspective(560px) rotateX(64deg);transform-origin:50% 100%;
   background-image:
-    linear-gradient(rgba(107,155,255,.16) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(107,155,255,.16) 1px, transparent 1px);
+    linear-gradient(var(--n-rejilla) 1px, transparent 1px),
+    linear-gradient(90deg, var(--n-rejilla) 1px, transparent 1px);
   background-size:64px 64px;
   -webkit-mask-image:linear-gradient(to top, #000 0%, transparent 80%);
   mask-image:linear-gradient(to top, #000 0%, transparent 80%);}
-.ini-heroe-rejilla{display:grid;gap:clamp(32px, 5vw, 72px);align-items:center;
-  grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);}
+.ini-heroe-rejilla{display:grid;gap:clamp(24px, 4vw, 56px);align-items:center;
+  grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);}
 .ini-hud{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 var(--e3);
   font-family:var(--n-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--n-cian);}
 .ini-hud-sep{color:var(--tinta-3);}
 .ini-punto{width:8px;height:8px;border-radius:50%;background:var(--n-cian);
-  box-shadow:0 0 0 0 rgba(62,230,210,.7);animation:ini-late 2s ease-out infinite;}
-@keyframes ini-late{70%{box-shadow:0 0 0 10px rgba(62,230,210,0);}100%{box-shadow:0 0 0 0 rgba(62,230,210,0);}}
+  animation:ini-late 2s ease-out infinite;}
+@keyframes ini-late{0%{box-shadow:0 0 0 0 var(--n-resplandor);}70%,100%{box-shadow:0 0 0 10px transparent;}}
 .ini-heroe h1{font-family:var(--n-display);font-weight:600;
-  font-size:clamp(34px, 4.7vw, 62px);line-height:1.04;letter-spacing:-.035em;
+  font-size:clamp(34px, 4.1vw, 56px);line-height:1.04;letter-spacing:-.035em;
   margin:0 0 var(--e3);max-width:none;text-wrap:balance;color:var(--tinta);}
 .ini-brillo{background:var(--n-brillo);-webkit-background-clip:text;background-clip:text;
   color:transparent;}
@@ -4711,43 +4759,29 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-hechos li.conv{color:var(--tinta);flex-basis:100%;}
 .ini-hechos li.conv .material-symbols-outlined{color:var(--gold);}
 
-/* El radar: Venezuela en el centro y la señal saliendo de Caracas. Es
-   decorativo (aria-hidden): lo que dice está en el texto de al lado. */
-.ini-radar{position:relative;width:min(100%, 480px);aspect-ratio:1;justify-self:center;
-  border-radius:50%;background:radial-gradient(circle, rgba(62,230,210,.10), transparent 64%);}
-.ini-anillos i{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(148,190,255,.16);}
-.ini-anillos i:nth-child(2){inset:17%;border-style:dashed;border-color:rgba(148,190,255,.12);}
-.ini-anillos i:nth-child(3){inset:34%;}
-.ini-barrido{position:absolute;inset:0;border-radius:50%;
-  background:conic-gradient(from 0deg, rgba(62,230,210,0) 74%, rgba(62,230,210,.28) 100%);
-  animation:ini-giro 8s linear infinite;}
-@keyframes ini-giro{to{transform:rotate(1turn);}}
-.ini-ve{position:absolute;left:14%;top:14%;width:72%;height:72%;overflow:visible;}
-.ini-ve path{fill:rgba(62,230,210,.07);stroke:var(--n-cian);stroke-width:1.4px;
-  vector-effect:non-scaling-stroke;stroke-linejoin:round;
-  filter:drop-shadow(0 0 6px rgba(62,230,210,.65));}
-.ini-pulso{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;
-  background:#fff;box-shadow:0 0 0 3px rgba(62,230,210,.55), 0 0 18px 4px rgba(62,230,210,.8);}
-.ini-pulso::before,.ini-pulso::after{content:'';position:absolute;inset:-14px;border-radius:50%;
-  border:1px solid var(--n-cian);opacity:0;animation:ini-onda 2.8s ease-out infinite;}
-.ini-pulso::after{animation-delay:1.4s;}
-@keyframes ini-onda{0%{transform:scale(.25);opacity:.9;}100%{transform:scale(3.4);opacity:0;}}
-.ini-etiqueta{position:absolute;transform:translate(14px, -50%);font-family:var(--n-mono);
-  font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--tinta);
-  background:rgba(5,10,20,.7);padding:3px 8px;border-radius:6px;border:1px solid var(--filete-fuerte);}
+/* El globo: un mundo de puntos que gira (globo.js), con los países donde
+   damos clase encendidos. Lo de detrás es un halo, que es también lo que se
+   ve si el JavaScript no llega. Decorativo: lo que dice está en el texto. */
+.ini-globo{position:relative;width:min(100%, 540px);aspect-ratio:1;justify-self:center;}
+.ini-globo::before{content:'';position:absolute;inset:-8%;border-radius:50%;
+  background:var(--globo-halo);pointer-events:none;}
+.ini-globo-lienzo{position:relative;display:block;width:100%;height:100%;
+  touch-action:pan-y;cursor:grab;opacity:0;transition:opacity .8s ease;}
+.ini-globo-lienzo.listo{opacity:1;}
+.ini-globo-lienzo:active{cursor:grabbing;}
 .ini-dato{position:absolute;display:flex;align-items:center;gap:8px;padding:10px 14px;
   border-radius:12px;font-size:13px;font-weight:600;color:var(--tinta);white-space:nowrap;
-  background:rgba(11,20,38,.72);border:1px solid var(--filete-fuerte);
+  background:var(--n-vidrio);border:1px solid var(--filete-fuerte);pointer-events:none;
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:var(--sombra);}
 .ini-dato .material-symbols-outlined{font-size:20px;color:var(--n-cian);}
-.ini-dato-1{top:10%;right:-4%;}
-.ini-dato-2{bottom:16%;left:-8%;}
+.ini-dato-1{top:12%;right:-2%;}
+.ini-dato-2{bottom:20%;left:-6%;}
 .ini-dato-2 .material-symbols-outlined{color:var(--gold);}
-.ini-dato-3{bottom:2%;right:6%;}
+.ini-dato-3{bottom:5%;right:8%;}
 
 /* Las cifras, como una lectura de panel. */
-.ini-cifras{margin:clamp(40px, 6vw, 72px) 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
-  border:1px solid var(--filete);border-radius:16px;background:rgba(11,20,38,.6);
+.ini-cifras{margin:clamp(32px, 5vw, 56px) 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  border:1px solid var(--filete);border-radius:16px;background:var(--n-vidrio);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);overflow:hidden;}
 .ini-cifras > div{padding:22px 24px;border-left:1px solid var(--filete);
   display:flex;flex-direction:column-reverse;gap:6px;}
@@ -4764,17 +4798,19 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-mod{position:relative;flex:1;display:flex;flex-direction:column;gap:10px;min-height:168px;
   padding:20px;border-radius:16px;overflow:hidden;text-decoration:none;color:var(--tinta);
   background:var(--n-panel);border:1px solid var(--filete);
-  transition:transform var(--rapido), border-color var(--rapido), background var(--rapido);}
+  transition:transform var(--rapido), border-color var(--rapido), box-shadow var(--rapido);}
 .ini-mod::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;
   background:var(--c);box-shadow:0 0 18px 1px var(--c);}
 .ini-mod::after{content:'';position:absolute;inset:auto -30% -60% auto;width:70%;aspect-ratio:1;
-  border-radius:50%;background:radial-gradient(circle, color-mix(in srgb, var(--c) 30%, transparent), transparent 70%);
+  border-radius:50%;background:radial-gradient(circle, color-mix(in srgb, var(--c) 28%, transparent), transparent 70%);
   opacity:0;transition:opacity var(--entra);pointer-events:none;}
-.ini-mod:hover{transform:translateY(-3px);border-color:color-mix(in srgb, var(--c) 60%, transparent);}
+.ini-mod:hover{transform:translateY(-3px);border-color:color-mix(in srgb, var(--c) 55%, transparent);
+  box-shadow:var(--sombra);}
 .ini-mod:hover::after{opacity:1;}
 .ini-mod-ico{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;font-size:23px;
-  color:color-mix(in srgb, var(--c) 70%, #fff);background:color-mix(in srgb, var(--c) 16%, transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent);}
+  color:color-mix(in srgb, var(--c) 72%, var(--n-mezcla));
+  background:color-mix(in srgb, var(--c) 14%, transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 32%, transparent);}
 .ini-mod-area{font-family:var(--n-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--tinta-3);margin-top:auto;}
 .ini-mod b{font-size:16px;font-weight:600;line-height:1.3;}
@@ -4791,17 +4827,17 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
   padding:16px 16px 14px;border-radius:16px;background:var(--n-panel);border:1px solid var(--filete);
   transition:border-color var(--rapido), background var(--rapido);}
 .ini-pais svg{flex:1;min-height:0;width:100%;overflow:visible;}
-.ini-pais path{fill:rgba(107,155,255,.07);stroke:var(--n-azul);stroke-width:1.3px;
-  vector-effect:non-scaling-stroke;stroke-linejoin:round;transition:stroke var(--rapido), fill var(--rapido);}
-.ini-pais:hover{border-color:rgba(107,155,255,.5);background:rgba(107,155,255,.07);}
-.ini-pais:hover path{stroke:#b3caff;fill:rgba(107,155,255,.14);}
-.ini-pais.casa{border-color:rgba(62,230,210,.5);background:rgba(62,230,210,.06);
-  box-shadow:0 0 48px -14px rgba(62,230,210,.6);}
-.ini-pais.casa path{stroke:var(--n-cian);fill:rgba(62,230,210,.1);
-  filter:drop-shadow(0 0 5px rgba(62,230,210,.7));}
+.ini-pais path{fill:var(--n-azul-suave);stroke:var(--n-azul);stroke-width:1.3px;
+  vector-effect:non-scaling-stroke;stroke-linejoin:round;transition:fill var(--rapido);}
+.ini-pais:hover{border-color:var(--n-azul-medio);}
+.ini-pais:hover path{fill:color-mix(in srgb, var(--n-azul) 16%, transparent);}
+.ini-pais.casa{border-color:var(--n-resplandor);background:var(--n-resplandor-suave);
+  box-shadow:0 0 48px -14px var(--n-resplandor);}
+.ini-pais.casa path{stroke:var(--n-cian);fill:var(--n-resplandor-suave);
+  filter:drop-shadow(0 0 5px var(--n-resplandor));}
 .ini-pais-nombre{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--tinta);}
 .ini-pais-sede{position:absolute;top:12px;right:12px;font-family:var(--n-mono);font-size:10px;
-  letter-spacing:.12em;text-transform:uppercase;color:#04121a;background:var(--n-cian);
+  letter-spacing:.12em;text-transform:uppercase;color:var(--n-sobre-cian);background:var(--n-cian);
   padding:3px 8px;border-radius:999px;}
 
 /* ── cómo funciona: una línea que une los cuatro pasos ───────────────────── */
@@ -4812,7 +4848,7 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-paso-n{position:relative;display:grid;place-items:center;width:46px;height:46px;
   margin-bottom:var(--e3);border-radius:50%;background:var(--fondo);border:1px solid var(--n-cian);
   font-family:var(--n-mono);font-size:13px;color:var(--n-cian);
-  box-shadow:0 0 22px -4px rgba(62,230,210,.7);}
+  box-shadow:0 0 22px -4px var(--n-resplandor);}
 .ini-pasos h3{font-family:var(--n-display);font-weight:600;font-size:19px;letter-spacing:-.01em;
   margin:0 0 8px;color:var(--tinta);}
 .ini-pasos p{color:var(--tinta-2);font-size:15px;line-height:1.6;margin:0;max-width:30ch;}
@@ -4822,17 +4858,17 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
   grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);}
 .ini-escaner{position:relative;width:100%;max-width:400px;aspect-ratio:1;justify-self:center;
   display:grid;place-items:center;border-radius:24px;overflow:hidden;
-  background:radial-gradient(circle at 50% 45%, rgba(62,230,210,.10), transparent 65%), var(--n-panel);
+  background:radial-gradient(circle at 50% 45%, var(--n-resplandor-suave), transparent 65%), var(--n-panel);
   border:1px solid var(--filete);}
 .ini-escaner .esq{position:absolute;width:42px;height:42px;border:2px solid var(--n-cian);
-  filter:drop-shadow(0 0 6px rgba(62,230,210,.7));}
+  filter:drop-shadow(0 0 6px var(--n-resplandor));}
 .ini-escaner .esq.a{top:16%;left:16%;border-right:0;border-bottom:0;border-radius:10px 0 0 0;}
 .ini-escaner .esq.b{top:16%;right:16%;border-left:0;border-bottom:0;border-radius:0 10px 0 0;}
 .ini-escaner .esq.c{bottom:16%;left:16%;border-right:0;border-top:0;border-radius:0 0 0 10px;}
 .ini-escaner .esq.d{bottom:16%;right:16%;border-left:0;border-top:0;border-radius:0 0 10px 0;}
 .ini-qr{font-size:min(170px, 40vw);color:var(--tinta);opacity:.92;}
 .ini-linea{position:absolute;left:14%;right:14%;height:2px;border-radius:2px;background:var(--n-cian);
-  box-shadow:0 0 18px 3px rgba(62,230,210,.75);animation:ini-escanea 3.4s ease-in-out infinite alternate;}
+  box-shadow:0 0 18px 3px var(--n-resplandor);animation:ini-escanea 3.4s ease-in-out infinite alternate;}
 @keyframes ini-escanea{from{top:18%;}to{top:82%;}}
 .ini-escaner-pie{position:absolute;bottom:5%;left:50%;transform:translateX(-50%);
   display:flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--n-mono);font-size:11px;
@@ -4841,10 +4877,10 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-verificar{margin:0 0 var(--e4);max-width:540px;}
 .ini-fila{display:flex;gap:10px;flex-wrap:wrap;}
 .ini-fila input{flex:1;min-width:min(100%, 220px);min-height:50px;padding:0 16px;border-radius:12px;
-  font:inherit;font-size:16px;color:var(--tinta);background:rgba(148,190,255,.06);
+  font:inherit;font-size:16px;color:var(--tinta);background:var(--n-panel-2);
   border:1px solid var(--filete-fuerte);}
 .ini-fila input::placeholder{color:var(--tinta-3);}
-.ini-fila input:focus{outline:none;border-color:var(--n-cian);box-shadow:0 0 0 3px rgba(62,230,210,.2);}
+.ini-fila input:focus{outline:none;border-color:var(--n-cian);box-shadow:0 0 0 3px var(--n-resplandor-suave);}
 .ini-nota{margin:10px 0 0;font-size:13px;color:var(--tinta-3);}
 .ini-garantias{list-style:none;margin:0;padding:0;display:grid;gap:12px;
   grid-template-columns:repeat(2,minmax(0,1fr));}
@@ -4853,7 +4889,7 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-garantias .material-symbols-outlined{font-size:22px;color:var(--n-cian);}
 .ini-garantias b{display:block;color:var(--tinta);font-size:15px;margin-bottom:2px;}
 
-/* ── la escuela y las preguntas ──────────────────────────────────────────── */
+/* ── quiénes somos y las preguntas ───────────────────────────────────────── */
 .ini-dos{display:grid;gap:clamp(32px, 5vw, 80px);align-items:start;
   grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
 .ini-ficha{margin:0;border:1px solid var(--filete);border-radius:16px;overflow:hidden;
@@ -4867,7 +4903,7 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-preguntas{display:flex;flex-direction:column;gap:10px;}
 .ini-preguntas details{border-radius:14px;background:var(--n-panel);border:1px solid var(--filete);
   transition:border-color var(--rapido);}
-.ini-preguntas details[open]{border-color:rgba(62,230,210,.4);}
+.ini-preguntas details[open]{border-color:var(--n-resplandor);}
 .ini-preguntas summary{display:flex;justify-content:space-between;align-items:center;gap:16px;
   padding:18px 20px;cursor:pointer;list-style:none;font-weight:600;font-size:16px;color:var(--tinta);}
 .ini-preguntas summary::-webkit-details-marker{display:none;}
@@ -4881,8 +4917,8 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 .ini-cierre-panel{position:relative;display:grid;gap:40px;align-items:center;
   grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);padding:clamp(28px, 5vw, 56px);
   border-radius:24px;border:1px solid transparent;
-  background:linear-gradient(135deg, #0b1830, #070e1d) padding-box, var(--n-brillo) border-box;
-  box-shadow:0 0 90px -30px rgba(62,230,210,.55);}
+  background:var(--n-cierre) padding-box, var(--n-brillo) border-box;
+  box-shadow:0 0 90px -30px var(--n-resplandor);}
 .ini-cierre-panel .ini-entrada{margin-bottom:0;}
 .ini-avisame{margin:0;}
 .ini-avisame .ini-rotulo{color:var(--tinta-3);}
@@ -4897,7 +4933,7 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
 }
 @media (max-width:960px){
   .ini-heroe-rejilla,.ini-mapas-rejilla,.ini-cert,.ini-dos,.ini-cierre-panel{grid-template-columns:minmax(0,1fr);}
-  .ini-radar{width:min(100%, 420px);}
+  .ini-globo{width:min(100%, 460px);}
   .ini-pasos{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:40px;}
   .ini-pasos::before{display:none;}
   .ini-escaner{max-width:320px;}
@@ -4908,7 +4944,7 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
   .ini-heroe h1{font-size:clamp(30px, 8.6vw, 40px);}
   .ini-manos .ini-boton{flex:1 1 100%;}
   .ini-hechos{flex-direction:column;gap:10px;}
-  .ini-radar{width:min(86%, 320px);}
+  .ini-globo{width:min(100%, 360px);}
   .ini-dato{display:none;}
   .ini-cifras{grid-template-columns:repeat(2,minmax(0,1fr));}
   .ini-cifras > div{padding:16px;border-left:0;border-top:1px solid var(--filete);}
@@ -4930,10 +4966,10 @@ body.ini-oscura ::selection{background:rgba(62,230,210,.35);color:#fff;}
   .ini-escaner{max-width:240px;}
 }
 @media (prefers-reduced-motion:reduce){
-  .ini-aurora,.ini-barrido,.ini-punto,.ini-pulso::before,.ini-pulso::after,.ini-linea{animation:none;}
+  .ini-aurora,.ini-punto,.ini-linea{animation:none;}
   .ini-linea{top:50%;}
 }
 @media print{
-  body.ini-oscura{--fondo:#fff;--papel:#fff;--tinta:#000;--tinta-2:#333;}
-  .ini-aurora,.ini-suelo,.ini-radar,.ini-escaner,.ini-cierre{display:none;}
+  body.ini-portada{--fondo:#fff;--papel:#fff;--tinta:#000;--tinta-2:#333;}
+  .ini-aurora,.ini-suelo,.ini-globo,.ini-escaner,.ini-cierre{display:none;}
 }
