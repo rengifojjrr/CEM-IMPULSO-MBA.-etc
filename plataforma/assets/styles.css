@@ -4584,3 +4584,187 @@ a.mod:focus-visible{outline:2px solid var(--mod-color, var(--primary));outline-o
 .portada-imagen{margin:var(--e3) 0 0;}
 .portada-imagen img{width:100%;height:auto;border-radius:var(--r-lg,14px);
   box-shadow:var(--sombra-2,0 8px 30px rgba(13,36,64,.14));display:block;}
+
+/* ═══ La portada del dominio (index.html) ═══════════════════════════════════
+   La escribe herramientas/generar-seo.mjs (paginaDeInicio). Una rejilla de
+   1200 px y el mismo patrón en cada franja —rótulo, título, entrada y lo que
+   toca—, alternando el lienzo y el papel para que cada sección se lea como
+   una sola cosa. Las franjas llevan fondo propio: así las manchas de color
+   del ambiente no se cuelan entre las tarjetas y la página se ve ordenada. */
+.ini-dentro{max-width:1200px;margin:0 auto;padding:0 var(--e3);}
+.ini-franja{padding:var(--e5) 0;background:var(--fondo);}
+.ini-franja.ini-papel{background:var(--papel);}
+.ini-franja h2,.ini-cierre h2{font-size:clamp(24px, 2.6vw, 32px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 var(--e1);text-wrap:balance;}
+.ini-entrada{color:var(--tinta-2);font-size:var(--t-md);line-height:1.6;max-width:56ch;
+  margin:0 0 var(--e3);}
+.ini-rotulo{display:block;font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-3);}
+.ini-mas{display:inline-flex;align-items:center;gap:6px;color:var(--primary);
+  font-weight:var(--peso-fuerte);font-size:var(--t-sm);text-decoration:none;white-space:nowrap;}
+.ini-mas .material-symbols-outlined{font-size:18px;transition:transform var(--rapido);}
+.ini-mas:hover .material-symbols-outlined{transform:translateX(3px);}
+.ini-cabeza{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--e3);
+  margin-bottom:var(--e4);}
+.ini-cabeza .ini-entrada{margin-bottom:0;}
+.ini-cabeza .ojal,.ini-dos .ojal{margin-bottom:var(--e1);}
+.ini-btn{min-height:46px;padding:0 var(--e3);font-size:var(--t-md);}
+.ini-manos{display:flex;gap:var(--e1);flex-wrap:wrap;}
+
+/* El héroe: lo que es a la izquierda, el producto a la derecha. */
+.ini-heroe{background:var(--papel);border-bottom:1px solid var(--filete);
+  padding:var(--e5) 0;overflow:hidden;
+  background-image:radial-gradient(700px 420px at 85% 40%, var(--primary-suave), transparent 70%);}
+.ini-heroe-rejilla{display:grid;gap:var(--e5);align-items:center;
+  grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);}
+.ini-heroe h1{font-size:clamp(30px, 4.2vw, 50px);line-height:1.06;letter-spacing:-.025em;
+  margin:0 0 var(--e2);text-wrap:balance;}
+.ini-lema{color:var(--tinta-2);font-size:clamp(16px, 1.4vw, 18px);line-height:1.6;
+  max-width:52ch;margin:0 0 var(--e3);}
+.ini-hechos{list-style:none;margin:var(--e3) 0 0;padding:0;display:flex;flex-wrap:wrap;
+  gap:var(--e1) var(--e3);font-size:var(--t-sm);color:var(--tinta-2);}
+.ini-hechos li{display:flex;align-items:center;gap:6px;}
+.ini-hechos .material-symbols-outlined{font-size:19px;color:var(--secondary);}
+.ini-hechos li.conv{color:var(--tinta);flex-basis:100%;}
+.ini-hechos li.conv .material-symbols-outlined{color:var(--gold);}
+
+/* La vitrina: los dos diplomados de verdad, en pequeño. Es decorativa
+   (aria-hidden): la misma información, completa y con enlaces, está justo
+   debajo. Sin foto de archivo, que es lo que no tenemos. */
+.ini-vitrina{position:relative;display:flex;flex-direction:column;gap:var(--e2);
+  padding:var(--e2) 0 var(--e4);}
+.ini-mini{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
+  box-shadow:var(--sombra);overflow:hidden;width:86%;}
+.ini-mini:nth-child(2){align-self:flex-end;}
+.ini-mini-cuerpo{padding:var(--e2) var(--e3) var(--e3);display:flex;flex-direction:column;gap:6px;}
+.ini-mini-cuerpo b{font-size:var(--t-lg);line-height:1.25;color:var(--tinta);}
+.ini-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.ini-chips i{font-style:normal;font-size:var(--t-xs);padding:3px 10px;border-radius:var(--r-full);
+  background:var(--hueco);color:var(--tinta-2);white-space:nowrap;}
+.ini-sello{position:absolute;left:0;bottom:0;display:flex;align-items:center;gap:var(--e1);
+  background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
+  box-shadow:var(--sombra);padding:var(--e1) var(--e2) var(--e1) var(--e1);
+  font-size:var(--t-xs);color:var(--tinta-2);line-height:1.35;}
+.ini-sello b{display:block;color:var(--tinta);font-size:var(--t-sm);}
+.ini-sello .material-symbols-outlined{font-size:24px;color:var(--gold);
+  background:var(--gold-suave);border-radius:var(--r);padding:8px;}
+
+/* Las cifras, en su propia banda y alineadas con la rejilla. */
+.ini-cifras{background:var(--papel);border-bottom:1px solid var(--filete);}
+.ini-cifras-fila{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));}
+.ini-cifras-fila > div{padding:var(--e3) var(--e2);border-left:1px solid var(--filete);
+  display:flex;flex-direction:column;gap:2px;}
+.ini-cifras-fila > div:first-child{border-left:0;padding-left:0;}
+.ini-cifras b{font-size:var(--t-2xl);line-height:1.1;font-weight:var(--peso-fuerte);
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--primary);}
+.ini-cifras span{font-size:var(--t-sm);color:var(--tinta-2);}
+
+/* Los dos diplomados, lado a lado y con los ocho módulos a la vista. */
+.ini-dips{display:grid;gap:var(--e3);grid-template-columns:repeat(2,minmax(0,1fr));}
+.ini-dip{background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);
+  overflow:hidden;display:flex;flex-direction:column;
+  transition:box-shadow var(--rapido),border-color var(--rapido);}
+.ini-dip:hover{box-shadow:var(--sombra);border-color:var(--filete-fuerte);}
+.ini-dip-cuerpo{padding:var(--e3) var(--e4) var(--e3);flex:1;}
+.ini-dip h3{font-size:var(--t-lg);line-height:1.25;margin:var(--e1) 0;}
+.ini-dip h3 a{color:var(--tinta);text-decoration:none;}
+.ini-dip h3 a:hover{color:var(--primary);text-decoration:underline;}
+.ini-dip-cuerpo > p{color:var(--tinta-2);font-size:var(--t-sm);line-height:1.6;margin:0 0 var(--e3);}
+.ini-mods{list-style:none;margin:0;padding:var(--e2) 0 0;border-top:1px solid var(--filete);
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px var(--e2);}
+.ini-mods a{display:flex;align-items:center;gap:var(--e1);padding:4px 0;
+  font-size:var(--t-sm);color:var(--tinta);text-decoration:none;line-height:1.3;}
+.ini-mods a:hover{color:var(--primary);text-decoration:underline;}
+.ini-mods .n{flex:none;width:24px;height:24px;border-radius:var(--r-full);display:grid;
+  place-items:center;font-size:var(--t-xs);font-weight:var(--peso-fuerte);
+  color:color-mix(in oklab, var(--c) 70%, var(--tinta));
+  background:color-mix(in oklab, var(--c) 16%, var(--papel));}
+.ini-dip-pie{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
+  flex-wrap:wrap;padding:var(--e2) var(--e4);background:var(--hueco);
+  border-top:1px solid var(--filete);font-size:var(--t-sm);color:var(--tinta-2);}
+.ini-dip-pie b{color:var(--tinta);font-variant-numeric:tabular-nums;}
+
+/* Cómo funciona: cuatro pasos, en el orden en que pasan. */
+.ini-pasos{list-style:none;margin:0;padding:0;display:grid;gap:var(--e3);
+  grid-template-columns:repeat(4,minmax(0,1fr));}
+.ini-pasos li{border-top:2px solid var(--filete);padding-top:var(--e2);}
+.ini-pasos li:first-child{border-top-color:var(--primary);}
+.ini-paso-n{display:inline-grid;place-items:center;width:32px;height:32px;
+  border-radius:var(--r-full);background:var(--primary-suave);color:var(--primary);
+  font-weight:var(--peso-fuerte);font-size:var(--t-sm);margin-bottom:var(--e2);}
+.ini-pasos h3{font-size:var(--t-md);margin:0 0 6px;}
+.ini-pasos p{color:var(--tinta-2);font-size:var(--t-sm);line-height:1.6;margin:0;}
+
+/* Dos columnas: el argumento y su detalle. */
+.ini-dos{display:grid;gap:var(--e5);align-items:start;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+.ini-verificar{margin:0;max-width:520px;}
+.ini-verificar .ini-rotulo{margin-bottom:var(--e1);}
+.ini-verificar .tiny{margin:var(--e1) 0 0;}
+.ini-garantias{list-style:none;margin:0;padding:0;display:grid;gap:var(--e2);
+  grid-template-columns:repeat(2,minmax(0,1fr));}
+.ini-garantias li{display:flex;flex-direction:column;gap:var(--e1);padding:var(--e3);
+  background:var(--papel);border:1px solid var(--filete);border-radius:var(--r);}
+.ini-garantias .material-symbols-outlined{font-size:24px;color:var(--secondary);}
+.ini-garantias li > span:last-child{font-size:var(--t-sm);color:var(--tinta-2);line-height:1.5;}
+.ini-garantias b{display:block;color:var(--tinta);font-size:var(--t-md);margin-bottom:2px;}
+.ini-ficha{margin:0;border:1px solid var(--filete);border-radius:var(--r);
+  background:var(--fondo);}
+.ini-ficha > div{display:grid;grid-template-columns:130px minmax(0,1fr);gap:var(--e2);
+  padding:var(--e2) var(--e3);border-top:1px solid var(--filete);}
+.ini-ficha > div:first-child{border-top:0;}
+.ini-ficha dt{font-size:var(--t-sm);color:var(--tinta-3);}
+.ini-ficha dd{margin:0;font-size:var(--t-sm);color:var(--tinta);font-weight:var(--peso-fuerte);}
+
+/* Las preguntas, plegadas: se lee la lista de un vistazo y se abre la que toca. */
+.ini-preguntas{border-top:1px solid var(--filete);}
+.ini-preguntas details{border-bottom:1px solid var(--filete);}
+.ini-preguntas summary{display:flex;justify-content:space-between;align-items:center;
+  gap:var(--e2);padding:var(--e2) 0;cursor:pointer;list-style:none;
+  font-weight:var(--peso-fuerte);font-size:var(--t-md);color:var(--tinta);}
+.ini-preguntas summary::-webkit-details-marker{display:none;}
+.ini-preguntas summary .material-symbols-outlined{color:var(--tinta-3);
+  transition:transform var(--rapido);}
+.ini-preguntas details[open] summary .material-symbols-outlined{transform:rotate(180deg);}
+.ini-preguntas summary:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.ini-preguntas details p{margin:0 0 var(--e2);color:var(--tinta-2);font-size:var(--t-sm);
+  line-height:1.65;}
+
+/* El cierre: la última puerta, en el color de la marca. */
+.ini-cierre{background:var(--primary);color:var(--on-primary);padding:var(--e5) 0;}
+.ini-cierre-fila{display:flex;align-items:center;justify-content:space-between;
+  gap:var(--e3);flex-wrap:wrap;}
+.ini-cierre h2{color:inherit;}
+.ini-cierre p{margin:0;max-width:56ch;opacity:.85;font-size:var(--t-md);}
+.ini-btn.ini-claro{background:var(--on-primary);border-color:var(--on-primary);color:var(--primary);}
+.ini-btn.ini-claro:hover{opacity:.92;}
+.ini-btn.ini-borde{background:transparent;color:var(--on-primary);
+  border-color:color-mix(in oklab, var(--on-primary) 45%, transparent);}
+.ini-btn.ini-borde:hover{background:color-mix(in oklab, var(--on-primary) 10%, transparent);}
+
+@media (max-width:960px){
+  .ini-heroe-rejilla,.ini-dos{grid-template-columns:minmax(0,1fr);gap:var(--e4);}
+  .ini-vitrina{max-width:560px;}
+  .ini-dips{grid-template-columns:minmax(0,1fr);}
+  .ini-pasos{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:640px){
+  .ini-dentro{padding:0 var(--e2);}
+  .ini-franja,.ini-heroe,.ini-cierre{padding:var(--e4) 0;}
+  .ini-vitrina{display:none;}
+  .ini-manos .ini-btn{flex:1 1 100%;}
+  .ini-hechos{flex-direction:column;}
+  .ini-cifras-fila{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .ini-cifras-fila > div{padding:var(--e2);border-left:0;border-top:1px solid var(--filete);}
+  .ini-cifras-fila > div:nth-child(-n+2){border-top:0;}
+  .ini-cifras-fila > div:nth-child(odd){padding-left:0;}
+  .ini-cifras b{font-size:var(--t-xl);}
+  .ini-cabeza{flex-direction:column;align-items:flex-start;margin-bottom:var(--e3);}
+  .ini-dip-cuerpo{padding:var(--e3) var(--e2) var(--e2);}
+  .ini-dip-pie{padding:var(--e2);}
+  .ini-dip-pie .btn{flex:1 1 100%;}
+  .ini-mods{grid-template-columns:minmax(0,1fr);}
+  .ini-pasos,.ini-garantias{grid-template-columns:minmax(0,1fr);}
+  .ini-ficha > div{grid-template-columns:100px minmax(0,1fr);padding:var(--e1) var(--e2);}
+}
+@media print{ .ini-vitrina,.ini-cierre{display:none;} }

@@ -2099,107 +2099,223 @@ function paginaDeInicio(temario) {
     ],
   };
 
+  /* La portada, ordenada como las referencias (22 de octubre de 2026).
+     ═══════════════════════════════════════════════════════════════════════
+     Antes: un titular centrado sobre manchas de color, los dos diplomados en
+     dos tarjetas de ancho completo una debajo de otra —con media tarjeta en
+     blanco—, y cada sección alineada a su manera. Ahora, una rejilla de
+     1200 px y el mismo patrón en cada franja: rótulo, título, entrada, y lo
+     que toca debajo. El orden es el de Coursera y Domestika: qué es, pruebas
+     en números, el producto entero (los dos diplomados lado a lado, con sus
+     ocho módulos a la vista), cómo funciona, el certificado, quiénes somos,
+     dudas y una última puerta.
+
+     Lo que NO hay, a propósito: fotos de archivo, testimonios o logotipos de
+     empresas. No tenemos ninguno de verdad, y una portada que los inventa
+     dice justo lo contrario de lo que vende esta escuela. Cada cifra sale del
+     temario publicado, igual que antes. */
+  const tc = temario.totales;
+  const preguntas = PREGUNTAS(temario);
+  const destacadas = [3, 1, 2, 6].map((i) => preguntas[i]).filter(Boolean);
+  const vitrina = temario.diplomados.map((d) => `
+        <div class="ini-mini" style="--c:${d.modulos[0]?.color || 'var(--primary)'}">
+          <div class="pp-tira">${d.modulos.map((m) => `<i style="background:${m.color}"></i>`).join('')}</div>
+          <div class="ini-mini-cuerpo">
+            <span class="ini-rotulo">Diplomado · ${d.modulos.length} módulos</span>
+            <b>${esc(d.nombre)}</b>
+            <span class="ini-chips">${d.modulos.slice(0, 2).map((m) => `<i>${esc(m.nombre)}</i>`).join('')}<i>+${Math.max(d.modulos.length - 2, 0)} módulos</i></span>
+          </div>
+        </div>`).join('');
+
   const cuerpo = `
-<section class="portada-cem portada-una">
-  <div class="dentro portada-una">
-    <div class="portada-dicho">
+<section class="ini-heroe">
+  <div class="ini-dentro ini-heroe-rejilla">
+    <div class="ini-heroe-texto">
       <span class="ojal">Centro de Estudios de Marketing · Caracas, desde ${ESCUELA.fundada}</span>
-      <h1 class="titular-largo">Diplomados en marketing digital e inteligencia artificial,
-        con certificado verificable</h1>
-      <p class="lema">Dos diplomados de ocho módulos cada uno, impartidos desde Caracas. Cada
+      <h1>Diplomados en marketing digital e inteligencia artificial, con certificado verificable</h1>
+      <p class="ini-lema">Dos diplomados de ocho módulos cada uno, impartidos desde Caracas. Cada
         módulo se certifica por separado, y cualquiera puede verificar ese certificado con su
         código.</p>
-
-      <div class="portada-manos">
-        <a class="btn" href="${SITIO}/programas/">Ver los dos diplomados</a>
+      <div class="ini-manos">
+        <a class="btn ini-btn" href="${SITIO}/programas/">Ver los diplomados
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+        <a class="btn outline ini-btn" href="#verificar">
+          <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+          Verificar un certificado</a>
       </div>
-
-      <ul class="portada-hechos">
+      <ul class="ini-hechos">
         <li><span class="material-symbols-outlined" aria-hidden="true">videocam</span>
           Clases en vivo, y quedan grabadas</li>
         <li><span class="material-symbols-outlined" aria-hidden="true">public</span>
           Desde cualquier parte de Venezuela</li>
         <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
-          Un certificado por módulo, verificable</li>
+          Un certificado por módulo</li>
         ${lineaConvocatoria(temario) ? `<li class="conv">${lineaConvocatoria(temario)}</li>` : ''}
       </ul>
-
-      ${ESCUELA.heroImagen ? `<figure class="portada-imagen">
-        <img src="${ESCUELA.heroImagen}" alt="${esc(ESCUELA.heroImagenAlt)}"
-          width="880" height="560" fetchpriority="high" decoding="async">
-      </figure>` : ''}
-      <div class="cifras-casa cifras-heroe">
-        <div><b>${esc(temario.totales.certificados)}</b><span>certificados emitidos</span></div>
-        <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
-        <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
+    </div>
+    <div class="ini-vitrina" aria-hidden="true">
+      ${vitrina}
+      <div class="ini-sello">
+        <span class="material-symbols-outlined">verified</span>
+        <span><b>Certificado verificable</b>
+          ${esc(tc.certificados)} emitidos, con código y QR</span>
       </div>
     </div>
   </div>
 </section>
 
-${/* La portada del dominio, igual que el índice de programas: la portada de
-     cada diplomado y no sus dieciséis módulos. Aquí pesa todavía más — es la
-     primera pantalla de quien llega de Google, y le contestaba «qué hay» con
-     dieciséis tarjetas antes de haber dicho qué son las dos cosas que se
-     estudian. Se entra al temario desde el botón. */''}
-${temario.diplomados.map((d, i) => `
-<section class="franja${i % 2 ? ' tenue' : ''}">
-  <div class="dentro">
-    <article class="portada-programa" style="--mod-color:${d.modulos[0]?.color || 'var(--primary)'}">
-      <div class="pp-tira" aria-hidden="true">
-        ${d.modulos.map((m) => `<i style="background:${m.color}"></i>`).join('')}
-      </div>
-      <div class="pp-cuerpo">
-        <span class="ojal">Diplomado · ${d.modulos.length} módulos</span>
-        <h2><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h2>
-        <p class="entrada">${esc(d.que)}</p>
-
-        <ul class="pp-datos">
-          <li><b>${d.modulos.length}</b><span>módulos</span></li>
-          <li><b>${d.modulos.length}</b><span>certificados</span></li>
-          <li><b>${d.personas}</b><span>lo han cursado</span></li>
-          <li><b>${d.diplomas}</b><span>diplomas emitidos</span></li>
-        </ul>
-
-        <div class="portada-manos" style="margin-bottom:0">
-          <a class="btn" href="${SITIO}/programas/${d.apodo}.html">
-            Ver el diplomado de ${esc(d.corto)}</a>
-        </div>
-      </div>
-    </article>
-  </div>
-</section>`).join('')}
-
-${/* 2.5 · La escuela va DESPUÉS del producto.
-     ═══════════════════════════════════════════════════════════════════════
-     Esta sección era la primera después del hero, o sea que lo primero que la
-     portada hacía tras el titular era hablar de sí misma. Las seis referencias
-     abren con el producto. Aquí abajo hace mejor trabajo: quien ya ha visto
-     los dos diplomados y sigue leyendo es a quien le sirve saber desde cuándo
-     existe la escuela y desde dónde expide.
-
-     Sigue siendo la sección que le dice a Google que esto es un centro de
-     Caracas, y para eso da igual el orden: lo que cuenta es que la ciudad esté
-     en el texto que lee una persona. */''}
-<section class="franja">
-  <div class="dentro estrecho">
-    <span class="ojal">Caracas ${ESCUELA.codigoPostal} · Estado ${esc(ESCUELA.region)}</span>
-    <h2 style="margin-top:0">Un centro de estudios de Caracas</h2>
-    <p class="entrada">El CEM lleva desde ${ESCUELA.fundada} formando en marketing digital e
-      inteligencia artificial desde Caracas ${ESCUELA.codigoPostal}, estado
-      ${esc(ESCUELA.region)}, y desde aquí expide sus certificados: los
-      ${esc(temario.totales.certificados)} emitidos hasta hoy llevan Caracas como lugar de
-      expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
-      desde cualquier parte de Venezuela sin perder ninguna.</p>
-    <p><a href="${SITIO}/preguntas-frecuentes.html">Dónde está el CEM y cómo son las clases →</a></p>
+<section class="ini-cifras" aria-label="El CEM en cifras">
+  <div class="ini-dentro ini-cifras-fila">
+    <div><b>${esc(tc.certificados)}</b><span>certificados emitidos</span></div>
+    <div><b>${esc(tc.personas)}</b><span>personas graduadas</span></div>
+    <div><b>${esc(tc.promociones)}</b><span>promociones</span></div>
+    <div><b>${ESCUELA.fundada}</b><span>formando desde Caracas</span></div>
   </div>
 </section>
 
-${bloqueCertificado(temario, `
-    <p class="tiny muted" style="margin-top:var(--e3)">¿Otra duda? Las
-      <a href="${SITIO}/preguntas-frecuentes.html">preguntas frecuentes</a> contestan si se puede
-      cursar un módulo suelto, qué pasa si perdiste tu certificado y qué diplomados hay.</p>`,
-  true)}`;
+<section class="ini-franja">
+  <div class="ini-dentro">
+    <div class="ini-cabeza">
+      <div>
+        <span class="ojal">Programas</span>
+        <h2>Dos diplomados, ocho módulos cada uno</h2>
+        <p class="ini-entrada">Cada módulo se certifica por separado. Al completar los ocho,
+          recibes además el diploma del diplomado.</p>
+      </div>
+      <a class="ini-mas" href="${SITIO}/programas/">Ver todos los programas
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+    </div>
+    <div class="ini-dips">
+      ${temario.diplomados.map((d) => `
+      <article class="ini-dip">
+        <div class="pp-tira" aria-hidden="true">
+          ${d.modulos.map((m) => `<i style="background:${m.color}"></i>`).join('')}
+        </div>
+        <div class="ini-dip-cuerpo">
+          <span class="ini-rotulo">Diplomado · ${d.modulos.length} módulos · ${d.modulos.length} certificados</span>
+          <h3><a href="${SITIO}/programas/${d.apodo}.html">${esc(d.nombre)}</a></h3>
+          <p>${esc(d.que)}</p>
+          <ol class="ini-mods">
+            ${d.modulos.map((m) => `<li><a href="${SITIO}/programas/${m.apodo}.html"><span class="n" style="--c:${m.color}">${m.orden}</span>${esc(m.nombre)}</a></li>`).join('')}
+          </ol>
+        </div>
+        <div class="ini-dip-pie">
+          <span><b>${esc(d.personas)}</b> lo han cursado · <b>${esc(d.diplomas)}</b> diplomas emitidos</span>
+          <a class="btn" href="${SITIO}/programas/${d.apodo}.html">Ver el diplomado</a>
+        </div>
+      </article>`).join('')}
+    </div>
+  </div>
+</section>
+
+<section class="ini-franja ini-papel">
+  <div class="ini-dentro">
+    <div class="ini-cabeza">
+      <div>
+        <span class="ojal">Cómo funciona</span>
+        <h2>De la primera clase al diploma</h2>
+      </div>
+    </div>
+    <ol class="ini-pasos">
+      <li><span class="ini-paso-n">1</span><h3>Eliges un diplomado</h3>
+        <p>O un solo módulo: cada uno se puede cursar y certificar por separado.</p></li>
+      <li><span class="ini-paso-n">2</span><h3>Clases en vivo</h3>
+        <p>Y quedan grabadas en la plataforma, por si un día no puedes conectarte.</p></li>
+      <li><span class="ini-paso-n">3</span><h3>Un certificado por módulo</h3>
+        <p>Con código único y QR, a tu nombre, comprobable por cualquiera.</p></li>
+      <li><span class="ini-paso-n">4</span><h3>El diploma del diplomado</h3>
+        <p>Al completar los ocho módulos, el título que los reúne a todos.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="ini-franja" id="verificar">
+  <div class="ini-dentro ini-dos">
+    <div>
+      <span class="ojal">Lo que te llevas</span>
+      <h2>Un certificado que cualquiera puede comprobar</h2>
+      <p class="ini-entrada">Quien lo reciba —una empresa que va a contratar, un cliente— escribe
+        el código o la cédula y ve ahí mismo si es auténtico, a nombre de quién está y de qué es.</p>
+      <form class="verificar-aqui ini-verificar" action="${SITIO}/plataforma/verificar.html" method="get">
+        <label for="codigoPortada" class="ini-rotulo">Compruébalo ahora</label>
+        <div class="verificar-fila">
+          <input type="search" id="codigoPortada" name="codigo" required
+            placeholder="Código o cédula" aria-label="Código del certificado o cédula">
+          <button class="btn" type="submit">
+            <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+            Verificar</button>
+        </div>
+        <p class="tiny muted">Sin crear cuenta. Con la cédula salen todos los títulos de esa persona.</p>
+      </form>
+    </div>
+    <ul class="ini-garantias">
+      <li><span class="material-symbols-outlined" aria-hidden="true">qr_code_2</span>
+        <span><b>Código único y QR</b>En cada certificado, para comprobarlo desde el móvil.</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">badge</span>
+        <span><b>A tu nombre y con tu cédula</b>Con la cédula salen todos tus títulos juntos.</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">lock_open</span>
+        <span><b>Sin crear cuenta</b>Quien lo comprueba no tiene que registrarse.</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">history</span>
+        <span><b>Si lo pierdes, no se pierde</b>Está registrado: se vuelve a emitir con el mismo código.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="ini-franja ini-papel">
+  <div class="ini-dentro ini-dos">
+    <div>
+      <span class="ojal">Caracas ${ESCUELA.codigoPostal} · Estado ${esc(ESCUELA.region)}</span>
+      <h2>Un centro de estudios de Caracas</h2>
+      <p class="ini-entrada">El CEM lleva desde ${ESCUELA.fundada} formando en marketing digital e
+        inteligencia artificial desde Caracas ${ESCUELA.codigoPostal}, estado
+        ${esc(ESCUELA.region)}, y desde aquí expide sus certificados: los
+        ${esc(tc.certificados)} emitidos hasta hoy llevan Caracas como lugar de
+        expedición. Las clases son en vivo y quedan grabadas, así que el diplomado se puede seguir
+        desde cualquier parte de Venezuela sin perder ninguna.</p>
+      <a class="ini-mas" href="${SITIO}/preguntas-frecuentes.html">Dónde está el CEM y cómo son las clases
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+    </div>
+    <dl class="ini-ficha">
+      <div><dt>Desde</dt><dd>${ESCUELA.fundada}</dd></div>
+      <div><dt>Sede</dt><dd>Caracas ${ESCUELA.codigoPostal}, estado ${esc(ESCUELA.region)}</dd></div>
+      <div><dt>Clases</dt><dd>En vivo, y quedan grabadas</dd></div>
+      <div><dt>Alcance</dt><dd>Cualquier parte de Venezuela</dd></div>
+      <div><dt>Certificados</dt><dd>${esc(tc.certificados)} emitidos a ${esc(tc.personas)} personas</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="ini-franja">
+  <div class="ini-dentro ini-dos ini-faq">
+    <div>
+      <span class="ojal">Dudas</span>
+      <h2>Preguntas frecuentes</h2>
+      <p class="ini-entrada">Lo que más se pregunta antes de inscribirse.</p>
+      <a class="ini-mas" href="${SITIO}/preguntas-frecuentes.html">Ver todas las preguntas
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+    </div>
+    <div class="ini-preguntas">
+      ${destacadas.map(([q, r]) => `<details>
+        <summary>${esc(q)}<span class="material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
+        <p>${r}</p>
+      </details>`).join('')}
+    </div>
+  </div>
+</section>
+
+<section class="ini-cierre">
+  <div class="ini-dentro ini-cierre-fila">
+    <div>
+      <h2>Empieza por el módulo que te sirve</h2>
+      <p>Cada módulo se certifica por separado: no hace falta cursar el diplomado entero para
+        llevarte tu certificado.</p>
+    </div>
+    <div class="ini-manos">
+      <a class="btn ini-btn ini-claro" href="${SITIO}/programas/">Ver los diplomados</a>
+      <a class="btn ini-btn ini-borde" href="${SITIO}/contacto.html">Escríbenos</a>
+    </div>
+  </div>
+</section>`;
 
   let html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
 
