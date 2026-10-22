@@ -4,9 +4,9 @@
    de este archivo lo mismo de siempre, y el asistente puede montarse en las
    páginas generadas sin cargar todo esto. Ver la cabecera de nucleo.js. */
 import { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil,
-         sitioPublico } from './nucleo.js?v=2026-10-22-4';
+         sitioPublico } from './nucleo.js?v=2026-10-22-5';
 export { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil, sitioPublico };
-import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-10-22-4';
+import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-10-22-5';
 export { medir };
 
 /* La apariencia elegida se aplica al importar este módulo, que es lo primero
@@ -16,7 +16,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-10-22-4';
+         vidrioActual } from './temas.js?v=2026-10-22-5';
 
 /* La marca de versión del logotipo. Tiene que decir lo MISMO que VERSION_ICONO
    en herramientas/iconos.mjs y en herramientas/generar-seo.mjs: es la fecha del
@@ -1680,7 +1680,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-10-22-4')
+  import('./asistente.js?v=2026-10-22-5')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2388,7 +2388,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-10-22-4');
+    const m = await import('./apariencia.js?v=2026-10-22-5');
 
     m.abrirApariencia();
 
@@ -2667,11 +2667,15 @@ function montarLaPromocion() {
   const pantalla = (location.pathname.split('/').pop() || 'inicio')
     .replace('.html', '') || 'inicio';
   if (!PANTALLAS_CON_PROMO.has(pantalla)) return Promise.resolve();
-  return import('./promo.js?v=2026-10-22-4').then((m) => m.montarPromocion({ pantalla }));
+  return import('./promo.js?v=2026-10-22-5').then((m) => m.montarPromocion({ pantalla }));
 }
 
 function renderPublicHeader(p) {
   const r = raizPublica();
+  /* Las pantallas con el diseño de la portada (body.ini-portada: Verificar y
+     Quiénes somos, desde el 22 de octubre de 2026) llevan además el botón del
+     sol y la luna. Las demás públicas —el catálogo, la compra— todavía no. */
+  const conVersion = document.body.classList.contains('ini-portada');
   const h = document.createElement('header');
   h.className = 'pub-header';
   const activa = (archivo) => location.pathname.endsWith(archivo) ? ' class="on"' : '';
@@ -2722,6 +2726,7 @@ function renderPublicHeader(p) {
       <a href="${r}../preguntas-frecuentes.html">Preguntas</a>
     </nav>
     <div class="pub-cta">
+      ${conVersion ? botonDeVersion('ini-tema-escritorio') : ''}
       ${p ? `<a class="btn outline sm" href="${r}${homeForRoot(p.rol)}">Mi panel</a>
              <div class="avatar" title="${esc(p.email)}">${initials(p.nombre, p.apellido)}</div>`
           : `<a class="btn outline sm" href="${r}index.html">Iniciar sesión</a>
@@ -2731,14 +2736,67 @@ function renderPublicHeader(p) {
          Va el último en el marcado y se coloca con «order», porque quien navega
          con teclado o lector de pantalla debe encontrar primero la marca y los
          enlaces; en la pantalla, en cambio, el botón va a la derecha. -->
+    ${conVersion ? botonDeVersion('ini-tema-movil') : ''}
     <button type="button" class="pub-menu-btn" id="pubMenu"
       aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
       <span class="material-symbols-outlined" aria-hidden="true">menu</span></button>
   </div>`;
   document.body.insertBefore(h, document.body.firstChild);
   conectarMenuPublico(h);
+  if (conVersion) {
+    /* `con-menu` es la marca con la que la hoja enseña el botón de versión
+       (en las páginas generadas la pone su guion del menú). */
+    h.classList.add('con-menu');
+    conectarBotonDeVersion();
+  }
   const page = $('#page');
   if (page) page.classList.remove('hidden');
+}
+
+/* ── el botón de versión: clara u oscura ──────────────────────────────────
+   El mismo que llevan las páginas que escribe herramientas/generar-seo.mjs
+   (botonTema y temaYRaton): el mismo marcado, la misma clave en
+   localStorage —así la versión elegida en la portada sigue al llegar aquí— y
+   el mismo círculo que se abre desde el botón. Los iconos son SVG y no la
+   tipografía de iconos, que en la cabecera podría tardar y dejar escrita la
+   palabra. */
+const botonDeVersion = (clase) => `<button type="button" class="ini-tema ${clase}" aria-label="Cambiar de versión">
+      <svg class="sol" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      <svg class="luna" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z"/></svg></button>`;
+
+function conectarBotonDeVersion() {
+  const b = document.body;
+  const botones = $$('.ini-tema');
+  const quieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const poner = () => {
+    const clara = b.classList.contains('ini-clara');
+    botones.forEach((x) => {
+      x.setAttribute('aria-label', clara ? 'Cambiar a la versión oscura' : 'Cambiar a la versión clara');
+      x.title = clara ? 'Versión oscura' : 'Versión clara';
+    });
+    const m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.content = clara ? '#f4f7fc' : '#050a14';
+  };
+  const cambiar = () => {
+    const clara = !b.classList.contains('ini-clara');
+    b.classList.toggle('ini-clara', clara);
+    b.classList.toggle('ini-oscura', !clara);
+    try { localStorage.setItem('cemPortadaTema', clara ? 'clara' : 'oscura'); } catch { /* modo privado */ }
+    poner();
+    medir('tema', { tema: clara ? 'clara' : 'oscura' });
+  };
+  botones.forEach((x) => x.addEventListener('click', () => {
+    if (!document.startViewTransition || quieto) { cambiar(); return; }
+    const r = x.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const radio = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
+    document.startViewTransition(cambiar).ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${cx}px ${cy}px)`, `circle(${radio}px at ${cx}px ${cy}px)`] },
+        { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' });
+    }).catch(() => {});
+  }));
+  poner();
 }
 
 /* ── el pie de las públicas ────────────────────────────────────────────────

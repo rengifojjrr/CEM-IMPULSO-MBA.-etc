@@ -4696,6 +4696,17 @@ body.ini-portada{
   --shadow-lg:var(--sombra);
   --caja-fondo:var(--n-panel); --caja-borde:1px solid var(--filete);
   --caja-sombra:none; --caja-filtro:none; --r-caja:16px;
+  /* Y las series de color (los iconos de los valores en Quiénes somos, sus
+     etiquetas): salían del azul marino de la versión clara y de noche apenas
+     se veían. */
+  --serie-1:var(--primary);
+  --serie-2:var(--secondary);
+  --serie-3:color-mix(in oklab, var(--primary) 55%, var(--secondary));
+  --serie-4:color-mix(in oklab, var(--primary) 45%, var(--tinta-3));
+  --serie-5:color-mix(in oklab, var(--secondary) 50%, var(--tinta-3));
+  --serie-6:color-mix(in oklab, var(--secondary) 45%, var(--gold));
+  --serie-7:color-mix(in oklab, var(--primary) 30%, var(--gold));
+  --serie-8:color-mix(in oklab, var(--secondary) 65%, var(--primary));
   color:var(--tinta);
 }
 /* El fondo, ganándole al blanco que el escaparate fija en

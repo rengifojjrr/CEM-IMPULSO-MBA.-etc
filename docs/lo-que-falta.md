@@ -63,9 +63,11 @@ terminar.
 
 ### Además, sin prisa
 
-- **Verificar, Quiénes somos y el catálogo de la plataforma** siguen con el
-  diseño anterior, siempre en claro, y tardan uno a tres segundos en pintar
-  porque se arman con `app.js`. Desde el 22 de octubre las demás páginas
+- **El catálogo de la plataforma y las pantallas de compra** siguen con el
+  diseño anterior, siempre en claro (Verificar y Quiénes somos ya tienen el
+  nuevo desde el 22 de octubre: `body.ini-portada` en su HTML y el botón de
+  versión que monta `app.js`). Las pantallas de `/plataforma/` tardan uno a
+  tres segundos en pintar porque se arman con `app.js`. Desde el 22 de octubre las demás páginas
   públicas —la portada, Programas, los dos diplomados, los dieciséis
   módulos, Contacto, Preguntas y la 404— comparten el diseño nuevo, el botón
   claro/oscuro y «Mi panel» si ya entraste. La portada vieja
