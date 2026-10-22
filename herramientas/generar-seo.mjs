@@ -110,6 +110,17 @@ const ESCUELA = {
      producir y lo que más movería es un vídeo de 60-90 segundos del director,
      o una foto real de una clase o de un certificado en la mano— y su texto
      alternativo. La portada la coloca sola. */
+  /* Dos afirmaciones de la institución, no de la base (22 de octubre de 2026).
+     ─────────────────────────────────────────────────────────────────────────
+     La base cuenta lo que pasó por esta plataforma —unas 130 personas con
+     certificado—; la escuela existe desde 2016 y ha graduado a muchas más
+     antes de que la plataforma existiera. El dueño da la cifra de más de
+     4.000 graduados, y es la que se publica: enseñar las dos en la misma
+     página sería contradecirse. Igual con la alianza: la nombra el dueño.
+     El nombre va tal cual lo dio; antes de publicar hay que confirmar el
+     nombre oficial de la universidad. */
+  graduados: '4.000',
+  alianza: 'Universidad Metropolitana de Florida',
   heroImagen: '',
   heroImagenAlt: '',
   region: 'Miranda',
@@ -1499,7 +1510,7 @@ const bloqueCertificado = (temario, dentro, sinCifras) => `
       qué es. Sin crear ninguna cuenta.</p>
     ${sinCifras ? '' : `<div class="cifras-casa" style="margin:var(--e3) 0">
       <div><b>${esc(temario.totales.certificados)}</b><span>certificados comprobables</span></div>
-      <div><b>${esc(temario.totales.personas)}</b><span>personas graduadas</span></div>
+      <div><b>+${ESCUELA.graduados}</b><span>alumnos graduados</span></div>
       <div><b>${esc(temario.totales.promociones)}</b><span>promociones</span></div>
     </div>`}
 
@@ -1574,9 +1585,9 @@ function paginaDelModulo(mod, dip, temario) {
       hacer el diplomado entero para tenerlo: al terminarlo se emite un certificado a nombre de
       la persona, con su propio código. Quien completa los ocho recibe además el diploma de
       cierre.</p>
-    <p class="tiny muted">El CEM lleva ${esc(temario.totales.certificados)} certificados emitidos
-      y ${esc(temario.totales.personas)} personas graduadas desde ${ESCUELA.fundada}. Todos se
-      pueden comprobar uno a uno.</p>
+    <p class="tiny muted">El CEM ha graduado a más de ${ESCUELA.graduados} alumnos desde
+      ${ESCUELA.fundada}, y los ${esc(temario.totales.certificados)} certificados emitidos desde la
+      plataforma se pueden comprobar uno a uno.</p>
   </div>
 </section>
 
@@ -1783,8 +1794,9 @@ const PREGUNTAS = (t) => [
    'Dos: el Diplomado en Marketing Digital y el Diplomado en Inteligencia Artificial y '
    + 'Producción Digital, de ocho módulos cada uno.'],
   ['¿Desde cuándo existe el CEM?',
-   `Desde ${ESCUELA.fundada}. Hasta hoy ha emitido ${t.totales.certificados} certificados a `
-   + `${t.totales.personas} personas, en ${t.totales.promociones} promociones.`],
+   `Desde ${ESCUELA.fundada}. Ha graduado a más de ${ESCUELA.graduados} alumnos, y los `
+   + `${t.totales.certificados} certificados emitidos desde la plataforma se comprueban en línea `
+   + 'con su código.'],
   /* Aquí estaba «¿Las clases son en línea o presenciales?», que ahora es la
      segunda de la lista y con la respuesta ampliada. Dos preguntas distintas
      con la misma respuesta le dicen a Google que la página se repite. */
@@ -2205,10 +2217,11 @@ function paginaDeInicio(temario) {
   </div>
   <div class="ini-dentro">
     <dl class="ini-cifras">
-      <div><dt>Certificados emitidos</dt><dd>${esc(tc.certificados)}</dd></div>
-      <div><dt>Personas graduadas</dt><dd>${esc(tc.personas)}</dd></div>
-      <div><dt>Promociones</dt><dd>${esc(tc.promociones)}</dd></div>
+      <div><dt>Alumnos graduados</dt><dd>+${ESCUELA.graduados}</dd></div>
+      <div><dt>Países</dt><dd>${paises.length || 1}</dd></div>
       <div><dt>Programas</dt><dd>${modulos.length}</dd></div>
+      <div class="ini-alianza"><dt>Alianza académica</dt>
+        <dd><span class="material-symbols-outlined" aria-hidden="true">account_balance</span>${esc(ESCUELA.alianza)}</dd></div>
     </dl>
   </div>
 </section>
@@ -2288,7 +2301,8 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
       <p class="ini-rotulo">Verificación</p>
       <h2>Un certificado que cualquiera puede comprobar</h2>
       <p class="ini-entrada">Quien lo reciba —una empresa que va a contratar, un cliente— escribe
-        el código o la cédula y ve ahí mismo si es auténtico, a nombre de quién está y de qué es.</p>
+        el código o la cédula y ve ahí mismo si es auténtico, a nombre de quién está y de qué es.
+        Ya son ${esc(tc.certificados)} certificados registrados que se comprueban así.</p>
       <form class="ini-verificar" action="${SITIO}/plataforma/verificar.html" method="get">
         <label for="codigoPortada" class="ini-rotulo">Compruébalo ahora</label>
         <div class="ini-fila">
@@ -2320,18 +2334,18 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
       <p class="ini-rotulo">Quiénes somos</p>
       <h2>Desde ${ESCUELA.fundada}, formando en marketing e inteligencia artificial</h2>
       <p class="ini-entrada">El CEM —Centro de Estudios de Marketing— nació en ${ESCUELA.fundada}${paises.length > 1
-        ? ` y hoy da clase en ${enLetra} países` : ''}, en línea y en vivo. Ha emitido
-        ${esc(tc.certificados)} certificados a ${esc(tc.personas)} personas en
-        ${esc(tc.promociones)} promociones, y cada uno está registrado y se comprueba con su código.</p>
+        ? ` y hoy da clase en ${enLetra} países` : ''}, en línea y en vivo. Ha graduado a más de
+        ${ESCUELA.graduados} alumnos y trabaja en alianza académica con la ${esc(ESCUELA.alianza)}.</p>
       <a class="ini-mas" href="${SITIO}/plataforma/nosotros.html">Conoce al CEM
         <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
     </div>
     <dl class="ini-ficha">
       <div><dt>Fundado</dt><dd>${ESCUELA.fundada}</dd></div>
-      <div><dt>Sede central</dt><dd>${esc(ESCUELA.ciudad)}, ${esc(ESCUELA.paisNombre)}</dd></div>
+      <div><dt>Graduados</dt><dd>Más de ${ESCUELA.graduados} alumnos</dd></div>
+      <div><dt>Alianza</dt><dd>${esc(ESCUELA.alianza)}</dd></div>
       <div><dt>Presencia</dt><dd>${paises.length > 1 ? `${paises.length} países` : esc(ESCUELA.paisNombre)}</dd></div>
-      <div><dt>Modalidad</dt><dd>En línea, en vivo y grabada</dd></div>
-      <div><dt>Certificados</dt><dd>${esc(tc.certificados)} emitidos, todos verificables</dd></div>
+      <div><dt>Sede central</dt><dd>${esc(ESCUELA.ciudad)}, ${esc(ESCUELA.paisNombre)}</dd></div>
+      <div><dt>Certificados</dt><dd>${esc(tc.certificados)} verificables en línea</dd></div>
     </dl>
   </div>
 </section>

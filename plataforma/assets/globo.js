@@ -12,6 +12,13 @@
    Los colores NO están aquí: salen de las variables --globo-* del lienzo, y
    así la versión clara y la oscura de la portada usan el mismo código.
 
+   No da la vuelta entera: va y viene entre los países encendidos, como un
+   péndulo, frenando en cada extremo antes de regresar (22 de octubre de
+   2026, a petición del dueño). Dando vueltas, la mitad del tiempo se veían
+   Asia y África, donde no damos clase, y la presencia que se quería enseñar
+   desaparecía. Si algún día los países están repartidos por todo el mundo
+   —más de 200° entre el más oriental y el más occidental— vuelve a girar.
+
    Para no gastar batería: se para cuando el globo sale de la pantalla o la
    pestaña no está a la vista, y con «reducir movimiento» se queda quieto
    (se puede girar con el dedo igual). */
@@ -19,8 +26,11 @@ import { PUNTOS, CODIGOS, CENTROS } from './globo-datos.js?v=2026-10-22';
 
 const RAD = Math.PI / 180;
 const INCLINACION = 10 * RAD;     // la cámara, un poco por encima del ecuador
-const VELOCIDAD = 5 * RAD;        // grados por segundo: una vuelta en 72 s
-const INICIO = -62 * RAD;         // empieza mirando a América
+const VELOCIDAD = 5 * RAD;        // si gira entero: una vuelta en 72 s
+const INICIO = -62 * RAD;         // si gira entero: empieza mirando a América
+const PERIODO = 27000;            // ida y vuelta, en ms. Múltiplo de 2,7 s y de 1,8 s
+                                  // (la luz de los arcos y la onda de las marcas):
+                                  // así cada vaivén empieza igual que el anterior.
 
 export function montarGlobo(lienzo, { paises = [] } = {}) {
   const ctx = lienzo.getContext('2d');
@@ -93,6 +103,18 @@ export function montarGlobo(lienzo, { paises = [] } = {}) {
        y = cos φ0 · sin φ − sin φ0 · cos φ · cos(λ − λ0)                      */
   const s0 = Math.sin(INCLINACION), c0 = Math.cos(INCLINACION);
   let giro = INICIO;
+
+  /* El vaivén: centrado entre el país más occidental y el más oriental, y
+     con la amplitud justa para que los de cada punta lleguen cerca del centro
+     antes de volver. */
+  const lons = marcas.map((m) => CENTROS[m.c][1]);
+  let vaiven = null;
+  if (lons.length && Math.max(...lons) - Math.min(...lons) < 200) {
+    const min = Math.min(...lons), max = Math.max(...lons);
+    vaiven = { medio: ((min + max) / 2) * RAD, amplitud: Math.max(18, (max - min) / 2 - 20) * RAD };
+    giro = vaiven.medio;
+  }
+  let base = giro, desvio = 0;
 
   function proyectarVector([vx, vy, vz], k = 1) {
     const sl = vy, cl = Math.hypot(vx, vz), lo = Math.atan2(vz, vx);
@@ -168,7 +190,7 @@ export function montarGlobo(lienzo, { paises = [] } = {}) {
         dentro = true;
       }
       ctx.stroke();
-      const f = ((t / 2600) + a.desfase) % 1;
+      const f = ((t / 2700) + a.desfase) % 1;
       const p = a.puntos[Math.round(f * (a.puntos.length - 1))];
       const q = proyectarVector(p.v, p.k);
       if (q.z > 0) {
@@ -203,7 +225,17 @@ export function montarGlobo(lienzo, { paises = [] } = {}) {
     pedido = 0;
     const dt = anterior ? Math.min(64, t - anterior) : 16;
     anterior = t;
-    if (!arrastre && !quieto) giro -= VELOCIDAD * dt / 1000;   // hacia el este, como la Tierra
+    if (!arrastre && !quieto) {
+      if (vaiven) {
+        /* Por el reloj y no sumando cuadros: en un teléfono lento, que pinta
+           a 20 cuadros por segundo, el vaivén dura lo mismo que en uno rápido. */
+        base = vaiven.medio + vaiven.amplitud * Math.sin((t / PERIODO) * Math.PI * 2);
+        desvio *= Math.exp(-dt / 900);   // lo que se giró con el dedo vuelve solo al vaivén
+      } else {
+        base -= VELOCIDAD * dt / 1000;   // hacia el este, como la Tierra
+      }
+    }
+    giro = base + desvio;
     if (++cuadros % 90 === 0) leerColores();
     pintar(t);
     if (visible && !document.hidden && !quieto) pedido = requestAnimationFrame(bucle);
@@ -213,13 +245,13 @@ export function montarGlobo(lienzo, { paises = [] } = {}) {
   /* Girarlo con el dedo o el ratón, sólo en horizontal: el desplazamiento
      vertical de la página sigue siendo del navegador (touch-action: pan-y). */
   lienzo.addEventListener('pointerdown', (e) => {
-    arrastre = { x: e.clientX, giro };
+    arrastre = { x: e.clientX, desvio };
     lienzo.setPointerCapture?.(e.pointerId);
   });
   lienzo.addEventListener('pointermove', (e) => {
     if (!arrastre) return;
-    giro = arrastre.giro - (e.clientX - arrastre.x) * 0.006;
-    if (quieto) pintar(performance.now());
+    desvio = arrastre.desvio - (e.clientX - arrastre.x) * 0.006;
+    if (quieto) { giro = base + desvio; pintar(performance.now()); }
   });
   const soltar = () => { arrastre = null; };
   lienzo.addEventListener('pointerup', soltar);

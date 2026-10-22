@@ -307,9 +307,11 @@ $('#atajos').innerHTML = categorias.length
    que es lo que convierte una cifra en una promesa comprobable: cualquiera
    puede escribir «2.500 estudiantes»; poder comprobar un título, no.
 
-   Los años y los estudiantes formados se quedan como están: son afirmaciones
-   de la institución sobre su historia, anterior a esta plataforma, y no le
-   corresponde a este código rebajarlas a lo que alcanza a contar. */
+   Los años y los graduados se quedan como están: son afirmaciones de la
+   institución sobre su historia, anterior a esta plataforma, y no le
+   corresponde a este código rebajarlas a lo que alcanza a contar. La cifra
+   pasó de 2.500 a 4.000 el 22 de octubre de 2026, por indicación del dueño, y
+   es la misma que dice la portada del dominio (ESCUELA.graduados). */
 const vitrina = await sb.rpc('cem_vitrina_publica').then((r) => r.data).catch(() => null);
 /* «0 programas abiertos» no es una cifra de orgullo: cuando no hay ninguno se
    enseña la próxima convocatoria, si está puesta, y si no, nada. */
@@ -317,7 +319,7 @@ const proxima = vitrina?.convocatoria?.fecha ? fdate(vitrina.convocatoria.fecha)
 $('#cifras').innerHTML = [
   lista.length ? [lista.length, 'programas abiertos', null]
                : [proxima, 'próxima convocatoria', null],
-  ['2.500+', 'estudiantes formados', null],
+  ['4.000+', 'alumnos graduados', null],
   [vitrina?.certificados ? num(vitrina.certificados) : null,
    'certificados verificables', 'verificar.html'],
   ['2016', 'desde', null],

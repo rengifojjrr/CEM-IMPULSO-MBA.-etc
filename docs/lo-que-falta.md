@@ -71,9 +71,14 @@ terminar.
 - **Sembrar las cuentas de prueba** `@pruebas.local`, poner `CEM_PASS` como
   secreto del repositorio y activar `CORRER_PRUEBAS_E2E=si`, para que las
   pruebas de navegador corran en GitHub.
-- **Decidir el texto**: «2.500+ estudiantes formados» frente a los graduados
-  de la base (127 el 22 de octubre); «desde Caracas» frente a «nueve países».
-  Una sola historia, y las cifras de una sola fuente.
+- ~~**Decidir el texto**~~ — decidido el 22 de octubre: **más de 4.000
+  alumnos graduados** (cifra del dueño; la base sólo cuenta los ~130 que
+  pasaron por la plataforma) y **presencia en nueve países** en vez de
+  «desde Caracas». Vive en `ESCUELA.graduados` de `generar-seo.mjs` y en
+  `plataforma/inicio.html`. Falta: **confirmar el nombre oficial de la
+  universidad aliada** (se publicó «Universidad Metropolitana de Florida»
+  tal como lo dio el dueño; no se encontró en internet con ese nombre) y si
+  se puede usar su logotipo.
 - **Casos sueltos**: la cuenta duplicada de Oscar, los 12 diplomas de G12 y
   los egresados con certificado pero sin inscripción.
 
