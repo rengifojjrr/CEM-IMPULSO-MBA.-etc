@@ -116,11 +116,13 @@ const ESCUELA = {
      certificado—; la escuela existe desde 2016 y ha graduado a muchas más
      antes de que la plataforma existiera. El dueño da la cifra de más de
      4.000 graduados, y es la que se publica: enseñar las dos en la misma
-     página sería contradecirse. Igual con la alianza: la nombra el dueño.
-     El nombre va tal cual lo dio; antes de publicar hay que confirmar el
-     nombre oficial de la universidad. */
+     página sería contradecirse. Igual con las alianzas y el aval: los dos
+     textos son del dueño, con sus palabras. El nombre de la universidad
+     aliada queda pendiente hasta confirmar el oficial (docs/lo-que-falta.md):
+     cuando lo esté, se nombra aquí y en la portada. */
   graduados: '4.000',
-  alianza: 'Universidad Metropolitana de Florida',
+  alianzas: 'Asociaciones estratégicas en Estados Unidos',
+  aval: 'Diplomas certificados en Estados Unidos',
   heroImagen: '',
   heroImagenAlt: '',
   region: 'Miranda',
@@ -2089,7 +2091,7 @@ function paginaDePreguntas(temario) {
    o 'clara'. Los colores de cada una están en styles.css (body.ini-oscura y
    body.ini-clara); aquí sólo los de la primera pintada, para que la página
    no salga un instante con los de la otra mientras llega la hoja grande. */
-const TEMA_PORTADA = 'oscura';
+const TEMA_PORTADA = 'clara';   // la que ve quien llega por primera vez (decisión del dueño, 22-oct)
 
 /* El botón que cambia de versión. Dos: uno en la fila de botones del
    escritorio y otro junto a la hamburguesa del teléfono, donde la fila de
@@ -2134,10 +2136,15 @@ function paginaDeInicio(temario) {
      ─────────────────────────────────────────────────────────────────────────
      Éste medía 77 y se cortaba justo donde iba «en Venezuela»: la palabra por
      la que más falta hace que aparezca era la que desaparecía. */
-  const titulo = 'Diplomados en marketing digital e IA en Caracas | CEM';
-  const descripcion = recortar(`Centro de estudios de marketing en Caracas, Venezuela, desde `
-    + `${ESCUELA.fundada}. Diplomados en marketing digital e inteligencia artificial, de ocho `
-    + `módulos, con certificado verificable. ${temario.totales.certificados} emitidos.`);
+  /* «En línea» y no «en Caracas» desde el 22 de octubre de 2026, por decisión
+     del dueño: la portada cuenta una escuela con presencia en nueve países, y
+     el título que enseña Google tiene que decir lo mismo. La ciudad sigue en
+     los datos estructurados (la dirección de la escuela), que es donde la
+     busca Google para la búsqueda local. */
+  const titulo = 'Diplomados en marketing digital e IA en línea | CEM';
+  const descripcion = recortar(`Diplomados en línea de marketing digital e IA: clases en `
+    + `vivo, un certificado verificable por módulo y más de ${ESCUELA.graduados} graduados `
+    + `desde ${ESCUELA.fundada}.`);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -2230,8 +2237,8 @@ function paginaDeInicio(temario) {
       <div><dt>Alumnos graduados</dt><dd>+${ESCUELA.graduados}</dd></div>
       <div><dt>Países</dt><dd>${paises.length || 1}</dd></div>
       <div><dt>Programas</dt><dd>${modulos.length}</dd></div>
-      <div class="ini-alianza"><dt>Alianza académica</dt>
-        <dd><span class="material-symbols-outlined" aria-hidden="true">account_balance</span>${esc(ESCUELA.alianza)}</dd></div>
+      <div class="ini-alianza"><dt>Alianzas</dt>
+        <dd><span class="material-symbols-outlined" aria-hidden="true">handshake</span><span>${esc(ESCUELA.alianzas)}<small>${esc(ESCUELA.aval)}</small></span></dd></div>
     </dl>
   </div>
 </section>
@@ -2345,14 +2352,16 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
       <h2>Desde ${ESCUELA.fundada}, formando en marketing e inteligencia artificial</h2>
       <p class="ini-entrada">El CEM —Centro de Estudios de Marketing— nació en ${ESCUELA.fundada}${paises.length > 1
         ? ` y hoy da clase en ${enLetra} países` : ''}, en línea y en vivo. Ha graduado a más de
-        ${ESCUELA.graduados} alumnos y trabaja en alianza académica con la ${esc(ESCUELA.alianza)}.</p>
+        ${ESCUELA.graduados} alumnos, tiene asociaciones estratégicas en Estados Unidos y sus
+        diplomas están certificados en ese país.</p>
       <a class="ini-mas" href="${SITIO}/plataforma/nosotros.html">Conoce al CEM
         <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
     </div>
     <dl class="ini-ficha">
       <div><dt>Fundado</dt><dd>${ESCUELA.fundada}</dd></div>
       <div><dt>Graduados</dt><dd>Más de ${ESCUELA.graduados} alumnos</dd></div>
-      <div><dt>Alianza</dt><dd>${esc(ESCUELA.alianza)}</dd></div>
+      <div><dt>Alianzas</dt><dd>${esc(ESCUELA.alianzas)}</dd></div>
+      <div><dt>Diplomas</dt><dd>Certificados en Estados Unidos</dd></div>
       <div><dt>Presencia</dt><dd>${paises.length > 1 ? `${paises.length} países` : esc(ESCUELA.paisNombre)}</dd></div>
       <div><dt>Sede central</dt><dd>${esc(ESCUELA.ciudad)}, ${esc(ESCUELA.paisNombre)}</dd></div>
       <div><dt>Certificados</dt><dd>${esc(tc.certificados)} verificables en línea</dd></div>

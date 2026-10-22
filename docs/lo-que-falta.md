@@ -75,10 +75,16 @@ terminar.
   alumnos graduados** (cifra del dueño; la base sólo cuenta los ~130 que
   pasaron por la plataforma) y **presencia en nueve países** en vez de
   «desde Caracas». Vive en `ESCUELA.graduados` de `generar-seo.mjs` y en
-  `plataforma/inicio.html`. Falta: **confirmar el nombre oficial de la
-  universidad aliada** (se publicó «Universidad Metropolitana de Florida»
-  tal como lo dio el dueño; no se encontró en internet con ese nombre) y si
-  se puede usar su logotipo.
+  `plataforma/inicio.html`. La portada dice además «Asociaciones
+  estratégicas en Estados Unidos» y «Diplomas certificados en Estados
+  Unidos» (textos del dueño, `ESCUELA.alianzas` y `ESCUELA.aval`).
+- **Nombrar la universidad aliada** cuando esté confirmado su nombre
+  oficial. El dueño la llamó «Universidad Metropolitana de Florida», que no
+  aparece en internet con ese nombre; por eso la portada habla de
+  «asociaciones estratégicas» sin nombrarla. Con el nombre oficial y su web
+  (y permiso para el logotipo, si se quiere), se pone en `ESCUELA` de
+  `generar-seo.mjs`. Conviene tener a mano a quién se refiere «certificados
+  en Estados Unidos»: es lo primero que preguntará quien lo lea con cuidado.
 - **Casos sueltos**: la cuenta duplicada de Oscar, los 12 diplomas de G12 y
   los egresados con certificado pero sin inscripción.
 
