@@ -1,14 +1,24 @@
 # Lo que falta
 
 Estado a **23 de agosto de 2026**, con lo que cambió el **15 de septiembre**
-marcado donde corresponde. Las cifras salen de mirar la base, no de memoria;
+y el **22 de octubre** marcado donde corresponde. Las cifras salen de mirar la base, no de memoria;
 si algo aquí no cuadra con lo que ves, gana lo que ves.
 
 Está ordenado por lo que cuesta que salga mal, no por lo que cuesta hacerlo.
 
 ---
 
-## 0 · Lo que queda después de la radiografía (15 de septiembre)
+## 0 · Lo que queda después de las radiografías (15 de septiembre y 22 de octubre)
+
+**22 de octubre.** La segunda radiografía (`docs/auditoria-2026-10-22.md`)
+encontró la lista de abajo casi intacta: siguen 0 cursos publicados y 0
+inscripciones desde septiembre, y **los 8 contactos de la web siguen en
+«nuevo»** — escribirles va ahora justo después de abrir la convocatoria. Lo de
+código se arregló el mismo día: quien volvía a escribir con el mismo correo
+recibía un error y su mensaje se perdía; los formularios públicos no tenían
+tope; una función de Stripe la podía llamar cualquier sesión; las visitas
+cortaban el nombre de la página; y Cemi ahora se ofrece en las páginas de
+programa.
 
 La radiografía del 12 de septiembre (`docs/auditoria-2026-09-12.md`) dejó dos
 listas. La de código se hizo entera el día 15: permisos, la cara de Cemi en el
@@ -49,8 +59,9 @@ lo que **sólo puedes hacer tú**, en el orden en que duele:
 6. **Activar la protección contra contraseñas filtradas** en el panel de
    Supabase: Authentication → Settings. Es un interruptor.
 7. **Poner al día el periodo activo** en Configuración: dice «Otoño 2024».
-8. **Imprimir los 24 diplomas en físico** que esperan, y **leer las 9 alertas
-   de gobierno** sin leer.
+8. **Cerrar los diplomas en físico**: el 22 de octubre había 38 «en imprenta»
+   y 1 recién pedido; marcar como entregados los que ya salieron. Y **leer las
+   alertas de gobierno** sin leer.
 9. **El proyecto SEM** (`admin.html`, `proyectos.html` y las funciones
    `upsert_quote`, `upsert_pm_project`, `get_quote`, `get_pm_project`) sigue en
    uso y comparte la base con el CEM sin ninguna comprobación. Decide si se

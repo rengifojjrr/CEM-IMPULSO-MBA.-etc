@@ -4115,6 +4115,25 @@ details.card h3.sec{margin-top:var(--e3);}
 .chat-pie{display:flex;gap:var(--e0);padding:var(--e1);border-top:1px solid var(--filete);}
 .chat-pie input{flex:1;min-width:0;}
 
+/* El globo con el que Cemi se ofrece en las páginas de programa
+   (asistente.js, ofrecerseEnLosProgramas). Sale encima de su botón, con el
+   pico hacia él, para que se lea como suyo y no como un aviso de la página. */
+.chat-globo{position:fixed;right:var(--e2);bottom:calc(var(--e2) + 64px);z-index:60;
+  max-width:min(280px, calc(100vw - var(--e2) * 2));
+  background:var(--papel);color:var(--tinta);border:1px solid var(--filete);
+  border-radius:var(--r) var(--r) 4px var(--r);box-shadow:var(--sombra);
+  animation:subir var(--entra) ease-out;}
+.chat-globo-abrir{display:block;width:100%;padding:12px 40px 12px 14px;
+  border:0;background:none;color:inherit;font:inherit;font-size:var(--t-sm);
+  line-height:1.45;text-align:left;cursor:pointer;border-radius:inherit;}
+.chat-globo-abrir b{display:block;color:var(--primary);margin-bottom:2px;}
+.chat-globo-abrir:hover b{text-decoration:underline;}
+.chat-globo-x{position:absolute;top:4px;right:4px;}
+@media (max-width:900px){
+  body:has(.bottomnav) .chat-globo{bottom:calc(var(--alto-bottomnav) + var(--e2) + 64px);}
+}
+@media print{ .chat-globo{display:none;} }
+
 /* Los tres puntos de «está escribiendo». Es la única animación en bucle de la
    plataforma, y existe porque sin ella una respuesta que tarda cuatro segundos
    se lee como que el chat se rompió. */

@@ -623,3 +623,25 @@ se le enseña antes de cada respuesta. Es la forma honesta de que «aprenda»
 sin dejar de poder corregirlo mañana: un guion malo se apaga y deja de
 influir en el acto.
 
+## 14 · Se ofrece en las páginas de programa
+
+La radiografía del 22 de octubre de 2026 contó 261 visitas en 30 días y
+ninguna conversación de visitante en cinco semanas. El botón estaba en todas
+las páginas públicas; se leía como adorno, no como alguien a quien preguntar.
+
+En la página de un programa —donde nacen las dudas de compra— Cemi ahora se
+ofrece solo: a los 20 segundos, un globo encima de su botón con «¿Dudas sobre
+este programa? Pregúntale a Cemi: te contesta aquí mismo.» Pulsarlo abre el
+chat; la X lo quita.
+
+- **Una vez por pestaña** (`sessionStorage`, clave `cemiGlobo`). Quien lo
+  cerró no lo vuelve a ver al recargar.
+- **Nunca encima de algo:** no sale si ya hay conversación, si la ventana está
+  abierta o si la pestaña no está a la vista cuando se cumplen los 20 s.
+- **Sólo en programas:** `/programas/<programa>.html` y
+  `plataforma/curso.html`. No en la portada ni en la lista de programas, donde
+  todavía no hay una duda concreta.
+
+Está en `plataforma/assets/asistente.js` (`ofrecerseEnLosProgramas`) y los
+estilos en `.chat-globo`. Si en un mes las conversaciones de visitante siguen
+en cero, el problema no es que no se vea.

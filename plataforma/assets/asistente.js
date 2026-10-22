@@ -22,7 +22,7 @@
    app.js— sin arrastrar las cuatro mil líneas del portal. Es el mismo cliente
    y la misma caché del perfil que usa app.js, porque app.js los importa de
    ahí también. */
-import { sb, $, esc, profile, sitioPublico } from './nucleo.js?v=2026-10-07';
+import { sb, $, esc, profile, sitioPublico } from './nucleo.js?v=2026-10-22';
 
 /* ── Cómo se llama y qué cara tiene ──────────────────────────────────────── */
 /* El nombre y el render salen de `cem_settings`, no de aquí. El dibujo
@@ -361,6 +361,44 @@ function cerrarVentana() {
   $('#cemChatBoton')?.focus();
 }
 
+/* ── Ofrecerse en las páginas de programa ────────────────────────────────── */
+/* Radiografía del 22 de octubre de 2026: 261 visitas en 30 días y ninguna
+   conversación de visitante en cinco semanas. El botón está, pero se lee como
+   adorno, no como alguien a quien preguntar. En la página de un programa —que
+   es donde nacen las dudas de compra— Cemi se ofrece una vez, a los veinte
+   segundos de lectura: lo justo para no saltarle encima a quien acaba de
+   llegar. Una vez por pestaña, y nunca si ya hay conversación o la ventana
+   está abierta. */
+const GLOBO = 'cemiGlobo';
+
+function esPaginaDePrograma() {
+  const r = location.pathname;
+  return /\/programas\/[^/]+\.html$/.test(r) && !/\/index\.html$/.test(r)
+      || /\/plataforma\/curso\.html$/.test(r);
+}
+
+function ofrecerseEnLosProgramas(nombre) {
+  if (!esPaginaDePrograma() || hiloGuardado()) return;
+  try { if (sessionStorage.getItem(GLOBO)) return; } catch { return; }
+  setTimeout(() => {
+    if (document.hidden || !$('#cemChat')?.hidden || $('#cemGlobo')) return;
+    try { sessionStorage.setItem(GLOBO, '1'); } catch { /* modo privado: sale igual */ }
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="cemGlobo" class="chat-globo" role="note">
+        <button type="button" class="chat-globo-abrir">
+          <b>¿Dudas sobre este programa?</b>
+          Pregúntale a ${esc(nombre)}: te contesta aquí mismo.</button>
+        <button type="button" class="icon-btn chat-globo-x" aria-label="Cerrar el aviso" title="Cerrar">
+          <span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+      </div>`);
+    const globo = $('#cemGlobo');
+    const quitar = () => globo.remove();
+    $('.chat-globo-abrir', globo).onclick = () => { quitar(); abrirVentana(); };
+    $('.chat-globo-x', globo).onclick = quitar;
+    $('#cemChatBoton')?.addEventListener('click', quitar, { once: true });
+  }, 20000);
+}
+
 /* ── Montarlo ────────────────────────────────────────────────────────────── */
 /**
  * Se llama desde `mount()`. `ambito` es lo que la pantalla CREE que
@@ -443,6 +481,7 @@ export async function montarAsistente({ ambito = 'estudiante' } = {}) {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('#cemChat').hidden) cerrarVentana();
   });
+  if (ambitoActual === 'visitante') ofrecerseEnLosProgramas(a.nombre);
 }
 
 /* ── Ponerlo al día ──────────────────────────────────────────────────────── */

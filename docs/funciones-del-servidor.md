@@ -171,7 +171,8 @@ Hay dos familias y conviene no confundirlas:
 | `cem_revisar_cuotas(dias)` | Avisa de las cuotas por vencer y marca las vencidas. **La corre la tarea diaria.** |
 | `cem_admin_metrics()` | Los números del tablero. |
 | `cem_revisar_politicas()` | Radiografía de las políticas de acceso de todas las tablas. Sólo admin, superadmin o auditor. Se ve en *Seguridad de mi cuenta*. |
-| `cem_rate_limit_consumir(...)` | El freno por intentos. Sólo el servidor: la usa el webhook del banco. |
+| `cem_rate_limit_consumir(...)` | El freno por intentos. Sólo el servidor: la usan el webhook del banco, las visitas, el tope de contactos públicos (60 nuevos por hora entre todos los formularios, el disparador `cem_leads_tope_publico`, que no cuenta lo que mete el equipo) y el contacto que vuelve a escribir (5 por hora y correo). |
+| `cem_lead_sumar_mensaje(...)` | Suma un mensaje nuevo a un contacto que ya existe: el nuevo a `mensaje`, el viejo a la nota interna, y aviso «X volvió a escribir» al equipo. La usan `cem_lead_publico_crear` y `cem_dejar_contacto`. Sólo el servidor. |
 | `cem_rotar_clave_webhook(horas)` | Cambia la ApiKey del webhook dejando un período de gracia en el que valen la vieja y la nueva, para no cortarle el paso al banco en mitad del cambio. |
 | `cem_paises_de_la_portada()` | Los códigos de los países que enseña la portada. **La única de esta tabla que puede leer quien no tiene cuenta.** Se abre sólo esa clave y no `cem_settings` entera, que guarda además cosas que no son para enseñar. Se editan en *Configuración*. |
 
