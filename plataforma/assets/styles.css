@@ -4832,8 +4832,13 @@ body.ini-clara .ini-tema .sol{display:none;}
 /* Las cifras, como una lectura de panel. */
 .ini-cifras{margin:clamp(32px, 5vw, 56px) 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
   border:1px solid var(--filete);border-radius:16px;background:var(--n-vidrio);overflow:hidden;}
+/* La cifra arriba y su rótulo debajo (column-reverse: en el marcado va
+   primero el rótulo, que es lo que se lee con lector de pantalla). Pegados
+   ARRIBA de la casilla, no abajo: en el teléfono «Alumnos graduados» se parte
+   en dos renglones y, alineando por abajo, su cifra subía y las tres quedaban
+   a distinta altura. Se vio en un teléfono el 22 de octubre de 2026. */
 .ini-cifras > div{padding:22px 24px;border-left:1px solid var(--filete);
-  display:flex;flex-direction:column-reverse;gap:6px;}
+  display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:6px;}
 .ini-cifras > div:first-child{border-left:0;}
 .ini-cifras dt{font-family:var(--n-mono);font-size:11px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--tinta-3);}
@@ -5005,10 +5010,13 @@ body.ini-clara .ini-tema .sol{display:none;}
   .ini-hechos{flex-direction:column;gap:10px;}
   .ini-globo{width:min(100%, 360px);}
   .ini-dato{display:none;}
-  .ini-cifras{grid-template-columns:repeat(3,minmax(0,1fr));}
+  /* La primera casilla, más ancha: «+4.000» mide el doble que «9», y a 360 px
+     con tres columnas iguales se metía en la de al lado. */
+  .ini-cifras{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) minmax(0,1fr);}
   .ini-cifras > div{padding:14px 12px;}
   .ini-cifras > div:first-child{padding-left:16px;}
   .ini-cifras dd{font-size:26px;}
+  .ini-cifras dt{letter-spacing:.08em;line-height:1.35;}
   .ini-cifras .ini-alianza{grid-column:1 / -1;border-left:0;border-top:1px solid var(--filete);padding:16px;}
   .ini-cifras .ini-alianza dd{font-size:17px;}
   .ini-cabeza{flex-direction:column;align-items:flex-start;margin-bottom:var(--e3);}

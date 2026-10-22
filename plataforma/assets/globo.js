@@ -34,7 +34,7 @@
    Para no gastar batería: se para cuando el globo sale de la pantalla o la
    pestaña no está a la vista, y con «reducir movimiento» se queda quieto
    (se puede girar con el dedo igual). */
-import { PUNTOS, CODIGOS, CENTROS } from './globo-datos.js?v=2026-10-22-2';
+import { PUNTOS, CODIGOS, CENTROS } from './globo-datos.js?v=2026-10-22-3';
 
 const RAD = Math.PI / 180;
 const INCLINACION = 10 * RAD;     // la cámara, un poco por encima del ecuador
