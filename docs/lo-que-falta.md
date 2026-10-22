@@ -63,6 +63,14 @@ terminar.
 
 ### Además, sin prisa
 
+- **Verificar, Quiénes somos y el catálogo de la plataforma** siguen con el
+  diseño anterior, siempre en claro, y tardan uno a tres segundos en pintar
+  porque se arman con `app.js`. Desde el 22 de octubre las demás páginas
+  públicas —la portada, Programas, los dos diplomados, los dieciséis
+  módulos, Contacto, Preguntas y la 404— comparten el diseño nuevo, el botón
+  claro/oscuro y «Mi panel» si ya entraste. La portada vieja
+  (`plataforma/inicio.html`) redirige a «/», y la cabecera de la plataforma
+  lleva a «/» y a `/programas/`.
 - **Diplomas en físico:** el 22 de octubre había 38 «en imprenta» y 1 recién
   pedido; marcar como entregados los que ya salieron. Y leer las alertas de
   gobierno sin leer.

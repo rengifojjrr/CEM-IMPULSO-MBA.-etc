@@ -4,9 +4,9 @@
    de este archivo lo mismo de siempre, y el asistente puede montarse en las
    páginas generadas sin cargar todo esto. Ver la cabecera de nucleo.js. */
 import { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil,
-         sitioPublico } from './nucleo.js?v=2026-10-22-3';
+         sitioPublico } from './nucleo.js?v=2026-10-22-4';
 export { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil, sitioPublico };
-import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-10-22-3';
+import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-10-22-4';
 export { medir };
 
 /* La apariencia elegida se aplica al importar este módulo, que es lo primero
@@ -16,7 +16,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-10-22-3';
+         vidrioActual } from './temas.js?v=2026-10-22-4';
 
 /* La marca de versión del logotipo. Tiene que decir lo MISMO que VERSION_ICONO
    en herramientas/iconos.mjs y en herramientas/generar-seo.mjs: es la fecha del
@@ -1680,7 +1680,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-10-22-3')
+  import('./asistente.js?v=2026-10-22-4')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2388,7 +2388,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-10-22-3');
+    const m = await import('./apariencia.js?v=2026-10-22-4');
 
     m.abrirApariencia();
 
@@ -2667,7 +2667,7 @@ function montarLaPromocion() {
   const pantalla = (location.pathname.split('/').pop() || 'inicio')
     .replace('.html', '') || 'inicio';
   if (!PANTALLAS_CON_PROMO.has(pantalla)) return Promise.resolve();
-  return import('./promo.js?v=2026-10-22-3').then((m) => m.montarPromocion({ pantalla }));
+  return import('./promo.js?v=2026-10-22-4').then((m) => m.montarPromocion({ pantalla }));
 }
 
 function renderPublicHeader(p) {
@@ -2675,8 +2675,14 @@ function renderPublicHeader(p) {
   const h = document.createElement('header');
   h.className = 'pub-header';
   const activa = (archivo) => location.pathname.endsWith(archivo) ? ' class="on"' : '';
+  /* «Inicio», el logotipo y «Programas» llevan a la portada y al índice de la
+     raíz, los mismos que la cabecera de las páginas generadas. Llevaban a
+     plataforma/inicio.html y a catalogo.html: otra portada y otro catálogo,
+     con otro diseño, y se veía en cuanto se pasaba de una a otra (vídeo del
+     dueño, 22 de octubre de 2026). El catálogo de aquí sigue siendo el de la
+     compra, y a él se llega desde comprar, confirmar y curso. */
   h.innerHTML = `<div class="pub-inner">
-    <a class="pub-brand" href="${r}inicio.html">
+    <a class="pub-brand" href="${r}../">
       <!-- Con marca de versión, como las otras dos veces que se pinta el
            logotipo. Ésta se quedó fuera en el primer intento y se notaba a
            simple vista: las páginas generadas enseñaban el birrete y la portada
@@ -2687,7 +2693,7 @@ function renderPublicHeader(p) {
            sintaxis descubrirlo.) -->
       <img src="${r}assets/favicon.svg?v=${VERSION_ICONO}" alt="" width="28" height="28"> CEM International</a>
     <nav id="pubNav">
-      <a href="${r}inicio.html"${activa('inicio.html')}>Inicio</a>
+      <a href="${r}../">Inicio</a>
       <!-- Una sola entrada, no dos.
            «Cursos» y «Programas» llevaban a la MISMA página: la segunda era el
            catálogo con el desplegable «Tipo» ya puesto en «programa». Y como de
@@ -2697,7 +2703,7 @@ function renderPublicHeader(p) {
 
            El filtro por tipo sigue existiendo dentro del catálogo, que es donde
            tiene sentido: al lado de modalidad, nivel y orden. -->
-      <a href="${r}catalogo.html"${activa('catalogo.html')}>Programas</a>
+      <a href="${r}../programas/">Programas</a>
       <a href="${r}nosotros.html"${activa('nosotros.html')}>Quiénes somos</a>
       <a href="${r}verificar.html"${activa('verificar.html')}>Verificar certificado</a>
       <!-- «Preguntas» también aquí: había DOS menús públicos distintos.

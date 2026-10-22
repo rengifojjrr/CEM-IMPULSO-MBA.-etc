@@ -4604,6 +4604,7 @@ body.ini-oscura{
   --secondary:#3ee6d2; --secondary-container:#0d2d2b; --on-secondary:#04121a;
   --gold:#e6bd5c; --gold-suave:#2a2110; --on-gold:#1d1504;
   --ok:#6ee7b7; --ok-suave:#0d2a20; --error:#fca5a5; --error-suave:#2e1416;
+  --warn:#f2c46b; --warn-suave:#2c2210; --info:#9cbcff; --info-suave:#14203a;
   --sombra:0 18px 50px -12px rgba(0,0,0,.7), 0 0 0 1px rgba(148,190,255,.08);
   --n-panel:rgba(148,190,255,.045); --n-panel-2:rgba(148,190,255,.08);
   --n-vidrio:rgba(11,20,38,.72); --n-cabecera:rgba(5,10,20,.82); --n-pie:#040812;
@@ -4641,6 +4642,7 @@ body.ini-clara{
   --secondary:#087a6f; --secondary-container:#d6f2ee; --on-secondary:#fff;
   --gold:#856517; --gold-suave:#f6ecd2; --on-gold:#fff;
   --ok:#166534; --ok-suave:#e3f2e7; --error:#a51d1d; --error-suave:#fbe4e3;
+  --warn:#9a5b06; --warn-suave:#fbeed8; --info:#1f4fa8; --info-suave:#e4ebf9;
   --sombra:0 18px 44px -20px rgba(13,36,64,.28), 0 0 0 1px rgba(13,36,64,.05);
   --n-panel:rgba(255,255,255,.72); --n-panel-2:rgba(255,255,255,.9);
   --n-vidrio:rgba(255,255,255,.82); --n-cabecera:rgba(255,255,255,.82); --n-pie:#eaf0f8;
@@ -4674,6 +4676,26 @@ body.ini-portada{
   --vidrio-papel:color-mix(in srgb, var(--papel) 72%, transparent);
   --vidrio-borde:color-mix(in srgb, var(--papel) 45%, var(--filete-fuerte));
   --vidrio-brillo:color-mix(in srgb, var(--papel) 10%, transparent);
+  /* Los alias de :root (--surface-lowest, --line, --muted…) y los rellenos de
+     las tarjetas (--caja-*) también llegan ya resueltos con los colores de
+     siempre: una tarjeta de Contacto o de un diplomado salía blanca encima
+     del azul de noche. Se vuelven a declarar aquí con los de la página. */
+  --bg:var(--fondo); --surface:var(--fondo); --surface-lowest:var(--papel);
+  --surface-container:var(--hueco); --surface-container-low:var(--hueco);
+  --surface-high:var(--hueco); --surface-highest:var(--hueco); --surface-dim:var(--hueco);
+  --surface-2:var(--hueco);
+  --on-surface:var(--tinta); --on-surface-variant:var(--tinta-2);
+  --outline:var(--tinta-3); --outline-variant:var(--filete); --line:var(--filete);
+  --muted:var(--tinta-2);
+  --primary-soft:var(--primary); --primary-fixed:var(--primary-suave); --primary-dim:var(--primary-suave);
+  --secondary-fixed:var(--secondary-container);
+  --tertiary:var(--gold); --tertiary-container:var(--gold); --tertiary-fixed:var(--gold-suave);
+  --gold-dark:var(--gold);
+  --error-container:var(--error-suave); --on-error-container:var(--error);
+  --ok-container:var(--ok-suave); --warn-container:var(--warn-suave); --info-container:var(--info-suave);
+  --shadow-lg:var(--sombra);
+  --caja-fondo:var(--n-panel); --caja-borde:1px solid var(--filete);
+  --caja-sombra:none; --caja-filtro:none; --r-caja:16px;
   color:var(--tinta);
 }
 /* El fondo, ganándole al blanco que el escaparate fija en
@@ -4702,7 +4724,7 @@ body.ini-portada{
   100%{transform:translate3d(-4%,4%,0) rotate(-5deg);}}
 body.ini-portada .pub-header{background:var(--n-cabecera);
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);}
-:root[data-publico] body.ini-portada > footer.franja{background:var(--n-pie);
+:root[data-publico] body.ini-portada > footer.franja.tenue{background:var(--n-pie);
   border-top:1px solid var(--filete);}
 body.ini-portada ::selection{background:var(--n-seleccion);}
 /* El botón de versión: sol en la oscura, luna en la clara. */
@@ -4725,6 +4747,40 @@ body.ini-clara .ini-tema .sol{display:none;}
   .pub-header.con-menu .ini-tema-movil{display:inline-grid;order:2;margin-left:auto;}
   body.ini-portada .pub-header.con-menu .pub-menu-btn{margin-left:0;}
 }
+
+/* ── el resto del escaparate, con el mismo diseño ─────────────────────────
+   Programas, los diplomados, los dieciséis módulos, Contacto, Preguntas y la
+   404 siguen con sus componentes de siempre, pero con la letra, los rótulos,
+   las tarjetas y los botones de la portada, y en la versión que se eligió.
+   El dueño lo grabó en vídeo el 22 de octubre de 2026: de la portada nueva se
+   pasaba a páginas «con el diseño viejo». */
+body.ini-portada :is(h1, h2, h3){font-family:var(--n-display);letter-spacing:-.02em;}
+body.ini-portada h1{font-weight:600;letter-spacing:-.03em;}
+body.ini-portada h2{font-weight:600;}
+/* El rótulo de encima de cada título, en la letra de los paneles. El color
+   fijo de antes (#0a5f57) era un verde oscuro pensado para el blanco: de noche
+   no se leía. El color del módulo, cuando lo trae en línea, sigue mandando. */
+:root[data-publico] body.ini-portada .ojal{font-family:var(--n-mono);font-weight:500;
+  letter-spacing:.16em;color:var(--n-cian);}
+:root[data-publico] body.ini-portada .portada-cem .lema{color:var(--tinta-2);}
+/* Las franjas tenues eran blanco al 72 %, escrito a mano: de noche, bandas
+   grises con la letra clara encima. Ahora, el papel de cada versión. */
+:root[data-publico] body.ini-portada .franja.tenue{
+  background:color-mix(in srgb, var(--papel) 45%, transparent);}
+:root[data-publico] body.ini-portada :is(.card, .caja, .compra){border-radius:16px;}
+body.ini-portada .compra{background:var(--n-panel-2);border-color:var(--filete);}
+/* Los botones de cada página, con el degradado de la portada. Los de la
+   cabecera (.sm) y los de contorno se quedan como están. */
+body.ini-portada :is(main, section) .btn:not(.outline):not(.ghost):not(.sm):not(.wa-btn){
+  background:var(--n-boton);color:var(--n-sobre-boton);border-color:transparent;
+  border-radius:12px;box-shadow:0 10px 30px -14px var(--n-resplandor);}
+body.ini-portada :is(main, section) .btn:not(.outline):not(.ghost):not(.sm):not(.wa-btn):hover{
+  box-shadow:0 0 0 1px var(--n-resplandor), 0 14px 40px -12px var(--n-resplandor);}
+body.ini-portada :is(main, section) .btn.outline{border-radius:12px;}
+body.ini-portada :is(input, textarea, select){background:var(--n-panel-2);color:var(--tinta);
+  border-color:var(--filete-fuerte);}
+body.ini-portada :is(input, textarea)::placeholder{color:var(--tinta-3);}
+body.ini-portada .cifras-casa b{font-family:var(--n-display);font-weight:600;letter-spacing:-.02em;}
 
 .ini-dentro{max-width:1200px;margin:0 auto;padding:0 var(--e3);}
 .ini-franja{position:relative;padding:clamp(64px, 9vw, 112px) 0;}

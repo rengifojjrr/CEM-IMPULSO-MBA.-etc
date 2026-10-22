@@ -274,6 +274,7 @@ const cabecera = (activa) => `
       <a href="${SITIO}/preguntas-frecuentes.html"${activa === 'preguntas' ? ' class="on"' : ''}>Preguntas</a>
     </nav>
     <div class="pub-cta">
+      ${botonTema('ini-tema-escritorio')}
       <a class="btn outline sm" href="${SITIO}/plataforma/index.html">Iniciar sesión</a>
       <a class="btn sm" href="${SITIO}/plataforma/index.html?registro=1">Registrarse</a>
     </div>
@@ -293,6 +294,7 @@ const cabecera = (activa) => `
           botón no existe y el menú se queda partido en dos renglones, que es
           como estaba y funciona sin nada. Un botón visible que no abre nada
           sería peor que no tener botón. */''}
+    ${botonTema('ini-tema-movil')}
     <button type="button" class="pub-menu-btn" id="pubMenu" hidden
       aria-expanded="false" aria-controls="pubNav" aria-label="Abrir el menú">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
@@ -423,6 +425,32 @@ const migasJsonLd = (pasos) => ({
   })),
 });
 
+/* Las páginas públicas salen en una de sus dos versiones, con el mismo
+   marcado: 'oscura' o 'clara'. Primero fue sólo la portada; desde el 22 de
+   octubre de 2026 son las veintidós que escribe este archivo, para que no
+   haya un salto de diseño al pasar de la portada a un programa. Los colores de cada una están en styles.css (body.ini-oscura y
+   body.ini-clara); aquí sólo los de la primera pintada, para que la página
+   no salga un instante con los de la otra mientras llega la hoja grande. */
+const TEMA_PORTADA = 'clara';   // la que ve quien llega por primera vez (decisión del dueño, 22-oct)
+
+/* El botón que cambia de versión. Dos: uno en la fila de botones del
+   escritorio y otro junto a la hamburguesa del teléfono, donde la fila de
+   botones vive dentro del menú plegado y nadie lo encontraría. Los iconos son
+   SVG y no la tipografía de iconos: en la cabecera, si esa fuente tarda, se
+   leería la palabra «light_mode». Se ve el sol en la oscura y la luna en la
+   clara: el botón enseña adónde lleva, no dónde se está. */
+const botonTema = (clase) => `<button type="button" class="ini-tema ${clase}" aria-label="Cambiar de versión">
+      <svg class="sol" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      <svg class="luna" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z"/></svg></button>`;
+const PRIMERA_PINTADA = {
+  oscura: '--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;'
+    + '--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;'
+    + 'background:#050a14;color:#eaf1fb;',
+  clara: '--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;'
+    + '--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;'
+    + 'background:#f4f7fc;color:#0b1630;',
+};
+
 /* Los servidores de fuera, avisados de golpe y no en fila.
    Sin esto el navegador descubre cada uno cuando le toca y paga el DNS y el
    saludo TLS de cada cual por separado, con la pantalla en blanco mientras
@@ -453,7 +481,7 @@ ${/* El .ico va con dirección absoluta y el primero. Google lo busca en la raí
 <link rel="icon" type="image/svg+xml" href="${arriba}plataforma/assets/favicon.svg?v=${VERSION_ICONO}">
 <link rel="apple-touch-icon" href="${arriba}plataforma/assets/icono-180.png?v=${VERSION_ICONO}">
 <link rel="manifest" href="/site.webmanifest">
-<meta name="theme-color" content="#0d2440">
+<meta name="theme-color" content="${TEMA_PORTADA === 'clara' ? '#f4f7fc' : '#050a14'}">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(ESCUELA.nombre)}">
@@ -498,16 +526,25 @@ ${/* «VE-M» es Miranda en ISO 3166-2, que es lo que dice la dirección de la
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>${CSS_CRITICO}</style>
+${/* Los colores de cada versión desde la primera pintada: styles.css tarda en
+     llegar, y mientras tanto la cabecera se pintaba con los de siempre y luego
+     saltaba. Sora es la letra de los titulares y JetBrains Mono la de los
+     rótulos. */''}
+<style>body.ini-oscura{${PRIMERA_PINTADA.oscura}}body.ini-clara{${PRIMERA_PINTADA.clara}}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
 <link rel="stylesheet" href="${arriba}plataforma/assets/styles.css?v=${VERSION_ASSETS}">
 <script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
 </head>
-<body class="cem-publico">
+<body class="cem-publico ini-portada ini-${TEMA_PORTADA}">
+<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>
 ${cabecera(activa)}
 ${cuerpo}
 ${pie()}
 ${menuDelTelefono}
+${temaYRaton}
+${sesionEnCabecera}
 ${contarLaVisita(url)}
 ${medirYAtender(arriba, clavePromo(url))}
 </body>
@@ -632,6 +669,87 @@ const contarLaVisita = (url) => `
 
    Se cierra al elegir un enlace, con Escape y tocando fuera, que son las tres
    formas en que la gente sale de un menú sin pensarlo. */
+/* El botón de versión (sol y luna) y las manchas de color que se apartan del
+   ratón, en todas las páginas generadas. La versión elegida se guarda en
+   `cemPortadaTema` y la recoge el guion corto que va justo después de <body>
+   en cada página, así que se conserva al pasar de una a otra. El círculo que
+   se abre desde el botón es una transición de vista: donde el navegador no la
+   tiene, o con «reducir movimiento», el cambio es directo. */
+const temaYRaton = `<script>
+(function () {
+  var b = document.body;
+  var botones = document.querySelectorAll('.ini-tema');
+  var quieto = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var poner = function () {
+    var clara = b.classList.contains('ini-clara');
+    botones.forEach(function (x) {
+      x.setAttribute('aria-label', clara ? 'Cambiar a la versión oscura' : 'Cambiar a la versión clara');
+      x.title = clara ? 'Versión oscura' : 'Versión clara';
+    });
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.content = clara ? '#f4f7fc' : '#050a14';
+  };
+  var cambiar = function () {
+    var clara = !b.classList.contains('ini-clara');
+    b.classList.toggle('ini-clara', clara);
+    b.classList.toggle('ini-oscura', !clara);
+    try { localStorage.setItem('cemPortadaTema', clara ? 'clara' : 'oscura'); } catch (e) {}
+    poner();
+    if (window.cemMedir) window.cemMedir('tema', { tema: clara ? 'clara' : 'oscura' });
+  };
+  botones.forEach(function (x) {
+    x.addEventListener('click', function () {
+      if (!document.startViewTransition || quieto) { cambiar(); return; }
+      var r = x.getBoundingClientRect();
+      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var radio = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
+      document.startViewTransition(cambiar).ready.then(function () {
+        document.documentElement.animate(
+          { clipPath: ['circle(0px at ' + cx + 'px ' + cy + 'px)', 'circle(' + radio + 'px at ' + cx + 'px ' + cy + 'px)'] },
+          { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' });
+      }).catch(function () {});
+    });
+  });
+  poner();
+  if (quieto || !(window.matchMedia && matchMedia('(pointer: fine)').matches)) return;
+  var x = 0, y = 0, pedido = false;
+  window.addEventListener('pointermove', function (e) {
+    x = -((e.clientX / innerWidth) * 2 - 1);
+    y = -((e.clientY / innerHeight) * 2 - 1);
+    if (pedido) return;
+    pedido = true;
+    requestAnimationFrame(function () {
+      pedido = false;
+      document.documentElement.style.setProperty('--raton-x', x.toFixed(3));
+      document.documentElement.style.setProperty('--raton-y', y.toFixed(3));
+    });
+  });
+})();
+</script>
+`;
+
+/* «Mi panel» si ya entraste. Estas páginas no cargan el cliente de la base,
+   así que se mira si el navegador guarda una sesión (la clave por omisión de
+   supabase-js, que nucleo.js no cambia). Si la hay, los dos botones se
+   cambian por uno que lleva a plataforma/index.html, y ésa ya manda a cada
+   rol a su panel. Sin sesión no se toca nada. */
+const sesionEnCabecera = `<script>
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem('sb-${new URL(BASE).hostname.split('.')[0]}-auth-token') || 'null');
+    if (!s || !s.refresh_token) return;
+  } catch (e) { return; }
+  document.querySelectorAll('.pub-cta').forEach(function (c) {
+    c.querySelectorAll('a.btn').forEach(function (a) { a.remove(); });
+    var a = document.createElement('a');
+    a.className = 'btn outline sm';
+    a.href = '${SITIO}/plataforma/index.html';
+    a.textContent = 'Mi panel';
+    c.appendChild(a);
+  });
+})();
+</script>`;
+
 const menuDelTelefono = `
 <script>
 (function () {
@@ -748,7 +866,7 @@ function paginaDelPrograma(c, modulos, lecciones, cohortes) {
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Inicio', item: `${SITIO}/plataforma/inicio.html` },
+          { '@type': 'ListItem', position: 1, name: 'Inicio', item: `${SITIO}/` },
           { '@type': 'ListItem', position: 2, name: 'Programas', item: `${SITIO}/programas/` },
           { '@type': 'ListItem', position: 3, name: plano(c.nombre), item: url },
         ],
@@ -772,7 +890,7 @@ function paginaDelPrograma(c, modulos, lecciones, cohortes) {
   const cuerpo = `
 <main class="pub-main" style="max-width:1080px">
   <nav class="tiny muted" aria-label="Dónde estás" style="margin-bottom:var(--e2)">
-    <a href="${SITIO}/plataforma/inicio.html">Inicio</a> ›
+    <a href="${SITIO}/">Inicio</a> ›
     <a href="${SITIO}/programas/">Programas</a> ›
     <span>${esc(plano(c.nombre))}</span>
   </nav>
@@ -1250,7 +1368,7 @@ const barraGarantias = (dip) => `
       <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
         <b>${dip.modulos.length} certificados</b><span>uno por módulo, más el diploma final</span></li>
       <li><span class="material-symbols-outlined" aria-hidden="true">public</span>
-        <b>Desde toda Venezuela</b><span>no hace falta estar en Caracas</span></li>
+        <b>Desde cualquier país</b><span>en línea, en vivo y con las clases grabadas</span></li>
     </ul>
   </div>
 </section>`;
@@ -1407,9 +1525,9 @@ const preguntasDelDiplomado = (dip, conv) => `
         ['¿Las clases son en vivo o grabadas?',
          'En vivo, y quedan grabadas. Si no puedes asistir un día, la ves después; no se pierde '
          + 'la clase.'],
-        ['¿Hay que estar en Caracas?',
-         'No. El CEM está en Caracas y desde ahí expide los certificados, pero el diplomado se '
-         + 'sigue desde cualquier parte de Venezuela.'],
+        ['¿Puedo cursarlo desde otro país?',
+         'Sí. Las clases son en vivo y en línea, y quedan grabadas: el diplomado se sigue desde '
+         + 'cualquier país, con el mismo certificado verificable.'],
         ['¿Qué certificado me llevo?',
          `Uno por cada módulo que termines —${dip.modulos.length} en total— más el diploma del `
          + 'diplomado al completarlos. Todos con código y QR: cualquiera puede comprobarlos en '
@@ -2087,30 +2205,6 @@ function paginaDePreguntas(temario) {
 /* Sólo los enlaces guardados del tablero de proyectos —escuelacem.com/?p=…—
    se desvían. Antes se desviaba TODO el mundo, y por eso esta dirección no
    tenía contenido que un buscador pudiera leer. */
-/* La portada sale en una de sus dos versiones, con el mismo marcado: 'oscura'
-   o 'clara'. Los colores de cada una están en styles.css (body.ini-oscura y
-   body.ini-clara); aquí sólo los de la primera pintada, para que la página
-   no salga un instante con los de la otra mientras llega la hoja grande. */
-const TEMA_PORTADA = 'clara';   // la que ve quien llega por primera vez (decisión del dueño, 22-oct)
-
-/* El botón que cambia de versión. Dos: uno en la fila de botones del
-   escritorio y otro junto a la hamburguesa del teléfono, donde la fila de
-   botones vive dentro del menú plegado y nadie lo encontraría. Los iconos son
-   SVG y no la tipografía de iconos: en la cabecera, si esa fuente tarda, se
-   leería la palabra «light_mode». Se ve el sol en la oscura y la luna en la
-   clara: el botón enseña adónde lleva, no dónde se está. */
-const botonTema = (clase) => `<button type="button" class="ini-tema ${clase}" aria-label="Cambiar de versión">
-      <svg class="sol" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
-      <svg class="luna" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z"/></svg></button>`;
-const PRIMERA_PINTADA = {
-  oscura: '--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;'
-    + '--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;'
-    + 'background:#050a14;color:#eaf1fb;',
-  clara: '--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;'
-    + '--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;'
-    + 'background:#f4f7fc;color:#0b1630;',
-};
-
 /* Los países de la portada, los mismos que enseña /plataforma/inicio.html y
    que se eligen en Configuración. Si la base no contesta, la sección no sale:
    una portada sin mapas es mejor que una portada que no se genera. */
@@ -2411,79 +2505,14 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
 
   let html = pagina({ titulo, descripcion, url, cuerpo, jsonLd, profundidad: 0 });
 
-  /* Con sus colores desde la primera pintada. Los tokens van también aquí, en
-     línea, porque styles.css tarda en llegar y mientras tanto la cabecera se
-     pintaba con los de siempre y luego saltaba. Las dos tipografías de esta página —Sora
-     para los titulares y JetBrains Mono para los rótulos— sólo se piden aquí. */
+  /* Lo propio de la portada: el globo y el «avísame». La versión, las
+     letras y el botón los pone pagina() en todas. */
   html = html
-    .replace('<body class="cem-publico">', `<body class="cem-publico ini-portada ini-${TEMA_PORTADA}">`)
-    .replace('<meta name="theme-color" content="#0d2440">',
-      `<meta name="theme-color" content="${TEMA_PORTADA === 'clara' ? '#f4f7fc' : '#050a14'}">`)
-    .replace('</head>', `<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-<style>body.ini-oscura{${PRIMERA_PINTADA.oscura}}body.ini-clara{${PRIMERA_PINTADA.clara}}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
-</head>`)
-    .replace(/(<body class="[^"]*">)/, `$1
-<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>`)
-    .replace('<div class="pub-cta">', `<div class="pub-cta">
-      ${botonTema('ini-tema-escritorio')}`)
-    .replace('<button type="button" class="pub-menu-btn" id="pubMenu"', `${botonTema('ini-tema-movil')}
-    <button type="button" class="pub-menu-btn" id="pubMenu"`)
     .replace('</body>', `<script type="module">
 import('./plataforma/assets/globo.js?v=${VERSION_ASSETS}').then(function (m) {
   var c = document.querySelector('.ini-globo-lienzo');
   if (c) m.montarGlobo(c, { paises: (c.dataset.paises || '').split(',').filter(Boolean) });
 }).catch(function () {});
-</script>
-<script>
-(function () {
-  var b = document.body;
-  var botones = document.querySelectorAll('.ini-tema');
-  var quieto = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var poner = function () {
-    var clara = b.classList.contains('ini-clara');
-    botones.forEach(function (x) {
-      x.setAttribute('aria-label', clara ? 'Cambiar a la versión oscura' : 'Cambiar a la versión clara');
-      x.title = clara ? 'Versión oscura' : 'Versión clara';
-    });
-    var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.content = clara ? '#f4f7fc' : '#050a14';
-  };
-  var cambiar = function () {
-    var clara = !b.classList.contains('ini-clara');
-    b.classList.toggle('ini-clara', clara);
-    b.classList.toggle('ini-oscura', !clara);
-    try { localStorage.setItem('cemPortadaTema', clara ? 'clara' : 'oscura'); } catch (e) {}
-    poner();
-    if (window.cemMedir) window.cemMedir('tema', { tema: clara ? 'clara' : 'oscura' });
-  };
-  botones.forEach(function (x) {
-    x.addEventListener('click', function () {
-      if (!document.startViewTransition || quieto) { cambiar(); return; }
-      var r = x.getBoundingClientRect();
-      var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      var radio = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy));
-      document.startViewTransition(cambiar).ready.then(function () {
-        document.documentElement.animate(
-          { clipPath: ['circle(0px at ' + cx + 'px ' + cy + 'px)', 'circle(' + radio + 'px at ' + cx + 'px ' + cy + 'px)'] },
-          { duration: 700, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' });
-      }).catch(function () {});
-    });
-  });
-  poner();
-  if (quieto || !(window.matchMedia && matchMedia('(pointer: fine)').matches)) return;
-  var x = 0, y = 0, pedido = false;
-  window.addEventListener('pointermove', function (e) {
-    x = -((e.clientX / innerWidth) * 2 - 1);
-    y = -((e.clientY / innerHeight) * 2 - 1);
-    if (pedido) return;
-    pedido = true;
-    requestAnimationFrame(function () {
-      pedido = false;
-      document.documentElement.style.setProperty('--raton-x', x.toFixed(3));
-      document.documentElement.style.setProperty('--raton-y', y.toFixed(3));
-    });
-  });
-})();
 </script>
 <script>
 (function () {

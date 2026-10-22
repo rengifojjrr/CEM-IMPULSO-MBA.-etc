@@ -2,6 +2,15 @@
 <html lang="es" data-publico="si">
 <head>
 <meta charset="utf-8">
+<!-- Esta portada ya no se enseña: la de la escuela es «/» (22 de octubre de
+     2026). El dueño grabó cómo, desde Verificar o Quiénes somos, el logotipo y
+     «Inicio» le devolvían a esta página vieja —otra portada, otro diseño— y
+     parecía que se había salido del sitio. Se queda el archivo porque
+     herramientas/generar-seo.mjs lee de aquí la marca de versión y le
+     sincroniza la escuela, y porque puede haber enlaces viejos: todos llegan
+     a «/», con su ?promo=ver o lo que traigan. -->
+<script>location.replace('/' + location.search + location.hash);</script>
+<noscript><meta http-equiv="refresh" content="0; url=/"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cursos de marketing, negocios e IA online | CEM International</title>
 <!-- El logotipo, para cada quien lo pida: .ico para Google y lo viejo,
@@ -22,10 +31,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-10-22-3">
+<link rel="modulepreload" href="assets/app.js?v=2026-10-22-4">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-10-22-3">
+<link rel="stylesheet" href="assets/styles.css?v=2026-10-22-4">
 <!-- El canonical apunta a «/», no a esta dirección, y va al revés de como
      estaba. Ésta y la portada del dominio enseñan lo mismo; la que tiene que
      quedarse con la fuerza de los enlaces es la corta —escuelacem.com— porque
@@ -266,7 +275,7 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, money, num, qs, fdate, portadaDeCurso, abrirAvisame }
-  from './assets/app.js?v=2026-10-22-3';
+  from './assets/app.js?v=2026-10-22-4';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -476,7 +485,7 @@ $('#formLead').onsubmit = async (e) => {
   const { data: codigos, error } = await sb.rpc('cem_paises_de_la_portada');
   if (error || !codigos?.length) return;
 
-  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-10-22-3');
+  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-10-22-4');
 
   /* La cuenta sale de la lista, no de un número escrito en el texto. */
   const cuantos = codigos.length;
@@ -501,7 +510,7 @@ $('#formLead').onsubmit = async (e) => {
   fila.hidden = false;
 
   try {
-    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-10-22-3');
+    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-10-22-4');
     for (const t of $$('.pais-tarjeta', fila)) {
       const d = CONTORNOS[t.dataset.pais];
       /* Los países muy pequeños no tienen contorno a esta resolución. Se
