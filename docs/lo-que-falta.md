@@ -63,15 +63,21 @@ terminar.
 
 ### Además, sin prisa
 
-- **Sólo la entrada y el registro** (`plataforma/index.html`) y la
-  confirmación de cuenta (`confirmar.html`) siguen con el diseño anterior,
-  siempre en claro. Todo lo demás que ve un visitante ya tiene el nuevo: desde
-  el 22 de octubre la portada, Programas, los dos diplomados, los dieciséis
-  módulos, Contacto, Preguntas, la 404, Verificar y Quiénes somos; desde el
-  23, el catálogo (`catalogo.html`), la ficha de cada curso (`curso.html`),
-  la compra (`comprar.html`) y la vuelta del pago (`bienvenida.html`). Para
-  pasar una pantalla de `/plataforma/` basta `body.ini-portada ini-clara` con
-  el guion que recoge la versión elegida, y el botón lo monta `app.js`. Las
+- **Siguen con el diseño anterior, siempre en claro,** las pantallas a las
+  que se llega desde un correo o un enlace suelto: confirmar la cuenta
+  (`confirmar.html`), poner una contraseña nueva (`nueva-clave.html`) o la
+  primera después de comprar (`cambiar-clave.html`), aceptar una invitación
+  (`invitacion.html`), el material de un recurso (`recurso.html`) y las
+  listas de pre-registro (`formulario.html`). Todo lo demás que ve un
+  visitante ya tiene el nuevo: desde el 22 de octubre la portada, Programas,
+  los dos diplomados, los dieciséis módulos, Contacto, Preguntas, la 404,
+  Verificar y Quiénes somos; desde el 23, el catálogo (`catalogo.html`), la
+  ficha de cada curso (`curso.html`), la compra (`comprar.html`), la vuelta
+  del pago (`bienvenida.html`) y la entrada y el registro (`index.html`).
+  Para pasar una pantalla de `/plataforma/` basta `body.ini-portada
+  ini-clara` con el guion que recoge la versión elegida; el botón lo monta
+  `app.js` en la cabecera pública o, en una pantalla sin ella como la de
+  entrar, `ponerBotonDeVersion(donde)`. Las
   pantallas de `/plataforma/` tardan uno a tres segundos en pintar porque se
   arman con `app.js`. La portada vieja (`plataforma/inicio.html`) redirige a
   «/», y la cabecera de la plataforma lleva a «/» y a `/programas/`.

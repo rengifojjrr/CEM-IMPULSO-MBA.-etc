@@ -4738,6 +4738,13 @@ body.ini-portada .pub-header{background:var(--n-cabecera);
 :root[data-publico] body.ini-portada > footer.franja.tenue{background:var(--n-pie);
   border-top:1px solid var(--filete);}
 body.ini-portada ::selection{background:var(--n-seleccion);}
+/* Los controles del navegador —la casilla, el calendario de una fecha, la
+   lista de un desplegable— siguen la versión de la página y no la del
+   sistema: de noche salían blancos, y el icono del calendario, negro sobre
+   el azul de noche. */
+body.ini-oscura{color-scheme:dark;}
+body.ini-clara{color-scheme:light;}
+body.ini-portada :is(input[type="checkbox"], input[type="radio"]){accent-color:var(--n-cian);}
 /* El botón de versión: sol en la oscura, luna en la clara. */
 .ini-tema{display:inline-grid;place-items:center;flex:none;width:38px;height:38px;padding:0;
   border-radius:999px;border:1px solid var(--filete-fuerte);background:var(--n-panel);
