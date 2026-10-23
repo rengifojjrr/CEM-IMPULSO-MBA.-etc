@@ -22,7 +22,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-10-23-2">
+<link rel="modulepreload" href="assets/app.js?v=2026-10-23-3">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <!-- Con el diseño de la portada desde el 22 de octubre de 2026: la versión
@@ -31,7 +31,7 @@
      luna, que monta app.js en la cabecera. -->
 <style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}body.ini-clara{--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;background:#f4f7fc;color:#0b1630;}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-10-23-2">
+<link rel="stylesheet" href="assets/styles.css?v=2026-10-23-3">
 <style>
   .llegada{max-width:520px;margin:0 auto;padding:var(--e4) var(--e3);text-align:center}
   .tic{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;margin:0 auto var(--e2);
@@ -57,8 +57,8 @@
    «ya estás inscrito» antes de que la inscripción exista es la clase de
    mentira que se descubre al minuto siguiente, cuando la persona entra y no
    encuentra su curso. */
-import { sb, mount, $, esc, qs, money, fail, abrirContacto, imprimirDocumento }
-  from './assets/app.js?v=2026-10-23-2';
+import { sb, mount, $, esc, qs, money, fail, ocupado, abrirContacto, imprimirDocumento }
+  from './assets/app.js?v=2026-10-23-3';
 
 /* Pública a propósito: quien llega aquí acaba de pagar y todavía no tiene con
    qué entrar —la cuenta se está creando en este mismo momento, del otro lado.
@@ -135,12 +135,15 @@ function pintarBien(d) {
 
     ${d.cuenta_nueva ? `
       <p class="nota" style="text-align:left">
-        Te acabamos de crear la cuenta con <b>${esc(d.email)}</b>.
-        Para entrar al aula sólo falta que le pongas una contraseña.</p>
-      <a class="btn block" href="cambiar-clave.html?email=${encodeURIComponent(d.email)}">
-        Poner mi contraseña</a>
-      <p class="tiny muted" style="margin-top:var(--e2)">
-        También te lo mandamos por correo, por si prefieres hacerlo luego.</p>`
+        Te acabamos de crear la cuenta con <b>${esc(d.email)}</b>. Para entrar al
+        aula sólo falta tu contraseña: te mandamos a ese correo un enlace para
+        ponerla. Ábrelo y entras directo.</p>
+      <p class="tiny muted">Si en unos minutos no lo ves, mira en correo no deseado
+        o en promociones.</p>
+      <button class="btn outline block" type="button" id="otraVez">
+        <span class="material-symbols-outlined" aria-hidden="true">forward_to_inbox</span>
+        No me llegó: mandármelo otra vez</button>
+      <div id="otraVezMsg"></div>`
     : `
       <p class="nota" style="text-align:left">
         Ya tenías cuenta con <b>${esc(d.email)}</b>, así que el programa te aparece
@@ -155,6 +158,27 @@ function pintarBien(d) {
       <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Descargar el recibo</button>`;
 
   $('#recibo').onclick = descargarRecibo;
+
+  /* Pedir otra vez el enlace para poner la contraseña.
+     ═══════════════════════════════════════════════════════════════════════════
+     Antes aquí había un botón «Poner mi contraseña» que llevaba a
+     cambiar-clave.html. Esa pantalla es para cambiar la clave de fábrica y
+     exige sesión, y quien acaba de comprar no la tiene: le devolvía a la de
+     entrar, donde no podía entrar porque aún no tenía contraseña.
+
+     Ahora el enlace sale por correo al cerrarse la compra (en el servidor,
+     _shared/cerrar-compra.ts), y aquí sólo se puede volver a pedir. Se contesta
+     igual salga o no —si se pidió hace nada, el servidor espera un minuto antes
+     de mandar otro—, y el que sirve es el último que llegue. */
+  const otra = $('#otraVez');
+  if (otra) otra.onclick = (e) => ocupado(e.currentTarget, 'Enviando…', async () => {
+    const aqui = location.href.replace(/[^/?#]*(\?.*)?(#.*)?$/, '');
+    await sb.auth.resetPasswordForEmail(d.email, { redirectTo: aqui + 'nueva-clave.html' })
+      .catch(() => {});
+    $('#otraVezMsg').innerHTML = `<p class="nota ok sep" style="text-align:left">
+      Te lo mandamos otra vez a <b>${esc(d.email)}</b>. Puede tardar un par de
+      minutos; si te llegan dos, usa el último.</p>`;
+  });
 }
 
 async function descargarRecibo() {

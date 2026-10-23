@@ -4745,6 +4745,29 @@ body.ini-portada ::selection{background:var(--n-seleccion);}
 body.ini-oscura{color-scheme:dark;}
 body.ini-clara{color-scheme:light;}
 body.ini-portada :is(input[type="checkbox"], input[type="radio"]){accent-color:var(--n-cian);}
+
+/* ── las pantallas sin cabecera: entrar, registrarse y las que se abren desde
+   un correo (confirmar, poner contraseña, invitación, un recurso, una lista).
+   No llevan la cabecera del sitio —cuanto menos haya alrededor de un
+   formulario, mejor—, pero sí una barra mínima con la marca, que lleva a la
+   portada, y el botón de versión, que pone ponerBotonDeVersion() de app.js.
+   La barra ocupa su sitio, no flota encima: en un teléfono no tapa el
+   principio de un formulario largo. */
+.auth-arriba{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
+  max-width:1200px;margin:0 auto;padding:var(--e2) var(--e3);min-height:70px;}
+.auth-arriba .marca{display:inline-flex;align-items:center;gap:10px;color:var(--tinta);
+  font-family:var(--n-display, inherit);font-weight:600;text-decoration:none;}
+.auth-arriba .marca img{width:28px;height:28px;}
+body.ini-portada .auth-wrap{min-height:calc(100vh - 70px);min-height:calc(100dvh - 70px);}
+body.ini-portada .auth-card{background:var(--n-vidrio);border-radius:20px;
+  box-shadow:var(--sombra);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
+/* El cuadrado de la marca era --primary: de noche, celeste con el logotipo de
+   colores encima. En vidrio, con el icono en cian, en las dos. */
+body.ini-portada .brand-badge{background:var(--n-panel-2);color:var(--n-cian);
+  border:1px solid var(--filete-fuerte);border-radius:12px;}
+/* «ancho» lo llevan los botones de cambiar la clave y de aceptar una invitación,
+   pero no estaba definido: salían del tamaño de su texto, como uno secundario. */
+.auth-card .btn.ancho{width:100%;}
 /* El botón de versión: sol en la oscura, luna en la clara. */
 .ini-tema{display:inline-grid;place-items:center;flex:none;width:38px;height:38px;padding:0;
   border-radius:999px;border:1px solid var(--filete-fuerte);background:var(--n-panel);

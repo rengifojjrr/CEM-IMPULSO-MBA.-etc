@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-10-23-2">
+<link rel="modulepreload" href="assets/app.js?v=2026-10-23-3">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <!-- Con el diseño de la portada desde el 22 de octubre de 2026: la versión
@@ -30,7 +30,7 @@
      luna, que monta app.js en la cabecera. -->
 <style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}body.ini-clara{--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;background:#f4f7fc;color:#0b1630;}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-10-23-2">
+<link rel="stylesheet" href="assets/styles.css?v=2026-10-23-3">
 <style>
   /* La barra de avance del registro. Cuatro trazos, no un porcentaje: quien
      está rellenando quiere saber cuánto le queda, y «3 de 4» se entiende de un
@@ -42,25 +42,9 @@
   /* Sin animación para quien la ha desactivado en su sistema. */
   @media (prefers-reduced-motion:reduce){ .pasos-barra i{transition:none;} }
 
-  /* Con el diseño de la portada.
-     ─────────────────────────────────────────────────────────────────────
-     Esta pantalla no lleva la cabecera del sitio: es para entrar, y cuanto
-     menos haya alrededor, mejor. Pero sí una barra mínima con la marca, que
-     lleva a la portada, y el botón de versión, que pone app.js. Ocupa su
-     sitio en la página —no flota encima— para que en un teléfono no tape el
-     principio del registro, que es largo. */
-  .auth-arriba{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
-    max-width:1200px;margin:0 auto;padding:var(--e2) var(--e3);min-height:70px;}
-  .auth-arriba .marca{display:inline-flex;align-items:center;gap:10px;color:var(--tinta);
-    font-family:var(--n-display, inherit);font-weight:600;text-decoration:none;}
-  .auth-arriba .marca img{width:28px;height:28px;}
-  body.ini-portada .auth-wrap{min-height:calc(100vh - 70px);min-height:calc(100dvh - 70px);}
-  body.ini-portada .auth-card{background:var(--n-vidrio);border-radius:20px;
-    box-shadow:var(--sombra);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
-  /* El cuadrado de la marca era --primary: de noche, celeste con el logotipo
-     de colores encima. En vidrio, con el icono en cian, en las dos. */
-  body.ini-portada .brand-badge{background:var(--n-panel-2);color:var(--n-cian);
-    border:1px solid var(--filete-fuerte);border-radius:12px;}
+  /* Con el diseño de la portada: la barra de arriba, la tarjeta de vidrio y
+     el cuadrado de la marca son de todas las pantallas sin cabecera, y viven
+     en styles.css (.auth-arriba). Aquí sólo lo que es del registro. */
   body.ini-portada .pasos-barra i.hecho{background:var(--n-cian);}
   /* «Siguiente» y «Crear mi cuenta» ocupan lo que deja «Atrás»: `grow` sólo
      estaba definido dentro de listas y avisos, y aquí no hacía nada. */
@@ -280,8 +264,8 @@
 
 <script type="module">
 import { sb, $, $$, esc, ok, fail, profile, homeForRoot, qs, mensajeError,
-         medidorDeClave, rutaSegura, recordarRumbo, ponerBotonDeVersion } from './assets/app.js?v=2026-10-23-2';
-import { opcionesDePais } from './assets/paises.js?v=2026-10-23-2';
+         medidorDeClave, rutaSegura, recordarRumbo, ponerBotonDeVersion } from './assets/app.js?v=2026-10-23-3';
+import { opcionesDePais } from './assets/paises.js?v=2026-10-23-3';
 
 const loginMsg = $('#loginMsg'), regMsg = $('#regMsg'), olvideMsg = $('#olvideMsg');
 const revisaMsg = $('#revisaMsg');

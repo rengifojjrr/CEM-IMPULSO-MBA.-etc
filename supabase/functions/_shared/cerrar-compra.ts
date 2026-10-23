@@ -120,12 +120,22 @@ export async function cerrarCompraInvitado(
 
   /* Y el correo para poner la clave. Va DESPUÉS de que todo lo demás salió
      bien: mandarle a alguien «ya estás dentro» y que al entrar no encuentre su
-     inscripción es peor que tardar un minuto más. */
+     inscripción es peor que tardar un minuto más.
+
+     Hasta el 23 de octubre de 2026 aquí había `auth.admin.generateLink`, que
+     FABRICA el enlace y lo devuelve, pero no lo manda: el resultado se tiraba y
+     el correo que prometía bienvenida.html no salía nunca. Ésta es la llamada
+     que sí lo envía, la misma de «Olvidé mi contraseña», y lleva a la misma
+     pantalla para ponerla. Si falla, la compra no se deshace: en bienvenida.html
+     la persona puede pedirlo otra vez. */
   if (cuentaNueva) {
     try {
-      await admin.auth.admin.generateLink({ type: 'recovery', email });
+      const { error: eCorreo } = await admin.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://escuelacem.com/plataforma/nueva-clave.html',
+      });
+      if (eCorreo) console.error('[compra] no salió el correo para poner la clave:', eCorreo.message);
     } catch (e) {
-      console.error('[compra] no se pudo generar el enlace de clave:', e);
+      console.error('[compra] no salió el correo para poner la clave:', e);
     }
   }
 

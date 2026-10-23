@@ -63,21 +63,27 @@ terminar.
 
 ### Además, sin prisa
 
-- **Siguen con el diseño anterior, siempre en claro,** las pantallas a las
-  que se llega desde un correo o un enlace suelto: confirmar la cuenta
-  (`confirmar.html`), poner una contraseña nueva (`nueva-clave.html`) o la
-  primera después de comprar (`cambiar-clave.html`), aceptar una invitación
-  (`invitacion.html`), el material de un recurso (`recurso.html`) y las
-  listas de pre-registro (`formulario.html`). Todo lo demás que ve un
-  visitante ya tiene el nuevo: desde el 22 de octubre la portada, Programas,
-  los dos diplomados, los dieciséis módulos, Contacto, Preguntas, la 404,
-  Verificar y Quiénes somos; desde el 23, el catálogo (`catalogo.html`), la
-  ficha de cada curso (`curso.html`), la compra (`comprar.html`), la vuelta
-  del pago (`bienvenida.html`) y la entrada y el registro (`index.html`).
-  Para pasar una pantalla de `/plataforma/` basta `body.ini-portada
-  ini-clara` con el guion que recoge la versión elegida; el botón lo monta
-  `app.js` en la cabecera pública o, en una pantalla sin ella como la de
-  entrar, `ponerBotonDeVersion(donde)`. Las
+- **Una compra de prueba cuando publiques el primer curso.** Hasta el 23 de
+  octubre, quien compraba sin cuenta no recibía el correo para poner su
+  contraseña: `_shared/cerrar-compra.ts` usaba `generateLink`, que fabrica el
+  enlace pero no lo manda. Y el botón «Poner mi contraseña» de
+  `bienvenida.html` llevaba a `cambiar-clave.html`, que exige sesión y lo
+  devolvía a la entrada. Ahora el correo sale con `resetPasswordForEmail`
+  hacia `nueva-clave.html` (lo mismo que «Olvidé mi contraseña»), y en
+  `bienvenida.html` se puede pedir otra vez. Que llegue depende del envío de
+  correos de Supabase Auth, el mismo del registro: compruébalo con una
+  compra real de un curso barato y un correo tuyo.
+- **Todas las pantallas públicas tienen ya el diseño nuevo.** Desde el 22 de
+  octubre, la portada, Programas, los dos diplomados, los dieciséis módulos,
+  Contacto, Preguntas, la 404, Verificar y Quiénes somos. Desde el 23, el
+  catálogo, la ficha de cada curso, la compra, la vuelta del pago, la entrada
+  y el registro (`index.html`) y las que se abren desde un correo: confirmar
+  la cuenta, poner contraseña nueva, cambiar la de fábrica, aceptar una
+  invitación, un recurso y las listas de pre-registro. Para una pantalla
+  nueva de `/plataforma/` basta `body.ini-portada ini-clara` con el guion que
+  recoge la versión elegida. El botón lo monta `app.js` en la cabecera
+  pública; en una pantalla sin cabecera se usa `<header class="auth-arriba">`
+  con `ponerBotonDeVersion(donde)`. Las
   pantallas de `/plataforma/` tardan uno a tres segundos en pintar porque se
   arman con `app.js`. La portada vieja (`plataforma/inicio.html`) redirige a
   «/», y la cabecera de la plataforma lleva a «/» y a `/programas/`.
