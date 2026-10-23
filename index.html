@@ -50,7 +50,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="plataforma/assets/styles.css?v=2026-10-22-5">
+<link rel="stylesheet" href="plataforma/assets/styles.css?v=2026-10-23-1">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"EducationalOrganization","@id":"https://escuelacem.com#escuela","name":"CEM International","alternateName":["CEM · Centro de Estudios de Marketing","Centro de Estudios de Marketing"],"description":"Centro de estudios de marketing, negocios, inteligencia artificial y tecnología en Caracas, Venezuela. Formación práctica con certificado verificable.","url":"https://escuelacem.com","foundingDate":"2016","knowsAbout":["Marketing digital","Community management","Gestión de anuncios","Inteligencia artificial aplicada","Producción y edición de video","Fotografía","Diseño gráfico","Branding"],"logo":{"@type":"ImageObject","url":"https://escuelacem.com/plataforma/assets/icono-512.png","width":512,"height":512,"caption":"Logotipo de CEM International"},"image":"https://escuelacem.com/plataforma/assets/compartir.png","address":{"@type":"PostalAddress","addressLocality":"Caracas","postalCode":"1060","addressRegion":"Miranda","addressCountry":"VE"},"areaServed":[{"@type":"City","name":"Caracas"},{"@type":"Country","name":"Venezuela"}],"inLanguage":"es"},{"@type":"WebSite","@id":"https://escuelacem.com#sitio","url":"https://escuelacem.com","name":"CEM International","inLanguage":"es","publisher":{"@id":"https://escuelacem.com#escuela"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://escuelacem.com/plataforma/verificar.html?codigo={search_term_string}"},"query-input":"required name=search_term_string"}},{"@type":"ItemList","name":"Diplomados del CEM","numberOfItems":2,"itemListElement":[{"@type":"ListItem","position":1,"name":"Diplomado en Marketing Digital","url":"https://escuelacem.com/programas/diplomado-marketing-digital.html"},{"@type":"ListItem","position":2,"name":"Diplomado en Inteligencia Artificial y Producción Digital","url":"https://escuelacem.com/programas/diplomado-inteligencia-artificial.html"}]}]}</script>
 
 <script>
@@ -571,16 +571,16 @@
 
 <script type="module">
 
-import { arrancarMedicion } from './plataforma/assets/medir.js?v=2026-10-22-5';
+import { arrancarMedicion } from './plataforma/assets/medir.js?v=2026-10-23-1';
 arrancarMedicion({ whatsapp: true });
-import('./plataforma/assets/promo.js?v=2026-10-22-5')
+import('./plataforma/assets/promo.js?v=2026-10-23-1')
   .then((m) => m.montarPromocion({ pantalla: "inicio" })).catch(() => {});
-const cemi = () => import('./plataforma/assets/asistente.js?v=2026-10-22-5')
+const cemi = () => import('./plataforma/assets/asistente.js?v=2026-10-23-1')
   .then((m) => m.montarAsistente({ ambito: 'visitante' })).catch(() => {});
 ('requestIdleCallback' in window) ? requestIdleCallback(cemi, { timeout: 4000 }) : setTimeout(cemi, 2500);
 </script>
 <script type="module">
-import('./plataforma/assets/globo.js?v=2026-10-22-5').then(function (m) {
+import('./plataforma/assets/globo.js?v=2026-10-23-1').then(function (m) {
   var c = document.querySelector('.ini-globo-lienzo');
   if (c) m.montarGlobo(c, { paises: (c.dataset.paises || '').split(',').filter(Boolean) });
 }).catch(function () {});

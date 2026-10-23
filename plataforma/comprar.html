@@ -12,7 +12,7 @@
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2026-09-03">
 <link rel="apple-touch-icon" href="assets/icono-180.png?v=2026-09-03">
 <link rel="manifest" href="/site.webmanifest">
-<meta name="theme-color" content="#0d2440">
+<meta name="theme-color" content="#f4f7fc">
 <meta name="robots" content="noindex">
 <!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
      Sin esto el navegador descubre cada uno cuando le toca, y paga el
@@ -22,21 +22,38 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-10-22-5">
+<link rel="modulepreload" href="assets/app.js?v=2026-10-23-1">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Con el diseño de la portada desde el 22 de octubre de 2026: la versión
+     clara u oscura, con sus colores desde la primera pintada (los mismos que
+     PRIMERA_PINTADA en herramientas/generar-seo.mjs) y el botón del sol y la
+     luna, que monta app.js en la cabecera. -->
+<style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}body.ini-clara{--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;background:#f4f7fc;color:#0b1630;}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-10-22-5">
+<link rel="stylesheet" href="assets/styles.css?v=2026-10-23-1">
 <style>
-  .compra{max-width:520px;margin:0 auto;padding:var(--e4) var(--e3)}
+  /* No se llama .compra: ése es el recuadro de compra de los diplomados, que
+     trae fondo, borde y se queda pegado al bajar. Aquí es la página entera. */
+  .al-pagar{max-width:520px;margin:0 auto;padding:var(--e4) var(--e3)}
   .plan{display:flex;gap:var(--e1);flex-wrap:wrap;margin:var(--e1) 0 0}
   .plan button{flex:1;min-width:120px}
   .resumen{display:flex;justify-content:space-between;align-items:baseline;
     padding:var(--e2) 0;border-top:1px solid var(--filete)}
   .resumen .total{font-size:28px;font-weight:700}
+  /* Con el diseño de la portada: las cuotas como fichas, la elegida con el
+     borde cian, y el total en la letra de los titulares. */
+  body.ini-portada .plan button{border-radius:12px;background:var(--n-panel-2);
+    color:var(--tinta);border:1px solid var(--filete-fuerte);box-shadow:none}
+  body.ini-portada .plan button[aria-pressed="true"]{border-color:var(--n-cian);
+    box-shadow:inset 0 0 0 1px var(--n-cian);color:var(--n-cian);background:var(--n-resplandor-suave)}
+  body.ini-portada .resumen .total{font-family:var(--n-display);font-weight:600;
+    letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 </style>
 </head>
-<body>
-<div class="compra">
+<body class="ini-portada ini-clara">
+<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>
+<main class="al-pagar">
   <a class="btn ghost sm" id="volver" href="#" style="margin-bottom:var(--e2)">
     <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Volver</a>
 
@@ -44,7 +61,7 @@
 
   <p class="tiny muted" style="text-align:center;margin-top:var(--e2)">
     El cobro lo procesa Stripe. El CEM no ve ni guarda los datos de tu tarjeta.</p>
-</div>
+</main>
 
 <script type="module">
 /* Comprar sin tener cuenta.
@@ -57,7 +74,7 @@
    webhook de Stripe. Si el pago no llega, aquí no queda más que una fila con
    una intención de compra, que es lo que de verdad pasó. */
 import { sb, mount, $, esc, money, num, qs, fail, ocupado, etiqueta,
-         SUPABASE_URL, SUPABASE_KEY, medir } from './assets/app.js?v=2026-10-22-5';
+         SUPABASE_URL, SUPABASE_KEY, medir } from './assets/app.js?v=2026-10-23-1';
 
 const me = await mount({ pub:true });
 const cursoId = qs('curso');
@@ -181,7 +198,7 @@ function pintar() {
       <p class="tiny muted" style="margin:var(--e2) 0 0">Cómo lo quieres pagar</p>
       <div class="plan" id="plan">
         ${[1, 3, 6].map((n) => `
-          <button class="btn${n === plan ? '' : ' outline'} sm" data-plan="${n}">
+          <button class="btn${n === plan ? '' : ' outline'} sm" data-plan="${n}" aria-pressed="${n === plan}">
             ${n === 1 ? 'De una vez' : `En ${n} cuotas`}
           </button>`).join('')}
       </div>

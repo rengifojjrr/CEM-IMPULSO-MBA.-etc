@@ -12,7 +12,7 @@
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2026-09-03">
 <link rel="apple-touch-icon" href="assets/icono-180.png?v=2026-09-03">
 <link rel="manifest" href="/site.webmanifest">
-<meta name="theme-color" content="#0d2440">
+<meta name="theme-color" content="#f4f7fc">
 <!-- Los cuatro servidores de fuera, avisados de golpe y no en fila.
      Sin esto el navegador descubre cada uno cuando le toca, y paga el
      DNS y el saludo TLS de cada cual por separado, con la pantalla en
@@ -21,10 +21,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-10-22-5">
+<link rel="modulepreload" href="assets/app.js?v=2026-10-23-1">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Con el diseño de la portada desde el 22 de octubre de 2026: la versión
+     clara u oscura, con sus colores desde la primera pintada (los mismos que
+     PRIMERA_PINTADA en herramientas/generar-seo.mjs) y el botón del sol y la
+     luna, que monta app.js en la cabecera. -->
+<style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}body.ini-clara{--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;background:#f4f7fc;color:#0b1630;}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-10-22-5">
+<link rel="stylesheet" href="assets/styles.css?v=2026-10-23-1">
 <style>
   /* El encabezado con la portada del programa detrás.
      ─────────────────────────────────────────────────────────────────────
@@ -72,6 +78,27 @@
   .hero.con-foto h1, .hero.con-foto .precio{text-shadow:0 1px 12px rgba(6,8,18,.8);}
   .hero .in{position:relative;}
 
+  /* Con el diseño de la portada.
+     ─────────────────────────────────────────────────────────────────────
+     El degradado de arriba sale de --primary, y en la versión oscura
+     --primary es azul claro: la letra blanca no se leía. Aquí el suelo es de
+     noche en las dos versiones, como el cierre de la portada, con un brillo
+     cian en la esquina. La foto, cuando la hay, va encima en línea y manda. */
+  body.ini-portada .hero{background-color:#071224;background-image:
+      radial-gradient(55% 120% at 92% 0%, rgba(62,230,210,.20), transparent 62%),
+      linear-gradient(120deg, #0a1a33 0%, #0b2740 55%, #0b3a44 100%);
+    border-bottom:1px solid var(--filete);}
+  body.ini-portada .hero h1{font-family:var(--n-display);font-weight:600;}
+  /* «Premium» era dorado claro con letra blanca: invisible en la clara. */
+  body.ini-portada .hero .chip.gold{background:rgba(230,189,92,.16);color:#f3d58a;
+    border:1px solid rgba(230,189,92,.4);}
+  /* El botón, el de la portada. El dorado con letra blanca no llegaba al
+     contraste en ninguna de las dos. */
+  body.ini-portada .hero .btn{background:var(--n-boton);color:var(--n-sobre-boton);
+    border-color:transparent;border-radius:12px;box-shadow:0 10px 30px -14px rgba(62,230,210,.6);}
+  body.ini-portada .hero .btn span{color:inherit;}
+  body.ini-portada .hero .precio{font-family:var(--n-display);font-weight:600;letter-spacing:-.02em;}
+
   /* El vídeo de presentación, encima del temario: es lo primero que quiere
      ver quien está decidiendo si paga. */
   .intro-curso{margin-bottom:var(--aire);}
@@ -81,6 +108,7 @@
   .mod-h b{flex:1;}
   .les{display:flex;align-items:center;gap:10px;padding:9px 0 9px 30px;border-bottom:1px solid var(--filete);font-size:var(--t-sm);}
   .les:last-child{border-bottom:none;}
+  #side h2.sec.sep-mucho{margin-top:var(--e3);}
 </style>
 <meta name="description" content="Ficha de un programa del CEM: temario, profesor, modalidad, precio y certificación.">
 <!-- Sin texto en el HTML: lo pinta JavaScript. La versión que un
@@ -88,10 +116,11 @@
      para no competir consigo misma con la peor de las dos. -->
 <meta name="robots" content="noindex,follow">
 </head>
-<body>
+<body class="ini-portada ini-clara">
+<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>
 <div id="page" class="hidden">
   <div class="hero" id="hero"></div>
-  <div class="pub-main">
+  <main class="pub-main">
     <div class="grid dos-columnas" id="cols">
       <div>
         <!-- Antes del temario porque es lo primero que decide: dos minutos de
@@ -108,11 +137,11 @@
         <div class="card pegajosa" id="side" style="top:80px"></div>
       </div>
     </div>
-  </div>
+  </main>
 </div>
 <script type="module">
-import { sb, mount, $, $$, esc, chip, money, fdate, qs, profile, chipEstado, etiqueta } from './assets/app.js?v=2026-10-22-5';
-import { crearReproductor } from './assets/reproductor.js?v=2026-10-22-5';
+import { sb, mount, $, $$, esc, chip, money, fdate, qs, profile, chipEstado, etiqueta } from './assets/app.js?v=2026-10-23-1';
+import { crearReproductor } from './assets/reproductor.js?v=2026-10-23-1';
 const me = await mount({ pub:true });
 const id = qs('id');
 /* `nota` va aquí y no dentro de load(): la usa render(), que es otra función, y

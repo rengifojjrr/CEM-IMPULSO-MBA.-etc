@@ -12,7 +12,7 @@
    ponen su propia cabecera y le pasan el cliente de Supabase que corresponda.
 
    Uso:
-     import { montarGenerador, ESTILOS_GENERADOR, CONTROLES_GENERADOR } from './generador.js?v=2026-10-22-5';
+     import { montarGenerador, ESTILOS_GENERADOR, CONTROLES_GENERADOR } from './generador.js?v=2026-10-23-1';
      montarGenerador({ supabase, contenedor, rutaVerificar: 'verificar.html' });
    ============================================================ */
 
@@ -29,7 +29,7 @@ import {
   formatearCedula, resolverPlantillaTexto, posicionesPorPalabra, estilosPorCaracter,
   fitFontSize, fitFontSizeMixto, anchoMixto, medirAncho, envolverLineas,
   envolverLineasBalanceado, fondoDecodificado, tintaDe,
-} from './dibujar.js?v=2026-10-22-5';
+} from './dibujar.js?v=2026-10-23-1';
 
 export const ESTILOS_GENERADOR = String.raw`  :root{
     /* El generador nació como herramienta suelta y traía su propia paleta,

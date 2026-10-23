@@ -63,16 +63,18 @@ terminar.
 
 ### Además, sin prisa
 
-- **El catálogo de la plataforma y las pantallas de compra** siguen con el
-  diseño anterior, siempre en claro (Verificar y Quiénes somos ya tienen el
-  nuevo desde el 22 de octubre: `body.ini-portada` en su HTML y el botón de
-  versión que monta `app.js`). Las pantallas de `/plataforma/` tardan uno a
-  tres segundos en pintar porque se arman con `app.js`. Desde el 22 de octubre las demás páginas
-  públicas —la portada, Programas, los dos diplomados, los dieciséis
-  módulos, Contacto, Preguntas y la 404— comparten el diseño nuevo, el botón
-  claro/oscuro y «Mi panel» si ya entraste. La portada vieja
-  (`plataforma/inicio.html`) redirige a «/», y la cabecera de la plataforma
-  lleva a «/» y a `/programas/`.
+- **Sólo la entrada y el registro** (`plataforma/index.html`) y la
+  confirmación de cuenta (`confirmar.html`) siguen con el diseño anterior,
+  siempre en claro. Todo lo demás que ve un visitante ya tiene el nuevo: desde
+  el 22 de octubre la portada, Programas, los dos diplomados, los dieciséis
+  módulos, Contacto, Preguntas, la 404, Verificar y Quiénes somos; desde el
+  23, el catálogo (`catalogo.html`), la ficha de cada curso (`curso.html`),
+  la compra (`comprar.html`) y la vuelta del pago (`bienvenida.html`). Para
+  pasar una pantalla de `/plataforma/` basta `body.ini-portada ini-clara` con
+  el guion que recoge la versión elegida, y el botón lo monta `app.js`. Las
+  pantallas de `/plataforma/` tardan uno a tres segundos en pintar porque se
+  arman con `app.js`. La portada vieja (`plataforma/inicio.html`) redirige a
+  «/», y la cabecera de la plataforma lleva a «/» y a `/programas/`.
 - **Diplomas en físico:** el 22 de octubre había 38 «en imprenta» y 1 recién
   pedido; marcar como entregados los que ya salieron. Y leer las alertas de
   gobierno sin leer.
