@@ -130,7 +130,7 @@ CLOTHES: an open royal-blue zip hoodie, worn loose. The hood rests behind the
 shoulders. The jacket is open wide so a broad strip of the fluffy chest shows
 down the middle. Two small zipped chest pockets. The back of the hoodie carries
 the CEM logo in black: the letters C and M with a small rainbow mortarboard as
-the mark between them, and "CENTRO DE ESTUDIOS DE MARKETING" in thin spaced
+the mark between them, and "CENTRO EDUCATIVO MULTIGENERACIONAL" in thin spaced
 capitals underneath.
 
 STYLE: warm, friendly, for a school. Not scary, not sharp. Rounded everywhere.

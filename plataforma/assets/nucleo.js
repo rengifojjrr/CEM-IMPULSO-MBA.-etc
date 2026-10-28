@@ -12,7 +12,7 @@
 
    Esto es lo que se sacó. `app.js` lo importa de aquí y lo vuelve a exportar,
    así que para las 80 pantallas no cambia nada: siguen escribiendo
-   `import { sb, esc } from './assets/app.js?v=2026-10-23-3'` y reciben LO MISMO —el mismo
+   `import { sb, esc } from './assets/app.js?v=2026-10-28-1'` y reciben LO MISMO —el mismo
    cliente, la misma caché del perfil—, porque un módulo se evalúa una sola
    vez por página. */
 

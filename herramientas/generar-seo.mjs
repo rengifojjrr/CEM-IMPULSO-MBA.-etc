@@ -87,9 +87,11 @@ const VERSION_ASSETS = (() => {
 /* La escuela, una vez, para no repetirla en cada página ni que se separen. */
 const ESCUELA = {
   nombre: 'CEM International',
-  nombreLargo: 'CEM · Centro de Estudios de Marketing',
-  descripcion: 'Centro de estudios de marketing, negocios, inteligencia artificial y '
-    + 'tecnología en Caracas, Venezuela. Formación práctica con certificado verificable.',
+  /* CEM es Centro Educativo Multigeneracional. Hasta el 28 de octubre de 2026
+     aquí ponía «Centro de Estudios de Marketing», que no es lo que significa. */
+  nombreLargo: 'CEM · Centro Educativo Multigeneracional',
+  descripcion: 'Centro Educativo Multigeneracional en Caracas, Venezuela: formación práctica en '
+    + 'marketing, negocios, inteligencia artificial y tecnología, con certificado verificable.',
   fundada: '2016',
   ciudad: 'Caracas',
   /* Miranda, no Distrito Capital. Aquí había una suposición mía y estaba mal.
@@ -1120,9 +1122,9 @@ const escuelaJsonLd = () => ({
   '@type': 'EducationalOrganization',
   '@id': `${SITIO}#escuela`,
   name: ESCUELA.nombre,
-  /* Los tres nombres por los que de verdad se busca esto. «Centro de Estudios de
-     Marketing» a secas es el que teclea quien no se acuerda de la sigla. */
-  alternateName: [ESCUELA.nombreLargo, 'Centro de Estudios de Marketing'],
+  /* Los tres nombres por los que de verdad se busca esto. «Centro Educativo
+     Multigeneracional» a secas es el que teclea quien no se acuerda de la sigla. */
+  alternateName: [ESCUELA.nombreLargo, 'Centro Educativo Multigeneracional'],
   description: ESCUELA.descripcion,
   url: SITIO,
   foundingDate: ESCUELA.fundada,
@@ -2444,7 +2446,7 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
     <div>
       <p class="ini-rotulo">Quiénes somos</p>
       <h2>Desde ${ESCUELA.fundada}, formando en marketing e inteligencia artificial</h2>
-      <p class="ini-entrada">El CEM —Centro de Estudios de Marketing— nació en ${ESCUELA.fundada}${paises.length > 1
+      <p class="ini-entrada">El CEM —Centro Educativo Multigeneracional— nació en ${ESCUELA.fundada}${paises.length > 1
         ? ` y hoy da clase en ${enLetra} países` : ''}, en línea y en vivo. Ha graduado a más de
         ${ESCUELA.graduados} alumnos, tiene asociaciones estratégicas en Estados Unidos y sus
         diplomas están certificados en ese país.</p>

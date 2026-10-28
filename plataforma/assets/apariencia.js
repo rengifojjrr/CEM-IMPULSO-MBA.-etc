@@ -16,13 +16,13 @@
    «Guardar»: el cambio se ve en el acto, que es la única forma de elegir un
    aspecto con criterio. */
 
-import { $, $$, esc, ok, modal } from './app.js?v=2026-10-23-3';
+import { $, $$, esc, ok, modal } from './app.js?v=2026-10-28-1';
 import {
   PALETAS, ESTILOS, FORMAS, DENSIDADES,
   aplicarApariencia, aparienciaDeFabrica,
   paletaActual, temaActual, estiloActual, formaActual, densidadActual, animacionActual,
   AMBIENTE, fuerzaActual, ritmoActual,
-} from './temas.js?v=2026-10-23-3';
+} from './temas.js?v=2026-10-28-1';
 
 /** El HTML del panel. `compacto` quita las explicaciones largas: en una ventana no caben. */
 function armazon(compacto) {

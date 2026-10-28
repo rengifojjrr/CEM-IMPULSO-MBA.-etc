@@ -31,10 +31,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://esm.sh" crossorigin>
 <link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
-<link rel="modulepreload" href="assets/app.js?v=2026-10-23-3">
+<link rel="modulepreload" href="assets/app.js?v=2026-10-28-1">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css?v=2026-10-23-3">
+<link rel="stylesheet" href="assets/styles.css?v=2026-10-28-1">
 <!-- El canonical apunta a «/», no a esta dirección, y va al revés de como
      estaba. Ésta y la portada del dominio enseñan lo mismo; la que tiene que
      quedarse con la fuerza de los enlaces es la corta —escuelacem.com— porque
@@ -57,7 +57,7 @@
 <meta name="twitter:title" content="Cursos de marketing, negocios e IA online | CEM International">
 <meta name="twitter:description" content="Formación práctica en marketing digital, negocios, inteligencia artificial y tecnología. Para niños, adolescentes, adultos y emprendedores. Certificado verificable.">
 <meta name="twitter:image" content="https://escuelacem.com/plataforma/assets/compartir.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"EducationalOrganization","@id":"https://escuelacem.com#escuela","name":"CEM International","alternateName":["CEM · Centro de Estudios de Marketing","Centro de Estudios de Marketing"],"description":"Centro de estudios de marketing, negocios, inteligencia artificial y tecnología en Caracas, Venezuela. Formación práctica con certificado verificable.","url":"https://escuelacem.com","foundingDate":"2016","knowsAbout":["Marketing digital","Community management","Gestión de anuncios","Inteligencia artificial aplicada","Producción y edición de video","Fotografía","Diseño gráfico","Branding"],"logo":{"@type":"ImageObject","url":"https://escuelacem.com/plataforma/assets/icono-512.png","width":512,"height":512,"caption":"Logotipo de CEM International"},"image":"https://escuelacem.com/plataforma/assets/compartir.png","address":{"@type":"PostalAddress","addressLocality":"Caracas","postalCode":"1060","addressRegion":"Miranda","addressCountry":"VE"},"areaServed":[{"@type":"City","name":"Caracas"},{"@type":"Country","name":"Venezuela"}],"inLanguage":"es"},{"@type":"WebSite","@id":"https://escuelacem.com#sitio","url":"https://escuelacem.com","name":"CEM International","inLanguage":"es","publisher":{"@id":"https://escuelacem.com#escuela"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://escuelacem.com/plataforma/verificar.html?codigo={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"EducationalOrganization","@id":"https://escuelacem.com#escuela","name":"CEM International","alternateName":["CEM · Centro Educativo Multigeneracional","Centro Educativo Multigeneracional"],"description":"Centro Educativo Multigeneracional en Caracas, Venezuela: formación práctica en marketing, negocios, inteligencia artificial y tecnología, con certificado verificable.","url":"https://escuelacem.com","foundingDate":"2016","knowsAbout":["Marketing digital","Community management","Gestión de anuncios","Inteligencia artificial aplicada","Producción y edición de video","Fotografía","Diseño gráfico","Branding"],"logo":{"@type":"ImageObject","url":"https://escuelacem.com/plataforma/assets/icono-512.png","width":512,"height":512,"caption":"Logotipo de CEM International"},"image":"https://escuelacem.com/plataforma/assets/compartir.png","address":{"@type":"PostalAddress","addressLocality":"Caracas","postalCode":"1060","addressRegion":"Miranda","addressCountry":"VE"},"areaServed":[{"@type":"City","name":"Caracas"},{"@type":"Country","name":"Venezuela"}],"inLanguage":"es"},{"@type":"WebSite","@id":"https://escuelacem.com#sitio","url":"https://escuelacem.com","name":"CEM International","inLanguage":"es","publisher":{"@id":"https://escuelacem.com#escuela"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://escuelacem.com/plataforma/verificar.html?codigo={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>
 </head>
 <body>
 <div id="page" class="hidden">
@@ -75,7 +75,7 @@
   <section class="portada-cem">
     <div class="dentro portada-una">
       <div class="portada-dicho">
-        <span class="ojal">Centro de Estudios de Marketing · desde 2016</span>
+        <span class="ojal">Centro Educativo Multigeneracional · desde 2016</span>
         <h1>Educamos hoy, lideras mañana</h1>
         <p class="lema">Formación en marketing, negocios, IA y tecnología. Ves el temario
           completo y el precio antes de registrarte, y al terminar te llevas un certificado
@@ -152,7 +152,7 @@
   <section class="franja">
     <div class="dentro">
       <h2>Qué somos</h2>
-      <p class="entrada">El Centro de Estudios de Marketing: formación estratégica en marketing,
+      <p class="entrada">El Centro Educativo Multigeneracional: formación estratégica en marketing,
         negocios, IA y tecnología para profesionales y emprendedores. Nacimos en Caracas y hoy
         <span id="fraseAlcance">damos clase en varios países</span>.</p>
 
@@ -275,7 +275,7 @@
 
 <script type="module">
 import { sb, mount, $, $$, esc, money, num, qs, fdate, portadaDeCurso, abrirAvisame }
-  from './assets/app.js?v=2026-10-23-3';
+  from './assets/app.js?v=2026-10-28-1';
 await mount({ pub: true });
 
 /* ============ el buscador manda ============
@@ -485,7 +485,7 @@ $('#formLead').onsubmit = async (e) => {
   const { data: codigos, error } = await sb.rpc('cem_paises_de_la_portada');
   if (error || !codigos?.length) return;
 
-  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-10-23-3');
+  const { paisNombre, paisBandera } = await import('./assets/paises.js?v=2026-10-28-1');
 
   /* La cuenta sale de la lista, no de un número escrito en el texto. */
   const cuantos = codigos.length;
@@ -510,7 +510,7 @@ $('#formLead').onsubmit = async (e) => {
   fila.hidden = false;
 
   try {
-    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-10-23-3');
+    const { CONTORNOS } = await import('./assets/paises-contornos.js?v=2026-10-28-1');
     for (const t of $$('.pais-tarjeta', fila)) {
       const d = CONTORNOS[t.dataset.pais];
       /* Los países muy pequeños no tienen contorno a esta resolución. Se
