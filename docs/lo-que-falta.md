@@ -701,10 +701,12 @@ Ninguno es de la regla de acceso; se anotan para no perderlos:
   cerrado.
 - **`cem_avisar_de_clase`** avisa a las congeladas de clases en vivo a las que
   el aula ya no las deja entrar.
-- **El embudo y «Ver como»** preguntan siendo del equipo, y el equipo siempre
-  tiene acceso: «Se les abrió el curso» sale siempre igual a «Se
-  inscribieron», y «Ver como» nunca dice por qué alguien está bloqueado.
-  Arreglo: separar la regla de la inscripción del pase del equipo.
+- ~~**El embudo y «Ver como»** preguntan siendo del equipo~~ — cerrado el 6
+  de noviembre. Ahora usan `cem_inscripcion_abierta`, la regla de la
+  inscripción sin el pase del equipo (migración
+  `20261108000002_regla_sin_pase_del_equipo`). El embudo cuenta como abiertas
+  sólo las que abren, y «Ver como» dice por qué una está cerrada: cancelada,
+  en pausa, suspendida o sin pago.
 - **La reconstrucción desde cero** (`herramientas/probar-migraciones.sh`) da
   13 errores que ya estaban: el andamio no trae `cron.unschedule(bigint)`, y
   `20260924000001_promocion_en_la_web.sql` usa `cem_campanas`, una tabla que
