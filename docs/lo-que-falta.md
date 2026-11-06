@@ -693,12 +693,28 @@ Ninguno es de la regla de acceso; se anotan para no perderlos:
   `cem_exam_questions` eligen una sin preferir la abierta: una cerrada puede
   tapar a la abierta. El aula ya elige bien.
 - **Mensajes que aún suponen «falta el primer pago»:** los errores de
-  `cem_exam_questions` y `cem_submit_assessment`, y el «Tu programa ya está
-  abierto» de la pantalla de pagos cuando quien paga una cuota está
-  suspendido.
-- **`cem_compra_invitado_cerrar`** apunta la compra en una inscripción
-  congelada o suspendida si ya la había: quien compra así paga y sigue
-  cerrado.
+  `cem_exam_questions` y `cem_submit_assessment`. La pantalla de pagos ya
+  pregunta antes de decir «Tu programa ya está abierto», pero sólo si sabe de
+  qué inscripción viene, y al volver de Stripe hoy nunca lo sabe: la dirección
+  de vuelta sale como `pagos.html?enr=X?pago=ok` (sin parámetro `pago`) y
+  `pagos.html` pierde el `enr` al mandar a pagar.
+- ~~**`cem_compra_invitado_cerrar`** apunta la compra en una inscripción
+  congelada o suspendida~~ — cerrado el 6 de noviembre (migración
+  `20261108000005_compra_en_pausa`). `cem_compra_invitado_abrir` se niega
+  antes de cobrar si el pago iba a caer en una, con un mensaje que no dice qué
+  hay. `cerrar` elige siempre la misma inscripción (activa, luego pendiente,
+  luego la más nueva) y, si aun así cae en una parada, la apunta, avisa al
+  equipo y devuelve el estado. Queda que una negativa no cuenta para el tope
+  por correo: insistiendo, se puede saber si un correo tiene algo parado en un
+  programa, aunque no qué. `pruebas/sql/compra-en-pausa.sql`: 8 fallos de 30
+  antes, 30 de 30 después.
+- **Dos fallos del cobro sin cuenta, vistos al cerrar el anterior:** si el
+  aviso de pago falla después de que `cerrar` guarde la compra (por ejemplo,
+  porque la inscripción reutilizada no tiene ninguna cuota sin pagar), el
+  reintento de Stripe sale por «repetido» y el pago cobrado no se apunta nunca.
+  Y el pago local sin cuenta no puede terminar: `cem_compra_invitado_reportar`
+  sólo acepta compras `pendiente` o `reportada`, pero nacen `abierta` y la
+  tabla no admite `reportada`. Hoy no hay ninguna compra sin cuenta.
 - **`cem_avisar_de_clase`** avisa a las congeladas de clases en vivo a las que
   el aula ya no las deja entrar.
 - ~~**El embudo y «Ver como»** preguntan siendo del equipo~~ — cerrado el 6

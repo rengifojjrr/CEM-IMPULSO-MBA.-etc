@@ -167,6 +167,13 @@ async function cargar({ callado = false } = {}){
   if (!callado) avisarVueltaDeStripe();
 }
 
+/* Lo que se dice en vez de «ya está abierto» cuando la inscripción pagada
+   sigue cerrada. Las mismas palabras que el panel (PAUSAS, en panel.html). */
+const SIGUE_CERRADA = {
+  congelada: 'Tu pago quedó registrado, pero tu inscripción sigue en pausa. El aula se abre otra vez en cuanto se apruebe la reactivación, que puedes pedir desde tu perfil.',
+  suspendida: 'Tu pago quedó registrado, pero tu inscripción sigue suspendida. Escríbenos y lo resolvemos.',
+};
+
 /* Al volver de la pasarela. El aviso es deliberadamente prudente: quien
    confirma el cobro es Stripe avisando al servidor, no esta pantalla, y ese
    aviso puede tardar unos segundos. Decir «ya está pagado» aquí sería
@@ -199,7 +206,23 @@ function avisarVueltaDeStripe(){
 
   const yaConsta = () => cuotas.some(c =>
     c.estado === 'pagada' && (!suya || c.enrollment_id === suya));
-  if (yaConsta()) { ok('¡Pago confirmado! Tu programa ya está abierto.'); return; }
+
+  /* «Tu programa ya está abierto» sólo si lo está. Desde la migración
+     20261107000006 pagar no reabre una inscripción en pausa ni una
+     suspendida: el pago se apunta, pero el aula sigue cerrada, y prometer lo
+     contrario es mandar a la persona a chocar con la puerta. Se le pregunta a
+     la base, como hace el panel. Sin `enr` no se sabe de qué inscripción
+     venimos, y se dice lo de siempre. */
+  const confirmado = async () => {
+    const { data: acceso } = suya ? await sb.rpc('cem_mi_acceso') : { data: null };
+    const esa = acceso?.[suya];
+    if (esa?.abierto === false && SIGUE_CERRADA[esa.estado]) {
+      avisar('#focoCuota', SIGUE_CERRADA[esa.estado], 'warn');
+      return;
+    }
+    ok('¡Pago confirmado! Tu programa ya está abierto.');
+  };
+  if (yaConsta()) { confirmado(); return; }
 
   ok('Pago recibido. Confirmando con el banco…');
   let intentos = 0;
@@ -208,7 +231,7 @@ function avisarVueltaDeStripe(){
     await cargar({ callado: true });
     if (yaConsta()) {
       clearInterval(reloj);
-      ok('¡Pago confirmado! Tu programa ya está abierto.');
+      confirmado();
     } else if (intentos >= 12) {          // ~36 segundos
       clearInterval(reloj);
       avisar('#focoCuota', `<b>Tu pago se hizo y está cobrado.</b> Lo que falta es que nos
