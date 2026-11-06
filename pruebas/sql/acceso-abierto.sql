@@ -28,11 +28,13 @@
    así que cada cambio de persona fija los dos y se comprueba enseguida: si
    no se pudo ser esa persona, la prueba se para en vez de probar otra cosa.
 
-   LA REGLA QUE COMPRUEBA (migración 20261107000006_cancelada_no_abre)
+   LA REGLA QUE COMPRUEBA (migraciones 20261107000006 y 20261108000002)
      equipo                            → abre siempre
      activa, finalizada                → abre
      pendiente                         → abre si cuesta 0 o tiene un pago confirmado
-     suspendida, congelada, cancelada  → no abre nunca, ni gratis ni pagada */
+     suspendida, congelada, cancelada  → no abre nunca, ni gratis ni pagada
+   Y que los informes del equipo («Ver como», el embudo) miren la inscripción
+   y no a quien pregunta, que siendo del equipo siempre entraría. */
 
 do $prueba$
 declare
@@ -42,6 +44,10 @@ declare
   v_uno     uuid;   -- sólo tiene inscripciones que deben quedar cerradas
   v_dos     uuid;   -- sólo tiene inscripciones que deben abrir
   v_mi      jsonb;
+  v_vc      jsonb;
+  v_fila    jsonb;
+  v_embudo_antes jsonb;
+  v_embudo  jsonb;
   v_n       integer := 0;
   v_fallos  text[] := '{}';
   c_cancelada_cero     uuid;
@@ -85,6 +91,14 @@ begin
     raise exception 'PRUEBA_FALLA: faltan datos para probar (curso %, equipo %, estudiantes % y %)',
       v_curso, v_equipo, v_uno, v_dos;
   end if;
+
+  -- El embudo de antes, para medir después cuánto le suman las de mentira.
+  perform set_config('request.jwt.claim.sub', v_equipo::text, true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_equipo, 'role', 'authenticated')::text, true);
+  v_embudo_antes := public.cem_embudo(1);
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claims', '', true);
 
   /* ── Estudiante 1: todo lo que tiene que quedar cerrado ────────────────── */
   -- A 0 €: el caso de lo-que-falta §3.8 (puesta a 0 a mano y cancelada) y sus
@@ -196,6 +210,56 @@ begin
       v_fallos := v_fallos || format('el equipo no entra en «%s»', r.caso);
     end if;
   end loop;
+
+  /* ── Lo que el equipo ve en sus informes ───────────────────────────────── */
+  -- «Ver como» y el embudo sólo los usa el equipo, que siempre entra: tienen
+  -- que mirar la inscripción, no a quien pregunta.
+  v_vc := public.cem_ver_como(v_uno);
+  for r in select * from (values
+      ('cancelada a 0 €',     c_cancelada_cero,     'cancelada'),
+      ('congelada a 0 €',     c_congelada_cero,     'pausa'),
+      ('suspendida a 0 €',    c_suspendida_cero,    'suspendida'),
+      ('cancelada con pago',  c_cancelada_pagada,   'cancelada'),
+      ('congelada con pago',  c_congelada_pagada,   'pausa'),
+      ('suspendida con pago', c_suspendida_pagada,  'suspendida'),
+      ('pendiente sin pago',  c_pendiente_sin_pago, 'pago')
+    ) as t(caso, id, motivo)
+  loop
+    v_n := v_n + 1;
+    select x into v_fila from jsonb_array_elements(v_vc -> 'inscripciones') as x
+     where x ->> 'enrollment_id' = r.id::text;
+    if (v_fila ->> 'abierto') is distinct from 'false'
+       or coalesce(v_fila ->> 'porque', '') not ilike '%' || r.motivo || '%' then
+      v_fallos := v_fallos || format('«Ver como» de «%s»: debería salir cerrada y decir por qué (%s); sale %s',
+                                     r.caso, r.motivo, coalesce(v_fila, 'null'::jsonb));
+    end if;
+  end loop;
+
+  v_vc := public.cem_ver_como(v_dos);
+  v_n := v_n + 1;
+  if exists (select 1 from jsonb_array_elements(v_vc -> 'inscripciones') as x
+              where x ->> 'enrollment_id' in (c_beca::text, c_pagada::text,
+                                              c_pendiente_a_cero::text, c_finalizada::text)
+                and ((x ->> 'abierto') is distinct from 'true' or x ->> 'porque' is not null)) then
+    v_fallos := v_fallos || '«Ver como» enseña cerrada una inscripción que abre'::text;
+  end if;
+
+  -- Nueve inscripciones nuevas cuentan como inscritas (las dos canceladas no)
+  -- y sólo cuatro se abrieron: las del estudiante 2.
+  v_embudo := public.cem_embudo(1);
+  v_n := v_n + 2;
+  if (select (p ->> 'n')::int from jsonb_array_elements(v_embudo -> 'pasos') p where p ->> 'etq' = 'Se inscribieron')
+   - (select (p ->> 'n')::int from jsonb_array_elements(v_embudo_antes -> 'pasos') p where p ->> 'etq' = 'Se inscribieron')
+     is distinct from 9 then
+    v_fallos := v_fallos || 'el embudo no cuenta como inscritas las nueve que no están canceladas'::text;
+  end if;
+  if (select (p ->> 'n')::int from jsonb_array_elements(v_embudo -> 'pasos') p where p ->> 'etq' = 'Se les abrió el curso')
+   - (select (p ->> 'n')::int from jsonb_array_elements(v_embudo_antes -> 'pasos') p where p ->> 'etq' = 'Se les abrió el curso')
+     is distinct from 4 then
+    v_fallos := v_fallos || format('el embudo cuenta como abiertas %s de las nuevas, y abren 4',
+      (select (p ->> 'n')::int from jsonb_array_elements(v_embudo -> 'pasos') p where p ->> 'etq' = 'Se les abrió el curso')
+    - (select (p ->> 'n')::int from jsonb_array_elements(v_embudo_antes -> 'pasos') p where p ->> 'etq' = 'Se les abrió el curso'));
+  end if;
 
   /* ── Lo que ve el estudiante 1 ─────────────────────────────────────────── */
   perform set_config('request.jwt.claim.sub', v_uno::text, true);
