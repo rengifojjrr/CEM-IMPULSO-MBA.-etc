@@ -618,13 +618,97 @@ ponen el precio:
 Comprobado en la base: la inserción directa de un estudiante se niega con
 42501, y Cemi y el equipo siguen inscribiendo.
 
-### 3.8 · Una inscripción gratis cancelada sigue abierta
+### 3.8 · ~~Una inscripción gratis cancelada sigue abierta~~ — cerrado el 6 de noviembre
 
-`cem_acceso_abierto` abre todo lo que cuesta 0, **aunque esté cancelado**. Las
-becas lo esquivan, porque al revocar una se le devuelve el precio a la
-inscripción. Pero una inscripción que alguien dejó a 0 € a mano y luego
-canceló sigue dando acceso. Lo correcto sería que una cancelada no abra nunca.
-No se tocó porque esa función decide el acceso de todo el aula.
+Era peor de lo que decía este apartado. `cem_acceso_abierto` abría lo que
+costaba 0 **y lo que tenía un pago confirmado**, las dos cosas sin mirar el
+estado. Así abrían:
+
+- la cancelada a 0 €, que es lo que se había anotado aquí;
+- **la cancelada después de pagar una cuota**, que es lo que deja una retirada
+  aprobada: quien pagaba una cuota y se retiraba se quedaba el programa
+  entero;
+- la congelada con algún pago: congelar para las cuotas, así que se podía
+  congelar y seguir estudiando sin pagar;
+- la suspendida con algún pago: «suspender» no le cortaba nada a quien
+  hubiera pagado.
+
+Ahora la regla es una lista blanca (migración
+`20261107000006_cancelada_no_abre`):
+
+| Estado | Abre el aula |
+|---|---|
+| activa, finalizada | sí |
+| pendiente | si cuesta 0 o ya tiene un pago confirmado |
+| suspendida, congelada, cancelada | nunca, ni gratis ni pagada |
+
+Un estado que se añada mañana nace cerrado. El equipo sigue entrando siempre.
+Lo gratis de verdad, las becas y lo pagado abren como antes. Pagar no levanta
+una suspensión ni una pausa: la suspensión la levanta el equipo, y la pausa,
+la reactivación. Por eso **«suspender» en Admin ahora corta el acceso de
+verdad**, y la ayuda de Admin → Inscripciones lo dice.
+
+La pantalla lo explica. En el panel y en el aula, una congelada lleva a pedir
+la reactivación y una suspendida a escribir al equipo, en vez de pedir «el
+primer pago». Y el aula entra por la inscripción abierta del curso: quien se
+retiró y volvió a inscribirse ya no se queda atascado en la vieja.
+
+Los permisos quedaron como los de la casa: sin PUBLIC ni anon. Parecía que
+anon hacía falta, porque la función está en dos políticas «to public»; se
+comprobó que no: para anon, la subconsulta de la política de los shorts se
+descarta al planificar, y la lectura anónima de esas tablas sigue sin error.
+
+Comprobado en la base con `pruebas/sql/acceso-abierto.sql`, que se deshace
+sola: 13 fallos de 30 antes del cambio, 30 de 30 después. El 6 de noviembre no
+había ninguna inscripción cancelada, suspendida ni congelada, así que nadie
+perdió acceso.
+
+Ojo con decir «una cancelada no ve nada»: esta función cierra las lecciones,
+los exámenes y el progreso, pero hay cosas que no pasan por ella (§3.9).
+
+### 3.9 · Los adjuntos y las clases en vivo no miran la inscripción
+
+`cem_media` (los adjuntos de las lecciones) y `cem_classes` (las sesiones en
+vivo, con su enlace) se leen con **cualquier sesión**: sus políticas de
+lectura son `using (true)`. Y el depósito `cem-assets` es público. Así que
+cualquier cuenta, inscrita o no, pagada o no, puede pedir la lista de adjuntos
+y los enlaces de las clases. Hoy hay 1 adjunto y 0 clases, así que todavía no
+se escapa casi nada; con el primer diplomado en marcha, sí.
+
+El arreglo: que esas lecturas pasen por la misma regla (el material por
+`cem_puede_ver_leccion`, las clases por la cohorte con la inscripción
+abierta) y que los adjuntos vivan en un depósito privado con enlaces
+firmados.
+
+### 3.10 · Lo que dejó a la vista el cierre de §3.8
+
+Ninguno es de la regla de acceso; se anotan para no perderlos:
+
+- **Reactivar no mira si se pagó.** Una pendiente puede pedir congelar, y al
+  aprobar luego la reactivación queda «activa» sin haber pagado nada. Pasa por
+  dos manos del equipo, pero entra.
+- **Beca y retirada.** Si quien tiene una beca se retira, la inscripción se
+  cancela, pero la beca sigue «otorgada» y el fondo no recupera lo apartado.
+- **Con dos inscripciones en el mismo curso**, `cem_iniciar_intento` y
+  `cem_exam_questions` eligen una sin preferir la abierta: una cerrada puede
+  tapar a la abierta. El aula ya elige bien.
+- **Mensajes que aún suponen «falta el primer pago»:** los errores de
+  `cem_exam_questions` y `cem_submit_assessment`, y el «Tu programa ya está
+  abierto» de la pantalla de pagos cuando quien paga una cuota está
+  suspendido.
+- **`cem_compra_invitado_cerrar`** apunta la compra en una inscripción
+  congelada o suspendida si ya la había: quien compra así paga y sigue
+  cerrado.
+- **`cem_avisar_de_clase`** avisa a las congeladas de clases en vivo a las que
+  el aula ya no las deja entrar.
+- **El embudo y «Ver como»** preguntan siendo del equipo, y el equipo siempre
+  tiene acceso: «Se les abrió el curso» sale siempre igual a «Se
+  inscribieron», y «Ver como» nunca dice por qué alguien está bloqueado.
+  Arreglo: separar la regla de la inscripción del pase del equipo.
+- **La reconstrucción desde cero** (`herramientas/probar-migraciones.sh`) da
+  13 errores que ya estaban: el andamio no trae `cron.unschedule(bigint)`, y
+  `20260924000001_promocion_en_la_web.sql` usa `cem_campanas`, una tabla que
+  no crea ningún archivo del repositorio.
 
 ---
 
