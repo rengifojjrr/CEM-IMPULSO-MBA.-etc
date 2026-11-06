@@ -100,14 +100,17 @@ función**, para que la clase, el examen y el progreso no puedan opinar distinto
 
 | Función | Qué decide |
 |---|---|
-| `cem_acceso_abierto(inscripcion)` | La única definición de «tiene acceso»: es del equipo, o el curso es gratis, o la inscripción está activa o finalizada, o hay un pago confirmado. Todo lo demás la consulta; nadie la reimplementa. |
-| `cem_mi_acceso()` | Para cada inscripción de quien pregunta: si está abierta, su estado, y cuánto es la primera cuota. Es lo que deja a la pantalla explicar por qué está bloqueada en vez de dejar chocar contra un error en cada clic. Las canceladas no salen. |
+| `cem_acceso_abierto(inscripcion)` | La única definición de «tiene acceso». Abre al equipo siempre; a la inscripción activa o finalizada; y a la pendiente sólo si cuesta 0 o ya tiene un pago confirmado. Suspendida, congelada y cancelada no abren nunca, ni gratis ni pagadas: es una lista blanca, y un estado nuevo nace cerrado. Todo lo demás la consulta; nadie la reimplementa. La ejecutan `authenticated` y el servidor, no anon. Se prueba con `pruebas/sql/acceso-abierto.sql`, que se deshace sola. |
+| `cem_mi_acceso()` | Para cada inscripción de quien pregunta: si está abierta, su estado, y cuánto es la primera cuota. Es lo que deja a la pantalla explicar por qué está bloqueada en vez de dejar chocar contra un error en cada clic. Las canceladas no salen. Congeladas y suspendidas sí, cerradas y con su estado, para que la pantalla diga «en pausa» o «suspendida» en vez de pedir el primer pago. |
 | `cem_material_lecciones(ids[])` | El enlace y el cuerpo de las lecciones pedidas, sólo para el equipo, el docente del curso, o quien pagó. Existe porque `cem_lessons.url` y `.contenido` ya no se leen por consulta directa — ver [politicas-de-acceso.md](politicas-de-acceso.md). Al **estudiante**, si la lección tiene vídeo asignado, se le entrega el identificador y no la URL entera; a **quien edita** se le entrega siempre la URL, que para eso la escribió. Esconderla también al que edita fue un fallo real: el editor enseñaba el campo vacío y al guardar escribía el vacío encima. |
 
 Dos disparadores lo sostienen sin que nadie tenga que acordarse:
 `cem_tg_activar_al_pagar` pone la inscripción en activa cuando un pago pasa a
 confirmado, y `cem_tg_activar_si_es_gratis` abre en el acto lo que no cuesta
-nada.
+nada. Este último sólo mira al insertar: una pendiente a la que se le baja el
+precio a 0 después abre por la regla, no por el disparador. Ninguno de los dos
+toca una suspendida ni una congelada, así que pagar no las reabre: la
+suspensión la levanta el equipo, y la pausa, la reactivación.
 
 ### Becas y donaciones
 
@@ -125,7 +128,7 @@ reparto. Guía completa en [becas.md](becas.md).
 | `cem_beca_donacion_registrar(...)` | Una donación por Zelle, transferencia, cheque o efectivo, con su comprobante. Entra confirmada. | Cobranza para arriba |
 | `cem_beca_donacion_anular(id, motivo)` | Se niega si la donación ya pagó becas. | Admin |
 | `cem_beca_otorgar(solicitud, …)` · `cem_beca_regalar(curso, nombre, correo, …)` | Dar la beca: valor = precio de contado en USD al cambio del día. Si es del fondo, lo aparta y reparte la financiación por antigüedad de las donaciones. Con cuenta, inscribe al momento; sin cuenta, devuelve un enlace. | Admin |
-| `cem_beca_revocar(beca, motivo)` | Cierra la inscripción **devolviéndole su precio** (a 0 € seguiría abierta: `cem_acceso_abierto` abre lo gratis aunque esté cancelado) y devuelve lo apartado al fondo. | Admin |
+| `cem_beca_revocar(beca, motivo)` | Cancela la inscripción **devolviéndole su precio**, para que deje de contar como beca, y devuelve lo apartado al fondo. Cerrar el aula ya lo hace la cancelación: `cem_acceso_abierto` no abre nada cancelado. | Admin |
 | `cem_becas_resumen()` · `cem_becas_listar` · `cem_becas_donaciones_listar` · `cem_becas_movimientos()` · `cem_becas_mes(mes)` | Lo que leen las pantallas y el cierre de mes. | Equipo, cobranza y auditor |
 
 El libro `cem_becas_fondo` sólo se añade: un disparador impide corregir o
