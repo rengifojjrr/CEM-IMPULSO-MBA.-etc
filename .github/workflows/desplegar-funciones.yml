@@ -131,7 +131,13 @@ jobs:
             # `verify_jwt` no se pasa por la línea de órdenes: sale de
             # supabase/config.toml, que es donde está escrito y explicado por
             # qué. Ponerlo en dos sitios es como acaban discrepando.
-            supabase functions deploy "$f" --project-ref "$PROYECTO"
+            #
+            # `--yes`, porque desde noviembre de 2026 la herramienta pide
+            # confirmar cada despliegue, y aquí no hay nadie que conteste: sin
+            # él, se paraba con «Nothing was changed» y salía en rojo. Pasó el 6
+            # de noviembre: el cobro en varias cuentas de Stripe estaba en
+            # `main` y las funciones seguían siendo las de antes.
+            supabase functions deploy "$f" --project-ref "$PROYECTO" --yes
             echo "::endgroup::"
           done
 
