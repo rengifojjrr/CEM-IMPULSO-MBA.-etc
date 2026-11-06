@@ -168,17 +168,78 @@ function callejon(icono, titulo, texto, boton) {
   dentro.classList.remove('hidden');
 }
 
+/* El candado del aula, con la razón de verdad.
+   ═══════════════════════════════════════════════════════════════════════════
+   Pendiente es lo de siempre: falta el primer pago. Las otras tres no se
+   arreglan pagando —una congelada se reactiva, una suspendida la levanta el
+   equipo, una cancelada se vuelve a inscribir—, así que a ésas no se les
+   ofrece pagar: se les dice qué hacer y a dónde ir. */
+function candado(estado, puerta) {
+  const nombre = esc(curso?.nombre || 'el programa');
+  const temario = `<a class="btn outline" href="curso.html?id=${enr.course_id}">Ver el temario</a>`;
+  const caja = (icono, titulo, texto, botones, nota = '') => `
+    <div class="card" style="max-width:620px;margin:0 auto;text-align:center;padding:var(--e4)">
+      <span class="material-symbols-outlined" style="font-size:46px;color:var(--warn)">${icono}</span>
+      <h2 style="margin:var(--e2) 0 var(--e1)">${titulo}</h2>
+      <p class="muted">${texto}</p>
+      <div class="row sep-mucho" style="justify-content:center">${botones}</div>${nota}
+    </div>`;
+  if (estado === 'congelada') {
+    return caja('pause_circle', 'Tu inscripción está en pausa',
+      `El aula de <b>${nombre}</b> se abre otra vez en cuanto se apruebe la reactivación.`,
+      `<a class="btn" href="perfil.html#inscripciones">
+         <span class="material-symbols-outlined" aria-hidden="true">play_circle</span> Pedir la reactivación</a>
+       ${temario}`);
+  }
+  if (estado === 'suspendida') {
+    return caja('block', 'Tu inscripción está suspendida',
+      `Escríbenos y lo resolvemos. Mientras tanto, el aula de <b>${nombre}</b> queda cerrada.`,
+      `<a class="btn" href="mensajes.html">
+         <span class="material-symbols-outlined" aria-hidden="true">mail</span> Escribir al equipo</a>
+       ${temario}`);
+  }
+  if (estado === 'cancelada') {
+    return caja('cancel', 'Tu inscripción en este programa está cancelada',
+      `Para volver a estudiar <b>${nombre}</b>, inscríbete de nuevo desde su ficha.`,
+      `<a class="btn" href="curso.html?id=${enr.course_id}">Ver el programa</a>`);
+  }
+  return caja('lock', 'Tu inscripción está esperando el primer pago',
+    `Reservamos tu cupo en <b>${nombre}</b>.
+        El contenido se abre en cuanto se confirme el pago${
+          puerta?.primeraCuota
+            ? ` de <b>${money(puerta.primeraCuota, puerta.moneda)}</b>` : ''}.`,
+    `<a class="btn" href="pagos.html?enr=${enr.id}">
+          <span class="material-symbols-outlined" aria-hidden="true">payments</span> Ir a pagar</a>
+        ${temario}`,
+    `<p class="tiny muted sep">Si ya pagaste y subiste el comprobante, lo estamos verificando.
+        En cuanto lo aprobemos te llega el aviso y el curso se abre solo.</p>`);
+}
+
 async function load(){
   let cursoId = qs('curso');
+  let acceso = null;
   const claseId = qs('clase');
   if (claseId && !cursoId){
     const { data: cl } = await sb.from('cem_classes').select('cohort_id,cem_cohorts(course_id)').eq('id',claseId).maybeSingle();
     cursoId = cl?.cem_cohorts?.course_id;
   }
   if (soyEstudiante) {
-    const { data: ens } = await sb.from('cem_enrollments')
-      .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id).limit(500);
-    enr = cursoId ? (ens||[]).find(e=>e.course_id===cursoId) : (ens||[])[0];
+    /* Qué puerta tiene cada inscripción se pregunta ANTES de elegir con cuál
+       se entra. Quien se retiró y volvió a inscribirse tiene dos en el mismo
+       curso, y la vieja —cancelada— no abre: si se elegía ésa, el aula salía
+       sin candado y el progreso no se guardaba. Se elige la que abre; si
+       ninguna abre, la que no esté cancelada; y sólo si no queda otra, la
+       cancelada, para decirle que lo está. */
+    const [{ data: ens }, { data: puertas }] = await Promise.all([
+      sb.from('cem_enrollments')
+        .select('*,cem_courses(id,nombre),cem_cohorts(id,nombre)').eq('profile_id',me.id).limit(500),
+      sb.rpc('cem_mi_acceso'),
+    ]);
+    acceso = puertas || {};
+    const delCurso = (ens||[]).filter(e => !cursoId || e.course_id === cursoId);
+    enr = delCurso.find(e => acceso[e.id]?.abierto)
+       || delCurso.find(e => e.estado !== 'cancelada')
+       || delCurso[0];
     if (!enr) {
       callejon('school', 'Todavía no estás inscrito en ningún programa',
         'Las clases se abren al inscribirse. En el catálogo están los diplomados y '
@@ -225,26 +286,18 @@ async function load(){
     sb.from('cem_assessments').select('*').eq('course_id',enr.course_id).eq('estado','publicado').order('nombre'),
     enr.id? sb.from('cem_submissions').select('*').eq('enrollment_id',enr.id).limit(500) : Promise.resolve({data:[]}),
   ]);
-  /* La puerta. El servidor ya rechaza las evaluaciones y el progreso de quien
-     no ha pagado; aquí se le dice por qué, en vez de dejarle chocar con un
-     error en cada clic. */
-  const { data: acceso } = soyEstudiante ? await sb.rpc('cem_mi_acceso') : { data: null };
-  if (acceso && acceso[enr.id] && acceso[enr.id].abierto === false) {
-    $('#page').innerHTML = `<div class="card" style="max-width:620px;margin:0 auto;text-align:center;padding:var(--e4)">
-      <span class="material-symbols-outlined" style="font-size:46px;color:var(--warn)">lock</span>
-      <h2 style="margin:var(--e2) 0 var(--e1)">Tu inscripción está esperando el primer pago</h2>
-      <p class="muted">Reservamos tu cupo en <b>${esc(curso?.nombre || 'el programa')}</b>.
-        El contenido se abre en cuanto se confirme el pago${
-          acceso[enr.id].primeraCuota
-            ? ` de <b>${money(acceso[enr.id].primeraCuota, acceso[enr.id].moneda)}</b>` : ''}.</p>
-      <div class="row sep-mucho" style="justify-content:center">
-        <a class="btn" href="pagos.html?enr=${enr.id}">
-          <span class="material-symbols-outlined" aria-hidden="true">payments</span> Ir a pagar</a>
-        <a class="btn outline" href="curso.html?id=${enr.course_id}">Ver el temario</a>
-      </div>
-      <p class="tiny muted sep">Si ya pagaste y subiste el comprobante, lo estamos verificando.
-        En cuanto lo aprobemos te llega el aviso y el curso se abre solo.</p>
-    </div>`;
+  /* La puerta. El servidor ya rechaza el material, las evaluaciones y el
+     progreso de quien no tiene la inscripción abierta; aquí se le dice por
+     qué, en vez de dejarle chocar con un error en cada clic.
+     Cerrada no siempre quiere decir «falta el primer pago»: desde la
+     migración 20261107000006 una congelada o una suspendida cierran aunque
+     estén pagadas, y una cancelada no abre nunca (cem_mi_acceso ni la
+     devuelve, por eso se mira su estado aquí). */
+  const puerta = soyEstudiante ? acceso?.[enr.id] : null;
+  const cerradaPor = soyEstudiante && enr.estado === 'cancelada' ? 'cancelada'
+    : puerta?.abierto === false ? puerta.estado : null;
+  if (cerradaPor) {
+    $('#page').innerHTML = candado(cerradaPor, puerta);
     return;
   }
 

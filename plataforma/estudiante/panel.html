@@ -197,6 +197,20 @@ async function init(){
     for (const c of String(txt)) h = (h * 31 + c.charCodeAt(0)) % 1000;
     return 20 + (h % 65);
   };
+
+  /* Por qué está cerrada una tarjeta, y a dónde ir. Desde la migración
+     20261107000006 una congelada o una suspendida cierran aunque estén
+     pagadas: decirles «tu primer pago» sería falso, y «Ya no me interesa»
+     se negaría, porque tienen pagos. Las demás cerradas son pendientes:
+     lo de siempre. */
+  const PAUSAS = {
+    congelada: { href: 'perfil.html#inscripciones', icono: 'play_circle', boton: 'Pedir la reactivación',
+      texto: 'Tu inscripción está en pausa. El aula se abre otra vez en cuanto se apruebe la reactivación.' },
+    suspendida: { href: 'mensajes.html', icono: 'mail', boton: 'Escribir al equipo',
+      texto: 'Tu inscripción está suspendida. Escríbenos y lo resolvemos.' },
+  };
+  const pausa = (e) => puertas[e.id]?.abierto === false ? PAUSAS[puertas[e.id].estado] : null;
+
   $('#cursos').innerHTML = (ens||[]).length ? ens.map(e=>`
     <div class="card con-portada sin-margen">
       ${e.cem_courses?.imagen_url
@@ -229,7 +243,11 @@ async function init(){
             siguiente[e.id].dura ? ` · ${siguiente[e.id].dura} min` : ''}</span>
         </div>` : ''}
       <div class="row sep">
-        ${puertas[e.id]?.abierto === false
+        ${pausa(e)
+          ? `<a class="btn abrir-curso" href="${pausa(e).href}">
+               <span class="material-symbols-outlined" aria-hidden="true">${pausa(e).icono}</span> ${pausa(e).boton}</a>
+             <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`
+          : puertas[e.id]?.abierto === false
           ? `<a class="btn abrir-curso" href="pagos.html?enr=${e.id}">
                <span class="material-symbols-outlined" aria-hidden="true">lock_open</span> Pagar para empezar</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`
@@ -240,7 +258,8 @@ async function init(){
                  siguiente[e.id]?.empezar ? 'Empezar' : 'Continuar'}</a>
              <a class="btn outline sm" href="curso.html?id=${e.cem_courses?.id}">Ver programa</a>`}
       </div>
-      ${puertas[e.id]?.abierto === false ? `<p class="tiny muted sep-poco">
+      ${pausa(e) ? `<p class="tiny muted sep-poco">${pausa(e).texto}</p>`
+        : puertas[e.id]?.abierto === false ? `<p class="tiny muted sep-poco">
         El acceso se abre en cuanto se confirme tu primer pago${
           puertas[e.id]?.primeraCuota ? ` de ${money(puertas[e.id].primeraCuota, puertas[e.id].moneda)}` : ''}.
         <button class="enlace" data-baja="${e.id}"
