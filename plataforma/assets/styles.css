@@ -11,7 +11,8 @@
    Aquí sólo hay:
      · seis tamaños de letra          12 · 14 · 16 · 20 · 26 · 34
      · una escala de espaciado de 8    4 · 8 · 16 · 24 · 40 · 64
-     · un radio                       10px, y 999px sólo para lo redondo
+     · un radio                       10px, con tope de 6px en lo pequeño,
+                                      y 999px sólo para lo redondo
      · tres superficies               fondo · papel · hueco
      · una sombra                     y sólo para lo que flota de verdad
      · dos duraciones                 .15s lo pequeño · .25s lo que entra
@@ -78,6 +79,11 @@
 
   /* ── forma ────────────────────────────────────────────────────────────── */
   --r:10px;          /* todo */
+  /* Lo pequeño —un valor para copiar, una miniatura— sigue la forma elegida,
+     pero con tope, por lo mismo que las barras de los gráficos (--gr-radio):
+     con 18px un código de una línea se vuelve pastilla, y aquí la pastilla
+     quiere decir «chip». No es un segundo radio: es --r con techo. */
+  --r-sm:min(var(--r), 6px);
   --r-full:999px;    /* sólo lo redondo de verdad: avatares, chips */
 
   /* ── elevación: una sombra, y sólo para lo que flota ──────────────────── */
@@ -1142,7 +1148,7 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 /* La primera tarjeta lleva el texto y va en color: es el enunciado, no un
    país, y si fuera igual que las demás se leería como si el CEM estuviera en
    un sitio llamado «Ensambla programas». */
-.pais-intro{width:min(300px,72vw);border-radius:var(--r-g);padding:var(--e3);
+.pais-intro{width:min(300px,72vw);border-radius:var(--r-caja, var(--r));padding:var(--e3);
   /* `primary` y no `secondary` porque de este color SÍ existe la pareja para
      escribir encima. `--on-secondary` no está definido en ninguna paleta: al
      usarlo, el texto se quedaba en la tinta heredada —casi negra— sobre un
@@ -1155,7 +1161,7 @@ th.col-marca,td.col-marca{width:36px;text-align:center;padding-left:var(--e1);pa
 .pais-intro h3{font-size:var(--t-lg);line-height:1.2;}
 .pais-intro p{font-size:var(--t-sm);opacity:.92;line-height:1.6;}
 
-.pais-tarjeta{width:200px;border-radius:var(--r-g);padding:var(--e2);
+.pais-tarjeta{width:200px;border-radius:var(--r-caja, var(--r));padding:var(--e2);
   background:var(--papel);border:1px solid var(--filete);
   display:flex;flex-direction:column;align-items:center;gap:var(--e1);}
 .pais-tarjeta .bandera{align-self:flex-start;font-size:26px;line-height:1;

@@ -732,6 +732,70 @@ for (const f of generadas) {
 if (parlanchinas.length) parlanchinas.forEach((s) => mal(s.split(':')[0], s));
 else bien(`Las ${generadas.length} páginas servidas no llevan comentarios de código`);
 
+/* ══════════ 20. Ninguna variable de estilo se usa sin estar definida ══════════
+   Nueve declaraciones de siete pantallas —los códigos y enlaces para copiar de
+   Stripe, del correo, de YouTube, de recursos y de formularios, los cupones y
+   las miniaturas de los vídeos— redondeaban sus esquinas con --r-sm, un nombre
+   que no estaba definido en ninguna parte. No dio ningún error: una variable
+   que no existe no invalida la declaración al leerla sino al calcularla, y
+   entonces la propiedad vale como si se hubiera escrito «unset». El radio
+   vuelve a 0 aunque otra regla le diera uno; un tamaño de letra se queda con
+   el del padre. Las esquinas salían rectas y nada lo miraba. Al buscarlo
+   aparecieron dos más: --r-g en las tarjetas de países y --t-s en el
+   asistente.
+
+   Sólo cuentan los usos SIN respaldo. Con respaldo, que falte la variable
+   puede ser a propósito: la caja toma el radio de su estilo si el estilo lo
+   trae, y si no, el de siempre.
+
+   Se recorre el repositorio entero, no sólo la plataforma, porque algunas
+   variables sólo se definen en un atributo style que escribe generar-seo.mjs
+   (el color de cada módulo): sin mirar ahí saldrían como no definidas. Los
+   comentarios de CSS y de HTML se blanquean antes de leer, conservando los
+   saltos de línea, para que una mención de pasada no cuente y la línea que se
+   informa sea la de verdad.
+
+   El límite, asumido: la comprobación es global, no por ámbito. Una variable
+   definida en una sola pantalla cuenta como definida para todas, y una que
+   sólo trae cierto estilo, también. Atrapa la variable inventada o mal
+   escrita, que es el error que se coló; no demuestra que cada uso resuelva
+   en su sitio. */
+titulo('Ninguna variable de estilo se usa sin estar definida');
+
+/* Se blanquea en vez de borrar: con el mismo número de caracteres en su
+   sitio, la línea de cada uso sigue siendo la del archivo. */
+const blanquear = (trozo) => trozo.replace(/[^\n]/g, ' ');
+const textosDeEstilo = new Map();
+const definidas = new Set();
+const usosSinRespaldo = new Map();   // variable -> [[archivo, posición], …]
+for (const f of await archivos('**/*.css', '**/*.html', '**/*.js', '**/*.mjs')) {
+  let texto = await readFile(join(RAIZ, f), 'utf8');
+  if (/\.(css|html)$/.test(f)) {
+    texto = texto.replace(/\/\*[\s\S]*?\*\//g, blanquear).replace(/<!--[\s\S]*?-->/g, blanquear);
+  }
+  textosDeEstilo.set(f, texto);
+  for (const m of texto.matchAll(/(--[\w-]+)\s*:/g)) definidas.add(m[1]);
+  /* Las que se ponen desde JavaScript: con setProperty o en un objeto de
+     estilo, el nombre va entre comillas y le sigue una coma o dos puntos. */
+  for (const m of texto.matchAll(/['"`](--[\w-]+)['"`]\s*[,:]/g)) definidas.add(m[1]);
+  for (const m of texto.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
+    if (!usosSinRespaldo.has(m[1])) usosSinRespaldo.set(m[1], []);
+    usosSinRespaldo.get(m[1]).push([f, m.index]);
+  }
+}
+const huerfanas = [...usosSinRespaldo].filter(([nombre]) => !definidas.has(nombre));
+if (huerfanas.length) {
+  for (const [nombre, usos] of huerfanas) {
+    const donde = usos.map(([f, i]) =>
+      `${f}:${textosDeEstilo.get(f).slice(0, i).split('\n').length}`);
+    mal(usos[0][0], `${nombre} no está definida en ninguna parte y se usa sin respaldo en `
+      + `${donde.join(', ')}. El navegador no avisa: esa propiedad acaba en su valor `
+      + 'inicial o en el heredado, aunque otra regla le diera uno');
+  }
+} else {
+  bien(`Las ${usosSinRespaldo.size} variables de estilo que se usan sin respaldo están todas definidas`);
+}
+
 /* ══════════ resumen ══════════ */
 console.log('\n' + '═'.repeat(58));
 if (problemas.length) {
