@@ -273,6 +273,7 @@ const cabecera = (activa) => `
       <a href="${SITIO}/programas/"${activa === 'programas' ? ' class="on"' : ''}>Programas</a>
       <a href="${SITIO}/plataforma/nosotros.html">Quiénes somos</a>
       <a href="${SITIO}/plataforma/verificar.html">Verificar certificado</a>
+      <a href="${SITIO}/plataforma/becas.html">Becas</a>
       <a href="${SITIO}/preguntas-frecuentes.html"${activa === 'preguntas' ? ' class="on"' : ''}>Preguntas</a>
     </nav>
     <div class="pub-cta">
@@ -341,6 +342,7 @@ const pie = () => `${botonContacto()}
       <a href="${SITIO}/programas/">Todos los programas</a>
       <a href="${SITIO}/plataforma/nosotros.html">Quiénes somos</a>
       <a href="${SITIO}/plataforma/verificar.html">Verificar un certificado</a>
+      <a href="${SITIO}/plataforma/becas.html">Becas: ayuda a alguien a estudiar</a>
       <a href="${SITIO}/preguntas-frecuentes.html">Preguntas frecuentes</a>
       <a href="${SITIO}/plataforma/index.html?registro=1">Crear mi cuenta</a>
     </nav>
@@ -2465,6 +2467,34 @@ ${paises.length ? `<section class="ini-franja ini-mapas">
   </div>
 </section>
 
+<section class="ini-franja" id="becas">
+  <div class="ini-dentro ini-dos">
+    <div>
+      <p class="ini-rotulo">Becas</p>
+      <h2>Ayuda a alguien a estudiar</h2>
+      <p class="ini-entrada">Personas y asociaciones, muchas en Estados Unidos, aportan a un fondo
+        de becas que paga el programa entero a quien quiere estudiar y no puede pagarlo. Cada dólar
+        queda anotado, y a quien dona le contamos a quién ayudó.</p>
+      <div class="ini-manos">
+        <a class="ini-boton" href="${SITIO}/plataforma/becas.html">
+          <span class="material-symbols-outlined" aria-hidden="true">volunteer_activism</span>
+          Quiero donar</a>
+        <a class="ini-boton ini-vidrio" href="${SITIO}/plataforma/solicitar-beca.html">
+          <span class="material-symbols-outlined" aria-hidden="true">school</span>
+          Quiero una beca</a>
+      </div>
+    </div>
+    <ul class="ini-garantias">
+      <li><span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span>
+        <span><b>Becas completas</b>El fondo paga el programa entero: quien la recibe no paga nada.</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
+        <span><b>Se solicitan</b>Quien quiere estudiar cuenta por qué, y el equipo lee cada solicitud.</span></li>
+      <li><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+        <span><b>Cada dólar anotado</b>Cada aporte tiene su recibo y se sabe qué becas pagó.</span></li>
+    </ul>
+  </div>
+</section>
+
 <section class="ini-franja">
   <div class="ini-dentro ini-dos">
     <div>
@@ -2623,6 +2653,11 @@ function sitemap(cursos, temario) {
     ['/contacto.html', '0.7', 'monthly'],
     ['/plataforma/verificar.html', '0.7', 'monthly'],
     ['/plataforma/nosotros.html', '0.6', 'monthly'],
+    /* Las becas: la página de donar, que se comparte con quien quiere ayudar, y
+       la de solicitar, que es a la que llegan las campañas de redes. La de
+       activar una beca (beca.html) no: lleva la llave en la dirección. */
+    ['/plataforma/becas.html', '0.7', 'monthly'],
+    ['/plataforma/solicitar-beca.html', '0.6', 'monthly'],
   ];
   /* `plataforma/inicio.html` NO va en el mapa, y es a propósito: cede su
      canonical a «/». Ofrecerle a Google una dirección y decirle en la propia
@@ -2669,6 +2704,7 @@ Disallow: /plataforma/estudiante/
 Disallow: /plataforma/cambiar-clave.html
 Disallow: /plataforma/nueva-clave.html
 Disallow: /plataforma/invitacion.html
+Disallow: /plataforma/beca.html
 Disallow: /plataforma/confirmar.html
 
 # catalogo.html y curso.html NO se bloquean aquí, y es a propósito.
@@ -2784,7 +2820,7 @@ async function main() {
   await sincronizarEscuelaEn('plataforma/inicio.html');
 
   const nModulos = temario.diplomados.reduce((a, d) => a + d.modulos.length, 0);
-  const enElMapa = 6 + temario.diplomados.length + nModulos + cursos.length;
+  const enElMapa = 8 + temario.diplomados.length + nModulos + cursos.length;
   console.log(`\n${temario.diplomados.length} diplomado(s) y ${nModulos} módulo(s) con página`
     + ` propia, más ${cursos.length} programa(s) del catálogo.`);
   console.log(`${enElMapa} direcciones en el sitemap (antes eran 4).`);

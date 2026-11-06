@@ -51,6 +51,7 @@ const titulo = (t) => console.log(`\n━━ ${t} ━━`);
 const PAGINAS = [
   'index.html', 'preguntas-frecuentes.html',
   'plataforma/inicio.html', 'plataforma/nosotros.html', 'plataforma/verificar.html',
+  'plataforma/becas.html', 'plataforma/solicitar-beca.html',
   ...(existsSync(join(RAIZ, 'programas'))
     ? readdirSync(join(RAIZ, 'programas')).filter((f) => f.endsWith('.html')).map((f) => `programas/${f}`)
     : []),

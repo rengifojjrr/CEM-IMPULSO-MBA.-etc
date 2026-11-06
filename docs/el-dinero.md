@@ -85,6 +85,24 @@ pagar.
 
 ---
 
+## 5. El fondo de becas va aparte
+
+Las donaciones para becas son **dólares** y no son cobros: no crean
+`cem_payments`, no se convierten a euros y no entran en el cierre, en las
+carteras ni en el reparto. Tienen su propio libro (`cem_becas_fondo`) y su
+propio bloque en el cierre de mes.
+
+- **Lo que entra es el monto bruto.** Si alguien dona $1.000 con tarjeta, el
+  fondo suma $1.000; la comisión de Stripe la asume el CEM, como en cualquier
+  cobro.
+- **Una beca vale el precio de contado del programa** (precio × 0,9) en su
+  moneda, pasado a dólares con el cruce del día: tasa BCV del euro ÷ tasa BCV
+  del dólar. El cambio usado queda guardado en la beca.
+- **La inscripción becada** tiene precio de lista, descuento igual al precio
+  y precio final 0, sin cuotas ni pagos. Ver [becas.md](becas.md).
+
+---
+
 ## Dónde está cada cosa
 
 | Qué | Dónde |

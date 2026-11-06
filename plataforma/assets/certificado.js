@@ -27,7 +27,7 @@
    el código y el QR van SIEMPRE, con marca y sin ella.
    ========================================================================= */
 
-import { esc, fdate } from './app.js?v=2026-10-28-1';
+import { esc, fdate } from './app.js?v=2026-11-06';
 
 /**
  * Dibuja un certificado.

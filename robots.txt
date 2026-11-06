@@ -11,6 +11,7 @@ Disallow: /plataforma/estudiante/
 Disallow: /plataforma/cambiar-clave.html
 Disallow: /plataforma/nueva-clave.html
 Disallow: /plataforma/invitacion.html
+Disallow: /plataforma/beca.html
 Disallow: /plataforma/confirmar.html
 
 # catalogo.html y curso.html NO se bloquean aquí, y es a propósito.

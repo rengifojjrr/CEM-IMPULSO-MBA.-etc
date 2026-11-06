@@ -111,6 +111,32 @@ Deno.serve(async (req) => {
   if (abiertaEn !== cuenta.clave) {
     return json({ error: `Este cobro se abrió en la cuenta «${abiertaEn ?? 'principal'}» y avisa la «${cuenta.clave ?? 'principal'}».` }, 400);
   }
+
+  /* ── Una donación al fondo de becas ─────────────────────────────────────
+     Va antes que todo lo demás: no es la cuota de nadie ni una compra, y no
+     se apunta con el método de la cuenta (las donaciones van APARTE de lo
+     cobrado, en su propio libro). Lo que no cuadra lo anota la base y aquí se
+     contesta 200 igualmente: un error haría que Stripe lo reintentara durante
+     días, y no se arregla solo. */
+  const donacionId = sesion.metadata?.donacion_id;
+  if (donacionId) {
+    if (sesion.payment_status !== 'paid') {
+      return json({ ok: true, donacion: donacionId, pendiente: sesion.payment_status ?? 'sin estado' });
+    }
+    const { data: r, error: eDon } = await admin.rpc('cem_beca_donacion_confirmar_servidor', {
+      p_id: donacionId,
+      p_session_id: String(sessionId || ''),
+      p_payment_intent: sesion.payment_intent ? String(sesion.payment_intent) : null,
+      p_centimos: Math.round(Number(sesion.amount_total || 0)),
+      p_moneda: String(sesion.currency || ''),
+      p_cuenta: cuenta.clave,
+    });
+    // Un fallo de la base (no de los datos) sí se devuelve: ese se arregla, y
+    // Stripe lo reintentará cuando esté arreglado.
+    if (eDon) return json({ error: eDon.message }, 500);
+    return json({ ok: true, donacion: r });
+  }
+
   if (!cuenta.metodo) {
     return json({ error: `La cuenta «${cuenta.clave}» no tiene método de pago. Vuelve a guardarla en Admin → Cobros con tarjeta.` }, 500);
   }

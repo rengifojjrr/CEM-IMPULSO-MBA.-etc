@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Becas</title>
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="../assets/icono-180.png?v=2026-09-03">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../assets/app.js?v=2026-11-06">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-11-06">
+<style>
+  .pendientes{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--warn-suave);
+    color:var(--warn);font-size:11px;line-height:18px;text-align:center}
+  .pendientes:empty{display:none}
+  .estrellas{display:flex;gap:2px}
+  .estrellas button{background:none;border:0;padding:2px;cursor:pointer;color:var(--filete-fuerte);line-height:0}
+  .estrellas button[aria-pressed="true"]{color:var(--gold)}
+  .estrellas .material-symbols-outlined{font-size:22px;font-variation-settings:'FILL' 1}
+  .puntos{color:var(--gold);letter-spacing:1px;white-space:nowrap}
+  .respuesta{margin:0 0 var(--e2)}
+  .respuesta b{display:block;font-size:var(--t-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-3);margin-bottom:4px}
+  .respuesta p{margin:0;white-space:pre-wrap;line-height:1.6}
+  .datos-persona{display:grid;gap:6px 18px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:0 0 var(--e2)}
+  .datos-persona div{font-size:var(--t-sm)}
+  .datos-persona span{color:var(--tinta-3);font-size:var(--t-xs);display:block}
+  /* sin-caja: un enlace en monoespaciada para copiar, no un panel. */
+  .enlace-copiar{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
+    background:var(--hueco);padding:7px 10px;border-radius:8px;border:1px solid var(--filete);
+    word-break:break-all;flex:1;min-width:0}
+  .copiar-fila{display:flex;align-items:center;gap:8px;margin:6px 0}
+  .canal-fila{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:8px;align-items:center;margin:6px 0}
+  @media (max-width:640px){ .canal-fila{grid-template-columns:minmax(0,1fr) auto} .canal-fila b{grid-column:1/-1} }
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Becas</h1>
+      <p>Quién pide una beca, a quién se le da y con qué dinero. Cada beca cubre el programa entero, y el
+         fondo de donaciones va aparte de lo cobrado.</p></div>
+    <div class="actions">
+      <a class="btn outline" href="../becas.html" target="_blank" rel="noopener">
+        <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span> Ver la página</a>
+      <a class="btn outline" href="donaciones.html">
+        <span class="material-symbols-outlined" aria-hidden="true">savings</span> Donaciones y fondo</a>
+      <button class="btn" id="btnRegalar" type="button" hidden>
+        <span class="material-symbols-outlined" aria-hidden="true">redeem</span> Regalar un curso</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs" id="tabs" role="tablist">
+    <button class="active" type="button" data-p="solicitudes">Solicitudes <span class="pendientes" id="nPorRevisar"></span></button>
+    <button type="button" data-p="becas">Becas dadas</button>
+    <button type="button" data-p="convocatorias">Convocatorias</button>
+  </div>
+
+  <section id="p-solicitudes">
+    <div class="card">
+      <div class="filters">
+        <div class="field"><label for="q">Buscar</label><input id="q" placeholder="Nombre, correo, país…"></div>
+        <div class="field"><label for="fEstado">Estado</label>
+          <select id="fEstado">
+            <option value="por_revisar">Por revisar</option>
+            <option value="preseleccionada">Preseleccionadas</option>
+            <option value="en_espera">En espera</option>
+            <option value="aprobada">Con beca</option>
+            <option value="rechazada">No elegidas</option>
+            <option value="">Todas</option>
+          </select></div>
+        <div class="field"><label for="fConv">Convocatoria</label><select id="fConv"><option value="">Todas</option></select></div>
+      </div>
+      <div class="row between sep-poco"><span class="tiny muted" id="cuentaSol"></span>
+        <button class="btn ghost sm" type="button" id="csvSol" data-exportar><span class="material-symbols-outlined" aria-hidden="true">download</span> CSV</button></div>
+      <div class="table-wrap">
+        <table class="tarjetas"><thead><tr>
+          <th>Llegó</th><th>Persona</th><th>Programa</th><th>Por dónde</th><th>Puntos</th><th>Estado</th><th></th>
+        </tr></thead><tbody id="tbSol"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="p-becas" hidden>
+    <div class="card">
+      <div class="row between">
+        <h2 class="sec">Becas dadas</h2>
+        <div class="row">
+          <button class="btn outline sm" type="button" id="btnAnterior" hidden>
+            <span class="material-symbols-outlined" aria-hidden="true">history</span> Registrar una beca anterior</button>
+          <button class="btn ghost sm" type="button" id="csvBecas" data-exportar><span class="material-symbols-outlined" aria-hidden="true">download</span> CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="tarjetas"><thead><tr>
+          <th>Beca</th><th>Para</th><th>Programa</th><th>La paga</th><th class="num">Valor</th><th>Estado</th><th></th>
+        </tr></thead><tbody id="tbBecas"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="p-convocatorias" hidden>
+    <div class="card">
+      <div class="row between">
+        <div><h2 class="sec">Convocatorias</h2>
+          <p class="tiny muted" style="margin:0">Una por campaña: cada una tiene su enlace, y se sabe por qué red llegó cada solicitud.</p></div>
+        <button class="btn sm" type="button" id="btnNuevaConv" hidden>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Nueva convocatoria</button>
+      </div>
+      <div id="listaConv" class="sep"><span class="cargando"></span></div>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, num, chip, fdate, fdatetime, ok, fail, modal, confirmDialog,
+         mensajeError, avisar, kpi, montarAyudas, download, toCSV, emptyRow, conectarFiltros, match,
+         qs } from '../assets/app.js?v=2026-11-06';
+
+const p = await mount({ require:['coordinador','admin','superadmin','auditor'], area:'admin', active:'becas.html' });
+const esAdmin = p && ['admin','superadmin'].includes(p.rol);
+const revisa = p && ['coordinador','admin','superadmin'].includes(p.rol);
+const RAIZ = 'https://escuelacem.com/plataforma';
+
+const usd = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  .replace(/[.,]/g, (c) => (c === ',' ? '.' : ','));
+
+const ESTADO_SOL = {
+  recibida: ['Recibida', 'info'], en_revision: ['En revisión', 'warn'], preseleccionada: ['Preseleccionada', 'teal'],
+  en_espera: ['En espera', 'neutral'], aprobada: ['Con beca', 'ok'], rechazada: ['No elegida', 'err'], retirada: ['Retirada', 'neutral'],
+};
+const TIPO = { fondo: ['Fondo', 'gold'], cem: ['Regalo del CEM', 'teal'], anterior: ['Anterior', 'neutral'] };
+const chipSol = (e) => chip(...(ESTADO_SOL[e] || [e, 'neutral']));
+const chipBeca = (b) => b.estado === 'otorgada' ? chip('Activa', 'ok')
+  : b.estado === 'revocada' ? chip('Revocada', 'err')
+  : b.vencida ? chip('Enlace vencido', 'err') : chip('Por activar', 'warn');
+const puntos = (n) => n ? `<span class="puntos" aria-label="${n} de 5">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</span>` : '<span class="muted">—</span>';
+
+let resumen = {}, solicitudes = [], becas = [], convocatorias = [], cursos = [];
+
+if (esAdmin) { $('#btnRegalar').hidden = false; $('#btnAnterior').hidden = false; }
+if (revisa) $('#btnNuevaConv').hidden = false;
+
+/* ── pestañas ─────────────────────────────────────────────────────────── */
+function abrirPestana(cual) {
+  $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.p === cual));
+  ['solicitudes', 'becas', 'convocatorias'].forEach((x) => { $('#p-' + x).hidden = x !== cual; });
+  const u = new URL(location.href); u.searchParams.set('pestana', cual); history.replaceState(null, '', u);
+}
+$$('#tabs button').forEach((b) => b.onclick = () => abrirPestana(b.dataset.p));
+if (['becas', 'convocatorias'].includes(qs('pestana'))) abrirPestana(qs('pestana'));
+
+/* ── carga ────────────────────────────────────────────────────────────── */
+async function cargar() {
+  const [r, s, b, c, k] = await Promise.all([
+    sb.rpc('cem_becas_resumen'), sb.rpc('cem_becas_solicitudes_listar', {}), sb.rpc('cem_becas_listar', {}),
+    sb.rpc('cem_becas_convocatorias_listar'),
+    sb.from('cem_courses').select('id,nombre,precio,moneda,estado').eq('estado', 'publicado').order('nombre'),
+  ]);
+  const e = r.error || s.error || b.error || c.error;
+  if (e) { avisar('#kpis', mensajeError(e, 'No se pudieron leer las becas.')); return; }
+  resumen = r.data || {}; solicitudes = s.data || []; becas = b.data || []; convocatorias = c.data || []; cursos = k.data || [];
+  pintarKpis(); pintarFiltroConv(); pintarSol(); pintarBecas(); pintarConv();
+  const abrir = qs('solicitud');
+  if (abrir) { const x = solicitudes.find((y) => y.id === abrir); if (x) verSolicitud(x); }
+}
+
+function pintarKpis() {
+  const r = resumen;
+  $('#kpis').innerHTML = [
+    kpi('Fondo disponible', esc(usd(r.disponible)), 'savings', `${usd(r.reservado)} reservado en enlaces sin activar`, '',
+        'Lo que hay en el fondo de donaciones para dar becas. Lo reservado ya está apartado para becas cuyo enlace todavía no se activó.'),
+    kpi('Becas activas', num(r.otorgadas || 0), 'school', `${usd(r.valor_otorgado)} en becas`),
+    kpi('Por activar', num(r.por_activar || 0), 'hourglass_top', r.vencidas ? `${num(r.vencidas)} con el enlace vencido` : 'enlaces enviados'),
+    kpi('Por revisar', num(r.por_revisar || 0), 'inbox', `${num(solicitudes.length)} solicitudes en total`),
+  ].join('');
+  montarAyudas($('#kpis'));
+  $('#nPorRevisar').textContent = r.por_revisar ? String(r.por_revisar) : '';
+}
+
+function pintarFiltroConv() {
+  $('#fConv').innerHTML = '<option value="">Todas</option>' + convocatorias.map((v) =>
+    `<option value="${esc(v.id)}">${esc(v.titulo)}</option>`).join('');
+}
+
+/* ── solicitudes ──────────────────────────────────────────────────────── */
+function filtradas() {
+  const q = $('#q').value.trim(), e = $('#fEstado').value, v = $('#fConv').value;
+  return solicitudes.filter((s) => match(s, q, ['nombre', 'apellido', 'email', 'pais', 'programa', 'ciudad'])
+    && (!e || (e === 'por_revisar' ? ['recibida', 'en_revision'].includes(s.estado) : s.estado === e))
+    && (!v || s.convocatoria_id === v));
+}
+
+function pintarSol() {
+  const lista = filtradas();
+  $('#cuentaSol').textContent = `${num(lista.length)} de ${num(solicitudes.length)}`;
+  $('#tbSol').innerHTML = lista.length ? lista.map((s) => `<tr>
+    <td class="tiny muted" data-col="Llegó">${esc(fdatetime(s.creada_en))}</td>
+    <td data-col="Persona"><b>${esc(s.nombre)} ${esc(s.apellido || '')}</b>
+      <div class="tiny muted">${esc(s.pais || '')}${s.edad ? ` · ${s.edad} años` : ''}</div></td>
+    <td data-col="Programa">${esc(s.programa || '—')}</td>
+    <td class="tiny" data-col="Por dónde">${esc(s.origen || 'directo')}${s.codigo !== 'becas-cem' ? `<div class="muted">${esc(s.convocatoria)}</div>` : ''}</td>
+    <td data-col="Puntos">${puntos(s.puntaje)}</td>
+    <td data-col="Estado">${chipSol(s.estado)}</td>
+    <td data-col=""><button class="btn ghost sm" type="button" data-sol="${esc(s.id)}" aria-label="Ver la solicitud de ${esc(s.nombre)}">
+      <span class="material-symbols-outlined" aria-hidden="true">visibility</span></button></td></tr>`).join('')
+    : emptyRow(7, solicitudes.length ? 'Ninguna solicitud con esos filtros.' : 'Todavía no hay solicitudes. Comparte el enlace de una convocatoria para recibirlas.');
+  $$('#tbSol [data-sol]').forEach((b) => b.onclick = () => verSolicitud(solicitudes.find((s) => s.id === b.dataset.sol)));
+}
+conectarFiltros(['#q', '#fEstado', '#fConv'], pintarSol);
+
+$('#csvSol').onclick = () => {
+  const lista = filtradas();
+  download('solicitudes-de-beca.csv', toCSV(lista.map((s) => ({
+    numero: s.numero, llego: s.creada_en, estado: s.estado, puntaje: s.puntaje ?? '', nombre: s.nombre, apellido: s.apellido || '',
+    correo: s.email, telefono: s.telefono || '', pais: s.pais, ciudad: s.ciudad || '', edad: s.edad ?? '', ocupacion: s.ocupacion || '',
+    programa: s.programa || '', convocatoria: s.convocatoria, canal: s.origen || '', campana: s.campana || '',
+    por_que: s.respuestas?.por_que || '', para_que: s.respuestas?.para_que || '', situacion: s.respuestas?.situacion || '',
+    horas: s.respuestas?.horas || '', extra: s.respuestas?.extra || '', publicar: s.acepta_publicar ? 'sí' : 'no',
+    nota_interna: s.nota_interna || '', beca: s.beca || '',
+  }))));
+};
+
+function verSolicitud(s) {
+  if (!s) return;
+  const r = s.respuestas || {};
+  const dato = (t, v) => v ? `<div><span>${esc(t)}</span>${esc(v)}</div>` : '';
+  const m = modal({ title: `${s.nombre} ${s.apellido || ''} · ${s.numero}`, wide: true, body: `
+    <div class="row" style="gap:8px;margin-bottom:var(--e2)">${chipSol(s.estado)}
+      ${s.beca ? chip(s.beca, 'ok') : ''}${s.acepta_publicar ? chip('Acepta que se publique', 'teal') : ''}
+      ${s.tiene_cuenta ? chip('Ya tiene cuenta', 'info') : ''}</div>
+    <div class="datos-persona">
+      ${dato('Correo', s.email)}${dato('WhatsApp o teléfono', s.telefono)}${dato('País', [s.pais, s.ciudad].filter(Boolean).join(' · '))}
+      ${dato('Edad', s.edad ? `${s.edad} años` : '')}${dato('A qué se dedica', s.ocupacion)}${dato('Situación', r.situacion)}
+      ${dato('Horas a la semana', r.horas)}${dato('Redes', s.redes)}${dato('Cómo se enteró', s.como_nos_conocio)}
+      ${dato('Llegó por', [s.origen || 'directo', s.campana].filter(Boolean).join(' · '))}${dato('Programa', s.programa)}
+      ${dato('Convocatoria', s.convocatoria)}
+    </div>
+    <div class="respuesta"><b>Por qué quiere estudiar</b><p>${esc(r.por_que || '—')}</p></div>
+    <div class="respuesta"><b>Qué hará con lo que aprenda</b><p>${esc(r.para_que || '—')}</p></div>
+    ${r.extra ? `<div class="respuesta"><b>Pregunta de la convocatoria</b><p>${esc(r.extra)}</p></div>` : ''}
+    ${revisa && s.estado !== 'aprobada' ? `
+      <h3 class="sec sep">Revisión</h3>
+      <div class="row" style="gap:var(--e3);align-items:flex-end">
+        <div class="field"><label>Puntuación</label>
+          <div class="estrellas" id="rEstrellas">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-n="${n}"
+            aria-label="Puntuación ${n} de 5" aria-pressed="${(s.puntaje || 0) >= n}"><span class="material-symbols-outlined" aria-hidden="true">star</span></button>`).join('')}</div></div>
+        <div class="field"><label for="rEstado">Estado</label>
+          <select id="rEstado">${['recibida', 'en_revision', 'preseleccionada', 'en_espera', 'rechazada', 'retirada'].map((e) =>
+            `<option value="${e}" ${s.estado === e ? 'selected' : ''}>${esc(ESTADO_SOL[e][0])}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label for="rNota">Nota interna <span class="tiny muted">(no la ve la persona)</span></label>
+        <textarea id="rNota" rows="2">${esc(s.nota_interna || '')}</textarea></div>
+      <label class="check" id="rAvisarFila" hidden><input type="checkbox" id="rAvisar">
+        Mandarle un correo amable diciéndole que esta vez no fue elegida</label>
+      <div id="rMsg"></div>` : (s.nota_interna ? `<div class="respuesta"><b>Nota interna</b><p>${esc(s.nota_interna)}</p></div>` : '')}`,
+    footer: `<button class="btn outline" type="button" data-x>Cerrar</button>
+      ${revisa && s.estado !== 'aprobada' ? '<button class="btn outline" type="button" id="rGuardar">Guardar la revisión</button>' : ''}
+      ${esAdmin && !s.beca_id && s.estado !== 'retirada' ? `<button class="btn" type="button" data-s id="rDar">
+        <span class="material-symbols-outlined" aria-hidden="true">workspace_premium</span> Dar la beca</button>` : ''}` });
+
+  let puntaje = s.puntaje || null;
+  $$('#rEstrellas button', m).forEach((b) => b.onclick = () => {
+    puntaje = Number(b.dataset.n);
+    $$('#rEstrellas button', m).forEach((x) => x.setAttribute('aria-pressed', String(Number(x.dataset.n) <= puntaje)));
+  });
+  const verAvisar = () => { const f = $('#rAvisarFila', m); if (f) f.hidden = !(($('#rEstado', m)?.value === 'rechazada') && !s.avisada_en); };
+  if ($('#rEstado', m)) { $('#rEstado', m).onchange = verAvisar; verAvisar(); }
+  if ($('#rGuardar', m)) $('#rGuardar', m).onclick = async () => {
+    const { error } = await sb.rpc('cem_beca_solicitud_revisar', {
+      p_id: s.id, p_estado: $('#rEstado', m).value, p_puntaje: puntaje, p_nota: $('#rNota', m).value,
+      p_avisar: $('#rAvisar', m)?.checked || false });
+    if (error) return avisar($('#rMsg', m), mensajeError(error, 'No se pudo guardar.'));
+    m.close(); ok('Revisión guardada.'); cargar();
+  };
+  if ($('#rDar', m)) $('#rDar', m).onclick = () => { m.close(); darBeca({ solicitud: s }); };
+}
+
+/* ── dar una beca / regalar un curso ──────────────────────────────────── */
+let tasas = null;
+async function cambioUsd(moneda) {
+  if ((moneda || 'EUR').toUpperCase() === 'USD') return 1;
+  if (!tasas) {
+    const [e, u] = await Promise.all([sb.rpc('cem_tasa_vigente', { p_moneda: 'EUR' }), sb.rpc('cem_tasa_vigente', { p_moneda: 'USD' })]);
+    tasas = { EUR: e.data?.[0]?.valor, USD: u.data?.[0]?.valor };
+  }
+  return tasas.EUR && tasas.USD ? Number(tasas.EUR) / Number(tasas.USD) : null;
+}
+
+function darBeca({ solicitud = null } = {}) {
+  const s = solicitud;
+  const m = modal({ title: s ? `Dar la beca a ${s.nombre}` : 'Regalar un curso', wide: true, body: `
+    ${s ? '' : `<p class="tiny muted" style="margin-top:0">Para dar un curso a una persona concreta, sin convocatoria: el ganador
+      de un sorteo, una alianza. Si ya tiene cuenta con ese correo, queda inscrita al momento; si no, se le manda un enlace
+      para activarla al crear su cuenta.</p>`}
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:2;min-width:220px"><label for="bCurso">Programa</label>
+        <select id="bCurso"><option value="">Elige el programa</option>${cursos.map((c) =>
+          `<option value="${esc(c.id)}" ${s?.course_id === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></div>
+      <div class="field" style="flex:1;min-width:160px"><label for="bCohorte">Grupo <span class="tiny muted">(opcional)</span></label>
+        <select id="bCohorte"><option value="">Sin grupo</option></select></div>
+    </div>
+    ${s ? `<p class="tiny muted" style="margin:0 0 var(--e2)">Para <b>${esc(s.nombre)} ${esc(s.apellido || '')}</b> · ${esc(s.email)}
+        ${s.tiene_cuenta ? '· ya tiene cuenta: quedará inscrita al momento' : '· no tiene cuenta: le llegará un enlace para activarla'}</p>`
+      : `<div class="row" style="gap:var(--e2)">
+          <div class="field" style="flex:1;min-width:200px"><label for="bNombre">Nombre de la persona</label><input id="bNombre" maxlength="120"></div>
+          <div class="field" style="flex:1;min-width:200px"><label for="bEmail">Correo <span class="tiny muted">(opcional)</span></label>
+            <input id="bEmail" type="email" maxlength="120" placeholder="Sin correo: sólo el enlace, para mandarlo tú"></div>
+          <div class="field" style="flex:1;min-width:140px"><label for="bPais">País</label><input id="bPais" maxlength="60"></div>
+        </div>`}
+    <div class="field"><label>Quién la paga</label>
+      <label class="check"><input type="radio" name="bTipo" value="fondo" ${s ? 'checked' : ''}> El fondo de donaciones
+        <span class="tiny muted">· disponible ${esc(usd(resumen.disponible))}</span></label>
+      <label class="check"><input type="radio" name="bTipo" value="cem" ${s ? '' : 'checked'}> El CEM la regala <span class="tiny muted">· no toca el fondo</span></label></div>
+    <div class="nota" id="bValor">Elige el programa para ver cuánto vale la beca.</div>
+    <div class="field"><label for="bMensaje">Mensaje para la persona <span class="tiny muted">(opcional, va en el correo)</span></label>
+      <textarea id="bMensaje" rows="2" maxlength="600"></textarea></div>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="max-width:200px"><label for="bDias">El enlace vale (días)</label>
+        <input id="bDias" type="number" min="1" max="120" value="30"></div>
+      ${s ? '' : `<label class="check" style="align-self:flex-end"><input type="checkbox" id="bPublica">
+        Tiene permiso para publicar su nombre de pila y su país</label>`}
+    </div>
+    <div id="bMsg"></div>`,
+    footer: `<button class="btn outline" type="button" data-x>Cancelar</button>
+      <button class="btn" type="button" data-s>${s ? 'Dar la beca' : 'Regalar el curso'}</button>` });
+
+  const valor = async () => {
+    const c = cursos.find((x) => x.id === $('#bCurso', m).value);
+    if (!c) { $('#bValor', m).textContent = 'Elige el programa para ver cuánto vale la beca.'; return; }
+    const contado = Math.round((Number(c.precio) || 0) * 0.9 * 100) / 100;
+    const cambio = await cambioUsd(c.moneda);
+    const enUsd = cambio ? Math.round(contado * cambio * 100) / 100 : null;
+    const fondo = $('input[name=bTipo]:checked', m)?.value === 'fondo';
+    const falta = fondo && enUsd != null && enUsd > Number(resumen.disponible || 0);
+    $('#bValor', m).className = 'nota' + (falta ? ' err' : '');
+    $('#bValor', m).innerHTML = `La beca vale el precio de contado: <b>${esc(num(contado))} ${esc(c.moneda || 'EUR')}</b>${enUsd != null
+      ? ` (≈ <b>${esc(usd(enUsd))}</b>)` : ''}.${fondo ? (falta ? ' El fondo no alcanza: dala como regalo del CEM o espera a más donaciones.'
+      : ' Se descuenta del fondo.') : ' El fondo no se toca.'}`;
+    const { data } = await sb.from('cem_cohorts').select('id,nombre,codigo').eq('course_id', c.id).order('nombre');
+    $('#bCohorte', m).innerHTML = '<option value="">Sin grupo</option>' + (data || []).map((g) =>
+      `<option value="${esc(g.id)}">${esc(g.nombre || g.codigo)}</option>`).join('');
+  };
+  $('#bCurso', m).onchange = valor;
+  $$('input[name=bTipo]', m).forEach((r) => r.onchange = valor);
+  valor();
+
+  $('[data-s]', m).onclick = async () => {
+    const msg = $('#bMsg', m);
+    const curso = $('#bCurso', m).value;
+    if (!curso) return avisar(msg, 'Elige el programa.');
+    const tipo = $('input[name=bTipo]:checked', m).value;
+    const dias = Number($('#bDias', m).value) || 30;
+    let res;
+    if (s) {
+      res = await sb.rpc('cem_beca_otorgar', { p_solicitud_id: s.id, p_course_id: curso, p_cohort_id: $('#bCohorte', m).value || null,
+        p_tipo: tipo, p_mensaje: $('#bMensaje', m).value.trim() || null, p_dias: dias });
+    } else {
+      const nombre = $('#bNombre', m).value.trim();
+      if (nombre.length < 2) return avisar(msg, 'Escribe el nombre de la persona.');
+      res = await sb.rpc('cem_beca_regalar', { p_course_id: curso, p_nombre: nombre, p_email: $('#bEmail', m).value.trim() || null,
+        p_pais: $('#bPais', m).value.trim() || null, p_tipo: tipo, p_cohort_id: $('#bCohorte', m).value || null,
+        p_mensaje: $('#bMensaje', m).value.trim() || null, p_dias: dias, p_publicable: $('#bPublica', m).checked });
+    }
+    if (res.error) return avisar(msg, mensajeError(res.error, 'No se pudo dar la beca.'));
+    m.close();
+    await cargar();
+    resultadoBeca(res.data);
+  };
+}
+
+function resultadoBeca(r) {
+  if (!r) return;
+  if (r.inscrita) { ok(`${r.numero}: ya está inscrita y se le avisó.`); return; }
+  enlaceModal(r.numero, r.enlace, r.vence_en, r.correo_enviado);
+}
+
+function enlaceModal(numero, enlace, vence, correo) {
+  const m = modal({ title: `${numero} · el enlace para activarla`, body: `
+    <p style="margin-top:0">${correo ? 'Le mandamos este enlace por correo. Si quieres, mándaselo también por WhatsApp o por mensaje:'
+      : 'Mándale este enlace por WhatsApp o por mensaje. Al abrirlo, crea su cuenta (o entra) y la beca queda activada:'}</p>
+    <div class="copiar-fila"><code class="enlace-copiar" id="eEnlace">${esc(enlace)}</code>
+      <button class="btn ghost sm" type="button" id="eCopiar"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button></div>
+    <p class="tiny muted">Vale hasta el ${esc(fdate(vence))}. <b>Sólo se enseña ahora</b>: si se pierde, se crea otro desde «Becas dadas».</p>`,
+    footer: `<a class="btn outline" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('¡Tienes una beca del CEM! Actívala aquí: ' + enlace)}">
+      <span class="material-symbols-outlined" aria-hidden="true">chat</span> Abrir WhatsApp</a>
+      <button class="btn" type="button" data-x>Listo</button>` });
+  $('#eCopiar', m).onclick = () => copiar(enlace, $('#eEnlace', m));
+}
+
+async function copiar(texto, nodo) {
+  try { await navigator.clipboard.writeText(texto); ok('Copiado.'); }
+  catch {
+    const r = document.createRange(); r.selectNodeContents(nodo);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    ok('Seleccionado: cópialo con Ctrl+C.');
+  }
+}
+
+$('#btnRegalar').onclick = () => darBeca({});
+
+/* ── becas dadas ──────────────────────────────────────────────────────── */
+function pintarBecas() {
+  $('#tbBecas').innerHTML = becas.length ? becas.map((b) => `<tr>
+    <td data-col="Beca"><b>${esc(b.numero)}</b><div class="tiny muted">${esc(fdate(b.activada_en || b.creada_en))}</div></td>
+    <td data-col="Para">${esc(b.nombre)}<div class="tiny muted">${esc(b.pais || '')}</div></td>
+    <td data-col="Programa">${esc(b.programa || '—')}</td>
+    <td data-col="La paga">${chip(...(TIPO[b.tipo] || [b.tipo, 'neutral']))}</td>
+    <td class="num" data-col="Valor">${esc(usd(b.valor_usd))}</td>
+    <td data-col="Estado">${chipBeca(b)}</td>
+    <td data-col=""><button class="btn ghost sm" type="button" data-beca="${esc(b.id)}" aria-label="Ver la beca ${esc(b.numero)}">
+      <span class="material-symbols-outlined" aria-hidden="true">visibility</span></button></td></tr>`).join('')
+    : emptyRow(7, 'Todavía no se ha dado ninguna beca.');
+  $$('#tbBecas [data-beca]').forEach((x) => x.onclick = () => verBeca(becas.find((b) => b.id === x.dataset.beca)));
+}
+
+$('#csvBecas').onclick = () => download('becas.csv', toCSV(becas.map((b) => ({
+  beca: b.numero, tipo: b.tipo, estado: b.estado, para: b.nombre, correo: b.email || '', pais: b.pais || '',
+  programa: b.programa || '', valor: b.valor, moneda: b.moneda, valor_usd: b.valor_usd, cambio: b.cambio ?? '',
+  dada: b.creada_en, activada: b.activada_en || '', solicitud: b.solicitud || '', convocatoria: b.convocatoria || '',
+  financiacion: (b.financiacion || []).map((f) => `${f.donacion} ${f.monto}${f.liberada_en ? ' (devuelto)' : ''}`).join('; '),
+  otorgada_por: b.otorgada_por || '', revocada: b.revocada_en || '', motivo: b.motivo || '',
+}))));
+
+function verBeca(b) {
+  if (!b) return;
+  const fin = b.financiacion || [];
+  const m = modal({ title: `${b.numero} · ${b.nombre}`, wide: true, body: `
+    <div class="row" style="gap:8px;margin-bottom:var(--e2)">${chipBeca(b)}${chip(...(TIPO[b.tipo] || [b.tipo, 'neutral']))}</div>
+    <div class="datos-persona">
+      <div><span>Programa</span>${esc(b.programa || '—')}</div>
+      <div><span>Valor</span>${esc(num(b.valor))} ${esc(b.moneda)} · ${esc(usd(b.valor_usd))}</div>
+      <div><span>Para</span>${esc(b.nombre)}${b.email ? ` · ${esc(b.email)}` : ''}</div>
+      <div><span>País</span>${esc(b.pais || '—')}</div>
+      <div><span>Dada</span>${esc(fdatetime(b.creada_en))}${b.otorgada_por ? ` por ${esc(b.otorgada_por)}` : ''}</div>
+      <div><span>${b.estado === 'por_activar' ? 'El enlace vence' : 'Activada'}</span>${esc(fdatetime(b.estado === 'por_activar' ? b.vence_en : b.activada_en))}</div>
+      ${b.solicitud ? `<div><span>Solicitud</span>${esc(b.solicitud)}${b.convocatoria ? ` · ${esc(b.convocatoria)}` : ''}</div>` : ''}
+      ${b.revocada_en ? `<div><span>Revocada</span>${esc(fdatetime(b.revocada_en))} · ${esc(b.motivo || '')}</div>` : ''}
+    </div>
+    ${b.tipo === 'fondo' ? `<h3 class="sec">La pagaron estas donaciones</h3>
+      ${fin.length ? `<ul class="tiny" style="margin:0 0 var(--e2);padding-left:18px">${fin.map((f) =>
+        `<li>${esc(f.donacion)} · ${esc(f.donante)}: <b>${esc(usd(f.monto))}</b>${f.liberada_en ? ' <span class="muted">(devuelto al fondo)</span>' : ''}</li>`).join('')}</ul>`
+        : '<p class="tiny muted">—</p>'}` : ''}
+    ${esAdmin && b.estado !== 'revocada' ? `
+      <h3 class="sec">En la web</h3>
+      <label class="check"><input type="checkbox" id="vPublica" ${b.publicable ? 'checked' : ''}> Mostrar su nombre de pila y su país en la página de becas</label>
+      <div class="field"><label for="vHistoria">Una frase suya <span class="tiny muted">(opcional)</span></label>
+        <input id="vHistoria" maxlength="240" value="${esc(b.historia || '')}" placeholder="«Gracias a la beca pude…»"></div>
+      <div id="vMsg"></div>` : ''}`,
+    footer: `<button class="btn outline" type="button" data-x>Cerrar</button>
+      ${esAdmin && b.estado !== 'revocada' ? '<button class="btn outline" type="button" id="vGuardar">Guardar lo de la web</button>' : ''}
+      ${esAdmin && b.estado === 'por_activar' ? '<button class="btn outline" type="button" id="vEnlace">Enlace nuevo</button>' : ''}
+      ${esAdmin && b.estado !== 'revocada' && b.tipo !== 'anterior' ? '<button class="btn danger" type="button" id="vRevocar">Revocar</button>' : ''}` });
+
+  if ($('#vGuardar', m)) $('#vGuardar', m).onclick = async () => {
+    const { error } = await sb.rpc('cem_beca_publicacion', { p_beca_id: b.id, p_publicable: $('#vPublica', m).checked,
+      p_historia: $('#vHistoria', m).value.trim() || null });
+    if (error) return avisar($('#vMsg', m), mensajeError(error));
+    m.close(); ok('Guardado.'); cargar();
+  };
+  if ($('#vEnlace', m)) $('#vEnlace', m).onclick = async () => {
+    if (!await confirmDialog('Se crea un enlace nuevo (vale 30 días) y el anterior deja de funcionar.' + (b.email ? ' Se le manda por correo.' : ''), 'Enlace nuevo')) return;
+    const { data, error } = await sb.rpc('cem_beca_nuevo_enlace', { p_beca_id: b.id, p_dias: 30, p_enviar: true });
+    if (error) return fail(mensajeError(error));
+    m.close(); await cargar(); enlaceModal(b.numero, data.enlace, data.vence_en, data.correo_enviado);
+  };
+  if ($('#vRevocar', m)) $('#vRevocar', m).onclick = () => { m.close(); revocar(b); };
+}
+
+function revocar(b) {
+  const m = modal({ title: `Revocar ${b.numero}`, body: `
+    <p style="margin-top:0">${b.estado === 'otorgada' ? `${esc(b.nombre)} deja de tener acceso a ${esc(b.programa || 'el programa')}.` : 'El enlace deja de funcionar.'}
+      ${b.tipo === 'fondo' ? ` Lo reservado (${esc(usd(b.valor_usd))}) vuelve al fondo.` : ''}</p>
+    <div class="field"><label for="rvMotivo">Por qué se revoca</label><textarea id="rvMotivo" rows="2"></textarea></div>
+    <div id="rvMsg"></div>`,
+    footer: `<button class="btn outline" type="button" data-x>Cancelar</button><button class="btn danger" type="button" data-s>Revocar la beca</button>` });
+  $('[data-s]', m).onclick = async () => {
+    const { error } = await sb.rpc('cem_beca_revocar', { p_beca_id: b.id, p_motivo: $('#rvMotivo', m).value.trim() });
+    if (error) return avisar($('#rvMsg', m), mensajeError(error));
+    m.close(); ok('Beca revocada.'); cargar();
+  };
+}
+
+$('#btnAnterior').onclick = () => {
+  const m = modal({ title: 'Registrar una beca anterior', body: `
+    <p class="tiny muted" style="margin-top:0">Becas que el CEM dio antes de este sistema. Suman en las cifras de la página de becas,
+      pero no tocan el fondo ni abren ningún programa.</p>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:1;min-width:200px"><label for="aNombre">Nombre de la persona</label><input id="aNombre" maxlength="120"></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="aPais">País</label><input id="aPais" maxlength="60"></div></div>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:2;min-width:200px"><label for="aCurso">Qué estudió</label><input id="aCurso" maxlength="160"></div>
+      <div class="field" style="flex:1;min-width:120px"><label for="aValor">Valor (USD)</label><input id="aValor" type="number" min="0" step="0.01"></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="aFecha">Fecha</label><input id="aFecha" type="date"></div></div>
+    <label class="check"><input type="checkbox" id="aPublica"> Tiene permiso para publicar su nombre de pila y su país</label>
+    <div class="field"><label for="aNota">Nota <span class="tiny muted">(opcional)</span></label><input id="aNota" maxlength="300"></div>
+    <div id="aMsg"></div>`,
+    footer: `<button class="btn outline" type="button" data-x>Cancelar</button><button class="btn" type="button" data-s>Registrar</button>` });
+  $('[data-s]', m).onclick = async () => {
+    const { error } = await sb.rpc('cem_beca_anterior_registrar', { p_nombre: $('#aNombre', m).value.trim(), p_pais: $('#aPais', m).value.trim(),
+      p_course_id: null, p_curso_texto: $('#aCurso', m).value.trim(), p_valor_usd: Number($('#aValor', m).value) || 0,
+      p_fecha: $('#aFecha', m).value || null, p_nota: $('#aNota', m).value.trim() || null, p_publicable: $('#aPublica', m).checked, p_historia: null });
+    if (error) return avisar($('#aMsg', m), mensajeError(error));
+    m.close(); ok('Beca anterior registrada.'); cargar();
+  };
+};
+
+/* ── convocatorias ────────────────────────────────────────────────────── */
+const CANALES = [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['facebook', 'Facebook'], ['whatsapp', 'WhatsApp'],
+  ['youtube', 'YouTube'], ['correo', 'Correo'], ['alianza', 'Una alianza']];
+const enlaceConv = (v, canal) => `${RAIZ}/solicitar-beca.html${v.codigo === 'becas-cem' ? '?' : `?c=${v.codigo}&`}utm_source=${canal}&utm_medium=social&utm_campaign=becas-${v.codigo}`;
+
+function estadoConv(v) {
+  const ahora = Date.now();
+  if (!v.activa) return chip('Apagada', 'neutral');
+  if (v.abre_en && new Date(v.abre_en) > ahora) return chip('Todavía no abre', 'info');
+  if (v.cierra_en && new Date(v.cierra_en) <= ahora) return chip('Cerrada', 'neutral');
+  if (v.cupos && v.becas >= v.cupos) return chip('Sin cupos', 'warn');
+  return chip('Abierta', 'ok');
+}
+
+function pintarConv() {
+  $('#listaConv').innerHTML = convocatorias.length ? convocatorias.map((v) => `
+    <div class="list-item">
+      <span class="material-symbols-outlined" aria-hidden="true">campaign</span>
+      <div class="grow">
+        <div class="t">${esc(v.titulo)} ${estadoConv(v)}</div>
+        <div class="s">${esc(v.codigo)} · ${num(v.solicitudes)} solicitud(es) · ${num(v.becas)}${v.cupos ? ` de ${num(v.cupos)}` : ''} beca(s)
+          ${v.cierra_en ? ` · cierra el ${esc(fdate(v.cierra_en))}` : ''}</div>
+        ${Object.keys(v.por_canal || {}).length ? `<div class="s">${Object.entries(v.por_canal).map(([k, n]) => `${esc(k)}: ${num(n)}`).join(' · ')}</div>` : ''}
+      </div>
+      <div class="row" style="gap:4px;flex:none">
+        <button class="btn ghost sm" type="button" data-enlaces="${esc(v.id)}" aria-label="Enlaces de ${esc(v.titulo)}" title="Enlaces para compartir">
+          <span class="material-symbols-outlined" aria-hidden="true">share</span></button>
+        ${revisa ? `<button class="btn ghost sm" type="button" data-editar="${esc(v.id)}" aria-label="Editar ${esc(v.titulo)}" title="Editar">
+          <span class="material-symbols-outlined" aria-hidden="true">edit</span></button>` : ''}
+      </div>
+    </div>`).join('') : '<p class="tiny muted">Todavía no hay convocatorias.</p>';
+  $$('#listaConv [data-enlaces]').forEach((b) => b.onclick = () => enlaces(convocatorias.find((v) => v.id === b.dataset.enlaces)));
+  $$('#listaConv [data-editar]').forEach((b) => b.onclick = () => editarConv(convocatorias.find((v) => v.id === b.dataset.editar)));
+}
+
+function enlaces(v) {
+  const texto = `¿Quieres estudiar y no puedes pagarlo? El CEM tiene becas completas. Solicita la tuya aquí: `;
+  const m = modal({ title: `Enlaces de «${v.titulo}»`, wide: true, body: `
+    <p class="tiny muted" style="margin-top:0">Uno por red: así se sabe por cuál llegó cada solicitud.</p>
+    ${CANALES.map(([c, n]) => `<div class="canal-fila"><b>${esc(n)}</b><code class="enlace-copiar">${esc(enlaceConv(v, c))}</code>
+      <button class="btn ghost sm" type="button" data-copiar="${esc(c)}"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button></div>`).join('')}
+    <h3 class="sec sep">Un texto para acompañarlo</h3>
+    <p class="tiny" style="margin:0">${esc(texto)}<i>[el enlace]</i></p>`,
+    footer: `<a class="btn outline" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(texto + enlaceConv(v, 'whatsapp'))}">
+      <span class="material-symbols-outlined" aria-hidden="true">chat</span> Compartir por WhatsApp</a>
+      <button class="btn" type="button" data-x>Listo</button>` });
+  $$('[data-copiar]', m).forEach((b) => b.onclick = () => copiar(enlaceConv(v, b.dataset.copiar), b.previousElementSibling));
+}
+
+const sugerirCodigo = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+const aLocal = (d) => d ? new Date(new Date(d).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+
+function editarConv(v = null) {
+  const nueva = !v;
+  const elegidos = new Set(v?.cursos || []);
+  const m = modal({ title: nueva ? 'Nueva convocatoria' : `Editar «${v.titulo}»`, wide: true, body: `
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:2;min-width:220px"><label for="cTitulo">Título</label>
+        <input id="cTitulo" maxlength="120" value="${esc(v?.titulo || '')}" placeholder="Becas de noviembre en Instagram"></div>
+      <div class="field" style="flex:1;min-width:180px"><label for="cCodigo">Código del enlace</label>
+        <input id="cCodigo" maxlength="40" value="${esc(v?.codigo || '')}" spellcheck="false" placeholder="instagram-noviembre"></div>
+    </div>
+    <div class="field"><label for="cDesc">Lo que se lee arriba del formulario</label>
+      <textarea id="cDesc" rows="3">${esc(v?.descripcion || '')}</textarea></div>
+    <div class="field"><label>Programas que se pueden pedir <span class="tiny muted">(ninguno marcado = todos los publicados)</span></label>
+      <div class="row" style="gap:6px 18px">${cursos.length ? cursos.map((c) => `<label class="check"><input type="checkbox" data-curso="${esc(c.id)}"
+        ${elegidos.has(c.id) ? 'checked' : ''}> ${esc(c.nombre)}</label>`).join('') : '<span class="tiny muted">No hay programas publicados todavía.</span>'}</div></div>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="max-width:150px"><label for="cCupos">Becas <span class="tiny muted">(cupos)</span></label>
+        <input id="cCupos" type="number" min="1" value="${v?.cupos ?? ''}" placeholder="Sin tope"></div>
+      <div class="field"><label for="cAbre">Abre</label><input id="cAbre" type="datetime-local" value="${aLocal(v?.abre_en)}"></div>
+      <div class="field"><label for="cCierra">Cierra</label><input id="cCierra" type="datetime-local" value="${aLocal(v?.cierra_en)}"></div>
+    </div>
+    <div class="field"><label for="cExtra">Una pregunta propia de esta convocatoria <span class="tiny muted">(opcional)</span></label>
+      <input id="cExtra" maxlength="200" value="${esc(v?.pregunta_extra || '')}" placeholder="¿Qué te gustaría crear con lo que aprendas?"></div>
+    <div class="field"><label for="cGracias">Lo que se le dice al enviar <span class="tiny muted">(opcional)</span></label>
+      <input id="cGracias" maxlength="300" value="${esc(v?.gracias || '')}"></div>
+    <label class="check"><input type="checkbox" id="cActiva" ${v?.activa === false ? '' : 'checked'}> Recibiendo solicitudes</label>
+    <div id="cMsg"></div>`,
+    footer: `<button class="btn outline" type="button" data-x>Cancelar</button><button class="btn" type="button" data-s>Guardar</button>` });
+  let tocado = !nueva;
+  $('#cCodigo', m).oninput = () => { tocado = true; };
+  $('#cTitulo', m).oninput = () => { if (!tocado) $('#cCodigo', m).value = sugerirCodigo($('#cTitulo', m).value); };
+  $('[data-s]', m).onclick = async () => {
+    const aIso = (x) => x ? new Date(x).toISOString() : null;
+    const { error } = await sb.rpc('cem_becas_convocatoria_guardar', {
+      p_id: v?.id || null, p_codigo: $('#cCodigo', m).value.trim(), p_titulo: $('#cTitulo', m).value.trim(),
+      p_descripcion: $('#cDesc', m).value.trim(), p_cursos: $$('[data-curso]', m).filter((x) => x.checked).map((x) => x.dataset.curso),
+      p_cupos: $('#cCupos', m).value ? Number($('#cCupos', m).value) : null,
+      p_abre_en: aIso($('#cAbre', m).value), p_cierra_en: aIso($('#cCierra', m).value), p_activa: $('#cActiva', m).checked,
+      p_pregunta_extra: $('#cExtra', m).value.trim() || null, p_gracias: $('#cGracias', m).value.trim() || null });
+    if (error) return avisar($('#cMsg', m), mensajeError(error));
+    m.close(); ok('Convocatoria guardada.'); cargar();
+  };
+}
+$('#btnNuevaConv').onclick = () => editarConv();
+
+cargar();
+</script>
+</body>
+</html>

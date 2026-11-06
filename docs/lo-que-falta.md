@@ -61,6 +61,21 @@ terminar.
     automático es tocar cómo se calcula lo que se cobra, y por eso es decisión
     tuya.
 
+- [ ] **11. Becas y donaciones (6 de noviembre).** Está todo montado y
+  publicado (guía: `docs/becas.md`). Lo que sólo puedes hacer tú:
+  - **Una donación de prueba** con una cuenta de Stripe en modo prueba, siguiendo
+    «Probar sin mover dinero» de la guía, y anularla después.
+  - **Publicar al menos un programa.** Una beca se da sobre un programa
+    publicado, y la solicitud sólo deja elegir programas publicados: mientras
+    no haya ninguno, la gente escribe a mano qué quiere estudiar.
+  - **Lanzar la primera convocatoria** (Admin → Becas → Convocatorias) y
+    compartir sus enlaces por red.
+  - **Registrar las becas que ya diste** antes de este sistema (Becas dadas →
+    «Registrar una beca anterior»), para que las cifras de la página no
+    empiecen en cero.
+  - **Si una asociación dona por Zelle o transferencia,** se registra en
+    Donaciones y fondo con su comprobante.
+
 ### Además, sin prisa
 
 - **Una compra de prueba cuando publiques el primer curso.** Hasta el 23 de
@@ -440,6 +455,23 @@ marcas, y decidir si se comparten o son privadas—, no un ajuste.
 
 Mientras tanto los apuntes por lección sí funcionan, y son privados.
 
+### 2.8 · Becas: cuatro avisos que se quedaron fuera
+
+Se dejaron fuera a propósito, porque tocan funciones que en la base ya no son
+como las del repositorio y no se podían cambiar sin ver la versión que corre:
+
+- **La tarjeta «Solicitudes de beca por revisar»** en el inicio del admin
+  (`cem_pendientes_de_hoy`). Hoy el aviso llega a la campana, como mucho uno
+  cada seis horas, y la pestaña Solicitudes lleva el número de las que esperan.
+- **Las categorías de los avisos nuevos** (`beca_solicitud`,
+  `donacion_recibida`, `beca_otorgada` en `cem_notificacion_categoria`). Hoy
+  caen en «otros».
+- **Un párrafo de becas en el correo del cierre de mes**
+  (`cem_informe_mensual_enviar`). El bloque sí está en la pantalla del cierre.
+- **Que cobranza vea los comprobantes que suben otros.** La política del
+  almacén `cem-comprobantes` deja verlos a quien los subió y al equipo de
+  coordinación para arriba; cobranza ve los suyos.
+
 ---
 
 ## 3 · Deuda que conviene mirar, aunque hoy no duela
@@ -567,6 +599,32 @@ Los dos pasos que pedía este apartado están dados, en el orden que pedía:
    `cem_can_read_all()`: la lee el equipo (Configuración, Asistente, Diplomas
    en físico) y nadie más. Sin sesión ya no se leía; ahora tampoco un
    estudiante.
+
+### 3.7 · ~~Inscribirse gratis por la puerta de atrás~~ — cerrado el 6 de noviembre
+
+La política `cem_enroll_insert` dejaba a cualquiera con sesión insertar su
+propia inscripción directamente en la tabla, y `precio_final` vale 0 por
+defecto: el disparador `cem_tg_activar_si_es_gratis` la activaba sola. Con una
+llamada a la API, cualquier programa se abría sin pagar. Ahora sólo el equipo
+inserta directamente. Los estudiantes se inscriben por las funciones que
+ponen el precio:
+
+- `cem_self_enroll`;
+- `cem_bot_apuntarme` (Cemi), que pasó a `security definer` sin cambiar lo que
+  hace;
+- las invitaciones;
+- las becas.
+
+Comprobado en la base: la inserción directa de un estudiante se niega con
+42501, y Cemi y el equipo siguen inscribiendo.
+
+### 3.8 · Una inscripción gratis cancelada sigue abierta
+
+`cem_acceso_abierto` abre todo lo que cuesta 0, **aunque esté cancelado**. Las
+becas lo esquivan, porque al revocar una se le devuelve el precio a la
+inscripción. Pero una inscripción que alguien dejó a 0 € a mano y luego
+canceló sigue dando acceso. Lo correcto sería que una cancelada no abra nunca.
+No se tocó porque esa función decide el acceso de todo el aula.
 
 ---
 

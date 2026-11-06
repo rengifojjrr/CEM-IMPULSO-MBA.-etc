@@ -4,9 +4,9 @@
    de este archivo lo mismo de siempre, y el asistente puede montarse en las
    páginas generadas sin cargar todo esto. Ver la cabecera de nucleo.js. */
 import { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil,
-         sitioPublico } from './nucleo.js?v=2026-10-28-1';
+         sitioPublico } from './nucleo.js?v=2026-11-06';
 export { SUPABASE_URL, SUPABASE_KEY, sb, esc, $, $$, profile, olvidarPerfil, sitioPublico };
-import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-10-28-1';
+import { medir, arrancarMedicion, enlaceWhatsApp as enlaceWhatsAppPublico } from './medir.js?v=2026-11-06';
 export { medir };
 
 /* La apariencia elegida se aplica al importar este módulo, que es lo primero
@@ -16,7 +16,7 @@ export { PALETAS, PALETA_POR_DEFECTO, ESTILOS, ESTILO_POR_DEFECTO,
          FORMAS, FORMA_POR_DEFECTO, DENSIDADES, DENSIDAD_POR_DEFECTO,
          aplicarApariencia, aparienciaDeFabrica,
          paletaActual, temaActual, estiloActual, formaActual, densidadActual,
-         vidrioActual } from './temas.js?v=2026-10-28-1';
+         vidrioActual } from './temas.js?v=2026-11-06';
 
 /* La marca de versión del logotipo. Tiene que decir lo MISMO que VERSION_ICONO
    en herramientas/iconos.mjs y en herramientas/generar-seo.mjs: es la fecha del
@@ -1152,6 +1152,13 @@ const ADMIN_NAV = [
     ['formas-de-pago.html', 'payments', 'Formas de pago', ['admin','superadmin']],
     ['stripe.html', 'credit_card', 'Cobros con tarjeta', ['admin','superadmin']],
   ]},
+  /* Las becas: quién las pide, a quién se le dan y con qué dinero. Aparte de
+     «Cobrar» porque el fondo va aparte de lo cobrado (no entra en el cierre ni
+     en el reparto): mezclarlos en el menú invitaría a mezclarlos en la cabeza. */
+  { lbl: 'Becas', items: [
+    ['becas.html', 'volunteer_activism', 'Becas', ['coordinador','admin','superadmin','auditor']],
+    ['donaciones.html', 'savings', 'Donaciones y fondo', ['cobranza','coordinador','admin','superadmin','auditor']],
+  ]},
   { lbl: 'Dar clase', items: [
     ['cursos.html', 'school', 'Cursos', ['coordinador','admin','superadmin','auditor']],
     ['contenido.html', 'import_contacts', 'Contenidos', ['coordinador','admin','superadmin','profesor']],
@@ -1307,6 +1314,8 @@ const AUDITOR_NAV = [
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y pagos'],
     ['certificados.html', 'workspace_premium', 'Certificados'],
     ['cursos.html', 'school', 'Cursos'],
+    ['becas.html', 'volunteer_activism', 'Becas'],
+    ['donaciones.html', 'savings', 'Donaciones y fondo'],
   ]},
 ];
 
@@ -1321,6 +1330,8 @@ const COBRANZA_NAV = [
     ['leads.html', 'contact_phone', 'Contactos de la web'],
     ['carteras.html', 'account_balance_wallet', 'Carteras'],
     ['cierre-mes.html', 'event_available', 'Cierre de mes'],
+    // Las donaciones que llegan por Zelle o transferencia las ve llegar cobranza.
+    ['donaciones.html', 'savings', 'Donaciones y fondo'],
     ['inscripciones.html', 'assignment_ind', 'Inscripciones y cuotas'],
     ['estudiantes.html', 'person', 'Estudiantes'],
     // Por lo mismo que en el del auditor: cobranza también tiene menú propio.
@@ -1680,7 +1691,7 @@ function montarElAsistente(area) {
   const ambito = area === 'visitante' ? 'visitante'
                : area === 'estudiante' ? 'estudiante'
                : 'equipo';
-  import('./asistente.js?v=2026-10-28-1')
+  import('./asistente.js?v=2026-11-06')
     .then((m) => m.montarAsistente({ ambito }))
     .catch((e) => console.error('[asistente] no se pudo montar:', e));
 }
@@ -2388,7 +2399,7 @@ function renderShell(p, area, active) {
 
   if (btnAp) btnAp.onclick = async () => {
 
-    const m = await import('./apariencia.js?v=2026-10-28-1');
+    const m = await import('./apariencia.js?v=2026-11-06');
 
     m.abrirApariencia();
 
@@ -2667,7 +2678,7 @@ function montarLaPromocion() {
   const pantalla = (location.pathname.split('/').pop() || 'inicio')
     .replace('.html', '') || 'inicio';
   if (!PANTALLAS_CON_PROMO.has(pantalla)) return Promise.resolve();
-  return import('./promo.js?v=2026-10-28-1').then((m) => m.montarPromocion({ pantalla }));
+  return import('./promo.js?v=2026-11-06').then((m) => m.montarPromocion({ pantalla }));
 }
 
 function renderPublicHeader(p) {
@@ -2710,6 +2721,7 @@ function renderPublicHeader(p) {
       <a href="${r}../programas/">Programas</a>
       <a href="${r}nosotros.html"${activa('nosotros.html')}>Quiénes somos</a>
       <a href="${r}verificar.html"${activa('verificar.html')}>Verificar certificado</a>
+      <a href="${r}becas.html"${activa('becas.html')}>Becas</a>
       <!-- «Preguntas» también aquí: había DOS menús públicos distintos.
            ═══════════════════════════════════════════════════════════════════
            Las páginas generadas (portada, programas, módulos) llevan su propia
@@ -2838,6 +2850,7 @@ function renderPublicFooter() {
       <a href="${r}../programas/">Todos los programas</a>
       <a href="${r}nosotros.html">Quiénes somos</a>
       <a href="${r}verificar.html">Verificar un certificado</a>
+      <a href="${r}becas.html">Becas: ayuda a alguien a estudiar</a>
       <a href="${r}../preguntas-frecuentes.html">Preguntas frecuentes</a>
       <a href="${r}index.html?registro=1">Crear mi cuenta</a>
     </nav>

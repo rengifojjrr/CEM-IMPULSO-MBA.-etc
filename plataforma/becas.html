@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="es" data-publico="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ayuda a alguien a estudiar · Becas CEM</title>
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="assets/icono-180.png?v=2026-09-03">
+<meta name="description" content="Aporta al fondo de becas del CEM y paga los estudios de alguien que no puede pagarlos. Cada dólar queda anotado y te contamos a quién ayudó.">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#f4f7fc">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="assets/app.js?v=2026-11-06">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}body.ini-clara{--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;background:#f4f7fc;color:#0b1630;}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-11-06">
+<link rel="canonical" href="https://escuelacem.com/plataforma/becas.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CEM International">
+<meta property="og:locale" content="es_ES">
+<meta property="og:title" content="Ayuda a alguien a estudiar · Becas CEM">
+<meta property="og:description" content="Aporta al fondo de becas del CEM y paga los estudios de alguien que no puede pagarlos. Cada dólar queda anotado y te contamos a quién ayudó.">
+<meta property="og:url" content="https://escuelacem.com/plataforma/becas.html">
+<meta property="og:image" content="https://escuelacem.com/plataforma/assets/compartir.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="CEM International · Becas: ayuda a alguien a estudiar">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ayuda a alguien a estudiar · Becas CEM">
+<meta name="twitter:description" content="Aporta al fondo de becas del CEM y paga los estudios de alguien que no puede pagarlos. Cada dólar queda anotado y te contamos a quién ayudó.">
+<meta name="twitter:image" content="https://escuelacem.com/plataforma/assets/compartir.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Ayuda a alguien a estudiar · Becas CEM","url":"https://escuelacem.com/plataforma/becas.html","inLanguage":["es","en"],"description":"Aporta al fondo de becas del CEM y paga los estudios de alguien que no puede pagarlos.","isPartOf":{"@type":"WebSite","name":"CEM International","url":"https://escuelacem.com/"},"about":{"@type":"EducationalOrganization","name":"CEM · Centro Educativo Multigeneracional","url":"https://escuelacem.com/"}}</script>
+<style>
+  /* El idioma: dos fichas, la elegida marcada. Va encima del héroe, a la derecha. */
+  .idioma{position:absolute;top:var(--e3);right:var(--e3);z-index:2;display:flex;gap:4px;padding:4px;
+    border-radius:999px;background:var(--n-panel-2);box-shadow:inset 0 0 0 1px var(--filete-fuerte)}
+  .idioma button{min-height:32px;padding:0 12px;border:0;border-radius:999px;background:none;cursor:pointer;
+    font:inherit;font-family:var(--n-mono);font-size:12px;letter-spacing:.12em;color:var(--tinta-2)}
+  .idioma button[aria-pressed="true"]{background:var(--n-boton);color:var(--n-sobre-boton)}
+  .idioma button:focus-visible{outline:2px solid var(--n-cian);outline-offset:2px}
+  .heroe-becas .ini-dentro{position:relative}
+  /* Tres cifras y no cuatro: no hay sello de alianza aquí. */
+  body.ini-portada .cifras-becas{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .primeros{margin:var(--e4) 0 0;color:var(--tinta-2);font-size:15px}
+
+  /* Los paquetes: tarjetas que se eligen, como las cuotas de comprar.html. */
+  .paquetes{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin:0 0 var(--e3)}
+  body.ini-portada .paquete{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;
+    cursor:pointer;font:inherit;color:var(--tinta);padding:22px;border-radius:16px;
+    border:1px solid var(--filete-fuerte);background:var(--n-panel);
+    transition:border-color var(--rapido),box-shadow var(--rapido),transform var(--rapido)}
+  body.ini-portada .paquete:hover{transform:translateY(-1px);border-color:var(--n-cian)}
+  body.ini-portada .paquete[aria-pressed="true"],body.ini-portada .paquete[data-elegido="si"]{border-color:var(--n-cian);
+    box-shadow:inset 0 0 0 1px var(--n-cian),0 12px 40px -18px var(--n-resplandor);background:var(--n-resplandor-suave)}
+  .paquete:focus-visible{outline:2px solid var(--n-cian);outline-offset:3px}
+  .paquete .monto{font-family:var(--n-display);font-weight:600;font-size:34px;line-height:1;letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums}
+  .paquete .nombre{font-family:var(--n-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--n-cian)}
+  .paquete .desc{color:var(--tinta-2);font-size:14px;line-height:1.55}
+  .paquete .alcanza{margin-top:auto;font-size:13px;font-weight:600;color:var(--tinta)}
+  .paquete .sello{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--gold);display:flex;align-items:center;gap:4px}
+  .paquete .sello .material-symbols-outlined{font-size:16px}
+  .otro-monto{display:flex;align-items:center;gap:8px;width:100%}
+  .otro-monto span{font-family:var(--n-display);font-size:26px;font-weight:600}
+  .otro-monto input{flex:1;min-width:0;font-size:22px;font-weight:600}
+
+  .donar-caja{max-width:760px}
+  .donar-caja .fila{display:grid;gap:var(--e2);grid-template-columns:repeat(2,minmax(0,1fr))}
+  .donar-caja .resumen{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2);
+    padding:var(--e2) 0;border-top:1px solid var(--filete);margin-top:var(--e2)}
+  .donar-caja .total{font-family:var(--n-display);font-size:30px;font-weight:600;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums}
+  .seguro{display:flex;align-items:center;gap:8px;margin:var(--e2) 0 0;color:var(--tinta-2);font-size:13px}
+  .seguro .material-symbols-outlined{font-size:18px;color:var(--n-cian)}
+
+  .historias{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .historia{display:flex;flex-direction:column;gap:6px}
+  .historia b{font-family:var(--n-display);font-size:18px}
+  .historia q{color:var(--tinta-2);font-size:15px;line-height:1.6}
+  .donantes{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0}
+  .donantes li{padding:8px 14px;border-radius:999px;background:var(--n-panel);
+    box-shadow:inset 0 0 0 1px var(--filete);font-size:14px}
+
+  /* El aviso de gracias, arriba de todo, cuando se vuelve de Stripe. */
+  .vuelta{max-width:760px;margin:0 auto var(--e3)}
+  .vuelta h2{font-family:var(--n-display);font-weight:600;font-size:24px;margin:0 0 6px}
+
+  @media (max-width:640px){
+    .idioma{top:var(--e2);right:var(--e2)}
+    .donar-caja .fila{grid-template-columns:minmax(0,1fr)}
+    body.ini-portada .cifras-becas{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .paquete .monto{font-size:30px}
+  }
+</style>
+</head>
+<body class="ini-portada ini-clara">
+<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>
+<main>
+  <section class="ini-heroe heroe-becas">
+    <div class="ini-aurora" aria-hidden="true"></div>
+    <div class="ini-suelo" aria-hidden="true"></div>
+    <div class="ini-dentro">
+      <div class="idioma" role="group" aria-label="Idioma / Language">
+        <button type="button" data-idioma="es" aria-pressed="true">ES</button>
+        <button type="button" data-idioma="en" aria-pressed="false">EN</button>
+      </div>
+      <p class="ini-hud"><span class="ini-punto" aria-hidden="true"></span><span data-t="hud">Fondo de becas CEM</span></p>
+      <h1 data-th="titulo">Ayuda a alguien <span class="ini-brillo">a estudiar</span></h1>
+      <p class="ini-lema" data-t="lema">Hay personas con todas las ganas de aprender y sin forma de pagarlo. Tu aporte va a un fondo aparte que les paga el programa entero, y te contamos a quién ayudó.</p>
+      <div class="ini-manos">
+        <a class="ini-boton" href="#donar"><span class="material-symbols-outlined" aria-hidden="true">volunteer_activism</span><span data-t="botonDonar">Quiero donar</span></a>
+        <a class="ini-boton ini-vidrio" href="solicitar-beca.html" id="aSolicitar"><span class="material-symbols-outlined" aria-hidden="true">school</span><span data-t="botonBeca">Quiero una beca</span></a>
+      </div>
+      <dl class="ini-cifras cifras-becas" id="cifras" hidden></dl>
+      <p class="primeros" id="primeros" hidden data-t="primeros">Todavía estamos dando las primeras becas. Sé de quienes las hacen posibles.</p>
+    </div>
+  </section>
+
+  <section class="ini-franja" id="donar">
+    <div class="ini-dentro">
+      <div class="vuelta" id="vuelta" hidden></div>
+      <p class="ini-rotulo" data-t="rotuloDonar">Donar</p>
+      <h2 data-t="tituloDonar">Elige cuánto quieres aportar</h2>
+      <p class="ini-entrada" data-t="entradaDonar">Todo lo que aportas entra en el fondo de becas, aparte del resto del dinero del CEM. El fondo sólo se usa para pagar programas completos a quien no puede pagarlos.</p>
+      <div class="paquetes" id="paquetes" role="group" aria-label="Montos"><span class="cargando"></span></div>
+
+      <form class="card donar-caja" id="formDonar" novalidate>
+        <div class="fila">
+          <div class="field"><label for="dNombre" data-t="nombre">Tu nombre</label>
+            <input id="dNombre" autocomplete="name" maxlength="80" required></div>
+          <div class="field"><label for="dEmail" data-t="email">Tu correo</label>
+            <input id="dEmail" type="email" autocomplete="email" maxlength="120" required></div>
+          <div class="field"><label for="dPais" data-t="pais">País</label>
+            <input id="dPais" autocomplete="country-name" maxlength="60"></div>
+          <div class="field"><label for="dOrg"><span data-t="org">Organización o asociación</span> <span class="tiny muted" data-t="opcional">(opcional)</span></label>
+            <input id="dOrg" autocomplete="organization" maxlength="120"></div>
+        </div>
+        <div class="field"><label for="dMensaje"><span data-t="mensaje">Un mensaje para quien reciba la beca</span> <span class="tiny muted" data-t="opcional">(opcional)</span></label>
+          <textarea id="dMensaje" maxlength="500" rows="2"></textarea></div>
+        <label class="check"><input type="checkbox" id="dPublica"> <span data-t="publica">Mostrar mi nombre (o el de mi organización) en la lista de quienes hacen posibles las becas</span></label>
+        <div class="resumen">
+          <span data-t="tuAporte">Tu aporte</span>
+          <span class="total" id="dTotal">—</span>
+        </div>
+        <div id="dError"></div>
+        <button class="ini-boton" type="submit" id="dBoton" style="width:100%">
+          <span class="material-symbols-outlined" aria-hidden="true">lock</span><span id="dBotonTexto" data-t="donarConTarjeta">Donar con tarjeta</span></button>
+        <p class="seguro"><span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
+          <span data-t="seguro">El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Te llega un recibo por correo.</span></p>
+      </form>
+    </div>
+  </section>
+
+  <section class="ini-franja">
+    <div class="ini-dentro">
+      <p class="ini-rotulo" data-t="rotuloComo">Cómo se usa tu aporte</p>
+      <h2 data-t="tituloComo">De tu tarjeta al primer día de clase</h2>
+      <ol class="ini-pasos">
+        <li><div class="ini-paso-n">01</div><h3 data-t="paso1t">Entra en el fondo</h3><p data-t="paso1">Tu aporte va a un fondo de becas aparte, y queda anotado con su número de recibo.</p></li>
+        <li><div class="ini-paso-n">02</div><h3 data-t="paso2t">La gente lo pide</h3><p data-t="paso2">Quien quiere estudiar y no puede pagarlo solicita la beca y nos cuenta por qué.</p></li>
+        <li><div class="ini-paso-n">03</div><h3 data-t="paso3t">El equipo elige</h3><p data-t="paso3">Leemos cada solicitud. A quien elegimos, el fondo le paga el programa entero.</p></li>
+        <li><div class="ini-paso-n">04</div><h3 data-t="paso4t">Te lo contamos</h3><p data-t="paso4">Cuando tu aporte paga una beca, te escribimos para decirte a quién ayudó.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="ini-franja" id="historiasFranja" hidden>
+    <div class="ini-dentro">
+      <p class="ini-rotulo" data-t="rotuloHistorias">Becas que ya están estudiando</p>
+      <div class="historias" id="historias"></div>
+    </div>
+  </section>
+
+  <section class="ini-franja" id="donantesFranja" hidden>
+    <div class="ini-dentro">
+      <p class="ini-rotulo" data-t="rotuloDonantes">Lo hacen posible</p>
+      <ul class="donantes" id="donantes"></ul>
+    </div>
+  </section>
+
+  <section class="ini-franja">
+    <div class="ini-dentro">
+      <p class="ini-rotulo" data-t="rotuloPreguntas">Preguntas</p>
+      <h2 data-t="tituloPreguntas">Lo que se suele preguntar antes de donar</h2>
+      <div class="ini-preguntas" id="preguntas"></div>
+    </div>
+  </section>
+
+  <section class="ini-cierre">
+    <div class="ini-dentro">
+      <div class="ini-cierre-panel">
+        <div>
+          <p class="ini-rotulo" data-t="rotuloCierre">¿Eres tú quien quiere estudiar?</p>
+          <h2 data-t="tituloCierre">Solicita tu beca</h2>
+          <p class="ini-entrada" data-t="entradaCierre">Cuéntanos quién eres y por qué quieres estudiar. El equipo lee cada solicitud.</p>
+        </div>
+        <div class="ini-manos"><a class="ini-boton" href="solicitar-beca.html" id="aSolicitar2"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span><span data-t="botonSolicitar">Solicitar una beca</span></a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { sb, mount, $, $$, esc, qs, SUPABASE_URL, SUPABASE_KEY, medir } from './assets/app.js?v=2026-11-06';
+
+await mount({ pub: true });
+
+const T = {
+  es: {
+    hud: 'Fondo de becas CEM',
+    titulo: 'Ayuda a alguien <span class="ini-brillo">a estudiar</span>',
+    lema: 'Hay personas con todas las ganas de aprender y sin forma de pagarlo. Tu aporte va a un fondo aparte que les paga el programa entero, y te contamos a quién ayudó.',
+    botonDonar: 'Quiero donar', botonBeca: 'Quiero una beca',
+    primeros: 'Todavía estamos dando las primeras becas. Sé de quienes las hacen posibles.',
+    cifraValor: 'En becas', cifraBecas: 'Becas dadas', cifraPaises: 'Países',
+    rotuloDonar: 'Donar', tituloDonar: 'Elige cuánto quieres aportar',
+    entradaDonar: 'Todo lo que aportas entra en el fondo de becas, aparte del resto del dinero del CEM. El fondo sólo se usa para pagar programas completos a quien no puede pagarlos.',
+    nombre: 'Tu nombre', email: 'Tu correo', pais: 'País', org: 'Organización o asociación', opcional: '(opcional)',
+    mensaje: 'Un mensaje para quien reciba la beca',
+    publica: 'Mostrar mi nombre (o el de mi organización) en la lista de quienes hacen posibles las becas',
+    tuAporte: 'Tu aporte', donarConTarjeta: 'Donar con tarjeta', donarX: (x) => `Donar ${x} con tarjeta`,
+    seguro: 'El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Te llega un recibo por correo.',
+    otroMonto: 'Otro monto', otroMontoDesc: (min, max) => `El que tú quieras, entre ${min} y ${max}.`,
+    destacado: 'El más elegido',
+    alcanza: (n) => n === 1 ? 'Alcanza para 1 beca completa*' : `Alcanza para ${n} becas completas*`,
+    cubre: (p) => `Cubre el ${p} % de una beca*`,
+    notaMedia: '* Con el precio medio de nuestros programas.',
+    rotuloComo: 'Cómo se usa tu aporte', tituloComo: 'De tu tarjeta al primer día de clase',
+    paso1t: 'Entra en el fondo', paso1: 'Tu aporte va a un fondo de becas aparte, y queda anotado con su número de recibo.',
+    paso2t: 'La gente lo pide', paso2: 'Quien quiere estudiar y no puede pagarlo solicita la beca y nos cuenta por qué.',
+    paso3t: 'El equipo elige', paso3: 'Leemos cada solicitud. A quien elegimos, el fondo le paga el programa entero.',
+    paso4t: 'Te lo contamos', paso4: 'Cuando tu aporte paga una beca, te escribimos para decirte a quién ayudó.',
+    rotuloHistorias: 'Becas que ya están estudiando', rotuloDonantes: 'Lo hacen posible',
+    rotuloPreguntas: 'Preguntas', tituloPreguntas: 'Lo que se suele preguntar antes de donar',
+    rotuloCierre: '¿Eres tú quien quiere estudiar?', tituloCierre: 'Solicita tu beca',
+    entradaCierre: 'Cuéntanos quién eres y por qué quieres estudiar. El equipo lee cada solicitud.',
+    botonSolicitar: 'Solicitar una beca',
+    elige: 'Elige cuánto quieres aportar.', faltaNombre: 'Dinos tu nombre.', faltaCorreo: 'Ese correo no parece un correo.',
+    abriendo: 'Abriendo el pago seguro…', noSalio: 'No se pudo abrir el pago. Prueba otra vez en un momento.',
+    graciasTitulo: '¡Gracias!',
+    graciasOk: (x, n) => `Tu aporte de ${x} está confirmado (recibo ${n}). Te enviamos el recibo a tu correo, y te escribiremos cuando pague una beca.`,
+    graciasEspera: 'Stripe está confirmando tu pago. Puede tardar un minuto: te llegará el recibo por correo en cuanto entre.',
+    canceladaTitulo: 'No se completó el pago',
+    cancelada: 'No se te cobró nada. Si quieres, elige otra vez el aporte y vuelve a intentarlo.',
+    preguntas: [
+      ['¿A dónde va exactamente mi dinero?', 'A un fondo de becas que el CEM lleva aparte del resto de su dinero. Cada aporte queda anotado con su número de recibo, y el fondo sólo se usa para pagar programas completos a personas que no podrían pagarlos.'],
+      ['¿Cómo se elige a quién se le da la beca?', 'Las personas solicitan la beca desde la web, muchas veces desde nuestras campañas en redes, y nos cuentan por qué quieren estudiar y qué harán con lo que aprendan. El equipo lee cada solicitud y elige.'],
+      ['¿Puedo saber a quién ayudé?', 'Sí. Cuando tu aporte paga una beca, te escribimos para contarte a quién ayudó y qué va a estudiar. Si esa persona no quiso que se publicara su nombre, te decimos de qué país es.'],
+      ['¿Es deducible de impuestos?', 'Por ahora no: el aporte no es deducible de impuestos. Te llega un recibo por correo, pero no es un recibo fiscal.'],
+      ['¿Puedo donar por transferencia, Zelle o cheque?', 'Sí. Escríbenos desde «¿Tienes dudas?», abajo a la derecha, y te pasamos los datos. Cuando llegue, lo registramos y te mandamos el mismo recibo.'],
+      ['¿Es seguro pagar aquí?', 'El pago lo procesa Stripe, uno de los procesadores de pago más usados del mundo. El CEM no ve ni guarda los datos de tu tarjeta.'],
+    ],
+  },
+  en: {
+    hud: 'CEM scholarship fund',
+    titulo: 'Help someone <span class="ini-brillo">study</span>',
+    lema: 'Some people have every wish to learn and no way to pay for it. Your gift goes to a separate fund that pays for their whole program, and we tell you who it helped.',
+    botonDonar: 'I want to give', botonBeca: 'I want a scholarship',
+    primeros: 'We are giving our first scholarships. Be one of the people who make them possible.',
+    cifraValor: 'In scholarships', cifraBecas: 'Scholarships', cifraPaises: 'Countries',
+    rotuloDonar: 'Give', tituloDonar: 'Choose how much you want to give',
+    entradaDonar: 'Everything you give goes into the scholarship fund, kept apart from the rest of CEM\'s money. The fund is used only to pay for full programs for people who can\'t afford them.',
+    nombre: 'Your name', email: 'Your email', pais: 'Country', org: 'Organization or association', opcional: '(optional)',
+    mensaje: 'A message for the person who gets the scholarship',
+    publica: 'Show my name (or my organization\'s) on the list of people who make the scholarships possible',
+    tuAporte: 'Your gift', donarConTarjeta: 'Give by card', donarX: (x) => `Give ${x} by card`,
+    seguro: 'Payment is handled by Stripe. CEM never sees or stores your card details. You\'ll get a receipt by email.',
+    otroMonto: 'Other amount', otroMontoDesc: (min, max) => `Any amount you like, between ${min} and ${max}.`,
+    destacado: 'Most chosen',
+    alcanza: (n) => n === 1 ? 'Covers 1 full scholarship*' : `Covers ${n} full scholarships*`,
+    cubre: (p) => `Covers ${p}% of a scholarship*`,
+    notaMedia: '* Based on the average price of our programs.',
+    rotuloComo: 'How your gift is used', tituloComo: 'From your card to the first day of class',
+    paso1t: 'It enters the fund', paso1: 'Your gift goes into a separate scholarship fund and is recorded with its receipt number.',
+    paso2t: 'People apply', paso2: 'People who want to study and can\'t afford it apply for a scholarship and tell us why.',
+    paso3t: 'Our team chooses', paso3: 'We read every application. For the people we choose, the fund pays the whole program.',
+    paso4t: 'We tell you', paso4: 'When your gift pays for a scholarship, we write to tell you who it helped.',
+    rotuloHistorias: 'Scholars who are already studying', rotuloDonantes: 'Made possible by',
+    rotuloPreguntas: 'Questions', tituloPreguntas: 'What people usually ask before giving',
+    rotuloCierre: 'Are you the one who wants to study?', tituloCierre: 'Apply for a scholarship',
+    entradaCierre: 'Tell us who you are and why you want to study. Our team reads every application (the form is in Spanish).',
+    botonSolicitar: 'Apply for a scholarship',
+    elige: 'Choose how much you want to give.', faltaNombre: 'Please tell us your name.', faltaCorreo: 'That email doesn\'t look right.',
+    abriendo: 'Opening the secure payment…', noSalio: 'We couldn\'t open the payment. Please try again in a moment.',
+    graciasTitulo: 'Thank you!',
+    graciasOk: (x, n) => `Your gift of ${x} is confirmed (receipt ${n}). We sent the receipt to your email, and we'll write when it pays for a scholarship.`,
+    graciasEspera: 'Stripe is confirming your payment. It can take a minute: your receipt will arrive by email as soon as it goes through.',
+    canceladaTitulo: 'The payment wasn\'t completed',
+    cancelada: 'You were not charged. If you like, choose your gift again and try once more.',
+    preguntas: [
+      ['Where exactly does my money go?', 'To a scholarship fund that CEM keeps apart from the rest of its money. Every gift is recorded with its receipt number, and the fund is used only to pay for full programs for people who couldn\'t otherwise afford them.'],
+      ['How do you choose who gets a scholarship?', 'People apply on our website, often from our social media campaigns, and tell us why they want to study and what they\'ll do with what they learn. Our team reads every application and chooses.'],
+      ['Can I find out who I helped?', 'Yes. When your gift pays for a scholarship, we write to tell you who it helped and what they\'ll study. If that person preferred not to share their name, we tell you which country they\'re from.'],
+      ['Is it tax-deductible?', 'Not at this time: the contribution is not tax-deductible. You\'ll get a receipt by email, but it isn\'t a tax receipt.'],
+      ['Can I give by bank transfer, Zelle or check?', 'Yes. Write to us from «¿Tienes dudas?» at the bottom right and we\'ll send you the details. When it arrives, we record it and send you the same receipt.'],
+      ['Is it safe to pay here?', 'Payment is processed by Stripe, one of the most widely used payment processors in the world. CEM never sees or stores your card details.'],
+    ],
+  },
+};
+
+let idioma = (() => {
+  const pedido = qs('lang');
+  if (pedido === 'en' || pedido === 'es') return pedido;
+  try { const g = localStorage.getItem('cemIdiomaBecas'); if (g === 'en' || g === 'es') return g; } catch {}
+  return (navigator.language || '').toLowerCase().startsWith('en') ? 'en' : 'es';
+})();
+const t = (k, ...a) => { const v = T[idioma][k]; return typeof v === 'function' ? v(...a) : v; };
+
+/* Dólares como se leen en cada idioma: $1.000 / $1,000. Sin céntimos si no
+   los hay: «$2.300,00» en un botón grande es ruido. */
+const usd = (n) => {
+  const v = Number(n) || 0;
+  const s = v.toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  return '$' + (idioma === 'en' ? s : s.replace(/[.,]/g, (c) => (c === ',' ? '.' : ',')));
+};
+/* «Más de $12.000» y no «$12.340»: una cifra redonda se lee de un vistazo, y
+   «más de» es verdad. Por debajo de mil, la cifra exacta. */
+const masDe = (v) => {
+  v = Number(v) || 0;
+  if (v < 1000) return usd(Math.round(v));
+  const paso = 10 ** (String(Math.floor(v)).length - 2);
+  const redondo = Math.floor(v / paso) * paso;
+  return redondo < v ? (idioma === 'en' ? 'Over ' : 'Más de ') + usd(redondo) : usd(v);
+};
+
+let datos = { es: null, en: null };
+let elegido = null;      // { paquete_id } o { otro: true }
+
+async function traer() {
+  if (!datos[idioma]) {
+    const { data, error } = await sb.rpc('cem_becas_publico', { p_idioma: idioma });
+    if (error) throw error;
+    datos[idioma] = data;
+  }
+  return datos[idioma];
+}
+
+function traducir() {
+  document.documentElement.lang = idioma;
+  $$('[data-t]').forEach((el) => { const v = T[idioma][el.dataset.t]; if (typeof v === 'string') el.textContent = v; });
+  $$('[data-th]').forEach((el) => { el.innerHTML = T[idioma][el.dataset.th]; });
+  $$('[data-idioma]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.idioma === idioma)));
+  $('#preguntas').innerHTML = T[idioma].preguntas.map(([p, r]) => `
+    <details><summary>${esc(p)}<span class="material-symbols-outlined" aria-hidden="true">add</span></summary>
+      <p>${esc(r)}</p></details>`).join('');
+}
+
+function pintarCifras(d) {
+  const c = d.cifras || {};
+  if (!Number(c.becas)) { $('#cifras').hidden = true; $('#primeros').hidden = false; return; }
+  $('#primeros').hidden = true;
+  $('#cifras').hidden = false;
+  $('#cifras').innerHTML = `
+    <div><dt>${esc(t('cifraValor'))}</dt><dd>${esc(masDe(c.valor_usd))}</dd></div>
+    <div><dt>${esc(t('cifraBecas'))}</dt><dd>${Number(c.becas)}</dd></div>
+    <div><dt>${esc(t('cifraPaises'))}</dt><dd>${Math.max(Number(c.paises) || 0, 1)}</dd></div>`;
+}
+
+function alcance(monto, medio) {
+  if (!(medio > 0)) return '';
+  const n = Math.floor(monto / medio);
+  if (n >= 1) return t('alcanza', n);
+  return t('cubre', Math.max(1, Math.round((monto / medio) * 100)));
+}
+
+function pintarPaquetes(d) {
+  const medio = Number(d.precio_medio_usd) || 0;
+  const otro = d.otro_monto || {};
+  const tarjetas = (d.paquetes || []).map((k) => `
+    <button type="button" class="paquete" data-paquete="${esc(k.id)}" data-monto="${Number(k.monto)}"
+      aria-pressed="${elegido?.paquete_id === k.id}">
+      ${k.destacado ? `<span class="sello"><span class="material-symbols-outlined" aria-hidden="true">star</span>${esc(t('destacado'))}</span>` : ''}
+      <span class="nombre">${esc(k.nombre)}</span>
+      <span class="monto">${esc(usd(k.monto))}</span>
+      <span class="desc">${esc(k.descripcion || '')}</span>
+      ${medio ? `<span class="alcanza">${esc(alcance(Number(k.monto), medio))}</span>` : ''}
+    </button>`);
+  if (otro.permitido) {
+    tarjetas.push(`
+      <div class="paquete" data-otro data-elegido="${elegido?.otro ? 'si' : 'no'}">
+        <span class="nombre">${esc(t('otroMonto'))}</span>
+        <label class="otro-monto"><span aria-hidden="true">$</span>
+          <input id="dOtro" type="number" inputmode="decimal" min="${Number(otro.minimo)}" max="${Number(otro.maximo)}"
+            step="1" placeholder="${Number(otro.minimo)}" aria-label="${esc(t('otroMonto'))} (USD)"></label>
+        <span class="desc">${esc(t('otroMontoDesc', usd(otro.minimo), usd(otro.maximo)))}</span>
+      </div>`);
+  }
+  $('#paquetes').innerHTML = tarjetas.join('')
+    + (medio ? `<p class="tiny muted" style="grid-column:1/-1;margin:0">${esc(t('notaMedia'))}</p>` : '');
+  $$('#paquetes [data-paquete]').forEach((b) => b.onclick = () => {
+    elegido = { paquete_id: b.dataset.paquete, monto: Number(b.dataset.monto) };
+    marcar();
+  });
+  const otroCaja = $('#paquetes [data-otro]');
+  if (otroCaja) {
+    const inp = $('#dOtro');
+    if (elegido?.otro) inp.value = elegido.monto || '';
+    const usarOtro = () => { elegido = { otro: true, monto: Number(inp.value) || 0 }; marcar(); };
+    otroCaja.onclick = (e) => { if (e.target !== inp) inp.focus(); usarOtro(); };
+    inp.oninput = usarOtro;
+  }
+  marcar();
+}
+
+function marcar() {
+  $$('#paquetes [data-paquete]').forEach((b) => b.setAttribute('aria-pressed', String(elegido?.paquete_id === b.dataset.paquete)));
+  const otroCaja = $('#paquetes [data-otro]');
+  if (otroCaja) otroCaja.dataset.elegido = elegido?.otro ? 'si' : 'no';
+  const monto = elegido?.monto || 0;
+  $('#dTotal').textContent = monto > 0 ? usd(monto) : '—';
+  $('#dBotonTexto').textContent = monto > 0 ? t('donarX', usd(monto)) : t('donarConTarjeta');
+}
+
+function pintarHistorias(d) {
+  const h = d.historias || [];
+  $('#historiasFranja').hidden = !h.length;
+  $('#historias').innerHTML = h.map((x) => `
+    <div class="card historia">
+      <b>${esc(x.nombre || '')}${x.pais ? ` · ${esc(x.pais)}` : ''}</b>
+      <span class="tiny muted">${esc(x.programa || '')}</span>
+      ${x.historia ? `<q>${esc(x.historia)}</q>` : ''}
+    </div>`).join('');
+  const l = d.lista_donantes || [];
+  $('#donantesFranja').hidden = !l.length;
+  $('#donantes').innerHTML = l.map((n) => `<li>${esc(n)}</li>`).join('');
+}
+
+async function pintar() {
+  traducir();
+  try {
+    const d = await traer();
+    pintarCifras(d); pintarPaquetes(d); pintarHistorias(d);
+  } catch {
+    $('#paquetes').innerHTML = `<div class="nota err">${esc(t('noSalio'))}</div>`;
+  }
+}
+
+$$('[data-idioma]').forEach((b) => b.onclick = () => {
+  if (b.dataset.idioma === idioma) return;
+  idioma = b.dataset.idioma;
+  try { localStorage.setItem('cemIdiomaBecas', idioma); } catch {}
+  const u = new URL(location.href);
+  if (idioma === 'en') u.searchParams.set('lang', 'en'); else u.searchParams.delete('lang');
+  history.replaceState(null, '', u);
+  pintar();
+});
+
+/* El canal de la visita (?utm_source=…), o el primero con el que llegó en
+   esta sesión, para saber qué campaña trae a quien dona. */
+function canal() {
+  let origen = qs('utm_source') || qs('origen') || '', campana = qs('utm_campaign') || '';
+  if (!origen) {
+    try { const g = JSON.parse(sessionStorage.getItem('cemCanal') || 'null'); origen = g?.canal || ''; campana = campana || g?.campana || ''; } catch {}
+  }
+  return { origen, campana };
+}
+
+$('#formDonar').onsubmit = async (e) => {
+  e.preventDefault();
+  const err = $('#dError');
+  err.innerHTML = '';
+  const nombre = $('#dNombre').value.trim(), email = $('#dEmail').value.trim();
+  const decir = (m) => { err.innerHTML = `<div class="nota err">${esc(m)}</div>`; };
+  if (!elegido || !(elegido.monto > 0)) { decir(t('elige')); $('#donar').scrollIntoView({ behavior: 'smooth' }); return; }
+  if (nombre.length < 2) { decir(t('faltaNombre')); $('#dNombre').focus(); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { decir(t('faltaCorreo')); $('#dEmail').focus(); return; }
+
+  const boton = $('#dBoton');
+  boton.disabled = true;
+  $('#dBotonTexto').textContent = t('abriendo');
+  const { origen, campana } = canal();
+  medir('donar', { valor: elegido.monto, moneda: 'USD' });
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/cem-donar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+      body: JSON.stringify({
+        ...(elegido.paquete_id ? { paquete_id: elegido.paquete_id } : { monto: elegido.monto }),
+        nombre, email, pais: $('#dPais').value.trim(), organizacion: $('#dOrg').value.trim(),
+        mensaje: $('#dMensaje').value.trim(), publica: $('#dPublica').checked,
+        idioma, origen, campana,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.url) throw new Error(d.error || t('noSalio'));
+    location.href = d.url;
+  } catch (ex) {
+    decir(ex.message || t('noSalio'));
+    boton.disabled = false;
+    marcar();
+  }
+};
+
+/* De vuelta de Stripe: ?donacion=…&gracias=1, o &cancelada=1. */
+async function vuelta() {
+  const id = qs('donacion');
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+  const caja = $('#vuelta');
+  caja.hidden = false;
+  if (qs('cancelada')) {
+    caja.innerHTML = `<div class="card"><h2>${esc(t('canceladaTitulo'))}</h2><p class="muted" style="margin:0">${esc(t('cancelada'))}</p></div>`;
+    return;
+  }
+  if (!qs('gracias')) { caja.hidden = true; return; }
+  const pintarEstado = (d) => {
+    const ok = d?.estado === 'confirmada';
+    caja.innerHTML = `<div class="card"><h2>${esc(t('graciasTitulo'))}</h2>
+      <p class="muted" style="margin:0">${esc(ok ? t('graciasOk', usd(d.monto), d.numero) : t('graciasEspera'))}</p></div>`;
+    return ok;
+  };
+  for (let i = 0; i < 10; i++) {
+    const { data } = await sb.rpc('cem_beca_donacion_estado', { p_id: id });
+    if (pintarEstado(data)) break;
+    await new Promise((res) => setTimeout(res, 2500));
+  }
+  caja.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+await pintar();
+vuelta();
+</script>
+</body>
+</html>

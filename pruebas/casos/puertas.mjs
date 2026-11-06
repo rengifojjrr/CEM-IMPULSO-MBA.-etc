@@ -45,6 +45,17 @@ const DEL_EQUIPO = [
   ['cem_reproducciones_sospechosas', { p_dias: 30 }],
   ['cem_notas_cohorte',            { p_cohort: '00000000-0000-0000-0000-000000000000' }],
   ['cem_exam_questions',           { p_assessment_id: '00000000-0000-0000-0000-000000000000' }],
+  // Becas: el fondo, quién pidió beca, regalar cursos, y las dos que sólo
+  // llama el servidor (abrir una donación con tarjeta y confirmarla).
+  ['cem_becas_resumen',            {}],
+  ['cem_becas_solicitudes_listar', {}],
+  ['cem_becas_donaciones_listar',  {}],
+  ['cem_becas_movimientos',        {}],
+  ['cem_beca_donacion_registrar',  { p_monto: 1, p_metodo: 'zelle', p_referencia: 'x', p_fecha: null, p_nombre: 'x' }],
+  ['cem_beca_regalar',             { p_course_id: '00000000-0000-0000-0000-000000000000', p_nombre: 'x' }],
+  ['cem_beca_donacion_abrir',      { p_paquete_id: null, p_monto: 25, p_nombre: 'x', p_email: 'a@b.com' }],
+  ['cem_beca_donacion_confirmar_servidor', { p_id: '00000000-0000-0000-0000-000000000000', p_session_id: 'x',
+                                     p_payment_intent: 'x', p_centimos: 2500, p_moneda: 'usd', p_cuenta: null }],
 ];
 
 /* Y las que el sitio SÍ necesita sin cuenta. Si alguna de éstas se cierra, la
@@ -56,6 +67,11 @@ const DEL_SITIO = [
   ['cem_tasa_vigente',          { p_moneda: 'VES' }],
   ['cem_perfil_publico',        { p_slug: 'no-existe-000' }],
   ['cem_slug_de_certificado',   { p_codigo: 'NO-EXISTE-000' }],
+  // La página de becas, la solicitud, el enlace de una beca y la de gracias.
+  ['cem_becas_publico',         { p_idioma: 'es' }],
+  ['cem_beca_convocatoria',     {}],
+  ['cem_beca_enlace_ver',       { p_token: 'no-existe-000' }],
+  ['cem_beca_donacion_estado',  { p_id: '00000000-0000-0000-0000-000000000000' }],
 ];
 
 export default async function correr(navegador) {
@@ -165,6 +181,7 @@ export default async function correr(navegador) {
       metricas: await mirar('cem_metricas_estudiantes', { p_dias: 365 }),
       leads:    await mirar('cem_leads_listar', {}),
       carteras: await mirar('cem_carteras_saldos', {}),
+      donaciones: await mirar('cem_becas_donaciones_listar', {}),
     };
   }));
   for (const [que, r] of Object.entries(alumno)) {

@@ -50,7 +50,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
-<link rel="stylesheet" href="plataforma/assets/styles.css?v=2026-10-28-1">
+<link rel="stylesheet" href="plataforma/assets/styles.css?v=2026-11-06">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"ContactPage","name":"Contacto · CEM International, Caracas","url":"https://escuelacem.com/contacto.html","about":{"@type":"EducationalOrganization","name":"CEM International","url":"https://escuelacem.com/"}}</script>
 </head>
 <body class="cem-publico ini-portada ini-clara">
@@ -71,6 +71,7 @@
       <a href="https://escuelacem.com/programas/">Programas</a>
       <a href="https://escuelacem.com/plataforma/nosotros.html">Quiénes somos</a>
       <a href="https://escuelacem.com/plataforma/verificar.html">Verificar certificado</a>
+      <a href="https://escuelacem.com/plataforma/becas.html">Becas</a>
       <a href="https://escuelacem.com/preguntas-frecuentes.html">Preguntas</a>
     </nav>
     <div class="pub-cta">
@@ -167,6 +168,7 @@
       <a href="https://escuelacem.com/programas/">Todos los programas</a>
       <a href="https://escuelacem.com/plataforma/nosotros.html">Quiénes somos</a>
       <a href="https://escuelacem.com/plataforma/verificar.html">Verificar un certificado</a>
+      <a href="https://escuelacem.com/plataforma/becas.html">Becas: ayuda a alguien a estudiar</a>
       <a href="https://escuelacem.com/preguntas-frecuentes.html">Preguntas frecuentes</a>
       <a href="https://escuelacem.com/plataforma/index.html?registro=1">Crear mi cuenta</a>
     </nav>
@@ -293,11 +295,11 @@
 
 <script type="module">
 
-import { arrancarMedicion } from './plataforma/assets/medir.js?v=2026-10-28-1';
+import { arrancarMedicion } from './plataforma/assets/medir.js?v=2026-11-06';
 arrancarMedicion({ whatsapp: true });
-import('./plataforma/assets/promo.js?v=2026-10-28-1')
+import('./plataforma/assets/promo.js?v=2026-11-06')
   .then((m) => m.montarPromocion({ pantalla: "contacto" })).catch(() => {});
-const cemi = () => import('./plataforma/assets/asistente.js?v=2026-10-28-1')
+const cemi = () => import('./plataforma/assets/asistente.js?v=2026-11-06')
   .then((m) => m.montarAsistente({ ambito: 'visitante' })).catch(() => {});
 ('requestIdleCallback' in window) ? requestIdleCallback(cemi, { timeout: 4000 }) : setTimeout(cemi, 2500);
 </script>

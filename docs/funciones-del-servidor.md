@@ -109,6 +109,30 @@ Dos disparadores lo sostienen sin que nadie tenga que acordarse:
 confirmado, y `cem_tg_activar_si_es_gratis` abre en el acto lo que no cuesta
 nada.
 
+### Becas y donaciones
+
+El fondo de becas va **aparte de lo cobrado**: ni las donaciones ni las becas
+crean `cem_payments`, así que no entran en el cierre, en las carteras ni en el
+reparto. Guía completa en [becas.md](becas.md).
+
+| Función | Qué decide | Quién |
+|---|---|---|
+| `cem_becas_publico(idioma)` | Lo que enseña la página de becas: cifras, paquetes, convocatorias abiertas, historias y donantes **que aceptaron salir**. Ningún correo. | Cualquiera |
+| `cem_beca_convocatoria(código)` · `cem_beca_solicitar(código, datos)` | La ficha de una convocatoria y la solicitud. Valida, frena por correo, por dirección y en total, tiene campo trampa, y contesta lo mismo la primera vez que la segunda. | Cualquiera |
+| `cem_beca_enlace_ver(token)` · `cem_beca_activar_con_sesion(token)` | El enlace de una beca. Activarla pide sesión, y si la beca iba a un correo, tiene que ser el de esa cuenta. Del token sólo se guarda el hash. | Cualquiera · con sesión |
+| `cem_beca_donacion_estado(id)` | La página de gracias: estado, número e importe, sin el nombre de nadie. | Cualquiera |
+| `cem_beca_donacion_abrir` · `_sesion` · `_confirmar_servidor` | Abrir el cobro con tarjeta (el importe lo pone la base, nunca el navegador) y darlo por cobrado con lo que Stripe dice que cobró. Confirmar dos veces no suma dos veces. | **Sólo el servidor** (`cem-donar` y el webhook) |
+| `cem_beca_donacion_registrar(...)` | Una donación por Zelle, transferencia, cheque o efectivo, con su comprobante. Entra confirmada. | Cobranza para arriba |
+| `cem_beca_donacion_anular(id, motivo)` | Se niega si la donación ya pagó becas. | Admin |
+| `cem_beca_otorgar(solicitud, …)` · `cem_beca_regalar(curso, nombre, correo, …)` | Dar la beca: valor = precio de contado en USD al cambio del día. Si es del fondo, lo aparta y reparte la financiación por antigüedad de las donaciones. Con cuenta, inscribe al momento; sin cuenta, devuelve un enlace. | Admin |
+| `cem_beca_revocar(beca, motivo)` | Cierra la inscripción **devolviéndole su precio** (a 0 € seguiría abierta: `cem_acceso_abierto` abre lo gratis aunque esté cancelado) y devuelve lo apartado al fondo. | Admin |
+| `cem_becas_resumen()` · `cem_becas_listar` · `cem_becas_donaciones_listar` · `cem_becas_movimientos()` · `cem_becas_mes(mes)` | Lo que leen las pantallas y el cierre de mes. | Equipo, cobranza y auditor |
+
+El libro `cem_becas_fondo` sólo se añade: un disparador impide corregir o
+borrar filas. Cada función que mueve dinero toma antes el mismo candado
+(`pg_advisory_xact_lock`), para que dos becas a la vez no gasten el mismo
+dólar.
+
 ### Académico
 
 | Función | Qué decide |
@@ -225,6 +249,7 @@ necesitan salir a internet.
 | `cem-importar-estudiantes` | Alta masiva desde una planilla. Es idempotente: correr dos veces el mismo archivo no duplica a nadie. | **Sí** |
 | `cem-bancaribe-probe` | Herramienta de diagnóstico de la conexión con el banco. | **Sí** |
 | `cem-youtube-oauth-exchange`, `cem-youtube-upload-token` | La conexión con YouTube para las grabaciones. | **Sí** |
+| `cem-donar` | Abre el cobro de una donación en Stripe Checkout (`submit_type=donate`, sólo tarjeta, en USD) en la cuenta elegida en los ajustes de becas. Lo confirma `cem-stripe-webhook`, en su rama de `metadata.donacion_id`. | **No**: dona quien no tiene cuenta. El importe lo pone la base |
 
 Las credenciales del banco (`consumer_key`, `consumer_secret`, los *hashes* por
 servicio, `extracto_api_key`, `notificacion_api_key`) viven **sólo** en la tabla

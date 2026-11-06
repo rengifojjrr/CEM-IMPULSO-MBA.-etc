@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM · Activar mi beca</title>
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="../assets/icono-180.png?v=2026-09-03">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../assets/app.js?v=2026-11-06">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-11-06">
+<style>
+  .beca-lista{max-width:620px;margin:var(--e4) auto;text-align:center}
+  .beca-lista .material-symbols-outlined.grande{font-size:56px;color:var(--ok)}
+  .beca-lista h1{margin:var(--e2) 0 var(--e1)}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="card beca-lista" id="caja"><span class="cargando"></span></div>
+</div>
+<script type="module">
+/* Terminar de activar una beca, ya con la sesión abierta.
+   Se llega desde beca.html, a través de la entrada o el registro
+   (index.html?next=estudiante/beca.html?t=…). La base comprueba que, si la
+   beca iba a un correo, sea el de esta cuenta: ese correo lo confirmó el
+   registro, que es lo que demuestra que es de quien entra. */
+import { sb, mount, $, esc, mensajeError } from '../assets/app.js?v=2026-11-06';
+
+await mount({ require:['estudiante','profesor','coordinador','cobranza','admin','superadmin'], area:'estudiante' });
+
+const LLAVE = 'cemBecaEnlace';
+let token = new URLSearchParams(location.search).get('t') || '';
+if (token) history.replaceState(null, '', location.pathname);
+else { try { token = sessionStorage.getItem(LLAVE) || ''; } catch {} }
+
+const caja = $('#caja');
+if (!token) {
+  caja.innerHTML = `<h1>No hay ninguna beca que activar</h1>
+    <p class="muted">Abre otra vez el enlace que te llegó por correo o por mensaje.</p>
+    <a class="btn" href="panel.html">Ir a mi panel</a>`;
+} else {
+  const { data, error } = await sb.rpc('cem_beca_activar_con_sesion', { p_token: token });
+  if (error) {
+    caja.innerHTML = `<span class="material-symbols-outlined grande" aria-hidden="true" style="color:var(--warn)">info</span>
+      <h1>No se pudo activar la beca</h1>
+      <p class="muted">${esc(mensajeError(error, 'Prueba otra vez en un momento.'))}</p>
+      <a class="btn" href="panel.html">Ir a mi panel</a>`;
+  } else {
+    try { sessionStorage.removeItem(LLAVE); } catch {}
+    caja.innerHTML = `<span class="material-symbols-outlined grande" aria-hidden="true">celebration</span>
+      <h1>${data?.ya ? 'Tu beca ya estaba activada' : '¡Tu beca está activada!'}</h1>
+      <p class="muted">${esc(data?.programa || 'El programa')} ya está en tu panel, sin nada que pagar.
+        Bienvenida o bienvenido al CEM.</p>
+      <a class="btn" href="panel.html"><span class="material-symbols-outlined" aria-hidden="true">school</span> Empezar a estudiar</a>`;
+  }
+}
+</script>
+</body>
+</html>

@@ -82,7 +82,7 @@ jobs:
         run: |
           # Las funciones que este repositorio manda. Lo que no esté aquí, no se
           # toca: se administra desde el panel de Supabase.
-          NUESTRAS="cem-asistente cem-whatsapp cem-comprar cem-stripe-checkout cem-stripe-webhook"
+          NUESTRAS="cem-asistente cem-whatsapp cem-comprar cem-stripe-checkout cem-stripe-webhook cem-donar"
 
           ANTES="${{ github.event.before }}"
           # A mano, o rama nueva, o el primer empujón: no hay con qué comparar,

@@ -53,6 +53,17 @@ verify_jwt = false
 # llama desde el aula, con la persona dentro.
 verify_jwt = true
 
+[functions.cem-donar]
+# Donar al fondo de becas desde «Ayuda a alguien a estudiar». Abierta a
+# propósito, como cem-comprar: quien dona no tiene cuenta, y muchas veces está
+# en EE. UU. y no la va a tener nunca.
+#
+# Lo que la protege: el importe lo pone la base (el del paquete, o «otro
+# monto» dentro de sus límites), la base frena por correo, por dirección y en
+# total, y la donación sólo entra en el fondo cuando Stripe avisa, firmado, de
+# que se cobró.
+verify_jwt = false
+
 # Las cuatro que sólo existían desplegadas y se bajaron al repositorio el 15 de
 # septiembre de 2026 (radiografía). Todas con sesión: las llama el equipo desde
 # la plataforma, y cada una vuelve a comprobar el rol por dentro.

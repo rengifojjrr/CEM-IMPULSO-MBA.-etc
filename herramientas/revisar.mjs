@@ -215,6 +215,11 @@ const PUBLICAS = new Set([
      apuntada, y la escritura pasa por `cem_formulario_enviar`, que valida
      obligatorios y descarta cualquier campo que la lista no haya declarado. */
   'plataforma/formulario.html',
+  /* Activar una beca desde su enlace. NO llama a mount() a propósito: mount
+     para el público carga la medición (Google, Meta) y Cemi, y la dirección de
+     esta página lleva la llave de la beca. La llave es el enlace; la página no
+     inscribe a nadie: eso lo hace estudiante/beca.html, con sesión. */
+  'plataforma/beca.html',
   // El catálogo y la ficha del programa: públicos, y en la raíz por eso mismo.
   'plataforma/catalogo.html',
   'plataforma/curso.html',

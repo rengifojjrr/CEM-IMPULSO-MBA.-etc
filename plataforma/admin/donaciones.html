@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM Admin · Donaciones y fondo</title>
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="../assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="../assets/icono-180.png?v=2026-09-03">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#0d2440">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://esm.sh" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="../assets/app.js?v=2026-11-06">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css?v=2026-11-06">
+<style>
+  .datos-persona{display:grid;gap:6px 18px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:0 0 var(--e2)}
+  .datos-persona div{font-size:var(--t-sm);min-width:0;overflow-wrap:anywhere}
+  .datos-persona span{color:var(--tinta-3);font-size:var(--t-xs);display:block}
+  .mensaje-donante{margin:0 0 var(--e2);white-space:pre-wrap;line-height:1.6;font-style:italic;color:var(--tinta-2)}
+  .barra-uso{height:6px;border-radius:999px;background:var(--hueco);overflow:hidden;margin:3px 0;min-width:80px;max-width:140px}
+  .barra-uso i{display:block;height:100%;background:var(--gold)}
+  .saldo{font-family:var(--cifra);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ajustes-rejilla{display:grid;gap:var(--e2) var(--e3);grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+</style>
+</head>
+<body>
+<div id="page" class="hidden">
+  <div class="page-head">
+    <div><h1>Donaciones y fondo</h1>
+      <p>El dinero que la gente dona para pagar becas. Va en un fondo aparte: no entra en lo cobrado, ni en
+         las carteras, ni en el reparto. Cada beca dice qué donaciones la pagaron.</p></div>
+    <div class="actions">
+      <a class="btn outline" href="../becas.html" target="_blank" rel="noopener">
+        <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span> Ver la página</a>
+      <a class="btn outline" href="becas.html" id="aBecas" hidden>
+        <span class="material-symbols-outlined" aria-hidden="true">volunteer_activism</span> Becas</a>
+      <button class="btn" id="btnRegistrar" type="button" hidden>
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Registrar una donación</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs" id="tabs" role="tablist">
+    <button class="active" type="button" data-p="donaciones">Donaciones</button>
+    <button type="button" data-p="fondo">Movimientos del fondo</button>
+    <button type="button" data-p="ajustes">Paquetes y ajustes</button>
+  </div>
+
+  <section id="p-donaciones">
+    <div class="card">
+      <div class="filters">
+        <div class="field"><label for="q">Buscar</label><input id="q" placeholder="Nombre, correo, número, referencia…"></div>
+        <div class="field"><label for="fEstado">Estado</label>
+          <select id="fEstado">
+            <option value="confirmada">Confirmadas</option>
+            <option value="anulada">Anuladas</option>
+            <option value="fallida">Fallidas</option>
+            <option value="iniciada">Sin terminar de pagar</option>
+            <option value="">Todas</option>
+          </select></div>
+        <div class="field"><label for="fMetodo">Cómo llegó</label>
+          <select id="fMetodo">
+            <option value="">Todas</option>
+            <option value="tarjeta">Tarjeta</option>
+            <option value="zelle">Zelle</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="cheque">Cheque</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="otro">Otro</option>
+          </select></div>
+      </div>
+      <div class="row between sep-poco"><span class="tiny muted" id="cuentaDon"></span>
+        <button class="btn ghost sm" type="button" id="csvDon" data-exportar><span class="material-symbols-outlined" aria-hidden="true">download</span> CSV</button></div>
+      <div class="table-wrap">
+        <table class="tarjetas"><thead><tr>
+          <th>Donación</th><th>Quién</th><th>Cómo llegó</th><th class="num">Monto</th><th>Usado en becas</th><th>Estado</th><th></th>
+        </tr></thead><tbody id="tbDon"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="p-fondo" hidden>
+    <div class="card">
+      <div class="row between">
+        <div><h2 class="sec">Movimientos del fondo</h2>
+          <p class="tiny muted" style="margin:0">El libro del fondo: sólo se añade, nunca se borra ni se corrige. Lo disponible es la suma de todo.</p></div>
+        <button class="btn ghost sm" type="button" id="csvFondo" data-exportar><span class="material-symbols-outlined" aria-hidden="true">download</span> CSV</button>
+      </div>
+      <div class="table-wrap sep">
+        <table class="tarjetas"><thead><tr>
+          <th>Fecha</th><th>Movimiento</th><th>De qué</th><th>Nota</th><th class="num">Monto</th><th class="num">Saldo</th>
+        </tr></thead><tbody id="tbFondo"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="p-ajustes" hidden>
+    <div class="card">
+      <div class="row between">
+        <div><h2 class="sec">Paquetes de donación</h2>
+          <p class="tiny muted" style="margin:0">Los montos que se ofrecen en la página «Ayuda a alguien a estudiar», en español y en inglés.</p></div>
+        <button class="btn sm" type="button" id="btnPaquete" hidden>
+          <span class="material-symbols-outlined" aria-hidden="true">add</span> Nuevo paquete</button>
+      </div>
+      <div class="table-wrap sep">
+        <table class="tarjetas"><thead><tr>
+          <th class="num">Monto</th><th>Nombre</th><th>Lo que dice</th><th>En la página</th><th></th>
+        </tr></thead><tbody id="tbPaquetes"></tbody></table>
+      </div>
+    </div>
+
+    <div class="card sep">
+      <h2 class="sec">Ajustes</h2>
+      <p class="tiny muted" id="ajNadie" hidden style="margin-top:0">Sólo un administrador puede cambiarlos.</p>
+      <div class="ajustes-rejilla">
+        <div>
+          <div class="field"><label for="aCuenta">Cuenta de Stripe donde entran las donaciones con tarjeta</label>
+            <select id="aCuenta"><option value="">La principal</option></select>
+            <div class="tiny muted">Las otras se configuran en <a href="stripe.html">Cobros con tarjeta</a> → Otras empresas.</div></div>
+          <label class="check"><input type="checkbox" id="aOtro"> Dejar donar otro monto, además de los paquetes</label>
+          <div class="row" style="gap:var(--e2)">
+            <div class="field" style="max-width:160px"><label for="aMin">Mínimo (USD)</label><input id="aMin" type="number" min="1" step="1"></div>
+            <div class="field" style="max-width:160px"><label for="aMax">Máximo (USD)</label><input id="aMax" type="number" min="1" step="1"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="aDonantes"> Mostrar en la página los donantes que lo aceptaron</label>
+          <label class="check"><input type="checkbox" id="aHistorias"> Mostrar las historias de los becados que lo aceptaron</label>
+        </div>
+        <div>
+          <div class="field"><label for="aReciboEs">Texto del recibo, en español</label><textarea id="aReciboEs" rows="4"></textarea></div>
+          <div class="field"><label for="aReciboEn">Texto del recibo, en inglés</label><textarea id="aReciboEn" rows="4"></textarea></div>
+          <p class="tiny muted" style="margin:0">Va al final del correo de recibo. No prometas deducción de impuestos si el CEM no es una
+            organización que pueda darla.</p>
+        </div>
+      </div>
+      <div class="nota sep">Para probar sin mover dinero: añade en <a href="stripe.html">Cobros con tarjeta</a> → Otras empresas una
+        cuenta de Stripe en <b>modo prueba</b>, elígela aquí, dona en la página con la tarjeta <code>4242 4242 4242 4242</code>,
+        vuelve a poner la principal y <b>anula la donación de prueba</b> para que no cuente en el fondo.</div>
+      <div id="aMsg"></div>
+      <div class="row between sep">
+        <span class="tiny muted" id="aCuando"></span>
+        <button class="btn" type="button" id="aGuardar" hidden>Guardar los ajustes</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+import { sb, mount, $, $$, esc, num, chip, fdatetime, ok, modal, confirmDialog, mensajeError, avisar, kpi,
+         montarAyudas, download, toCSV, emptyRow, conectarFiltros, match, qs, campoArchivo, subirComprobante,
+         urlComprobante } from '../assets/app.js?v=2026-11-06';
+
+const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], area:'admin', active:'donaciones.html' });
+const rol = p?.rol || '';
+const esAdmin = ['admin', 'superadmin'].includes(rol);
+const registra = ['cobranza', 'coordinador', 'admin', 'superadmin'].includes(rol);
+
+const usd = (n) => (Number(n) < 0 ? '−' : '') + '$' + Math.abs(Number(n) || 0)
+  .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  .replace(/[.,]/g, (c) => (c === ',' ? '.' : ','));
+/* Las columnas `fecha` son días, no instantes: «2026-11-06» leído como hora
+   UTC sale «5 nov» en Caracas o en Miami. Se lee a mediodía, en local. */
+const fdia = (d) => d ? new Date(String(d).length === 10 ? d + 'T12:00:00' : d)
+  .toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const hoy = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+
+const METODO = { tarjeta: 'Tarjeta', zelle: 'Zelle', transferencia: 'Transferencia', cheque: 'Cheque', efectivo: 'Efectivo', otro: 'Otro' };
+const ESTADO = { confirmada: ['Confirmada', 'ok'], iniciada: ['Sin terminar', 'neutral'], fallida: ['Fallida', 'err'], anulada: ['Anulada', 'err'] };
+const MOV = { donacion: ['Donación', 'ok'], anulacion: ['Anulación', 'err'], beca: ['Beca', 'gold'], devolucion: ['Vuelve al fondo', 'teal'] };
+const chipEstado = (e) => chip(...(ESTADO[e] || [e, 'neutral']));
+
+if (registra) $('#btnRegistrar').hidden = false;
+if (rol !== 'cobranza') $('#aBecas').hidden = false;
+if (esAdmin) { $('#btnPaquete').hidden = false; $('#aGuardar').hidden = false; }
+else $('#ajNadie').hidden = false;
+
+let resumen = {}, donaciones = [], iniciadas = null, movimientos = [], ajustes = null, cuentas = [];
+
+/* ── pestañas ─────────────────────────────────────────────────────────── */
+function abrirPestana(cual) {
+  $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.p === cual));
+  ['donaciones', 'fondo', 'ajustes'].forEach((x) => { $('#p-' + x).hidden = x !== cual; });
+  const u = new URL(location.href); u.searchParams.set('pestana', cual); history.replaceState(null, '', u);
+}
+$$('#tabs button').forEach((b) => b.onclick = () => abrirPestana(b.dataset.p));
+if (['fondo', 'ajustes'].includes(qs('pestana'))) abrirPestana(qs('pestana'));
+
+/* ── carga ────────────────────────────────────────────────────────────── */
+async function cargar() {
+  const [r, d, m, a] = await Promise.all([
+    sb.rpc('cem_becas_resumen'), sb.rpc('cem_becas_donaciones_listar', {}),
+    sb.rpc('cem_becas_movimientos'), sb.rpc('cem_becas_ajustes_ver'),
+  ]);
+  const e = r.error || d.error || m.error || a.error;
+  if (e) { avisar('#kpis', mensajeError(e, 'No se pudieron leer las donaciones.')); return; }
+  resumen = r.data || {}; donaciones = d.data || []; movimientos = m.data || []; ajustes = a.data || {};
+  iniciadas = null;
+  pintarKpis(); await pintarDon(); pintarFondo(); pintarAjustes();
+  const abrir = qs('id');
+  if (abrir) { const x = donaciones.find((y) => y.id === abrir); if (x) verDonacion(x); }
+}
+
+// Los nombres de las cuentas de Stripe sólo los ve el equipo de coordinación
+// para arriba; a los demás se les enseña la clave, que también la identifica.
+sb.rpc('cem_stripe_cuentas_nombres').then(({ data }) => { cuentas = data || []; if (ajustes) pintarAjustes(); });
+const cuenta = (clave) => cuentas.find((c) => c.clave === clave);
+
+function pintarKpis() {
+  const r = resumen;
+  $('#kpis').innerHTML = [
+    kpi('Fondo disponible', esc(usd(r.disponible)), 'savings', `${usd(r.reservado)} reservado en enlaces sin activar`, '',
+        'Lo que queda en el fondo para dar becas nuevas. Lo reservado ya está apartado para becas cuyo enlace todavía no se activó: si el enlace se revoca, vuelve al fondo.'),
+    kpi('Donado en total', esc(usd(r.donado)), 'volunteer_activism', `${num(r.donaciones || 0)} donación(es) confirmada(s)`),
+    kpi('Este mes', esc(usd(r.donado_mes)), 'calendar_month', 'donaciones confirmadas'),
+    kpi('Donantes', num(r.donantes || 0), 'groups', `${num(r.otorgadas || 0)} beca(s) activas`),
+  ].join('');
+  montarAyudas($('#kpis'));
+}
+
+/* ── donaciones ───────────────────────────────────────────────────────── */
+async function lista() {
+  const e = $('#fEstado').value;
+  if (e !== 'iniciada') return donaciones;
+  if (!iniciadas) {
+    const { data, error } = await sb.rpc('cem_becas_donaciones_listar', { p_estado: 'iniciada' });
+    if (error) { avisar('#cuentaDon', mensajeError(error)); return []; }
+    iniciadas = data || [];
+  }
+  return iniciadas;
+}
+
+async function filtradas() {
+  const q = $('#q').value.trim(), e = $('#fEstado').value, mt = $('#fMetodo').value;
+  return (await lista()).filter((d) => match(d, q, ['numero', 'donante', 'email', 'organizacion', 'pais', 'referencia'])
+    && (!e || d.estado === e) && (!mt || d.metodo === mt));
+}
+
+function usoHtml(d) {
+  if (d.estado !== 'confirmada') return '<span class="muted">—</span>';
+  const pct = d.monto > 0 ? Math.min(100, Math.round((Number(d.usado) / Number(d.monto)) * 100)) : 0;
+  return `<span class="tiny">${esc(usd(d.usado))}</span>
+    <div class="barra-uso" role="img" aria-label="${pct} % usado en becas"><i style="width:${pct}%"></i></div>
+    <span class="tiny muted">quedan ${esc(usd(d.queda))}</span>`;
+}
+
+async function pintarDon() {
+  const filas = await filtradas();
+  const base = await lista();
+  $('#cuentaDon').textContent = `${num(filas.length)} de ${num(base.length)}`;
+  $('#tbDon').innerHTML = filas.length ? filas.map((d) => `<tr>
+    <td data-col="Donación"><b>${esc(d.numero)}</b><div class="tiny muted">${esc(fdia(d.fecha || d.creada_en))}</div></td>
+    <td class="wrap" data-col="Quién">${esc(d.donante)}${d.publica ? '' : ' <span class="tiny muted">(anónima)</span>'}
+      <div class="tiny muted">${esc([d.organizacion, d.pais].filter(Boolean).join(' · '))}</div></td>
+    <td data-col="Cómo llegó">${esc(METODO[d.metodo] || d.metodo)}${d.referencia ? `<div class="tiny muted">${esc(d.referencia)}</div>` : ''}</td>
+    <td class="num" data-col="Monto">${esc(usd(d.monto))}</td>
+    <td data-col="Usado en becas">${usoHtml(d)}</td>
+    <td data-col="Estado">${chipEstado(d.estado)}</td>
+    <td data-col=""><button class="btn ghost sm" type="button" data-don="${esc(d.id)}" aria-label="Ver la donación ${esc(d.numero)}">
+      <span class="material-symbols-outlined" aria-hidden="true">visibility</span></button></td></tr>`).join('')
+    : emptyRow(7, base.length ? 'Ninguna donación con esos filtros.'
+      : ($('#fEstado').value === 'iniciada' ? 'No hay donaciones a medio pagar.' : 'Todavía no hay donaciones. Las de tarjeta entran solas desde la página; las de Zelle o transferencia se registran aquí.'));
+  $$('#tbDon [data-don]').forEach((b) => b.onclick = () => verDonacion(filas.find((d) => d.id === b.dataset.don)));
+}
+conectarFiltros(['#q', '#fEstado', '#fMetodo'], pintarDon);
+
+$('#csvDon').onclick = async () => {
+  const filas = await filtradas();
+  download('donaciones.csv', toCSV(filas.map((d) => ({
+    numero: d.numero, fecha: d.fecha || '', estado: d.estado, metodo: d.metodo, monto_usd: d.monto,
+    usado_en_becas: d.usado, queda: d.queda, donante: d.donante, correo: d.email || '', pais: d.pais || '',
+    organizacion: d.organizacion || '', publica: d.publica ? 'sí' : 'no', idioma: d.idioma, paquete: d.paquete || '',
+    referencia: d.referencia || '', cuenta_stripe: d.metodo === 'tarjeta' ? (d.stripe_cuenta || 'principal') : '',
+    origen: d.origen || '', campana: d.campana || '', registrada_por: d.registrada_por || '',
+    confirmada_en: d.confirmada_en || '', anulada_en: d.anulada_en || '', motivo_anulacion: d.motivo_anulacion || '',
+    mensaje: d.mensaje || '', nota: d.nota || '',
+  }))));
+};
+
+async function verDonacion(d) {
+  if (!d) return;
+  const dato = (t, v) => v ? `<div><span>${esc(t)}</span>${esc(v)}</div>` : '';
+  const c = d.metodo === 'tarjeta' && d.stripe_cuenta ? cuenta(d.stripe_cuenta) : null;
+  const m = modal({ title: `${d.numero} · ${d.donante}`, wide: true, body: `
+    <div class="row" style="gap:8px;margin-bottom:var(--e2)">${chipEstado(d.estado)}${chip(METODO[d.metodo] || d.metodo, 'info')}
+      ${d.publica ? chip('Sale en la lista de donantes', 'teal') : chip('Anónima en la página', 'neutral')}
+      ${c?.modo === 'prueba' ? chip('Cuenta de Stripe de prueba', 'warn') : ''}</div>
+    <div class="datos-persona">
+      ${dato('Monto', usd(d.monto) + ' USD')}${dato('Fecha', fdia(d.fecha))}
+      ${dato('Correo', d.email)}${dato('País', d.pais)}${dato('Organización', d.organizacion)}
+      ${dato('Idioma del recibo', d.idioma === 'en' ? 'Inglés' : 'Español')}${dato('Paquete', d.paquete)}
+      ${dato(d.metodo === 'tarjeta' ? 'Cobro en Stripe' : 'Referencia', d.referencia)}
+      ${d.metodo === 'tarjeta' ? dato('Cuenta de Stripe', d.stripe_cuenta ? (c?.nombre || d.stripe_cuenta) : 'La principal') : ''}
+      ${dato('Llegó por', [d.origen, d.campana].filter(Boolean).join(' · '))}${dato('La registró', d.registrada_por)}
+      ${dato('Confirmada', d.confirmada_en ? fdatetime(d.confirmada_en) : '')}
+      ${d.anulada_en ? dato('Anulada', `${fdatetime(d.anulada_en)} · ${d.motivo_anulacion || ''}`) : ''}
+      ${dato('Nota', d.nota)}
+    </div>
+    ${d.mensaje ? `<p class="mensaje-donante">«${esc(d.mensaje)}»</p>` : ''}
+    ${d.comprobante ? `<button class="btn outline sm" type="button" id="vComp">
+      <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Ver el comprobante</button>` : ''}
+    <div id="vDetalle" class="sep"><span class="cargando"></span></div>
+    <div id="vMsg"></div>`,
+    footer: `<button class="btn outline" type="button" data-x>Cerrar</button>
+      ${esAdmin && d.estado !== 'anulada' ? '<button class="btn danger" type="button" id="vAnular">Anular</button>' : ''}` });
+
+  if ($('#vComp', m)) $('#vComp', m).onclick = async () => {
+    const u = await urlComprobante(d.comprobante);
+    if (!u) return avisar($('#vMsg', m), 'No se pudo abrir el comprobante: puede que tu rol no tenga acceso a ese archivo.');
+    window.open(u, '_blank', 'noopener');
+  };
+  if ($('#vAnular', m)) $('#vAnular', m).onclick = () => { m.close(); anular(d); };
+
+  if (d.estado !== 'confirmada' && d.estado !== 'anulada') { $('#vDetalle', m).innerHTML = ''; return; }
+  const { data, error } = await sb.rpc('cem_beca_donacion_detalle', { p_id: d.id });
+  if (error) { $('#vDetalle', m).innerHTML = ''; return avisar($('#vMsg', m), mensajeError(error)); }
+  const becas = data.becas || [], movs = data.movimientos || [];
+  $('#vDetalle', m).innerHTML = `
+    <h3 class="sec">Becas que pagó</h3>
+    ${becas.length ? `<ul class="tiny" style="margin:0 0 var(--e2);padding-left:18px">${becas.map((b) =>
+      `<li><b>${esc(b.beca)}</b> · ${esc(b.nombre)}${b.pais ? ` (${esc(b.pais)})` : ''} · ${esc(b.programa || '—')}: <b>${esc(usd(b.monto))}</b>
+        ${b.liberada_en ? ' <span class="muted">(la beca se revocó y el dinero volvió al fondo)</span>'
+          : b.estado === 'por_activar' ? ' <span class="muted">(reservado: el enlace aún no se activó)</span>' : ''}</li>`).join('')}</ul>`
+      : `<p class="tiny muted" style="margin-top:0">${d.estado === 'confirmada' ? 'Todavía ninguna: el dinero está en el fondo, esperando.' : '—'}</p>`}
+    ${d.estado === 'confirmada' ? `<p class="tiny" style="margin:0 0 var(--e2)">Quedan <b>${esc(usd(data.queda))}</b> de esta donación sin usar.</p>` : ''}
+    <h3 class="sec">En el libro del fondo</h3>
+    ${movs.length ? `<ul class="tiny" style="margin:0;padding-left:18px">${movs.map((x) =>
+      `<li>${esc(fdia(x.fecha))} · ${esc((MOV[x.tipo] || [x.tipo])[0])}: <b class="${Number(x.monto) < 0 ? 'err-text' : 'ok-text'}">${esc(usd(x.monto))}</b>
+        ${x.nota ? ` · <span class="muted">${esc(x.nota)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="tiny muted">—</p>'}`;
+}
+
+function anular(d) {
+  const usado = Number(d.usado) || 0;
+  const m = modal({ title: `Anular ${d.numero}`, body: usado > 0 ? `
+    <p style="margin-top:0">Esta donación ya pagó becas por <b>${esc(usd(usado))}</b>, así que no se puede anular: esas becas seguirían
+      ahí, pagadas con un dinero que el fondo diría que nunca entró.</p>
+    <p class="tiny muted">Si de verdad hay que anularla, primero se revocan esas becas en <a href="becas.html?pestana=becas">Becas dadas</a>.</p>`
+    : `<p style="margin-top:0">${d.estado === 'confirmada' ? `Sus <b>${esc(usd(d.monto))}</b> salen del fondo.` : 'No toca el fondo: no llegó a entrar.'}
+      Queda en la lista como anulada, con el motivo, y no se borra.</p>
+    <div class="field"><label for="anMotivo">Por qué se anula</label><textarea id="anMotivo" rows="2"
+      placeholder="Se registró dos veces · era una prueba · se devolvió el dinero"></textarea></div>
+    <div id="anMsg"></div>`,
+    footer: usado > 0 ? '<button class="btn" type="button" data-x>Entendido</button>'
+      : `<button class="btn outline" type="button" data-x>Cancelar</button><button class="btn danger" type="button" data-s>Anular la donación</button>` });
+  if (usado > 0) return;
+  $('[data-s]', m).onclick = async () => {
+    const { error } = await sb.rpc('cem_beca_donacion_anular', { p_id: d.id, p_motivo: $('#anMotivo', m).value.trim() });
+    if (error) return avisar($('#anMsg', m), mensajeError(error));
+    m.close(); ok(`${d.numero} anulada.`); cargar();
+  };
+}
+
+/* ── registrar una donación que no llegó con tarjeta ─────────────────── */
+$('#btnRegistrar').onclick = () => {
+  const comprobante = campoArchivo({ id: 'rComp', tipo: 'comprobante', subir: subirComprobante,
+    etiquetaSubir: 'Adjuntar el comprobante', permitirEnlace: false });
+  const m = modal({ title: 'Registrar una donación', wide: true, body: `
+    <p class="tiny muted" style="margin-top:0">Para las que llegan por Zelle, transferencia, cheque o en efectivo. Las de tarjeta entran
+      solas desde la página. Entra confirmada y suma al fondo en el momento.</p>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:1;min-width:140px"><label for="rMonto">Monto (USD)</label><input id="rMonto" type="number" min="1" step="0.01"></div>
+      <div class="field" style="flex:1;min-width:160px"><label for="rMetodo">Cómo llegó</label>
+        <select id="rMetodo"><option value="zelle">Zelle</option><option value="transferencia">Transferencia</option>
+          <option value="cheque">Cheque</option><option value="efectivo">Efectivo</option><option value="otro">Otro</option></select></div>
+      <div class="field" style="flex:1;min-width:160px"><label for="rRef">Referencia</label><input id="rRef" maxlength="80" placeholder="Nº de la operación o del cheque"></div>
+      <div class="field" style="flex:1;min-width:150px"><label for="rFecha">Fecha</label><input id="rFecha" type="date" value="${hoy()}" max="${hoy()}"></div>
+    </div>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:2;min-width:200px"><label for="rNombre">Quién donó</label><input id="rNombre" maxlength="80"></div>
+      <div class="field" style="flex:2;min-width:200px"><label for="rEmail">Correo <span class="tiny muted">(para el recibo)</span></label><input id="rEmail" type="email" maxlength="120"></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="rPais">País</label><input id="rPais" maxlength="60"></div>
+    </div>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:2;min-width:200px"><label for="rOrg">Organización <span class="tiny muted">(si dona en nombre de una)</span></label><input id="rOrg" maxlength="120"></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="rIdioma">Idioma del recibo</label>
+        <select id="rIdioma"><option value="es">Español</option><option value="en">Inglés</option></select></div>
+    </div>
+    <div class="field"><label for="rMensaje">Su mensaje <span class="tiny muted">(opcional)</span></label><textarea id="rMensaje" rows="2" maxlength="500"></textarea></div>
+    <div class="field"><label>Comprobante</label>${comprobante.html}</div>
+    <label class="check"><input type="checkbox" id="rPublica"> Aceptó salir con su nombre en la lista de donantes</label>
+    <label class="check"><input type="checkbox" id="rRecibo" checked> Mandarle el recibo por correo</label>
+    <div id="rMsg"></div>`,
+    footer: `<button class="btn outline" type="button" data-x>Cancelar</button><button class="btn" type="button" data-s>Registrar la donación</button>` });
+  comprobante.conectar(m);
+
+  $('[data-s]', m).onclick = async () => {
+    const msg = $('#rMsg', m), monto = Number($('#rMonto', m).value);
+    if (!(monto > 0)) return avisar(msg, 'Escribe el monto.');
+    if (comprobante.valor() === 'pendiente') return avisar(msg, 'Espera a que termine de subir el comprobante.');
+    const email = $('#rEmail', m).value.trim();
+    const recibo = $('#rRecibo', m).checked && !!email;
+    const { data, error } = await sb.rpc('cem_beca_donacion_registrar', {
+      p_monto: monto, p_metodo: $('#rMetodo', m).value, p_referencia: $('#rRef', m).value.trim() || null,
+      p_fecha: $('#rFecha', m).value || null, p_nombre: $('#rNombre', m).value.trim(), p_email: email || null,
+      p_pais: $('#rPais', m).value.trim() || null, p_organizacion: $('#rOrg', m).value.trim() || null,
+      p_mensaje: $('#rMensaje', m).value.trim() || null, p_publica: $('#rPublica', m).checked,
+      p_comprobante: comprobante.valor() || null, p_idioma: $('#rIdioma', m).value,
+      p_enviar_recibo: recibo });
+    if (error) return avisar(msg, mensajeError(error, 'No se pudo registrar.'));
+    m.close();
+    ok(`${data.numero} registrada: ${usd(monto)} entran al fondo${recibo ? ' y se le manda el recibo' : ''}.`);
+    cargar();
+  };
+};
+
+/* ── el libro del fondo ───────────────────────────────────────────────── */
+function pintarFondo() {
+  $('#tbFondo').innerHTML = movimientos.length ? movimientos.map((x) => `<tr>
+    <td class="tiny" data-col="Fecha">${esc(fdia(x.fecha))}</td>
+    <td data-col="Movimiento">${chip(...(MOV[x.tipo] || [x.tipo, 'neutral']))}</td>
+    <td class="tiny" data-col="De qué">${esc([x.donacion, x.beca].filter(Boolean).join(' · ') || '—')}</td>
+    <td class="tiny muted" data-col="Nota">${esc(x.nota || '')}${x.quien ? `<div>${esc(x.quien)}</div>` : ''}</td>
+    <td class="num ${Number(x.monto) < 0 ? 'err-text' : 'ok-text'}" data-col="Monto">${esc(usd(x.monto))}</td>
+    <td class="num" data-col="Saldo"><span class="saldo">${esc(usd(x.saldo))}</span></td></tr>`).join('')
+    : emptyRow(6, 'El fondo todavía no tiene movimientos.');
+}
+
+$('#csvFondo').onclick = () => download('fondo-de-becas.csv', toCSV(movimientos.map((x) => ({
+  id: x.id, fecha: x.fecha, tipo: x.tipo, monto_usd: x.monto, saldo_usd: x.saldo,
+  donacion: x.donacion || '', beca: x.beca || '', nota: x.nota || '', quien: x.quien || '',
+}))));
+
+/* ── paquetes y ajustes ───────────────────────────────────────────────── */
+function pintarAjustes() {
+  const a = ajustes || {};
+  const paquetes = a.paquetes || [];
+  $('#tbPaquetes').innerHTML = paquetes.length ? paquetes.map((k) => `<tr>
+    <td class="num" data-col="Monto"><b>${esc(usd(k.monto))}</b></td>
+    <td data-col="Nombre">${esc(k.nombre_es)}<div class="tiny muted">${esc(k.nombre_en)}</div></td>
+    <td class="tiny" data-col="Lo que dice">${esc(k.descripcion_es || '—')}</td>
+    <td data-col="En la página">${k.activo ? chip('Se ofrece', 'ok') : chip('Oculto', 'neutral')} ${k.destacado ? chip('Destacado', 'gold') : ''}</td>
+    <td data-col="">${esAdmin ? `<button class="btn ghost sm" type="button" data-paq="${esc(k.id)}" aria-label="Editar el paquete de ${esc(usd(k.monto))}">
+      <span class="material-symbols-outlined" aria-hidden="true">edit</span></button>` : ''}</td></tr>`).join('')
+    : emptyRow(5, 'No hay paquetes. Sin ellos, la página sólo ofrece «otro monto».');
+  $$('#tbPaquetes [data-paq]').forEach((b) => b.onclick = () => editarPaquete(paquetes.find((k) => k.id === b.dataset.paq)));
+
+  const sel = $('#aCuenta');
+  const opciones = cuentas.map((c) => `<option value="${esc(c.clave)}">${esc(c.nombre || c.clave)}${c.modo === 'prueba' ? ' (de prueba)' : ''}</option>`);
+  if (a.stripe_cuenta && !cuenta(a.stripe_cuenta)) opciones.push(`<option value="${esc(a.stripe_cuenta)}">${esc(a.stripe_cuenta)}</option>`);
+  sel.innerHTML = '<option value="">La principal</option>' + opciones.join('');
+  sel.value = a.stripe_cuenta || '';
+  $('#aOtro').checked = a.otro_monto !== false;
+  $('#aMin').value = a.otro_monto_minimo ?? 25;
+  $('#aMax').value = a.otro_monto_maximo ?? 50000;
+  $('#aDonantes').checked = a.mostrar_donantes !== false;
+  $('#aHistorias').checked = a.mostrar_historias !== false;
+  $('#aReciboEs').value = a.texto_recibo_es || '';
+  $('#aReciboEn').value = a.texto_recibo_en || '';
+  $('#aCuando').textContent = a.actualizado_en ? `Cambiados por última vez el ${fdatetime(a.actualizado_en)}.` : '';
+  ['#aCuenta', '#aOtro', '#aMin', '#aMax', '#aDonantes', '#aHistorias', '#aReciboEs', '#aReciboEn'].forEach((s) => { $(s).disabled = !esAdmin; });
+}
+
+$('#aGuardar').onclick = async () => {
+  const cambio = $('#aCuenta').value !== (ajustes?.stripe_cuenta || '');
+  if (cambio && !await confirmDialog(`Las donaciones con tarjeta pasarán a entrar en ${$('#aCuenta').value
+      ? `la cuenta «${$('#aCuenta').selectedOptions[0].textContent}»` : 'la cuenta principal'}. ¿Seguro?`, 'Cambiar la cuenta')) return;
+  const { data, error } = await sb.rpc('cem_becas_ajustes_guardar', {
+    p_stripe_cuenta: $('#aCuenta').value || null, p_otro_monto: $('#aOtro').checked,
+    p_otro_monto_minimo: Number($('#aMin').value) || 0, p_otro_monto_maximo: Number($('#aMax').value) || 0,
+    p_texto_recibo_es: $('#aReciboEs').value.trim(), p_texto_recibo_en: $('#aReciboEn').value.trim(),
+    p_mostrar_donantes: $('#aDonantes').checked, p_mostrar_historias: $('#aHistorias').checked });
+  if (error) return avisar('#aMsg', mensajeError(error, 'No se pudieron guardar.'));
+  $('#aMsg').innerHTML = '';
+  ajustes = data; pintarAjustes(); ok('Ajustes guardados.');
+};
+
+function editarPaquete(k = null) {
+  const m = modal({ title: k ? `Paquete de ${usd(k.monto)}` : 'Nuevo paquete', wide: true, body: `
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="max-width:160px"><label for="kMonto">Monto (USD)</label><input id="kMonto" type="number" min="1" step="1" value="${k?.monto ?? ''}"></div>
+      <div class="field" style="max-width:120px"><label for="kOrden">Orden</label><input id="kOrden" type="number" step="1" value="${k?.orden ?? 0}"></div>
+    </div>
+    <div class="row" style="gap:var(--e2)">
+      <div class="field" style="flex:1;min-width:200px"><label for="kNombreEs">Nombre en español</label><input id="kNombreEs" maxlength="40" value="${esc(k?.nombre_es || '')}"></div>
+      <div class="field" style="flex:1;min-width:200px"><label for="kNombreEn">Nombre en inglés</label><input id="kNombreEn" maxlength="40" value="${esc(k?.nombre_en || '')}"></div>
+    </div>
+    <div class="field"><label for="kDescEs">Lo que dice, en español</label><textarea id="kDescEs" rows="2" maxlength="200">${esc(k?.descripcion_es || '')}</textarea></div>
+    <div class="field"><label for="kDescEn">Lo que dice, en inglés</label><textarea id="kDescEn" rows="2" maxlength="200">${esc(k?.descripcion_en || '')}</textarea></div>
+    <label class="check"><input type="checkbox" id="kActivo" ${k?.activo === false ? '' : 'checked'}> Se ofrece en la página</label>
+    <label class="check"><input type="checkbox" id="kDestacado" ${k?.destacado ? 'checked' : ''}> Destacado (el que se sugiere)</label>
+    <div id="kMsg"></div>`,
+    footer: `<button class="btn outline" type="button" data-x>Cancelar</button><button class="btn" type="button" data-s>Guardar</button>` });
+  $('[data-s]', m).onclick = async () => {
+    const { data, error } = await sb.rpc('cem_becas_paquete_guardar', {
+      p_id: k?.id || null, p_monto: Number($('#kMonto', m).value) || 0,
+      p_nombre_es: $('#kNombreEs', m).value.trim(), p_nombre_en: $('#kNombreEn', m).value.trim(),
+      p_descripcion_es: $('#kDescEs', m).value.trim(), p_descripcion_en: $('#kDescEn', m).value.trim(),
+      p_orden: Number($('#kOrden', m).value) || 0, p_activo: $('#kActivo', m).checked, p_destacado: $('#kDestacado', m).checked });
+    if (error) return avisar($('#kMsg', m), mensajeError(error));
+    m.close(); ajustes = data; pintarAjustes(); ok('Paquete guardado.');
+  };
+}
+$('#btnPaquete').onclick = () => editarPaquete();
+
+cargar();
+</script>
+</body>
+</html>
