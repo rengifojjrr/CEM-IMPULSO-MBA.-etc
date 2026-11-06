@@ -11,12 +11,23 @@
 //
 // Va sin verify_jwt: quien llama es Stripe, que no tiene sesión de Supabase.
 // Por eso la firma no es un detalle de seguridad, es LA seguridad.
+//
+// UNA DIRECCIÓN POR CUENTA
+// Cada programa cobra en la cuenta de Stripe que tenga asignada: la del CEM o
+// la de la empresa beneficiaria (ver _shared/stripe-cuentas.ts). Cada cuenta
+// tiene su propio webhook y su propio secreto, y avisa aquí con su dirección:
+//   …/cem-stripe-webhook                → la cuenta principal, como siempre
+//   …/cem-stripe-webhook?cuenta=<clave> → la de esa empresa
+// La firma se comprueba con el secreto de ESA cuenta, y el cobro se apunta con
+// SU método, que lleva a SU cartera: el dinero de otra empresa no se mezcla con
+// el del CEM.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 /* Convertir la compra en alumno lo hace un solo sitio, compartido con
    cem-comprar: si el equipo confirma un pago movil a mano tiene que pasar
    exactamente lo mismo que si lo confirma Stripe. */
 import { cerrarCompraInvitado } from '../_shared/cerrar-compra.ts';
+import { claveValida, cuentaPorClave, todasLasCuentas, type CuentaStripe } from '../_shared/stripe-cuentas.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -60,14 +71,30 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
   const cuerpo = await req.text();
 
-  const { data: cfg } = await admin.from('cem_integraciones')
-    .select('datos').eq('id', 'stripe').maybeSingle();
-  const secreto = cfg?.datos?.webhook_secret;
-  if (!secreto) return json({ error: 'Sin secreto de webhook configurado.' }, 409);
-
   const cabecera = req.headers.get('stripe-signature') || '';
-  if (!(await firmaValida(cuerpo, cabecera, secreto))) {
-    return json({ error: 'Firma inválida.' }, 401);
+
+  // De qué cuenta viene el aviso, y que de verdad venga de ella.
+  const pedida = new URL(req.url).searchParams.get('cuenta');
+  let cuenta: CuentaStripe | null = null;
+  if (pedida) {
+    cuenta = await cuentaPorClave(admin, pedida);
+    if (!cuenta) return json({ error: 'Esa cuenta de Stripe no está configurada aquí.' }, 404);
+    if (!cuenta.webhook_secret) return json({ error: 'Sin secreto de webhook configurado.' }, 409);
+    if (!(await firmaValida(cuerpo, cabecera, cuenta.webhook_secret))) {
+      return json({ error: 'Firma inválida.' }, 401);
+    }
+  } else {
+    // Sin `?cuenta=`: la principal, como siempre. Y si el aviso no lo firma la
+    // principal, se prueba con los secretos de las otras: así un webhook dado
+    // de alta sin el final de la dirección también funciona. No afloja nada
+    // —sigue haciendo falta la firma de una de NUESTRAS cuentas— y la
+    // comprobación de más abajo impide que esa cuenta asiente un cobro ajeno.
+    const cuentas = (await todasLasCuentas(admin)).filter((c) => c.webhook_secret);
+    if (!cuentas.length) return json({ error: 'Sin secreto de webhook configurado.' }, 409);
+    for (const c of cuentas) {
+      if (await firmaValida(cuerpo, cabecera, c.webhook_secret!)) { cuenta = c; break; }
+    }
+    if (!cuenta) return json({ error: 'Firma inválida.' }, 401);
   }
 
   const evento = JSON.parse(cuerpo);
@@ -76,6 +103,17 @@ Deno.serve(async (req) => {
 
   const sesion = evento.data?.object || {};
   const sessionId = sesion.id;
+
+  // El cobro se abrió en una cuenta (metadata.cuenta; sin ella, la principal) y
+  // tiene que avisar esa misma. Si no coinciden, algo está mal configurado y no
+  // se asienta: el dinero estaría en una cuenta y el registro diría otra.
+  const abiertaEn = claveValida(sesion.metadata?.cuenta) || null;
+  if (abiertaEn !== cuenta.clave) {
+    return json({ error: `Este cobro se abrió en la cuenta «${abiertaEn ?? 'principal'}» y avisa la «${cuenta.clave ?? 'principal'}».` }, 400);
+  }
+  if (!cuenta.metodo) {
+    return json({ error: `La cuenta «${cuenta.clave}» no tiene método de pago. Vuelve a guardarla en Admin → Cobros con tarjeta.` }, 500);
+  }
 
   /* ── Compró alguien que no tenía cuenta ────────────────────────────────
      Aquí es donde nace la cuenta, y no antes: si se creara al pulsar
@@ -92,7 +130,7 @@ Deno.serve(async (req) => {
       monto: Math.round(Number(sesion.amount_total || 0)) / 100,
       moneda: String(sesion.currency || 'usd').toUpperCase(),
       referencia: String(sesion.payment_intent || sesion.id),
-      metodo: 'Tarjeta de crédito/débito',
+      metodo: cuenta.metodo,
     });
     if (r.error) return json({ error: r.error }, r.status ?? 500);
     return json(r.cuerpo);
@@ -120,7 +158,7 @@ Deno.serve(async (req) => {
     p_monto: monto,
     p_moneda: String(sesion.currency || 'eur').toUpperCase(),
     p_referencia: referencia,
-    p_metodo: 'Tarjeta de crédito/débito',
+    p_metodo: cuenta.metodo,
     p_profile_id: sesion.metadata?.profile_id || null,
   });
 

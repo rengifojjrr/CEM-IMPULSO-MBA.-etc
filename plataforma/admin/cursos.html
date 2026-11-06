@@ -96,9 +96,21 @@ import { sb, mount, $, $$, esc, chip, bar, money, num, pct, emptyRow, match, toC
 
 const p = await mount({ require:['coordinador','admin','superadmin','auditor'], active:'cursos.html', area:'admin' });
 const editable = p && ['coordinador','admin','superadmin'].includes(p.rol);
+/* A qué empresa va el dinero de la tarjeta lo decide sólo un administrador. La
+   base lo exige igual (cem_tg_curso_cuenta_stripe); aquí sólo se evita ofrecer
+   un desplegable que luego no dejaría guardar. */
+const esAdmin = p && ['admin','superadmin'].includes(p.rol);
 const METODOS_PAGO = ['Transferencia bancaria','Tarjeta de crédito/débito','Zelle','PayPal','Pago móvil','Efectivo'];
-let rows = [], categorias = [];
-if (p) { load(); sb.from('cem_categorias').select('nombre').eq('activo',true).order('orden').then(({data})=>categorias=data||[]); }
+let rows = [], categorias = [], cuentasStripe = [];
+if (p) {
+  load();
+  sb.from('cem_categorias').select('nombre').eq('activo',true).order('orden').then(({data})=>categorias=data||[]);
+  // Las cuentas de Stripe de otras empresas, configuradas en Cobros con tarjeta.
+  sb.rpc('cem_stripe_cuentas_nombres').then(({data})=>{ cuentasStripe = data||[]; if (rows.length) render(); });
+}
+
+/** El nombre de la empresa de una cuenta de Stripe, por su clave. */
+const nombreCuenta = (clave) => cuentasStripe.find(x => x.clave === clave)?.nombre || clave;
 accionVacio('vacioNuevo', () => location.href = 'curso-nuevo.html');
 
 async function load(){
@@ -126,6 +138,14 @@ function estadoStripe(r){
   return '';
 }
 
+/* Si el programa cobra con tarjeta en la cuenta de otra empresa, se dice en la
+   lista: es justo lo que no puede pasar desapercibido. */
+function cuentaChip(r){
+  return r.stripe_cuenta
+    ? ` <span class="chip info" title="Con tarjeta, cobra en la cuenta de Stripe de ${esc(nombreCuenta(r.stripe_cuenta))}">Tarjeta: ${esc(nombreCuenta(r.stripe_cuenta))}</span>`
+    : '';
+}
+
 function render(){
   const q = $('#q').value.trim(), t = $('#fTipo').value, m = $('#fMod').value, n = $('#fNivel').value, e = $('#fEstado').value;
   const list = ordenarPor(rows.filter(r => match(r,q,['nombre','codigo','categoria'])
@@ -139,7 +159,7 @@ function render(){
       ? `${bar(r._avance)}<span class="tiny muted">${pct(r._avance)}</span>`
       : '<span class="tiny muted">—</span>'}</td>
     <td class="num" data-col="Precio">${money(r.precio)}</td>
-    <td data-col="Estado">${chipEstado(r.estado)}${estadoStripe(r)}</td>
+    <td data-col="Estado">${chipEstado(r.estado)}${estadoStripe(r)}${cuentaChip(r)}</td>
     <td class="nowrap" data-col="">
       <a class="btn ghost sm" href="contenido.html?curso=${r.id}" title="Ver y editar sus contenidos" aria-label="Ver y editar sus contenidos"><span class="material-symbols-outlined" aria-hidden="true">import_contacts</span></a>
       <a class="btn ghost sm" href="cohortes.html?curso=${r.id}" title="Ver sus cohortes" aria-label="Ver sus cohortes"><span class="material-symbols-outlined" aria-hidden="true">groups</span></a>
@@ -159,7 +179,7 @@ function render(){
              <span class="material-symbols-outlined">add_photo_alternate</span></div>`}
       <div class="body">
         <div class="row between" style="gap:8px">
-          ${chipEstado(r.estado)}${estadoStripe(r)}
+          ${chipEstado(r.estado)}${estadoStripe(r)}${cuentaChip(r)}
           ${r.imagen_url ? '' : '<span class="chip warn">Sin portada</span>'}
         </div>
         <h3>${esc(r.nombre)}</h3>
@@ -271,9 +291,23 @@ function edit(c){
       <div class="metodos-pago" id="eMetodosPago" style="display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px">
         ${METODOS_PAGO.map(mp=>`<label class="check"><input type="checkbox" data-metodo="${esc(mp)}" ${(c.metodos_pago||[]).includes(mp)?'checked':''}> ${esc(mp)}</label>`).join('')}
       </div>
+    </div>
+    <div class="field"><label for="eStripe">Cobro con tarjeta en
+        ${ayuda('La cuenta de Stripe donde entra el dinero cuando alguien paga este programa con tarjeta. Normalmente la del CEM; si el beneficiario del programa es otra empresa, la de esa empresa. Las transferencias y el pago móvil no cambian: siguen yendo a las cuentas del CEM.')}</label>
+      <select id="eStripe" ${esAdmin ? '' : 'disabled'}>
+        <option value="">CEM — la cuenta principal</option>
+        ${cuentasStripe.map(x => `<option value="${esc(x.clave)}" ${c.stripe_cuenta===x.clave?'selected':''}>${esc(x.nombre)}${x.modo==='real'?'':' — en pruebas'}</option>`).join('')}
+        ${c.stripe_cuenta && !cuentasStripe.some(x => x.clave === c.stripe_cuenta)
+          ? `<option value="${esc(c.stripe_cuenta)}" selected>${esc(c.stripe_cuenta)} — sin configurar</option>` : ''}
+      </select>
+      <span class="tiny muted">${esAdmin
+        ? (cuentasStripe.length ? 'Al cambiarla, el programa se crea de nuevo como producto en esa cuenta.'
+            : 'Para cobrar en la cuenta de otra empresa, añádela antes en <a href="stripe.html">Cobros con tarjeta</a>.')
+        : 'Sólo un administrador puede cambiar a qué empresa va el dinero.'}</span>
     </div>`,
     footer:`<button class="btn outline" data-c>Cancelar</button><button class="btn" data-s>Guardar el programa</button>` });
   mejorarSelects(m);
+  montarAyudas(m);
   $('#eCuotasHab',m).onchange = () => { $('#eCuotasCantidadWrap',m).style.display = $('#eCuotasHab',m).checked ? 'flex' : 'none'; };
   $('[data-c]',m).onclick = m.close;
   portada.conectar(m);
@@ -298,7 +332,16 @@ function edit(c){
       return;
     }
     const metodosPago = $$('[data-metodo]',m).filter(x=>x.checked).map(x=>x.dataset.metodo);
+    // La cuenta sólo viaja si un administrador la cambió: así una edición de
+    // coordinación no choca con la regla de la base.
+    const cuentaNueva = $('#eStripe',m).value || null;
+    const cambiaCuenta = esAdmin && cuentaNueva !== (c.stripe_cuenta || null);
+    if (cambiaCuenta && !await confirmDialog(cuentaNueva
+        ? `A partir de ahora, quien pague este programa con tarjeta pagará en la cuenta de Stripe de ${nombreCuenta(cuentaNueva)}: ese dinero no entra en la del CEM.`
+        : 'A partir de ahora, quien pague este programa con tarjeta pagará en la cuenta principal del CEM.',
+        'Cambiar la cuenta de cobro')) return;
     await run(sb.from('cem_courses').update({
+      ...(cambiaCuenta ? { stripe_cuenta: cuentaNueva } : {}),
       nombre:$('#eNombre',m).value.trim(), codigo:$('#eCodigo',m).value.trim()||null, subtitulo:$('#eSub',m).value.trim(),
       descripcion_corta:$('#eDesc',m).value.trim(), tipo:$('#eTipo',m).value, modalidad:$('#eMod',m).value,
       nivel:$('#eNivel',m).value, horas:Number($('#eHoras',m).value)||0, precio:Number($('#ePrecio',m).value)||0,
@@ -310,7 +353,8 @@ function edit(c){
       cuotas_habilitadas:$('#eCuotasHab',m).checked, cuotas_cantidad:$('#eCuotasHab',m).checked?Number($('#eCuotasCantidad',m).value)||null:null,
       metodos_pago:metodosPago.length?metodosPago:null,
     }).eq('id',c.id), 'No se pudo guardar');
-    await audit('curso_actualizado','cem_courses',c.id,'medio',{nombre:$('#eNombre',m).value});
+    await audit('curso_actualizado','cem_courses',c.id, cambiaCuenta ? 'alto' : 'medio',
+      { nombre:$('#eNombre',m).value, ...(cambiaCuenta ? { stripe_cuenta_antes: c.stripe_cuenta || 'principal', stripe_cuenta: cuentaNueva || 'principal' } : {}) });
     m.close(); ok('Curso actualizado'); load();
   };
 }

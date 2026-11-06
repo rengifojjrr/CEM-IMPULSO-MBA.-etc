@@ -8,8 +8,13 @@
 //
 // La clave secreta de Stripe vive en cem_integraciones y sólo la alcanza este
 // entorno de servidor: ni el navegador ni el repositorio la ven nunca.
+//
+// Y no hay una sola: cada programa cobra en la cuenta que tenga asignada —la
+// del CEM, o la de otra empresa que es la beneficiaria de ese programa—. Ver
+// _shared/stripe-cuentas.ts.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { cuentaPorClave, productoListo, COLUMNAS_COBRO } from '../_shared/stripe-cuentas.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -42,17 +47,12 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    const { data: cfg } = await admin.from('cem_integraciones')
-      .select('datos').eq('id', 'stripe').maybeSingle();
-    const secret = cfg?.datos?.secret_key;
-    if (!secret) return json({ error: 'Los cobros con tarjeta no están configurados todavía.' }, 409);
-
     // La cuota, y que sea de quien dice. Se comprueba aquí y no se confía en lo
     // que mande el navegador: es lo único que impide pagar la cuota de otro —o
     // pagar un euro por una de mil.
     const { data: cuota } = await admin
       .from('cem_installments')
-      .select('id, monto, saldo, moneda, estado, numero, enrollment_id, cem_enrollments(profile_id, cem_courses(nombre, stripe_product_id))')
+      .select(`id, monto, saldo, moneda, estado, numero, enrollment_id, cem_enrollments(profile_id, cem_courses(nombre, ${COLUMNAS_COBRO}))`)
       .eq('id', installment_id)
       .maybeSingle();
 
@@ -64,11 +64,21 @@ Deno.serve(async (req) => {
     const saldo = Number(cuota.saldo ?? cuota.monto ?? 0);
     if (!(saldo > 0)) return json({ error: 'Esa cuota no tiene saldo pendiente.' }, 409);
 
+    // La cuenta de Stripe de ESTE programa: la del CEM, o la de la empresa que
+    // lo ofrece. Se lee de la base, nunca del navegador.
+    const cursoFila = (cuota as Record<string, any>).cem_enrollments?.cem_courses;
+    const cuenta = await cuentaPorClave(admin, cursoFila?.stripe_cuenta ?? null);
+    if (!cuenta?.secret_key) {
+      return json({ error: cursoFila?.stripe_cuenta
+        ? 'El cobro con tarjeta de este programa no está configurado todavía. Puedes pagarlo por las demás formas de pago.'
+        : 'Los cobros con tarjeta no están configurados todavía.' }, 409);
+    }
+    const secret = cuenta.secret_key;
+
     // Stripe cobra en la unidad mínima. Se redondea una sola vez y aquí: hacerlo
     // en dos sitios distintos es como se cuela un céntimo que nadie encuentra.
     const centimos = Math.round(saldo * 100);
     const moneda = String(cuota.moneda || 'EUR').toLowerCase();
-    const cursoFila = (cuota as Record<string, any>).cem_enrollments?.cem_courses;
     const curso = cursoFila?.nombre || 'Programa';
     const origen = volver_a || req.headers.get('origin') || '';
 
@@ -81,10 +91,10 @@ Deno.serve(async (req) => {
     // aquí se cobra el saldo de ESTA cuota. Es a propósito — un precio en Stripe
     // sería una segunda verdad sobre el dinero, y la primera es la de aquí.
     //
-    // Y si el curso todavía no tiene producto —porque se acaba de crear y el
-    // reflejo va por libre— se cae al nombre de siempre. Un cobro no se pierde
-    // por un adorno de catálogo.
-    const producto: string | null = cursoFila?.stripe_product_id || null;
+    // Y si el curso todavía no tiene producto —porque se acaba de crear, o se
+    // acaba de pasar a la cuenta de otra empresa y el reflejo va por libre— se
+    // cae al nombre de siempre. Un cobro no se pierde por un adorno de catálogo.
+    const producto = productoListo(cursoFila);
     const linea = producto
       ? { 'line_items[0][price_data][product]': producto }
       : { 'line_items[0][price_data][product_data][name]': `${curso} — cuota ${cuota.numero ?? ''}`.trim() };
@@ -116,6 +126,10 @@ Deno.serve(async (req) => {
       client_reference_id: String(cuota.id),
       'metadata[installment_id]': String(cuota.id),
       'metadata[profile_id]': String(perfil.id),
+      // En qué cuenta se abrió. El aviso de pago llega a la dirección de esa
+      // cuenta (…?cuenta=<clave>) y comprueba que coincida: un aviso de una
+      // cuenta no puede asentar el cobro de otra.
+      ...(cuenta.clave ? { 'metadata[cuenta]': cuenta.clave } : {}),
       ...(perfil.email ? { customer_email: String(perfil.email) } : {}),
     });
 
@@ -157,6 +171,7 @@ Deno.serve(async (req) => {
       monto_centimos: centimos,
       moneda,
       estado: 'abierta',
+      cuenta: cuenta.clave,
     }, { onConflict: 'session_id' });
 
     return json({ ok: true, url: sesion.url, session_id: sesion.id });

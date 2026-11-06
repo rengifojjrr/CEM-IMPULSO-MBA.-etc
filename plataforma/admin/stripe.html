@@ -31,7 +31,22 @@
   /* sin-caja: un valor en monoespaciada, no un panel */
   .dato-copiable{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-xs);
     background:var(--hueco);padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--filete);
-    word-break:break-all;flex:1;}
+    word-break:break-all;flex:1;min-width:0;}
+  /* Una empresa de «Otras empresas»: el nombre y sus botones arriba, la
+     dirección del webhook debajo y a todo el ancho. En tres columnas, en un
+     teléfono la dirección quedaba de una letra por renglón. */
+  .cuenta-otra{display:grid;gap:6px;padding:var(--e2) 0;border-bottom:1px solid var(--filete);}
+  .cuenta-otra:last-child{border-bottom:none;}
+  .cuenta-otra .cab{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .cuenta-otra .t{font-weight:var(--peso-fuerte);font-size:var(--t-sm);display:flex;
+    align-items:center;flex-wrap:wrap;gap:4px 8px;min-width:0;}
+  .cuenta-otra .s{font-size:var(--t-xs);color:var(--tinta-2);}
+  .cuenta-otra .s.falta{color:var(--warn);}
+  .cuenta-otra .hook{display:flex;align-items:center;gap:8px;}
+  @media (max-width:560px){
+    .cuenta-otra .hook{flex-direction:column;align-items:stretch;}
+    .cuenta-otra .hook .btn{align-self:flex-start;}
+  }
 </style>
 </head>
 <body>
@@ -52,16 +67,21 @@
 </div>
 <script type="module">
 import { sb, mount, $, esc, num, chip, ok, fail, avisar, mensajeError,
-         confirmDialog, SUPABASE_URL } from '../assets/app.js?v=2026-10-28-1';
+         confirmDialog, modal, SUPABASE_URL } from '../assets/app.js?v=2026-10-28-1';
 await mount({ require:['admin','superadmin'], area:'admin' });
 
-let E = null;
+// E: la cuenta principal, la del CEM. C: las de otras empresas (null si no se
+// pudo leer la lista, que no es lo mismo que una lista vacía).
+let E = null, C = [];
 const URL_WEBHOOK = `${SUPABASE_URL}/functions/v1/cem-stripe-webhook`;
+const CLAVE_VALIDA = /^[a-z0-9][a-z0-9-]{1,29}$/;
+const hookDe = (clave) => `${URL_WEBHOOK}?cuenta=${clave}`;
 
 async function cargar(){
-  const { data, error } = await sb.rpc('cem_stripe_config_estado');
-  if (error) { avisar('#cuerpo', mensajeError(error)); return; }
-  E = data || {};
+  const [est, ctas] = await Promise.all([sb.rpc('cem_stripe_config_estado'), sb.rpc('cem_stripe_cuentas')]);
+  if (est.error) { avisar('#cuerpo', mensajeError(est.error)); return; }
+  E = est.data || {};
+  C = ctas.error ? null : (ctas.data || []);
   pintar();
 }
 
@@ -146,6 +166,8 @@ function pintar(){
         un aviso de Stripe de uno que mande cualquiera diciendo que una cuota está pagada.</p>
     </div>
 
+    <div class="card" id="otras"></div>
+
     <div class="card">
       <h2 class="sec">Qué pasa cuando alguien paga</h2>
       <ol class="tiny muted" style="margin:0;padding-left:18px;line-height:1.7">
@@ -158,6 +180,172 @@ function pintar(){
         <li>El curso se abre solo y le llega su aviso.</li>
       </ol>
     </div>`;
+  pintarOtras();
+}
+
+/* ── OTRAS EMPRESAS ─────────────────────────────────────────────────────────
+   Programas cuyo beneficiario es otra empresa: con tarjeta cobran en la cuenta
+   de Stripe de esa empresa, y lo cobrado se apunta en su propia cartera. Cada
+   cuenta avisa de sus pagos en su propia dirección (…?cuenta=<clave>), con su
+   propio secreto. Ver supabase/functions/_shared/stripe-cuentas.ts y
+   docs/stripe-otra-empresa.md. */
+function pintarOtras(){
+  const el = $('#otras');
+  if (!el) return;
+  const lista = C === null
+    ? '<div class="nota warn">No se pudo leer la lista de empresas. Recarga la página.</div>'
+    : C.length
+      ? `<div class="sep">${C.map(filaCuenta).join('')}</div>`
+      : `<p class="tiny muted sep">Todavía no hay ninguna. Mientras no la añadas, todos los programas
+          cobran con tarjeta en la cuenta del CEM, la de arriba.</p>`;
+  el.innerHTML = `
+    <div class="row between">
+      <h2 class="sec" style="margin:0">Otras empresas</h2>
+      ${C === null ? '' : `<button class="btn sm" type="button" id="btnNuevaCuenta">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span> Añadir una empresa</button>`}
+    </div>
+    <p class="tiny muted">Para los programas cuyo beneficiario es otra empresa. Lo que se pague con
+      tarjeta en esos programas entra en la cuenta de Stripe <b>de esa empresa</b>, no en la del CEM,
+      y se apunta en su propia cartera. Las transferencias y el pago móvil no cambian: siguen yendo a
+      las cuentas del CEM. Qué programa cobra dónde se elige en <a href="cursos.html">Cursos</a>,
+      al editar cada uno.</p>
+    <details class="sep-poco">
+      <summary class="tiny"><b>Cómo se conecta una empresa, paso a paso</b></summary>
+      <ol class="tiny muted" style="margin:8px 0 0;padding-left:18px;line-height:1.7">
+        <li>La empresa abre <b>su propia</b> cuenta en stripe.com, con su correo y sus datos legales
+            y bancarios. Es su cuenta: el dinero llega a su banco.</li>
+        <li>En esa cuenta, en modo prueba: <b>Developers → API keys</b>. Copia la clave pública
+            (<code>pk_test_…</code>) y la secreta (<code>sk_test_…</code>).</li>
+        <li>Aquí: <b>Añadir una empresa</b>, con su nombre y esas dos claves. Guarda.</li>
+        <li>En su cuenta de Stripe: <b>Developers → Webhooks → Add endpoint</b>, con la dirección
+            que sale aquí debajo de su nombre y el evento <code>checkout.session.completed</code>.
+            Copia el <b>signing secret</b> (<code>whsec_…</code>) y pégalo aquí, en Editar.</li>
+        <li>En <a href="cursos.html">Cursos</a>, en cada programa suyo: <b>Cobro con tarjeta en</b> → la empresa.</li>
+        <li>Una compra de prueba con la tarjeta <code>4242 4242 4242 4242</code>. Si el curso se abre
+            y el cobro sale en <b>su</b> panel de Stripe, repite los pasos 2 a 4 con las claves
+            <code>live</code> y pásala a modo real.</li>
+      </ol>
+    </details>
+    ${lista}`;
+}
+
+function filaCuenta(c){
+  const hook = hookDe(c.clave);
+  const estado = !c.configurada ? chip('Sin claves', 'err')
+    : !c.webhook_pista ? chip('Falta el webhook', 'warn')
+    : c.modo === 'real' ? chip('Cobrando', 'ok') : chip('En pruebas', 'warn');
+  return `<div class="cuenta-otra">
+    <div class="cab">
+      <div class="t">${esc(c.nombre || c.clave)} ${estado}</div>
+      <div class="row" style="gap:4px;flex:none">
+        <button class="btn ghost sm" type="button" data-editar="${esc(c.clave)}" title="Editar" aria-label="Editar ${esc(c.nombre || c.clave)}">
+          <span class="material-symbols-outlined" aria-hidden="true">edit</span></button>
+        <button class="btn ghost sm" type="button" data-quitar="${esc(c.clave)}" title="Quitar" aria-label="Quitar ${esc(c.nombre || c.clave)}">
+          <span class="material-symbols-outlined" aria-hidden="true">link_off</span></button>
+      </div>
+    </div>
+    <div class="s">${esc(c.clave)} · ${esc(String(c.publishable_key || '').slice(0, 14))}…
+      · ${num(c.cursos || 0)} programa(s) · ${num(c.cobrados || 0)} cobro(s) con tarjeta</div>
+    ${c.webhook_pista ? '' : `<div class="s falta">Sin el secreto del webhook, quien pague no queda
+      registrado aquí y su curso no se abre.</div>`}
+    <div class="hook">
+      <code class="dato-copiable">${esc(hook)}</code>
+      <button class="btn ghost sm" type="button" data-copiar="${esc(hook)}" aria-label="Copiar la dirección del webhook de ${esc(c.nombre || c.clave)}">
+        <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button>
+    </div>
+  </div>`;
+}
+
+/** «Empresa B, C.A.» → «empresa-b-c-a». Sólo una sugerencia: se puede cambiar
+ *  mientras la cuenta es nueva. */
+const sugerirClave = (nombre) => String(nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30).replace(/-+$/, '');
+
+function formCuenta(c = null){
+  const nueva = !c;
+  const m = modal({ title: nueva ? 'Añadir una empresa' : `Editar: ${c.nombre || c.clave}`, wide: true, body: `
+    <div class="stack">
+      <div class="row">
+        <div class="field largo"><label for="kNombre">Nombre de la empresa</label>
+          <input id="kNombre" autocomplete="off" maxlength="80" value="${esc(c?.nombre || '')}" placeholder="Empresa B, C.A.">
+          <span class="pista">Así se llamarán su cartera y su método de pago.</span></div>
+        <div class="field medio"><label for="kClave">Identificador</label>
+          <input id="kClave" autocomplete="off" maxlength="30" value="${esc(c?.clave || '')}"
+            ${nueva ? '' : 'readonly'} placeholder="empresa-b" spellcheck="false">
+          <span class="pista">${nueva ? 'Minúsculas, números y guiones. Va en la dirección del webhook: luego no se cambia.'
+            : 'No se cambia: va en la dirección del webhook.'}</span></div>
+      </div>
+      <div class="field"><label for="kModo">Modo</label>
+        <select id="kModo">
+          <option value="prueba" ${c?.modo === 'real' ? '' : 'selected'}>Prueba — con tarjetas de mentira</option>
+          <option value="real" ${c?.modo === 'real' ? 'selected' : ''}>Real — se cobra dinero de verdad</option>
+        </select></div>
+      <div class="field"><label for="kPub">Clave pública</label>
+        <input type="text" id="kPub" autocomplete="off" spellcheck="false" placeholder="pk_test_…" value="${esc(c?.publishable_key || '')}"></div>
+      <div class="field"><label for="kSec">Clave secreta</label>
+        <input type="password" id="kSec" autocomplete="off" placeholder="${nueva ? 'sk_test_…' : 'déjala vacía para conservar la de ahora'}">
+        ${c?.secreto_pista ? `<span class="pista">Guardada: <code>${esc(c.secreto_pista)}</code>.</span>`
+          : '<span class="pista">La de la cuenta de Stripe de <b>esa empresa</b>, no la del CEM.</span>'}</div>
+      <div class="field"><label>Dirección para su webhook</label>
+        <div class="row" style="gap:8px;align-items:center">
+          <code id="kHookUrl" class="dato-copiable"></code>
+          <button class="btn ghost sm" type="button" id="kCopiar">
+            <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button></div>
+        <span class="pista">En su cuenta de Stripe: Developers → Webhooks → Add endpoint, con esta
+          dirección y el evento <code>checkout.session.completed</code>.</span></div>
+      <div class="field"><label for="kHook">Secreto del webhook</label>
+        <input type="password" id="kHook" autocomplete="off" placeholder="${c?.webhook_pista ? 'déjalo vacío para conservar el de ahora' : 'whsec_…'}">
+        ${c?.webhook_pista ? `<span class="pista">Guardado: <code>${esc(c.webhook_pista)}</code>.</span>`
+          : '<span class="pista">Stripe lo enseña al crear el webhook («Signing secret»). Si aún no lo tienes, guarda sin él y vuelve después.</span>'}</div>
+      <div id="msgCuenta"></div>
+    </div>`,
+    footer: `<button class="btn outline" type="button" data-c>Cancelar</button>
+      <button class="btn" type="button" data-s>Guardar</button>` });
+
+  const clave = () => $('#kClave', m).value.trim().toLowerCase();
+  const pintarHook = () => { $('#kHookUrl', m).textContent = hookDe(clave() || '<identificador>'); };
+  let claveTocada = !nueva;
+  $('#kClave', m).oninput = () => { claveTocada = true; pintarHook(); };
+  $('#kNombre', m).oninput = () => {
+    if (!claveTocada) { $('#kClave', m).value = sugerirClave($('#kNombre', m).value); pintarHook(); }
+  };
+  pintarHook();
+  $('#kCopiar', m).onclick = () => copiar(hookDe(clave()), $('#kHookUrl', m));
+  $('[data-c]', m).onclick = m.close;
+
+  $('[data-s]', m).onclick = async () => {
+    const msg = $('#msgCuenta', m);
+    const nombre = $('#kNombre', m).value.trim(), k = clave(), modo = $('#kModo', m).value;
+    const pub = $('#kPub', m).value.trim(), sec = $('#kSec', m).value.trim(), hook = $('#kHook', m).value.trim();
+    if (nombre.length < 2) return avisar(msg, 'Falta el nombre de la empresa.');
+    if (!CLAVE_VALIDA.test(k)) return avisar(msg, 'El identificador va en minúsculas, sin espacios ni tildes: letras, números y guiones (por ejemplo «empresa-b»).');
+    if (nueva && (C || []).some(x => x.clave === k)) return avisar(msg, 'Ya hay una empresa con ese identificador. Elige otro, o edita la que ya está.');
+    if (!pub) return avisar(msg, 'Falta la clave pública de Stripe de esa empresa.');
+    if (nueva && !sec) return avisar(msg, 'Falta la clave secreta de Stripe de esa empresa.');
+    if (modo === 'real' && c?.modo !== 'real' && !await confirmDialog(
+      `A partir de ahora se cobra dinero de verdad en la cuenta de Stripe de ${nombre}. `
+      + 'Comprueba que hiciste al menos un cobro de prueba antes de esto.', 'Pasar a modo real')) return;
+
+    const { data, error } = await sb.rpc('cem_stripe_cuenta_guardar', {
+      p_clave: k, p_nombre: nombre, p_publishable_key: pub, p_modo: modo,
+      p_secret_key: sec || null, p_webhook_secret: hook || null,
+    });
+    if (error) return avisar(msg, mensajeError(error, 'No se pudo guardar.'));
+    C = data || []; pintarOtras(); m.close();
+    ok(hook || c?.webhook_pista ? 'Guardado.'
+      : 'Guardado. Falta el secreto del webhook: sin él, sus pagos no se registran aquí.');
+  };
+}
+
+/** Copiar al portapapeles, y si el navegador no deja, dejarlo seleccionado. */
+async function copiar(texto, nodo){
+  try { await navigator.clipboard.writeText(texto); ok('Dirección copiada.'); }
+  catch {
+    if (!nodo) return fail('No se pudo copiar.');
+    const r = document.createRange(); r.selectNodeContents(nodo);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    ok('Seleccionada: cópiala con Ctrl+C.');
+  }
 }
 
 document.addEventListener('submit', async (ev) => {
@@ -181,13 +369,32 @@ document.addEventListener('submit', async (ev) => {
 });
 
 document.addEventListener('click', async (ev) => {
-  if (ev.target.closest('#btnCopiarHook')) {
-    try { await navigator.clipboard.writeText(URL_WEBHOOK); ok('Dirección copiada.'); }
-    catch {
-      const r = document.createRange(); r.selectNodeContents($('#urlHook'));
-      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
-      ok('Seleccionada: cópiala con Ctrl+C.');
+  if (ev.target.closest('#btnCopiarHook')) return copiar(URL_WEBHOOK, $('#urlHook'));
+
+  const bCopiar = ev.target.closest('[data-copiar]');
+  if (bCopiar) return copiar(bCopiar.dataset.copiar, bCopiar.parentElement?.querySelector('code'));
+
+  if (ev.target.closest('#btnNuevaCuenta')) return formCuenta();
+
+  const bEditar = ev.target.closest('[data-editar]');
+  if (bEditar) return formCuenta((C || []).find(x => x.clave === bEditar.dataset.editar));
+
+  const bQuitar = ev.target.closest('[data-quitar]');
+  if (bQuitar) {
+    const c = (C || []).find(x => x.clave === bQuitar.dataset.quitar);
+    if (!c) return;
+    // La base se niega igual; aquí se dice antes y con el remedio.
+    if (c.cursos > 0) {
+      return fail(`${c.nombre} cobra ${c.cursos} programa(s). Pásalos antes a otra cuenta en Cursos.`);
     }
+    if (!await confirmDialog(
+      `Se desconecta la cuenta de Stripe de ${c.nombre}. Los cobros que ya se hicieron y su cartera `
+      + 'se quedan como están. Si después llegara algún aviso de pago de esa cuenta, no se registraría.',
+      'Quitar la empresa')) return;
+    const { data, error } = await sb.rpc('cem_stripe_cuenta_quitar', { p_clave: c.clave });
+    if (error) return fail(mensajeError(error, 'No se pudo quitar.'));
+    C = data || []; pintarOtras();
+    ok('Quitada.');
     return;
   }
   if (ev.target.closest('#btnQuitar')) {

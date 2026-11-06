@@ -41,6 +41,10 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
    lo confirme Stripe o lo confirme una persona mirando el extracto, asi que lo
    hace un solo modulo compartido con cem-stripe-webhook. */
 import { cerrarCompraInvitado } from '../_shared/cerrar-compra.ts';
+/* Cada programa cobra con tarjeta en su cuenta de Stripe: la del CEM o la de la
+   empresa beneficiaria. Sólo la tarjeta: el pago local (accion=local) sigue
+   yendo a las cuentas del CEM. */
+import { cuentaDelCurso } from '../_shared/stripe-cuentas.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -89,10 +93,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: cfg } = await admin.from('cem_integraciones')
-      .select('datos').eq('id', 'stripe').maybeSingle();
-    const secret = (cfg?.datos as Record<string, string> | null)?.secret_key;
-    if (!secret) return json({ error: 'Los cobros con tarjeta no están configurados todavía.' }, 409);
+    // La cuenta se mira ANTES de abrir la compra: si este programa no puede
+    // cobrarse con tarjeta, no se deja una compra a medias por cada intento.
+    const { cuenta, producto, deOtraEmpresa } = await cuentaDelCurso(admin, String(curso_id));
+    if (!cuenta?.secret_key) {
+      return json({ error: deOtraEmpresa
+        ? 'El cobro con tarjeta de este programa no está configurado todavía. Puedes pagarlo por las demás formas de pago.'
+        : 'Los cobros con tarjeta no están configurados todavía.' }, 409);
+    }
+    const secret = cuenta.secret_key;
 
     // La base valida el nombre, el correo, el plan, que el programa exista y
     // esté publicado, y pone el precio. Si algo no cuadra, lanza con un mensaje
@@ -119,8 +128,10 @@ Deno.serve(async (req) => {
     // Stripe se cobra contra ÉL, para que el informe salga por programa y la
     // pantalla de pago enseñe su imagen. Si no lo tiene, se cae al nombre — un
     // cobro no se pierde por un adorno de catálogo.
-    const linea = compra.stripe_product_id
-      ? { 'line_items[0][price_data][product]': String(compra.stripe_product_id) }
+    // (`producto` sólo viene si consta que existe en la cuenta de ESTE
+    // programa: ver productoListo en _shared/stripe-cuentas.ts.)
+    const linea = producto
+      ? { 'line_items[0][price_data][product]': producto }
       : { 'line_items[0][price_data][product_data][name]': String(compra.curso) };
 
     const cuerpo = new URLSearchParams({
@@ -145,6 +156,8 @@ Deno.serve(async (req) => {
         + `&compra=${compra.compra_id}&pago=cancelado`,
       client_reference_id: String(compra.compra_id),
       'metadata[compra_invitado_id]': String(compra.compra_id),
+      // En qué cuenta se abrió: el aviso de pago lo comprueba.
+      ...(cuenta.clave ? { 'metadata[cuenta]': cuenta.clave } : {}),
       customer_email: String(compra.email),
     });
 
