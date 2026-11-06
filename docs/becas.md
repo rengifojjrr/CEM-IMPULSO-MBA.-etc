@@ -8,7 +8,7 @@ dólar queda anotado, de la donación a la beca.
 
 | Para quién | Dirección | Qué hace |
 |---|---|---|
-| Quien quiere donar | [escuelacem.com/plataforma/becas.html](https://escuelacem.com/plataforma/becas.html) (en inglés: `?lang=en`) | Las cifras, los paquetes, el formulario y el pago con tarjeta |
+| Quien quiere donar | [escuelacem.com/plataforma/becas.html](https://escuelacem.com/plataforma/becas.html) (en inglés: `?lang=en`) | El contador de donaciones, las cifras de becas, los paquetes, el formulario y el pago con tarjeta |
 | Quien quiere una beca | [escuelacem.com/plataforma/solicitar-beca.html](https://escuelacem.com/plataforma/solicitar-beca.html) | La encuesta de por qué quiere estudiar |
 | Quien recibe una beca | `plataforma/beca.html?t=…` | El enlace personal para activarla. No sale en Google |
 | El equipo | Admin → **Becas** | Solicitudes, becas dadas, convocatorias |
@@ -22,6 +22,14 @@ estas páginas y no promete nada.
 ## Cómo entra el dinero
 
 **Con tarjeta.** La persona elige un paquete o «otro monto» y paga en Stripe.
+
+- **El nombre y el correo son opcionales.** Quien marca **«Donar de forma
+  anónima»** no da su nombre y no sale en ningún sitio público: ni en la
+  lista de donantes ni en los correos al equipo.
+- **El correo lo pide Stripe** si la persona no lo puso. Se guarda ese, y a
+  él llegan el recibo y el aviso de a quién ayudó su aporte. El equipo lo ve
+  en el detalle de la donación.
+
 Cuando Stripe confirma el cobro:
 
 1. La donación pasa a confirmada.
@@ -40,7 +48,8 @@ Donaciones y fondo → **Registrar una donación**:
 - el comprobante.
 
 Entra confirmada en el momento. Pueden registrarla cobranza, coordinación y
-administración. Una misma referencia no se puede registrar dos veces.
+administración. Una misma referencia no se puede registrar dos veces. Si quien
+dona prefiere no dar su nombre, se marca **«Donación anónima»**.
 
 **Los paquetes** son los cuatro que pediste: $1.000 «Impulsa», $2.300
 «Transforma» (el que se sugiere), $5.000 «Multiplica» y $10.000 «Deja
@@ -117,6 +126,16 @@ En **Becas dadas**:
 - **Registrar una beca anterior:** las que el CEM dio antes de este sistema.
   Suman en las cifras de la página, pero no tocan el fondo.
 
+## El contador
+
+La cabecera de la página de becas enseña cuántas donaciones han entrado y
+cuánto suman: «23 donaciones recibidas · Más de $45.000 donados». Cuenta las
+confirmadas, con tarjeta y a mano. Las anuladas no cuentan, y mientras no
+haya ninguna se lee «Sé de quienes las hacen posibles».
+
+La lista «Lo hacen posible» enseña los nombres de quienes aceptaron salir, y
+debajo cuántas personas más donaron sin salir con su nombre.
+
 ## La trazabilidad
 
 - **El libro del fondo** (Donaciones y fondo → Movimientos) solo se añade,
@@ -128,6 +147,8 @@ En **Becas dadas**:
 - **A quien donó le llega un correo cuando su dinero paga una beca:** a quién
   ayudó (solo el nombre de pila y el país si la persona lo permitió) y cuánto
   de su aporte se usó.
+- **Una donación anónima queda igual de anotada:** su número, su importe, su
+  cobro en Stripe y su correo. Lo único que falta es el nombre.
 - **Cada acción del equipo queda en auditoría:** dar, revocar, anular,
   cambiar ajustes.
 

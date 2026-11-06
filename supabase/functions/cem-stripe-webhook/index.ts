@@ -130,6 +130,9 @@ Deno.serve(async (req) => {
       p_centimos: Math.round(Number(sesion.amount_total || 0)),
       p_moneda: String(sesion.currency || ''),
       p_cuenta: cuenta.clave,
+      // El correo que Stripe pidió al pagar: la base lo guarda sólo si la
+      // persona no había dado uno, y con él le manda el recibo.
+      p_email: sesion.customer_details?.email ? String(sesion.customer_details.email) : null,
     });
     // Un fallo de la base (no de los datos) sí se devuelve: ese se arregla, y
     // Stripe lo reintentará cuando esté arreglado.

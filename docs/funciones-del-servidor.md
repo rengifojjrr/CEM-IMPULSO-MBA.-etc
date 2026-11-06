@@ -117,11 +117,11 @@ reparto. Guía completa en [becas.md](becas.md).
 
 | Función | Qué decide | Quién |
 |---|---|---|
-| `cem_becas_publico(idioma)` | Lo que enseña la página de becas: cifras, paquetes, convocatorias abiertas, historias y donantes **que aceptaron salir**. Ningún correo. | Cualquiera |
+| `cem_becas_publico(idioma)` | Lo que enseña la página de becas: las cifras (también el contador: cuántas donaciones y cuánto suman), paquetes, convocatorias abiertas, historias, los donantes **que aceptaron salir** y cuántos más donaron sin nombre. Ningún correo. | Cualquiera |
 | `cem_beca_convocatoria(código)` · `cem_beca_solicitar(código, datos)` | La ficha de una convocatoria y la solicitud. Valida, frena por correo, por dirección y en total, tiene campo trampa, y contesta lo mismo la primera vez que la segunda. | Cualquiera |
 | `cem_beca_enlace_ver(token)` · `cem_beca_activar_con_sesion(token)` | El enlace de una beca. Activarla pide sesión, y si la beca iba a un correo, tiene que ser el de esa cuenta. Del token sólo se guarda el hash. | Cualquiera · con sesión |
 | `cem_beca_donacion_estado(id)` | La página de gracias: estado, número e importe, sin el nombre de nadie. | Cualquiera |
-| `cem_beca_donacion_abrir` · `_sesion` · `_confirmar_servidor` | Abrir el cobro con tarjeta (el importe lo pone la base, nunca el navegador) y darlo por cobrado con lo que Stripe dice que cobró. Confirmar dos veces no suma dos veces. | **Sólo el servidor** (`cem-donar` y el webhook) |
+| `cem_beca_donacion_abrir` · `_sesion` · `_confirmar_servidor` | Abrir el cobro con tarjeta (el importe lo pone la base, nunca el navegador) y darlo por cobrado con lo que Stripe dice que cobró. Confirmar dos veces no suma dos veces. El nombre y el correo son opcionales: sin nombre la donación es **anónima** (`anonima`); sin correo, al confirmar se guarda el que Stripe pidió al pagar (`p_email`). | **Sólo el servidor** (`cem-donar` y el webhook) |
 | `cem_beca_donacion_registrar(...)` | Una donación por Zelle, transferencia, cheque o efectivo, con su comprobante. Entra confirmada. | Cobranza para arriba |
 | `cem_beca_donacion_anular(id, motivo)` | Se niega si la donación ya pagó becas. | Admin |
 | `cem_beca_otorgar(solicitud, …)` · `cem_beca_regalar(curso, nombre, correo, …)` | Dar la beca: valor = precio de contado en USD al cambio del día. Si es del fondo, lo aparta y reparte la financiación por antigüedad de las donaciones. Con cuenta, inscribe al momento; sin cuenta, devuelve un enlace. | Admin |

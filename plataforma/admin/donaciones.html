@@ -255,7 +255,8 @@ async function pintarDon() {
   $('#cuentaDon').textContent = `${num(filas.length)} de ${num(base.length)}`;
   $('#tbDon').innerHTML = filas.length ? filas.map((d) => `<tr>
     <td data-col="Donación"><b>${esc(d.numero)}</b><div class="tiny muted">${esc(fdia(d.fecha || d.creada_en))}</div></td>
-    <td class="wrap" data-col="Quién">${esc(d.donante)}${d.publica ? '' : ' <span class="tiny muted">(anónima)</span>'}
+    <td class="wrap" data-col="Quién">${d.anonima ? '<span class="muted">Donación anónima</span>'
+      : esc(d.donante) + (d.publica ? '' : ' <span class="tiny muted">(no sale en la lista)</span>')}
       <div class="tiny muted">${esc([d.organizacion, d.pais].filter(Boolean).join(' · '))}</div></td>
     <td data-col="Cómo llegó">${esc(METODO[d.metodo] || d.metodo)}${d.referencia ? `<div class="tiny muted">${esc(d.referencia)}</div>` : ''}</td>
     <td class="num" data-col="Monto">${esc(usd(d.monto))}</td>
@@ -274,7 +275,7 @@ $('#csvDon').onclick = async () => {
   download('donaciones.csv', toCSV(filas.map((d) => ({
     numero: d.numero, fecha: d.fecha || '', estado: d.estado, metodo: d.metodo, monto_usd: d.monto,
     usado_en_becas: d.usado, queda: d.queda, donante: d.donante, correo: d.email || '', pais: d.pais || '',
-    organizacion: d.organizacion || '', publica: d.publica ? 'sí' : 'no', idioma: d.idioma, paquete: d.paquete || '',
+    organizacion: d.organizacion || '', anonima: d.anonima ? 'sí' : 'no', publica: d.publica ? 'sí' : 'no', idioma: d.idioma, paquete: d.paquete || '',
     referencia: d.referencia || '', cuenta_stripe: d.metodo === 'tarjeta' ? (d.stripe_cuenta || 'principal') : '',
     origen: d.origen || '', campana: d.campana || '', registrada_por: d.registrada_por || '',
     confirmada_en: d.confirmada_en || '', anulada_en: d.anulada_en || '', motivo_anulacion: d.motivo_anulacion || '',
@@ -286,9 +287,9 @@ async function verDonacion(d) {
   if (!d) return;
   const dato = (t, v) => v ? `<div><span>${esc(t)}</span>${esc(v)}</div>` : '';
   const c = d.metodo === 'tarjeta' && d.stripe_cuenta ? cuenta(d.stripe_cuenta) : null;
-  const m = modal({ title: `${d.numero} · ${d.donante}`, wide: true, body: `
+  const m = modal({ title: `${d.numero} · ${d.anonima ? 'Donación anónima' : d.donante}`, wide: true, body: `
     <div class="row" style="gap:8px;margin-bottom:var(--e2)">${chipEstado(d.estado)}${chip(METODO[d.metodo] || d.metodo, 'info')}
-      ${d.publica ? chip('Sale en la lista de donantes', 'teal') : chip('Anónima en la página', 'neutral')}
+      ${d.anonima ? chip('Anónima', 'neutral') : d.publica ? chip('Sale en la lista de donantes', 'teal') : chip('No sale en la lista', 'neutral')}
       ${c?.modo === 'prueba' ? chip('Cuenta de Stripe de prueba', 'warn') : ''}</div>
     <div class="datos-persona">
       ${dato('Monto', usd(d.monto) + ' USD')}${dato('Fecha', fdia(d.fecha))}
@@ -370,35 +371,42 @@ $('#btnRegistrar').onclick = () => {
       <div class="field" style="flex:1;min-width:160px"><label for="rRef">Referencia</label><input id="rRef" maxlength="80" placeholder="Nº de la operación o del cheque"></div>
       <div class="field" style="flex:1;min-width:150px"><label for="rFecha">Fecha</label><input id="rFecha" type="date" value="${hoy()}" max="${hoy()}"></div>
     </div>
+    <label class="check" style="margin-bottom:var(--e1)"><input type="checkbox" id="rAnonima"> Donación anónima <span class="tiny muted">· no se guarda el nombre y no sale en ningún sitio</span></label>
     <div class="row" style="gap:var(--e2)">
-      <div class="field" style="flex:2;min-width:200px"><label for="rNombre">Quién donó</label><input id="rNombre" maxlength="80"></div>
+      <div class="field" style="flex:2;min-width:200px" id="rNombreCampo"><label for="rNombre">Quién donó</label><input id="rNombre" maxlength="80"></div>
       <div class="field" style="flex:2;min-width:200px"><label for="rEmail">Correo <span class="tiny muted">(para el recibo)</span></label><input id="rEmail" type="email" maxlength="120"></div>
       <div class="field" style="flex:1;min-width:140px"><label for="rPais">País</label><input id="rPais" maxlength="60"></div>
     </div>
     <div class="row" style="gap:var(--e2)">
-      <div class="field" style="flex:2;min-width:200px"><label for="rOrg">Organización <span class="tiny muted">(si dona en nombre de una)</span></label><input id="rOrg" maxlength="120"></div>
+      <div class="field" style="flex:2;min-width:200px" id="rOrgCampo"><label for="rOrg">Organización <span class="tiny muted">(si dona en nombre de una)</span></label><input id="rOrg" maxlength="120"></div>
       <div class="field" style="flex:1;min-width:140px"><label for="rIdioma">Idioma del recibo</label>
         <select id="rIdioma"><option value="es">Español</option><option value="en">Inglés</option></select></div>
     </div>
     <div class="field"><label for="rMensaje">Su mensaje <span class="tiny muted">(opcional)</span></label><textarea id="rMensaje" rows="2" maxlength="500"></textarea></div>
     <div class="field"><label>Comprobante</label>${comprobante.html}</div>
-    <label class="check"><input type="checkbox" id="rPublica"> Aceptó salir con su nombre en la lista de donantes</label>
+    <label class="check" id="rPublicaFila"><input type="checkbox" id="rPublica"> Aceptó salir con su nombre en la lista de donantes</label>
     <label class="check"><input type="checkbox" id="rRecibo" checked> Mandarle el recibo por correo</label>
     <div id="rMsg"></div>`,
     footer: `<button class="btn outline" type="button" data-x>Cancelar</button><button class="btn" type="button" data-s>Registrar la donación</button>` });
   comprobante.conectar(m);
+  $('#rAnonima', m).onchange = () => {
+    const si = $('#rAnonima', m).checked;
+    ['#rNombreCampo', '#rOrgCampo', '#rPublicaFila'].forEach((x) => { $(x, m).hidden = si; });
+  };
 
   $('[data-s]', m).onclick = async () => {
     const msg = $('#rMsg', m), monto = Number($('#rMonto', m).value);
+    const anonima = $('#rAnonima', m).checked;
+    if (!anonima && $('#rNombre', m).value.trim().length < 2) return avisar(msg, 'Escribe quién donó, o márcala como anónima.');
     if (!(monto > 0)) return avisar(msg, 'Escribe el monto.');
     if (comprobante.valor() === 'pendiente') return avisar(msg, 'Espera a que termine de subir el comprobante.');
     const email = $('#rEmail', m).value.trim();
     const recibo = $('#rRecibo', m).checked && !!email;
     const { data, error } = await sb.rpc('cem_beca_donacion_registrar', {
       p_monto: monto, p_metodo: $('#rMetodo', m).value, p_referencia: $('#rRef', m).value.trim() || null,
-      p_fecha: $('#rFecha', m).value || null, p_nombre: $('#rNombre', m).value.trim(), p_email: email || null,
-      p_pais: $('#rPais', m).value.trim() || null, p_organizacion: $('#rOrg', m).value.trim() || null,
-      p_mensaje: $('#rMensaje', m).value.trim() || null, p_publica: $('#rPublica', m).checked,
+      p_fecha: $('#rFecha', m).value || null, p_nombre: anonima ? '' : $('#rNombre', m).value.trim(), p_email: email || null,
+      p_pais: $('#rPais', m).value.trim() || null, p_organizacion: anonima ? null : ($('#rOrg', m).value.trim() || null),
+      p_mensaje: $('#rMensaje', m).value.trim() || null, p_publica: !anonima && $('#rPublica', m).checked,
       p_comprobante: comprobante.valor() || null, p_idioma: $('#rIdioma', m).value,
       p_enviar_recibo: recibo });
     if (error) return avisar(msg, mensajeError(error, 'No se pudo registrar.'));

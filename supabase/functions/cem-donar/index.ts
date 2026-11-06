@@ -42,17 +42,23 @@ Deno.serve(async (req) => {
     const en = idioma === 'en';
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
+    /* El nombre y el correo son opcionales. Sin nombre, la donación es
+       anónima: no sale en ningún sitio. Sin correo, Stripe lo pide en su
+       pantalla y llega con el aviso de cobro, para mandar el recibo. */
+    const anonima = d.anonima === true;
+    const correo = String(d.email ?? '').trim().toLowerCase();
+
     // La base valida, frena y deja la donación «iniciada» con su importe.
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
     const { data: don, error: eAbrir } = await admin.rpc('cem_beca_donacion_abrir', {
       p_paquete_id: typeof d.paquete_id === 'string' && d.paquete_id ? d.paquete_id : null,
       p_monto: d.paquete_id ? null : Number(d.monto ?? 0),
-      p_nombre: String(d.nombre ?? ''),
-      p_email: String(d.email ?? ''),
+      p_nombre: anonima ? '' : String(d.nombre ?? ''),
+      p_email: correo || null,
       p_pais: d.pais ? String(d.pais) : null,
-      p_organizacion: d.organizacion ? String(d.organizacion) : null,
+      p_organizacion: !anonima && d.organizacion ? String(d.organizacion) : null,
       p_mensaje: d.mensaje ? String(d.mensaje) : null,
-      p_publica: d.publica === true,
+      p_publica: !anonima && d.publica === true,
       p_idioma: idioma,
       p_origen: d.origen ? String(d.origen) : null,
       p_campana: d.campana ? String(d.campana) : null,
@@ -93,7 +99,9 @@ Deno.serve(async (req) => {
       'line_items[0][price_data][product_data][description]': descripcion,
       'payment_intent_data[description]': `${don.numero} · ${nombreProducto}`,
       'payment_intent_data[metadata][donacion_id]': String(don.donacion_id),
-      customer_email: String(d.email ?? '').trim().toLowerCase(),
+      // Sólo si lo dio (la base ya comprobó que es un correo): un
+      // customer_email vacío Stripe lo rechaza.
+      ...(correo ? { customer_email: correo } : {}),
       success_url: `${pagina}?donacion=${don.donacion_id}&gracias=1${lang}`,
       cancel_url: `${pagina}?donacion=${don.donacion_id}&cancelada=1${lang}`,
       /* Sin client_reference_id, a propósito: el webhook lo lee como el
