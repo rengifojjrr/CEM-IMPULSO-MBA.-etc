@@ -199,9 +199,13 @@ function candado(estado, puerta) {
        ${temario}`);
   }
   if (estado === 'cancelada') {
+    /* A inscripcion.html y no a la ficha: la ficha encuentra la inscripción
+       cancelada y dice «Ya estás inscrito · Ir a mi panel», y el panel no
+       enseña las canceladas. Era un callejón sin salida. */
     return caja('cancel', 'Tu inscripción en este programa está cancelada',
-      `Para volver a estudiar <b>${nombre}</b>, inscríbete de nuevo desde su ficha.`,
-      `<a class="btn" href="curso.html?id=${enr.course_id}">Ver el programa</a>`);
+      `Para volver a estudiar <b>${nombre}</b>, inscríbete de nuevo.`,
+      `<a class="btn" href="inscripcion.html?curso=${enr.course_id}">
+         <span class="material-symbols-outlined" aria-hidden="true">how_to_reg</span> Inscribirme de nuevo</a>`);
   }
   return caja('lock', 'Tu inscripción está esperando el primer pago',
     `Reservamos tu cupo en <b>${nombre}</b>.

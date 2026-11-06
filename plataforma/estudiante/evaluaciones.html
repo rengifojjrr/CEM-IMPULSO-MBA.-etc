@@ -72,7 +72,7 @@ const ORDEN = { en_progreso:0, pendiente:1, entregada:2, calificada:3 };
 
 async function load(){
   const { data: ens } = await sb.from('cem_enrollments')
-    .select('id,course_id,cem_courses(nombre)').eq('profile_id', me.id).limit(500);
+    .select('id,course_id,estado,cem_courses(nombre)').eq('profile_id', me.id).limit(500);
   const cursos = (ens||[]).map(e=>e.course_id);
   if (!cursos.length){
     $('#lista').innerHTML = vacio({ icono:'task_alt', titulo:'Todavía no estás en ningún programa',
@@ -81,18 +81,33 @@ async function load(){
     return;
   }
 
-  const [{ data: evals }, { data: subs }] = await Promise.all([
+  const [{ data: evals }, { data: subs }, { data: acceso }] = await Promise.all([
     sb.from('cem_assessments').select('*,cem_courses(nombre)')
       .in('course_id', cursos).eq('estado','publicado').order('nombre'),
     sb.from('cem_submissions').select('*').limit(500),
+    sb.rpc('cem_mi_acceso'),
   ]);
+  const puertas = acceso || {};
 
-  const enrPorCurso = {}; (ens||[]).forEach(e=>{ enrPorCurso[e.course_id] = e.id; });
+  /* Con qué inscripción se rinde cada evaluación: la abierta del curso, si la
+     hay. Con el aula cerrada —pendiente de pago, en pausa, suspendida o
+     cancelada— la evaluación se sigue viendo, con su nota si la tiene, pero no
+     se ofrece rendirla: cem_exam_questions la negaría con «pendiente de pago»,
+     que a una congelada o suspendida le diría algo falso. Si no se sabe la
+     puerta (cem_mi_acceso falló), no se inventa un cierre: el servidor sigue
+     negando lo que no toca. */
+  const aulaCerrada = (e) => e.estado === 'cancelada' || puertas[e.id]?.abierto === false;
+  const enrPorCurso = {};
+  (ens||[]).forEach(e => {
+    const ya = enrPorCurso[e.course_id];
+    if (!ya || (aulaCerrada(ya) && !aulaCerrada(e))) enrPorCurso[e.course_id] = e;
+  });
   tareas = (evals||[]).map(a=>{
     const mias = (subs||[]).filter(s=>s.assessment_id===a.id).sort((x,y)=>y.intento-x.intento);
     const ult = mias[0];
     const abierta = mias.find(s=>s.estado==='en_progreso');
-    return { a, ult, usados: mias.length, abierta, enr: enrPorCurso[a.course_id],
+    const suya = enrPorCurso[a.course_id];
+    return { a, ult, usados: mias.length, abierta, enr: suya?.id, cerrada: !!suya && aulaCerrada(suya),
       _estado: abierta ? 'en_progreso' : (ult?.estado || 'pendiente'),
       _curso: a.cem_courses?.nombre || '' };
   }).filter(t=>t.enr)
@@ -125,7 +140,7 @@ function render(){
     ? `Tienes ${tareas.length} evaluación(es) en total.`
     : `${list.length} de ${tareas.length} evaluación(es).`;
 
-  $('#lista').innerHTML = list.length ? list.map(({a,ult,usados,abierta,enr,_curso})=>{
+  $('#lista').innerHTML = list.length ? list.map(({a,ult,usados,abierta,enr,cerrada,_curso})=>{
     const aprob = a.nota_aprobatoria || 70;
     const sinIntentos = !abierta && usados >= (a.intentos||1);
     let estado, accion;
@@ -143,6 +158,7 @@ function render(){
       estado = chip('sin empezar','warn');
       accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Rendir</a>`;
     }
+    if (cerrada && accion) accion = '<span class="tiny muted">aula cerrada</span>';
     return `<div class="list-item">
       <span class="material-symbols-outlined" style="color:var(--on-surface-variant)">${a.tipo==='examen'?'quiz':'assignment'}</span>
       <div class="grow">

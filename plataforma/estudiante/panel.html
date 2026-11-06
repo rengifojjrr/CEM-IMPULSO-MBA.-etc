@@ -147,9 +147,10 @@ async function init(){
       .in('course_id',cIds).eq('estado','publicado') : Promise.resolve({data:[]}),
   ]);
 
-  /* Qué inscripciones están abiertas y cuáles esperan el primer pago. Se
-     pregunta al servidor y no se deduce del estado, porque la regla —gratis,
-     ya pagó, ya terminó— vive en cem_acceso_abierto() y sólo hay una. */
+  /* Qué inscripciones están abiertas y cuáles no, y por qué. Se pregunta al
+     servidor y no se deduce del estado, porque la regla —activa o terminada;
+     pendiente sólo si es gratis o ya pagó; congelada, suspendida o cancelada,
+     nunca— vive en cem_acceso_abierto() y sólo hay una. */
   const { data: acceso } = await sb.rpc('cem_mi_acceso');
   const puertas = acceso || {};
 
@@ -200,9 +201,10 @@ async function init(){
 
   /* Por qué está cerrada una tarjeta, y a dónde ir. Desde la migración
      20261107000006 una congelada o una suspendida cierran aunque estén
-     pagadas: decirles «tu primer pago» sería falso, y «Ya no me interesa»
-     se negaría, porque tienen pagos. Las demás cerradas son pendientes:
-     lo de siempre. */
+     pagadas: decirles «tu primer pago» sería falso. Tampoco se les ofrece
+     «Ya no me interesa»: si hay pagos se negaría, y salir de una pausa o de
+     una suspensión es cosa de la reactivación o del equipo. Las demás
+     cerradas son pendientes: lo de siempre. */
   const PAUSAS = {
     congelada: { href: 'perfil.html#inscripciones', icono: 'play_circle', boton: 'Pedir la reactivación',
       texto: 'Tu inscripción está en pausa. El aula se abre otra vez en cuanto se apruebe la reactivación.' },
@@ -284,16 +286,29 @@ async function init(){
     init();
   });
 
-  const enrPorCurso = {}; (ens||[]).forEach(e=>{ enrPorCurso[e.course_id] = e.id; });
+  /* Con qué inscripción se rinde cada evaluación: la abierta del curso, si la
+     hay. Con el aula cerrada la evaluación se sigue viendo, con su nota si la
+     tiene, pero no se ofrece rendirla: cem_exam_questions la negaría con
+     «pendiente de pago», que a una congelada o suspendida le diría algo falso.
+     Si no se sabe la puerta (cem_mi_acceso falló), no se inventa un cierre:
+     el servidor sigue negando lo que no toca. */
+  const aulaCerrada = (e) => e.estado === 'cancelada' || puertas[e.id]?.abierto === false;
+  const enrPorCurso = {};
+  (ens||[]).forEach(e => {
+    const ya = enrPorCurso[e.course_id];
+    if (!ya || (aulaCerrada(ya) && !aulaCerrada(e))) enrPorCurso[e.course_id] = e;
+  });
   const tareas = (evals||[]).map(a=>{
     const mias = (subs||[]).filter(s=>s.assessment_id===a.id).sort((x,y)=>y.intento-x.intento);
     const ult = mias[0];
-    return { a, ult, usados:mias.length, abierta:mias.find(s=>s.estado==='en_progreso'), enr:enrPorCurso[a.course_id] };
+    const suya = enrPorCurso[a.course_id];
+    return { a, ult, usados:mias.length, abierta:mias.find(s=>s.estado==='en_progreso'),
+             enr:suya?.id, cerrada:!!suya && aulaCerrada(suya) };
   }).filter(t=>t.enr);
   const orden = { en_progreso:0, pendiente:1, entregada:2, calificada:3 };
   tareas.sort((x,y)=>(orden[x.abierta?'en_progreso':x.ult?.estado||'pendiente']??9)
                     -(orden[y.abierta?'en_progreso':y.ult?.estado||'pendiente']??9));
-  $('#entregas').innerHTML = tareas.length ? tareas.slice(0,6).map(({a,ult,usados,abierta,enr})=>{
+  $('#entregas').innerHTML = tareas.length ? tareas.slice(0,6).map(({a,ult,usados,abierta,enr,cerrada})=>{
     const aprob = a.nota_aprobatoria||70;
     const sinIntentos = !abierta && usados >= (a.intentos||1);
     let estado, accion;
@@ -305,6 +320,7 @@ async function init(){
     } else if (ult?.estado==='entregada'){ estado = chip('en revisión','info'); accion = '';
     } else { estado = chip('pendiente','warn');
       accion = `<a class="btn sm" href="evaluacion.html?id=${a.id}&enr=${enr}">Rendir</a>`; }
+    if (cerrada && accion) accion = '<span class="tiny muted">aula cerrada</span>';
     return `<div class="list-item"><span class="material-symbols-outlined" style="color:var(--on-surface-variant)">${a.tipo==='examen'?'quiz':'assignment'}</span>
       <div class="grow"><div class="t">${esc(a.nombre)}</div>
         <div class="s">${esc(a.tipo||'')} · ${ult?.entregado_en?'entregado '+fdate(ult.entregado_en):`nota mínima ${aprob}`}</div></div>
