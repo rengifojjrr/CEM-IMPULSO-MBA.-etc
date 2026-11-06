@@ -765,13 +765,24 @@ titulo('Ninguna variable de estilo se usa sin estar definida');
 /* Se blanquea en vez de borrar: con el mismo número de caracteres en su
    sitio, la línea de cada uso sigue siendo la del archivo. */
 const blanquear = (trozo) => trozo.replace(/[^\n]/g, ' ');
+/* La barra y el asterisco sólo abren un comentario de verdad en un .css y
+   dentro de los <style> de un .html. En el JavaScript de una pantalla, no: el
+   accept="image/*" de un campo de archivo abría ahí un «comentario» que
+   llegaba hasta el siguiente cierre, y lo que quedaba en medio no se miraba
+   —32 líneas de recursos.html, una de las siete pantallas del fallo, y 16 de
+   curso-nuevo.html—. */
+const sinComentariosCss = (css) => css.replace(/\/\*[\s\S]*?\*\//g, blanquear);
 const textosDeEstilo = new Map();
 const definidas = new Set();
 const usosSinRespaldo = new Map();   // variable -> [[archivo, posición], …]
 for (const f of await archivos('**/*.css', '**/*.html', '**/*.js', '**/*.mjs')) {
   let texto = await readFile(join(RAIZ, f), 'utf8');
-  if (/\.(css|html)$/.test(f)) {
-    texto = texto.replace(/\/\*[\s\S]*?\*\//g, blanquear).replace(/<!--[\s\S]*?-->/g, blanquear);
+  if (f.endsWith('.css')) texto = sinComentariosCss(texto);
+  if (f.endsWith('.html')) {
+    texto = texto
+      .replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,
+        (_, abre, css, cierra) => abre + sinComentariosCss(css) + cierra)
+      .replace(/<!--[\s\S]*?-->/g, blanquear);
   }
   textosDeEstilo.set(f, texto);
   for (const m of texto.matchAll(/(--[\w-]+)\s*:/g)) definidas.add(m[1]);
