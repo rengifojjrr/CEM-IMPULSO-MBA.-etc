@@ -459,7 +459,11 @@ async function aprobar(x){
   /* item 16 · aprobar el pago de la fila de arriba en vez de la de abajo pasa
      todos los días, y hasta ahora la única salida era buscar el pago, anularlo
      y explicar por qué. El aviso dice A QUIÉN se le aprobó —no «Guardado»— y
-     durante unos segundos deja volver atrás sin buscar nada. */
+     durante unos segundos deja volver atrás sin buscar nada.
+
+     Deshacer es anular, y anular deshace también lo que la aprobación abrió:
+     si ese pago fue el que activó la inscripción, vuelve a pendiente y el aula
+     se cierra otra vez (migración 20261109000001). Antes quedaba abierta. */
   okDeshacer(
     `Aprobado el pago de ${nombreDe(x)}${c ? ` a la cuota #${c.numero}` : ''}.`,
     async () => {

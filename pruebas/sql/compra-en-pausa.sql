@@ -12,6 +12,9 @@
        sigue abierta horas, y la inscripción puede pararse entre medias), no
        lanza: la apunta, devuelve el estado y avisa al equipo, una sola vez;
      · y con dos inscripciones, cerrar elige la abierta y no la que salga.
+   Desde 20261109000001 abrir se niega también si la inscripción ya no debe
+   nada, así que cada inscripción de esta prueba lleva una cuota por pagar; y
+   cerrar sólo la ejecuta su dueño (la llama cem_compra_invitado_asentar).
 
    CÓMO SE CORRE
    Entera, de una vez: en Supabase → SQL Editor, o con la herramienta
@@ -108,17 +111,20 @@ begin
       v_curso, v_uno, v_dos, v_tres, v_equipo;
   end if;
 
-  /* ── Las dos siguen siendo sólo del servidor ──────────────────────────── */
+  /* ── abrir sigue siendo sólo del servidor; cerrar, sólo de su dueño ────
+     Desde 20261109000001 cerrar no la llama nadie suelta: la llama
+     cem_compra_invitado_asentar, en la misma transacción que el pago. */
   for r in select * from (values
-      ('public.cem_compra_invitado_abrir(uuid,text,text,integer,uuid,text)'),
-      ('public.cem_compra_invitado_cerrar(uuid,uuid,boolean)')
-    ) as t(firma)
+      ('public.cem_compra_invitado_abrir(uuid,text,text,integer,uuid,text)', true),
+      ('public.cem_compra_invitado_cerrar(uuid,uuid,boolean)',               false)
+    ) as t(firma, servidor)
   loop
     v_n := v_n + 1;
     if has_function_privilege('anon', r.firma, 'execute')
        or has_function_privilege('authenticated', r.firma, 'execute')
-       or not has_function_privilege('service_role', r.firma, 'execute') then
-      v_fallos := v_fallos || format('%s ya no es sólo del servidor', r.firma);
+       or has_function_privilege('service_role', r.firma, 'execute') is distinct from r.servidor then
+      v_fallos := v_fallos || format('%s: tenía que ejecutarla %s', r.firma,
+        case when r.servidor then 'sólo el servidor' else 'sólo su dueño' end);
     end if;
   end loop;
 
@@ -127,6 +133,10 @@ begin
   -- pendientes, y sólo al insertar.
   insert into cem_enrollments (profile_id, course_id, estado, precio_lista, precio_final, moneda)
   values (v_uno, v_curso, 'congelada', 100, 100, 'EUR') returning id into v_enr;
+  -- Con una cuota que debe algo: sin ella, abrir se niega también por eso
+  -- (una inscripción que ya no debe nada no recibe el pago, 20261109000001).
+  insert into cem_installments (enrollment_id, numero, monto, moneda, fecha_vencimiento, estado, saldo)
+  values (v_enr, 1, 100, 'EUR', current_date, 'pendiente', 100);
 
   for r in select * from (values
       ('congelada',  true),
@@ -179,6 +189,8 @@ begin
   values (v_dos, v_curso, 'congelada', 100, 100, 'EUR') returning id into v_congelada;
   insert into cem_enrollments (profile_id, course_id, estado, precio_lista, precio_final, moneda)
   values (v_dos, v_curso, 'activa', 100, 100, 'EUR') returning id into v_activa;
+  insert into cem_installments (enrollment_id, numero, monto, moneda, fecha_vencimiento, estado, saldo)
+  values (v_activa, 1, 100, 'EUR', current_date, 'pendiente', 100);
 
   v_err := null;
   begin
@@ -216,6 +228,8 @@ begin
   /* ── La carrera: se compra con la activa, y se para antes de pagar ────── */
   insert into cem_enrollments (profile_id, course_id, estado, precio_lista, precio_final, moneda)
   values (v_tres, v_curso, 'activa', 100, 100, 'EUR') returning id into v_enr;
+  insert into cem_installments (enrollment_id, numero, monto, moneda, fecha_vencimiento, estado, saldo)
+  values (v_enr, 1, 100, 'EUR', current_date, 'pendiente', 100);
 
   for r in select * from (values
       ('congelada',  'en pausa'),
