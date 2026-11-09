@@ -140,6 +140,15 @@ Deno.serve(async (req) => {
     return json({ ok: true, donacion: r });
   }
 
+  /* Sólo se asienta un cobro que ya entró. Con tarjeta, una sesión se
+     completa ya pagada; pero si algún día se ofrece en Stripe una forma de
+     pago que se confirma días después, «completed» llega con
+     payment_status «unpaid», y asentarla daría el aula por un dinero que
+     todavía no está. Las donaciones, arriba, ya lo miraban. */
+  if (sesion.payment_status && sesion.payment_status !== 'paid') {
+    return json({ ok: true, pendiente: String(sesion.payment_status) });
+  }
+
   if (!cuenta.metodo) {
     return json({ error: `La cuenta «${cuenta.clave}» no tiene método de pago. Vuelve a guardarla en Admin → Cobros con tarjeta.` }, 500);
   }
@@ -155,9 +164,10 @@ Deno.serve(async (req) => {
      distintas es como acaban sin cuadrar las cuentas. */
   const compraInvitado = sesion.metadata?.compra_invitado_id;
   if (compraInvitado) {
+    // El monto, en la moneda de la forma de pago de esta cuenta: la tarjeta
+    // cobra en la del programa, que es la suya.
     const r = await cerrarCompraInvitado(admin, compraInvitado, {
       monto: Math.round(Number(sesion.amount_total || 0)) / 100,
-      moneda: String(sesion.currency || 'usd').toUpperCase(),
       referencia: String(sesion.payment_intent || sesion.id),
       metodo: cuenta.metodo,
     });

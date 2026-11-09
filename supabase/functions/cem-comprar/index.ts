@@ -75,6 +75,13 @@ Deno.serve(async (req) => {
 
     // ── Pago local: la misma intención de compra, sin pasar por Stripe ──────
     if (accion === 'local') {
+      /* Primero, a dónde mandar el dinero. Sin ninguna forma de pago con
+         destino no se abre nada: antes se abría la compra igual, y una hora
+         después le llegaba a esa persona un «¿Seguimos?» que no podía seguir. */
+      const { data: donde } = await admin.rpc('cem_donde_pagar_publico');
+      if (!Array.isArray(donde) || !donde.length) {
+        return json({ error: 'Ahora mismo no tenemos dónde recibir transferencias. Escríbenos y lo resolvemos.' }, 409);
+      }
       const ipL = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
       const { data: c, error: e } = await admin.rpc('cem_compra_invitado_abrir', {
         p_course_id: curso_id,
@@ -85,11 +92,10 @@ Deno.serve(async (req) => {
         p_ip: ipL,
       });
       if (e) return json({ error: e.message }, 400);
-      const { data: donde } = await admin.rpc('cem_donde_pagar_publico');
       return json({
         ok: true, compra_id: c.compra_id, curso: c.curso,
         a_cobrar: c.a_cobrar_ahora, moneda: c.moneda, cuotas: c.cuotas,
-        donde_pagar: donde ?? [],
+        donde_pagar: donde,
       });
     }
 
@@ -196,8 +202,8 @@ Deno.serve(async (req) => {
    misma respuesta que da la pantalla, no una copia de la regla.
 
    Lo que se registra es lo que la persona declaro y el equipo comprobo: su
-   referencia y su metodo. Falsear esto es la diferencia entre un extracto que
-   cuadra y uno que no. */
+   referencia y su metodo, y el monto que el equipo vio entrar. Falsear esto
+   es la diferencia entre un extracto que cuadra y uno que no. */
 async function confirmar(
   admin: ReturnType<typeof createClient>,
   req: Request,
@@ -209,6 +215,9 @@ async function confirmar(
   const comoQuienLlama = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
+  // Quién confirma: el pago queda a su nombre.
+  const { data: quien, error: eQuien } = await comoQuienLlama.auth.getUser(token);
+  if (eQuien || !quien?.user) return json({ error: 'Hace falta iniciar sesión.' }, 401);
   const { data: puede, error: ePuede } = await comoQuienLlama.rpc('cem_puede_cobranza');
   if (ePuede) return json({ error: ePuede.message }, 401);
   if (!puede) return json({ error: 'No tienes permiso para confirmar cobros.' }, 403);
@@ -222,13 +231,25 @@ async function confirmar(
   if (compra.estado !== 'reportada') {
     return json({ error: `Esa compra está ${compra.estado}, no a la espera.` }, 409);
   }
+  if (!compra.metodo || !compra.referencia) {
+    return json({ error: 'Esa compra no dice con qué se pagó ni con qué referencia.' }, 409);
+  }
+
+  /* Cuánto entró, en la moneda de la forma de pago (bolívares, si fue pago
+     móvil): lo que escribe el equipo mirando el extracto, o si no, lo que
+     declaró la persona. Nunca el importe del programa en euros: la base lo
+     leería como bolívares. */
+  const delEquipo = Number(cuerpo.monto);
+  const monto = Number.isFinite(delEquipo) && delEquipo > 0
+    ? delEquipo
+    : Number(compra.monto_reportado ?? 0);
+  if (!(monto > 0)) return json({ error: 'Falta cuánto entró en el banco.' }, 400);
 
   const r = await cerrarCompraInvitado(admin, compraId, {
-    // Lo que de verdad entró, si el equipo lo corrige; si no, lo que tocaba.
-    monto: Number(cuerpo.monto ?? compra.monto_reportado ?? compra.monto ?? 0),
-    moneda: String(cuerpo.moneda ?? compra.moneda ?? 'USD').toUpperCase(),
-    referencia: String(compra.referencia ?? compraId),
-    metodo: String(compra.metodo ?? 'Pago móvil'),
+    monto,
+    referencia: String(compra.referencia),
+    metodo: String(compra.metodo),
+    confirmadoPor: quien.user.id,
   });
   if (r.error) return json({ error: r.error }, r.status ?? 500);
   return json(r.cuerpo);

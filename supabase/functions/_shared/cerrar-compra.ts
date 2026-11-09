@@ -22,13 +22,28 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 export type ResultadoCierre = { error?: string; status?: number; cuerpo?: unknown };
 
+/* Lo que se apunta. El monto va en la moneda de la FORMA DE PAGO: euros si fue
+   la tarjeta, bolívares si fue un pago móvil. La base lo convierte con la tasa
+   del día; mandarle aquí el importe en euros de un pago en bolívares hacía que
+   45 € se abonaran como 0,04 €.
+
+   confirmadoPor: quien del equipo confirmó un pago local. Sin él, es Stripe. */
+export type Cobro = { monto: number; referencia: string; metodo: string; confirmadoPor?: string | null };
+
 /* ── Convertir una compra de invitado en alumno ───────────────────────────
-   Tres pasos, en este orden y no en otro:
+   Dos pasos, en este orden y no en otro:
 
      1. La cuenta. Si ya hay una con ese correo, se usa esa — comprar dos
         veces no puede partir a una persona en dos alumnos.
-     2. La inscripción y sus cuotas.
-     3. El pago, por la MISMA puerta que cualquier otro.
+     2. La inscripción, sus cuotas y el pago, por la MISMA puerta que
+        cualquier otro pago y en UNA sola transacción
+        (cem_compra_invitado_asentar).
+
+   Hasta el 9 de noviembre de 2026 el paso 2 eran dos llamadas: una cerraba la
+   compra —y la marcaba «pagada»— y otra apuntaba el pago. Si la segunda
+   fallaba, Stripe reintentaba, la primera decía «repetido» y aquí se
+   contestaba OK: el cobro quedaba sin apuntar para siempre. Ahora, si el pago
+   no entra no queda nada, y el reintento lo intenta entero otra vez.
 
    Es idempotente de punta a punta porque Stripe reintenta el aviso hasta que
    se le contesta bien, y un reintento no puede crear una segunda cuenta, una
@@ -36,27 +51,52 @@ export type ResultadoCierre = { error?: string; status?: number; cuerpo?: unknow
 export async function cerrarCompraInvitado(
   admin: ReturnType<typeof createClient>,
   compraId: string,
-  cobro: { monto: number; moneda: string; referencia: string; metodo: string },
+  cobro: Cobro,
 ): Promise<ResultadoCierre> {
   const { data: compra } = await admin.from('cem_compras_invitado')
     .select('*').eq('id', compraId).maybeSingle();
   if (!compra) return { error: 'Esa compra no existe.', status: 404 };
 
+  // Ya asentada: es un reintento. Se contesta antes de tocar las cuentas.
+  if (compra.estado === 'pagada' && compra.payment_id) {
+    return { cuerpo: { ok: true, repetido: true } };
+  }
+
+  /* Si no se puede asentar y lo que llama es Stripe, el error queda en la
+     compra y el equipo se entera (una vez por cada error distinto): el dinero
+     ya está cobrado, y Stripe sólo lo sabe su panel. Se contesta 500 para que
+     lo reintente. Cuando confirma alguien del equipo, el error lo ve en su
+     pantalla, y no hace falta avisar a nadie más. */
+  const fallar = async (mensaje: string): Promise<ResultadoCierre> => {
+    if (!cobro.confirmadoPor) {
+      try {
+        await admin.rpc('cem_compra_invitado_fallo', { p_compra_id: compraId, p_error: mensaje });
+      } catch (e) {
+        console.error('[compra] no se pudo apuntar el fallo:', e);
+      }
+    }
+    return { error: mensaje, status: 500 };
+  };
+
   const email = String(compra.email).toLowerCase().trim();
 
-  /* 1 · La cuenta. Se busca por correo en los perfiles, que es donde vive el
-     correo de verdad de la plataforma. Si no hay, se crea la cuenta de acceso
-     con el correo YA confirmado: el pago con tarjeta a ese correo demuestra
-     bastante más que un clic en un enlace de verificación, y hacerle verificar
-     después de haber pagado es una puerta cerrada en la cara. */
+  /* 1 · La cuenta, por el correo exacto (cem_cuenta_por_correo, en la base).
+     Antes se buscaba con ilike, donde «_» y «%» hacen de comodín —podía dar
+     con otra persona—, y si no aparecía, con listUsers, que sólo mira la
+     primera página de cuentas.
+
+     Si no hay, se crea con el correo YA confirmado: el pago con tarjeta a ese
+     correo demuestra bastante más que un clic en un enlace de verificación, y
+     hacerle verificar después de haber pagado es una puerta cerrada en la
+     cara. */
   let profileId: string | null = null;
   let cuentaNueva = false;
 
-  const { data: perfil } = await admin.from('cem_profiles')
-    .select('id').ilike('email', email).maybeSingle();
+  const { data: yaTiene, error: eBuscar } = await admin.rpc('cem_cuenta_por_correo', { p_email: email });
+  if (eBuscar) return await fallar(`No se pudo buscar la cuenta: ${eBuscar.message}`);
 
-  if (perfil?.id) {
-    profileId = perfil.id;
+  if (yaTiene) {
+    profileId = String(yaTiene);
   } else {
     const partes = String(compra.nombre).trim().split(/\s+/);
     const { data: creado, error: eCrear } = await admin.auth.admin.createUser({
@@ -68,14 +108,10 @@ export async function cerrarCompraInvitado(
       },
     });
     if (eCrear) {
-      /* Puede existir la cuenta de acceso sin perfil todavía (registro a
-         medias). No es un fallo: se busca y se sigue. Devolverle un error a
-         Stripe aquí lo haría reintentar durante días por algo que no se
-         arregla solo. */
-      const { data: lista } = await admin.auth.admin.listUsers();
-      const ya = lista?.users?.find((u) => (u.email ?? '').toLowerCase() === email);
-      if (!ya) return { error: `No se pudo crear la cuenta: ${eCrear.message}`, status: 500 };
-      profileId = ya.id;
+      // Otra entrega del mismo aviso pudo crearla un instante antes.
+      const { data: otraVez } = await admin.rpc('cem_cuenta_por_correo', { p_email: email });
+      if (!otraVez) return await fallar(`No se pudo crear la cuenta: ${eCrear.message}`);
+      profileId = String(otraVez);
     } else {
       profileId = creado.user!.id;
       cuentaNueva = true;
@@ -93,30 +129,18 @@ export async function cerrarCompraInvitado(
     activo: true,
   }, { onConflict: 'id', ignoreDuplicates: true });
 
-  // 2 · La inscripción. La base decide y es idempotente.
-  const { data: cierre, error: eCerrar } = await admin.rpc('cem_compra_invitado_cerrar', {
+  // 2 · La inscripción y el pago, en una sola transacción.
+  const { data: cierre, error: eAsentar } = await admin.rpc('cem_compra_invitado_asentar', {
     p_compra_id: compraId,
     p_profile_id: profileId,
     p_cuenta_nueva: cuentaNueva,
-  });
-  if (eCerrar) return { error: eCerrar.message, status: 500 };
-  if (cierre?.repetido) return { cuerpo: { ok: true, repetido: true } };
-
-  // 3 · El pago, por la puerta de siempre. El importe, la moneda, la
-  //     referencia y el método los trae quien llama, porque cada puerta los
-  //     sabe de un sitio distinto: Stripe de su sesión, el equipo del banco.
-  const { error: ePago } = await admin.rpc('cem_reportar_pago_servidor', {
-    p_installment_id: cierre.installment_id,
     p_monto: cobro.monto,
-    p_moneda: cobro.moneda,
-    p_referencia: cobro.referencia.slice(0, 40),
+    p_referencia: cobro.referencia,
     p_metodo: cobro.metodo,
-    p_profile_id: profileId,
+    p_confirmado_por: cobro.confirmadoPor ?? null,
   });
-  // «Ya hay un pago con esa referencia» es un reintento, no un fallo.
-  if (ePago && !/ya hay un pago registrado/i.test(ePago.message || '')) {
-    return { error: ePago.message, status: 500 };
-  }
+  if (eAsentar) return await fallar(eAsentar.message);
+  if (cierre?.repetido) return { cuerpo: { ok: true, repetido: true } };
 
   /* Y el correo para poner la clave. Va DESPUÉS de que todo lo demás salió
      bien: mandarle a alguien «ya estás dentro» y que al entrar no encuentre su
@@ -142,7 +166,8 @@ export async function cerrarCompraInvitado(
   return {
     cuerpo: {
       ok: true, compra: compraId, profile_id: profileId,
-      enrollment_id: cierre.enrollment_id, cuenta_nueva: cuentaNueva,
+      enrollment_id: cierre.enrollment_id, payment_id: cierre.payment_id,
+      cuenta_nueva: cuentaNueva,
     },
   };
 }

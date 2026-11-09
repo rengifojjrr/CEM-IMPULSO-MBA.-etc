@@ -112,7 +112,7 @@ import { sb, mount, MONEDA_BASE, $, $$, esc, chip, money, num, fdate, fdateCorta
          run, audit, toCSV, download, qs, mensajeError, campoArchivo, subirComprobante,
          opciones, etiqueta, chipEstado, ayuda, montarAyudas, mejorarSelects, saldo,
          ordenable, ordenarPor, filaTotales, migas, enDolares, montoPagado, avisar, filtrosEnLaDireccion,
-         campoBuscar, campoDescuento, conectarFiltros, confirmDialog,
+         campoBuscar, campoDescuento, conectarFiltros, ocupado,
          SUPABASE_URL, SUPABASE_KEY } from '../assets/app.js?v=2026-11-06-2';
 const p = await mount({ require:['cobranza','coordinador','admin','superadmin','auditor'], active:'inscripciones.html', area:'admin' });
 const editable = p && ['cobranza','coordinador','admin','superadmin'].includes(p.rol);
@@ -180,9 +180,7 @@ function renderCompras(){
       c.cuotas > 1 ? `<div class="tiny muted">1.ª de ${c.cuotas} cuotas</div>` : ''}</td>
     <td>${esc(etiqueta(c.metodo || ''))}</td>
     <td class="nowrap" style="font-variant-numeric:tabular-nums">${esc(c.referencia || '—')}</td>
-    <td class="num">${money(c.monto_reportado ?? c.a_cobrar, c.moneda)}${
-      Number(c.monto_reportado) && Number(c.monto_reportado) !== Number(c.a_cobrar)
-        ? `<div class="tiny" style="color:var(--warn)">esperábamos ${money(c.a_cobrar, c.moneda)}</div>` : ''}</td>
+    <td class="num">${montoDeclarado(c)}</td>
     <td class="muted">${fdate(c.reportada_en)}</td>
     <td class="nowrap">${editable ? `
       <button class="btn ghost sm" data-cmp-ok="${c.id}" title="Aparece en el banco: confirmar" aria-label="Aparece en el banco: confirmar">
@@ -195,31 +193,67 @@ function renderCompras(){
   $$('[data-cmp-no]').forEach(b => b.onclick = () => rechazarCompra(b.dataset.cmpNo));
 }
 
-async function confirmarCompra(id){
+/* Lo declarado va en la moneda de la forma de pago —bolívares, si fue pago
+   móvil—, que es como sale en el extracto, y debajo lo que equivale en la del
+   programa. Si no cuadra con lo que tocaba pagar, se avisa aquí: es el momento
+   de mirarlo, no después de confirmar. */
+function montoDeclarado(c){
+  if (c.monto_reportado == null) return money(c.a_cobrar, c.moneda);
+  const enOtra = c.moneda_pago && c.moneda_pago !== c.moneda;
+  const base = enOtra ? (c.equivale == null ? NaN : Number(c.equivale)) : Number(c.monto_reportado);
+  let html = money(c.monto_reportado, c.moneda_pago || c.moneda);
+  if (enOtra) html += c.equivale == null
+    ? '<div class="tiny" style="color:var(--warn)">sin tasa para convertirlo</div>'
+    : `<div class="tiny muted">≈ ${money(base, c.moneda)}</div>`;
+  if (Number.isFinite(base) && Math.abs(base - Number(c.a_cobrar)) > 0.01)
+    html += `<div class="tiny" style="color:var(--warn)">esperábamos ${money(c.a_cobrar, c.moneda)}</div>`;
+  return html;
+}
+
+function confirmarCompra(id){
   const c = compras.find(x => x.id === id);
+  const moneda = c?.moneda_pago || c?.moneda || '';
   /* Se dice qué va a pasar ANTES, no después: esto crea una cuenta con el
      correo de otra persona y le abre un aula. Si el dinero no estaba, deshacerlo
-     es mucho más trabajo que esperar diez minutos a mirar el extracto. */
-  const ok0 = await confirmDialog(
-    `¿El pago de <b>${esc(c?.nombre || 'esta persona')}</b>, referencia `
-    + `<b>${esc(c?.referencia || '—')}</b>, aparece ya en el banco?<br><br>`
-    + 'Al confirmar se le crea la cuenta, se le abre el aula y se registra el pago.',
-    'Confirmar un pago declarado', { html: true, confirmar: 'Sí, lo he visto' });
-  if (!ok0) return;
+     es mucho más trabajo que esperar diez minutos a mirar el extracto.
 
-  const { data:{ session } } = await sb.auth.getSession();
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/cem-comprar`, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY,
-              Authorization: `Bearer ${session?.access_token}` },
-    body: JSON.stringify({ accion:'confirmar', compra_id:id }),
+     Y se pide lo que de verdad entró, mirando el extracto. Viene puesto lo que
+     declaró la persona, en la moneda de la forma de pago; es lo que se apunta,
+     convertido con la tasa del día en que lo declaró. */
+  const m = modal({
+    title: 'Confirmar un pago declarado',
+    body: `<p class="tiny muted" style="margin-top:0">¿El pago de
+        <b>${esc(c?.nombre || 'esta persona')}</b>, referencia
+        <b>${esc(c?.referencia || '—')}</b>, aparece ya en el banco? Al confirmar
+        se le crea la cuenta, se le abre el aula y se registra el pago.</p>
+      <div class="field"><label for="cmpMonto">Lo que entró en el banco${moneda ? ` (${esc(moneda)})` : ''} *</label>
+        <input id="cmpMonto" type="number" step="0.01" min="0.01"
+          value="${esc(c?.monto_reportado == null ? '' : String(c.monto_reportado))}"></div>
+      <div id="cmpOkMsg"></div>`,
+    footer: `<button class="btn outline" data-x>Cancelar</button>
+             <button class="btn" data-s>Sí, lo he visto</button>`,
   });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok || d?.error) { fail(d?.error || 'No se pudo confirmar.'); return; }
-  await audit('compra_invitado_confirmada','cem_compras_invitado',id,'alto',
-              { referencia: c?.referencia });
-  ok('Confirmado. Ya tiene cuenta y su aula abierta.');
-  load();
+  $('[data-s]', m).onclick = (e) => ocupado(e.currentTarget, 'Confirmando…', async () => {
+    const monto = Number($('#cmpMonto', m).value);
+    if (!(monto > 0)) {
+      avisar($('#cmpOkMsg', m), 'Escribe cuánto entró, tal como sale en el extracto.', 'err');
+      return;
+    }
+    const { data:{ session } } = await sb.auth.getSession();
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/cem-comprar`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_KEY,
+                Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ accion:'confirmar', compra_id:id, monto }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d?.error) { avisar($('#cmpOkMsg', m), d?.error || 'No se pudo confirmar.', 'err'); return; }
+    m.close();
+    await audit('compra_invitado_confirmada','cem_compras_invitado',id,'alto',
+                { referencia: c?.referencia, monto, moneda });
+    ok('Confirmado. Ya tiene cuenta y su aula abierta.');
+    load();
+  });
 }
 
 function rechazarCompra(id){

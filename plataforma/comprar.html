@@ -366,6 +366,10 @@ function pintarDondePagar(d) {
       </select>
     </div>
     <div class="field">
+      <label for="refMonto">Monto que pagaste <span id="refUnidad" class="tiny muted"></span></label>
+      <input id="refMonto" type="number" step="0.01" min="0.01" inputmode="decimal">
+    </div>
+    <div class="field">
       <label for="refNum">Referencia del pago</label>
       <input id="refNum" maxlength="60" inputmode="numeric"
         placeholder="Los últimos dígitos que te dio el banco">
@@ -377,14 +381,35 @@ function pintarDondePagar(d) {
       a <b>${esc($('#email')?.value || '')}</b> en cuanto cuadre. No hace falta
       que hagas nada más.</p>`;
 
+  /* Cuánto pagó, en la moneda de la forma de pago: bolívares si fue pago
+     móvil. Viene puesta la conversión de hoy, que es lo normal; si mandó otra
+     cifra, la cambia. Es lo que se apunta, convertido con la tasa del día:
+     antes se mandaba aquí el importe en euros, y la base lo leía como
+     bolívares (45 € pagados se abonaban como 0,04 €). */
+  let montoTocado = false;
+  const ponerMonto = () => {
+    const m = d.donde_pagar.find((x) => x.metodo === $('#refMetodo').value);
+    const enBs = m?.moneda === 'VES';
+    $('#refUnidad').textContent = m?.moneda ? `(en ${enBs ? 'bolívares' : m.moneda})` : '';
+    if (montoTocado) return;
+    $('#refMonto').value = enBs
+      ? (tasa?.valor ? (Math.round(d.a_cobrar * Number(tasa.valor) * 100) / 100).toFixed(2) : '')
+      : Number(d.a_cobrar).toFixed(2);
+  };
+  $('#refMonto').oninput = () => { montoTocado = true; };
+  $('#refMetodo').onchange = ponerMonto;
+  ponerMonto();
+
   $('#declarar').onclick = (e) => ocupado(e.currentTarget, 'Enviando…', async () => {
+    const monto = Number($('#refMonto').value || 0);
+    if (!(monto > 0)) { fail('Escribe cuánto pagaste.'); $('#refMonto').focus(); return; }
     const ref = $('#refNum').value.trim();
     if (ref.length < 4) { fail('Escribe la referencia que te dio el banco.'); $('#refNum').focus(); return; }
     const { error } = await sb.rpc('cem_compra_invitado_reportar', {
       p_compra_id: d.compra_id,
       p_metodo: $('#refMetodo').value,
       p_referencia: ref,
-      p_monto: d.a_cobrar,
+      p_monto: monto,
     });
     if (error) { fail(error.message || 'No se pudo enviar.'); return; }
     $('#caja').innerHTML = `

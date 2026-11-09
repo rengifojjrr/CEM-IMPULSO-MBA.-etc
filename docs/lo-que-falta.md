@@ -731,13 +731,65 @@ Ninguno es de la regla de acceso; se anotan para no perderlos:
   por correo: insistiendo, se puede saber si un correo tiene algo parado en un
   programa, aunque no qué. `pruebas/sql/compra-en-pausa.sql`: 8 fallos de 30
   antes, 30 de 30 después.
-- **Dos fallos del cobro sin cuenta, vistos al cerrar el anterior:** si el
-  aviso de pago falla después de que `cerrar` guarde la compra (por ejemplo,
-  porque la inscripción reutilizada no tiene ninguna cuota sin pagar), el
-  reintento de Stripe sale por «repetido» y el pago cobrado no se apunta nunca.
-  Y el pago local sin cuenta no puede terminar: `cem_compra_invitado_reportar`
-  sólo acepta compras `pendiente` o `reportada`, pero nacen `abierta` y la
-  tabla no admite `reportada`. Hoy no hay ninguna compra sin cuenta.
+- ~~**Dos fallos del cobro sin cuenta, vistos al cerrar el anterior**~~ —
+  cerrados el 9 de noviembre (migración
+  `20261109000001_compra_sin_cuenta_sin_perdidas`). Los dos, reproducidos
+  antes en la base:
+  - **Un cobro con tarjeta podía quedarse sin apuntar.** Cerrar la compra y
+    apuntar el pago eran dos transacciones; si el pago fallaba, el reintento
+    de Stripe salía por «repetido» y se contestaba OK. Ahora
+    `cem_compra_invitado_asentar` hace las dos cosas en una: si el pago no
+    entra no queda nada, ni la marca «pagada», y el reintento lo intenta
+    entero. Si falla con Stripe, el error queda en la compra y el equipo se
+    entera (`cem_compra_invitado_fallo`).
+  - **El pago local no podía terminar.** «reportada» ya es un estado de la
+    tabla y `reportar` acepta la compra recién abierta.
+  - Había un tercero que el segundo habría encendido: el monto declarado iba
+    en euros a una función que lo lee en la moneda de la forma de pago, y
+    1,62 € por pago móvil se abonaban como 0,00 €. Ahora la persona escribe
+    cuánto pagó en esa moneda, la lista del equipo lo enseña así y con lo que
+    equivale, y al confirmar el equipo pone lo que dice el extracto.
+  - De paso, la cuenta se busca por el correo exacto (con `ilike`, «_» hacía
+    de comodín, y `listUsers` sólo miraba 50 cuentas). Tampoco se cobra lo que
+    ya no se debe: `abrir` se niega con el mismo mensaje neutro.
+  - El rescate «¿Seguimos?» escribe una vez por persona y no a quien ya
+    declaró un pago. Y no se abre una compra local si no hay dónde pagar.
+  - `pruebas/sql/compra-sin-cuenta.sql`: 22 fallos de 28 antes, 52 de 52
+    después. Hoy sigue dormido: el único programa está pausado y no hay
+    ninguna forma de pago local con destino.
+- ~~**Anular un pago aprobado dejaba el aula abierta**~~ — cerrado el 9 de
+  noviembre (misma migración). Aprobar el primer pago de una pendiente la
+  activa, y anularlo —también con «Deshacer» en Verificar pagos— devolvía el
+  saldo pero la dejaba activa. Ahora, si fue ese pago el que la activó y no le
+  queda otro confirmado, vuelve a pendiente. Si está congelada, se corrige su
+  pausa para que reactivarla no la reabra. `pruebas/sql/anular-pago.sql`: 4
+  fallos de 9 antes, 9 de 9 después.
+- **«Registrar pago» de Admin se salta la puerta única** (`cem_register_payment`,
+  en Inscripciones y en la ficha del estudiante). Hallado el 9 de noviembre;
+  queda como tarea aparte:
+  - El pago queda «registrado», sin cartera ni conversión, y no cuenta en el
+    saldo de las carteras. Hay 3 así, del 25 de agosto, que suman 2,00 €.
+  - El saldo de la cuota suma también los pagos rechazados y anulados.
+  - Las formas de pago están escritas a mano (transferencia, zelle…), no son
+    las configuradas.
+  - Anular uno de esos pagos no devuelve el saldo.
+  - Arreglarlo obliga a configurar antes las formas de pago (hoy sólo existe la
+    tarjeta).
+- **Un pago de más no se reparte.** `cem_aprobar_pago` deja la cuota en cero
+  y el resto sin aplicar: la siguiente cuota se sigue debiendo. Es una
+  decisión de cobranza, no un error de código.
+- **Comprar sin cuenta un programa que ya se está pagando con otro plan**
+  cobra el importe del plan que se elige en la compra y lo apunta en la
+  siguiente cuota de la inscripción que ya había.
+- **La moneda del cobro con tarjeta** es la del programa, y el pago se apunta
+  en la de la forma de pago de la cuenta de Stripe. Hoy todo es EUR; un
+  programa en dólares cobrado con una cuenta en euros quedaría mal apuntado.
+- **Seguridad, menor:** la protección de contraseñas filtradas de Supabase
+  Auth está apagada (se enciende en el panel). Tres funciones de becas
+  (`cem_becas_enlace`, `cem_becas_numero`, `cem_becas_usd`) no fijan
+  `search_path`. Y `cem_metodos_pago` se lee entera sin sesión; hoy no tiene
+  nada sensible, pero `cem_donde_pagar_publico` existe para no tener que
+  enseñarla.
 - ~~**`cem_avisar_de_clase`** avisa a las congeladas~~ — cerrado el 9 de
   noviembre (migración `20261108000003`): avisa sólo a quien el aula deja
   entrar y no ha terminado.
