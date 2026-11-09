@@ -34,9 +34,10 @@
 --     suben, cambian y borran ahí) y cada cuenta su carpeta perfiles/<su uid>/,
 --     que es la única donde puede escribir. Sin sesión, ninguna.
 --   · cem_avisar_de_clase avisa a las inscripciones que abren el aula
---     (cem_inscripcion_abierta, la regla sin el pase del equipo). Sale la
---     congelada; entran la finalizada y la pendiente que ya pagó o no cuesta
---     nada, que sí pueden entrar.
+--     (cem_inscripcion_abierta, la regla sin el pase del equipo) y no han
+--     terminado. Sale la congelada; entra la pendiente que ya pagó o no cuesta
+--     nada, que sí puede entrar. La finalizada conserva el aula pero no está
+--     cursando, y no se le avisaba ni se le avisa.
 --
 -- LO QUE NO CAMBIA
 -- Las direcciones públicas del depósito (/storage/v1/object/public/…) siguen
@@ -152,7 +153,7 @@ begin
 end $function$;
 
 comment on function public.cem_avisar_de_clase(uuid, text) is
-  'Profesor de la cohorte o equipo: avisa de una sesión en vivo (aviso y correo) a las inscripciones de la cohorte que abren el aula según cem_inscripcion_abierta. Devuelve a cuántas avisó.';
+  'Profesor de la cohorte o equipo: avisa de una sesión en vivo (aviso y correo) a las inscripciones de la cohorte que abren el aula según cem_inscripcion_abierta y no han terminado (la finalizada conserva el aula, pero no está cursando). Devuelve a cuántas avisó.';
 
 revoke all on function public.cem_avisar_de_clase(uuid, text) from public, anon;
 grant execute on function public.cem_avisar_de_clase(uuid, text) to authenticated, service_role;
