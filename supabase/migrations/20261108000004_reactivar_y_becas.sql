@@ -69,7 +69,8 @@
 -- que no hay nada que corregir hacia atrás. El último bloque lo haría si lo
 -- hubiera.
 --
--- La prueba: pruebas/sql/reactivar-y-becas.sql (antes de esto, 20 fallos de 46).
+-- La prueba: pruebas/sql/reactivar-y-becas.sql (antes de esto, 24 fallos de 50;
+-- con esto, las 50 en verde, ensayado dentro de un bloque que se deshace).
 
 -- ═══ 1. UNA SOLA FUNCIÓN PARA PEDIR ════════════════════════════════════════
 

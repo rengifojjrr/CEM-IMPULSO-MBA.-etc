@@ -43,19 +43,40 @@
 <script type="module">
 import { sb, mount, $, esc, chip, match, vacio, previaDeMaterial, conectarFiltros } from '../assets/app.js?v=2026-11-06-2';
 const me = await mount({ require:['estudiante'], active:'biblioteca.html', area:'estudiante' });
-let rows=[], progresoPorCurso={};
+let rows=[], progresoPorCurso={}, cerrados=new Set();
 if (me) load();
 
 async function load(){
-  const { data: ens } = await sb.from('cem_enrollments').select('id,course_id,progreso,cem_courses(nombre)').eq('profile_id',me.id).limit(500);
+  /* Qué programas tienen el aula abierta se pregunta al servidor, como en el
+     panel. Desde la migración 20261108000003 un adjunto sólo lo lee quien
+     tiene la inscripción abierta en su curso: sin esto, un programa cerrado
+     saldría como «no hay materiales», y no es verdad. */
+  const [{ data: ens }, { data: acceso, error: sinAcceso }] = await Promise.all([
+    sb.from('cem_enrollments').select('id,estado,course_id,progreso,cem_courses(nombre)').eq('profile_id',me.id).limit(500),
+    sb.rpc('cem_mi_acceso'),
+  ]);
   const ids = (ens||[]).map(e=>e.course_id);
   (ens||[]).forEach(e=>progresoPorCurso[e.course_id]=Number(e.progreso)||0);
+  /* Cerrada es la cancelada (cem_mi_acceso ni la devuelve) y la que el
+     servidor dice que no abre. Si no se pudo preguntar, sólo la cancelada:
+     antes callar que decir «aula cerrada» a quien la tiene abierta. */
+  const abre = (e) => e.estado !== 'cancelada' && (!!sinAcceso || acceso?.[e.id]?.abierto !== false);
+  cerrados = new Set(ids);
+  (ens||[]).filter(abre).forEach(e => cerrados.delete(e.course_id));
   $('#fCurso').innerHTML = '<option value="">Todos mis cursos</option>' +
-    (ens||[]).map(e=>`<option value="${e.course_id}">${esc(e.cem_courses?.nombre||'')}</option>`).join('');
+    (ens||[]).map(e=>`<option value="${e.course_id}">${esc(e.cem_courses?.nombre||'')}${
+      cerrados.has(e.course_id) ? ' · aula cerrada' : ''}</option>`).join('');
   if (!ids.length){ $('#lista').innerHTML=`<div class="card sin-margen">${vacio({ icono:'menu_book',
     titulo:'Todavía no hay materiales para ti',
     texto:'Los apuntes y grabaciones de tus programas aparecerán aquí en cuanto el profesor los suba.',
     accion:{ texto:'Ver el catálogo', href:'catalogo.html' } })}</div>`; return; }
+  if (cerrados.size === new Set(ids).size){
+    $('#sub').textContent = 'Tus materiales no se ven mientras el aula esté cerrada.';
+    $('#lista').innerHTML=`<div class="card sin-margen">${vacio({ icono:'lock',
+      titulo:'Aula cerrada',
+      texto:'Los materiales de tus programas se ven mientras la inscripción esté abierta. '
+        + 'En tu panel te decimos por qué está cerrada y qué hacer.',
+      accion:{ texto:'Ir a mi panel', href:'panel.html' } })}</div>`; return; }
   const { data } = await sb.from('cem_media').select('*,cem_courses(nombre)').in('course_id',ids).order('nombre').limit(500);
   rows = data||[];
   $('#sub').textContent = `Mostrando ${rows.length} recurso(s) de tus programas.`;
@@ -88,7 +109,10 @@ function render(){
           <span class="material-symbols-outlined" aria-hidden="true">${m.tipo==='video'?'visibility':'download'}</span>
           ${m.tipo==='video'?'Ver':'Descargar'}</a>`}
       </div></div>`;
-  }).join('') : '<div class="card" style="grid-column:1/-1"><p class="muted">No se encontraron recursos con esos filtros.</p></div>';
+  }).join('') : `<div class="card" style="grid-column:1/-1"><p class="muted">${c && cerrados.has(c)
+    ? 'Ese programa tiene el aula cerrada: sus materiales no se ven hasta que se abra. '
+      + 'En tu panel te decimos por qué y qué hacer.'
+    : 'No se encontraron recursos con esos filtros.'}</p></div>`;
 }
 conectarFiltros(['#q','#fCurso','#fTipo'], render);
 </script>

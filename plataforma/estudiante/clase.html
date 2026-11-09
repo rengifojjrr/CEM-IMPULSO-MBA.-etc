@@ -186,7 +186,7 @@ function candado(estado, puerta) {
     </div>`;
   if (estado === 'congelada') {
     return caja('pause_circle', 'Tu inscripción está en pausa',
-      `El aula de <b>${nombre}</b> se abre otra vez en cuanto se apruebe la reactivación.`,
+      `Pide la reactivación desde tu perfil: cuando se apruebe, <b>${nombre}</b> vuelve a como estaba antes de la pausa.`,
       `<a class="btn" href="perfil.html#inscripciones">
          <span class="material-symbols-outlined" aria-hidden="true">play_circle</span> Pedir la reactivación</a>
        ${temario}`);
@@ -222,10 +222,37 @@ function candado(estado, puerta) {
 async function load(){
   let cursoId = qs('curso');
   let acceso = null;
+  let leccionPedida = qs('leccion');
   const claseId = qs('clase');
+  /* «?clase=» trae dos cosas distintas. Los avisos de clase en vivo y «Tu
+     próxima clase» del panel mandan una sesión en vivo (cem_classes); el
+     «Continuar» del panel y los enlaces de Cemi mandan una lección. Se mira
+     primero la sesión y, si no lo es, la lección, que se abre directamente.
+
+     Si no es ninguna que se pueda leer, se dice, en vez de abrir el primer
+     programa que saliera: desde la migración 20261108000003 una clase en vivo
+     sólo la lee quien tiene el aula abierta en su cohorte, y abrir otro curso
+     hacía creer que el enlace llevaba ahí. */
   if (claseId && !cursoId){
-    const { data: cl } = await sb.from('cem_classes').select('cohort_id,cem_cohorts(course_id)').eq('id',claseId).maybeSingle();
+    const { data: cl } = await sb.from('cem_classes')
+      .select('cohort_id,cem_cohorts(course_id)').eq('id',claseId).maybeSingle();
     cursoId = cl?.cem_cohorts?.course_id;
+    if (!cl) {
+      const { data: le } = await sb.from('cem_lessons')
+        .select('id,cem_modules(course_id)').eq('id',claseId).maybeSingle();
+      cursoId = le?.cem_modules?.course_id;
+      if (le && !leccionPedida) leccionPedida = le.id;
+    }
+    if (!cursoId) {
+      callejon('event_busy', 'Esa clase no está disponible para ti',
+        'Puede que tu inscripción en ese programa esté cerrada, que la clase se haya '
+        + 'quitado o que el enlace venga mal copiado. En tu panel están tus programas '
+        + 'y, si alguno está cerrado, por qué y qué hacer.',
+        soyEstudiante
+          ? '<a class="btn" href="panel.html">Ir a mi panel</a>'
+          : `<a class="btn" href="${ROL === 'profesor' ? '../docente/aula.html' : '../admin/contenido.html'}">Volver a lo mío</a>`);
+      return;
+    }
   }
   if (soyEstudiante) {
     /* Qué puerta tiene cada inscripción se pregunta ANTES de elegir con cuál
@@ -336,9 +363,10 @@ async function load(){
   clases = cls||[]; media = md||[]; evals = evs||[]; entregas = subs||[];
   const all = mods.flatMap(m=>m.cem_lessons);
   /* Se puede llegar directo a una lección desde el aviso de «respondieron tu
-     duda» o desde el buscador del curso. Si no viene ninguna, se abre por la
-     primera sin completar, que es lo de siempre. */
-  const pedida = qs('leccion');
+     duda», desde el buscador del curso o con un «?clase=» que resultó ser una
+     lección. Si no viene ninguna, se abre por la primera sin completar, que es
+     lo de siempre. */
+  const pedida = leccionPedida;
   actual = (pedida && all.find(l=>l.id===pedida))
     || all.find(l=>!progreso[l.id]?.completado) || all[0];
   render();

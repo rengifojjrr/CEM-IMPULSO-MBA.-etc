@@ -666,29 +666,52 @@ perdió acceso.
 Ojo con decir «una cancelada no ve nada»: esta función cierra las lecciones,
 los exámenes y el progreso, pero hay cosas que no pasan por ella (§3.9).
 
-### 3.9 · Los adjuntos y las clases en vivo no miran la inscripción
+### 3.9 · ~~Los adjuntos y las clases en vivo no miran la inscripción~~ — cerrado el 9 de noviembre
 
-`cem_media` (los adjuntos de las lecciones) y `cem_classes` (las sesiones en
-vivo, con su enlace) se leen con **cualquier sesión**: sus políticas de
-lectura son `using (true)`. Y el depósito `cem-assets` es público. Así que
-cualquier cuenta, inscrita o no, pagada o no, puede pedir la lista de adjuntos
-y los enlaces de las clases. Hoy hay 1 adjunto y 0 clases, así que todavía no
-se escapa casi nada; con el primer diplomado en marcha, sí.
+Migración `20261108000003_clases_y_adjuntos_por_la_regla`. Una clase en vivo la
+leen el equipo, quien da clase en esa cohorte y quien tiene ahí la inscripción
+abierta: con el aula cerrada no se ve nada, ni el horario, ni el enlace, ni la
+grabación. Un adjunto lo leen el equipo y, si está marcado como visible para
+los estudiantes, quien tiene abierto su curso. La lista del depósito
+`cem-assets` sólo la ven el equipo y cada cuenta su carpeta
+`perfiles/<su uid>/`; las direcciones públicas siguen sirviendo (portadas,
+fotos, certificados). Panel, calendario y biblioteca dicen «aula cerrada» en
+vez de «no hay clases», y un enlace `?clase=` que no se puede leer lo dice en
+vez de abrir otro programa. De paso, `cem_classes` sin sesión daba
+«permission denied» y ahora da cero filas.
 
-El arreglo: que esas lecturas pasen por la misma regla (el material por
-`cem_puede_ver_leccion`, las clases por la cohorte con la inscripción
-abierta) y que los adjuntos vivan en un depósito privado con enlaces
-firmados.
+Comprobado con `pruebas/sql/clases-y-adjuntos.sql`, que se deshace sola: 9
+fallos de 23 antes, 23 de 23 después.
+
+Queda: el depósito sigue siendo público, así que un enlace ya compartido sigue
+abriendo y no caduca (pasar los adjuntos a un depósito privado con enlaces
+firmados es otro trabajo); y `cem_aula` enseña título y hora de las clases a
+cualquiera con una inscripción en la cohorte, abierta o no.
 
 ### 3.10 · Lo que dejó a la vista el cierre de §3.8
 
 Ninguno es de la regla de acceso; se anotan para no perderlos:
 
-- **Reactivar no mira si se pagó.** Una pendiente puede pedir congelar, y al
-  aprobar luego la reactivación queda «activa» sin haber pagado nada. Pasa por
-  dos manos del equipo, pero entra.
-- **Beca y retirada.** Si quien tiene una beca se retira, la inscripción se
-  cancela, pero la beca sigue «otorgada» y el fondo no recupera lo apartado.
+- ~~**Reactivar no mira si se pagó.**~~ — cerrado el 9 de noviembre (migración
+  `20261108000004_reactivar_y_becas`). Al aprobar la pausa se apunta el estado
+  que tenía y la reactivación la devuelve a él: una pendiente sin pagar vuelve
+  pendiente, y cerrada; si pagó durante la pausa, activa. Sin apunte (una
+  congelada de antes) decide el dinero. Una suspendida ya no pide pausa ni
+  reactivación, y aprobar mira el estado de ese momento: lo que cambió entre
+  medias se rechaza explicando por qué.
+- ~~**Beca y retirada.**~~ — cerrado el 9 de noviembre (misma migración). Un
+  disparador revoca la beca otorgada cuando la inscripción pasa a cancelada
+  por cualquier camino —la retirada que aprueba el equipo, coordinación
+  incluida; la baja que pide la propia persona; el estado puesto a mano— y
+  devuelve al fondo lo apartado, una sola vez. `cem_beca_revocar` revoca y
+  devuelve antes de cancelar, para que el disparador no lo repita y
+  `vuelve_al_fondo` siga siendo cierto.
+- ~~**Desde Mi perfil no se podía pedir nada.**~~ — cerrado el 9 de noviembre
+  (misma migración). Había dos `cem_solicitar_cambio_inscripcion` y la llamada
+  de la pantalla encajaba en las dos: el servidor no sabía cuál usar y
+  congelar, retirarse y reactivar fallaban siempre. Queda la de cinco
+  parámetros. `pruebas/sql/reactivar-y-becas.sql`: 24 fallos de 50 antes, 50
+  de 50 después.
 - **Con dos inscripciones en el mismo curso**, `cem_iniciar_intento` y
   `cem_exam_questions` eligen una sin preferir la abierta: una cerrada puede
   tapar a la abierta. El aula ya elige bien.
@@ -715,8 +738,9 @@ Ninguno es de la regla de acceso; se anotan para no perderlos:
   Y el pago local sin cuenta no puede terminar: `cem_compra_invitado_reportar`
   sólo acepta compras `pendiente` o `reportada`, pero nacen `abierta` y la
   tabla no admite `reportada`. Hoy no hay ninguna compra sin cuenta.
-- **`cem_avisar_de_clase`** avisa a las congeladas de clases en vivo a las que
-  el aula ya no las deja entrar.
+- ~~**`cem_avisar_de_clase`** avisa a las congeladas~~ — cerrado el 9 de
+  noviembre (migración `20261108000003`): avisa sólo a quien el aula deja
+  entrar y no ha terminado.
 - ~~**El embudo y «Ver como»** preguntan siendo del equipo~~ — cerrado el 6
   de noviembre. Ahora usan `cem_inscripcion_abierta`, la regla de la
   inscripción sin el pase del equipo (migración

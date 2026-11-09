@@ -178,6 +178,13 @@ async function init(){
   ].join('');
 
   const next = (clases||[])[0];
+  /* Sin clase que enseñar puede ser que no haya ninguna o que no se vean.
+     Desde la migración 20261108000003 las clases en vivo de una cohorte sólo
+     las lee quien tiene ahí la inscripción abierta: si todas las que tienen
+     grupo están cerradas, «no tienes clases» sería falso. Las hay; lo cerrado
+     es el aula, y la tarjeta de cada programa, aquí debajo, dice por qué. */
+  const conGrupo = (ens||[]).filter(e=>e.cohort_id);
+  const todasCerradas = conGrupo.length > 0 && conGrupo.every(e=>puertas[e.id]?.abierto === false);
   $('#proxima').innerHTML = next ? `
     <div class="row" style="gap:14px">
       <span class="material-symbols-outlined" style="font-size:34px">video_camera_front</span>
@@ -187,7 +194,11 @@ async function init(){
         <div class="tiny" style="opacity:.85">${esc(next.cem_cohorts?.cem_courses?.nombre||'')} · ${fdate(next.fecha)} ${(next.hora_inicio||'').slice(0,5)}</div>
       </div>
       <a class="btn gold" href="clase.html?clase=${next.id}">Ir a la clase</a>
-    </div>` : `<div class="row" style="gap:12px"><span class="material-symbols-outlined">event_available</span>
+    </div>` : todasCerradas ? `<div class="row" style="gap:12px">
+      <span class="material-symbols-outlined" aria-hidden="true">lock</span>
+      <div>Con el aula cerrada no se ven tus clases en vivo. Abajo, en cada programa,
+        te decimos por qué y qué hacer.</div></div>`
+    : `<div class="row" style="gap:12px"><span class="material-symbols-outlined">event_available</span>
       <div>No tienes clases programadas próximamente.</div></div>`;
 
   /* Un número del 0 al 100 estable a partir del nombre: el mismo curso saca
@@ -207,7 +218,7 @@ async function init(){
      cerradas son pendientes: lo de siempre. */
   const PAUSAS = {
     congelada: { href: 'perfil.html#inscripciones', icono: 'play_circle', boton: 'Pedir la reactivación',
-      texto: 'Tu inscripción está en pausa. El aula se abre otra vez en cuanto se apruebe la reactivación.' },
+      texto: 'Tu inscripción está en pausa. Cuando se apruebe la reactivación, vuelve a como estaba antes de la pausa.' },
     suspendida: { href: 'mensajes.html', icono: 'mail', boton: 'Escribir al equipo',
       texto: 'Tu inscripción está suspendida. Escríbenos y lo resolvemos.' },
   };

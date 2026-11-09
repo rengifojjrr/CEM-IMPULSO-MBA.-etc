@@ -62,7 +62,7 @@
 -- «to authenticated». No se le abre la función a anon: ninguna página
 -- pública lee estas tablas (lo-que-falta §3.1).
 --
--- La prueba: pruebas/sql/clases-y-adjuntos.sql (antes de esto, 7 fallos de 22).
+-- La prueba: pruebas/sql/clases-y-adjuntos.sql (antes de esto, 9 fallos de 23).
 
 alter policy cem_classes_read on public.cem_classes
   to authenticated
@@ -106,7 +106,7 @@ alter policy cem_assets_lectura on storage.objects
   );
 
 comment on policy cem_assets_lectura on storage.objects is
-  'La lista de cem-assets: el equipo entera, y cada cuenta su carpeta perfiles/<su uid>/. Las direcciones públicas no pasan por aquí: el depósito es público y las sirve sin políticas. Antes cualquiera, hasta sin sesión, podía listar el depósito entero.';
+  'La lista de cem-assets: el equipo entera, y cada cuenta su carpeta perfiles/<su uid>/. Las direcciones públicas no pasan por aquí: el depósito es público y las sirve sin políticas. Antes la política dejaba listar el depósito entero a cualquiera, también sin sesión.';
 
 CREATE OR REPLACE FUNCTION public.cem_avisar_de_clase(p_class_id uuid, p_nota text DEFAULT NULL::text)
  RETURNS integer
@@ -128,9 +128,12 @@ begin
 
   -- Sólo a quien el aula deja entrar: la regla de la inscripción, sin el pase
   -- del equipo. Antes iba a «activa» y «congelada», y la congelada ya no entra.
+  -- Quien ya terminó conserva el aula pero no está cursando: no se le avisa,
+  -- como antes.
   for r in
     select e.profile_id from cem_enrollments e
-     where e.cohort_id = v_c.cohort_id and cem_inscripcion_abierta(e.id)
+     where e.cohort_id = v_c.cohort_id and e.estado <> 'finalizada'
+       and cem_inscripcion_abierta(e.id)
   loop
     perform cem_notificar(r.profile_id, 'clase_en_vivo',
       format('%s · %s a las %s', coalesce(v_c.titulo, 'Sesión en vivo'),

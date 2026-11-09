@@ -91,20 +91,40 @@ const me = await mount({ require:['estudiante'], active:'calendario.html', area:
 
 let cur = new Date();
 let clases = [], porCohorte = {}, diaElegido = null;
+/* Los programas con el aula cerrada, y cuántos programas con grupo hay. */
+let cerrados = new Set(), programas = 0;
 if (me) load();
 
 async function load(){
-  const { data: ens } = await sb.from('cem_enrollments')
-    .select('cohort_id,course_id,cem_courses(nombre),cem_cohorts(nombre)')
-    .eq('profile_id', me.id).limit(500);
+  /* Qué inscripciones abren el aula se pregunta al servidor, como en el panel:
+     la regla vive en cem_acceso_abierto y sólo hay una. Hace falta aquí porque
+     desde la migración 20261108000003 las clases de una cohorte sólo las lee
+     quien tiene ahí la inscripción abierta: sin esto, un programa cerrado
+     saldría como «ninguna clase», y no es verdad. */
+  const [{ data: ens }, { data: acceso, error: sinAcceso }] = await Promise.all([
+    sb.from('cem_enrollments')
+      .select('id,estado,cohort_id,course_id,cem_courses(nombre),cem_cohorts(nombre)')
+      .eq('profile_id', me.id).limit(500),
+    sb.rpc('cem_mi_acceso'),
+  ]);
   const cohortes = (ens||[]).map(e=>e.cohort_id).filter(Boolean);
   (ens||[]).forEach(e => { if (e.cohort_id) porCohorte[e.cohort_id] =
     { curso: e.cem_courses?.nombre || '', cohorte: e.cem_cohorts?.nombre || '', course_id: e.course_id }; });
 
+  /* Cerrada es la cancelada (cem_mi_acceso ni la devuelve) y la que el
+     servidor dice que no abre. Si no se pudo preguntar, sólo la cancelada:
+     antes callar que decir «aula cerrada» a quien la tiene abierta. */
+  const abre = (e) => e.estado !== 'cancelada' && (!!sinAcceso || acceso?.[e.id]?.abierto !== false);
+  const conGrupo = (ens||[]).filter(e => e.cohort_id);
+  cerrados = new Set(conGrupo.map(e => e.course_id));
+  conGrupo.filter(abre).forEach(e => cerrados.delete(e.course_id));
+  programas = new Set(conGrupo.map(e => e.course_id)).size;
+
   $('#fCurso').innerHTML = '<option value="">Todos mis programas</option>' +
     [...new Map((ens||[]).filter(e=>e.cohort_id)
       .map(e=>[e.course_id, e.cem_courses?.nombre||''])).entries()]
-      .map(([id,n])=>`<option value="${esc(id)}">${esc(n)}</option>`).join('');
+      .map(([id,n])=>`<option value="${esc(id)}">${esc(n)}${
+        cerrados.has(id) ? ' · aula cerrada' : ''}</option>`).join('');
 
   if (!cohortes.length){
     $('#cal').innerHTML = '';
@@ -134,6 +154,13 @@ const visibles = () => {
   return clases.filter(x => !c || porCohorte[x.cohort_id]?.course_id === c);
 };
 
+/** ¿Lo que se está mirando tiene el aula cerrada? Con un programa elegido,
+    ese programa; con «Todos», sólo si no queda ninguno abierto. */
+const cerradoLoQueSeMira = () => {
+  const c = $('#fCurso').value;
+  return c ? cerrados.has(c) : programas > 0 && cerrados.size === programas;
+};
+
 function render(){
   const lista = visibles();
   cur.setDate(1);
@@ -149,7 +176,7 @@ function render(){
   const esteMes = lista.filter(c => c.fecha.slice(0,7) === `${y}-${String(mo+1).padStart(2,'0')}`);
   $('#cuenta').textContent = esteMes.length
     ? `${esteMes.length} clase(s) este mes`
-    : 'Ninguna clase este mes';
+    : cerradoLoQueSeMira() ? 'Aula cerrada' : 'Ninguna clase este mes';
 
   let celdas = '';
   ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(d => celdas += `<div class="dow">${d}</div>`);
@@ -187,6 +214,7 @@ function pintarDia(porDia){
   $('#diaLbl').textContent = f.toLocaleDateString('es-ES',{ weekday:'long', day:'numeric', month:'long' });
   const del = (porDia[diaElegido] || []).sort((a,b)=>String(a.hora_inicio).localeCompare(String(b.hora_inicio)));
   $('#delDia').innerHTML = del.length ? del.map(c => tarjetaClase(c)).join('')
+    : cerradoLoQueSeMira() ? '<p class="tiny muted">Con el aula cerrada no se ven tus clases.</p>'
     : '<p class="tiny muted">Ese día no tienes clases.</p>';
   $$('#delDia [data-abrir]').forEach(b => b.onclick = () => verClase(clases.find(c => c.id === b.dataset.abrir)));
 }
@@ -225,6 +253,10 @@ function pintarProximas(lista){
       <button class="btn outline sm" data-abrir2="${esc(c.id)}">Ver</button>
     </div>`;
   }).join('')
+    : cerradoLoQueSeMira() ? vacio({ icono:'lock', titulo:'Aula cerrada',
+        texto:'Mientras tu inscripción esté cerrada no se ven las clases en vivo ni sus enlaces. '
+          + 'En tu panel te decimos por qué y qué hacer para abrirla.',
+        accion:{ texto:'Ir a mi panel', href:'panel.html' } })
     : '<p class="tiny muted">No tienes clases próximas. Cuando programen la siguiente, aparecerá aquí.</p>';
   $$('#proximas [data-abrir2]').forEach(b => b.onclick = () => verClase(clases.find(c => c.id === b.dataset.abrir2)));
 }

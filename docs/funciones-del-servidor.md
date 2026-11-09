@@ -106,6 +106,7 @@ función**, para que la clase, el examen y el progreso no puedan opinar distinto
 | `cem_inscripcion_abierta(inscripcion)` | La regla de la inscripción sola, sin mirar quién pregunta: activa o finalizada abren; pendiente sólo si cuesta 0 o ya tiene un pago confirmado; suspendida, congelada y cancelada nunca, ni gratis ni pagadas. Es una lista blanca: un estado nuevo nace cerrado. La usan `cem_acceso_abierto` y los informes del equipo (`cem_embudo`, `cem_ver_como`), que con la otra verían todo abierto porque quien pregunta es del equipo. Interna: no la ejecuta nadie más. |
 | `cem_mi_acceso()` | Para cada inscripción de quien pregunta: si está abierta, su estado, y cuánto es la primera cuota. Es lo que deja a la pantalla explicar por qué está bloqueada en vez de dejar chocar contra un error en cada clic. Las canceladas no salen. Congeladas y suspendidas sí, cerradas y con su estado, para que la pantalla diga «en pausa» o «suspendida» en vez de pedir el primer pago. |
 | `cem_material_lecciones(ids[])` | El enlace y el cuerpo de las lecciones pedidas, sólo para el equipo, el docente del curso, o quien pagó. Existe porque `cem_lessons.url` y `.contenido` ya no se leen por consulta directa — ver [politicas-de-acceso.md](politicas-de-acceso.md). Al **estudiante**, si la lección tiene vídeo asignado, se le entrega el identificador y no la URL entera; a **quien edita** se le entrega siempre la URL, que para eso la escribió. Esconderla también al que edita fue un fallo real: el editor enseñaba el campo vacío y al guardar escribía el vacío encima. |
+| Clases en vivo y adjuntos (políticas de `cem_classes` y `cem_media`) | Una clase la leen el equipo, quien da clase en su cohorte y quien tiene ahí la inscripción abierta; un adjunto, el equipo y, si está marcado visible, quien tiene abierto su curso. Con el aula cerrada no se ve ni el horario. `cem_avisar_de_clase` avisa sólo a quien el aula deja entrar y no ha terminado. Prueba: `pruebas/sql/clases-y-adjuntos.sql`. |
 
 Dos disparadores lo sostienen sin que nadie tenga que acordarse:
 `cem_tg_activar_al_pagar` pone la inscripción en activa cuando un pago pasa a
@@ -131,7 +132,8 @@ reparto. Guía completa en [becas.md](becas.md).
 | `cem_beca_donacion_registrar(...)` | Una donación por Zelle, transferencia, cheque o efectivo, con su comprobante. Entra confirmada. | Cobranza para arriba |
 | `cem_beca_donacion_anular(id, motivo)` | Se niega si la donación ya pagó becas. | Admin |
 | `cem_beca_otorgar(solicitud, …)` · `cem_beca_regalar(curso, nombre, correo, …)` | Dar la beca: valor = precio de contado en USD al cambio del día. Si es del fondo, lo aparta y reparte la financiación por antigüedad de las donaciones. Con cuenta, inscribe al momento; sin cuenta, devuelve un enlace. | Admin |
-| `cem_beca_revocar(beca, motivo)` | Cancela la inscripción **devolviéndole su precio**, para que deje de contar como beca, y devuelve lo apartado al fondo. Cerrar el aula ya lo hace la cancelación: `cem_acceso_abierto` no abre nada cancelado. | Admin |
+| `cem_beca_revocar(beca, motivo)` | Revoca la beca y devuelve al fondo lo apartado; **después** cancela la inscripción devolviéndole su precio, para que deje de contar como beca. En ese orden el disparador de abajo la encuentra ya revocada y no repite nada. Cerrar el aula ya lo hace la cancelación. | Admin |
+| `cem_becas_al_cancelar` (disparador de `cem_enrollments`) | Cuando una inscripción pasa a cancelada, por el camino que sea (retirada aprobada, baja pedida por la persona, estado puesto a mano), revoca sus becas otorgadas («Se retiró del programa») y devuelve al fondo lo apartado, con su apunte en la auditoría. No mira quién cancela. | Nadie: interna |
 | `cem_becas_resumen()` · `cem_becas_listar` · `cem_becas_donaciones_listar` · `cem_becas_movimientos()` · `cem_becas_mes(mes)` | Lo que leen las pantallas y el cierre de mes. | Equipo, cobranza y auditor |
 
 El libro `cem_becas_fondo` sólo se añade: un disparador impide corregir o
@@ -154,8 +156,8 @@ dólar.
 | `cem_requisitos_certificado(inscripcion)` | Qué le falta a alguien para poder certificarse. **No comprueba de quién es la inscripción**, así que sólo la alcanza el servidor: desde el navegador se llama la envoltura de abajo. |
 | `cem_mis_requisitos_certificado(inscripcion)` | Lo mismo, pero comprobando antes que la inscripción sea de quien pregunta (o que quien pregunta sea del equipo). Es la que llaman las pantallas. |
 | `cem_evaluar_insignias(persona)` | Otorga las insignias cuyo criterio ya cumple. |
-| `cem_solicitar_cambio_inscripcion(...)` | Congelamiento o retiro pedidos por el estudiante. |
-| `cem_resolver_solicitud_inscripcion(...)` | La respuesta del equipo. Rechazar exige explicación. |
+| `cem_solicitar_cambio_inscripcion(...)` | Pausa, retiro, reactivación o cambio de plan pedidos por el estudiante. La pausa se pide de una activa o pendiente, y la reactivación de una congelada; una suspendida no pide ninguna de las dos: la suspensión la levanta el equipo. Hay una sola versión (cinco parámetros, `p_cuotas` opcional): con dos, el servidor no sabía cuál usar y las peticiones desde el perfil fallaban. |
+| `cem_resolver_solicitud_inscripcion(...)` | La respuesta del equipo. Aprobar mira el estado de ese momento, no el de cuando se pidió. La pausa apunta de dónde venía y la reactivación la devuelve ahí: una pendiente sin pagar sigue pendiente. La retirada cancela, y con ella se revoca la beca si la había. Rechazar exige explicación. |
 | `cem_actualizar_mi_perfil(datos)` | Guarda el perfil. Nombre y documento pasan por aprobación **sólo si ya hay certificados emitidos** con los datos viejos. |
 | `cem_resolver_solicitud_perfil(...)` | La respuesta del equipo a eso. |
 
