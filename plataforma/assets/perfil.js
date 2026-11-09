@@ -412,6 +412,9 @@ export function montarPerfil(p) {
     $$('[data-sol]').forEach(b => b.onclick = () => pedirCambio(b.dataset.sol, b.dataset.tipo));
   }
 
+  /* Qué se puede pedir según el estado. Una suspendida no ve «Congelar» ni
+     «Reactivar»: la suspensión la levanta el equipo, no una pausa, y el
+     servidor tampoco se lo acepta (cem_solicitar_cambio_inscripcion). */
   function botonesDe(e){
     if (e.estado === 'activa' || e.estado === 'pendiente') {
       return `<button class="btn ghost sm" data-sol="${e.id}" data-tipo="congelamiento">Congelar</button>
@@ -423,10 +426,13 @@ export function montarPerfil(p) {
     return '<span class="tiny muted">—</span>';
   }
 
+  /* Lo que va a pasar, dicho antes de pedirlo. Reactivar no es «volver a
+     cursar» sin más: la inscripción vuelve a como estaba antes de la pausa,
+     así que la que esperaba el primer pago lo sigue esperando. */
   const EXPLICACION = {
-    congelamiento: 'Tu inscripción queda en pausa y las cuotas que todavía no vencieron se congelan. Lo que ya venció se sigue debiendo.',
-    retiro: 'Dejas el programa. Las cuotas pendientes se anulan, pero lo ya pagado no se devuelve automáticamente: eso se conversa aparte.',
-    reactivacion: 'Vuelves a cursar y las cuotas congeladas se reactivan desde donde quedaron.',
+    congelamiento: 'Tu inscripción queda en pausa y, mientras dure, el aula está cerrada. Las cuotas que todavía no vencieron se congelan; lo que ya venció se sigue debiendo. Al reactivarla, vuelve a como estaba.',
+    retiro: 'Dejas el programa. Las cuotas pendientes se anulan, pero lo ya pagado no se devuelve automáticamente: eso se conversa aparte. Si estudias con una beca, la beca termina con tu retiro.',
+    reactivacion: 'Tu inscripción vuelve a como estaba antes de la pausa y las cuotas congeladas se reactivan desde donde quedaron. Si todavía no habías pagado nada, el aula se abre en cuanto entre tu primer pago.',
   };
 
   function pedirCambio(enrollmentId, tipo){

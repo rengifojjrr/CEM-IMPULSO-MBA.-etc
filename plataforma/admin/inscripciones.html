@@ -152,11 +152,15 @@ async function load(){
 }
 
 /* Congelar o retirar a alguien mueve su dinero: se dice exactamente qué va a
-   pasar con las cuotas antes de confirmar, no después. */
+   pasar con las cuotas antes de confirmar, no después. Y reactivar no es
+   «volver a activa»: la inscripción vuelve al estado que tenía antes de la
+   pausa, así que la que esperaba su primer pago lo sigue esperando (migración
+   20261108000004). Si mientras tanto cambió —la suspendieron, la cancelaron—,
+   el servidor no deja aprobar y lo dice: entonces se rechaza explicando por qué. */
 const EFECTO = {
-  congelamiento: 'La inscripción queda en pausa y las cuotas que todavía no vencieron pasan a "congelada". Lo ya vencido se sigue debiendo.',
-  retiro: 'La inscripción se cancela y las cuotas pendientes o congeladas se anulan. Lo ya pagado no se devuelve automáticamente.',
-  reactivacion: 'La inscripción vuelve a "activa" y las cuotas congeladas se reactivan desde donde quedaron.',
+  congelamiento: 'La inscripción queda en pausa, con el aula cerrada, y las cuotas que todavía no vencieron pasan a "congelada". Lo ya vencido se sigue debiendo. Se apunta el estado que tenía, para devolverla a él al reactivarla.',
+  retiro: 'La inscripción se cancela y las cuotas pendientes o congeladas se anulan. Lo ya pagado no se devuelve automáticamente. Si estudiaba con una beca, la beca se revoca y, si la pagaba el fondo, lo apartado vuelve al fondo.',
+  reactivacion: 'La inscripción vuelve al estado que tenía antes de congelarse: activa si lo estaba, o si pagó durante la pausa; si esperaba su primer pago, lo sigue esperando y el aula no se abre hasta que pague. Las cuotas congeladas se reactivan desde donde quedaron.',
   plan_de_pago: 'Lo que queda por pagar se reparte en el número de cuotas que pidió, una al mes, empezando dentro de 30 días. Lo ya pagado no se toca, y si alguna cuota pendiente tiene un pago detrás la operación se rechaza entera.',
 };
 
