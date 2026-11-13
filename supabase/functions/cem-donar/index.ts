@@ -102,7 +102,13 @@ Deno.serve(async (req) => {
       // Sólo si lo dio (la base ya comprobó que es un correo): un
       // customer_email vacío Stripe lo rechaza.
       ...(correo ? { customer_email: correo } : {}),
-      success_url: `${pagina}?donacion=${don.donacion_id}&gracias=1${lang}`,
+      /* Al pagar, de vuelta a su recibo: la página con forma de factura que
+         se descarga en PDF. La llave del recibo la da la base al abrir la
+         donación; si por lo que sea no viniera, la vuelta de antes a la página
+         de becas sigue sirviendo. */
+      success_url: don.recibo_clave
+        ? `${vuelta}/plataforma/recibo.html?r=${encodeURIComponent(String(don.recibo_clave))}&gracias=1${lang}`
+        : `${pagina}?donacion=${don.donacion_id}&gracias=1${lang}`,
       cancel_url: `${pagina}?donacion=${don.donacion_id}&cancelada=1${lang}`,
       /* Sin client_reference_id, a propósito: el webhook lo lee como el
          identificador de una cuota cuando no hay otra cosa. La donación se
