@@ -16,6 +16,7 @@
 
 import { readFile, writeFile, mkdtemp, rm, access, glob } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, relative } from 'node:path';
@@ -805,6 +806,138 @@ if (huerfanas.length) {
   }
 } else {
   bien(`Las ${usosSinRespaldo.size} variables de estilo que se usan sin respaldo están todas definidas`);
+}
+
+/* ══════════ 21. Toda función que llama el código existe en las migraciones ══════════
+   El 2 y el 3 de septiembre de 2026 se montaron en producción las listas de
+   pre-registro, las campañas, Mis cupones y reclamar certificados. Las
+   pantallas llegaron aquí y sus funciones se quedaron SÓLO allí, sin
+   migración. Nada falló —las pantallas hablaban con producción— hasta que, dos
+   meses después, reconstruir la base desde cero dio 13 errores: diecinueve
+   funciones que el código llama no existían en la reconstrucción. Esto lo
+   habría dicho el mismo día.
+
+   Lee las migraciones en orden, con sus `create function` y sus `drop
+   function` POR FIRMA (borrar una versión de una función no borra las demás),
+   y exige que cada rpc('…'), rest/v1/rpc/… y rpc: "…" del código —lo último son
+   las herramientas de Cemi— tenga alguna versión viva al terminar. Cuenta
+   también el volcador (herramientas/volcar-esquema.sql), que vive fuera de las
+   migraciones a propósito. El análisis se comprobó contra una reconstrucción
+   de verdad: deja vivas exactamente las funciones que hay en la base. */
+titulo('Toda función que llama el código existe en las migraciones');
+
+const ALIAS_DE_TIPO = new Map([
+  ['int', 'integer'], ['int4', 'integer'], ['int8', 'bigint'], ['int2', 'smallint'],
+  ['bool', 'boolean'], ['float8', 'double precision'], ['float4', 'real'],
+  ['varchar', 'character varying'], ['timestamptz', 'timestamp with time zone'],
+  ['timestamp', 'timestamp without time zone'], ['timetz', 'time with time zone'],
+  ['decimal', 'numeric'], ['char', 'character'],
+]);
+
+/* La lista de argumentos, partida por las comas de primer nivel: un valor por
+   omisión como ARRAY['admin', 'superadmin'] lleva comas que no separan nada. */
+function trocearArgumentos(lista) {
+  const partes = [];
+  let prof = 0, comilla = false, actual = '';
+  for (const c of lista) {
+    if (c === "'") comilla = !comilla;
+    if (!comilla && (c === '(' || c === '[')) prof++;
+    if (!comilla && (c === ')' || c === ']')) prof--;
+    if (c === ',' && prof === 0 && !comilla) { partes.push(actual); actual = ''; } else actual += c;
+  }
+  if (actual.trim()) partes.push(actual);
+  return partes;
+}
+
+/* El tipo de un argumento, como lo escribe Postgres en la firma: sin el
+   nombre, sin el valor por omisión y con los alias resueltos. Los OUT no
+   cuentan, porque no forman parte de la firma. */
+function tipoDeArgumento(arg) {
+  let a = arg.trim().toLowerCase().replace(/\s+/g, ' ')
+    .replace(/\s+default\s+[\s\S]*$/, '').replace(/\s*=\s*[\s\S]*$/, '');
+  if (/^out\s/.test(a)) return null;
+  a = a.replace(/^(in|inout|variadic)\s+/, '');
+  let palabras = a.split(' ');
+  if (palabras.length >= 2 && !/^(timestamp|time|double|character|bit|interval)\b/.test(a)) {
+    palabras = palabras.slice(1);
+  }
+  let tipo = palabras.join(' ').replace(/^public\./, '').replace(/"/g, '').replace(/\s*\([^)]*\)/g, '');
+  const corchetes = tipo.endsWith('[]') ? '[]' : '';
+  tipo = tipo.replace(/\[\]$/, '');
+  return (ALIAS_DE_TIPO.get(tipo) || tipo) + corchetes;
+}
+
+const firmasVivas = new Set();
+for (const f of [...await archivos('supabase/migrations/*.sql'), 'herramientas/volcar-esquema.sql']) {
+  const sql = await readFile(join(RAIZ, f), 'utf8');
+  const RE = /\b(create(?:\s+or\s+replace)?\s+function|drop\s+function(?:\s+if\s+exists)?)\s+(?:public\.)?"?([a-z_][a-z0-9_]*)"?\s*\(/gi;
+  for (const m of sql.matchAll(RE)) {
+    let i = m.index + m[0].length, prof = 1;
+    const inicio = i;
+    while (i < sql.length && prof) { if (sql[i] === '(') prof++; else if (sql[i] === ')') prof--; i++; }
+    const tipos = trocearArgumentos(sql.slice(inicio, i - 1)).map(tipoDeArgumento).filter((t) => t !== null);
+    const firma = `${m[2].toLowerCase()}(${tipos.join(',')})`;
+    if (/^create/i.test(m[1])) firmasVivas.add(firma); else firmasVivas.delete(firma);
+  }
+}
+const funcionesVivas = new Set([...firmasVivas].map((f) => f.slice(0, f.indexOf('('))));
+
+const llamadas = new Map();   // función -> archivos que la llaman
+for (const f of await archivos('**/*.html', '**/*.js', '**/*.mjs', '**/*.ts')) {
+  const texto = await readFile(join(RAIZ, f), 'utf8');
+  const RE = /\brpc\(\s*(['"`])([a-z_][a-z0-9_]*)\1|rest\/v1\/rpc\/([a-z_][a-z0-9_]*)|\brpc:\s*(['"])([a-z_][a-z0-9_]*)\4/g;
+  for (const m of texto.matchAll(RE)) {
+    const nombre = m[2] || m[3] || m[5];
+    if (!llamadas.has(nombre)) llamadas.set(nombre, new Set());
+    llamadas.get(nombre).add(f);
+  }
+}
+const sinFuncion = [...llamadas].filter(([nombre]) => !funcionesVivas.has(nombre));
+if (sinFuncion.length) {
+  for (const [nombre, donde] of sinFuncion) {
+    const lista = [...donde];
+    mal(lista[0], `${nombre} se llama desde ${lista.slice(0, 3).join(', ')}${lista.length > 3 ? '…' : ''} `
+      + 'y ninguna migración la crea, o la última que la toca la borra. Si existe en producción, '
+      + 'le falta su migración: está en supabase_migrations.schema_migrations o hay que sacarla '
+      + 'del catálogo (supabase/migrations/README.md)');
+  }
+} else {
+  bien(`Las ${llamadas.size} funciones que llama el código existen todas en las migraciones`);
+}
+
+/* ══════════ 22. Lo recuperado de producción sigue tal cual se recuperó ══════════
+   Las migraciones que se aplicaron en producción sin dejar archivo aquí se
+   recuperaron de su historial (supabase_migrations.schema_migrations) byte a
+   byte. Cada bloque va entre una marca «┌── producción …», que lleva el md5 que
+   calcula producción sobre ese mismo texto, y otra «└── fin de …». Son
+   historia, como el volcado: no se editan a mano. Si alguien lo hace, el bloque
+   deja de ser lo que pasó, y esto lo dice. */
+titulo('Lo recuperado de producción no se ha tocado');
+
+const antesDeRecuperadas = problemas.length;
+let bloquesRecuperados = 0;
+for (const f of await archivos('supabase/migrations/*.sql')) {
+  const sql = await readFile(join(RAIZ, f), 'utf8');
+  const marcas = (sql.match(/^-- ┌── producción /gm) || []).length;
+  if (!marcas) continue;
+  let cerrados = 0;
+  const BLOQUE = /^-- ┌── producción (\d{14}) · (\S+) · md5 ([0-9a-f]{32})\n([\s\S]*?)\n-- └── fin de \1\n/gm;
+  for (const m of sql.matchAll(BLOQUE)) {
+    cerrados++;
+    const md5 = createHash('md5').update(m[4], 'utf8').digest('hex');
+    if (md5 !== m[3]) {
+      mal(f, `${f}: el bloque ${m[1]} (${m[2]}) ya no es el que se recuperó de producción `
+        + `(md5 ${md5}, y su marca dice ${m[3]}). No se edita a mano: lo nuevo va en una migración nueva`);
+    }
+  }
+  if (cerrados !== marcas) {
+    mal(f, `${f}: ${marcas} marca(s) «┌── producción» y ${cerrados} bloque(s) bien cerrado(s); `
+      + 'a alguno le falta o le sobra su «└── fin de …»');
+  }
+  bloquesRecuperados += cerrados;
+}
+if (problemas.length === antesDeRecuperadas) {
+  bien(`Los ${bloquesRecuperados} bloques recuperados de producción siguen byte a byte`);
 }
 
 /* ══════════ resumen ══════════ */

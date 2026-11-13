@@ -1,0 +1,32 @@
+-- El volcado nace con sus permisos, y sólo con los suyos
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Supabase da por omisión ALL a anon, authenticated y service_role sobre todo
+-- lo que se crea en public (es lo que dice pg_default_acl en producción, para
+-- postgres y para supabase_admin). El volcado (20260101*) se escribió leyendo
+-- los permisos que quedaron al final, pero sólo CONCEDE: no quita lo que
+-- Supabase regala al crear cada cosa. Restaurado en un proyecto nuevo, sin este
+-- archivo:
+--
+--   · 29 funciones que producción tiene cerradas quedaban al alcance de
+--     cualquier cuenta con sesión. Entre ellas cem_inscribir_a —la que pone el
+--     precio por detrás de cem_self_enroll: inscribirse por la puerta de atrás
+--     otra vez—, cem_recurso_entregar, cem_correo_config, los avisos y lo del
+--     puente de WhatsApp.
+--   · 7 tablas quedaban con ALL para anon (cem_leads, cem_compras_invitado…).
+--   · cem_lessons quedaba con SELECT entero para anon y authenticated, y eso
+--     anula el permiso por columna que esconde los enlaces de YouTube.
+--
+-- Lo encontró la reconstrucción del 13 de noviembre de 2026 al comparar
+-- permiso por permiso con producción, en cuanto el andamio imitó a Supabase.
+-- Antes la prueba no podía verlo: su andamio no daba nada por omisión.
+--
+-- Así que, mientras se crea el volcado, no hay permisos por omisión: cada cosa
+-- nace sólo con lo que el volcado declara, que es lo de producción.
+-- 20260101000012 los devuelve justo después, porque todo lo posterior se creó
+-- en producción con ellos puestos.
+--
+-- Va numerado antes que el volcado a propósito, y no lo toca: el volcado no se
+-- edita a mano.
+alter default privileges in schema public revoke all on tables from anon, authenticated, service_role;
+alter default privileges in schema public revoke all on functions from anon, authenticated, service_role;
+alter default privileges in schema public revoke all on sequences from anon, authenticated, service_role;

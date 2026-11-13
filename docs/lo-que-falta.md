@@ -105,8 +105,14 @@ terminar.
 - **Diplomas en físico:** el 22 de octubre había 38 «en imprenta» y 1 recién
   pedido; marcar como entregados los que ya salieron. Y leer las alertas de
   gobierno sin leer.
-- **Separar los cuatro proyectos** que comparten la base (`cq_*`, `forest_*`,
-  `fb360_*`, `pm_*`). No urge; cada mes cuesta más.
+- **Separar los proyectos** que comparten la base. En noviembre ya no son cuatro:
+  - `cq_*`, `forest_*`, `fb360_*` y `pm_*`;
+  - tumbo (267 funciones `tm_*` en `public` y dos esquemas);
+  - tabaco, kkg y pasarelas (`pay_*`);
+  - y esquemas sueltos como `cafe`.
+
+  Y ya se pisan: una función de CEM depende de una tabla de kkg (§3.11).
+  No urge; cada mes cuesta más.
 - **Sembrar las cuentas de prueba** `@pruebas.local`, poner `CEM_PASS` como
   secreto del repositorio y activar `CORRER_PRUEBAS_E2E=si`, para que las
   pruebas de navegador corran en GitHub.
@@ -799,10 +805,67 @@ Ninguno es de la regla de acceso; se anotan para no perderlos:
   `20261108000002_regla_sin_pase_del_equipo`). El embudo cuenta como abiertas
   sólo las que abren, y «Ver como» dice por qué una está cerrada: cancelada,
   en pausa, suspendida o sin pago.
-- **La reconstrucción desde cero** (`herramientas/probar-migraciones.sh`) da
-  13 errores que ya estaban: el andamio no trae `cron.unschedule(bigint)`, y
-  `20260924000001_promocion_en_la_web.sql` usa `cem_campanas`, una tabla que
-  no crea ningún archivo del repositorio.
+- ~~**La reconstrucción desde cero** (`herramientas/probar-migraciones.sh`) da
+  13 errores que ya estaban~~ — cerrado el 13 de noviembre; detalle en §3.11.
+
+### 3.11 · ~~La reconstrucción desde cero no reconstruía producción~~ — cerrado el 13 de noviembre
+
+Los 13 errores eran el síntoma. Uno era del andamio (le faltaba
+`cron.unschedule(bigint)`). Los otros doce venían de
+`20260924000001_promocion_en_la_web.sql`, que tocaba campañas que ningún archivo
+creaba.
+
+**La causa: migraciones aplicadas en producción sin archivo aquí.** Entre el
+volcado (29 de agosto) y la primera migración del repositorio (3 de septiembre)
+entraron en producción 16 migraciones que nunca llegaron a esta carpeta. Eran
+las listas de pre-registro, el motor de campañas, Mis cupones, reclamar los
+certificados propios, las visitas y las insignias. A ellas se suma
+`tablero_avisa_diplomas_por_imprimir`, del 10 de septiembre. Las pantallas
+funcionaban porque hablan con producción, y por eso nadie lo notó en dos meses.
+Se recuperaron byte a byte del historial de producción
+(`supabase_migrations.schema_migrations`), sólo leyendo.
+
+**«Cero errores» tampoco bastaba.** Al comparar objeto por objeto con producción
+(`herramientas/huella-esquema.sql`) salió lo que la prueba no podía ver:
+- Faltaban `cem_temario_publico` y el disparador `cem_on_auth_user_created` de
+  `auth.users`, el que crea el perfil de cada cuenta nueva. Sin él, en una
+  restauración nadie que se registrara tendría perfil.
+- Una restauración real en un proyecto de Supabase nuevo habría dejado
+  **29 funciones y 7 tablas abiertas de más**. Entre ellas `cem_inscribir_a`
+  (inscribirse por la puerta de atrás otra vez, §3.7) y `cem_lessons` con
+  `SELECT` entero, que anula el permiso por columna de los enlaces de YouTube.
+  La causa son los permisos que Supabase da por omisión, que el volcado no
+  revoca. Lo cierran `20251231000000` y `20260101000012`.
+
+Además, la prueba ya no puede dar un verde falso:
+- el andamio imita los permisos por omisión de Supabase;
+- el andamio y los `FATAL`/`WARNING` cuentan como fallo;
+- se valida el cuerpo de cada función;
+- `revisar.mjs` exige que toda función que llama el código exista en las
+  migraciones (habría saltado el 3 de septiembre).
+
+**Lo que dejó a la vista, y es tuyo:**
+- **`cem_handle_new_user` depende de kkg.** En producción, desde el 26 de
+  septiembre (`kkg_separar_de_cem`), la función que crea el perfil de cada
+  cuenta nueva consulta `public.kkg_administradores`, una tabla de otro
+  proyecto.
+  - El riesgo: si alguien borra o renombra esa tabla, falla el disparador de
+    `auth.users` y **no se puede registrar nadie en ningún proyecto de la
+    base**.
+  - Por eso la reconstrucción no lo copia: el repositorio mantiene la versión
+    sin kkg.
+  - Lo sano es que kkg filtre sus cuentas con su propio disparador, o que la
+    comprobación no reviente si la tabla no está.
+- **La mensajería sale sin tildes en producción.** Cuatro funciones `cem_msg_*`
+  y `cem_pedidos_fisicos_estado_lote` tienen aquí los mensajes con tildes
+  («Esa conversación no es tuya») y en producción sin ellas. Además,
+  `cem_msg_registro` separa a las personas con «↔» donde producción pone «/».
+  Es la misma lógica: en producción se aplicó una versión anterior del texto.
+  Llevar la del repositorio a producción es una migración con esas seis
+  funciones, cuando quieras.
+- **El disparador de forest en `auth.users`** (`forest_on_auth_user_created`)
+  tampoco lo reconstruye nadie. No es de CEM; queda dicho para quien separe los
+  proyectos.
 
 ---
 
