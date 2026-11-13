@@ -9,6 +9,7 @@ dólar queda anotado, de la donación a la beca.
 | Para quién | Dirección | Qué hace |
 |---|---|---|
 | Quien quiere donar | [escuelacem.com/plataforma/becas.html](https://escuelacem.com/plataforma/becas.html) (en inglés: `?lang=en`) | El contador de donaciones, las cifras de becas, los paquetes, el formulario y el pago con tarjeta |
+| Quien donó | `plataforma/recibo.html?r=…` | Su recibo de donación, con forma de factura, para descargarlo en PDF o imprimirlo. No sale en Google |
 | Quien quiere una beca | [escuelacem.com/plataforma/solicitar-beca.html](https://escuelacem.com/plataforma/solicitar-beca.html) | La encuesta de por qué quiere estudiar |
 | Quien recibe una beca | `plataforma/beca.html?t=…` | El enlace personal para activarla. No sale en Google |
 | El equipo | Admin → **Becas** | Solicitudes, becas dadas, convocatorias |
@@ -34,8 +35,10 @@ Cuando Stripe confirma el cobro:
 
 1. La donación pasa a confirmada.
 2. El importe entra en el fondo.
-3. A quien donó le llega el recibo, en su idioma.
+3. A quien donó le llega el recibo por correo, en su idioma, con el enlace para descargarlo.
 4. A cobranza y administración les llega un aviso.
+
+Y quien pagó ya lo está viendo: al terminar, Stripe le devuelve a su recibo (ver [El recibo](#el-recibo)).
 
 Se apunta lo que Stripe dice que cobró, no lo que se pidió. Si Stripe avisa
 dos veces del mismo cobro, entra una sola vez.
@@ -60,6 +63,46 @@ desde ahí.
 **Anular una donación** (solo administración) la quita del fondo con su
 motivo, y queda en la lista como anulada. **No se puede anular una donación
 que ya pagó becas**: primero hay que revocar esas becas.
+
+## El recibo
+
+Cada donación confirmada tiene su **recibo de donación**: una página con forma de
+factura que se descarga en PDF o se imprime, para guardarlo como comprobante.
+
+**Lo que dice:**
+
+- arriba, el CEM, el número (DON-…), la fecha y un sello de «Pagado»;
+- quién donó, con su organización y su país, o «Donante anónimo»;
+- el destino, que es el fondo de becas;
+- el concepto, con el paquete si lo eligió, y el total en USD;
+- la forma de pago y su referencia (el cobro de Stripe, o el número del Zelle);
+- unas gracias, la nota de **Paquetes y ajustes** (la que dice que no es
+  deducible) y un código QR que abre el mismo recibo.
+
+**Dónde aparece:**
+
+- **Al pagar con tarjeta,** Stripe devuelve a quien donó a su recibo, que le dice
+  «¡Gracias, Juana!». Si Stripe tarda unos segundos en confirmar, la página dice
+  «Confirmando tu pago…» y espera.
+- **En el correo del recibo,** con el enlace para verlo o descargarlo cuando quiera.
+- **En Admin → Donaciones y fondo,** en el detalle de una donación confirmada:
+  **Ver recibo** y **Copiar enlace del recibo**, para mandarlo por WhatsApp. Sirve
+  también para las donaciones registradas a mano.
+
+**Lo que conviene saber:**
+
+- **Se llama «Recibo de donación», no «Factura».** Una factura es un documento
+  fiscal, y el aporte no es deducible.
+- **El enlace es la llave.** Cada donación tiene la suya, al azar: sin ella no se
+  ve nada, y con ella sólo ese recibo. La página no sale en Google, no carga
+  Google ni Meta, quita la llave de la barra de direcciones en cuanto la lee y
+  nunca enseña el correo de quien donó.
+- **El PDF se hace en el propio navegador** y baja un archivo
+  `Recibo-DON-000011.pdf` (en inglés, `Receipt-…`), también en el teléfono. Si no
+  saliera, **Imprimir** y «Guardar como PDF» dan la misma hoja.
+- **Los datos legales del CEM,** si se quieren en el recibo, van en el texto del
+  recibo de Paquetes y ajustes: sale al pie, en español y en inglés.
+- **Una donación anulada** ya no enseña su recibo: dice que está anulada.
 
 ## Cómo se da una beca
 
@@ -193,8 +236,8 @@ Nada de esto suma en «Entró» ni en el reparto a inversores.
 | Qué | Dónde |
 |---|---|
 | Tablas | `cem_becas_ajustes`, `cem_becas_paquetes`, `cem_becas_donaciones`, `cem_becas_convocatorias`, `cem_becas_solicitudes`, `cem_becas`, `cem_becas_fondo` (el libro), `cem_becas_financiacion` |
-| Migraciones | `supabase/migrations/20261107000001…05` |
+| Migraciones | `supabase/migrations/20261107000001…05`, `20261108000001` (anónimas y contador) y `20261113000001` (el recibo) |
 | Abrir el cobro | `supabase/functions/cem-donar` |
 | Confirmarlo | `supabase/functions/cem-stripe-webhook` (la rama de `metadata.donacion_id`) |
-| Páginas | `plataforma/becas.html`, `solicitar-beca.html`, `beca.html`, `estudiante/beca.html`, `admin/becas.html`, `admin/donaciones.html` |
+| Páginas | `plataforma/becas.html`, `recibo.html`, `solicitar-beca.html`, `beca.html`, `estudiante/beca.html`, `admin/becas.html`, `admin/donaciones.html` |
 | Funciones | Ver [funciones-del-servidor.md](funciones-del-servidor.md#becas-y-donaciones) |

@@ -134,6 +134,7 @@ reparto. Guía completa en [becas.md](becas.md).
 | `cem_beca_convocatoria(código)` · `cem_beca_solicitar(código, datos)` | La ficha de una convocatoria y la solicitud. Valida, frena por correo, por dirección y en total, tiene campo trampa, y contesta lo mismo la primera vez que la segunda. | Cualquiera |
 | `cem_beca_enlace_ver(token)` · `cem_beca_activar_con_sesion(token)` | El enlace de una beca. Activarla pide sesión, y si la beca iba a un correo, tiene que ser el de esa cuenta. Del token sólo se guarda el hash. | Cualquiera · con sesión |
 | `cem_beca_donacion_estado(id)` | La página de gracias: estado, número e importe, sin el nombre de nadie. | Cualquiera |
+| `cem_beca_recibo(clave)` | La página del recibo (`recibo.html?r=…`): el recibo de una donación confirmada, para verlo y descargarlo en PDF. El enlace es la llave (`recibo_clave`, una por donación). Hasta que el cobro se confirma sólo dice su estado; nunca lleva el correo, ni el nombre de una anónima. `_abrir` devuelve la llave para la vuelta de Stripe, el correo del recibo lleva el enlace y `cem_beca_donacion_detalle` se la da al equipo para «Ver recibo» y «Copiar enlace del recibo». | Cualquiera con la llave |
 | `cem_beca_donacion_abrir` · `_sesion` · `_confirmar_servidor` | Abrir el cobro con tarjeta (el importe lo pone la base, nunca el navegador) y darlo por cobrado con lo que Stripe dice que cobró. Confirmar dos veces no suma dos veces. El nombre y el correo son opcionales: sin nombre la donación es **anónima** (`anonima`); sin correo, al confirmar se guarda el que Stripe pidió al pagar (`p_email`). | **Sólo el servidor** (`cem-donar` y el webhook) |
 | `cem_beca_donacion_registrar(...)` | Una donación por Zelle, transferencia, cheque o efectivo, con su comprobante. Entra confirmada. | Cobranza para arriba |
 | `cem_beca_donacion_anular(id, motivo)` | Se niega si la donación ya pagó becas. | Admin |
@@ -263,7 +264,7 @@ necesitan salir a internet.
 | `cem-importar-estudiantes` | Alta masiva desde una planilla. Es idempotente: correr dos veces el mismo archivo no duplica a nadie. | **Sí** |
 | `cem-bancaribe-probe` | Herramienta de diagnóstico de la conexión con el banco. | **Sí** |
 | `cem-youtube-oauth-exchange`, `cem-youtube-upload-token` | La conexión con YouTube para las grabaciones. | **Sí** |
-| `cem-donar` | Abre el cobro de una donación en Stripe Checkout (`submit_type=donate`, sólo tarjeta, en USD) en la cuenta elegida en los ajustes de becas. Lo confirma `cem-stripe-webhook`, en su rama de `metadata.donacion_id`. | **No**: dona quien no tiene cuenta. El importe lo pone la base |
+| `cem-donar` | Abre el cobro de una donación en Stripe Checkout (`submit_type=donate`, sólo tarjeta, en USD) en la cuenta elegida en los ajustes de becas. Lo confirma `cem-stripe-webhook`, en su rama de `metadata.donacion_id`. Al pagar, Stripe devuelve a quien donó a su recibo (`recibo.html?r=…&gracias=1`). | **No**: dona quien no tiene cuenta. El importe lo pone la base |
 
 Las credenciales del banco (`consumer_key`, `consumer_secret`, los *hashes* por
 servicio, `extracto_api_key`, `notificacion_api_key`) viven **sólo** en la tabla

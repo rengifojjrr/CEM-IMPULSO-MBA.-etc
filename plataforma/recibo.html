@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="es" data-publico="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CEM International · Recibo de donación</title>
+<link rel="icon" href="/favicon.ico?v=2026-09-03" sizes="32x32">
+<link rel="icon" type="image/png" sizes="96x96" href="assets/favicon-96.png?v=2026-09-03">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2026-09-03">
+<link rel="apple-touch-icon" href="assets/icono-180.png?v=2026-09-03">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#f4f7fc">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://vajbsfgojtunamhrzrpf.supabase.co" crossorigin>
+<link rel="modulepreload" href="assets/app.js?v=2026-11-06-2">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>body.ini-oscura{--fondo:#050a14;--papel:#0b1426;--hueco:#101c33;--tinta:#eaf1fb;--tinta-2:#a3b3cb;--filete:rgba(148,190,255,.14);--primary:#9fc1ff;--on-primary:#06101f;--secondary:#3ee6d2;background:#050a14;color:#eaf1fb;}body.ini-clara{--fondo:#f4f7fc;--papel:#ffffff;--hueco:#edf2fa;--tinta:#0b1630;--tinta-2:#46546e;--filete:rgba(13,36,64,.1);--primary:#0d2440;--on-primary:#fff;--secondary:#087a6f;background:#f4f7fc;color:#0b1630;}::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal;}</style>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css?v=2026-11-06-2">
+<style>
+  .recibo-pagina{max-width:860px;margin:0 auto;padding:var(--e2) var(--e2) var(--e5)}
+  .recibo-saludo{margin:var(--e3) 0}
+  .recibo-saludo h1{font-family:var(--n-display);font-weight:600;font-size:clamp(28px,5vw,40px);
+    line-height:1.1;letter-spacing:-.01em;margin:12px 0 10px;text-wrap:balance}
+  .recibo-saludo p{color:var(--tinta-2);font-size:17px;line-height:1.55;margin:0;max-width:62ch}
+  .recibo-saludo .btn{margin-top:var(--e2)}
+  .recibo-acciones{display:flex;flex-wrap:wrap;gap:var(--e1);margin:0 0 var(--e3)}
+  .recibo-aviso{flex-basis:100%;margin:0;color:var(--tinta-2);font-size:14px}
+  .recibo-otra{margin:var(--e3) 0 0;text-align:center;font-size:15px}
+  .recibo-otra a{color:var(--tinta);font-weight:600}
+
+  /* La hoja es un documento: papel blanco y tinta oscura también con la
+     página en modo oscuro, y lo mismo al imprimirla. */
+  .hoja{--h-tinta:#0b1630;--h-tinta-2:#4a5872;--h-filete:#e2e7ef;--h-acento:#087a6f;
+    --h-sello:#e2f3ef;--h-panel:#f3f6fb;
+    position:relative;overflow:hidden;background:#fff;color:var(--h-tinta);border-radius:14px;
+    box-shadow:0 1px 2px rgba(11,22,48,.06),0 22px 44px -22px rgba(11,22,48,.32);
+    padding:48px 48px 36px;font-size:15px;line-height:1.5}
+  .hoja::before{content:'';position:absolute;inset:0 0 auto 0;height:6px;
+    background:linear-gradient(90deg,#3ee6d2,#3b6cf6)}
+  .hoja :where(p,h2,dl,dd,table){margin:0}
+  .hoja :where(p){max-width:none}
+  .hoja-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--e3);
+    padding-bottom:var(--e3);border-bottom:1px solid var(--h-filete)}
+  .hoja-emisor{display:flex;align-items:flex-start;gap:12px}
+  .hoja-emisor img{flex:none}
+  .hoja-marca{font-family:var(--n-display);font-weight:600;font-size:17px;line-height:1.3}
+  .hoja-dato{color:var(--h-tinta-2);font-size:13px}
+  .hoja-meta{display:grid;justify-items:end;gap:2px;text-align:right}
+  .hoja .hoja-rotulo{font-family:var(--n-mono);font-weight:500;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--h-acento);margin-bottom:6px}
+  .hoja-numero{font-family:var(--n-display);font-weight:600;font-size:26px;letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums}
+  .hoja-sello{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:4px 12px 4px 8px;
+    border-radius:999px;background:var(--h-sello);color:var(--h-acento);font-weight:700;font-size:12px;
+    letter-spacing:.08em;text-transform:uppercase}
+  .hoja-sello .material-symbols-outlined{font-size:18px}
+  .hoja-partes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--e3);padding:var(--e3) 0}
+  .hoja-partes p{overflow-wrap:anywhere}
+  .hoja-nombre{font-weight:600;font-size:16px}
+  /* Las tablas de la plataforma traen cabecera fija con el papel del tema,
+     sombra al pasar el ratón y celdas que no parten la línea: aquí, nada de
+     eso, que esto es papel. */
+  .hoja-tabla{width:100%;border-collapse:collapse;margin-bottom:var(--e3);font-size:inherit}
+  .hoja-tabla :is(th,td){position:static;background:transparent;color:var(--h-tinta);white-space:normal;
+    font-size:inherit;font-weight:400;padding:0;border:0}
+  .hoja .hoja-tabla tbody tr:hover{background:transparent}
+  .hoja-tabla thead th{font-family:var(--n-mono);font-weight:500;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--h-tinta-2);text-align:left;padding:0 0 10px;
+    border-bottom:1px solid var(--h-filete)}
+  .hoja-tabla tbody td{padding:14px 0;border-bottom:1px solid var(--h-filete);vertical-align:top}
+  .hoja-tabla tbody td span{display:block;margin-top:2px;color:var(--h-tinta-2);font-size:13px}
+  .hoja-tabla .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:var(--e2);
+    font-family:inherit;width:auto}
+  .hoja-tabla tfoot th{text-align:right;font-weight:600;padding:18px 0 0}
+  .hoja-tabla tfoot td{padding:12px 0 0 var(--e2)}
+  .hoja-tabla tfoot b{font-family:var(--n-display);font-weight:600;font-size:24px}
+  .hoja-tabla tfoot small{margin-left:4px;color:var(--h-tinta-2);font-size:12px}
+  .hoja-pago{display:flex;flex-wrap:wrap;gap:var(--e2) var(--e4);margin-bottom:var(--e3)}
+  .hoja-pago div{min-width:0}
+  .hoja-pago dd{font-size:14px}
+  .hoja-ref{font-family:var(--n-mono);font-size:13px;overflow-wrap:anywhere}
+  .hoja-gracias{padding:16px 18px;border-radius:10px;background:var(--h-panel);line-height:1.6}
+  .hoja-pie{display:flex;align-items:flex-start;gap:var(--e2);margin-top:var(--e3);padding-top:var(--e3);
+    border-top:1px solid var(--h-filete)}
+  .hoja-qr{flex:none;width:88px;height:88px}
+  .hoja-qr:empty{display:none}
+  .hoja-qr svg{display:block;width:100%;height:100%}
+  .hoja-verifica{font-weight:600;font-size:13px}
+  .hoja-url{margin-bottom:8px;font-family:var(--n-mono);font-size:12px;color:var(--h-tinta-2);overflow-wrap:anywhere}
+  .hoja-nota{font-size:12px;line-height:1.55;color:var(--h-tinta-2)}
+  .hoja-nota + .hoja-nota{margin-top:6px}
+
+  @media (max-width:640px){
+    .hoja{padding:34px 20px 24px;border-radius:12px;font-size:14px}
+    .hoja-cab{flex-direction:column;gap:var(--e2)}
+    .hoja-meta{justify-items:start;text-align:left}
+    .hoja-numero{font-size:22px}
+    .hoja-partes{grid-template-columns:minmax(0,1fr);gap:var(--e2)}
+    .hoja-tabla tfoot b{font-size:20px}
+    .hoja-qr{width:72px;height:72px}
+    .recibo-acciones .btn{flex:1 1 auto}
+  }
+  @media print{
+    @page{margin:14mm}
+    body{background:#fff !important}
+    :root[data-publico] body.ini-portada::before{content:none}
+    .auth-arriba,.recibo-saludo,.recibo-acciones,.recibo-otra{display:none !important}
+    .recibo-pagina{max-width:none;margin:0;padding:0}
+    .hoja{box-shadow:none;border-radius:0;padding:28px 0 0}
+    .hoja::before,.hoja-sello,.hoja-gracias{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body class="ini-portada ini-clara">
+<script>try{var t=localStorage.getItem('cemPortadaTema');if(t==='clara'||t==='oscura'){document.body.classList.remove('ini-oscura','ini-clara');document.body.classList.add('ini-'+t);}}catch(e){}</script>
+<header class="auth-arriba" id="autArriba">
+  <a class="marca" href="../"><img src="assets/favicon.svg" alt="" width="28" height="28"> CEM International</a>
+</header>
+<main class="recibo-pagina">
+  <section class="recibo-saludo" id="saludo" aria-live="polite"><span class="cargando"></span></section>
+  <div class="recibo-acciones" id="acciones" hidden>
+    <button class="btn" type="button" id="bDescargar">
+      <span class="material-symbols-outlined" aria-hidden="true">download</span><span id="bDescargarTexto"></span></button>
+    <button class="btn outline" type="button" id="bImprimir">
+      <span class="material-symbols-outlined" aria-hidden="true">print</span><span id="bImprimirTexto"></span></button>
+    <p class="recibo-aviso" id="aviso" role="status" hidden></p>
+  </div>
+  <article class="hoja" id="hoja" aria-labelledby="hojaTitulo" hidden></article>
+  <p class="recibo-otra" id="otra" hidden><a id="otraEnlace" href="becas.html"></a></p>
+</main>
+
+<script type="module">
+/* El recibo de una donación, con forma de factura, para descargarlo o
+   imprimirlo.
+   ═══════════════════════════════════════════════════════════════════════════
+   Llega aquí quien vuelve de pagar en Stripe (?r=…&gracias=1), quien abre el
+   enlace del correo del recibo (?r=…) y el equipo desde «Ver recibo».
+
+   El enlace ES la llave del recibo, que lleva el nombre de quien donó. Por eso
+   esta página se porta como beca.html: no llama a mount() —que cargaría la
+   medición de Google y Meta, a Cemi y la promoción—, quita la llave de la
+   barra de direcciones en cuanto la lee (se guarda sólo en esta pestaña) y no
+   manda la dirección a ningún sitio (`referrer` no-referrer).
+
+   Se llama «Recibo de donación» y no «Factura»: una factura es un documento
+   fiscal, y el aporte no es deducible de impuestos.
+
+   El PDF se dibuja en el navegador con jsPDF, la misma versión de los
+   diplomas, que se carga sólo al pulsar «Descargar PDF». Así se descarga un
+   archivo de verdad, también en el teléfono, sin pasar por el diálogo de
+   imprimir. */
+import { sb, $, esc, ponerBotonDeVersion } from './assets/app.js?v=2026-11-06-2';
+
+ponerBotonDeVersion($('#autArriba'));
+
+const JSPDF = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+const QR = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+const LOGO = 'assets/favicon.svg?v=2026-09-03';
+const PAGINA = 'https://escuelacem.com/plataforma/recibo.html';
+
+const T = {
+  es: {
+    cargando: 'Cargando tu recibo…',
+    documento: 'Recibo de donación', archivo: 'Recibo', pagado: 'Pagado',
+    recibidoDe: 'Recibido de', anonimo: 'Donante anónimo', destino: 'Destino',
+    fondo: 'Fondo de becas CEM', campana: '«Ayuda a alguien a estudiar»',
+    concepto: 'Concepto', importe: 'Importe', linea: 'Aporte al fondo de becas CEM',
+    paquete: (x) => `Paquete «${x}»`, total: 'Total pagado',
+    formaPago: 'Forma de pago', referencia: 'Referencia',
+    metodos: { tarjeta: 'Tarjeta, a través de Stripe', zelle: 'Zelle', transferencia: 'Transferencia bancaria',
+               cheque: 'Cheque', efectivo: 'Efectivo', otro: 'Otro' },
+    graciasHoja: (correo) => 'Gracias por tu aporte. Con él, alguien que hoy no podría pagarlo va a estudiar un '
+      + 'programa completo del CEM. Cada dólar del fondo queda anotado'
+      + (correo ? ', y cuando tu aporte pague una beca te contaremos a quién ayudó.' : '.'),
+    verifica: 'Comprueba este recibo en línea',
+    emitido: 'Recibo emitido por la plataforma de CEM International.',
+    rotulo: 'Fondo de becas CEM',
+    gracias: (n) => (n ? `¡Gracias, ${n}!` : '¡Gracias!'),
+    graciasTexto: (x) => `Tu aporte de ${x} ya está en el fondo de becas. Este es tu recibo: descárgalo en PDF o imprímelo cuando quieras.`,
+    tambienCorreo: 'También te lo mandamos al correo.',
+    tuRecibo: 'Tu recibo de donación', tuReciboTexto: 'Descárgalo en PDF o imprímelo cuando quieras.',
+    descargar: 'Descargar PDF', preparando: 'Preparando el PDF…', imprimir: 'Imprimir',
+    otraVez: 'Ayuda a alguien más a estudiar →',
+    confirmando: 'Confirmando tu pago…',
+    confirmandoTexto: 'Stripe nos está avisando del cobro. Suele tardar unos segundos.',
+    tarda: 'Tu pago se está confirmando',
+    tardaTexto: 'Stripe todavía no nos ha avisado del cobro. Vuelve a comprobarlo en un minuto: en cuanto entre, '
+      + 'aquí estará tu recibo, y si dejaste tu correo también te llegará allí.',
+    comprobar: 'Volver a comprobar',
+    anulada: 'Este recibo está anulado',
+    anuladaTexto: (n) => `La donación ${n} se anuló. Si crees que es un error, escríbenos desde la web.`,
+    noExiste: 'No encontramos este recibo',
+    noExisteTexto: 'Puede que el enlace esté incompleto: a veces el correo lo corta. Ábrelo otra vez desde el '
+      + 'correo del recibo, o escríbenos desde la web.',
+    error: 'No pudimos cargar el recibo', errorTexto: 'Prueba otra vez en un momento.', reintentar: 'Reintentar',
+    pdfMal: 'No se pudo preparar el PDF. Usa «Imprimir» y elige «Guardar como PDF».',
+  },
+  en: {
+    cargando: 'Loading your receipt…',
+    documento: 'Donation receipt', archivo: 'Receipt', pagado: 'Paid',
+    recibidoDe: 'Received from', anonimo: 'Anonymous donor', destino: 'Designated to',
+    fondo: 'CEM scholarship fund', campana: '“Help someone study”',
+    concepto: 'Description', importe: 'Amount', linea: 'Gift to the CEM scholarship fund',
+    paquete: (x) => `“${x}” package`, total: 'Total paid',
+    formaPago: 'Payment method', referencia: 'Reference',
+    metodos: { tarjeta: 'Card, through Stripe', zelle: 'Zelle', transferencia: 'Bank transfer',
+               cheque: 'Check', efectivo: 'Cash', otro: 'Other' },
+    graciasHoja: (correo) => 'Thank you for your gift. Because of it, someone who couldn’t afford it today will '
+      + 'study a full CEM program. Every dollar in the fund is recorded'
+      + (correo ? ', and when your gift pays for a scholarship we’ll tell you who it helped.' : '.'),
+    verifica: 'Check this receipt online',
+    emitido: 'Receipt issued by the CEM International platform.',
+    rotulo: 'CEM scholarship fund',
+    gracias: (n) => (n ? `Thank you, ${n}!` : 'Thank you!'),
+    graciasTexto: (x) => `Your gift of ${x} is now in the scholarship fund. Here is your receipt: download it as a PDF or print it whenever you like.`,
+    tambienCorreo: 'We also sent it to your email.',
+    tuRecibo: 'Your donation receipt', tuReciboTexto: 'Download it as a PDF or print it whenever you like.',
+    descargar: 'Download PDF', preparando: 'Preparing the PDF…', imprimir: 'Print',
+    otraVez: 'Help someone else study →',
+    confirmando: 'Confirming your payment…',
+    confirmandoTexto: 'Stripe is letting us know about the charge. It usually takes a few seconds.',
+    tarda: 'Your payment is being confirmed',
+    tardaTexto: 'Stripe hasn’t confirmed the charge yet. Check again in a minute: as soon as it goes through, '
+      + 'your receipt will be here, and if you left your email it will arrive there too.',
+    comprobar: 'Check again',
+    anulada: 'This receipt has been voided',
+    anuladaTexto: (n) => `Gift ${n} was voided. If you think this is a mistake, write to us from the website.`,
+    noExiste: 'We couldn’t find this receipt',
+    noExisteTexto: 'The link may be incomplete: email apps sometimes cut it. Open it again from the receipt '
+      + 'email, or write to us from the website.',
+    error: 'We couldn’t load the receipt', errorTexto: 'Please try again in a moment.', reintentar: 'Try again',
+    pdfMal: 'We couldn’t prepare the PDF. Use “Print” and choose “Save as PDF”.',
+  },
+};
+
+/* La llave, fuera de la barra de direcciones en cuanto se lee. */
+const pedido = new URLSearchParams(location.search);
+let clave = pedido.get('r') || '';
+let gracias = pedido.get('gracias') === '1';
+let idiomaPedido = ['es', 'en'].includes(pedido.get('lang')) ? pedido.get('lang') : '';
+if (clave) {
+  try {
+    sessionStorage.setItem('cemRecibo', clave);
+    sessionStorage.setItem('cemReciboGracias', gracias ? '1' : '');
+    sessionStorage.setItem('cemReciboIdioma', idiomaPedido);
+  } catch {}
+  history.replaceState(null, '', location.pathname);
+} else {
+  try {
+    clave = sessionStorage.getItem('cemRecibo') || '';
+    gracias = sessionStorage.getItem('cemReciboGracias') === '1';
+    idiomaPedido = sessionStorage.getItem('cemReciboIdioma') || '';
+  } catch {}
+}
+
+let idioma = idiomaPedido || 'es';
+const t = (k, ...a) => { const v = T[idioma][k]; return typeof v === 'function' ? v(...a) : v; };
+
+/* Como en la página de becas: «$2.300,00» en español y «$2,300.00» en inglés,
+   siempre con los céntimos, que esto es un recibo. */
+const dinero = (n) => {
+  const s = (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '$' + (idioma === 'en' ? s : s.replace(/[.,]/g, (c) => (c === ',' ? '.' : ',')));
+};
+/* La fecha del recibo es un día, no un instante: se lee sin zona horaria para
+   que no salga el día anterior al otro lado del océano. */
+const fecha = (iso) => {
+  const [a, m, d] = String(iso || '').slice(0, 10).split('-').map(Number);
+  if (!a) return '';
+  return new Date(a, m - 1, d).toLocaleDateString(idioma === 'en' ? 'en-US' : 'es-ES',
+    { day: 'numeric', month: 'long', year: 'numeric' });
+};
+const metodo = (m) => T[idioma].metodos[m] || T[idioma].metodos.otro;
+const pila = (n) => String(n || '').trim().split(/\s+/)[0] || '';
+const enlace = () => `${PAGINA}?r=${encodeURIComponent(clave)}`;
+const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+const saludo = $('#saludo'), acciones = $('#acciones'), hoja = $('#hoja'), otra = $('#otra');
+let recibo = null;
+
+function ponerIdioma() {
+  document.documentElement.lang = idioma;
+  $('#bDescargarTexto').textContent = t('descargar');
+  $('#bImprimirTexto').textContent = t('imprimir');
+  $('#otraEnlace').textContent = t('otraVez');
+  $('#otraEnlace').href = idioma === 'en' ? 'becas.html?lang=en' : 'becas.html';
+}
+
+function pintarAviso(titulo, texto, boton) {
+  acciones.hidden = true; hoja.hidden = true; otra.hidden = false;
+  saludo.innerHTML = `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(titulo)}</h1>
+    <p>${esc(texto)}</p>${boton ? `<button class="btn outline" type="button" id="bOtraVez">${esc(boton)}</button>` : ''}`;
+  if (boton) $('#bOtraVez').onclick = arrancar;
+}
+
+function pintarRecibo(r) {
+  recibo = r;
+  document.title = `${t('documento')} ${r.numero} · CEM International`;
+  saludo.innerHTML = gracias
+    ? `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(t('gracias', r.anonima ? '' : pila(r.nombre)))}</h1>
+       <p>${esc(t('graciasTexto', dinero(r.monto)))}${r.con_correo ? ' ' + esc(t('tambienCorreo')) : ''}</p>`
+    : `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(t('tuRecibo'))}</h1><p>${esc(t('tuReciboTexto'))}</p>`;
+  const quien = r.anonima
+    ? `<p class="hoja-nombre">${esc(t('anonimo'))}</p>`
+    : `<p class="hoja-nombre">${esc(r.nombre || '')}</p>${r.organizacion ? `<p>${esc(r.organizacion)}</p>` : ''}`;
+  hoja.innerHTML = `
+    <header class="hoja-cab">
+      <div class="hoja-emisor">
+        <img src="${LOGO}" alt="" width="40" height="40">
+        <div><p class="hoja-marca">CEM International</p>
+          <p class="hoja-dato">${esc(t('fondo'))}</p><p class="hoja-dato">escuelacem.com</p></div>
+      </div>
+      <div class="hoja-meta">
+        <h2 class="hoja-rotulo" id="hojaTitulo">${esc(t('documento'))}</h2>
+        <p class="hoja-numero">${esc(r.numero)}</p>
+        <p class="hoja-dato">${esc(fecha(r.fecha))}</p>
+        <p class="hoja-sello"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>${esc(t('pagado'))}</p>
+      </div>
+    </header>
+    <div class="hoja-partes">
+      <section><h2 class="hoja-rotulo">${esc(t('recibidoDe'))}</h2>${quien}
+        ${r.pais ? `<p class="hoja-dato">${esc(r.pais)}</p>` : ''}</section>
+      <section><h2 class="hoja-rotulo">${esc(t('destino'))}</h2>
+        <p class="hoja-nombre">${esc(t('fondo'))}</p><p class="hoja-dato">${esc(t('campana'))}</p></section>
+    </div>
+    <table class="hoja-tabla">
+      <thead><tr><th scope="col">${esc(t('concepto'))}</th><th scope="col" class="num">${esc(t('importe'))}</th></tr></thead>
+      <tbody><tr><td>${esc(t('linea'))}${r.paquete ? `<span>${esc(t('paquete', r.paquete))}</span>` : ''}</td>
+        <td class="num">${esc(dinero(r.monto))}</td></tr></tbody>
+      <tfoot><tr><th scope="row">${esc(t('total'))}</th>
+        <td class="num"><b>${esc(dinero(r.monto))}</b><small>${esc(r.moneda || 'USD')}</small></td></tr></tfoot>
+    </table>
+    <dl class="hoja-pago">
+      <div><dt class="hoja-rotulo">${esc(t('formaPago'))}</dt><dd>${esc(metodo(r.metodo))}</dd></div>
+      ${r.referencia ? `<div><dt class="hoja-rotulo">${esc(t('referencia'))}</dt><dd class="hoja-ref">${esc(r.referencia)}</dd></div>` : ''}
+    </dl>
+    <p class="hoja-gracias">${esc(t('graciasHoja', r.con_correo))}</p>
+    <footer class="hoja-pie">
+      <div class="hoja-qr" id="hojaQr"></div>
+      <div>
+        <p class="hoja-verifica">${esc(t('verifica'))}</p>
+        <p class="hoja-url">escuelacem.com/<wbr>plataforma/<wbr>recibo.html</p>
+        ${r.nota ? `<p class="hoja-nota">${esc(r.nota)}</p>` : ''}
+        <p class="hoja-nota">${esc(t('emitido'))}</p>
+      </div>
+    </footer>`;
+  acciones.hidden = false; hoja.hidden = false; otra.hidden = false;
+  $('#aviso').hidden = true;
+  /* El QR es adorno en pantalla y comprobante en papel: si no carga, la hoja
+     sigue entera sin él. */
+  cargar(QR).then(() => { $('#hojaQr').innerHTML = qrSvg(qrDe(enlace())); }).catch(() => {});
+}
+
+async function arrancar() {
+  ponerIdioma();
+  if (!clave) { pintarAviso(t('noExiste'), t('noExisteTexto')); return; }
+  saludo.innerHTML = `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(t('cargando'))}</h1>`;
+  for (let vuelta = 0; ; vuelta++) {
+    const { data: r, error } = await sb.rpc('cem_beca_recibo', { p_clave: clave });
+    if (error) { pintarAviso(t('error'), t('errorTexto'), t('reintentar')); return; }
+    if (!r?.hay) { pintarAviso(t('noExiste'), t('noExisteTexto')); return; }
+    if (!idiomaPedido && T[r.idioma]) { idioma = r.idioma; ponerIdioma(); }
+    if (r.estado === 'confirmada') { pintarRecibo(r); return; }
+    if (r.estado === 'anulada') { pintarAviso(t('anulada'), t('anuladaTexto', r.numero)); return; }
+    /* Stripe avisa por su lado y a veces llega después que la persona: se
+       pregunta durante medio minuto antes de pedirle que vuelva. */
+    if (vuelta >= 11) { pintarAviso(t('tarda'), t('tardaTexto'), t('comprobar')); return; }
+    saludo.innerHTML = `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(t('confirmando'))}</h1>
+      <p>${esc(t('confirmandoTexto'))}</p>`;
+    await espera(2500);
+  }
+}
+
+/* ── El código QR, dibujado a mano: un cuadrado por módulo ── */
+const cargados = {};
+function cargar(src) {
+  if (!cargados[src]) {
+    cargados[src] = new Promise((ok, mal) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = ok;
+      s.onerror = () => { delete cargados[src]; s.remove(); mal(new Error('No cargó ' + src)); };
+      document.head.append(s);
+    });
+  }
+  return cargados[src];
+}
+function qrDe(texto) {
+  const q = window.qrcode(0, 'M');
+  q.addData(texto); q.make();
+  return q;
+}
+function qrSvg(q) {
+  const n = q.getModuleCount();
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.isDark(y, x)) d += `M${x} ${y}h1v1h-1z`;
+  return `<svg viewBox="-2 -2 ${n + 4} ${n + 4}" shape-rendering="crispEdges" aria-hidden="true">
+    <rect x="-2" y="-2" width="${n + 4}" height="${n + 4}" fill="#fff"/><path d="${d}" fill="#0b1630"/></svg>`;
+}
+
+/* ── El PDF ──
+   Las letras de serie de un PDF (Helvetica) sólo saben las del alfabeto
+   latino de Europa occidental. Lo demás se cambia por su pariente más
+   cercano —las comillas curvas por rectas, una letra con un acento raro por
+   la misma sin acento— o por «?», para que un nombre escrito en otro alfabeto
+   no salga como basura. */
+const PARIENTES = { '‘': "'", '’': "'", '‚': "'", '“': '"', '”': '"', '„': '"', '–': '-', '—': '-',
+                    '…': '...', '•': '·', '€': 'EUR', '→': '->' };
+const latino = (s) => String(s ?? '').normalize('NFC').replace(/[^\x20-\x7e\xa1-\xff]/g, (c) => {
+  if (PARIENTES[c]) return PARIENTES[c];
+  if (/\s/.test(c)) return ' ';
+  const sin = c.normalize('NFKD').replace(/[̀-ͯ]/g, '');
+  return /^[\x20-\x7e\xa1-\xff]+$/.test(sin) ? sin : '?';
+});
+
+async function logoPng() {
+  const img = new Image();
+  img.src = LOGO;
+  await img.decode();
+  const lienzo = document.createElement('canvas');
+  lienzo.width = lienzo.height = 160;
+  lienzo.getContext('2d').drawImage(img, 0, 0, 160, 160);
+  return lienzo.toDataURL('image/png');
+}
+
+async function hacerPdf(r) {
+  await cargar(JSPDF);
+  let q = null, logo = null;
+  try { await cargar(QR); q = qrDe(enlace()); } catch {}
+  try { logo = await logoPng(); } catch {}
+
+  const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter', compress: true });
+  doc.setProperties({ title: latino(`${t('documento')} ${r.numero}`), author: 'CEM International',
+                      subject: latino(t('fondo')), creator: 'escuelacem.com' });
+  const W = 612, H = 792, M = 54, D = W - M, ANCHO = D - M, MITAD = M + ANCHO / 2 + 12;
+  const TINTA = [11, 22, 48], TINTA2 = [74, 88, 114], FILETE = [226, 231, 239],
+        ACENTO = [8, 122, 111], SELLO = [226, 243, 239], PANEL = [243, 246, 251];
+  const letra = (estilo, tam, color, familia = 'helvetica') => {
+    doc.setFont(familia, estilo); doc.setFontSize(tam); doc.setTextColor(...color);
+  };
+  const ancho = (s, esp = 0) => doc.getTextWidth(s) + esp * Math.max(s.length - 1, 0);
+  const rotulo = (s, x, y, aLaDerecha = false) => {
+    letra('bold', 7.5, ACENTO);
+    const u = latino(s).toUpperCase();
+    doc.text(u, aLaDerecha ? D - ancho(u, 0.9) : x, y, { charSpace: 0.9 });
+  };
+  /* Escribe un párrafo partido al ancho y devuelve la altura de la última línea. */
+  const parrafo = (s, x, y, w, tam, color, estilo = 'normal', familia = 'helvetica', interlinea = 1.4) => {
+    letra(estilo, tam, color, familia);
+    const lineas = doc.splitTextToSize(latino(s), w);
+    doc.text(lineas, x, y, { lineHeightFactor: interlinea });
+    return y + (lineas.length - 1) * tam * interlinea;
+  };
+
+  // La franja de la marca, de turquesa a azul
+  const A = [62, 230, 210], B = [59, 108, 246], TIRAS = 60;
+  for (let i = 0; i < TIRAS; i++) {
+    const k = i / (TIRAS - 1);
+    doc.setFillColor(...A.map((v, j) => Math.round(v + (B[j] - v) * k)));
+    doc.rect((i * W) / TIRAS, 0, W / TIRAS + 0.6, 6, 'F');
+  }
+
+  // La cabecera: quién lo emite, y el número, la fecha y el sello
+  let y = 50;
+  if (logo) doc.addImage(logo, 'PNG', M, y, 34, 34);
+  const xm = logo ? M + 44 : M;
+  letra('bold', 15, TINTA); doc.text('CEM International', xm, y + 13);
+  letra('normal', 9.5, TINTA2);
+  doc.text(latino(t('fondo')), xm, y + 27); doc.text('escuelacem.com', xm, y + 40);
+  rotulo(t('documento'), 0, y + 6, true);
+  letra('bold', 20, TINTA); doc.text(latino(r.numero), D, y + 31, { align: 'right' });
+  letra('normal', 10, TINTA2); doc.text(latino(fecha(r.fecha)), D, y + 47, { align: 'right' });
+  letra('bold', 8.5, ACENTO);
+  const sello = latino(t('pagado')).toUpperCase(), selloAncho = ancho(sello) + 24;
+  doc.setFillColor(...SELLO); doc.roundedRect(D - selloAncho, y + 56, selloAncho, 18, 9, 9, 'F');
+  doc.text(sello, D - selloAncho + 12, y + 68);
+  y += 96;
+  doc.setDrawColor(...FILETE); doc.setLineWidth(0.8); doc.line(M, y, D, y);
+
+  // Las partes
+  y += 28;
+  rotulo(t('recibidoDe'), M, y); rotulo(t('destino'), MITAD, y);
+  const col = MITAD - M - 24;
+  let yi = parrafo(r.anonima ? t('anonimo') : (r.nombre || ''), M, y + 18, col, 12, TINTA, 'bold');
+  if (!r.anonima && r.organizacion) yi = parrafo(r.organizacion, M, yi + 15, col, 10, TINTA2);
+  if (r.pais) yi = parrafo(r.pais, M, yi + 15, col, 10, TINTA2);
+  let yd = parrafo(t('fondo'), MITAD, y + 18, D - MITAD, 12, TINTA, 'bold');
+  yd = parrafo(t('campana'), MITAD, yd + 15, D - MITAD, 10, TINTA2);
+  y = Math.max(yi, yd) + 34;
+
+  // La tabla: concepto e importe, y el total
+  rotulo(t('concepto'), M, y); rotulo(t('importe'), 0, y, true);
+  doc.setDrawColor(...FILETE); doc.line(M, y + 8, D, y + 8);
+  y += 28;
+  letra('normal', 11, TINTA); doc.text(latino(dinero(r.monto)), D, y, { align: 'right' });
+  let yc = parrafo(t('linea'), M, y, ANCHO - 140, 11, TINTA);
+  if (r.paquete) yc = parrafo(t('paquete', r.paquete), M, yc + 15, ANCHO - 140, 9.5, TINTA2);
+  y = yc + 14;
+  doc.line(M, y, D, y);
+  y += 32;
+  letra('normal', 9, TINTA2);
+  const moneda = latino(r.moneda || 'USD'), anchoMoneda = ancho(moneda);
+  doc.text(moneda, D, y, { align: 'right' });
+  letra('bold', 18, TINTA);
+  const total = latino(dinero(r.monto)), anchoTotal = ancho(total);
+  doc.text(total, D - anchoMoneda - 6, y, { align: 'right' });
+  letra('bold', 11, TINTA);
+  doc.text(latino(t('total')), D - anchoMoneda - 6 - anchoTotal - 18, y, { align: 'right' });
+
+  // Cómo se pagó
+  y += 40;
+  rotulo(t('formaPago'), M, y);
+  let yp = parrafo(metodo(r.metodo), M, y + 16, col, 10.5, TINTA);
+  if (r.referencia) {
+    rotulo(t('referencia'), MITAD, y);
+    yp = Math.max(yp, parrafo(r.referencia, MITAD, y + 16, D - MITAD, 9.5, TINTA, 'normal', 'courier'));
+  }
+  y = yp + 30;
+
+  // Las gracias, en su recuadro
+  letra('normal', 10.5, TINTA);
+  const lineas = doc.splitTextToSize(latino(t('graciasHoja', r.con_correo)), ANCHO - 32);
+  const alto = (lineas.length - 1) * 10.5 * 1.5 + 34;
+  doc.setFillColor(...PANEL); doc.roundedRect(M, y, ANCHO, alto, 8, 8, 'F');
+  doc.text(lineas, M + 16, y + 21, { lineHeightFactor: 1.5 });
+  y += alto + 22;
+
+  // La nota de los ajustes (que no es deducible)
+  if (r.nota) y = parrafo(r.nota, M, y, ANCHO, 8.5, TINTA2, 'normal', 'helvetica', 1.45) + 16;
+
+  // El pie: el QR que abre este recibo, y quién lo emite
+  const LADO = 72;
+  let yq = Math.max(y + 12, H - M - LADO);
+  if (yq + LADO > H - 24) { doc.addPage(); yq = M; }
+  doc.setDrawColor(...FILETE); doc.line(M, yq - 14, D, yq - 14);
+  let xt = M;
+  if (q) {
+    const n = q.getModuleCount(), c = LADO / n;
+    doc.setFillColor(...TINTA);
+    for (let fy = 0; fy < n; fy++) {
+      for (let fx = 0; fx < n; fx++) if (q.isDark(fy, fx)) doc.rect(M + fx * c, yq + fy * c, c + 0.05, c + 0.05, 'F');
+    }
+    xt = M + LADO + 16;
+  }
+  letra('bold', 9, TINTA); doc.text(latino(t('verifica')), xt, yq + 12);
+  parrafo(enlace(), xt, yq + 26, D - xt, 8, TINTA2, 'normal', 'courier');
+  parrafo(`${t('emitido').replace(/\.$/, '')} · escuelacem.com`, xt, yq + 50, D - xt, 8, TINTA2);
+
+  doc.save(`${t('archivo')}-${r.numero}.pdf`);
+}
+
+$('#bDescargar').onclick = async () => {
+  if (!recibo) return;
+  const boton = $('#bDescargar'), aviso = $('#aviso');
+  boton.disabled = true; $('#bDescargarTexto').textContent = t('preparando'); aviso.hidden = true;
+  try {
+    await hacerPdf(recibo);
+  } catch (e) {
+    console.warn('El PDF no salió:', e);
+    aviso.textContent = t('pdfMal'); aviso.hidden = false;
+  } finally {
+    boton.disabled = false; $('#bDescargarTexto').textContent = t('descargar');
+  }
+};
+$('#bImprimir').onclick = () => window.print();
+
+arrancar();
+</script>
+</body>
+</html>

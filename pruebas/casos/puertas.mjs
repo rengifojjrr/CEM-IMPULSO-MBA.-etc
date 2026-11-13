@@ -67,11 +67,13 @@ const DEL_SITIO = [
   ['cem_tasa_vigente',          { p_moneda: 'VES' }],
   ['cem_perfil_publico',        { p_slug: 'no-existe-000' }],
   ['cem_slug_de_certificado',   { p_codigo: 'NO-EXISTE-000' }],
-  // La página de becas, la solicitud, el enlace de una beca y la de gracias.
+  // La página de becas, la solicitud, el enlace de una beca, la de gracias y
+  // el recibo de una donación.
   ['cem_becas_publico',         { p_idioma: 'es' }],
   ['cem_beca_convocatoria',     {}],
   ['cem_beca_enlace_ver',       { p_token: 'no-existe-000' }],
   ['cem_beca_donacion_estado',  { p_id: '00000000-0000-0000-0000-000000000000' }],
+  ['cem_beca_recibo',           { p_clave: 'no-existe-000-no-existe-000' }],
 ];
 
 export default async function correr(navegador) {

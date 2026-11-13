@@ -169,7 +169,7 @@
         <button class="ini-boton" type="submit" id="dBoton" style="width:100%">
           <span class="material-symbols-outlined" aria-hidden="true">lock</span><span id="dBotonTexto" data-t="donarConTarjeta">Donar con tarjeta</span></button>
         <p class="seguro"><span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
-          <span data-t="seguro">El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Te llega un recibo por correo.</span></p>
+          <span data-t="seguro">El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Al terminar ves tu recibo, para descargarlo en PDF, y te llega también por correo.</span></p>
       </form>
     </div>
   </section>
@@ -247,7 +247,7 @@ const T = {
     mensaje: 'Un mensaje para quien reciba la beca',
     publica: 'Mostrar mi nombre (o el de mi organización) en la lista de quienes hacen posibles las becas',
     tuAporte: 'Tu aporte', donarConTarjeta: 'Donar con tarjeta', donarX: (x) => `Donar ${x} con tarjeta`,
-    seguro: 'El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Te llega un recibo por correo.',
+    seguro: 'El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Al terminar ves tu recibo, para descargarlo en PDF, y te llega también por correo.',
     otroMonto: 'Otro monto', otroMontoDesc: (min, max) => `El que tú quieras, entre ${min} y ${max}.`,
     destacado: 'El más elegido',
     alcanza: (n) => n === 1 ? 'Alcanza para 1 beca completa*' : `Alcanza para ${n} becas completas*`,
@@ -277,7 +277,7 @@ const T = {
       ['¿Cómo se elige a quién se le da la beca?', 'Las personas solicitan la beca desde la web, muchas veces desde nuestras campañas en redes, y nos cuentan por qué quieren estudiar y qué harán con lo que aprendan. El equipo lee cada solicitud y elige.'],
       ['¿Puedo saber a quién ayudé?', 'Sí. Cuando tu aporte paga una beca, te escribimos para contarte a quién ayudó y qué va a estudiar. Si esa persona no quiso que se publicara su nombre, te decimos de qué país es.'],
       ['¿Puedo donar de forma anónima?', 'Sí. Marca «Donar de forma anónima» y no te pedimos el nombre: no aparece en ningún sitio. El recibo te llega al correo que pongas, o al que te pida Stripe al pagar.'],
-      ['¿Es deducible de impuestos?', 'Por ahora no: el aporte no es deducible de impuestos. Te llega un recibo por correo, pero no es un recibo fiscal.'],
+      ['¿Es deducible de impuestos?', 'Por ahora no: el aporte no es deducible de impuestos. Recibes un recibo de donación, que puedes descargar en PDF, pero no es un recibo fiscal.'],
       ['¿Puedo donar por transferencia, Zelle o cheque?', 'Sí. Escríbenos desde «¿Tienes dudas?», abajo a la derecha, y te pasamos los datos. Cuando llegue, lo registramos y te mandamos el mismo recibo.'],
       ['¿Es seguro pagar aquí?', 'El pago lo procesa Stripe, uno de los procesadores de pago más usados del mundo. El CEM no ve ni guarda los datos de tu tarjeta.'],
     ],
@@ -299,7 +299,7 @@ const T = {
     mensaje: 'A message for the person who gets the scholarship',
     publica: 'Show my name (or my organization\'s) on the list of people who make the scholarships possible',
     tuAporte: 'Your gift', donarConTarjeta: 'Give by card', donarX: (x) => `Give ${x} by card`,
-    seguro: 'Payment is handled by Stripe. CEM never sees or stores your card details. You\'ll get a receipt by email.',
+    seguro: 'Payment is handled by Stripe. CEM never sees or stores your card details. When you finish you\'ll see your receipt, ready to download as a PDF, and we\'ll email it to you too.',
     otroMonto: 'Other amount', otroMontoDesc: (min, max) => `Any amount you like, between ${min} and ${max}.`,
     destacado: 'Most chosen',
     alcanza: (n) => n === 1 ? 'Covers 1 full scholarship*' : `Covers ${n} full scholarships*`,
@@ -329,7 +329,7 @@ const T = {
       ['How do you choose who gets a scholarship?', 'People apply on our website, often from our social media campaigns, and tell us why they want to study and what they\'ll do with what they learn. Our team reads every application and chooses.'],
       ['Can I find out who I helped?', 'Yes. When your gift pays for a scholarship, we write to tell you who it helped and what they\'ll study. If that person preferred not to share their name, we tell you which country they\'re from.'],
       ['Can I give anonymously?', 'Yes. Tick «Give anonymously» and we won\'t ask for your name: it won\'t appear anywhere. Your receipt goes to the email you enter, or to the one Stripe asks for at checkout.'],
-      ['Is it tax-deductible?', 'Not at this time: the contribution is not tax-deductible. You\'ll get a receipt by email, but it isn\'t a tax receipt.'],
+      ['Is it tax-deductible?', 'Not at this time: the contribution is not tax-deductible. You get a donation receipt you can download as a PDF, but it isn\'t a tax receipt.'],
       ['Can I give by bank transfer, Zelle or check?', 'Yes. Write to us from «¿Tienes dudas?» at the bottom right and we\'ll send you the details. When it arrives, we record it and send you the same receipt.'],
       ['Is it safe to pay here?', 'Payment is processed by Stripe, one of the most widely used payment processors in the world. CEM never sees or stores your card details.'],
     ],
