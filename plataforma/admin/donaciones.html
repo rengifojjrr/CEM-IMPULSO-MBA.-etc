@@ -49,6 +49,7 @@
 
   <div class="tabs" id="tabs" role="tablist">
     <button class="active" type="button" data-p="donaciones">Donaciones</button>
+    <button type="button" data-p="recurrente">Ayuda recurrente</button>
     <button type="button" data-p="fondo">Movimientos del fondo</button>
     <button type="button" data-p="ajustes">Paquetes y ajustes</button>
   </div>
@@ -69,6 +70,7 @@
           <select id="fMetodo">
             <option value="">Todas</option>
             <option value="tarjeta">Tarjeta</option>
+            <option value="ach">ACH (cuenta bancaria)</option>
             <option value="zelle">Zelle</option>
             <option value="transferencia">Transferencia</option>
             <option value="cheque">Cheque</option>
@@ -83,6 +85,38 @@
           <th>Donación</th><th>Quién</th><th>Cómo llegó</th><th class="num">Monto</th><th>Usado en becas</th><th>Estado</th><th></th>
         </tr></thead><tbody id="tbDon"></tbody></table>
       </div>
+    </div>
+  </section>
+
+  <section id="p-recurrente" hidden>
+    <div class="kpis" id="kpisRec"></div>
+    <div class="card">
+      <div class="row between">
+        <div><h2 class="sec">Ayuda recurrente</h2>
+          <p class="tiny muted" style="margin:0" id="recExplica">Quien la paga la ve como «Services Fee»: una cantidad al mes que se cobra por ACH
+            desde su cuenta bancaria de EE. UU. Cada cobro entra como una donación más, con su recibo.</p></div>
+        <button class="btn ghost sm" type="button" id="csvRec" data-exportar><span class="material-symbols-outlined" aria-hidden="true">download</span> CSV</button>
+      </div>
+      <div class="filters sep">
+        <div class="field"><label for="qRec">Buscar</label><input id="qRec" placeholder="Nombre, correo, número…"></div>
+        <div class="field"><label for="fRec">Estado</label>
+          <select id="fRec">
+            <option value="vivas">Activas y con un cobro pendiente</option>
+            <option value="activa">Activas</option>
+            <option value="impagada">Con un cobro que falló</option>
+            <option value="cancelada">Canceladas</option>
+            <option value="iniciada">Sin terminar el alta</option>
+            <option value="">Todas</option>
+          </select></div>
+      </div>
+      <div class="row between sep-poco"><span class="tiny muted" id="cuentaRec"></span></div>
+      <div class="table-wrap">
+        <table class="tarjetas"><thead><tr>
+          <th>Ayuda</th><th>Quién</th><th>Estado</th><th class="num">Cobrado</th><th>Próximo cobro</th><th></th>
+        </tr></thead><tbody id="tbRec"></tbody></table>
+      </div>
+      <p class="tiny muted sep" style="margin-bottom:0">Para cancelar la de alguien que lo pide: abre su página y pulsa «Cancelar mi ayuda recurrente»,
+        o copia el enlace y mándaselo. Se cancela en Stripe al momento y no se le cobra más.</p>
     </div>
   </section>
 
@@ -148,6 +182,31 @@
         <button class="btn" type="button" id="aGuardar" hidden>Guardar los ajustes</button>
       </div>
     </div>
+
+    <div class="card sep">
+      <h2 class="sec">Ayuda recurrente y pagos por ACH</h2>
+      <p class="tiny muted" style="margin-top:0">ACH es el cobro desde una cuenta bancaria de EE. UU.: Stripe se queda un 0,8 % (como mucho $5),
+        frente a casi un 3 % con tarjeta. Tarda unos días hábiles en entrar: el recibo sale cuando entra.</p>
+      <div class="ajustes-rejilla">
+        <div>
+          <label class="check"><input type="checkbox" id="rActiva"> Ofrecer la ayuda recurrente en la página de becas</label>
+          <div class="row" style="gap:var(--e2)">
+            <div class="field" style="max-width:160px"><label for="rMonto">Al mes (USD)</label><input id="rMonto" type="number" min="1" max="1000" step="0.01"></div>
+            <div class="field" style="flex:1;min-width:180px"><label for="rNombre">El nombre que ve quien dona</label><input id="rNombre" maxlength="60"></div>
+          </div>
+          <div class="tiny muted">Sale en la página, en la pantalla de pago de Stripe y en sus recibos. Cambiar el monto o el nombre
+            vale para las altas nuevas: las que ya existen siguen como se dieron de alta.</div>
+        </div>
+        <div>
+          <label class="check"><input type="checkbox" id="rAch"> Las donaciones de una vez también se pueden pagar por ACH, además de con tarjeta</label>
+        </div>
+      </div>
+      <div id="rMsg"></div>
+      <div class="row between sep">
+        <span class="tiny muted"></span>
+        <button class="btn" type="button" id="rGuardar" hidden>Guardar</button>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -170,38 +229,41 @@ const fdia = (d) => d ? new Date(String(d).length === 10 ? d + 'T12:00:00' : d)
   .toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const hoy = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 
-const METODO = { tarjeta: 'Tarjeta', zelle: 'Zelle', transferencia: 'Transferencia', cheque: 'Cheque', efectivo: 'Efectivo', otro: 'Otro' };
+const METODO = { tarjeta: 'Tarjeta', ach: 'ACH', zelle: 'Zelle', transferencia: 'Transferencia', cheque: 'Cheque', efectivo: 'Efectivo', otro: 'Otro' };
 const ESTADO = { confirmada: ['Confirmada', 'ok'], iniciada: ['Sin terminar', 'neutral'], fallida: ['Fallida', 'err'], anulada: ['Anulada', 'err'] };
 const MOV = { donacion: ['Donación', 'ok'], anulacion: ['Anulación', 'err'], beca: ['Beca', 'gold'], devolucion: ['Vuelve al fondo', 'teal'] };
 const chipEstado = (e) => chip(...(ESTADO[e] || [e, 'neutral']));
+const ESTADO_REC = { activa: ['Activa', 'ok'], impagada: ['Falta un cobro', 'warn'], cancelada: ['Cancelada', 'neutral'], iniciada: ['Sin terminar el alta', 'neutral'] };
+const PAGINA_REC = 'https://escuelacem.com/plataforma/ayuda-recurrente.html?s=';
 
 if (registra) $('#btnRegistrar').hidden = false;
 if (rol !== 'cobranza') $('#aBecas').hidden = false;
-if (esAdmin) { $('#btnPaquete').hidden = false; $('#aGuardar').hidden = false; }
+if (esAdmin) { $('#btnPaquete').hidden = false; $('#aGuardar').hidden = false; $('#rGuardar').hidden = false; }
 else $('#ajNadie').hidden = false;
 
-let resumen = {}, donaciones = [], iniciadas = null, movimientos = [], ajustes = null, cuentas = [];
+let resumen = {}, donaciones = [], iniciadas = null, movimientos = [], ajustes = null, cuentas = [], recurrentes = [];
 
 /* ── pestañas ─────────────────────────────────────────────────────────── */
 function abrirPestana(cual) {
   $$('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.p === cual));
-  ['donaciones', 'fondo', 'ajustes'].forEach((x) => { $('#p-' + x).hidden = x !== cual; });
+  ['donaciones', 'recurrente', 'fondo', 'ajustes'].forEach((x) => { $('#p-' + x).hidden = x !== cual; });
   const u = new URL(location.href); u.searchParams.set('pestana', cual); history.replaceState(null, '', u);
 }
 $$('#tabs button').forEach((b) => b.onclick = () => abrirPestana(b.dataset.p));
-if (['fondo', 'ajustes'].includes(qs('pestana'))) abrirPestana(qs('pestana'));
+if (['recurrente', 'fondo', 'ajustes'].includes(qs('pestana'))) abrirPestana(qs('pestana'));
 
 /* ── carga ────────────────────────────────────────────────────────────── */
 async function cargar() {
-  const [r, d, m, a] = await Promise.all([
+  const [r, d, m, a, s] = await Promise.all([
     sb.rpc('cem_becas_resumen'), sb.rpc('cem_becas_donaciones_listar', {}),
-    sb.rpc('cem_becas_movimientos'), sb.rpc('cem_becas_ajustes_ver'),
+    sb.rpc('cem_becas_movimientos'), sb.rpc('cem_becas_ajustes_ver'), sb.rpc('cem_becas_recurrentes_listar'),
   ]);
-  const e = r.error || d.error || m.error || a.error;
+  const e = r.error || d.error || m.error || a.error || s.error;
   if (e) { avisar('#kpis', mensajeError(e, 'No se pudieron leer las donaciones.')); return; }
   resumen = r.data || {}; donaciones = d.data || []; movimientos = m.data || []; ajustes = a.data || {};
+  recurrentes = s.data || [];
   iniciadas = null;
-  pintarKpis(); await pintarDon(); pintarFondo(); pintarAjustes();
+  pintarKpis(); await pintarDon(); pintarRec(); pintarFondo(); pintarAjustes();
   const abrir = qs('id');
   if (abrir) { const x = donaciones.find((y) => y.id === abrir); if (x) verDonacion(x); }
 }
@@ -258,7 +320,8 @@ async function pintarDon() {
     <td class="wrap" data-col="Quién">${d.anonima ? '<span class="muted">Donación anónima</span>'
       : esc(d.donante) + (d.publica ? '' : ' <span class="tiny muted">(no sale en la lista)</span>')}
       <div class="tiny muted">${esc([d.organizacion, d.pais].filter(Boolean).join(' · '))}</div></td>
-    <td data-col="Cómo llegó">${esc(METODO[d.metodo] || d.metodo)}${d.referencia ? `<div class="tiny muted">${esc(d.referencia)}</div>` : ''}</td>
+    <td data-col="Cómo llegó">${esc(METODO[d.metodo] || d.metodo)}${d.suscripcion ? ` ${chip('Recurrente', 'teal')}` : ''}${d.procesando && d.estado === 'iniciada' ? ` ${chip('ACH en camino', 'warn')}` : ''}
+      ${d.suscripcion ? `<div class="tiny muted">${esc(d.suscripcion)}${d.periodo ? ' · ' + esc(mesDe(d.periodo)) : ''}</div>` : d.referencia ? `<div class="tiny muted">${esc(d.referencia)}</div>` : ''}</td>
     <td class="num" data-col="Monto">${esc(usd(d.monto))}</td>
     <td data-col="Usado en becas">${usoHtml(d)}</td>
     <td data-col="Estado">${chipEstado(d.estado)}</td>
@@ -276,7 +339,7 @@ $('#csvDon').onclick = async () => {
     numero: d.numero, fecha: d.fecha || '', estado: d.estado, metodo: d.metodo, monto_usd: d.monto,
     usado_en_becas: d.usado, queda: d.queda, donante: d.donante, correo: d.email || '', pais: d.pais || '',
     organizacion: d.organizacion || '', anonima: d.anonima ? 'sí' : 'no', publica: d.publica ? 'sí' : 'no', idioma: d.idioma, paquete: d.paquete || '',
-    referencia: d.referencia || '', cuenta_stripe: d.metodo === 'tarjeta' ? (d.stripe_cuenta || 'principal') : '',
+    ayuda_recurrente: d.suscripcion || '', periodo: d.periodo || '', referencia: d.referencia || '', cuenta_stripe: d.metodo === 'tarjeta' ? (d.stripe_cuenta || 'principal') : '',
     origen: d.origen || '', campana: d.campana || '', registrada_por: d.registrada_por || '',
     confirmada_en: d.confirmada_en || '', anulada_en: d.anulada_en || '', motivo_anulacion: d.motivo_anulacion || '',
     mensaje: d.mensaje || '', nota: d.nota || '',
@@ -295,6 +358,7 @@ async function verDonacion(d) {
       ${dato('Monto', usd(d.monto) + ' USD')}${dato('Fecha', fdia(d.fecha))}
       ${dato('Correo', d.email)}${dato('País', d.pais)}${dato('Organización', d.organizacion)}
       ${dato('Idioma del recibo', d.idioma === 'en' ? 'Inglés' : 'Español')}${dato('Paquete', d.paquete)}
+      ${dato('Ayuda recurrente', d.suscripcion ? d.suscripcion + (d.periodo ? ' · ' + mesDe(d.periodo) : '') : '')}
       ${dato(d.metodo === 'tarjeta' ? 'Cobro en Stripe' : 'Referencia', d.referencia)}
       ${d.metodo === 'tarjeta' ? dato('Cuenta de Stripe', d.stripe_cuenta ? (c?.nombre || d.stripe_cuenta) : 'La principal') : ''}
       ${dato('Llegó por', [d.origen, d.campana].filter(Boolean).join(' · '))}${dato('La registró', d.registrada_por)}
@@ -481,6 +545,11 @@ function pintarAjustes() {
   $('#aMax').value = a.otro_monto_maximo ?? 50000;
   $('#aDonantes').checked = a.mostrar_donantes !== false;
   $('#aHistorias').checked = a.mostrar_historias !== false;
+  $('#rActiva').checked = a.recurrente_activa === true;
+  $('#rMonto').value = a.recurrente_monto ?? 3.99;
+  $('#rNombre').value = a.recurrente_nombre || 'Services Fee';
+  $('#rAch').checked = a.ach_activo !== false;
+  ['#rActiva', '#rMonto', '#rNombre', '#rAch'].forEach((x) => { $(x).disabled = !esAdmin; });
   $('#aReciboEs').value = a.texto_recibo_es || '';
   $('#aReciboEn').value = a.texto_recibo_en || '';
   $('#aCuando').textContent = a.actualizado_en ? `Cambiados por última vez el ${fdatetime(a.actualizado_en)}.` : '';
@@ -500,6 +569,70 @@ $('#aGuardar').onclick = async () => {
   $('#aMsg').innerHTML = '';
   ajustes = data; pintarAjustes(); ok('Ajustes guardados.');
 };
+
+$('#rGuardar').onclick = async () => {
+  const activa = $('#rActiva').checked;
+  if (activa && !ajustes?.recurrente_activa && !await confirmDialog(
+      `La página de becas ofrecerá «${$('#rNombre').value.trim() || 'Services Fee'}», ${usd($('#rMonto').value)} al mes por ACH. ¿Encenderla?`, 'Encender')) return;
+  const { data, error } = await sb.rpc('cem_becas_recurrente_guardar', {
+    p_activa: activa, p_monto: Number($('#rMonto').value) || 0, p_nombre: $('#rNombre').value.trim(), p_ach: $('#rAch').checked });
+  if (error) return avisar('#rMsg', mensajeError(error, 'No se pudieron guardar.'));
+  $('#rMsg').innerHTML = '';
+  ajustes = { ...ajustes, ...data }; pintarAjustes(); pintarRec(); ok('Guardado.');
+};
+
+/* ── ayuda recurrente ─────────────────────────────────────────────────── */
+/* «noviembre de 2026»: el mes que paga un cobro. */
+function mesDe(d) {
+  return d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : '';
+}
+function recFiltradas() {
+  const q = $('#qRec').value.trim(), f = $('#fRec').value;
+  return recurrentes.filter((s) => match(s, q, ['numero', 'donante', 'email', 'organizacion', 'pais'])
+    && (f === '' || (f === 'vivas' ? ['activa', 'impagada'].includes(s.estado) : s.estado === f)));
+}
+function pintarRec() {
+  const vivas = recurrentes.filter((s) => ['activa', 'impagada'].includes(s.estado));
+  const nombre = ajustes?.recurrente_nombre || 'Services Fee';
+  $('#recExplica').textContent = `Quien la paga la ve como «${nombre}»: una cantidad al mes que se cobra por ACH desde su cuenta bancaria `
+    + 'de EE. UU. Cada cobro entra como una donación más, con su recibo.' + (ajustes?.recurrente_activa ? '' : ' Ahora mismo NO se ofrece en la página: se enciende en Paquetes y ajustes.');
+  $('#kpisRec').innerHTML = [
+    kpi('Activas', num(vivas.length), 'autorenew', `${num(recurrentes.filter((s) => s.estado === 'impagada').length)} con un cobro que falló`),
+    kpi('Al mes', esc(usd(vivas.reduce((t, s) => t + Number(s.monto || 0), 0))), 'event_repeat', 'lo que entra cada mes si todas cobran'),
+    kpi('Cobrado', esc(usd(recurrentes.reduce((t, s) => t + Number(s.total || 0), 0))), 'savings', `${num(recurrentes.reduce((t, s) => t + Number(s.cobros || 0), 0))} cobro(s)`),
+    kpi('Canceladas', num(recurrentes.filter((s) => s.estado === 'cancelada').length), 'event_busy', 'desde el principio'),
+  ].join('');
+  const filas = recFiltradas();
+  $('#cuentaRec').textContent = `${num(filas.length)} de ${num(recurrentes.length)}`;
+  $('#tbRec').innerHTML = filas.length ? filas.map((s) => `<tr>
+    <td data-col="Ayuda"><b>${esc(s.numero)}</b><div class="tiny muted">${esc(usd(s.monto))} al mes · desde ${esc(fdia(s.activada_en || s.creada_en))}</div></td>
+    <td class="wrap" data-col="Quién">${s.anonima ? '<span class="muted">Anónima</span>' : esc(s.donante)}
+      <div class="tiny muted">${esc([s.email, s.organizacion, s.pais].filter(Boolean).join(' · '))}</div></td>
+    <td data-col="Estado">${chip(...(ESTADO_REC[s.estado] || [s.estado, 'neutral']))}
+      ${s.estado === 'cancelada' && s.motivo_fin ? `<div class="tiny muted">${esc(s.motivo_fin)}</div>` : ''}
+      ${s.nota ? `<div class="tiny err-text">${esc(s.nota)}</div>` : ''}</td>
+    <td class="num" data-col="Cobrado">${esc(usd(s.total))}<div class="tiny muted">${num(s.cobros || 0)} cobro(s)</div></td>
+    <td data-col="Próximo cobro">${['activa', 'impagada'].includes(s.estado) && s.proximo_cobro ? esc(fdia(s.proximo_cobro)) : '<span class="muted">—</span>'}</td>
+    <td data-col=""><div class="row" style="gap:4px;flex-wrap:nowrap">
+      <a class="btn ghost sm" href="../ayuda-recurrente.html?s=${esc(encodeURIComponent(s.clave))}" target="_blank" rel="noopener noreferrer"
+        title="Abrir su página" aria-label="Abrir la página de ${esc(s.numero)}"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span></a>
+      <button class="btn ghost sm" type="button" data-copiar-rec="${esc(s.clave)}" title="Copiar el enlace de su página"
+        aria-label="Copiar el enlace de ${esc(s.numero)}"><span class="material-symbols-outlined" aria-hidden="true">content_copy</span></button></div></td></tr>`).join('')
+    : emptyRow(6, recurrentes.length ? 'Ninguna con esos filtros.' : 'Todavía nadie se ha dado de alta en la ayuda recurrente.');
+  montarAyudas($('#kpisRec'));
+  $$('#tbRec [data-copiar-rec]').forEach((b) => b.onclick = async () => {
+    const enlace = PAGINA_REC + encodeURIComponent(b.dataset.copiarRec);
+    try { await navigator.clipboard.writeText(enlace); ok('Enlace copiado.'); }
+    catch { await confirmDialog(`Cópialo a mano: ${enlace}`, 'Entendido'); }
+  });
+}
+conectarFiltros(['#qRec', '#fRec'], pintarRec);
+$('#csvRec').onclick = () => download('ayuda-recurrente.csv', toCSV(recFiltradas().map((s) => ({
+  numero: s.numero, estado: s.estado, al_mes_usd: s.monto, producto: s.producto, donante: s.anonima ? 'Anónima' : s.donante,
+  correo: s.email || '', pais: s.pais || '', organizacion: s.organizacion || '', desde: s.activada_en || s.creada_en,
+  cobros: s.cobros, cobrado_usd: s.total, ultimo_cobro: s.ultimo_cobro || '', proximo_cobro: s.proximo_cobro || '',
+  cancelada_en: s.cancelada_en || '', motivo: s.motivo_fin || '', stripe: s.stripe_subscription || '', origen: s.origen || '', campana: s.campana || '',
+}))));
 
 function editarPaquete(k = null) {
   const m = modal({ title: k ? `Paquete de ${usd(k.monto)}` : 'Nuevo paquete', wide: true, body: `

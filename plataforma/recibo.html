@@ -167,12 +167,18 @@ const T = {
   es: {
     cargando: 'Cargando tu recibo…',
     documento: 'Recibo de donación', archivo: 'Recibo', pagado: 'Pagado',
+    documentoRec: (p) => `Recibo · ${p}`, lineaRec: (p) => `${p} · ayuda recurrente`, mesPagado: (m) => `Mes: ${m}`,
+    graciasHojaRec: 'Gracias por sostener cada mes el fondo de becas del CEM: con tu aporte, alguien que hoy no podría pagarlo estudia un programa completo. Cada dólar del fondo queda anotado.',
+    camino: 'Tu pago por ACH está en camino',
+    caminoTexto: 'Los pagos desde una cuenta bancaria tardan unos días hábiles en entrar. En cuanto entre, aquí estará tu recibo, y si dejaste tu correo también te llegará allí.',
+    fallida: 'Este pago no se completó',
+    fallidaTexto: 'El banco no lo dejó pasar, así que no se te cobró nada. Si quieres, vuelve a intentarlo desde la página de becas.',
     recibidoDe: 'Recibido de', anonimo: 'Donante anónimo', destino: 'Destino',
     fondo: 'Fondo de becas CEM', campana: '«Ayuda a alguien a estudiar»',
     concepto: 'Concepto', importe: 'Importe', linea: 'Aporte al fondo de becas CEM',
     paquete: (x) => `Paquete «${x}»`, total: 'Total pagado',
     formaPago: 'Forma de pago', referencia: 'Referencia',
-    metodos: { tarjeta: 'Tarjeta, a través de Stripe', zelle: 'Zelle', transferencia: 'Transferencia bancaria',
+    metodos: { tarjeta: 'Tarjeta, a través de Stripe', ach: 'Cuenta bancaria (ACH), a través de Stripe', zelle: 'Zelle', transferencia: 'Transferencia bancaria',
                cheque: 'Cheque', efectivo: 'Efectivo', otro: 'Otro' },
     graciasHoja: (correo) => 'Gracias por tu aporte. Con él, alguien que hoy no podría pagarlo va a estudiar un '
       + 'programa completo del CEM. Cada dólar del fondo queda anotado'
@@ -203,12 +209,18 @@ const T = {
   en: {
     cargando: 'Loading your receipt…',
     documento: 'Donation receipt', archivo: 'Receipt', pagado: 'Paid',
+    documentoRec: (p) => `Receipt · ${p}`, lineaRec: (p) => `${p} · recurring support`, mesPagado: (m) => `Month: ${m}`,
+    graciasHojaRec: 'Thank you for supporting the CEM scholarship fund every month: because of your gift, someone who couldn’t afford it today studies a full program. Every dollar in the fund is recorded.',
+    camino: 'Your bank payment is on its way',
+    caminoTexto: 'Payments from a bank account take a few business days to go through. As soon as it does, your receipt will be here, and if you left your email it will arrive there too.',
+    fallida: 'This payment didn’t go through',
+    fallidaTexto: 'The bank didn’t let it through, so you weren’t charged anything. If you like, try again from the scholarships page.',
     recibidoDe: 'Received from', anonimo: 'Anonymous donor', destino: 'Designated to',
     fondo: 'CEM scholarship fund', campana: '“Help someone study”',
     concepto: 'Description', importe: 'Amount', linea: 'Gift to the CEM scholarship fund',
     paquete: (x) => `“${x}” package`, total: 'Total paid',
     formaPago: 'Payment method', referencia: 'Reference',
-    metodos: { tarjeta: 'Card, through Stripe', zelle: 'Zelle', transferencia: 'Bank transfer',
+    metodos: { tarjeta: 'Card, through Stripe', ach: 'Bank account (ACH), through Stripe', zelle: 'Zelle', transferencia: 'Bank transfer',
                cheque: 'Check', efectivo: 'Cash', otro: 'Other' },
     graciasHoja: (correo) => 'Thank you for your gift. Because of it, someone who couldn’t afford it today will '
       + 'study a full CEM program. Every dollar in the fund is recorded'
@@ -276,6 +288,16 @@ const fecha = (iso) => {
     { day: 'numeric', month: 'long', year: 'numeric' });
 };
 const metodo = (m) => T[idioma].metodos[m] || T[idioma].metodos.otro;
+/* Un cobro de la ayuda recurrente se titula con su producto («Services
+   Fee») y dice qué mes paga; una donación de una vez, como siempre. */
+const titulo = (r) => (r.recurrente && r.producto ? t('documentoRec', r.producto) : t('documento'));
+const concepto = (r) => (r.recurrente && r.producto ? t('lineaRec', r.producto) : t('linea'));
+const detalle = (r) => (r.recurrente && r.periodo ? t('mesPagado', mes(r.periodo)) : r.paquete ? t('paquete', r.paquete) : '');
+const gracias_ = (r) => (r.recurrente ? t('graciasHojaRec') : t('graciasHoja', r.con_correo));
+const mes = (iso) => {
+  const [a, m] = String(iso || '').slice(0, 10).split('-').map(Number);
+  return a ? new Date(a, m - 1, 1).toLocaleDateString(idioma === 'en' ? 'en-US' : 'es-ES', { month: 'long', year: 'numeric' }) : '';
+};
 const pila = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 const enlace = () => `${PAGINA}?r=${encodeURIComponent(clave)}`;
 const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -300,7 +322,7 @@ function pintarAviso(titulo, texto, boton) {
 
 function pintarRecibo(r) {
   recibo = r;
-  document.title = `${t('documento')} ${r.numero} · CEM International`;
+  document.title = `${titulo(r)} ${r.numero} · CEM International`;
   saludo.innerHTML = gracias
     ? `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(t('gracias', r.anonima ? '' : pila(r.nombre)))}</h1>
        <p>${esc(t('graciasTexto', dinero(r.monto)))}${r.con_correo ? ' ' + esc(t('tambienCorreo')) : ''}</p>`
@@ -316,7 +338,7 @@ function pintarRecibo(r) {
           <p class="hoja-dato">${esc(t('fondo'))}</p><p class="hoja-dato">escuelacem.com</p></div>
       </div>
       <div class="hoja-meta">
-        <h2 class="hoja-rotulo" id="hojaTitulo">${esc(t('documento'))}</h2>
+        <h2 class="hoja-rotulo" id="hojaTitulo">${esc(titulo(r))}</h2>
         <p class="hoja-numero">${esc(r.numero)}</p>
         <p class="hoja-dato">${esc(fecha(r.fecha))}</p>
         <p class="hoja-sello"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>${esc(t('pagado'))}</p>
@@ -330,7 +352,7 @@ function pintarRecibo(r) {
     </div>
     <table class="hoja-tabla">
       <thead><tr><th scope="col">${esc(t('concepto'))}</th><th scope="col" class="num">${esc(t('importe'))}</th></tr></thead>
-      <tbody><tr><td>${esc(t('linea'))}${r.paquete ? `<span>${esc(t('paquete', r.paquete))}</span>` : ''}</td>
+      <tbody><tr><td>${esc(concepto(r))}${detalle(r) ? `<span>${esc(detalle(r))}</span>` : ''}</td>
         <td class="num">${esc(dinero(r.monto))}</td></tr></tbody>
       <tfoot><tr><th scope="row">${esc(t('total'))}</th>
         <td class="num"><b>${esc(dinero(r.monto))}</b><small>${esc(r.moneda || 'USD')}</small></td></tr></tfoot>
@@ -339,7 +361,7 @@ function pintarRecibo(r) {
       <div><dt class="hoja-rotulo">${esc(t('formaPago'))}</dt><dd>${esc(metodo(r.metodo))}</dd></div>
       ${r.referencia ? `<div><dt class="hoja-rotulo">${esc(t('referencia'))}</dt><dd class="hoja-ref">${esc(r.referencia)}</dd></div>` : ''}
     </dl>
-    <p class="hoja-gracias">${esc(t('graciasHoja', r.con_correo))}</p>
+    <p class="hoja-gracias">${esc(gracias_(r))}</p>
     <footer class="hoja-pie">
       <div class="hoja-qr" id="hojaQr"></div>
       <div>
@@ -367,6 +389,8 @@ async function arrancar() {
     if (!idiomaPedido && T[r.idioma]) { idioma = r.idioma; ponerIdioma(); }
     if (r.estado === 'confirmada') { pintarRecibo(r); return; }
     if (r.estado === 'anulada') { pintarAviso(t('anulada'), t('anuladaTexto', r.numero)); return; }
+    if (r.estado === 'fallida') { pintarAviso(t('fallida'), t('fallidaTexto')); return; }
+    if (r.procesando) { pintarAviso(t('camino'), t('caminoTexto'), t('comprobar')); return; }
     /* Stripe avisa por su lado y a veces llega después que la persona: se
        pregunta durante medio minuto antes de pedirle que vuelva. */
     if (vuelta >= 11) { pintarAviso(t('tarda'), t('tardaTexto'), t('comprobar')); return; }
@@ -435,7 +459,7 @@ async function hacerPdf(r) {
   try { logo = await logoPng(); } catch {}
 
   const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter', compress: true });
-  doc.setProperties({ title: latino(`${t('documento')} ${r.numero}`), author: 'CEM International',
+  doc.setProperties({ title: latino(`${titulo(r)} ${r.numero}`), author: 'CEM International',
                       subject: latino(t('fondo')), creator: 'escuelacem.com' });
   const W = 612, H = 792, M = 54, D = W - M, ANCHO = D - M, MITAD = M + ANCHO / 2 + 12;
   const TINTA = [11, 22, 48], TINTA2 = [74, 88, 114], FILETE = [226, 231, 239],
@@ -472,7 +496,7 @@ async function hacerPdf(r) {
   letra('bold', 15, TINTA); doc.text('CEM International', xm, y + 13);
   letra('normal', 9.5, TINTA2);
   doc.text(latino(t('fondo')), xm, y + 27); doc.text('escuelacem.com', xm, y + 40);
-  rotulo(t('documento'), 0, y + 6, true);
+  rotulo(titulo(r), 0, y + 6, true);
   letra('bold', 20, TINTA); doc.text(latino(r.numero), D, y + 31, { align: 'right' });
   letra('normal', 10, TINTA2); doc.text(latino(fecha(r.fecha)), D, y + 47, { align: 'right' });
   letra('bold', 8.5, ACENTO);
@@ -498,8 +522,8 @@ async function hacerPdf(r) {
   doc.setDrawColor(...FILETE); doc.line(M, y + 8, D, y + 8);
   y += 28;
   letra('normal', 11, TINTA); doc.text(latino(dinero(r.monto)), D, y, { align: 'right' });
-  let yc = parrafo(t('linea'), M, y, ANCHO - 140, 11, TINTA);
-  if (r.paquete) yc = parrafo(t('paquete', r.paquete), M, yc + 15, ANCHO - 140, 9.5, TINTA2);
+  let yc = parrafo(concepto(r), M, y, ANCHO - 140, 11, TINTA);
+  if (detalle(r)) yc = parrafo(detalle(r), M, yc + 15, ANCHO - 140, 9.5, TINTA2);
   y = yc + 14;
   doc.line(M, y, D, y);
   y += 32;
@@ -524,7 +548,7 @@ async function hacerPdf(r) {
 
   // Las gracias, en su recuadro
   letra('normal', 10.5, TINTA);
-  const lineas = doc.splitTextToSize(latino(t('graciasHoja', r.con_correo)), ANCHO - 32);
+  const lineas = doc.splitTextToSize(latino(gracias_(r)), ANCHO - 32);
   const alto = (lineas.length - 1) * 10.5 * 1.5 + 34;
   doc.setFillColor(...PANEL); doc.roundedRect(M, y, ANCHO, alto, 8, 8, 'F');
   doc.text(lineas, M + 16, y + 21, { lineHeightFactor: 1.5 });

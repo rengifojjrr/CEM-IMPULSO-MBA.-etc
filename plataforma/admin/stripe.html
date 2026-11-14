@@ -155,7 +155,11 @@ function pintar(){
       <h2 class="sec">Paso 2 · Avisarle a Stripe dónde estamos</h2>
       <p class="tiny muted">Sin esto, la persona paga y aquí nadie se entera: la cuota seguiría
         pendiente y el curso cerrado. En Stripe: <b>Developers → Webhooks → Add endpoint</b>,
-        pega esta dirección y elige el evento <code>checkout.session.completed</code>.</p>
+        pega esta dirección y elige el evento <code>checkout.session.completed</code>. Si en esta cuenta entran
+        las donaciones de becas, añade también <code>checkout.session.async_payment_succeeded</code>,
+        <code>checkout.session.async_payment_failed</code>, <code>invoice.paid</code>, <code>invoice.payment_failed</code>,
+        <code>customer.subscription.updated</code> y <code>customer.subscription.deleted</code>: son los pagos por ACH y la
+        ayuda recurrente.</p>
       <div class="row" style="gap:8px;align-items:center">
         <code id="urlHook" class="dato-copiable">${esc(URL_WEBHOOK)}</code>
         <button class="btn ghost sm" id="btnCopiarHook" type="button">
@@ -218,8 +222,8 @@ function pintarOtras(){
             (<code>pk_test_…</code>) y la secreta (<code>sk_test_…</code>).</li>
         <li>Aquí: <b>Añadir una empresa</b>, con su nombre y esas dos claves. Guarda.</li>
         <li>En su cuenta de Stripe: <b>Developers → Webhooks → Add endpoint</b>, con la dirección
-            que sale aquí debajo de su nombre y el evento <code>checkout.session.completed</code>.
-            Copia el <b>signing secret</b> (<code>whsec_…</code>) y pégalo aquí, en Editar.</li>
+            que sale aquí debajo de su nombre y el evento <code>checkout.session.completed</code> (y los de ACH y ayuda
+            recurrente si en ella entran las donaciones: ver <code>docs/stripe-otra-empresa.md</code>). Copia el <b>signing secret</b> (<code>whsec_…</code>) y pégalo aquí, en Editar.</li>
         <li>En <a href="cursos.html">Cursos</a>, en cada programa suyo: <b>Cobro con tarjeta en</b> → la empresa.</li>
         <li>Una compra de prueba con la tarjeta <code>4242 4242 4242 4242</code>. Si el curso se abre
             y el cobro sale en <b>su</b> panel de Stripe, repite los pasos 2 a 4 con las claves
@@ -292,7 +296,8 @@ function formCuenta(c = null){
           <button class="btn ghost sm" type="button" id="kCopiar">
             <span class="material-symbols-outlined" aria-hidden="true">content_copy</span> Copiar</button></div>
         <span class="pista">En su cuenta de Stripe: Developers → Webhooks → Add endpoint, con esta
-          dirección y el evento <code>checkout.session.completed</code>.</span></div>
+          dirección y el evento <code>checkout.session.completed</code>; si en ella entran las donaciones, también los de
+          ACH y ayuda recurrente.</span></div>
       <div class="field"><label for="kHook">Secreto del webhook</label>
         <input type="password" id="kHook" autocomplete="off" placeholder="${c?.webhook_pista ? 'déjalo vacío para conservar el de ahora' : 'whsec_…'}">
         ${c?.webhook_pista ? `<span class="pista">Guardado: <code>${esc(c.webhook_pista)}</code>.</span>`

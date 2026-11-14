@@ -80,6 +80,29 @@
   .otro-monto input{flex:1;min-width:0;font-size:22px;font-weight:600}
 
   .donar-caja{max-width:760px}
+
+  /* Una sola vez o cada mes. La ayuda recurrente se ve como una tarjeta propia:
+     el monto grande, el nombre con el que la conoce quien la paga y lo que hay
+     que saber antes de darse de alta (ACH, cancelar, recibos). */
+  .modos{display:inline-flex;gap:4px;padding:4px;margin:0 0 var(--e3);border-radius:999px;
+    background:var(--n-panel);box-shadow:inset 0 0 0 1px var(--filete)}
+  .modos button{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border:0;
+    border-radius:999px;background:transparent;color:var(--tinta-2);font:inherit;font-weight:600;font-size:15px;cursor:pointer}
+  .modos button[aria-selected="true"]{background:var(--papel);color:var(--tinta);
+    box-shadow:0 1px 2px rgba(11,22,48,.08),inset 0 0 0 1px var(--filete)}
+  .modos button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+  .modos .material-symbols-outlined{font-size:18px}
+  .recurrente{max-width:760px;margin:0 0 var(--e3);display:grid;grid-template-columns:auto minmax(0,1fr);
+    gap:var(--e2) var(--e4);align-items:start}
+  .rec-cifra b{display:block;font-family:var(--n-display);font-size:52px;font-weight:600;letter-spacing:-.03em;
+    line-height:1;font-variant-numeric:tabular-nums}
+  .rec-cifra span{display:block;margin-top:4px;color:var(--tinta-2);font-size:15px}
+  .rec-nombre{margin:0 0 6px;font-family:var(--n-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--secondary)}
+  .rec-texto{margin:0 0 var(--e2);font-size:16px;line-height:1.55}
+  .rec-puntos{display:grid;gap:8px;margin:0;padding:0;list-style:none;color:var(--tinta-2);font-size:14px;line-height:1.5}
+  .rec-puntos li{display:flex;gap:10px;align-items:flex-start}
+  .rec-puntos .material-symbols-outlined{font-size:20px;color:var(--n-cian)}
+  .rec-personas{margin:var(--e2) 0 0;font-size:14px;font-weight:600}
   .donar-caja .fila{display:grid;gap:var(--e2);grid-template-columns:repeat(2,minmax(0,1fr))}
   .donar-caja .resumen{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2);
     padding:var(--e2) 0;border-top:1px solid var(--filete);margin-top:var(--e2)}
@@ -107,6 +130,8 @@
   @media (max-width:640px){
     .idioma{top:var(--e2);right:var(--e2)}
     .donar-caja .fila{grid-template-columns:minmax(0,1fr)}
+    .recurrente{grid-template-columns:minmax(0,1fr)}
+    .modos{display:flex} .modos button{flex:1;padding:10px 12px}
     body.ini-portada .cifras-becas{grid-template-columns:repeat(3,minmax(0,1fr))}
     .paquete .monto{font-size:30px}
   }
@@ -142,6 +167,12 @@
       <p class="ini-rotulo" data-t="rotuloDonar">Donar</p>
       <h2 data-t="tituloDonar">Elige cuánto quieres aportar</h2>
       <p class="ini-entrada" data-t="entradaDonar">Todo lo que aportas entra en el fondo de becas, aparte del resto del dinero del CEM. El fondo sólo se usa para pagar programas completos a quien no puede pagarlos.</p>
+      <div class="modos" id="modos" role="tablist" aria-label="Cómo quieres ayudar" hidden>
+        <button type="button" role="tab" id="modoUna" data-modo="una" aria-selected="true" aria-controls="paquetes"><span data-t="modoUna">Una sola vez</span></button>
+        <button type="button" role="tab" id="modoRec" data-modo="recurrente" aria-selected="false" aria-controls="recurrente">
+          <span class="material-symbols-outlined" aria-hidden="true">autorenew</span><span data-t="modoRec">Ayuda recurrente</span></button>
+      </div>
+      <div class="card recurrente" id="recurrente" role="tabpanel" aria-labelledby="modoRec" hidden></div>
       <div class="paquetes" id="paquetes" role="group" aria-label="Montos"><span class="cargando"></span></div>
 
       <form class="card donar-caja" id="formDonar" novalidate>
@@ -158,18 +189,18 @@
           <div class="field" id="campoOrg"><label for="dOrg"><span data-t="org">Organización o asociación</span> <span class="tiny muted" data-t="opcional">(opcional)</span></label>
             <input id="dOrg" autocomplete="organization" maxlength="120"></div>
         </div>
-        <div class="field"><label for="dMensaje"><span data-t="mensaje">Un mensaje para quien reciba la beca</span> <span class="tiny muted" data-t="opcional">(opcional)</span></label>
+        <div class="field" id="campoMensaje"><label for="dMensaje"><span data-t="mensaje">Un mensaje para quien reciba la beca</span> <span class="tiny muted" data-t="opcional">(opcional)</span></label>
           <textarea id="dMensaje" maxlength="500" rows="2"></textarea></div>
         <label class="check" id="filaPublica"><input type="checkbox" id="dPublica"> <span data-t="publica">Mostrar mi nombre (o el de mi organización) en la lista de quienes hacen posibles las becas</span></label>
         <div class="resumen">
-          <span data-t="tuAporte">Tu aporte</span>
+          <span id="dTotalRotulo" data-t="tuAporte">Tu aporte</span>
           <span class="total" id="dTotal">—</span>
         </div>
         <div id="dError"></div>
         <button class="ini-boton" type="submit" id="dBoton" style="width:100%">
           <span class="material-symbols-outlined" aria-hidden="true">lock</span><span id="dBotonTexto" data-t="donarConTarjeta">Donar con tarjeta</span></button>
         <p class="seguro"><span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
-          <span data-t="seguro">El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Al terminar ves tu recibo, para descargarlo en PDF, y te llega también por correo.</span></p>
+          <span id="dSeguro" data-t="seguro">El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Al terminar ves tu recibo, para descargarlo en PDF, y te llega también por correo.</span></p>
       </form>
     </div>
   </section>
@@ -247,6 +278,22 @@ const T = {
     mensaje: 'Un mensaje para quien reciba la beca',
     publica: 'Mostrar mi nombre (o el de mi organización) en la lista de quienes hacen posibles las becas',
     tuAporte: 'Tu aporte', donarConTarjeta: 'Donar con tarjeta', donarX: (x) => `Donar ${x} con tarjeta`,
+    donarAch: 'Donar', donarXAch: (x) => `Donar ${x}`,
+    seguroAch: 'El cobro lo hace Stripe, con tarjeta o desde tu cuenta bancaria de EE. UU. (ACH). El CEM no ve ni guarda esos datos. Al terminar ves tu recibo, para descargarlo en PDF, y te llega también por correo.',
+    modoUna: 'Una sola vez', modoRec: 'Ayuda recurrente',
+    recAlMes: 'al mes', alMes: 'Al mes', empezarRec: 'Empezar mi ayuda recurrente',
+    recTexto: (n) => `Con tu ${n} sostienes, cada mes, el servicio que reciben los estudiantes becados: todo va al fondo de becas.`,
+    recAch: 'Se cobra por ACH, desde tu cuenta bancaria de EE. UU.',
+    recCancela: 'Cada mes, el mismo día. La cancelas cuando quieras, desde el enlace que te llega por correo.',
+    recRecibo: 'Cada cobro tiene su recibo, para descargarlo en PDF.',
+    recPersonas: (n) => n === 1 ? '1 persona ayuda ya cada mes.' : `${n} personas ayudan ya cada mes.`,
+    seguroRec: 'El cobro lo hace Stripe, por ACH desde tu cuenta bancaria de EE. UU. El CEM no ve ni guarda los datos de tu banco. Al terminar ves tu ayuda recurrente, con lo que se cobra y cuándo.',
+    recCanceladaTitulo: 'No se completó el alta', recCancelada: 'No se te cobró nada. Si quieres, vuelve a intentarlo.',
+    preguntasRec: (n, x) => [
+      [`¿Qué es el ${n}?`, `Es la ayuda recurrente: ${x} al mes que van enteros al fondo de becas. Se llama así porque quien lo paga presta un servicio a los estudiantes: les sostiene el estudio, mes a mes. Se cobra por ACH desde una cuenta bancaria de EE. UU.`],
+      ['¿Cómo cancelo mi ayuda recurrente?', 'Desde el enlace que te llega por correo al darte de alta, y con cada recibo: «Cancelar mi ayuda recurrente». Se cancela al momento y no se te cobra más.'],
+    ],
+    preguntaAch: ['¿Puedo pagar desde mi cuenta bancaria?', 'Sí, si es de EE. UU.: Stripe lo cobra por ACH, y al CEM le cuesta mucho menos que la tarjeta. Tarda unos días hábiles en entrar; el recibo te llega cuando entra.'],
     seguro: 'El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Al terminar ves tu recibo, para descargarlo en PDF, y te llega también por correo.',
     otroMonto: 'Otro monto', otroMontoDesc: (min, max) => `El que tú quieras, entre ${min} y ${max}.`,
     destacado: 'El más elegido',
@@ -299,6 +346,22 @@ const T = {
     mensaje: 'A message for the person who gets the scholarship',
     publica: 'Show my name (or my organization\'s) on the list of people who make the scholarships possible',
     tuAporte: 'Your gift', donarConTarjeta: 'Give by card', donarX: (x) => `Give ${x} by card`,
+    donarAch: 'Give', donarXAch: (x) => `Give ${x}`,
+    seguroAch: 'Payment is handled by Stripe, by card or from your US bank account (ACH). CEM never sees or stores those details. When you finish you\'ll see your receipt, ready to download as a PDF, and we\'ll email it to you too.',
+    modoUna: 'One time', modoRec: 'Recurring support',
+    recAlMes: 'a month', alMes: 'Per month', empezarRec: 'Start my recurring support',
+    recTexto: (n) => `With your ${n} you support, every month, the service our scholarship students receive: all of it goes to the scholarship fund.`,
+    recAch: 'Charged by ACH, from your US bank account.',
+    recCancela: 'Every month on the same day. Cancel whenever you like, from the link we email you.',
+    recRecibo: 'Every charge has its receipt, to download as a PDF.',
+    recPersonas: (n) => n === 1 ? '1 person already helps every month.' : `${n} people already help every month.`,
+    seguroRec: 'Payment is handled by Stripe, by ACH from your US bank account. CEM never sees or stores your bank details. When you finish you\'ll see your recurring support, with what is charged and when.',
+    recCanceladaTitulo: 'The sign-up wasn\'t completed', recCancelada: 'You were not charged. If you like, try again.',
+    preguntasRec: (n, x) => [
+      [`What is the ${n}?`, `It\'s our recurring support: ${x} a month that goes entirely to the scholarship fund. It has that name because whoever pays it provides a service to our students: it keeps them studying, month after month. It\'s charged by ACH from a US bank account.`],
+      ['How do I cancel my recurring support?', 'From the link we email you when you sign up, and with every receipt: «Cancel my recurring support». It is canceled right away and you won\'t be charged again.'],
+    ],
+    preguntaAch: ['Can I pay from my bank account?', 'Yes, if it\'s a US account: Stripe charges it by ACH, which costs CEM much less than a card. It takes a few business days to go through; your receipt arrives when it does.'],
     seguro: 'Payment is handled by Stripe. CEM never sees or stores your card details. When you finish you\'ll see your receipt, ready to download as a PDF, and we\'ll email it to you too.',
     otroMonto: 'Other amount', otroMontoDesc: (min, max) => `Any amount you like, between ${min} and ${max}.`,
     destacado: 'Most chosen',
@@ -363,6 +426,9 @@ const masDe = (v) => {
 
 let datos = { es: null, en: null };
 let elegido = null;      // { paquete_id } o { otro: true }
+let modo = 'una';        // 'una' (una sola vez) o 'recurrente'
+let datosRec = null;     // la ayuda recurrente de los ajustes, si se ofrece
+let conAch = false;      // si las donaciones de una vez aceptan ACH
 
 async function traer() {
   if (!datos[idioma]) {
@@ -378,7 +444,20 @@ function traducir() {
   $$('[data-t]').forEach((el) => { const v = T[idioma][el.dataset.t]; if (typeof v === 'string') el.textContent = v; });
   $$('[data-th]').forEach((el) => { el.innerHTML = T[idioma][el.dataset.th]; });
   $$('[data-idioma]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.idioma === idioma)));
-  $('#preguntas').innerHTML = T[idioma].preguntas.map(([p, r]) => `
+  pintarPreguntas();
+}
+
+/* Las preguntas de siempre, y las de la ayuda recurrente y el ACH cuando se
+   ofrecen: con el nombre y el monto de los ajustes, para que no se queden
+   viejas si el equipo los cambia. */
+function pintarPreguntas() {
+  const extra = [
+    ...(datosRec ? t('preguntasRec', datosRec.nombre, usd(datosRec.monto)) : []),
+    ...(conAch ? [t('preguntaAch')] : []),
+  ];
+  const lista = [...T[idioma].preguntas];
+  lista.splice(4, 0, ...extra);
+  $('#preguntas').innerHTML = lista.map(([p, r]) => `
     <details><summary>${esc(p)}<span class="material-symbols-outlined" aria-hidden="true">add</span></summary>
       <p>${esc(r)}</p></details>`).join('');
 }
@@ -471,10 +550,53 @@ function marcar() {
   $$('#paquetes [data-paquete]').forEach((b) => b.setAttribute('aria-pressed', String(elegido?.paquete_id === b.dataset.paquete)));
   const otroCaja = $('#paquetes [data-otro]');
   if (otroCaja) otroCaja.dataset.elegido = elegido?.otro ? 'si' : 'no';
+  if (modo === 'recurrente' && datosRec) {
+    $('#dTotal').textContent = usd(datosRec.monto);
+    $('#dBotonTexto').textContent = t('empezarRec');
+    return;
+  }
   const monto = elegido?.monto || 0;
   $('#dTotal').textContent = monto > 0 ? usd(monto) : '—';
-  $('#dBotonTexto').textContent = monto > 0 ? t('donarX', usd(monto)) : t('donarConTarjeta');
+  $('#dBotonTexto').textContent = monto > 0 ? t(conAch ? 'donarXAch' : 'donarX', usd(monto)) : t(conAch ? 'donarAch' : 'donarConTarjeta');
 }
+
+/* La ayuda recurrente: la tarjeta y el selector sólo salen si los ajustes la
+   ofrecen. El monto y el nombre («Services Fee») vienen de ahí. */
+function pintarRecurrente(d) {
+  conAch = d.ach === true;
+  datosRec = d.recurrente?.activa ? d.recurrente : null;
+  $('#modos').hidden = !datosRec;
+  if (!datosRec) modo = 'una';
+  if (datosRec) {
+    const personas = Number(datosRec.personas) || 0;
+    $('#recurrente').innerHTML = `
+      <div class="rec-cifra"><b>${esc(usd(datosRec.monto))}</b><span>${esc(t('recAlMes'))}</span></div>
+      <div>
+        <p class="rec-nombre">${esc(datosRec.nombre)}</p>
+        <p class="rec-texto">${esc(t('recTexto', datosRec.nombre))}</p>
+        <ul class="rec-puntos">
+          <li><span class="material-symbols-outlined" aria-hidden="true">account_balance</span>${esc(t('recAch'))}</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>${esc(t('recCancela'))}</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>${esc(t('recRecibo'))}</li>
+        </ul>
+        ${personas ? `<p class="rec-personas">${esc(t('recPersonas', personas))}</p>` : ''}
+      </div>`;
+  }
+  pintarPreguntas();
+  pintarModo();
+}
+
+function pintarModo() {
+  const rec = modo === 'recurrente' && !!datosRec;
+  $$('#modos [data-modo]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.modo === (rec ? 'recurrente' : 'una'))));
+  $('#recurrente').hidden = !rec;
+  $('#paquetes').hidden = rec;
+  $('#campoMensaje').hidden = rec;
+  $('#dTotalRotulo').textContent = t(rec ? 'alMes' : 'tuAporte');
+  $('#dSeguro').textContent = t(rec ? 'seguroRec' : conAch ? 'seguroAch' : 'seguro');
+  marcar();
+}
+$$('#modos [data-modo]').forEach((b) => b.onclick = () => { modo = b.dataset.modo; $('#dError').innerHTML = ''; pintarModo(); });
 
 function pintarHistorias(d) {
   const h = d.historias || [];
@@ -497,7 +619,7 @@ async function pintar() {
   traducir();
   try {
     const d = await traer();
-    pintarCifras(d); pintarPaquetes(d); pintarHistorias(d);
+    pintarCifras(d); pintarPaquetes(d); pintarHistorias(d); pintarRecurrente(d);
   } catch {
     $('#paquetes').innerHTML = `<div class="nota err">${esc(t('noSalio'))}</div>`;
   }
@@ -537,7 +659,8 @@ $('#formDonar').onsubmit = async (e) => {
   const anonima = $('#dAnonima').checked;
   const nombre = anonima ? '' : $('#dNombre').value.trim(), email = $('#dEmail').value.trim();
   const decir = (m) => { err.innerHTML = `<div class="nota err">${esc(m)}</div>`; };
-  if (!elegido || !(elegido.monto > 0)) { decir(t('elige')); $('#donar').scrollIntoView({ behavior: 'smooth' }); return; }
+  const recurrente = modo === 'recurrente' && !!datosRec;
+  if (!recurrente && (!elegido || !(elegido.monto > 0))) { decir(t('elige')); $('#donar').scrollIntoView({ behavior: 'smooth' }); return; }
   if (!anonima && nombre.length < 2) { decir(t('faltaNombre')); $('#dNombre').focus(); return; }
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { decir(t('faltaCorreo')); $('#dEmail').focus(); return; }
 
@@ -545,15 +668,16 @@ $('#formDonar').onsubmit = async (e) => {
   boton.disabled = true;
   $('#dBotonTexto').textContent = t('abriendo');
   const { origen, campana } = canal();
-  medir('donar', { valor: elegido.monto, moneda: 'USD' });
+  medir('donar', { valor: recurrente ? Number(datosRec.monto) : elegido.monto, moneda: 'USD' });
   try {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/cem-donar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
       body: JSON.stringify({
-        ...(elegido.paquete_id ? { paquete_id: elegido.paquete_id } : { monto: elegido.monto }),
+        ...(recurrente ? { tipo: 'recurrente' }
+          : elegido.paquete_id ? { paquete_id: elegido.paquete_id } : { monto: elegido.monto }),
         nombre, email, pais: $('#dPais').value.trim(), organizacion: anonima ? '' : $('#dOrg').value.trim(),
-        mensaje: $('#dMensaje').value.trim(), publica: !anonima && $('#dPublica').checked, anonima,
+        mensaje: recurrente ? '' : $('#dMensaje').value.trim(), publica: !anonima && $('#dPublica').checked, anonima,
         idioma, origen, campana,
       }),
     });
@@ -569,6 +693,13 @@ $('#formDonar').onsubmit = async (e) => {
 
 /* De vuelta de Stripe: ?donacion=…&gracias=1, o &cancelada=1. */
 async function vuelta() {
+  if (qs('recurrente') === 'cancelada') {
+    const caja = $('#vuelta');
+    caja.hidden = false;
+    caja.innerHTML = `<div class="card"><h2>${esc(t('recCanceladaTitulo'))}</h2><p class="muted" style="margin:0">${esc(t('recCancelada'))}</p></div>`;
+    modo = 'recurrente'; pintarModo();
+    return;
+  }
   const id = qs('donacion');
   if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
   const caja = $('#vuelta');

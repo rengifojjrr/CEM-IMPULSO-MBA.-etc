@@ -104,7 +104,14 @@ En la cuenta de Stripe **de esa empresa**, todavía en modo prueba:
 
 1. **Endpoint URL:** la dirección que enseña la plataforma bajo el nombre de la
    empresa, **completa, con el final `?cuenta=…`**.
-2. **El evento:** `checkout.session.completed`. Solo ese.
+2. **Los eventos:** `checkout.session.completed`. Si esta cuenta es también
+   la de las donaciones de becas (Donaciones y fondo → Paquetes y ajustes),
+   añade los de los pagos por ACH y la ayuda recurrente:
+   `checkout.session.async_payment_succeeded`,
+   `checkout.session.async_payment_failed`, `invoice.paid`,
+   `invoice.payment_failed`, `customer.subscription.updated` y
+   `customer.subscription.deleted`. Sin ellos, un ACH no entraría nunca y
+   los cobros mensuales no llegarían al fondo.
 3. Guardar, y en el webhook recién creado, **Signing secret → Reveal**: un
    `whsec_…`.
 4. En la plataforma: **Editar** la empresa, pegarlo en **Secreto del

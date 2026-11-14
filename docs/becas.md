@@ -9,6 +9,7 @@ dólar queda anotado, de la donación a la beca.
 | Para quién | Dirección | Qué hace |
 |---|---|---|
 | Quien quiere donar | [escuelacem.com/plataforma/becas.html](https://escuelacem.com/plataforma/becas.html) (en inglés: `?lang=en`) | El contador de donaciones, las cifras de becas, los paquetes, el formulario y el pago con tarjeta |
+| Quien ayuda cada mes | `plataforma/ayuda-recurrente.html?s=…` | Su ayuda recurrente («Services Fee»): el estado, sus cobros con su recibo y el botón para cancelarla. No sale en Google |
 | Quien donó | `plataforma/recibo.html?r=…` | Su recibo de donación, con forma de factura, para descargarlo en PDF o imprimirlo. No sale en Google |
 | Quien quiere una beca | [escuelacem.com/plataforma/solicitar-beca.html](https://escuelacem.com/plataforma/solicitar-beca.html) | La encuesta de por qué quiere estudiar |
 | Quien recibe una beca | `plataforma/beca.html?t=…` | El enlace personal para activarla. No sale en Google |
@@ -22,7 +23,13 @@ estas páginas y no promete nada.
 
 ## Cómo entra el dinero
 
-**Con tarjeta.** La persona elige un paquete o «otro monto» y paga en Stripe.
+**Con tarjeta o por ACH.** La persona elige un paquete o «otro monto» y paga
+en Stripe, con tarjeta o desde su cuenta bancaria de EE. UU. (ACH; se apaga
+en **Paquetes y ajustes**). Con ACH, Stripe se queda un 0,8 % (como mucho
+$5) en vez de casi un 3 %, pero el dinero tarda unos días hábiles: mientras,
+su recibo dice «Tu pago por ACH está en camino», y la donación entra en el
+fondo cuando Stripe avisa de que llegó. Si el banco lo rechaza, queda
+fallida, no se cobra nada y se le escribe.
 
 - **El nombre y el correo son opcionales.** Quien marca **«Donar de forma
   anónima»** no da su nombre y no sale en ningún sitio público: ni en la
@@ -63,6 +70,42 @@ desde ahí.
 **Anular una donación** (solo administración) la quita del fondo con su
 motivo, y queda en la lista como anulada. **No se puede anular una donación
 que ya pagó becas**: primero hay que revocar esas becas.
+
+## La ayuda recurrente («Services Fee»)
+
+Una cantidad fija al mes —**$3,99**— para el fondo de becas, que se cobra
+**sólo por ACH**, desde una cuenta bancaria de EE. UU. En $3,99 la tarjeta se
+llevaría unos 42 centavos; ACH, unos 3.
+
+- **El nombre.** Quien la paga la ve como **«Services Fee»**: en la página,
+  en la pantalla de Stripe, en su banco y en sus recibos. Es decisión del
+  dueño: quien la sostiene da un servicio a los estudiantes. La página dice
+  siempre qué es: una ayuda mensual que va entera al fondo de becas.
+- **En la página de becas,** la caja de donar tiene dos opciones: **«Una sola
+  vez»** y **«Ayuda recurrente»**. La segunda enseña el monto, el nombre, que
+  se cobra por ACH, que se cancela cuando se quiera, y cuántas personas la
+  sostienen ya.
+- **Al darse de alta,** Stripe le devuelve a su página
+  (`ayuda-recurrente.html?s=…`), y le llega un correo con el enlace a ella.
+  El primer cobro tarda unos días hábiles.
+- **Cada mes,** el cobro que entra es una donación más: entra en el fondo,
+  cuenta en el contador y tiene su recibo («Recibo · Services Fee», con el
+  mes que paga). Al equipo **no** le llega un aviso por cada $3,99: sólo por
+  un alta, un cobro que falla y una baja.
+- **Si un cobro falla,** queda «Falta un cobro», Stripe lo reintenta y a
+  quien la paga se le escribe (como mucho una vez cada tres días).
+- **Cancelar:** desde su página, con **«Cancelar mi ayuda recurrente»**. Se
+  cancela en Stripe al momento. Si alguien lo pide al equipo: Admin →
+  Donaciones y fondo → **Ayuda recurrente** → abrir su página, o copiar el
+  enlace y mandárselo.
+- **Se enciende y se ajusta** en Paquetes y ajustes: si se ofrece, el monto y
+  el nombre. Cambiarlos vale para las altas nuevas; las que existen siguen
+  como se dieron de alta.
+- **En Stripe,** el webhook del CEM escucha, además de
+  `checkout.session.completed`, `checkout.session.async_payment_succeeded` y
+  `_failed` (el ACH de una vez), `invoice.paid`, `invoice.payment_failed`,
+  `customer.subscription.updated` y `customer.subscription.deleted`. Se
+  añadieron el 14 de noviembre de 2026.
 
 ## El recibo
 
@@ -235,9 +278,9 @@ Nada de esto suma en «Entró» ni en el reparto a inversores.
 
 | Qué | Dónde |
 |---|---|
-| Tablas | `cem_becas_ajustes`, `cem_becas_paquetes`, `cem_becas_donaciones`, `cem_becas_convocatorias`, `cem_becas_solicitudes`, `cem_becas`, `cem_becas_fondo` (el libro), `cem_becas_financiacion` |
-| Migraciones | `supabase/migrations/20261107000001…05`, `20261108000001` (anónimas y contador) y `20261113000001` (el recibo) |
+| Tablas | `cem_becas_ajustes`, `cem_becas_paquetes`, `cem_becas_donaciones`, `cem_becas_suscripciones` (la ayuda recurrente), `cem_becas_convocatorias`, `cem_becas_solicitudes`, `cem_becas`, `cem_becas_fondo` (el libro), `cem_becas_financiacion` |
+| Migraciones | `supabase/migrations/20261107000001…05`, `20261108000001` (anónimas y contador), `20261113000001` (el recibo) y `20261114000001` (ayuda recurrente y ACH) |
 | Abrir el cobro | `supabase/functions/cem-donar` |
-| Confirmarlo | `supabase/functions/cem-stripe-webhook` (la rama de `metadata.donacion_id`) |
-| Páginas | `plataforma/becas.html`, `recibo.html`, `solicitar-beca.html`, `beca.html`, `estudiante/beca.html`, `admin/becas.html`, `admin/donaciones.html` |
+| Confirmarlo | `supabase/functions/cem-stripe-webhook`: la rama de `metadata.donacion_id`, y `otrosAvisos` para el ACH y la ayuda recurrente |
+| Páginas | `plataforma/becas.html`, `recibo.html`, `ayuda-recurrente.html`, `solicitar-beca.html`, `beca.html`, `estudiante/beca.html`, `admin/becas.html`, `admin/donaciones.html` |
 | Funciones | Ver [funciones-del-servidor.md](funciones-del-servidor.md#becas-y-donaciones) |

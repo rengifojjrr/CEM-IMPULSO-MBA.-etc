@@ -174,7 +174,7 @@ async function cargar(){
 /* ── Donaciones y becas, aparte de lo cobrado ─────────────────────────── */
 let becasMes = null;
 const usd = (n) => money(n, 'USD');
-const METODO_DON = { tarjeta:'tarjeta', zelle:'Zelle', transferencia:'transferencia', cheque:'cheque', efectivo:'efectivo', otro:'otro' };
+const METODO_DON = { tarjeta:'tarjeta', ach:'ACH (cuenta bancaria)', zelle:'Zelle', transferencia:'transferencia', cheque:'cheque', efectivo:'efectivo', otro:'otro' };
 /* `fecha` de una donación es un día, no un instante: leído como UTC, el 1 de
    mes salía «31» del anterior en Caracas o en Miami. */
 const fdia = (d) => d ? fdate(String(d).length === 10 ? d + 'T12:00:00' : d) : '—';
