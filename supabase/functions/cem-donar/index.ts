@@ -147,6 +147,9 @@ async function abrirDonacion(admin: Admin, d: Datos, idioma: string, vuelta: str
     // Ver el comentario largo en cem-stripe-checkout: con «Managed Payments»
     // puesto, Stripe RECHAZA payment_method_types en vez de ignorarlo.
     'managed_payments[enabled]': 'false',
+    // Siempre en dólares: sin «Adaptive Pricing», Stripe no convierte el
+    // aporte a la moneda de quien entra (y ACH sólo existe en dólares).
+    'adaptive_pricing[enabled]': 'false',
     'payment_method_types[0]': 'card',
     ...(conAch ? {
       'payment_method_types[1]': 'us_bank_account',
@@ -228,6 +231,7 @@ async function abrirRecurrente(admin: Admin, d: Datos, idioma: string, vuelta: s
   const cuerpo = new URLSearchParams({
     mode: 'subscription',
     'managed_payments[enabled]': 'false',
+    'adaptive_pricing[enabled]': 'false',
     'payment_method_types[0]': 'us_bank_account',
     'payment_method_options[us_bank_account][verification_method]': 'automatic',
     locale: idioma,

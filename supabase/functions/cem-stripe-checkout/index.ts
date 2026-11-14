@@ -112,6 +112,10 @@ Deno.serve(async (req) => {
       // ofrecer más formas de pago desde Stripe, hay que decidir antes cómo se
       // apunta cada una, no sólo quitar el parámetro.
       'managed_payments[enabled]': 'false',
+      // Sin «Adaptive Pricing»: Stripe enseñaría el precio convertido a la
+      // moneda de quien entra (coronas danesas desde Dinamarca, por ejemplo).
+      // Por decisión del dueño, se cobra y se ve siempre en la moneda nuestra.
+      'adaptive_pricing[enabled]': 'false',
       'payment_method_types[0]': 'card',
       'line_items[0][quantity]': '1',
       'line_items[0][price_data][currency]': moneda,

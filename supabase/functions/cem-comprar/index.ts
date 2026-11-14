@@ -145,6 +145,8 @@ Deno.serve(async (req) => {
       // Ver el comentario largo en cem-stripe-checkout: con «Managed Payments»
       // puesto, Stripe RECHAZA payment_method_types en vez de ignorarlo.
       'managed_payments[enabled]': 'false',
+      // Sin conversión a la moneda de quien entra: ver cem-stripe-checkout.
+      'adaptive_pricing[enabled]': 'false',
       'payment_method_types[0]': 'card',
       'line_items[0][quantity]': '1',
       'line_items[0][price_data][currency]': moneda,
