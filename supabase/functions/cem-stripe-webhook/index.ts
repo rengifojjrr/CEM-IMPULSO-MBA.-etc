@@ -65,6 +65,110 @@ async function firmaValida(cuerpo: string, cabecera: string, secreto: string): P
   return dif === 0;
 }
 
+// deno-lint-ignore no-explicit-any
+type Admin = any;
+// deno-lint-ignore no-explicit-any
+type Objeto = Record<string, any>;
+
+/** Stripe manda a veces un id y a veces el objeto entero (si se expande). */
+const idDe = (x: unknown): string | null =>
+  typeof x === 'string' ? x : (x && typeof x === 'object' && typeof (x as Objeto).id === 'string' ? (x as Objeto).id : null);
+
+/** Un instante de Stripe (segundos) en ISO, o null. */
+const instante = (s: unknown): string | null =>
+  typeof s === 'number' && s > 0 ? new Date(s * 1000).toISOString() : null;
+
+/** Lo mismo que se exige a una sesión: que avise la cuenta donde se abrió. */
+const deOtraCuenta = (meta: Objeto | null | undefined, cuenta: CuentaStripe) =>
+  (claveValida(meta?.cuenta) || null) !== cuenta.clave;
+
+/* ── El fondo de becas, fuera de «sesión completada» ─────────────────────────
+   · El ACH de una donación de una vez entra (o no) días después.
+   · Cada cobro de la ayuda recurrente es una factura (invoice.*); su
+     suscripción lleva nuestra marca `suscripcion_id`. Dónde viene depende de
+     la versión de la API de Stripe: en las de 2025 en adelante, en
+     invoice.parent.subscription_details; antes, en invoice.subscription y
+     invoice.subscription_details. Se leen las dos.
+   · Las facturas y suscripciones sin la marca no son nuestras (o no del
+     fondo): se contesta 200 y no se toca nada.
+   Lo que no cuadra lo anota la base y se contesta 200 igualmente, como con las
+   donaciones: un error haría que Stripe lo reintentara durante días. Un fallo
+   de la base sí se devuelve, para que reintente cuando esté arreglado. */
+async function otrosAvisos(admin: Admin, tipo: string, o: Objeto, cuenta: CuentaStripe) {
+  const llamar = async (fn: string, args: Record<string, unknown>) => {
+    const { data, error } = await admin.rpc(fn, args);
+    return error ? json({ error: error.message }, 500) : json({ ok: true, [tipo]: data });
+  };
+
+  if (tipo === 'checkout.session.async_payment_succeeded' || tipo === 'checkout.session.async_payment_failed') {
+    const donacionId = o.metadata?.donacion_id;
+    if (!donacionId) return json({ ok: true, ignorado: tipo });
+    if (deOtraCuenta(o.metadata, cuenta)) return json({ error: 'Este cobro se abrió en otra cuenta de Stripe.' }, 400);
+    if (tipo.endsWith('_failed')) {
+      return await llamar('cem_beca_donacion_fallida_servidor', { p_id: donacionId, p_session_id: String(o.id || ''), p_cuenta: cuenta.clave });
+    }
+    return await llamar('cem_beca_donacion_confirmar_servidor', {
+      p_id: donacionId,
+      p_session_id: String(o.id || ''),
+      p_payment_intent: idDe(o.payment_intent),
+      p_centimos: Math.round(Number(o.amount_total || 0)),
+      p_moneda: String(o.currency || ''),
+      p_cuenta: cuenta.clave,
+      p_email: o.customer_details?.email ? String(o.customer_details.email) : null,
+      p_metodo: 'ach',
+    });
+  }
+
+  if (tipo === 'invoice.paid' || tipo === 'invoice.payment_failed') {
+    const detalle = o.parent?.subscription_details ?? o.subscription_details ?? null;
+    const meta: Objeto = detalle?.metadata ?? {};
+    const subscription = idDe(detalle?.subscription) ?? idDe(o.subscription);
+    if (!meta.suscripcion_id) return json({ ok: true, ignorado: tipo });
+    if (deOtraCuenta(meta, cuenta)) return json({ error: 'Esta factura es de otra cuenta de Stripe.' }, 400);
+    if (tipo === 'invoice.payment_failed') {
+      return await llamar('cem_beca_recurrente_fallo_servidor', {
+        p_suscripcion_id: meta.suscripcion_id, p_subscription: subscription, p_invoice: String(o.id || ''), p_cuenta: cuenta.clave,
+      });
+    }
+    // El periodo que paga esta factura: de su primera línea.
+    const periodo = o.lines?.data?.[0]?.period ?? null;
+    return await llamar('cem_beca_recurrente_pago_servidor', {
+      p_suscripcion_id: meta.suscripcion_id,
+      p_subscription: subscription,
+      p_invoice: String(o.id || ''),
+      p_factura: o.number ? String(o.number) : null,
+      p_centimos: Math.round(Number(o.amount_paid || 0)),
+      p_moneda: String(o.currency || ''),
+      p_cuenta: cuenta.clave,
+      p_periodo: instante(periodo?.start)?.slice(0, 10) ?? null,
+      p_proximo: instante(periodo?.end),
+      p_email: o.customer_email ? String(o.customer_email) : null,
+    });
+  }
+
+  if (tipo === 'customer.subscription.updated' || tipo === 'customer.subscription.deleted') {
+    const meta: Objeto = o.metadata ?? {};
+    if (!meta.suscripcion_id) return json({ ok: true, ignorado: tipo });
+    if (deOtraCuenta(meta, cuenta)) return json({ error: 'Esta suscripción es de otra cuenta de Stripe.' }, 400);
+    if (tipo === 'customer.subscription.deleted' || o.status === 'canceled' || o.status === 'incomplete_expired') {
+      return await llamar('cem_beca_recurrente_fin_servidor', {
+        p_suscripcion_id: meta.suscripcion_id, p_subscription: idDe(o.id),
+        p_motivo: o.cancellation_details?.reason === 'cancellation_requested'
+          ? 'Se canceló en Stripe.' : `Stripe la dio por terminada (${o.cancellation_details?.reason || o.status || 'sin motivo'}).`,
+        p_cuenta: cuenta.clave, p_comprobar_cuenta: true,
+      });
+    }
+    // El próximo cobro: en las versiones nuevas de la API vive en cada línea.
+    const proximo = instante(o.items?.data?.[0]?.current_period_end) ?? instante(o.current_period_end);
+    return await llamar('cem_beca_recurrente_estado_servidor', {
+      p_suscripcion_id: meta.suscripcion_id, p_subscription: idDe(o.id), p_estado: String(o.status || ''),
+      p_proximo: proximo, p_cuenta: cuenta.clave,
+    });
+  }
+
+  return json({ ok: true, ignorado: tipo });
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Sólo POST.' }, 405);
 
@@ -98,8 +202,12 @@ Deno.serve(async (req) => {
   }
 
   const evento = JSON.parse(cuerpo);
-  // Sólo interesa una cosa: que una sesión de pago se completó.
-  if (evento.type !== 'checkout.session.completed') return json({ ok: true, ignorado: evento.type });
+  /* Lo que no es «una sesión de pago se completó»: el ACH que entra o no días
+     después, y los cobros, fallos y bajas de la ayuda recurrente. Todo eso es
+     del fondo de becas; lo demás se contesta y se ignora. */
+  if (evento.type !== 'checkout.session.completed') {
+    return await otrosAvisos(admin, String(evento.type || ''), evento.data?.object || {}, cuenta);
+  }
 
   const sesion = evento.data?.object || {};
   const sessionId = sesion.id;
@@ -112,15 +220,40 @@ Deno.serve(async (req) => {
     return json({ error: `Este cobro se abrió en la cuenta «${abiertaEn ?? 'principal'}» y avisa la «${cuenta.clave ?? 'principal'}».` }, 400);
   }
 
-  /* ── Una donación al fondo de becas ─────────────────────────────────────
+  /* ── El fondo de becas ─────────────────────────────────────────────────
      Va antes que todo lo demás: no es la cuota de nadie ni una compra, y no
      se apunta con el método de la cuenta (las donaciones van APARTE de lo
      cobrado, en su propio libro). Lo que no cuadra lo anota la base y aquí se
      contesta 200 igualmente: un error haría que Stripe lo reintentara durante
-     días, y no se arregla solo. */
+     días, y no se arregla solo.
+
+     Primero, el alta de una ayuda recurrente: la suscripción ya existe en
+     Stripe. Con ACH el primer cobro todavía está en camino; el dinero llega
+     con invoice.paid (otrosAvisos). */
+  const suscripcionId = sesion.metadata?.suscripcion_id;
+  if (sesion.mode === 'subscription' && suscripcionId) {
+    const { data: r, error: eSus } = await admin.rpc('cem_beca_recurrente_activar_servidor', {
+      p_id: suscripcionId,
+      p_session_id: String(sessionId || ''),
+      p_customer: idDe(sesion.customer),
+      p_subscription: idDe(sesion.subscription),
+      p_cuenta: cuenta.clave,
+      p_email: sesion.customer_details?.email ? String(sesion.customer_details.email) : null,
+    });
+    if (eSus) return json({ error: eSus.message }, 500);
+    return json({ ok: true, recurrente: r });
+  }
+
   const donacionId = sesion.metadata?.donacion_id;
   if (donacionId) {
     if (sesion.payment_status !== 'paid') {
+      /* Un ACH: Stripe ya lo tiene, pero tarda unos días en entrar. Se apunta
+         que está en camino (el recibo lo dice) y se espera al aviso de que
+         entró o de que no. */
+      const { error: eProc } = await admin.rpc('cem_beca_donacion_procesando_servidor', {
+        p_id: donacionId, p_session_id: String(sessionId || ''), p_cuenta: cuenta.clave,
+      });
+      if (eProc) return json({ error: eProc.message }, 500);
       return json({ ok: true, donacion: donacionId, pendiente: sesion.payment_status ?? 'sin estado' });
     }
     const { data: r, error: eDon } = await admin.rpc('cem_beca_donacion_confirmar_servidor', {
