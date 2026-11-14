@@ -88,12 +88,39 @@ llevaría unos 42 centavos; ACH, unos 3.
 - **Al darse de alta,** Stripe le devuelve a su página
   (`ayuda-recurrente.html?s=…`), y le llega un correo con el enlace a ella.
   El primer cobro tarda unos días hábiles.
+- **Si escribió su cuenta a mano** (en vez de elegir su banco de la lista de
+  Stripe), todavía no paga: Stripe le manda un **depósito de prueba** —uno de
+  $0,01 con un código que empieza por «SM», o dos de unos centavos con
+  «ACCTVERIFY»— que llega en 1–2 días hábiles, y un correo para confirmarlo.
+  Tiene **10 días**; el cobro empieza al confirmarlo. En Stripe ese pago sale
+  «Incompleto · requiere una acción del cliente», y es normal.
+  - Stripe no avisa de esto con un evento de la suscripción: el alta llega
+    «completada» y sin pagar. El webhook pregunta entonces a Stripe por el
+    pago de ese cliente (`GET /v1/payment_intents?customer=…`) y, si espera el
+    depósito, guarda el enlace de Stripe y la fecha
+    (`cem_beca_recurrente_verificando_servidor`).
+  - Quien paga recibe **«Falta un paso»** en lugar del correo de alta, y su
+    página enseña los pasos, el día que llega el depósito y el botón
+    «Confirmar mi cuenta en Stripe». El equipo ve **«Falta confirmar la
+    cuenta»**.
+  - Si el primer cobro no llega a hacerse —no confirmó, el banco lo rechazó o
+    Stripe la dio por caducada (`incomplete_expired`)—, la ayuda se cierra con
+    **un solo** correo, «no llegó a empezar, no se te cobró nada», venga el
+    aviso que venga (`async_payment_failed`, `invoice.payment_failed` o la
+    suscripción caducada).
+- **Cuánto tarda en llegar el dinero al banco del CEM:** el ACH entra en el
+  saldo de Stripe en hasta 4 días hábiles desde que empieza el cobro, y Stripe
+  lo transfiere luego según el calendario de transferencias de la cuenta
+  (Saldos). Con depósito de prueba, súmense los 1–2 días hasta que llega y lo
+  que tarde la persona en confirmarlo.
 - **Cada mes,** el cobro que entra es una donación más: entra en el fondo,
   cuenta en el contador y tiene su recibo («Recibo · Services Fee», con el
   mes que paga). Al equipo **no** le llega un aviso por cada $3,99: sólo por
   un alta, un cobro que falla y una baja.
-- **Si un cobro falla,** queda «Falta un cobro», Stripe lo reintenta y a
-  quien la paga se le escribe (como mucho una vez cada tres días).
+- **Si un cobro falla** (de un mes que no es el primero), queda «Falta un
+  cobro», Stripe lo reintenta y a quien la paga se le escribe (como mucho una
+  vez cada tres días). Si falla el **primero**, no es eso: Stripe no lo
+  reintenta y la ayuda «no llegó a empezar» (ver arriba).
 - **Cancelar:** desde su página, con **«Cancelar mi ayuda recurrente»**. Se
   cancela en Stripe al momento. Si alguien lo pide al equipo: Admin →
   Donaciones y fondo → **Ayuda recurrente** → abrir su página, o copiar el
@@ -279,7 +306,7 @@ Nada de esto suma en «Entró» ni en el reparto a inversores.
 | Qué | Dónde |
 |---|---|
 | Tablas | `cem_becas_ajustes`, `cem_becas_paquetes`, `cem_becas_donaciones`, `cem_becas_suscripciones` (la ayuda recurrente), `cem_becas_convocatorias`, `cem_becas_solicitudes`, `cem_becas`, `cem_becas_fondo` (el libro), `cem_becas_financiacion` |
-| Migraciones | `supabase/migrations/20261107000001…05`, `20261108000001` (anónimas y contador), `20261113000001` (el recibo) y `20261114000001` (ayuda recurrente y ACH) |
+| Migraciones | `supabase/migrations/20261107000001…05`, `20261108000001` (anónimas y contador), `20261113000001` (el recibo), `20261114000001` (ayuda recurrente y ACH) y `20261114000002` (falta confirmar la cuenta) |
 | Abrir el cobro | `supabase/functions/cem-donar` |
 | Confirmarlo | `supabase/functions/cem-stripe-webhook`: la rama de `metadata.donacion_id`, y `otrosAvisos` para el ACH y la ayuda recurrente |
 | Páginas | `plataforma/becas.html`, `recibo.html`, `ayuda-recurrente.html`, `solicitar-beca.html`, `beca.html`, `estudiante/beca.html`, `admin/becas.html`, `admin/donaciones.html` |

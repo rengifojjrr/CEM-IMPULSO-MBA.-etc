@@ -50,6 +50,10 @@
   .rec-cobros a{display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:600;color:var(--tinta);white-space:nowrap}
   .rec-cobros .material-symbols-outlined{font-size:18px}
   .rec-vacio{margin:0;color:var(--tinta-2);font-size:15px;line-height:1.55}
+  .rec-verificar p{margin:0 0 var(--e2);color:var(--tinta-2);font-size:15px;line-height:1.55}
+  .rec-pasos{margin:0 0 var(--e2);padding-left:1.4em;display:grid;gap:10px;font-size:15px;line-height:1.55}
+  .rec-pasos li::marker{font-family:var(--n-mono);color:var(--secondary)}
+  .rec-verificar .nota{margin:var(--e1) 0 0;font-size:14px}
   .rec-cancelar p{margin:0 0 var(--e2);color:var(--tinta-2);font-size:15px;line-height:1.55}
   .rec-cancelar .botones{display:flex;flex-wrap:wrap;gap:var(--e1)}
   .rec-otra{margin:var(--e3) 0 0;text-align:center;font-size:15px}
@@ -77,6 +81,12 @@
       <dl class="rec-datos" id="fDatos"></dl>
       <p class="rec-aviso" id="fAviso" hidden></p>
     </article>
+    <section class="card rec-verificar" id="verificar" aria-labelledby="tVerificar" hidden>
+      <h2 id="tVerificar"></h2>
+      <p id="verificarIntro"></p>
+      <ol class="rec-pasos" id="verificarPasos"></ol>
+      <div id="verificarBoton"></div>
+    </section>
     <section class="card" aria-labelledby="tCobros">
       <h2 id="tCobros"></h2>
       <div id="cobros"></div>
@@ -118,6 +128,19 @@ const T = {
     tuAyuda: 'Tu ayuda recurrente', tuAyudaTexto: 'Aquí ves tus cobros y sus recibos, y puedes cancelarla cuando quieras.',
     alMes: 'al mes',
     estados: { activa: ['Activa', 'ok'], impagada: ['Falta un cobro', 'warn'], cancelada: ['Cancelada', 'neutral'], iniciada: ['Confirmando el alta', 'neutral'] },
+    estadoVerif: ['Falta confirmar tu cuenta', 'warn'],
+    graciasVerif: (p, x, correo) => `Tu ${p} de ${x} al mes está casi listo. Falta un paso: confirmar tu cuenta bancaria con el depósito de prueba de Stripe. Te explicamos cómo aquí abajo${correo ? ', y también te lo mandamos al correo' : ''}.`,
+    verifTitulo: 'Falta un paso: confirmar tu cuenta',
+    verifIntro: 'Como escribiste los datos de tu cuenta a mano, Stripe tiene que comprobar que es tuya antes del primer cobro. Hasta entonces no se te cobra nada.',
+    verifCuando: (d) => (d ? `Hacia el ${d}` : 'En 1 o 2 días hábiles'),
+    verifPaso1: (cuando, tipo) => tipo === 'amounts'
+      ? `${cuando} verás en tu cuenta dos depósitos pequeños de Stripe (unos centavos cada uno), con la descripción «ACCTVERIFY».`
+      : `${cuando} verás en tu cuenta un depósito de $0,01 de Stripe. En la descripción del movimiento hay un código de 6 caracteres que empieza por «SM».`,
+    verifPaso2: (tipo) => (tipo === 'amounts' ? 'Escribe esas dos cantidades en Stripe.' : 'Escribe ese código en Stripe.'),
+    verifPaso3: 'Tienes 10 días. En cuanto la confirmas empieza el primer cobro, y te llega su recibo.',
+    verifBoton: 'Confirmar mi cuenta en Stripe',
+    verifSinEnlace: 'El enlace para confirmarla está en el correo que te manda Stripe.',
+    sinCobrosVerif: 'Todavía no hay cobros: el primero empieza cuando confirmes tu cuenta. En cuanto entre, sale aquí con su recibo.',
     desde: 'Desde', proximo: 'Próximo cobro', forma: 'Forma de pago', ach: 'Cuenta bancaria (ACH)', aportado: 'Aportado',
     aportadoX: (x, n) => `${x} en ${n} ${n === 1 ? 'cobro' : 'cobros'}`, canceladaEl: 'Cancelada el',
     impagadaAviso: 'El último cobro no se pudo hacer desde tu cuenta bancaria. Stripe lo volverá a intentar en unos días. Si prefieres usar otra cuenta, cancela ésta y empieza otra desde la página de becas.',
@@ -140,6 +163,19 @@ const T = {
     tuAyuda: 'Your recurring support', tuAyudaTexto: 'Here you can see your charges and their receipts, and cancel whenever you like.',
     alMes: 'a month',
     estados: { activa: ['Active', 'ok'], impagada: ['A charge is pending', 'warn'], cancelada: ['Canceled', 'neutral'], iniciada: ['Confirming sign-up', 'neutral'] },
+    estadoVerif: ['Confirm your account', 'warn'],
+    graciasVerif: (p, x, correo) => `Your ${p} of ${x} a month is almost ready. One step is left: confirming your bank account with Stripe’s test deposit. We explain how below${correo ? ', and we’ve emailed it to you too' : ''}.`,
+    verifTitulo: 'One step left: confirm your account',
+    verifIntro: 'Because you typed in your account details, Stripe needs to check the account is yours before the first charge. Nothing is charged until then.',
+    verifCuando: (d) => (d ? `Around ${d},` : 'In 1–2 business days'),
+    verifPaso1: (cuando, tipo) => tipo === 'amounts'
+      ? `${cuando} you’ll see two small deposits from Stripe in your account (a few cents each), described as “ACCTVERIFY”.`
+      : `${cuando} you’ll see a $0.01 deposit from Stripe in your account. Its description has a 6-character code that starts with “SM”.`,
+    verifPaso2: (tipo) => (tipo === 'amounts' ? 'Enter those two amounts in Stripe.' : 'Enter that code in Stripe.'),
+    verifPaso3: 'You have 10 days. Once you confirm it, the first charge starts and you get its receipt.',
+    verifBoton: 'Confirm my account in Stripe',
+    verifSinEnlace: 'The link to confirm it is in the email Stripe sends you.',
+    sinCobrosVerif: 'No charges yet: the first one starts when you confirm your account. As soon as it goes through, it shows up here with its receipt.',
     desde: 'Since', proximo: 'Next charge', forma: 'Payment method', ach: 'Bank account (ACH)', aportado: 'Given',
     aportadoX: (x, n) => `${x} in ${n} ${n === 1 ? 'charge' : 'charges'}`, canceladaEl: 'Canceled on',
     impagadaAviso: 'The last charge couldn’t be taken from your bank account. Stripe will try again in a few days. If you would rather use another account, cancel this one and start a new one from the scholarships page.',
@@ -190,6 +226,14 @@ const mes = (iso) => {
   return a ? new Date(a, m - 1, 1).toLocaleDateString(idioma === 'en' ? 'en-US' : 'es-ES', { month: 'long', year: 'numeric' }) : '';
 };
 const mayuscula = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+/* «lunes, 16 de noviembre» / «Monday, November 16»: el día que llega el
+   depósito de prueba. La fecha viene sin hora; se lee como fecha local. */
+const diaSemana = (iso) => {
+  const [a, m, d] = String(iso || '').slice(0, 10).split('-').map(Number);
+  return a ? new Date(a, m - 1, d).toLocaleDateString(idioma === 'en' ? 'en-US' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+};
+/* Sólo un enlace de Stripe se enseña como botón (la base ya lo exige). */
+const deStripe = (u) => { try { const x = new URL(u); return x.protocol === 'https:' && /(^|\.)stripe\.com$/.test(x.hostname); } catch { return false; } };
 const pila = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
@@ -212,18 +256,21 @@ function pintar(s) {
   document.title = `${s.producto} · CEM International`;
   saludo.innerHTML = gracias && s.estado !== 'cancelada'
     ? `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(t('gracias', s.anonima ? '' : pila(s.nombre)))}</h1>
-       <p>${esc(t('graciasTexto', s.producto, usd(s.monto), s.con_correo))}</p>`
+       <p>${esc(t(s.verificando ? 'graciasVerif' : 'graciasTexto', s.producto, usd(s.monto), s.con_correo))}</p>`
     : `<p class="ini-rotulo">${esc(t('rotulo'))}</p><h1>${esc(t('tuAyuda'))}</h1><p>${esc(t('tuAyudaTexto'))}</p>`;
 
   $('#fProducto').textContent = s.producto;
   $('#fMonto').textContent = usd(s.monto);
   $('#fAlMes').textContent = t('alMes');
-  $('#fEstado').innerHTML = chip(...(T[idioma].estados[s.estado] || [s.estado, 'neutral']));
+  $('#fEstado').innerHTML = chip(...(s.verificando ? t('estadoVerif') : T[idioma].estados[s.estado] || [s.estado, 'neutral']));
+  pintarVerificar(s);
+  // «Aportado» sólo cuando ya hay algo aportado: «$0 en 0 cobros» no dice nada.
+  const hechos = (s.cobros || []).filter((c) => c.estado === 'confirmada').length;
   const datos = [
     [t('desde'), dia(s.desde)],
     s.cancelada_en ? [t('canceladaEl'), dia(s.cancelada_en)] : s.proximo_cobro ? [t('proximo'), dia(s.proximo_cobro)] : null,
     [t('forma'), t('ach')],
-    [t('aportado'), t('aportadoX', usd(s.total), (s.cobros || []).filter((c) => c.estado === 'confirmada').length)],
+    hechos ? [t('aportado'), t('aportadoX', usd(s.total), hechos)] : null,
   ].filter(Boolean);
   $('#fDatos').innerHTML = datos.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
   const aviso = s.estado === 'impagada' ? t('impagadaAviso') : s.estado === 'cancelada' ? t('canceladaAviso') : '';
@@ -236,12 +283,29 @@ function pintar(s) {
       <div><div class="mes">${esc(mayuscula(mes(c.periodo || c.fecha)))}</div><div class="cifra">${esc(c.numero)} · ${esc(usd(c.monto))}</div></div>
       ${c.recibo ? `<a href="recibo.html?r=${esc(encodeURIComponent(c.recibo))}"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>${esc(t('verRecibo'))}</a>`
         : chip(t('anulado'), 'neutral')}</li>`).join('')}</ul>`
-    : `<p class="rec-vacio">${esc(t('sinCobros'))}</p>`;
+    : `<p class="rec-vacio">${esc(t(s.verificando ? 'sinCobrosVerif' : 'sinCobros'))}</p>`;
 
   const sePuede = s.estado === 'activa' || s.estado === 'impagada' || s.estado === 'iniciada';
   $('#cancelar').hidden = !sePuede;
   if (sePuede) pintarCancelar(false);
   bloques.hidden = false;
+}
+
+/* Falta confirmar la cuenta: quien escribió su cuenta a mano tiene que
+   confirmar el depósito de prueba de Stripe antes del primer cobro. Los pasos,
+   el día que llega el depósito y el botón al enlace de Stripe. */
+function pintarVerificar(s) {
+  $('#verificar').hidden = !s.verificando;
+  if (!s.verificando) return;
+  $('#tVerificar').textContent = t('verifTitulo');
+  $('#verificarIntro').textContent = t('verifIntro');
+  const cuando = t('verifCuando', s.verificar_llegada ? diaSemana(s.verificar_llegada) : '');
+  $('#verificarPasos').innerHTML = [t('verifPaso1', cuando, s.verificar_tipo), t('verifPaso2', s.verificar_tipo), t('verifPaso3')]
+    .map((x) => `<li>${esc(x)}</li>`).join('');
+  $('#verificarBoton').innerHTML = s.verificar_url && deStripe(s.verificar_url)
+    ? `<a class="btn" href="${esc(s.verificar_url)}" target="_blank" rel="noopener noreferrer">
+         <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>${esc(t('verifBoton'))}</a>`
+    : `<p class="nota">${esc(t('verifSinEnlace'))}</p>`;
 }
 
 /* Cancelar pide una confirmación: un toque no basta para dejar de ayudar. */

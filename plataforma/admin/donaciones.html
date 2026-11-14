@@ -597,7 +597,10 @@ function pintarRec() {
   $('#recExplica').textContent = `Quien la paga la ve como «${nombre}»: una cantidad al mes que se cobra por ACH desde su cuenta bancaria `
     + 'de EE. UU. Cada cobro entra como una donación más, con su recibo.' + (ajustes?.recurrente_activa ? '' : ' Ahora mismo NO se ofrece en la página: se enciende en Paquetes y ajustes.');
   $('#kpisRec').innerHTML = [
-    kpi('Activas', num(vivas.length), 'autorenew', `${num(recurrentes.filter((s) => s.estado === 'impagada').length)} con un cobro que falló`),
+    kpi('Activas', num(vivas.length), 'autorenew', [
+      `${num(recurrentes.filter((s) => s.estado === 'impagada').length)} con un cobro que falló`,
+      ...(vivas.some((s) => s.verificando) ? [`${num(vivas.filter((s) => s.verificando).length)} sin confirmar su cuenta`] : []),
+    ].join(' · ')),
     kpi('Al mes', esc(usd(vivas.reduce((t, s) => t + Number(s.monto || 0), 0))), 'event_repeat', 'lo que entra cada mes si todas cobran'),
     kpi('Cobrado', esc(usd(recurrentes.reduce((t, s) => t + Number(s.total || 0), 0))), 'savings', `${num(recurrentes.reduce((t, s) => t + Number(s.cobros || 0), 0))} cobro(s)`),
     kpi('Canceladas', num(recurrentes.filter((s) => s.estado === 'cancelada').length), 'event_busy', 'desde el principio'),
@@ -608,7 +611,8 @@ function pintarRec() {
     <td data-col="Ayuda"><b>${esc(s.numero)}</b><div class="tiny muted">${esc(usd(s.monto))} al mes · desde ${esc(fdia(s.activada_en || s.creada_en))}</div></td>
     <td class="wrap" data-col="Quién">${s.anonima ? '<span class="muted">Anónima</span>' : esc(s.donante)}
       <div class="tiny muted">${esc([s.email, s.organizacion, s.pais].filter(Boolean).join(' · '))}</div></td>
-    <td data-col="Estado">${chip(...(ESTADO_REC[s.estado] || [s.estado, 'neutral']))}
+    <td data-col="Estado">${chip(...(s.verificando ? ['Falta confirmar la cuenta', 'warn'] : ESTADO_REC[s.estado] || [s.estado, 'neutral']))}
+      ${s.verificando ? `<div class="tiny muted">Stripe le manda un depósito de prueba${s.verificar_llegada ? ` (llega hacia el ${esc(fdia(s.verificar_llegada))})` : ''}; el primer cobro empieza cuando lo confirme.</div>` : ''}
       ${s.estado === 'cancelada' && s.motivo_fin ? `<div class="tiny muted">${esc(s.motivo_fin)}</div>` : ''}
       ${s.nota ? `<div class="tiny err-text">${esc(s.nota)}</div>` : ''}</td>
     <td class="num" data-col="Cobrado">${esc(usd(s.total))}<div class="tiny muted">${num(s.cobros || 0)} cobro(s)</div></td>
@@ -628,7 +632,7 @@ function pintarRec() {
 }
 conectarFiltros(['#qRec', '#fRec'], pintarRec);
 $('#csvRec').onclick = () => download('ayuda-recurrente.csv', toCSV(recFiltradas().map((s) => ({
-  numero: s.numero, estado: s.estado, al_mes_usd: s.monto, producto: s.producto, donante: s.anonima ? 'Anónima' : s.donante,
+  numero: s.numero, estado: s.verificando ? 'falta_confirmar_cuenta' : s.estado, al_mes_usd: s.monto, producto: s.producto, donante: s.anonima ? 'Anónima' : s.donante,
   correo: s.email || '', pais: s.pais || '', organizacion: s.organizacion || '', desde: s.activada_en || s.creada_en,
   cobros: s.cobros, cobrado_usd: s.total, ultimo_cobro: s.ultimo_cobro || '', proximo_cobro: s.proximo_cobro || '',
   cancelada_en: s.cancelada_en || '', motivo: s.motivo_fin || '', stripe: s.stripe_subscription || '', origen: s.origen || '', campana: s.campana || '',

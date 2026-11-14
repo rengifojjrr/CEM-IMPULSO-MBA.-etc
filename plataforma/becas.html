@@ -284,6 +284,7 @@ const T = {
     recAlMes: 'al mes', alMes: 'Al mes', empezarRec: 'Empezar mi ayuda recurrente',
     recTexto: (n) => `Con tu ${n} sostienes, cada mes, el servicio que reciben los estudiantes becados: todo va al fondo de becas.`,
     recAch: 'Se cobra por ACH, desde tu cuenta bancaria de EE. UU.',
+    recBanco: 'Si eliges tu banco de la lista, queda lista al momento. Si escribes la cuenta a mano, Stripe te manda antes un depósito de prueba para confirmarla (1–2 días hábiles).',
     recCancela: 'Cada mes, el mismo día. La cancelas cuando quieras, desde el enlace que te llega por correo.',
     recRecibo: 'Cada cobro tiene su recibo, para descargarlo en PDF.',
     recPersonas: (n) => n === 1 ? '1 persona ayuda ya cada mes.' : `${n} personas ayudan ya cada mes.`,
@@ -293,7 +294,7 @@ const T = {
       [`¿Qué es el ${n}?`, `Es la ayuda recurrente: ${x} al mes que van enteros al fondo de becas. Se llama así porque quien lo paga presta un servicio a los estudiantes: les sostiene el estudio, mes a mes. Se cobra por ACH desde una cuenta bancaria de EE. UU.`],
       ['¿Cómo cancelo mi ayuda recurrente?', 'Desde el enlace que te llega por correo al darte de alta, y con cada recibo: «Cancelar mi ayuda recurrente». Se cancela al momento y no se te cobra más.'],
     ],
-    preguntaAch: ['¿Puedo pagar desde mi cuenta bancaria?', 'Sí, si es de EE. UU.: Stripe lo cobra por ACH, y al CEM le cuesta mucho menos que la tarjeta. Tarda unos días hábiles en entrar; el recibo te llega cuando entra.'],
+    preguntaAch: ['¿Puedo pagar desde mi cuenta bancaria?', 'Sí, si es de EE. UU.: Stripe lo cobra por ACH, y al CEM le cuesta mucho menos que la tarjeta. Tarda unos días hábiles en entrar; el recibo te llega cuando entra. Si eliges tu banco de la lista, la cuenta queda confirmada al momento; si escribes sus datos a mano, Stripe te manda antes un depósito de prueba (1–2 días hábiles) y un correo para confirmarlo.'],
     seguro: 'El cobro lo hace Stripe. El CEM no ve ni guarda los datos de tu tarjeta. Al terminar ves tu recibo, para descargarlo en PDF, y te llega también por correo.',
     otroMonto: 'Otro monto', otroMontoDesc: (min, max) => `El que tú quieras, entre ${min} y ${max}.`,
     destacado: 'El más elegido',
@@ -352,6 +353,7 @@ const T = {
     recAlMes: 'a month', alMes: 'Per month', empezarRec: 'Start my recurring support',
     recTexto: (n) => `With your ${n} you support, every month, the service our scholarship students receive: all of it goes to the scholarship fund.`,
     recAch: 'Charged by ACH, from your US bank account.',
+    recBanco: 'Choose your bank from the list and it\'s ready right away. If you type in your account, Stripe first sends a test deposit to confirm it (1–2 business days).',
     recCancela: 'Every month on the same day. Cancel whenever you like, from the link we email you.',
     recRecibo: 'Every charge has its receipt, to download as a PDF.',
     recPersonas: (n) => n === 1 ? '1 person already helps every month.' : `${n} people already help every month.`,
@@ -361,7 +363,7 @@ const T = {
       [`What is the ${n}?`, `It\'s our recurring support: ${x} a month that goes entirely to the scholarship fund. It has that name because whoever pays it provides a service to our students: it keeps them studying, month after month. It\'s charged by ACH from a US bank account.`],
       ['How do I cancel my recurring support?', 'From the link we email you when you sign up, and with every receipt: «Cancel my recurring support». It is canceled right away and you won\'t be charged again.'],
     ],
-    preguntaAch: ['Can I pay from my bank account?', 'Yes, if it\'s a US account: Stripe charges it by ACH, which costs CEM much less than a card. It takes a few business days to go through; your receipt arrives when it does.'],
+    preguntaAch: ['Can I pay from my bank account?', 'Yes, if it\'s a US account: Stripe charges it by ACH, which costs CEM much less than a card. It takes a few business days to go through; your receipt arrives when it does. If you choose your bank from the list, the account is confirmed right away; if you type in its details, Stripe first sends a test deposit (1–2 business days) and an email to confirm it.'],
     seguro: 'Payment is handled by Stripe. CEM never sees or stores your card details. When you finish you\'ll see your receipt, ready to download as a PDF, and we\'ll email it to you too.',
     otroMonto: 'Other amount', otroMontoDesc: (min, max) => `Any amount you like, between ${min} and ${max}.`,
     destacado: 'Most chosen',
@@ -576,6 +578,7 @@ function pintarRecurrente(d) {
         <p class="rec-texto">${esc(t('recTexto', datosRec.nombre))}</p>
         <ul class="rec-puntos">
           <li><span class="material-symbols-outlined" aria-hidden="true">account_balance</span>${esc(t('recAch'))}</li>
+          <li><span class="material-symbols-outlined" aria-hidden="true">verified_user</span>${esc(t('recBanco'))}</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">event_repeat</span>${esc(t('recCancela'))}</li>
           <li><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>${esc(t('recRecibo'))}</li>
         </ul>
