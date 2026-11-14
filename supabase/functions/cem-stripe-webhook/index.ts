@@ -82,6 +82,30 @@ const instante = (s: unknown): string | null =>
 const deOtraCuenta = (meta: Objeto | null | undefined, cuenta: CuentaStripe) =>
   (claveValida(meta?.cuenta) || null) !== cuenta.clave;
 
+/* Quien escribe su cuenta a mano en el Checkout no paga todavía: Stripe le
+   manda un depósito de prueba, y el pago espera a que lo confirme
+   (requires_action, verify_with_microdeposits). La sesión llega «completada» y
+   sin pagar, y Stripe no avisa de esto con ningún evento de la suscripción
+   (comprobado el 14/11/2026 con las dos primeras). Así que se le pregunta por
+   el pago de ese cliente, que se acaba de crear en este Checkout. Si Stripe
+   tarda o falla, no se sabe, y el alta sigue como siempre: es una ayuda, no un
+   requisito. */
+async function microdepositos(cuenta: CuentaStripe, customer: string | null): Promise<Objeto | null> {
+  if (!customer || !cuenta.secret_key) return null;
+  try {
+    const r = await fetch(`https://api.stripe.com/v1/payment_intents?customer=${encodeURIComponent(customer)}&limit=3`, {
+      headers: { Authorization: `Bearer ${cuenta.secret_key}` },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) return null;
+    const lista: Objeto[] = (await r.json())?.data ?? [];
+    const pago = lista.find((p) => p?.status === 'requires_action' && p?.next_action?.type === 'verify_with_microdeposits');
+    return pago?.next_action?.verify_with_microdeposits ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /* ── El fondo de becas, fuera de «sesión completada» ─────────────────────────
    · El ACH de una donación de una vez entra (o no) días después.
    · Cada cobro de la ayuda recurrente es una factura (invoice.*); su
@@ -102,6 +126,17 @@ async function otrosAvisos(admin: Admin, tipo: string, o: Objeto, cuenta: Cuenta
 
   if (tipo === 'checkout.session.async_payment_succeeded' || tipo === 'checkout.session.async_payment_failed') {
     const donacionId = o.metadata?.donacion_id;
+    /* La ayuda recurrente: el dinero lo apunta invoice.paid, así que el «entró»
+       no hace nada. El «no entró» es que la cuenta no se llegó a confirmar (o
+       el banco rechazó el primer cobro): la ayuda no llegó a empezar. */
+    if (!donacionId && o.metadata?.suscripcion_id) {
+      if (deOtraCuenta(o.metadata, cuenta)) return json({ error: 'Este cobro se abrió en otra cuenta de Stripe.' }, 400);
+      if (tipo.endsWith('_succeeded')) return json({ ok: true, ignorado: tipo, motivo: 'lo apunta invoice.paid' });
+      return await llamar('cem_beca_recurrente_sin_verificar_servidor', {
+        p_suscripcion_id: o.metadata.suscripcion_id, p_subscription: idDe(o.subscription),
+        p_motivo: 'No se pudo confirmar la cuenta bancaria.', p_cuenta: cuenta.clave,
+      });
+    }
     if (!donacionId) return json({ ok: true, ignorado: tipo });
     if (deOtraCuenta(o.metadata, cuenta)) return json({ error: 'Este cobro se abrió en otra cuenta de Stripe.' }, 400);
     if (tipo.endsWith('_failed')) {
@@ -150,7 +185,14 @@ async function otrosAvisos(admin: Admin, tipo: string, o: Objeto, cuenta: Cuenta
     const meta: Objeto = o.metadata ?? {};
     if (!meta.suscripcion_id) return json({ ok: true, ignorado: tipo });
     if (deOtraCuenta(meta, cuenta)) return json({ error: 'Esta suscripción es de otra cuenta de Stripe.' }, 400);
-    if (tipo === 'customer.subscription.deleted' || o.status === 'canceled' || o.status === 'incomplete_expired') {
+    // Caducada sin llegar a cobrar nada: no es una baja, es que no empezó.
+    if (o.status === 'incomplete_expired') {
+      return await llamar('cem_beca_recurrente_sin_verificar_servidor', {
+        p_suscripcion_id: meta.suscripcion_id, p_subscription: idDe(o.id),
+        p_motivo: 'Stripe la dio por terminada: el primer cobro no se completó a tiempo.', p_cuenta: cuenta.clave,
+      });
+    }
+    if (tipo === 'customer.subscription.deleted' || o.status === 'canceled') {
       return await llamar('cem_beca_recurrente_fin_servidor', {
         p_suscripcion_id: meta.suscripcion_id, p_subscription: idDe(o.id),
         p_motivo: o.cancellation_details?.reason === 'cancellation_requested'
@@ -232,6 +274,23 @@ Deno.serve(async (req) => {
      con invoice.paid (otrosAvisos). */
   const suscripcionId = sesion.metadata?.suscripcion_id;
   if (sesion.mode === 'subscription' && suscripcionId) {
+    /* Sin pagar: o el primer cobro por ACH va en camino, o quien paga tiene
+       que confirmar antes su cuenta. En ese caso se apunta ANTES de activarla,
+       para que reciba el correo de «falta un paso» en vez del de alta. */
+    if (sesion.payment_status !== 'paid') {
+      const micro = await microdepositos(cuenta, idDe(sesion.customer));
+      if (micro) {
+        const { error: eVer } = await admin.rpc('cem_beca_recurrente_verificando_servidor', {
+          p_id: suscripcionId,
+          p_url: micro.hosted_verification_url ? String(micro.hosted_verification_url) : null,
+          p_llegada: instante(micro.arrival_date)?.slice(0, 10) ?? null,
+          p_tipo: micro.microdeposit_type ? String(micro.microdeposit_type) : null,
+          p_cuenta: cuenta.clave,
+          p_email: sesion.customer_details?.email ? String(sesion.customer_details.email) : null,
+        });
+        if (eVer) return json({ error: eVer.message }, 500);
+      }
+    }
     const { data: r, error: eSus } = await admin.rpc('cem_beca_recurrente_activar_servidor', {
       p_id: suscripcionId,
       p_session_id: String(sessionId || ''),
